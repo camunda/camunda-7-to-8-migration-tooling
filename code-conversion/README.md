@@ -6,8 +6,8 @@ As Camunda 8 is a complete rewrite of Camunda 7, you must adjust solutions devel
 This project:
 
 * Describes **[code converstion patterns](patterns/)**, specifically for
-  * [Client API usage](patterns/client/): Whenever your solutions calls Camunda API, for example to start new process instances.
-  * [Glue code](patterns/glue-code/): Whenever you define code that is executed when a process arrives at a specific state in the process, e.g. via JavaDelegates.
+  * [Client API usage](patterns/client.md): Whenever your solutions calls Camunda API, for example to start new process instances.
+  * [Glue code](patterns/glue-code.md): Whenever you define code that is executed when a process arrives at a specific state in the process, e.g. via JavaDelegates.
 
 * Provides **[OpenRewrite recipes](recipes/)** to automate refactoring of Java solutions.
 
