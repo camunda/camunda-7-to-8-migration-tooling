@@ -4,8 +4,8 @@ Glue code, also known as adapter or delegation code, ties BPMN elements to code.
 
 This section looks into relevant migration patterns:
 
-[Java Delegate (Spring) &#8594; Job Worker (Spring)](#java-delegate-spring--job-worker-spring) 
-[Java Delegate (Java class) &#8594; Job Worker (Spring)](#java-delegate-java-class--job-worker-spring)
+- [Java Delegate (Spring) &#8594; Job Worker (Spring)](#java-delegate-spring--job-worker-spring) 
+- [Java Delegate (Java class) &#8594; Job Worker (Spring)](#java-delegate-java-class--job-worker-spring)
 
 ## Java Delegate (Spring) &#8594; Job Worker (Spring)
 
