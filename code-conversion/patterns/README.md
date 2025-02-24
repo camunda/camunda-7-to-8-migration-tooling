@@ -8,7 +8,7 @@
 Patterns:
 
 * Client API
-  * [Process Engine (Spring) &#8594; Zeebe Client (Spring)](client/#process-engine-spring--zeebe-client-spring)
+  * [Process Engine (Spring) &#8594; Zeebe Client (Spring)](client.md#process-engine-spring--zeebe-client-spring)
 * Glue code
-  * [Java Delegate (Spring) &#8594; Job Worker (Spring)](glue-code/#java-delegate-spring--job-worker-spring) 
-  * [Java Delegate (Java class) &#8594; Job Worker (Spring)](glue-code/#java-delegate-java-class--job-worker-spring)
+  * [Java Delegate (Spring) &#8594; Job Worker (Spring)](glue-code.md#java-delegate-spring--job-worker-spring) 
+  * [Java Delegate (Java class) &#8594; Job Worker (Spring)](glue-code.md#java-delegate-java-class--job-worker-spring)
