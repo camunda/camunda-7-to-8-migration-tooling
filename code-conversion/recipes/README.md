@@ -31,7 +31,7 @@ We describe the process for Maven-based projects here, but you can check the  [Q
                         <!-- Adjust list of recipes to what you want to apply: -->
                         <recipe>org.camunda.migration.rewrite.recipes.glue.JavaDelegateSpringToZeebeWorkerSpring</recipe>
                     </activeRecipes>
-          					<skipMavenParsing>true</skipMavenParsing>
+                    <skipMavenParsing>true</skipMavenParsing>
                 </configuration>
                 <dependencies>
                     <dependency>
