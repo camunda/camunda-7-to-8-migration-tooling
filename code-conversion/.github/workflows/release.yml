@@ -33,17 +33,15 @@ jobs:
       - name: Deploy SNAPSHOT / Release
         uses: camunda-community-hub/community-action-maven-release@v1.2.3
         with:
-          release-version: ${{ github.event.release.tag_name || 'SNAPSHOT' }}
+          release-version: ${{ github.event.release.tag_name }}
           nexus-usr: ${{ secrets.NEXUS_USR }}
           nexus-psw: ${{ secrets.NEXUS_PSW }}
           maven-usr: ${{ secrets.COMMUNITY_HUB_MAVEN_CENTRAL_OSS_USR }}
           maven-psw: ${{ secrets.COMMUNITY_HUB_MAVEN_CENTRAL_OSS_PSW }}
           maven-url: oss.sonatype.org
-          maven-additional-options: -U
           maven-gpg-passphrase: ${{ secrets.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}
           maven-auto-release-after-close: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.event.release.target_commitish || github.ref_name }}
         id: release
 
       - if: github.event.release
