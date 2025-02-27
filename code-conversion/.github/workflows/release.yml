@@ -42,6 +42,7 @@ jobs:
           maven-gpg-passphrase: ${{ secrets.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}
           maven-auto-release-after-close: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts-pattern: recipes/target/nexus-staging/**/*.jar
         id: release
 
       - if: github.event.release
