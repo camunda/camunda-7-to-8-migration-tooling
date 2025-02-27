@@ -6,11 +6,10 @@
 
     <parent>
         <groupId>org.camunda.community</groupId>
-        <artifactId>community-hub-release-parent</artifactId>
-        <version>1.4.4</version>
+        <artifactId>camunda-7-to-8-rewrite-recipes-root</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <groupId>org.camunda.community</groupId>
     <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 

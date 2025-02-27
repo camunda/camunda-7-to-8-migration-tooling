@@ -41,8 +41,7 @@ jobs:
           maven-url: oss.sonatype.org
           maven-gpg-passphrase: ${{ secrets.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}
           maven-auto-release-after-close: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts-pattern: recipes/target/nexus-staging/**/*.jar
+          github-token: ${{ secrets.GITHUB_TOKEN }}          
         id: release
 
       - if: github.event.release
