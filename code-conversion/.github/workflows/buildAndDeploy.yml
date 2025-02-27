@@ -39,13 +39,3 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.release.target_commitish || github.ref_name }}
         id: release
-      - if: github.event.release
-        name: Attach Java artifacts to GitHub Release (Release only)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ steps.release.outputs.artifacts_archive_path }}
-          asset_name: ${{ steps.release.outputs.artifacts_archive_path }}
-          asset_content_type: application/zip
