@@ -4,6 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+   <parent>
+        <groupId>org.camunda.community</groupId>
+        <artifactId>community-hub-release-parent</artifactId>
+        <version>1.4.1</version>
+    </parent>
+
     <groupId>org.camunda.community</groupId>
     <artifactId>camunda-7-to-8-rewrite-recipes-root</artifactId>
     <version>0.0.1-SNAPSHOT</version>
