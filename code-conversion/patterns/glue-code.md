@@ -143,5 +143,5 @@ BPMN model (XML):
 
 ### OpenRewrite recipe
 
-- No recipe yet, but you can customize the [recipe "ConvertJavaDelegateToZeebeWorker"](../rewrite-recipes/src/main/java/org/camunda/migration/rewrite/recipes/ConvertJavaDelegateToZeebeWorker.java)
+- No recipe yet, but you can customize the recipe [JavaDelegateSpringToZeebeWorkerSpring](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
 

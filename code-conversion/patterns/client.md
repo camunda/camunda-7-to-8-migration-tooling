@@ -28,10 +28,12 @@ public void startProcess(String orderId) {
 private ZeebeClient zeebeClient;
 
 public void startProcess(String orderId) {
+    Map<String, Object> variables = new HashMap<>();
+    variables.put("orderId", orderId);
     zeebeClient.newCreateInstanceCommand()
         .bpmnProcessId("order")
         .latestVersion()
-        .variables(Map.of("orderId", orderId))
+        .variables(variables)
         .send()
         .join(); // mimic synchronous blocking behavior as this is closest to Camunda 7 logic
 }
@@ -39,10 +41,8 @@ public void startProcess(String orderId) {
 
 ### Remarks
 
-- The Spring bean name is kept stable
-- The JavaDelegate interface has been removed 
-- The ZeebeWorker annotation is added
-- Reading and writing process variables has changed
+- ProcessEngine reference is changed to ZeebeClient
+- startProcessInstanceByKey is changed to createInstanceCommand
 
 ### OpenRewrite recipe 
 
