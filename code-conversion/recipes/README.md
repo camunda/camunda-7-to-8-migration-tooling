@@ -1,4 +1,4 @@
-# OpenRewrite recipes fro migrating from Camunda 7 to Camunda 8 
+# OpenRewrite recipes refactoring code from Camunda 7 to Camunda 8 
 
 > [!NOTE]  
 > The current recipes are more a proof of concept, the whole project was just kicked off and will be filled with more and better recipes throughout Q2 of 2025. Feedback of course welcome.
