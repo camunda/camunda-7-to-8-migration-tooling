@@ -6,8 +6,8 @@ function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
-	const [showInternalAPIs, setShowInternalAPIs] = useState(false);
-	const [showHistoryAPIs, setShowHistoryAPIs] = useState(false);
+	const [hideInternalAPIs, setHideInternalAPIs] = useState(true);
+	const [hideHistoryAPIs, setHideHistoryAPIs] = useState(true);
 
 	function handleSelectionClick(id) {
 		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
@@ -77,9 +77,9 @@ function App() {
 								(searchText == "" || path.includes(searchText))
 						)
 				) &&
-				(showInternalAPIs ||
+				(!hideInternalAPIs ||
 					!selectedMapping.internalAPIs.includes(section)) &&
-				(showHistoryAPIs ||
+				(!hideHistoryAPIs ||
 					!selectedMapping.historyAPIs.includes(section))
 		)
 		.map((section) => {
@@ -169,22 +169,22 @@ function App() {
 						></input>
 					</label>
 					<label>
-						Show also internal APIs{" "}
+						Hide internal APIs{" "}
 						<input
 							type="checkbox"
-							checked={showInternalAPIs}
+							checked={hideInternalAPIs}
 							onChange={() =>
-								setShowInternalAPIs(!showInternalAPIs)
+								setHideInternalAPIs(!hideInternalAPIs)
 							}
 						></input>
 					</label>
 					<label>
-						Show also history APIs{" "}
+						Hide history APIs{" "}
 						<input
 							type="checkbox"
-							checked={showHistoryAPIs}
+							checked={hideHistoryAPIs}
 							onChange={() =>
-								setShowHistoryAPIs(!showHistoryAPIs)
+								setHideHistoryAPIs(!hideHistoryAPIs)
 							}
 						></input>
 					</label>
@@ -227,13 +227,10 @@ function App() {
 												</td>
 												<td>
 													<div>
-														{endpoint.c7Info.path}
-													</div>
-													<div>
-														{
+														{endpoint.c7Info.operation.toUpperCase() +
+															" " +
 															endpoint.c7Info
-																.operation
-														}
+																.path}
 													</div>
 													<a
 														href={
@@ -245,27 +242,36 @@ function App() {
 													</a>
 												</td>
 												<td>
-													<div>
-														{endpoint.c8Info
-															?.path || "tbd"}
-													</div>
-													<div>
-														{endpoint.c8Info
-															?.operation ||
-															"tbd"}
-													</div>
-													<a
-														href={
-															endpoint.c8Info?.url
-														}
-														target="_blank"
-													>
-														Link to docs
-													</a>
+													{endpoint.c8Info ? (
+														<div>
+															<div>
+																{endpoint.c8Info?.operation.toUpperCase() +
+																	" " +
+																	endpoint
+																		.c8Info
+																		?.path ||
+																	"tbd"}
+															</div>
+															<a
+																href={
+																	endpoint
+																		.c8Info
+																		?.url
+																}
+																target="_blank"
+															>
+																Link to docs
+															</a>
+														</div>
+													) : (
+														<div>
+															no suitable mapping
+														</div>
+													)}
 												</td>
 												<td>
 													{endpoint.explanation ||
-														"tbd"}
+														"no suitable mapping"}
 												</td>
 											</tr>
 										);

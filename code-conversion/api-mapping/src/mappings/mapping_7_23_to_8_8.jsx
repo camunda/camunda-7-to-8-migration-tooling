@@ -40,7 +40,25 @@ export const mapping_7_23_to_8_8 = {
 				operation: "post",
 			},
 			purpose: "This endpoint is used to create a new authorization",
-			explanation: "pretty straight forward!",
+			explanation: (
+				<div>
+					<div>Some extra text here</div>
+					<table>
+						<thead>
+							<tr>
+								<th>Parameter</th>
+								<th>Field</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>a</td>
+								<td>b</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			),
 		},
 	],
 };
