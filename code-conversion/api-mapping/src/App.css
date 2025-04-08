@@ -1,0 +1,58 @@
+#root {
+	overflow: hidden;
+}
+
+h1 {
+	margin: 1rem 0 1rem 0;
+	font-size: xx-large;
+}
+
+.container {
+	width: calc(100vw - 4rem);
+	display: flex;
+	flex-direction: column;
+	padding-inline: 2rem;
+	overflow-y: scroll;
+}
+
+.tabs {
+	width: 100%;
+}
+
+.filterContainer {
+	width: 100%;
+}
+
+.filters {
+	display: flex;
+	gap: 2rem;
+}
+
+.tables {
+	width: 100%;
+	margin-bottom: 1rem;
+	min-height: 80vh;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+th,
+td {
+	border: 1px solid black;
+}
+
+.purpose-column {
+	width: 20%;
+}
+
+.c7-endpoint-column,
+.c8-endpoint-column {
+	width: 25%;
+}
+
+.explanation-column {
+	width: 30%;
+}
