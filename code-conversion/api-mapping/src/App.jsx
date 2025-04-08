@@ -6,16 +6,18 @@ function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
-	const [hideInternalAPIs, setHideInternalAPIs] = useState(true);
-	const [hideHistoryAPIs, setHideHistoryAPIs] = useState(true);
 
 	function handleSelectionClick(id) {
 		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
 	}
 
 	function createC7DocLink(section, operationId) {
+		console.log(section);
 		return (
-			selectedMapping.c7BaseUrl + section + "/operation/" + operationId
+			selectedMapping.c7BaseUrl +
+			section.replaceAll(" ", "-") +
+			"/operation/" +
+			operationId
 		);
 	}
 
@@ -65,22 +67,17 @@ function App() {
 	);
 
 	const mappedC7Endpoints = sections
-		.filter(
-			(section) =>
-				Object.entries(selectedMapping.c7_specification.paths).some(
-					([path, operations]) =>
-						Object.entries(operations).some(
-							([operation, operationValue]) =>
-								operationValue.tags.includes(section) &&
-								(selectedMethod == "all" ||
-									operation == selectedMethod) &&
-								(searchText == "" || path.includes(searchText))
-						)
-				) &&
-				(!hideInternalAPIs ||
-					!selectedMapping.internalAPIs.includes(section)) &&
-				(!hideHistoryAPIs ||
-					!selectedMapping.historyAPIs.includes(section))
+		.filter((section) =>
+			Object.entries(selectedMapping.c7_specification.paths).some(
+				([path, operations]) =>
+					Object.entries(operations).some(
+						([operation, operationValue]) =>
+							operationValue.tags.includes(section) &&
+							(selectedMethod == "all" ||
+								operation == selectedMethod) &&
+							(searchText == "" || path.includes(searchText))
+					)
+			)
 		)
 		.map((section) => {
 			return {
@@ -139,7 +136,7 @@ function App() {
 							key={mapping.id}
 							onClick={() => handleSelectionClick(mapping.id)}
 						>
-							{mapping.tab_name}
+							{mapping.tabName}
 						</button>
 					);
 				})}
@@ -148,7 +145,7 @@ function App() {
 				<h1>Filters</h1>
 				<div className="filters">
 					<label>
-						Filter by method:{" "}
+						Filter by C7 endpoint method:{" "}
 						<select
 							value={selectedMethod}
 							onChange={(e) => setSelectedMethod(e.target.value)}
@@ -162,30 +159,10 @@ function App() {
 						</select>
 					</label>
 					<label>
-						Filter paths by text:{" "}
+						Filter C7 endpoint paths by text:{" "}
 						<input
 							value={searchText}
 							onChange={(e) => setSearchText(e.target.value)}
-						></input>
-					</label>
-					<label>
-						Hide internal APIs{" "}
-						<input
-							type="checkbox"
-							checked={hideInternalAPIs}
-							onChange={() =>
-								setHideInternalAPIs(!hideInternalAPIs)
-							}
-						></input>
-					</label>
-					<label>
-						Hide history APIs{" "}
-						<input
-							type="checkbox"
-							checked={hideHistoryAPIs}
-							onChange={() =>
-								setHideHistoryAPIs(!hideHistoryAPIs)
-							}
 						></input>
 					</label>
 				</div>
@@ -223,7 +200,8 @@ function App() {
 												}
 											>
 												<td>
-													{endpoint.purpose || "tbd"}
+													{endpoint.purpose ||
+														"to be defined"}
 												</td>
 												<td>
 													<div>
@@ -245,12 +223,11 @@ function App() {
 													{endpoint.c8Info ? (
 														<div>
 															<div>
-																{endpoint.c8Info?.operation.toUpperCase() +
+																{endpoint.c8Info.operation?.toUpperCase() +
 																	" " +
 																	endpoint
 																		.c8Info
-																		?.path ||
-																	"tbd"}
+																		.path}
 															</div>
 															<a
 																href={
@@ -264,14 +241,12 @@ function App() {
 															</a>
 														</div>
 													) : (
-														<div>
-															no suitable mapping
-														</div>
+														<div>to be defined</div>
 													)}
 												</td>
 												<td>
 													{endpoint.explanation ||
-														"no suitable mapping"}
+														"to be defined"}
 												</td>
 											</tr>
 										);
