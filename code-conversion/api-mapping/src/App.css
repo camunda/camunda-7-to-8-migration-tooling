@@ -19,11 +19,16 @@ h1 {
 	width: 100%;
 }
 
-.filterContainer {
+.filter-container {
 	width: 100%;
 }
 
 .filters {
+	display: flex;
+	justify-content: space-between;
+}
+
+.stable-filters {
 	display: flex;
 	gap: 2rem;
 }
@@ -55,4 +60,19 @@ td {
 
 .explanation-column {
 	width: 45%;
+}
+
+.button-hidden {
+	display: none;
+}
+
+.button-to-top {
+	display: block;
+	position: fixed;
+	bottom: 5%;
+	left: 90%;
+}
+
+button {
+	border: 1px solid black;
 }

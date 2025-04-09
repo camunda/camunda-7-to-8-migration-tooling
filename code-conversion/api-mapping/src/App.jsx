@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./App.css";
 import { mappingIndex } from "./mappings/mappingIndex";
 
@@ -6,15 +6,25 @@ function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
+	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
 	const sectionRefs = useRef([]);
+	const refScrollUp = useRef();
+	const [scrollPosition, setScrollPosition] = useState(0);
 
 	function scrollToSection(elementRef) {
-		console.log(elementRef);
 		window.scrollTo({
 			top: elementRef.offsetTop,
 			behavior: "smooth",
 		});
 	}
+
+	function updateScrollPosition() {
+		setScrollPosition(window.pageYOffset);
+	}
+
+	useEffect(() => {
+		window.addEventListener("scroll", updateScrollPosition);
+	});
 
 	function handleSelectionClick(id) {
 		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
@@ -130,162 +140,216 @@ function App() {
 									explanation: mappingInfo?.explanation,
 								};
 							})
+							.filter(
+								(e) =>
+									!hideTBDEndpoints ||
+									e?.purpose !== undefined
+							)
 					)
 					.flat(),
 			};
-		});
+		})
+		.filter(
+			(section) =>
+				!hideTBDEndpoints ||
+				section.endpoints.some(
+					(endpoint) => endpoint?.purpose !== undefined
+				)
+		);
 
 	return (
-		<div className="container">
-			<section className="tabs">
-				{mappingIndex.map((mapping) => {
-					return (
-						<button
-							key={mapping.id}
-							onClick={() => handleSelectionClick(mapping.id)}
-						>
-							{mapping.tabName}
-						</button>
-					);
-				})}
-			</section>
-			<section className="filterContainer">
-				<h1>Filters</h1>
-				<div className="filters">
-					<label>
-						Filter by C7 endpoint method:{" "}
-						<select
-							value={selectedMethod}
-							onChange={(e) => setSelectedMethod(e.target.value)}
-						>
-							<option value="all">All</option>
-							<option value="get">GET</option>
-							<option value="post">POST</option>
-							<option value="put">PUT</option>
-							<option value="delete">DELETE</option>
-							<option value="options">OPTIONS</option>
-						</select>
-					</label>
-					<label>
-						Filter C7 endpoint paths by text:{" "}
-						<input
-							value={searchText}
-							onChange={(e) => setSearchText(e.target.value)}
-						></input>
-					</label>
-					<label>
-						Jump to section:{" "}
-						<select
-							onChange={(e) =>
-								scrollToSection(
-									sectionRefs.current[e.target.value]
-								)
-							}
-						>
-							{sections.map((section, index) => {
-								return (
-									<option key={index} value={index}>
-										{section}
-									</option>
-								);
-							})}
-						</select>
-					</label>
-				</div>
-			</section>
-			<section className="tables">
-				<h1>Mappings</h1>
-				{mappedC7Endpoints.map((endpoint, index) => {
-					return (
-						<div key={index}>
-							<h2 ref={(el) => (sectionRefs.current[index] = el)}>
-								{endpoint.section}
-							</h2>
-							<table>
-								<thead>
-									<tr>
-										<th className="purpose-column">
-											Purpose
-										</th>
-										<th className="c7-endpoint-column">
-											C7 Endpoint
-										</th>
-										<th className="c8-endpoint-column">
-											C8 Endpoint
-										</th>
-										<th className="explanation-column">
-											Explanation
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{endpoint.endpoints.map((endpoint) => {
-										return (
-											<tr
-												key={
-													endpoint.c7Info.path +
-													endpoint.c7Info.operation
-												}
-											>
-												<td>
-													{endpoint.purpose ||
-														"to be defined"}
-												</td>
-												<td>
-													<div>
-														{endpoint.c7Info.operation.toUpperCase() +
-															" " +
-															endpoint.c7Info
-																.path}
-													</div>
-													<a
-														href={
-															endpoint.c7Info.url
-														}
-														target="_blank"
-													>
-														Link to docs
-													</a>
-												</td>
-												<td>
-													{endpoint.c8Info ? (
-														<div>
-															<div>
-																{endpoint.c8Info.operation?.toUpperCase() +
-																	" " +
-																	endpoint
-																		.c8Info
-																		.path}
-															</div>
-															<a
-																href={
-																	endpoint
-																		.c8Info
-																		?.url
-																}
-																target="_blank"
-															>
-																Link to docs
-															</a>
-														</div>
-													) : (
-														<div>to be defined</div>
-													)}
-												</td>
-												<td>
-													{endpoint.explanation ||
-														"to be defined"}
-												</td>
-											</tr>
-										);
-									})}
-								</tbody>
-							</table>
+		<>
+			<div ref={refScrollUp}></div>
+			<div className="container">
+				<section className="tabs">
+					{mappingIndex.map((mapping) => {
+						return (
+							<button
+								key={mapping.id}
+								onClick={() => handleSelectionClick(mapping.id)}
+							>
+								{mapping.tabName}
+							</button>
+						);
+					})}
+				</section>
+				<section className="filter-container">
+					<h1>Filters</h1>
+					<div className="filters">
+						<div className="stable-filters">
+							<label>
+								Filter by C7 endpoint method:{" "}
+								<select
+									value={selectedMethod}
+									onChange={(e) =>
+										setSelectedMethod(e.target.value)
+									}
+								>
+									<option value="all">All</option>
+									<option value="get">GET</option>
+									<option value="post">POST</option>
+									<option value="put">PUT</option>
+									<option value="delete">DELETE</option>
+									<option value="options">OPTIONS</option>
+								</select>
+							</label>
+							<label>
+								Filter C7 endpoint paths by text:{" "}
+								<input
+									value={searchText}
+									onChange={(e) =>
+										setSearchText(e.target.value)
+									}
+								></input>
+							</label>
+							<label>
+								Jump to section:{" "}
+								<select
+									onChange={(e) =>
+										scrollToSection(
+											sectionRefs.current[e.target.value]
+										)
+									}
+								>
+									{mappedC7Endpoints
+										.map((section) => section.section)
+										.map((section, index) => {
+											return (
+												<option
+													key={index}
+													value={index}
+												>
+													{section}
+												</option>
+											);
+										})}
+								</select>
+							</label>
 						</div>
-					);
-				})}
-			</section>
-		</div>
+						<div>
+							<label>
+								Hide TBD endpoints and sections:{" "}
+								<input
+									type="checkbox"
+									checked={hideTBDEndpoints}
+									onChange={() =>
+										setHideTBDEndpoints(!hideTBDEndpoints)
+									}
+								/>
+							</label>
+						</div>
+					</div>
+				</section>
+				<section className="tables">
+					<h1>Mappings</h1>
+					{mappedC7Endpoints.map((endpoint, index) => {
+						return (
+							<div key={index}>
+								<h2
+									ref={(el) =>
+										(sectionRefs.current[index] = el)
+									}
+								>
+									{endpoint.section}
+								</h2>
+								<table>
+									<thead>
+										<tr>
+											<th className="purpose-column">
+												Purpose
+											</th>
+											<th className="c7-endpoint-column">
+												C7 Endpoint
+											</th>
+											<th className="c8-endpoint-column">
+												C8 Endpoint
+											</th>
+											<th className="explanation-column">
+												Explanation
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										{endpoint.endpoints.map((endpoint) => {
+											return (
+												<tr
+													key={
+														endpoint.c7Info.path +
+														endpoint.c7Info
+															.operation
+													}
+												>
+													<td>
+														{endpoint.purpose ||
+															"to be defined"}
+													</td>
+													<td>
+														<div>
+															{endpoint.c7Info.operation.toUpperCase() +
+																" " +
+																endpoint.c7Info
+																	.path}
+														</div>
+														<a
+															href={
+																endpoint.c7Info
+																	.url
+															}
+															target="_blank"
+														>
+															Link to docs
+														</a>
+													</td>
+													<td>
+														{endpoint.c8Info ? (
+															<div>
+																<div>
+																	{endpoint.c8Info.operation?.toUpperCase() +
+																		" " +
+																		endpoint
+																			.c8Info
+																			.path}
+																</div>
+																<a
+																	href={
+																		endpoint
+																			.c8Info
+																			?.url
+																	}
+																	target="_blank"
+																>
+																	Link to docs
+																</a>
+															</div>
+														) : (
+															<div>
+																to be defined
+															</div>
+														)}
+													</td>
+													<td>
+														{endpoint.explanation ||
+															"to be defined"}
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						);
+					})}
+				</section>
+			</div>
+			<div
+				className="button-to-top"
+				style={{ display: scrollPosition > 2000 ? "block" : "none" }}
+			>
+				<button onClick={() => scrollToSection(refScrollUp.current)}>
+					Back To Top!
+				</button>
+			</div>
+		</>
 	);
 }
 
