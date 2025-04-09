@@ -323,7 +323,8 @@ function App() {
 															</div>
 														) : (
 															<div>
-																to be defined
+																no suitable
+																mapping
 															</div>
 														)}
 													</td>

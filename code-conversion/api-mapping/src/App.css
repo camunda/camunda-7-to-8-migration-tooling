@@ -49,6 +49,10 @@ td {
 	border: 1px solid black;
 }
 
+td th {
+	width: 50%;
+}
+
 .purpose-column {
 	width: 15%;
 }

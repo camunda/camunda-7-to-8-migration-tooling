@@ -138,7 +138,10 @@ export const process_instance_7_23_to_8_8 = [
 									(string) businessKeyLike
 								</pre>
 							</td>
-							<td>No businessKey in Camunda 8.8</td>
+							<td>
+								No businessKey in Camunda 8.8. Planned for
+								Camunda 8.9.
+							</td>
 						</tr>
 						<tr>
 							<td>
