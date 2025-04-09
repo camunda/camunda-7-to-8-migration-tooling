@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import "./App.css";
 import { mappingIndex } from "./mappings/mappingIndex";
 
@@ -6,13 +6,21 @@ function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
+	const sectionRefs = useRef([]);
+
+	function scrollToSection(elementRef) {
+		console.log(elementRef);
+		window.scrollTo({
+			top: elementRef.offsetTop,
+			behavior: "smooth",
+		});
+	}
 
 	function handleSelectionClick(id) {
 		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
 	}
 
 	function createC7DocLink(section, operationId) {
-		console.log(section);
 		return (
 			selectedMapping.c7BaseUrl +
 			section.replaceAll(" ", "-") +
@@ -165,14 +173,34 @@ function App() {
 							onChange={(e) => setSearchText(e.target.value)}
 						></input>
 					</label>
+					<label>
+						Jump to section:{" "}
+						<select
+							onChange={(e) =>
+								scrollToSection(
+									sectionRefs.current[e.target.value]
+								)
+							}
+						>
+							{sections.map((section, index) => {
+								return (
+									<option key={index} value={index}>
+										{section}
+									</option>
+								);
+							})}
+						</select>
+					</label>
 				</div>
 			</section>
 			<section className="tables">
 				<h1>Mappings</h1>
-				{mappedC7Endpoints.map(({ section, endpoints }) => {
+				{mappedC7Endpoints.map((endpoint, index) => {
 					return (
-						<div key={section}>
-							<h2>{section}</h2>
+						<div key={index}>
+							<h2 ref={(el) => (sectionRefs.current[index] = el)}>
+								{endpoint.section}
+							</h2>
 							<table>
 								<thead>
 									<tr>
@@ -191,7 +219,7 @@ function App() {
 									</tr>
 								</thead>
 								<tbody>
-									{endpoints.map((endpoint) => {
+									{endpoint.endpoints.map((endpoint) => {
 										return (
 											<tr
 												key={
