@@ -8,8 +8,6 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		purpose:
-			"This endpoint is used to find process definitions using various optional parameters.",
 		explanation: (
 			<div>
 				<div>
@@ -198,8 +196,6 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		purpose:
-			"This endpoint is used to find the number of process definitions that fulfill the query criteria.",
 		explanation: (
 			<div>
 				There is no specific endpoint for this in Camunda 8.8. Use the{" "}
@@ -216,8 +212,6 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		purpose:
-			"This endpoint is used to delete a process definition that belongs to no tenant.",
 		explanation: (
 			<div>
 				<div>
@@ -278,8 +272,6 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}",
 			operation: "get",
 		},
-		purpose:
-			"This endpoint is used to retrieve information about a deployed process definition that does not belong to a tenant.",
 		explanation: (
 			<div>
 				<div>
@@ -315,8 +307,6 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		purpose:
-			"This endpoint is used to retrieve the deployed start form of a process definition.",
 		explanation: (
 			<div>
 				<div>
@@ -349,8 +339,6 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		purpose:
-			"This endpoint is used to retrieve a deployed image that has the same filename as the process definition referenced by the key.",
 		explanation: "Not available in Camunda 8.8",
 	},
 	{
@@ -359,8 +347,6 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		purpose:
-			"This endpoint is used to retrieve information about start form variables for forms defined via the Generated Task Form approach.",
 		explanation: "Redundant in Camunda 8.",
 	},
 	{
@@ -369,8 +355,6 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		purpose:
-			"This endpoint is used to update the history time to live for the latest version of the process definition referenced by key.",
 		explanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
@@ -380,8 +364,165 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		purpose:
-			"This endpoint is used to retrieve the deployed start form of a process definition for a form that is defined via the Generated Task Form approach.",
 		explanation: "Redundant in Camunda 8",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/start",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances",
+			operation: "post",
+		},
+		explanation: (
+			<div>
+				<div>
+					<strong>Different base path!</strong>
+				</div>
+				<div>
+					<strong>processDefinitionKey:</strong> Changes from path
+					parameter to request body field, and key to id.
+				</div>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionId</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) businessKey</pre>
+							</td>
+							<td>
+								Not available in Camunda 8.8. Planned for
+								Camunda 8.9.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) caseInstanceId</pre>
+							</td>
+							<td>No CMMN in Camunda 8.</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object[]) startInstructions</pre>
+							</td>
+							<td>
+								<pre>(object[]) startInstructions</pre> (only
+								startBeforeElement)
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) skipCustomListeners
+									<br />
+									(boolean) skipIoMappings
+								</pre>
+							</td>
+							<td>
+								Not applicable for this endpoint functionality.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) withVariablesInReturn</pre>
+							</td>
+							<td>
+								<pre>
+									(boolean) awaitCompletion
+									<br />
+									(integer) requestTimeout
+								</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<code>tenantId</code> is handled via a different
+								endpoint.
+							</td>
+							<td>
+								<pre>
+									(string) tenantId
+									<br />
+									(integer) operationReference
+									<br />
+									(string[]) fetchVariables
+									<br />
+									(string) processDefinitionKey
+								</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>Not available in Camunda 7.23.</td>
+							<td>
+								<pre>
+									(integer) operationReference
+									<br />
+									(string[]) fetchVariables
+									<br />
+									(string) processDefinitionKey
+								</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/startForm",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/form",
+			operation: "get",
+		},
+		explanation: (
+			<div>
+				<div>
+					Mapping of C7 endpoint parameters to C8 endpoint parameters:
+				</div>
+				<table>
+					<thead>
+						<tr>
+							<th>C7 Path Parameter</th>
+							<th>C8 Path Parameter</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		),
 	},
 ];

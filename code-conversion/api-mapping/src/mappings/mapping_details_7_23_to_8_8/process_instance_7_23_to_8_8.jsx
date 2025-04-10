@@ -8,8 +8,6 @@ export const process_instance_7_23_to_8_8 = [
 			path: "/process-instances/search",
 			operation: "post",
 		},
-		purpose:
-			"This endpoint is used to find process instances using various optional parameters.",
 		explanation: (
 			<div>
 				<div>

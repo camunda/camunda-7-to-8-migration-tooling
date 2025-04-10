@@ -47,23 +47,24 @@ table {
 th,
 td {
 	border: 1px solid black;
+	padding: 5px;
+	align-content: start;
 }
 
 td th {
 	width: 50%;
 }
 
-.purpose-column {
-	width: 15%;
+.c7-endpoint-column {
+	width: 30%;
 }
 
-.c7-endpoint-column,
 .c8-endpoint-column {
 	width: 20%;
 }
 
 .explanation-column {
-	width: 45%;
+	width: 50%;
 }
 
 .button-hidden {

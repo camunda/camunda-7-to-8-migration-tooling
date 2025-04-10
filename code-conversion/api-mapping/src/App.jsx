@@ -71,6 +71,7 @@ function App() {
 											url: createC8DocLink(
 												details?.operationId
 											),
+											details,
 									  }
 									: [];
 							}
@@ -124,7 +125,6 @@ function App() {
 									operation
 								);
 								return {
-									purpose: mappingInfo?.purpose,
 									c7Info: {
 										path: path,
 										operation: operation,
@@ -132,6 +132,7 @@ function App() {
 											section,
 											details.operationId
 										),
+										details,
 									},
 									c8Info: createC8Info(
 										mappingInfo?.target?.path,
@@ -143,7 +144,7 @@ function App() {
 							.filter(
 								(e) =>
 									!hideTBDEndpoints ||
-									e?.purpose !== undefined
+									e?.explanation !== undefined
 							)
 					)
 					.flat(),
@@ -153,9 +154,11 @@ function App() {
 			(section) =>
 				!hideTBDEndpoints ||
 				section.endpoints.some(
-					(endpoint) => endpoint?.purpose !== undefined
+					(endpoint) => endpoint?.explanation !== undefined
 				)
 		);
+
+	console.log(mappedC7Endpoints);
 
 	return (
 		<>
@@ -255,9 +258,6 @@ function App() {
 								<table>
 									<thead>
 										<tr>
-											<th className="purpose-column">
-												Purpose
-											</th>
 											<th className="c7-endpoint-column">
 												C7 Endpoint
 											</th>
@@ -280,10 +280,16 @@ function App() {
 													}
 												>
 													<td>
-														{endpoint.purpose ||
-															"to be defined"}
-													</td>
-													<td>
+														<div>
+															<strong>
+																{
+																	endpoint
+																		.c7Info
+																		.details
+																		?.summary
+																}
+															</strong>
+														</div>
 														<div>
 															{endpoint.c7Info.operation.toUpperCase() +
 																" " +
@@ -299,10 +305,29 @@ function App() {
 														>
 															Link to docs
 														</a>
+														<br />
+														<br />
+														<div>
+															{
+																endpoint.c7Info
+																	.details
+																	?.description
+															}
+														</div>
 													</td>
 													<td>
 														{endpoint.c8Info ? (
 															<div>
+																<div>
+																	<strong>
+																		{
+																			endpoint
+																				.c8Info
+																				.details
+																				?.summary
+																		}
+																	</strong>
+																</div>
 																<div>
 																	{endpoint.c8Info.operation?.toUpperCase() +
 																		" " +
@@ -320,6 +345,16 @@ function App() {
 																>
 																	Link to docs
 																</a>
+																<br />
+																<br />
+																<div>
+																	{
+																		endpoint
+																			.c8Info
+																			.details
+																			?.description
+																	}
+																</div>
 															</div>
 														) : (
 															<div>

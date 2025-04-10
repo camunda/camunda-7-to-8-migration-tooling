@@ -8,8 +8,6 @@ export const deployment_7_23_to_8_8 = [
 	// 		path: "/authorizations/search",
 	// 		operation: "post",
 	// 	},
-	// 	purpose:
-	// 		"This endpoint is used to find an authorization using various optional parameters.",
 	// 	explanation: (
 	// 		<div>
 	// 			<div>
