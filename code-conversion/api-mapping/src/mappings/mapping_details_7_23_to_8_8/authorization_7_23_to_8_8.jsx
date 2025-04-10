@@ -10,94 +10,136 @@ export const authorization_7_23_to_8_8 = [
 		},
 		explanation: (
 			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint request
-					body fields:
-				</div>
-				<table>
-					<thead>
-						<tr>
-							<th>C7 Parameter</th>
-							<th>C8 Field</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>
-									(string) id
-									<br />
-									(integer) type
-									<br />
-									(integer) resourceType
-									<br />
-									(string) resourceId
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(string) filter.ownerId
-									<br />
-									(enum) filter.ownerType
-									<br />
-									(string[]) filter.resourceIds
-									<br />
-									(enum) filter.resourceType
-								</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string[]) userIdIn
-									<br />
-									(string[]) groupIdIn
-								</pre>
-							</td>
-							<td>
-								Replaced by a combination of{" "}
-								<code>resourceIds</code> and{" "}
-								<code>resourceType</code>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) sortBy
-									<br />
-									(string) sortOrder
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(string) sort[].field
-									<br />
-									(enum) sort[].order
-								</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(integer) firstResult
-									<br />
-									(integer) maxResults
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(integer) page.from
-									<br />
-									(integer) page.limit
-									<br />
-									(object[]) page.searchAfter
-									<br />
-									(object[]) page.searchBefore
-								</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+				Replaced by a <code>POST search</code> endpoint. Authorizations
+				are handled via the <strong>Identity</strong> webapp.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization",
+			operation: "options",
+		},
+		target: {},
+		explanation: "Redundant.",
+	},
+	{
+		origin: {
+			path: "/authorization/check",
+			operation: "get",
+		},
+		target: {
+			path: "/authentication/me",
+			operation: "get",
+		},
+		explanation: (
+			<div>
+				Instead of receiving an <code>authorized</code> boolean for a
+				specific check, a list of <code>authorizedApplications</code>{" "}
+				can be retrieved for the authenticated user.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization/count",
+			operation: "get",
+		},
+		target: {
+			path: "/authorizations/search",
+			operation: "post",
+		},
+		explanation: (
+			<div>
+				Replaced by a <code>POST search</code> endpoint. Authorizations
+				are handled via the <strong>Identity</strong> webapp.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization/create",
+			operation: "post",
+		},
+		target: {
+			path: "/authorizations",
+			operation: "post",
+		},
+		explanation: (
+			<div>
+				One to one mapping. For more details on authorizations in
+				Camunda 8 check the{" "}
+				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
+					docs
+				</a>
+				. Authorizations are handled via the <strong>Identity</strong>{" "}
+				webapp.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization/{id}",
+			operation: "delete",
+		},
+		target: {
+			path: "/authorizations/{authorizationKey}",
+			operation: "delete",
+		},
+		explanation: (
+			<div>
+				One to one mapping. For more details on authorizations in
+				Camunda 8 check the{" "}
+				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
+					docs
+				</a>
+				. Authorizations are handled via the <strong>Identity</strong>{" "}
+				webapp.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization/{id}",
+			operation: "get",
+		},
+		target: {
+			path: "/authorizations/search",
+			operation: "post",
+		},
+		explanation: (
+			<div>
+				Replaced by a <code>POST search</code> endpoint. Authorizations
+				are handled via the <strong>Identity</strong> webapp.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/authorization/{id}",
+			operation: "options",
+		},
+		target: {},
+		explanation: "Redundant.",
+	},
+	{
+		origin: {
+			path: "/authorization/{id}",
+			operation: "put",
+		},
+		target: {
+			path: "/authorizations/{authorizationKey}",
+			operation: "put",
+		},
+		explanation: (
+			<div>
+				One to one mapping. For more details on authorizations in
+				Camunda 8 check the{" "}
+				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
+					docs
+				</a>
+				. Authorizations are handled via the <strong>Identity</strong>{" "}
+				webapp.
 			</div>
 		),
 	},

@@ -176,8 +176,12 @@ function App() {
 						);
 					})}
 				</section>
+				<section className="introduction">
+					{selectedMapping.introduction}
+				</section>
 				<section className="filter-container">
-					<h1>Filters</h1>
+					<h1>Mappings</h1>
+					<h2>Filters</h2>
 					<div className="filters">
 						<div className="stable-filters">
 							<label>
@@ -244,7 +248,6 @@ function App() {
 					</div>
 				</section>
 				<section className="tables">
-					<h1>Mappings</h1>
 					{mappedC7Endpoints.map((endpoint, index) => {
 						return (
 							<div key={index}>
@@ -356,10 +359,14 @@ function App() {
 																	}
 																</div>
 															</div>
-														) : (
+														) : endpoint.explanation ? (
 															<div>
 																no suitable
 																mapping
+															</div>
+														) : (
+															<div>
+																to be defined
 															</div>
 														)}
 													</td>
