@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { mappingIndex } from "./mappings/mappingIndex";
-import { Filter } from "./components/filter";
+import { EndpointFilter } from "./components/EndpointFilter";
 import { Tabs } from "./components/Tabs";
-import { MappingTable } from "./components/MappingTable";
 import { ToTopButton } from "./components/ToTopButton";
 import { createMappedC7Endpoints } from "./utils/internalMappingUtils";
 import styles from "./app.module.css";
@@ -64,7 +63,7 @@ function App() {
 				<section>{selectedMapping.introduction}</section>
 				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
-				<Filter
+				<EndpointFilter
 					selectedMethod={selectedMethod}
 					setSelectedMethod={setSelectedMethod}
 					searchText={searchText}

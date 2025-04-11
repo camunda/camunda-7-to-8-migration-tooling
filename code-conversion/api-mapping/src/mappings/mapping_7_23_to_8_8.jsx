@@ -42,7 +42,7 @@ export const mapping_7_23_to_8_8 = {
 			</p>
 			<ul>
 				<li>
-					The implementation of API endpoints to get/reach/search for
+					The implementation of API endpoints to get/read/search for
 					resources has changed.
 				</li>
 				<li>
