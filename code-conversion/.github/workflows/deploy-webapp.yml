@@ -18,7 +18,7 @@ permissions:
 # Allow one concurrent deployment
 concurrency:
     group: "pages"
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 jobs:
     # Single deploy job since we're just deploying
@@ -27,6 +27,9 @@ jobs:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}
         runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./api-mapping
         steps:
             - name: Checkout
               uses: actions/checkout@v4
