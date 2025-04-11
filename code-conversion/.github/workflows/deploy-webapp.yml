@@ -40,8 +40,8 @@ jobs:
                   cache: "npm"
             - name: Install dependencies
               run: |
-              - cd api-mapping
-              - npm ci
+                  cd api-mapping
+                  npm ci
             - name: Build
               run: npm run build
             - name: Setup Pages
