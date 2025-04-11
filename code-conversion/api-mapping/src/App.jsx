@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { mappingIndex } from "./mappings/mappingIndex";
 import { EndpointFilter } from "./components/EndpointFilter";
 import { Tabs } from "./components/Tabs";
+import { Tables } from "./components/Tables";
 import { ToTopButton } from "./components/ToTopButton";
 import { createMappedC7Endpoints } from "./utils/internalMappingUtils";
 import styles from "./app.module.css";
-import { Tables } from "./components/Tables";
 
 function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
