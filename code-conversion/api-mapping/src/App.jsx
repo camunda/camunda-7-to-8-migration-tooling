@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import "./App.css";
 import { mappingIndex } from "./mappings/mappingIndex";
+import { Filter } from "./components/filter";
 
 function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
@@ -11,7 +12,12 @@ function App() {
 	const refScrollUp = useRef();
 	const [scrollPosition, setScrollPosition] = useState(0);
 
-	function scrollToSection(elementRef) {
+	function scrollToSection(sectionIndex) {
+		const elementRef = sectionRefs.current[sectionIndex];
+		scrollToRef(elementRef);
+	}
+
+	function scrollToRef(elementRef) {
 		window.scrollTo({
 			top: elementRef.offsetTop,
 			behavior: "smooth",
@@ -162,7 +168,6 @@ function App() {
 
 	return (
 		<>
-			<div ref={refScrollUp}></div>
 			<div className="container">
 				<section className="tabs">
 					{mappingIndex.map((mapping) => {
@@ -179,74 +184,20 @@ function App() {
 				<section className="introduction">
 					{selectedMapping.introduction}
 				</section>
-				<section className="filter-container">
-					<h1>Mappings</h1>
-					<h2>Filters</h2>
-					<div className="filters">
-						<div className="stable-filters">
-							<label>
-								Filter by C7 endpoint method:{" "}
-								<select
-									value={selectedMethod}
-									onChange={(e) =>
-										setSelectedMethod(e.target.value)
-									}
-								>
-									<option value="all">All</option>
-									<option value="get">GET</option>
-									<option value="post">POST</option>
-									<option value="put">PUT</option>
-									<option value="delete">DELETE</option>
-									<option value="options">OPTIONS</option>
-								</select>
-							</label>
-							<label>
-								Filter C7 endpoint paths by text:{" "}
-								<input
-									value={searchText}
-									onChange={(e) =>
-										setSearchText(e.target.value)
-									}
-								></input>
-							</label>
-							<label>
-								Jump to section:{" "}
-								<select
-									onChange={(e) =>
-										scrollToSection(
-											sectionRefs.current[e.target.value]
-										)
-									}
-								>
-									{mappedC7Endpoints
-										.map((section) => section.section)
-										.map((section, index) => {
-											return (
-												<option
-													key={index}
-													value={index}
-												>
-													{section}
-												</option>
-											);
-										})}
-								</select>
-							</label>
-						</div>
-						<div>
-							<label>
-								Hide TBD endpoints and sections:{" "}
-								<input
-									type="checkbox"
-									checked={hideTBDEndpoints}
-									onChange={() =>
-										setHideTBDEndpoints(!hideTBDEndpoints)
-									}
-								/>
-							</label>
-						</div>
-					</div>
-				</section>
+				<h1>Mappings</h1>
+				<Filter
+					selectedMethod={selectedMethod}
+					setSelectedMethod={setSelectedMethod}
+					searchText={searchText}
+					setSearchText={setSearchText}
+					hideTBDEndpoints={hideTBDEndpoints}
+					setHideTBDEndpoints={setHideTBDEndpoints}
+					displayedSections={mappedC7Endpoints.map(
+						(section) => section.section
+					)}
+					scrollToSection={scrollToSection}
+				/>
+				<div ref={refScrollUp}></div>
 				<section className="tables">
 					{mappedC7Endpoints.map((endpoint, index) => {
 						return (
@@ -388,7 +339,7 @@ function App() {
 				className="button-to-top"
 				style={{ display: scrollPosition > 2000 ? "block" : "none" }}
 			>
-				<button onClick={() => scrollToSection(refScrollUp.current)}>
+				<button onClick={() => scrollToRef(refScrollUp.current)}>
 					Back To Top!
 				</button>
 			</div>
