@@ -1,0 +1,21 @@
+.filterContainer {
+	width: 100%;
+}
+
+.filters {
+	display: flex;
+	justify-content: space-between;
+}
+
+.stableFilters {
+	display: flex;
+	gap: 2rem;
+}
+
+.filterByText {
+	width: 15rem;
+}
+
+.filterBySection {
+	min-width: 20rem;
+}

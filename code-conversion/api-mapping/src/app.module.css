@@ -1,0 +1,7 @@
+.container {
+	width: calc(100vw - 4rem);
+	display: flex;
+	flex-direction: column;
+	padding-inline: 2rem;
+	overflow-y: scroll;
+}

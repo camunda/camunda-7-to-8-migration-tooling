@@ -1,6 +1,8 @@
+import styles from "./tabs.module.css";
+
 export function Tabs({ reducedMappingIndex, handleSelectionClick }) {
 	return (
-		<section className="tabs">
+		<section className={styles.tabs}>
 			{reducedMappingIndex.map((mapping) => {
 				return (
 					<button

@@ -1,3 +1,5 @@
+import styles from "./filter.module.css";
+
 export function Filter({
 	selectedMethod,
 	setSelectedMethod,
@@ -9,10 +11,10 @@ export function Filter({
 	scrollToSection,
 }) {
 	return (
-		<section className="filter-container">
+		<section className={styles.filterContainer}>
 			<h2>Filters</h2>
-			<div className="filters">
-				<div className="stable-filters">
+			<div className={styles.filters}>
+				<div className={styles.stableFilters}>
 					<label>
 						Filter by C7 endpoint method:{" "}
 						<select
@@ -30,6 +32,7 @@ export function Filter({
 					<label>
 						Filter C7 endpoint paths by text:{" "}
 						<input
+							className={styles.filterByText}
 							value={searchText}
 							onChange={(e) => setSearchText(e.target.value)}
 						></input>
@@ -37,6 +40,7 @@ export function Filter({
 					<label>
 						Jump to section:{" "}
 						<select
+							className={styles.filterBySection}
 							onChange={(e) => scrollToSection(e.target.value)}
 						>
 							{displayedSections.map((section, index) => {

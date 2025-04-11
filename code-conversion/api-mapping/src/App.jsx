@@ -3,17 +3,23 @@ import { mappingIndex } from "./mappings/mappingIndex";
 import { Filter } from "./components/filter";
 import { Tabs } from "./components/Tabs";
 import { MappingTable } from "./components/MappingTable";
+import { ToTopButton } from "./components/ToTopButton";
 import { createMappedC7Endpoints } from "./utils/internalMappingUtils";
-import "./App.css";
+import styles from "./app.module.css";
+import { Tables } from "./components/Tables";
 
 function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
 	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
+	const [scrollPosition, setScrollPosition] = useState(0);
 	const sectionRefs = useRef([]);
 	const refScrollUp = useRef();
-	const [scrollPosition, setScrollPosition] = useState(0);
+
+	function scrollToTop() {
+		scrollToRef(refScrollUp.current);
+	}
 
 	function scrollToSection(sectionIndex) {
 		const elementRef = sectionRefs.current[sectionIndex];
@@ -48,16 +54,14 @@ function App() {
 
 	return (
 		<>
-			<div className="container">
+			<div className={styles.container}>
 				<Tabs
 					reducedMappingIndex={mappingIndex.map(({ id, tabName }) => {
 						return { id, tabName };
 					})}
 					handleSelectionClick={handleSelectionClick}
 				/>
-				<section className="introduction">
-					{selectedMapping.introduction}
-				</section>
+				<section>{selectedMapping.introduction}</section>
 				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
 				<Filter
@@ -72,31 +76,15 @@ function App() {
 					)}
 					scrollToSection={scrollToSection}
 				/>
-				<section className="tables">
-					{mappedC7Endpoints.map((endpoint, index) => {
-						return (
-							<div key={index}>
-								<h2
-									ref={(el) =>
-										(sectionRefs.current[index] = el)
-									}
-								>
-									{endpoint.section}
-								</h2>
-								<MappingTable endpoint={endpoint} />
-							</div>
-						);
-					})}
-				</section>
+				<Tables
+					sectionRefs={sectionRefs}
+					mappedC7Endpoints={mappedC7Endpoints}
+				/>
 			</div>
-			<div
-				className="button-to-top"
-				style={{ display: scrollPosition > 2000 ? "block" : "none" }}
-			>
-				<button onClick={() => scrollToRef(refScrollUp.current)}>
-					Back To Top!
-				</button>
-			</div>
+			<ToTopButton
+				scrollPosition={scrollPosition}
+				scrollToTop={scrollToTop}
+			/>
 		</>
 	);
 }

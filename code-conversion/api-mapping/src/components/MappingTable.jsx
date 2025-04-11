@@ -1,13 +1,14 @@
 import { EndpointInfo } from "./EndpointInfo";
+import styles from "./mappingTable.module.css";
 
 export function MappingTable({ endpoint }) {
 	return (
 		<table>
 			<thead>
 				<tr>
-					<th className="c7-endpoint-column">C7 Endpoint</th>
-					<th className="c8-endpoint-column">C8 Endpoint</th>
-					<th className="explanation-column">Explanation</th>
+					<th className={styles.c7EndpointColumn}>C7 Endpoint</th>
+					<th className={styles.c8EndpointColumn}>C8 Endpoint</th>
+					<th className={styles.explanationColumn}>Explanation</th>
 				</tr>
 			</thead>
 			<tbody>
