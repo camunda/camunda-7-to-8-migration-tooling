@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import "./App.css";
 import { mappingIndex } from "./mappings/mappingIndex";
 import { Filter } from "./components/filter";
+import { Tabs } from "./components/Tabs";
+import { MappingTable } from "./components/MappingTable";
+import { createMappedC7Endpoints } from "./utils/internalMappingUtils";
+import "./App.css";
 
 function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
@@ -36,154 +39,26 @@ function App() {
 		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
 	}
 
-	function createC7DocLink(section, operationId) {
-		return (
-			selectedMapping.c7BaseUrl +
-			section.replaceAll(" ", "-") +
-			"/operation/" +
-			operationId
-		);
-	}
-
-	function createC8DocLink(operationId) {
-		return (
-			selectedMapping.c8BaseUrl +
-			operationId
-				?.split(/(?=[A-Z])/)
-				.map((word) => word.charAt(0).toLowerCase() + word.slice(1))
-				.join("-")
-		);
-	}
-
-	function findMappingInfo(path, operation) {
-		return selectedMapping.mappings.find((mapping) => {
-			return (
-				mapping.origin.path == path &&
-				mapping.origin.operation == operation
-			);
-		});
-	}
-
-	function createC8Info(mappingPath, mappingOperation) {
-		return Object.entries(selectedMapping.c8_specification.paths)
-			.flatMap(([path, operations]) => {
-				return mappingPath == path
-					? Object.entries(operations).flatMap(
-							([operation, details]) => {
-								return mappingOperation == operation
-									? {
-											path: path,
-											operation: operation,
-											url: createC8DocLink(
-												details?.operationId
-											),
-											details,
-									  }
-									: [];
-							}
-					  )
-					: [];
-			})
-			.find((x) => x !== undefined);
-	}
-
-	const sections = selectedMapping.c7_specification.tags.map(
-		(tag) => tag.name
+	const mappedC7Endpoints = createMappedC7Endpoints(
+		selectedMapping,
+		selectedMethod,
+		searchText,
+		hideTBDEndpoints
 	);
-
-	const mappedC7Endpoints = sections
-		.filter((section) =>
-			Object.entries(selectedMapping.c7_specification.paths).some(
-				([path, operations]) =>
-					Object.entries(operations).some(
-						([operation, operationValue]) =>
-							operationValue.tags.includes(section) &&
-							(selectedMethod == "all" ||
-								operation == selectedMethod) &&
-							(searchText == "" || path.includes(searchText))
-					)
-			)
-		)
-		.map((section) => {
-			return {
-				section,
-				endpoints: Object.entries(
-					selectedMapping.c7_specification.paths
-				)
-					.filter(([path, operations]) =>
-						Object.entries(operations).some(
-							([operation, operationValue]) =>
-								operationValue.tags.includes(section)
-						)
-					)
-					.map(([path, operations]) =>
-						Object.entries(operations)
-							.filter(
-								([operation, details]) =>
-									(selectedMethod == "all" ||
-										operation == selectedMethod) &&
-									(searchText == "" ||
-										path.includes(searchText))
-							)
-							.map(([operation, details]) => {
-								const mappingInfo = findMappingInfo(
-									path,
-									operation
-								);
-								return {
-									c7Info: {
-										path: path,
-										operation: operation,
-										url: createC7DocLink(
-											section,
-											details.operationId
-										),
-										details,
-									},
-									c8Info: createC8Info(
-										mappingInfo?.target?.path,
-										mappingInfo?.target?.operation
-									),
-									explanation: mappingInfo?.explanation,
-								};
-							})
-							.filter(
-								(e) =>
-									!hideTBDEndpoints ||
-									e?.explanation !== undefined
-							)
-					)
-					.flat(),
-			};
-		})
-		.filter(
-			(section) =>
-				!hideTBDEndpoints ||
-				section.endpoints.some(
-					(endpoint) => endpoint?.explanation !== undefined
-				)
-		);
-
-	console.log(mappedC7Endpoints);
 
 	return (
 		<>
 			<div className="container">
-				<section className="tabs">
-					{mappingIndex.map((mapping) => {
-						return (
-							<button
-								key={mapping.id}
-								onClick={() => handleSelectionClick(mapping.id)}
-							>
-								{mapping.tabName}
-							</button>
-						);
+				<Tabs
+					reducedMappingIndex={mappingIndex.map(({ id, tabName }) => {
+						return { id, tabName };
 					})}
-				</section>
+					handleSelectionClick={handleSelectionClick}
+				/>
 				<section className="introduction">
 					{selectedMapping.introduction}
 				</section>
+				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
 				<Filter
 					selectedMethod={selectedMethod}
@@ -197,7 +72,6 @@ function App() {
 					)}
 					scrollToSection={scrollToSection}
 				/>
-				<div ref={refScrollUp}></div>
 				<section className="tables">
 					{mappedC7Endpoints.map((endpoint, index) => {
 						return (
@@ -209,127 +83,7 @@ function App() {
 								>
 									{endpoint.section}
 								</h2>
-								<table>
-									<thead>
-										<tr>
-											<th className="c7-endpoint-column">
-												C7 Endpoint
-											</th>
-											<th className="c8-endpoint-column">
-												C8 Endpoint
-											</th>
-											<th className="explanation-column">
-												Explanation
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										{endpoint.endpoints.map((endpoint) => {
-											return (
-												<tr
-													key={
-														endpoint.c7Info.path +
-														endpoint.c7Info
-															.operation
-													}
-												>
-													<td>
-														<div>
-															<strong>
-																{
-																	endpoint
-																		.c7Info
-																		.details
-																		?.summary
-																}
-															</strong>
-														</div>
-														<div>
-															{endpoint.c7Info.operation.toUpperCase() +
-																" " +
-																endpoint.c7Info
-																	.path}
-														</div>
-														<a
-															href={
-																endpoint.c7Info
-																	.url
-															}
-															target="_blank"
-														>
-															Link to docs
-														</a>
-														<br />
-														<br />
-														<div>
-															{
-																endpoint.c7Info
-																	.details
-																	?.description
-															}
-														</div>
-													</td>
-													<td>
-														{endpoint.c8Info ? (
-															<div>
-																<div>
-																	<strong>
-																		{
-																			endpoint
-																				.c8Info
-																				.details
-																				?.summary
-																		}
-																	</strong>
-																</div>
-																<div>
-																	{endpoint.c8Info.operation?.toUpperCase() +
-																		" " +
-																		endpoint
-																			.c8Info
-																			.path}
-																</div>
-																<a
-																	href={
-																		endpoint
-																			.c8Info
-																			?.url
-																	}
-																	target="_blank"
-																>
-																	Link to docs
-																</a>
-																<br />
-																<br />
-																<div>
-																	{
-																		endpoint
-																			.c8Info
-																			.details
-																			?.description
-																	}
-																</div>
-															</div>
-														) : endpoint.explanation ? (
-															<div>
-																no suitable
-																mapping
-															</div>
-														) : (
-															<div>
-																to be defined
-															</div>
-														)}
-													</td>
-													<td>
-														{endpoint.explanation ||
-															"to be defined"}
-													</td>
-												</tr>
-											);
-										})}
-									</tbody>
-								</table>
+								<MappingTable endpoint={endpoint} />
 							</div>
 						);
 					})}
