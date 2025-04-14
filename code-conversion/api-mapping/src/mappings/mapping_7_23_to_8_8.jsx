@@ -63,65 +63,351 @@ export const mapping_7_23_to_8_8 = {
 				The mapping tables will reference the patterns introduced here,
 				instead of explaining the pattern multiple times.
 			</p>
+			<h3>GET resource list, GET resource count → POST search</h3>
+			<p>
+				In Camunda 7, there are separate endpoints with a similar set of
+				parameters to get a list of resources with details or just the
+				count. The resource-specific parameters are the same.
+				Additionally, the <code>GET resource list</code> endpoint uses
+				the parameters{" "}
+				<code>sortBy, sortOrder, firstResult, maxResults</code> for
+				sorting and pagination.
+			</p>
+			<p>
+				In Camunda 8, one <code>POST search</code> replaces the Camunda
+				7 endpoints described above. The root fields of the request body
+				are always
+				<code>filter</code>, <code>sort</code>, and <code>page</code>.
+				The object <code>filter</code> contains specific
+				resource-specific fields for filtering purposes. The same fields
+				appear under <code>sort[].field</code> to sort the results by
+				one or multiple fields. The object <code>page</code> is
+				identical among all <code>POST search</code> endpoints and is
+				used for pagination.
+			</p>
+			<h4>Example: Tenants</h4>
 			<table>
 				<thead>
 					<tr>
-						<th>Pattern</th>
-						<th>Camunda 7</th>
-						<th>Camunda 8</th>
+						<th>Camunda 7 - GET Tenants</th>
+						<th>Camunda 7 - GET Tenant Count</th>
+						<th>Camunda 8 - POST Search Tenants</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<td>GET resource list, GET resource count</td>
 						<td>
-							Separate endpoints with a similar set of parameters.
-							The <code>GET resource list</code> endpoint uses the
-							parameters{" "}
-							<code>
-								sortBy, sortOrder, firstResult, maxResults
-							</code>{" "}
-							for sorting and pagination.
+							<h5>Resource-specific parameters:</h5>
+							<ul>
+								<li>
+									(string) id: Filter by the id of the tenant.
+								</li>
+								<li>
+									(string) name: Filter by the name of the
+									tenant.
+								</li>
+								<li>
+									(string) nameLike: Filter by the name that
+									the parameter is a substring of.
+								</li>
+								<li>
+									(string) userMember: Select only tenants
+									where the given user is a member of.
+								</li>
+								<li>
+									(string) groupMember: Select only tenants
+									where the given group is a member of.
+								</li>
+								<li>
+									(boolean) includingGroupsOfUser: Select only
+									tenants where the user or one of his groups
+									is a member of.
+								</li>
+							</ul>
+							<h5>Sorting and pagination parameters:</h5>
+							<ul>
+								<li>
+									(string) sortBy: Sort the results
+									lexicographically by a given criterion. Must
+									be used in conjunction with the sortOrder
+									parameter.
+								</li>
+								<li>
+									(string) sortOrder: Sort the results in a
+									given order. Values may be asc for ascending
+									order or desc for descending order.
+								</li>
+								<li>
+									(integer) firstResult: Pagination of
+									results. Specifies the index of the first
+									result to return.
+								</li>
+								<li>
+									(integer) maxResults: Pagination of results.
+									Specifies the maximum number of results to
+									return. Will return less results if there
+									are no more results left.
+								</li>
+							</ul>
 						</td>
 						<td>
-							One <code>POST search</code> endpoint with filters,
-							sorting and pagination. The fields <code>page</code>{" "}
-							and <code>sort</code> look identical for all such{" "}
-							<code>POST search</code> endpoints. The field{" "}
-							<code>filter</code> offers a number of suitable
-							fields corresponding to fields of the resource
-							itself. The same fields appear under{" "}
-							<code>sort[].field</code> for sorting purposes.
+							<h5>Resource-specific parameters:</h5>
+							<p>
+								Identical to the resource-specific parameters of{" "}
+								<code>GET Tenants</code>.
+							</p>
+							<h5>Sorting and pagination parameters:</h5>
+							<p>None.</p>
+						</td>
+						<td>
+							<h5>
+								Fields of <code>filter</code> object:
+							</h5>
+							<ul>
+								<li>
+									(string) tenantId: The ID of the tenant.
+								</li>
+								<li>(string) name: The name of the tenant.</li>
+							</ul>
+							<h5>
+								Fields of <code>sorting</code> list of objects:
+							</h5>
+							<ul>
+								<li>
+									(string) field: The field to sort by.
+									Possible values: [key, tenantId, name]
+								</li>
+								<li>
+									(string) order: The order in which to sort
+									the related field. Possible values: [ASC,
+									DESC]
+								</li>
+							</ul>
+							<h5>
+								Fields of <code>page</code> object:
+							</h5>
+							<ul>
+								<li>
+									(int32) from: The index of items to start
+									searching from.
+								</li>
+								<li>
+									(int32) limit: The maximum number of items
+									to return in one request.
+								</li>
+								<li>
+									(object[]) searchAfter: Items to search
+									after. Correlates to the lastSortValues
+									property of a previous search response.
+								</li>
+								<li>
+									(object[]) searchBefore: Items to search
+									before. Correlates to the firstSortValues
+									property of a previous search response.
+								</li>
+							</ul>
 						</td>
 					</tr>
 					<tr>
-						<td>Handling of tenantId</td>
 						<td>
-							To replicate the same functionality as an existing
-							endpoint for a specific tenant, the tenantId is
-							appended as a path parameter as{" "}
-							<code>/tenant-id/{"{tenant-id}"}</code>
+							<p>Request:</p>
+							<pre>GET /tenant?nameLike=Tenant</pre>
+							<p>Response:</p>
+							<pre>
+								{
+									'[\n\t{ "id": "tenantOne", "name": "Tenant One"},\n\t{ "id": "tenantTwo", "name": "Tenant Two"}\n]'
+								}
+							</pre>
 						</td>
 						<td>
-							The tenantId is handled as a field, not path
-							parameter.
-						</td>
-					</tr>
-					<tr>
-						<td>Historic Data</td>
-						<td>
-							Camunda 7 has many endpoints to retrieve historic
-							data that have a similar parameter set as the
-							analogous runtime endpoint.
+							<p>Request:</p>
+							<pre>GET /tenant/count?nameLike=Tenant</pre>
+							<p>Response:</p>
+							<pre>{'{\n\t"count": 2\n}'}</pre>
 						</td>
 						<td>
-							Camunda 8 does not differentiate via separate
-							endpoints and insteads uses states, startDates and
-							endDates to replicate a similar functionality.
+							<p>Request:</p>
+							<pre>POST /tenants/search</pre>
+							<pre>
+								{
+									'{\n\t"filter": { "name": "Tenant One" },\n\t"sort": [{ "field": "name" }],\n\t"page": { "from": 0 }\n}'
+								}
+							</pre>
+							<p>Response:</p>
+							<pre>
+								{
+									'{\n\t"items": [\n\t\t{\n\t\t\t"name": "Tenant One",\n\t\t\t"tenantId": "tenantOne",\n\t\t\t"description": "A tenant",\n\t\t\t"tenantKey": "aa883-agas4342-32fre"\n\t\t}\n\t],\n\t"page": {\n\t\t"totalItems": 1,\n\t\t"firstSortValues": [\n\t\t\t{\n\t\t\t\t"name": "Tenant One",\n\t\t\t\t"tenantId": "tenantOne",\n\t\t\t\t"description": "A tenant",\n\t\t\t\t"tenantKey": "aa883-agas4342-32fre"\n\t\t\t}\n\t\t],\n\t\t"lastSortValue": [\n\t\t\t{\n\t\t\t\t"name": "Tenant One",\n\t\t\t\t"tenantId": "tenantOne",\n\t\t\t\t"description": "A tenant",\n\t\t\t\t"tenantKey": "aa883-agas4342-32fre"\n\t\t\t}\n\t\t]\n\t}\n}'
+								}
+							</pre>
 						</td>
 					</tr>
 				</tbody>
 			</table>
+			<h4>Explanation</h4>
+			<p>
+				In their basic functionality, the two Camunda 7 endpoints are
+				fully replaced by the new Camunda 8 endpoint.
+			</p>
+			<p>
+				The <code>nameLike</code> functionality is not available in this
+				example in Camunda 8. A similar functionality is available for
+				important APIs, like searching for process instances, using
+				unary-test-like advanced filters.
+			</p>
+			<h3>/tenant-id/{"{tenant-id}"} → POST search</h3>
+			<p>
+				In Camunda 7, many endpoints are duplicated in their basic
+				functionality to account for tenantIds. This is done by using
+				appending the tenantId as a path parameter to an existing
+				endpoint: <code>/tenant-id/{"{tenant-id}"}</code>
+			</p>
+			<h4>Example: GET Decision Definition By Key</h4>
+			<table>
+				<thead>
+					<tr>
+						<th>GET Decision Definition By Key</th>
+						<th>GET Decision Definition By Key And Tenant Id</th>
+						<th>POST Search decision definitions</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>
+							<h5>Path parameters:</h5>
+							<ul>
+								<li>
+									(string) key: The key of the decision
+									definition (the latest version thereof) to
+									be retrieved.
+								</li>
+							</ul>
+						</td>
+						<td>
+							<h5>Path parameters:</h5>
+							<ul>
+								<li>
+									(string) key: The key of the decision
+									definition (the latest version thereof) to
+									be retrieved.
+								</li>
+								<li>
+									(string) tenant-id: string The id of the
+									tenant the decision definition belongs to.
+								</li>
+							</ul>
+						</td>
+						<td>
+							<h5>
+								Fields of <code>filter</code> object:
+							</h5>
+							<ul>
+								<li>
+									(string) decisionDefinitionId: The DMN ID of
+									the decision definition..
+								</li>
+								<li>
+									(string) name: The DMN name of the decision
+									definition.
+								</li>
+								<li>
+									(int32) version: The assigned version of the
+									decision definition.
+								</li>
+								<li>
+									(string) decisionRequirementsId: The DMN ID
+									of the decision requirements graph that the
+									decision definition is part of.
+								</li>
+								<li>
+									(string) tenantId: The tenant ID of the
+									decision definition.
+								</li>
+								<li>
+									(string) decisionDefinitionKey: The assigned
+									key, which acts as a unique identifier for
+									this decision definition.
+								</li>
+								<li>
+									(string) decisionRequirementsKey: The
+									assigned key of the decision requirements
+									graph that the decision definition is part
+									of.
+								</li>
+							</ul>
+							<h5>
+								Fields of <code>sorting</code> list of objects:
+							</h5>
+							<ul>
+								<li>
+									(string) field: The field to sort by.
+									Possible values: [decisionDefinitionKey,
+									decisionDefinitionId, name, version,
+									decisionRequirementsId,
+									decisionRequirementsKey, tenantId]
+								</li>
+								<li>
+									(string) order: The order in which to sort
+									the related field. Possible values: [ASC,
+									DESC]
+								</li>
+							</ul>
+							<h5>
+								Fields of <code>page</code> object:
+							</h5>
+							<ul>
+								<li>
+									(int32) from: The index of items to start
+									searching from.
+								</li>
+								<li>
+									(int32) limit: The maximum number of items
+									to return in one request.
+								</li>
+								<li>
+									(object[]) searchAfter: Items to search
+									after. Correlates to the lastSortValues
+									property of a previous search response.
+								</li>
+								<li>
+									(object[]) searchBefore: Items to search
+									before. Correlates to the firstSortValues
+									property of a previous search response.
+								</li>
+							</ul>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<p>Request:</p>
+							<code>
+								GET /decision-definition/key/dish-decision
+							</code>
+						</td>
+						<td>
+							<p>Request:</p>
+							<code>
+								GET
+								/decision-definition/key/dish-decision/tenant-id/aTenantId
+							</code>
+						</td>
+						<td>
+							<p>Request:</p>
+							<pre>POST /decision-definitions/search</pre>
+							<pre>
+								{
+									'{\n\t"filter": { "id": "dish-decision", "tenantId": "aTenantId" }\n}'
+								}
+							</pre>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			<h4>Explanation:</h4>
+			<p>
+				In their basic functionality, the two Camunda 7 endpoints are
+				fully replaced by the new Camunda 8 endpoint.
+			</p>
+			<p>The Camunda 8 endpoint offers more filter options.</p>
 		</>
 	),
 	mappings: [
