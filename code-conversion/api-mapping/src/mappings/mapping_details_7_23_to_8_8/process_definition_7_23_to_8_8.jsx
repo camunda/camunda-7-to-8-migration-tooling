@@ -9,45 +9,20 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		explanation: (
-			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint request
-					body fields:
-				</div>
+			<>
+				<h3>Direct mappings</h3>
+				<p>
+					<code>...Like</code> and <code>...In</code> parameters are
+					grouped together with the parameter they relate to.
+				</p>
 				<table>
 					<thead>
 						<tr>
-							<th>C7 Parameter</th>
-							<th>C8 Field</th>
+							<th>Camunda 7 Filters</th>
+							<th>Camunda 8 Filters</th>
 						</tr>
 					</thead>
 					<tbody>
-						<tr>
-							<td>
-								<pre>
-									(string) name
-									<br />
-									(string) nameLike
-								</pre>
-							</td>
-							<td>
-								<pre>(string) filter.name</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) key
-									<br />
-									(string[]) keys
-									<br />
-									(string) keyLike
-								</pre>
-							</td>
-							<td>
-								<pre>(string) filter.processDefinitionKey</pre>
-							</td>
-						</tr>
 						<tr>
 							<td>
 								<pre>
@@ -57,7 +32,73 @@ export const process_definition_7_23_to_8_8 = [
 								</pre>
 							</td>
 							<td>
-								<pre>(string) filter.processDefinitionId</pre>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string) name
+									<br />
+									(string) nameLike
+								</pre>
+							</td>
+							<td>
+								<pre>(string) name</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string) key
+									<br />
+									(string[]) keysIn
+									<br />
+									(string) keyLike
+								</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionId</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(integer) version
+									<br />
+									(boolean) latestVersion
+									<br />
+									(string) versionTag
+									<br />
+									(string) versionTagLike
+									<br />
+									(boolean) withoutVersionTag
+								</pre>
+							</td>
+							<td>
+								<pre>
+									(integer) version
+									<br />
+									(string) versionTag
+								</pre>
+								<p>
+									In Camunda 8, versions are integers and
+									assigned on deployment. To get the latest
+									version, omit the version filter, but sort
+									by version and select the first item.
+								</p>
 							</td>
 						</tr>
 						<tr>
@@ -69,7 +110,7 @@ export const process_definition_7_23_to_8_8 = [
 								</pre>
 							</td>
 							<td>
-								<pre>(string) filter.resourceName</pre>
+								<pre>(string) resourceName</pre>
 							</td>
 						</tr>
 						<tr>
@@ -84,29 +125,25 @@ export const process_definition_7_23_to_8_8 = [
 								</pre>
 							</td>
 							<td>
-								<pre>(string) filter.tenantId</pre>
+								<pre>(string) tenantId</pre>
+								<p>
+									If multi-tenancy is disabled, all resources
+									are deployed to the tenantId "default".
+									There is no "withoutTenantId" in Camunda 8.
+								</p>
 							</td>
 						</tr>
+					</tbody>
+				</table>
+				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<table>
+					<thead>
 						<tr>
-							<td>
-								<pre>
-									(integer) version
-									<br />
-									(string) versionTag
-									<br />
-									(string) versionTagLike
-									<br />
-									(boolean) withoutVersionTag
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(integer) filter.version
-									<br />
-									(string) filter.versionTag
-								</pre>
-							</td>
+							<th>Camunda 7 Filters</th>
+							<th>Explanation</th>
 						</tr>
+					</thead>
+					<tbody>
 						<tr>
 							<td>
 								<pre>
@@ -115,19 +152,48 @@ export const process_definition_7_23_to_8_8 = [
 									(date-time) deployedAfter
 									<br />
 									(date-time) deployedAt
-									<br />
+								</pre>
+							</td>
+							<td>
+								<p>
+									While deployments are assigned a
+									deploymentKey, deployments do not represent
+									resources that can be searched for or
+									otherwise used for filtering.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
 									(string) category
 									<br />
 									(string) categoryLike
-									<br />
-									(boolean) latestVersion
-									<br />
-									(string) startableBy
-									<br />
+								</pre>
+							</td>
+							<td>
+								<p>
+									The concept of category has not been adopted
+									in Camunda 8.8.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
 									(boolean) active
 									<br />
 									(boolean) suspended
-									<br />
+								</pre>
+							</td>
+							<td>
+								Suspending a process definition is not yet
+								possible in Camunda 8.8.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
 									(string) incidentId
 									<br />
 									(string) incidentType
@@ -135,56 +201,46 @@ export const process_definition_7_23_to_8_8 = [
 									(string) incidentMessage
 									<br />
 									(string) incidentMessageLike
+								</pre>
+							</td>
+							<td>
+								It is not possible to search for process
+								definitions with specific incident information
+								in Camunda 8.8. But it is possible to search for
+								incidents and filter or sort by process
+								definition id or key.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string) startableBy
 									<br />
+									(boolean) startablePermissionCheck
+								</pre>
+							</td>
+							<td>
+								Search authorizations with resourceType
+								PROCESS_DEFINITION instead.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
 									(boolean) startableInTasklist
 									<br />
 									(boolean) notStartableInTasklist
 									<br />
-									(boolean) startablePermissionCheck
-									<br />
-								</pre>
-							</td>
-							<td>Not possible in Camunda 8.8</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) sortBy
-									<br />
-									(string) sortOrder
 								</pre>
 							</td>
 							<td>
-								<pre>
-									(string) sort[].field
-									<br />
-									(enum) sort[].order
-								</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(integer) firstResult
-									<br />
-									(integer) maxResults
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(integer) page.from
-									<br />
-									(integer) page.limit
-									<br />
-									(object[]) page.searchAfter
-									<br />
-									(object[]) page.searchBefore
-								</pre>
+								All processes a users is allowed to start, can
+								be started from Tasklist.
 							</td>
 						</tr>
 					</tbody>
 				</table>
-			</div>
+			</>
 		),
 	},
 	{
@@ -198,8 +254,8 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		explanation: (
 			<div>
-				There is no specific endpoint for this in Camunda 8.8. Use the{" "}
-				<code>POST /process-definitions/search</code> endpoint instead.
+				Replaced by <code>POST /process-definitions/search</code>{" "}
+				endpoint.
 			</div>
 		),
 	},
@@ -213,16 +269,16 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		explanation: (
-			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint parameters
-					and fields:
-				</div>
+			<>
+				<p>
+					<strong>Different base path!</strong>
+				</p>
+				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
-							<th>C7 Parameter</th>
-							<th>C8 Path Parameter/Field</th>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Parameters</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -234,6 +290,17 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) resourceKey</pre>
 							</td>
 						</tr>
+					</tbody>
+				</table>
+				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameter</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
 						<tr>
 							<td>
 								<pre>(boolean) cascade</pre>
@@ -260,7 +327,7 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
-			</div>
+			</>
 		),
 	},
 	{
@@ -269,19 +336,17 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {
-			path: "/process-definitions/{processDefinitionKey}",
-			operation: "get",
+			path: "/process-definitions/search",
+			operation: "post",
 		},
 		explanation: (
-			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint parameters:
-				</div>
+			<>
+				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
-							<th>C7 Path Parameter</th>
-							<th>C8 Path Parameter</th>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Filters</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -290,12 +355,18 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) key</pre>
 							</td>
 							<td>
-								<pre>(string) processDefinitionKey</pre>
+								<pre>(string) processDefinitionId</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
 							</td>
 						</tr>
 					</tbody>
 				</table>
-			</div>
+			</>
 		),
 	},
 	{
@@ -308,15 +379,13 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		explanation: (
-			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint parameters:
-				</div>
+			<>
+				<h3>Not possible/applicable in Camunda 8.8:</h3>
 				<table>
 					<thead>
 						<tr>
-							<th>C7 Path Parameter</th>
-							<th>C8 Path Parameter</th>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -325,12 +394,20 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) key</pre>
 							</td>
 							<td>
-								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the start form can be
+									retrieved for a unique processDefinitionKey
+									which does not correspond to the key in
+									Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
 							</td>
 						</tr>
 					</tbody>
 				</table>
-			</div>
+			</>
 		),
 	},
 	{
@@ -339,7 +416,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not available in Camunda 8.8",
+		explanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -347,7 +424,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -364,7 +441,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -376,19 +453,16 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		explanation: (
-			<div>
-				<div>
+			<>
+				<p>
 					<strong>Different base path!</strong>
-				</div>
-				<div>
-					<strong>processDefinitionKey:</strong> Changes from path
-					parameter to request body field, and key to id.
-				</div>
+				</p>
+				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
+							<th>Camunda 7 Fields</th>
+							<th>Camunda 8 Fields</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -398,15 +472,12 @@ export const process_definition_7_23_to_8_8 = [
 							</td>
 							<td>
 								<pre>(string) processDefinitionId</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) businessKey</pre>
-							</td>
-							<td>
-								Not available in Camunda 8.8. Planned for
-								Camunda 8.9.
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
 							</td>
 						</tr>
 						<tr>
@@ -416,12 +487,6 @@ export const process_definition_7_23_to_8_8 = [
 							<td>
 								<pre>(object) variables</pre>
 							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) caseInstanceId</pre>
-							</td>
-							<td>No CMMN in Camunda 8.</td>
 						</tr>
 						<tr>
 							<td>
@@ -434,18 +499,6 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 						<tr>
 							<td>
-								<pre>
-									(boolean) skipCustomListeners
-									<br />
-									(boolean) skipIoMappings
-								</pre>
-							</td>
-							<td>
-								Not applicable for this endpoint functionality.
-							</td>
-						</tr>
-						<tr>
-							<td>
 								<pre>(boolean) withVariablesInReturn</pre>
 							</td>
 							<td>
@@ -454,40 +507,57 @@ export const process_definition_7_23_to_8_8 = [
 									<br />
 									(integer) requestTimeout
 								</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<code>tenantId</code> is handled via a different
-								endpoint.
-							</td>
-							<td>
-								<pre>
-									(string) tenantId
-									<br />
-									(integer) operationReference
-									<br />
-									(string[]) fetchVariables
-									<br />
-									(string) processDefinitionKey
-								</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>Not available in Camunda 7.23.</td>
-							<td>
-								<pre>
-									(integer) operationReference
-									<br />
-									(string[]) fetchVariables
-									<br />
-									(string) processDefinitionKey
-								</pre>
+								<p>
+									All processing in Camunda 8 is asynchronous.
+									To receive a synchronous response, you can
+									await completion and specify a request
+									timeout.
+								</p>
 							</td>
 						</tr>
 					</tbody>
 				</table>
-			</div>
+				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Fields</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) businessKey</pre>
+							</td>
+							<td>
+								Not available in Camunda 8.8. Planned for
+								Camunda 8.9.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) caseInstanceId</pre>
+							</td>
+							<td>No CMMN in Camunda 8.</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) skipCustomListeners
+									<br />
+									(boolean) skipIoMappings
+								</pre>
+							</td>
+							<td>
+								Not possible in Camunda 8.8. This functionality
+								might be extended alongside the
+								startInstructions functionality.
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
 		),
 	},
 	{
@@ -500,15 +570,13 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		explanation: (
-			<div>
-				<div>
-					Mapping of C7 endpoint parameters to C8 endpoint parameters:
-				</div>
+			<>
+				<h3>Not possible/applicable in Camunda 8.8:</h3>
 				<table>
 					<thead>
 						<tr>
-							<th>C7 Path Parameter</th>
-							<th>C8 Path Parameter</th>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -517,12 +585,20 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) key</pre>
 							</td>
 							<td>
-								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the start form can be
+									retrieved for a unique processDefinitionKey
+									which does not correspond to the key in
+									Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
 							</td>
 						</tr>
 					</tbody>
 				</table>
-			</div>
+			</>
 		),
 	},
 ];

@@ -252,7 +252,9 @@ export const mapping_7_23_to_8_8 = {
 				The <code>nameLike</code> functionality is not available in this
 				example in Camunda 8. A similar functionality is available for
 				important APIs, like searching for process instances, using
-				unary-test-like advanced filters.
+				unary-test-like advanced filters. The same is true for{" "}
+				<code>...In</code>, where a list of strings is provided for
+				filtering purposes.
 			</p>
 			<h3>/tenant-id/{"{tenant-id}"} → POST search</h3>
 			<p>
@@ -408,6 +410,22 @@ export const mapping_7_23_to_8_8 = {
 				fully replaced by the new Camunda 8 endpoint.
 			</p>
 			<p>The Camunda 8 endpoint offers more filter options.</p>
+			<h3 id="key-to-id">Camunda 7 key → Camunda 8 id</h3>
+			<p>
+				In Camunda 7, a "key" refers to an intrinsic identifier of a
+				resource, e.g., the id of the BPMN 2.0 XML process definition
+				used to retrieve the latest version of a specific process
+				definition. In contrast, an "id" is an assigned identifier,
+				e.g., the id of a deployed process definition.
+			</p>
+			<p>
+				In Camunda 8, the terms "key" and "id" are reversed. A "key" is
+				an assigned identifier, e.g., the processDefinitionKey returned
+				when deploying a process definition. The processDefinitionId is
+				the id of the BPMN 2.0 XML process definition. As you can see,
+				the keys and ids in Camunda 8 are also prepended with
+				descriptive information.
+			</p>
 		</>
 	),
 	mappings: [

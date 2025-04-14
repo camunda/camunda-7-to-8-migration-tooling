@@ -1,9 +1,7 @@
 export function EndpointInfo({ endpointInfo }) {
 	return (
 		<>
-			<div>
-				<strong>{endpointInfo.details?.summary}</strong>
-			</div>
+			<h3>{endpointInfo.details?.summary}</h3>
 			<div>
 				{endpointInfo.operation?.toUpperCase() +
 					" " +
