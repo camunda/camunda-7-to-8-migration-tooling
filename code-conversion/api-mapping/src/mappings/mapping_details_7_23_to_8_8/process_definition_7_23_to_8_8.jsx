@@ -266,31 +266,7 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Parameters</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) resourceKey</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<p>
-					<strong>Different base path!</strong>
-				</p>
-			</>
-		),
+		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
@@ -301,6 +277,20 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 					</thead>
 					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) resourceKey</pre>
+								<p>
+									In Camunda 8, the resourceKey can be a
+									processDefinitionKey, decisionDefinitionKey
+									or formKey. This does not directly map to
+									the key in Camunda 7.
+								</p>
+							</td>
+						</tr>
 						<tr>
 							<td>
 								<pre>(boolean) cascade</pre>
@@ -394,6 +384,7 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) key</pre>
 							</td>
 							<td>
+								<pre>(string) processDefinitionKey</pre>
 								<p>
 									In Camunda 8, the start form can be
 									retrieved for a unique processDefinitionKey
@@ -591,6 +582,7 @@ export const process_definition_7_23_to_8_8 = [
 								<pre>(string) key</pre>
 							</td>
 							<td>
+								<pre>(string) processDefinitionKey</pre>{" "}
 								<p>
 									In Camunda 8, the start form can be
 									retrieved for a unique processDefinitionKey
@@ -606,5 +598,1030 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/statistics",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
+			operation: "post",
+		},
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the statistics can be
+									retrieved for a unique processDefinitionKey
+									which does not correspond to the key in
+									Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) failedJobs</pre>
+							</td>
+							<td>
+								<p>
+									The number of canceled instances of the flow
+									node is always included in the response.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) incidents</pre>
+							</td>
+							<td>
+								<p>
+									The number of incidents instances for the
+									flow node is always included in the
+									response.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) incidentsForType</pre>
+							</td>
+							<td>
+								<p>Not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/submit-form",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Parameters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionId</pre>
+								<p>
+									If the processDefinitionId is used, a
+									version can be specified. Alternatively, the
+									unique processDefinitionKey can be used.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) businessKey</pre>
+							</td>
+							<td>
+								<p>
+									No businessKey in Camunda 8.8. Planned for
+									Camunda 8.9.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/suspended",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}",
+			operation: "delete",
+		},
+		target: {
+			path: "/resources/{resourceKey}/deletion",
+			operation: "post",
+		},
+		direct: "See Delete By Key endpoint. Deletion of resource is not tenant-specific in Camunda 8.8.",
+		notPossible: "",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Filters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionId</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<pre>(string) tenantId</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: "Only direct mappings.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/deployed-start-form",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/form",
+			operation: "get",
+		},
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the start form can be
+									retrieved for a unique processDefinitionKey
+									which does not correspond to the key in
+									Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<p>
+									This endpoint is not tenant-specific in
+									Camunda 8.8. The tenantId of the start form
+									can be checked in the response.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/diagram",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Not available in Camunda 8.8.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/form-variables",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/history-time-to-live",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/rendered-form",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/start",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Fields</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<pre>(string) tenantId</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					<strong>Different base path!</strong>
+				</p>
+				<p>
+					For all other fields, see <strong>Start Instance</strong>{" "}
+					endpoint without tenant-id.
+				</p>
+			</>
+		),
+		notPossible: (
+			<p>
+				For other fields, see{" "}
+				<strong>Get Activity Instance Statistics</strong> endpoint
+				without tenant-id.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/startForm",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/form",
+			operation: "get",
+		},
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the start form can be
+									retrieved for a unique processDefinitionKey
+									which does not correspond to the key in
+									Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<p>
+									This endpoint is not tenant-specific in
+									Camunda 8.8. You can check the tenantId in
+									the response.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/statistics",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Filter</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<pre>(string) tenantId</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					For all other fields, see{" "}
+					<strong>Get Activity Instance Statistics</strong> endpoint
+					without tenant-id.
+				</p>
+			</>
+		),
+		notPossible: (
+			<p>
+				For other fields, see{" "}
+				<strong>Get Activity Instance Statistics</strong> endpoint
+				without tenant-id.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/submit-form",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Parameters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<pre>(string) tenantId</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					For all other fields, see <strong>Submit Start Form</strong>{" "}
+					endpoint without tenant-id.
+				</p>
+			</>
+		),
+		notPossible: (
+			<p>
+				For other fields, see <strong>Submit Start Form</strong>{" "}
+				endpoint without tenant-id.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/suspended",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/tenant-id/{tenant-id}/xml",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/xml",
+			operation: "get",
+		},
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the XML can be retrieved for a
+									unique processDefinitionKey which does not
+									correspond to the key in Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) tenant-id</pre>
+							</td>
+							<td>
+								<p>
+									This endpoint is not tenant-specific in
+									Camunda 8.8. You can check the tenantId in
+									the response.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/key/{key}/xml",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/xml",
+			operation: "get",
+		},
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) key</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									In Camunda 8, the XML can be retrieved for a
+									unique processDefinitionKey which does not
+									correspond to the key in Camunda 7. See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/statistics",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"There is on endpoint to group process instance statistics by process definition in Camunda 8.8. Statistics can be grouped by flow nodes, see Get Activity Instance Statistics.",
+	},
+	{
+		origin: {
+			path: "/process-definition/suspended",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}",
+			operation: "delete",
+		},
+		target: {
+			path: "/resources/{resourceKey}/deletion",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Parameters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) resourceKey</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameter</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(boolean) cascade</pre>
+							</td>
+							<td>
+								Deletion is only possible if there are no
+								running process instances. The effect of{" "}
+								<code>cascade</code> always applies in Camunda
+								8.
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) skipCustomListeners
+									<br />
+									(boolean) skipIoMappings
+								</pre>
+							</td>
+							<td>
+								Does not apply if no running process instances
+								are deleted with the resource.
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Filters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: "Only direct mappings.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/deployed-start-form",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/form",
+			operation: "get",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Camunda 8 Filters</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: "Only direct mappings.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/diagram",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Not available in Camunda 8.8.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/form-variables",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/history-time-to-live",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/rendered-form",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/restart",
+			operation: "post",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/restart-async",
+			operation: "post",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/start",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Fields</th>
+							<th>Camunda 8 Fields</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					<strong>Different base path!</strong>
+				</p>
+				<p>
+					For other fields, see <strong>Start Instance</strong> by key
+					endpoint.
+				</p>
+			</>
+		),
+		notPossible: (
+			<p>
+				For other fields, see <strong>Start Instance</strong> by key
+				endpoint.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/startForm",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/form",
+			operation: "get",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>{" "}
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: "Only direct mappings.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/static-called-process-definitions",
+			operation: "get",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Not possible in Camunda 8.8.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/statistics",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					For other fields, see{" "}
+					<strong>Get Activity Instance Statistics</strong> by key
+					endpoint.
+				</p>
+			</>
+		),
+		notPossible: (
+			<p>
+				For other fields, see{" "}
+				<strong>Get Activity Instance Statistics</strong> by key
+				endpoint.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/submit-form",
+			operation: "post",
+		},
+		target: {},
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/suspended",
+			operation: "put",
+		},
+		target: {},
+		direct: "",
+		notPossible:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-definition/{id}/xml",
+			operation: "get",
+		},
+		target: {
+			path: "/process-definitions/{processDefinitionKey}/xml",
+			operation: "get",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7 Parameters</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: "Only direct mappings.",
 	},
 ];
