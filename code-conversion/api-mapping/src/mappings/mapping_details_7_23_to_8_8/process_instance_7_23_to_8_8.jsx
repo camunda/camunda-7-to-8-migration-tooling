@@ -8,9 +8,8 @@ export const process_instance_7_23_to_8_8 = [
 			path: "/process-instances/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<>
-				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
@@ -156,7 +155,10 @@ export const process_instance_7_23_to_8_8 = [
 					similar to a unit test (
 					<code>$eq, $neq, $in, $like with wildcards,...</code>).
 				</div>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
+			</>
+		),
+		notPossible: (
+			<>
 				<table>
 					<thead>
 						<tr>

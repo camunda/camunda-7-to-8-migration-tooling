@@ -1,3 +1,5 @@
+import styles from "./endpointInfo.module.css";
+
 export function EndpointInfo({ endpointInfo }) {
 	return (
 		<>
@@ -12,7 +14,9 @@ export function EndpointInfo({ endpointInfo }) {
 			</a>
 			<br />
 			<br />
-			<div>{endpointInfo.details?.description}</div>
+			<div className={styles.description}>
+				{endpointInfo.details?.description}
+			</div>
 		</>
 	);
 }

@@ -8,13 +8,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<>
-				<h3>Direct mappings</h3>
-				<p>
-					<code>...Like</code> and <code>...In</code> parameters are
-					grouped together with the parameter they relate to.
-				</p>
 				<table>
 					<thead>
 						<tr>
@@ -135,7 +130,14 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<p>
+					<code>...Like</code> and <code>...In</code> parameters are
+					grouped together with the parameter they relate to.
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
 				<table>
 					<thead>
 						<tr>
@@ -252,12 +254,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		explanation: (
-			<div>
-				Replaced by <code>POST /process-definitions/search</code>{" "}
-				endpoint.
-			</div>
-		),
+		direct: "See Get List endpoint.",
+		notPossible: "",
 	},
 	{
 		origin: {
@@ -268,12 +266,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<>
-				<p>
-					<strong>Different base path!</strong>
-				</p>
-				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
@@ -292,7 +286,13 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<p>
+					<strong>Different base path!</strong>
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
 				<table>
 					<thead>
 						<tr>
@@ -339,9 +339,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<>
-				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
@@ -368,6 +367,7 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
+		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -378,9 +378,9 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		explanation: (
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
 			<>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
 				<table>
 					<thead>
 						<tr>
@@ -416,7 +416,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not available in Camunda 8.8.",
+		direct: "",
+		notPossible: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -424,7 +425,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -432,7 +434,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		direct: "",
+		notPossible:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -441,7 +444,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		direct: "",
+		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -452,12 +456,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<>
-				<p>
-					<strong>Different base path!</strong>
-				</p>
-				<h3>Direct Mappings</h3>
 				<table>
 					<thead>
 						<tr>
@@ -517,7 +517,13 @@ export const process_definition_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
+				<p>
+					<strong>Different base path!</strong>
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
 				<table>
 					<thead>
 						<tr>
@@ -569,9 +575,9 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		explanation: (
+		direct: "Only not possible/applicable mappings.",
+		notPossible: (
 			<>
-				<h3>Not possible/applicable in Camunda 8.8:</h3>
 				<table>
 					<thead>
 						<tr>

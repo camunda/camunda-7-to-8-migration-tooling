@@ -8,7 +8,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
@@ -21,7 +21,7 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		explanation: "Redundant.",
+		direct: "Redundant.",
 	},
 	{
 		origin: {
@@ -32,7 +32,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authentication/me",
 			operation: "get",
 		},
-		explanation: (
+		direct: (
 			<div>
 				Instead of receiving an <code>authorized</code> boolean for a
 				specific check, a list of <code>authorizedApplications</code>{" "}
@@ -49,7 +49,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
@@ -65,7 +65,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
@@ -86,7 +86,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "delete",
 		},
-		explanation: (
+		direct: (
 			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
@@ -107,7 +107,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
+		direct: (
 			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
@@ -120,7 +120,7 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		explanation: "Redundant.",
+		direct: "Redundant.",
 	},
 	{
 		origin: {
@@ -131,7 +131,7 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "put",
 		},
-		explanation: (
+		direct: (
 			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}

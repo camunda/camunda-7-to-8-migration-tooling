@@ -113,13 +113,15 @@ export function createMappedC7Endpoints(
 										mappingInfo?.target?.path,
 										mappingInfo?.target?.operation
 									),
-									explanation: mappingInfo?.explanation,
+									direct: mappingInfo?.direct,
+									notPossible: mappingInfo?.notPossible,
 								};
 							})
 							.filter(
 								(e) =>
 									!hideTBDEndpoints ||
-									e?.explanation !== undefined
+									e?.direct !== undefined ||
+									e?.notPossible !== undefined
 							)
 					)
 					.flat(),
@@ -129,7 +131,9 @@ export function createMappedC7Endpoints(
 			(section) =>
 				!hideTBDEndpoints ||
 				section.endpoints.some(
-					(endpoint) => endpoint?.explanation !== undefined
+					(endpoint) =>
+						endpoint?.direct !== undefined ||
+						endpoint?.notPossible !== undefined
 				)
 		);
 }
