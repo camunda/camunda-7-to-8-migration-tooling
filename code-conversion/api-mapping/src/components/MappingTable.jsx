@@ -19,6 +19,7 @@ export function MappingTable({ endpoint }) {
 						<>
 							{endpoint.direct || endpoint.notPossible ? (
 								<tr
+									className={styles.mappingExists}
 									key={
 										endpoint.c7Info.path +
 										endpoint.c7Info.operation
@@ -34,18 +35,20 @@ export function MappingTable({ endpoint }) {
 											<EndpointInfo
 												endpointInfo={endpoint.c8Info}
 											/>
-										) : endpoint.direct ||
-										  endpoint.notPossible ? (
-											<div>no suitable mapping</div>
-										) : (
-											<div>to be defined</div>
-										)}
+										) : null}
 									</td>
 									<td>{endpoint.direct}</td>
 									<td>{endpoint.notPossible}</td>
 								</tr>
 							) : (
 								<tr
+									className={
+										endpoint.c8Info
+											? styles.mappingExists
+											: endpoint.explanation
+											? styles.noMapping
+											: styles.notDefined
+									}
 									key={
 										endpoint.c7Info.path +
 										endpoint.c7Info.operation

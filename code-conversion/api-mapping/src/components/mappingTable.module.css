@@ -9,3 +9,15 @@
 .explanationColumn {
 	width: 65%;
 }
+
+.mappingExists {
+	background-color: rgba(0, 255, 0, 0.08);
+}
+
+.noMapping {
+	background-color: rgba(255, 0, 0, 0.08);
+}
+
+.notDefined {
+	background-color: rgba(0, 0, 0, 0.08);
+}
