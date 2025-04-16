@@ -624,4 +624,955 @@ export const process_instance_7_23_to_8_8 = [
 			</>
 		),
 	},
+	{
+		origin: {
+			path: "/process-instance/job-retries",
+			operation: "post",
+		},
+		target: {},
+		explanation: (
+			<p>
+				There is no batch endpoint to update retries for multiple jobs
+				at once. You can update each job with the Update job endpoint.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/job-retries-historic-query-based",
+			operation: "post",
+		},
+		target: {},
+		explanation: (
+			<p>
+				There is no batch endpoint to update retries for multiple jobs
+				at once. You can update each job with the Update job endpoint.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/message-async",
+			operation: "post",
+		},
+		target: {
+			path: "/messages/publication",
+			operation: "post",
+		},
+
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) messageName</pre>
+							</td>
+							<td>
+								<pre>(string) name</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(string[]) processInstanceIds
+									<br />
+									(object) processInstanceQuery
+									<br />
+									(object) historicProcessInstanceQuery
+								</pre>
+							</td>
+							<td>
+								<p>
+									In Camunda 8, a message is published to a
+									cluster and tenant. A restriction to
+									specific process instances is not possible.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/suspended",
+			operation: "put",
+		},
+		target: {},
+		explanation:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-instance/suspended-async",
+			operation: "post",
+		},
+		target: {},
+		explanation:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-instance/variables-async",
+			operation: "post",
+		},
+		target: {
+			path: "/element-instances/{elementInstanceKey}/variables",
+			operation: "put",
+		},
+
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string[]) processInstanceIds</pre>
+							</td>
+							<td>
+								<pre>(string) elementInstanceKey</pre>
+								<p>
+									In Camunda 8.8, variables can be updated for
+									one particular scope. This can be a process
+									instance. In this case the{" "}
+									<code>elementInstanceKey</code> is the
+									processInstanceKey.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+							<td>
+								<pre>(object) variables</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(object) processInstanceQuery
+									<br />
+									(object) historicProcessInstanceQuery
+								</pre>
+							</td>
+							<td>
+								<p>
+									In Camunda 8.8, variables can be updated for
+									one particular scope, not for a batch of
+									process instances.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}",
+			operation: "delete",
+		},
+		target: {
+			path: "/process-instances/{processInstanceKey}/cancellation",
+			operation: "post",
+		},
+
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processInstanceKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(boolean) skipCustomListeners
+									<br />
+									(boolean) skipIoMappings
+								</pre>
+							</td>
+							<td>
+								<p>Not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) skipSubprocesses</pre>
+							</td>
+							<td>
+								<p>
+									Not possible in Camunda 8.8. Subprocesses
+									are also canceled.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) failIfNotExists</pre>
+							</td>
+							<td>
+								<p>
+									Endpoint answers with <code>404</code> if
+									the process instance is not found.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}",
+			operation: "get",
+		},
+		target: {
+			path: "/process-instances/{processInstanceKey}",
+			operation: "get",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processInstanceKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/activity-instances",
+			operation: "get",
+		},
+		target: {},
+		explanation: (
+			<p>
+				Not possible in Camunda 8.8. You can retrieve all active flow
+				nodes of a specific process instance using the{" "}
+				<code>POST Search flow node instances</code> endpoint. But this
+				endpoint does not provide a tree structure or information about
+				the flow node hierarchy.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/comment",
+			operation: "get",
+		},
+		target: {},
+		explanation: (
+			<p>
+				Not possible in Camunda 8.8. Adding comments to user tasks is on
+				the roadmap of Camunda 8.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/modification",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/{processInstanceKey}/modification",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processInstanceKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object[]) instructions</pre>
+							</td>
+							<td>
+								<pre>
+									(object[]) activateInstructions <br />
+									(object[]) terminateInstructions
+								</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) instructions[].type</pre>
+							</td>
+							<td>
+								<p>
+									<code>cancel</code> and{" "}
+									<code>start...</code> types are mapped to{" "}
+									<code>terminateInstructions</code> and{" "}
+									<code>activateInstructions</code>.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) instructions[].variables</pre>
+							</td>
+							<td>
+								<pre>
+									(object)
+									activateInstructions[].variableInstructions
+									<br />
+									(object)
+									terminateInstructions[].variableInstructions
+								</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string) instructions[].activityId
+									<br />
+									(string) instructions[].transitionId
+								</pre>
+							</td>
+							<td>
+								<pre>
+									(object) activateInstructions[].elementId
+									<br />
+									(object) terminateInstructions[].elementId
+								</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string)
+									instructions[].ancestorActivityInstanceId
+								</pre>
+							</td>
+							<td>
+								<pre>
+									(object)
+									activateInstructions[].ancestorElementInstanceKey
+									<br />
+									(object)
+									terminateInstructions[].ancestorElementInstanceKey
+								</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(string) instructions[].activityInstanceId
+									<br />
+									(string) instructions[].transitionInstanceId
+								</pre>
+							</td>
+							<td>
+								<p>
+									In Camunda 8.8, the element is targeted via
+									the <code>elementId</code>.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) skipCustomListeners
+									<br />
+									(boolean) skipIoMappings
+								</pre>
+							</td>
+							<td>
+								<p>Not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) annotation</pre>
+							</td>
+							<td>
+								<p>
+									Not possible in Camunda 8.8. A integer
+									operationReference can be added to the
+									request.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/modification-async",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/{processInstanceKey}/modification",
+			operation: "post",
+		},
+		explanation: (
+			<p>
+				See <code>Modify Process Instance Execution State</code>{" "}
+				endpoint for details.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/suspended",
+			operation: "put",
+		},
+		target: {},
+		explanation:
+			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables",
+			operation: "get",
+		},
+		target: {
+			path: "/variables/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processInstanceKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(boolean) deserializeValues</pre>
+							</td>
+							<td>
+								<p>Not applicable, only JSON in Camunda 8.</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables",
+			operation: "post",
+		},
+		target: {
+			path: "/element-instances/{elementInstanceKey}/variables",
+			operation: "put",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) elementInstanceKey</pre>
+								<p>
+									The <code>elementInstanceKey</code> can be
+									the processInstanceKey that corresponds to{" "}
+									<code>id</code>.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object[]) modifications</pre>
+							</td>
+							<td>
+								<pre>(object[]) variables</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string[]) deletions</pre>
+							</td>
+							<td>
+								<p>
+									It is not possible to delete variables in
+									Camunda 8.8. But you can set them to null or
+									an empty string.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables/{varName}",
+			operation: "delete",
+		},
+		target: {},
+		explanation: (
+			<p>
+				In Camunda 8.8, there is no endpoint to delete a process
+				variable. You can update a variable to null or an empty string
+				using the <code>PUT Update element instance variables</code>{" "}
+				endpoint.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables/{varName}",
+			operation: "get",
+		},
+		target: {
+			path: "/variables/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) processInstanceKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) varName</pre>
+							</td>
+							<td>
+								<pre>(string) name</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(boolean) deserializeValues</pre>
+							</td>
+							<td>
+								<p>Not applicable, only JSON in Camunda 8.</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables/{varName}",
+			operation: "put",
+		},
+		target: {
+			path: "/element-instances/{elementInstanceKey}/variables",
+			operation: "put",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) elementInstanceKey</pre>
+								<p>
+									In Camunda 8.8, variables can be updated for
+									one particular scope. This can be a process
+									instance. In this case the{" "}
+									<code>elementInstanceKey</code> is the
+									processInstanceKey.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) varName</pre>
+							</td>
+							<td>
+								<p>
+									Set the <code>varName</code> as one of the
+									variables to update.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables/{varName}/data",
+			operation: "get",
+		},
+		target: {
+			path: "/documents/{documentId}",
+			operation: "get",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) varName</pre>
+							</td>
+							<td>
+								<pre>(string) documentId</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<p>
+									In Camunda 8.8, a document is uploaded to a
+									store in AWS or GCP, not to a specific
+									process instance. In the future, there might
+									be multiple potential stores to upload a
+									document to via the <code>storeId</code>.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/{id}/variables/{varName}/data",
+			operation: "post",
+		},
+		target: {
+			path: "/documents",
+			operation: "post",
+		},
+
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) varName</pre>
+							</td>
+							<td>
+								<pre>(string) documentId</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(binary) data</pre>
+							</td>
+							<td>
+								<pre>(binary) file</pre>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) valueType</pre>
+							</td>
+							<td>
+								<pre>(string) metadata.contentType</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<p>
+									In Camunda 8.8, a document is uploaded to a
+									store in AWS or GCP, not to a specific
+									process instance. In the future, there might
+									be multiple potential stores to upload a
+									document to via the <code>storeId</code>.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
 ];

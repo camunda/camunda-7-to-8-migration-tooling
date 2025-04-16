@@ -12,7 +12,7 @@ function App() {
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
 	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
-	const [sortAlphabetically, setSortAlphabetically] = useState(true);
+	const [sortAlphabetically, setSortAlphabetically] = useState(false);
 	const [scrollPosition, setScrollPosition] = useState(0);
 	const sectionRefs = useRef([]);
 	const refScrollUp = useRef();
