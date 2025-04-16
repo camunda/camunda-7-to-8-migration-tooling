@@ -13,8 +13,8 @@ export const process_instance_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Filters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -99,6 +99,10 @@ export const process_instance_7_23_to_8_8 = [
 							</td>
 							<td>
 								<pre>(string*) state</pre>
+								<p>
+									<code>suspended</code> is not applicable to
+									Camunda 8.8.
+								</p>
 							</td>
 						</tr>
 						<tr>
@@ -150,11 +154,11 @@ export const process_instance_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
-				<div>
+				<p>
 					Asterisks signify that an advanced filter can be applied,
 					similar to a unit test (
 					<code>$eq, $neq, $in, $like with wildcards,...</code>).
-				</div>
+				</p>
 			</>
 		),
 		notPossible: (
@@ -162,7 +166,7 @@ export const process_instance_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Filters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -262,6 +266,361 @@ export const process_instance_7_23_to_8_8 = [
 						</tr>
 					</tbody>
 				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/search",
+			operation: "post",
+		},
+		explanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/count",
+			operation: "get",
+		},
+		target: {
+			path: "/process-instances/search",
+			operation: "post",
+		},
+		explanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/count",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/search",
+			operation: "post",
+		},
+		explanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/delete",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/batch-operations/cancellation",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string[]) processInstanceIds</pre>
+							</td>
+							<td>
+								<pre>(string*) processDefinitionKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					Asterisks signify that an advanced filter can be applied,
+					similar to a unit test (
+					<code>$eq, $neq, $in, $like with wildcards,...</code>).
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) deleteReason</pre>
+							</td>
+							<td>
+								<p>
+									It is not possible to add a delete reason in
+									Camunda 8.8.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) skipCustomListeners</pre>
+							</td>
+							<td>
+								<p>
+									Not possible in Camunda 8.8. It's not
+									possible to skip execution listeners for
+									activities ended as part of this request.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) skipSubprocesses</pre>
+							</td>
+							<td>
+								<p>
+									Subprocesses are not automatically deleted
+									by this request.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) skipIoMappings</pre>
+							</td>
+							<td>
+								<p>
+									Not possible in Camunda 8.8. It's not
+									possible to skip input/output mappings for
+									activities ended as part of this request.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) processInstanceQuery</pre>
+							</td>
+							<td>
+								<p>See Get List endpoint for details.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(object) historicProcessInstanceQuery</pre>
+							</td>
+							<td>
+								<p>
+									See{" "}
+									<strong>
+										Delete Async Historic Query Based (POST)
+									</strong>{" "}
+									for details.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/process-instance/delete-historic-query-based",
+			operation: "post",
+		},
+		target: {
+			path: "/process-instances/batch-operations/cancellation",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(dateTime) startedBefore
+									<br />
+									(dateTime) startedAfter
+									<br />
+									(dateTime) finishedBefore
+									<br />
+									(dateTime) finishedAfter
+								</pre>
+							</td>
+							<td>
+								<pre>
+									(dateTime*) startDate
+									<br />
+									(dateTime*) endDate
+								</pre>
+								<p>
+									Use advanced filters on startDate and
+									endDate.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) active
+									<br />
+									(boolean) suspended
+									<br />
+									(boolean) completed
+								</pre>
+							</td>
+							<td>
+								<pre>(object*) state</pre>
+								<p>
+									<code>suspended</code> is not applicable to
+									Camunda 8.8.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					Asterisks signify that an advanced filter can be applied,
+					similar to a unit test (
+					<code>$eq, $neq, $in, $like with wildcards,...</code>).
+				</p>
+				<p>
+					See Get List endpoint for details on most fields of the
+					historicProcessInstanceQuery.
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>
+									(boolean) finished
+									<br />
+									(boolean) unfinished
+								</pre>
+							</td>
+							<td>
+								<p>
+									These flags specify if a process instance
+									has been completed or terminated regularly,
+									or has been canceled by other means. This
+									differentiation does not exist in Camunda
+									8.8.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(boolean) withRootIncidents</pre>
+							</td>
+							<td>
+								<p>Not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string[]) incidentIdIn
+									<br />
+									(string) incidentType
+									<br />
+									(string) incidentStatus
+								</pre>
+							</td>
+							<td>
+								<p>Not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(dateTime) executedActivityAfter
+									<br />
+									(dateTime) executedActivityBefore
+									<br />
+									(dateTime) executedJobAfter
+									<br />
+									(dateTime) executedJobBefore
+								</pre>
+							</td>
+							<td>
+								<p>
+									These filters are not available in Camunda
+									8.8.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) startedBy</pre>
+							</td>
+							<td>
+								<p>This is not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(string[]) executedActivityIdIn
+									<br />
+									(string[]) activeActivityIdIn
+								</pre>
+							</td>
+							<td>
+								<p>This is not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>
+									(boolean) externallyTerminated
+									<br />
+									(boolean) internallyTerminated
+								</pre>
+							</td>
+							<td>
+								<p>This is not possible in Camunda 8.8.</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					Asterisks signify that an advanced filter can be applied,
+					similar to a unit test (
+					<code>$eq, $neq, $in, $like with wildcards,...</code>).
+				</p>
 			</>
 		),
 	},

@@ -8,7 +8,7 @@ export const historic_incident_7_23_to_8_8 = [
 	// 		path: "/authorizations/search",
 	// 		operation: "post",
 	// 	},
-	// 	direct: (
+	// 	explanation: (
 	// 		<div>
 	// 			<div>
 	// 				Mapping of C7 endpoint parameters to C8 endpoint request

@@ -1,15 +1,11 @@
 .c7EndpointColumn {
-	width: 15%;
+	width: 20%;
 }
 
 .c8EndpointColumn {
 	width: 15%;
 }
 
-.directColumn {
-	width: 35%;
-}
-
-.notPossibleColumn {
-	width: 35%;
+.explanationColumn {
+	width: 65%;
 }

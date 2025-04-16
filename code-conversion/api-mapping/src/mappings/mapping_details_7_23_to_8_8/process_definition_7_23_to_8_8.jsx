@@ -13,8 +13,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Filters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -141,7 +141,7 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Filters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -254,8 +254,7 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		direct: "See Get List endpoint.",
-		notPossible: "",
+		explanation: "See Get List endpoint.",
 	},
 	{
 		origin: {
@@ -266,13 +265,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameter</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -334,8 +332,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -357,7 +355,6 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
-		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -368,13 +365,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -407,8 +403,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Not available in Camunda 8.8.",
+		explanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -416,8 +411,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -425,8 +419,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -435,8 +428,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -452,8 +444,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Fields</th>
-							<th>Camunda 8 Fields</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -518,7 +510,7 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Fields</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -566,13 +558,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -608,13 +599,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
 			operation: "post",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -686,8 +676,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Parameters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -721,7 +711,7 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -748,8 +738,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -761,8 +750,8 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		direct: "See Delete By Key endpoint. Deletion of resource is not tenant-specific in Camunda 8.8.",
-		notPossible: "",
+		explanation:
+			"See Delete By Key endpoint. Deletion of resource is not tenant-specific in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -778,8 +767,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -809,7 +798,6 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
-		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -820,13 +808,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -871,8 +858,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Not available in Camunda 8.8.",
+		explanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -880,8 +866,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -889,8 +874,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -899,8 +883,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -916,8 +899,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Fields</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -957,13 +940,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -1016,8 +998,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Filter</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1060,8 +1042,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Parameters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1094,8 +1076,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1107,13 +1088,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/xml",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -1160,13 +1140,12 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/xml",
 			operation: "get",
 		},
-		direct: "Only not possible/applicable mappings.",
 		notPossible: (
 			<>
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -1198,8 +1177,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"There is on endpoint to group process instance statistics by process definition in Camunda 8.8. Statistics can be grouped by flow nodes, see Get Activity Instance Statistics.",
 	},
 	{
@@ -1208,8 +1186,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1226,8 +1203,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Parameters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1248,7 +1225,7 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameter</th>
+							<th>Camunda 7</th>
 							<th>Explanation</th>
 						</tr>
 					</thead>
@@ -1296,8 +1273,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1319,7 +1296,6 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
-		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -1335,8 +1311,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Camunda 8 Filters</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1358,7 +1334,6 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
-		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -1366,8 +1341,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Not available in Camunda 8.8.",
+		explanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -1375,8 +1349,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1384,8 +1357,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -1394,8 +1366,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1403,8 +1374,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
@@ -1413,8 +1383,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
@@ -1431,8 +1400,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Fields</th>
-							<th>Camunda 8 Fields</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1482,8 +1451,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Explanation</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1505,7 +1474,6 @@ export const process_definition_7_23_to_8_8 = [
 				</table>
 			</>
 		),
-		notPossible: "Only direct mappings.",
 	},
 	{
 		origin: {
@@ -1513,8 +1481,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Not possible in Camunda 8.8.",
+		explanation: "Not possible in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -1530,8 +1497,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Explanation</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1572,8 +1539,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		direct: "",
-		notPossible: "Redundant in Camunda 8: no Generated Task Form approach.",
+		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1581,8 +1547,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		direct: "",
-		notPossible:
+		explanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1599,8 +1564,8 @@ export const process_definition_7_23_to_8_8 = [
 				<table>
 					<thead>
 						<tr>
-							<th>Camunda 7 Parameters</th>
-							<th>Explanation</th>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
 						</tr>
 					</thead>
 					<tbody>

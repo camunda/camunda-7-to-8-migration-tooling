@@ -8,11 +8,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -21,7 +21,7 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		direct: "Redundant.",
+		explanation: "Redundant.",
 	},
 	{
 		origin: {
@@ -32,12 +32,12 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authentication/me",
 			operation: "get",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				Instead of receiving an <code>authorized</code> boolean for a
 				specific check, a list of <code>authorizedApplications</code>{" "}
 				can be retrieved for the authenticated user.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -49,11 +49,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -65,8 +65,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations",
 			operation: "post",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -74,7 +74,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -86,8 +86,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "delete",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -95,7 +95,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -107,11 +107,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</div>
+			</p>
 		),
 	},
 	{
@@ -120,7 +120,7 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		direct: "Redundant.",
+		explanation: "Redundant.",
 	},
 	{
 		origin: {
@@ -131,8 +131,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "put",
 		},
-		direct: (
-			<div>
+		explanation: (
+			<p>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -140,7 +140,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</div>
+			</p>
 		),
 	},
 ];

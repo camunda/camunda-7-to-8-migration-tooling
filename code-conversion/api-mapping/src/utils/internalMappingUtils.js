@@ -115,6 +115,7 @@ export function createMappedC7Endpoints(
 									),
 									direct: mappingInfo?.direct,
 									notPossible: mappingInfo?.notPossible,
+									explanation: mappingInfo?.explanation,
 								};
 							})
 							.filter(
