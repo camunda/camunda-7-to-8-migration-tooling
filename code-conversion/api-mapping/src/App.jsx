@@ -12,6 +12,7 @@ function App() {
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
 	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
+	const [sortAlphabetically, setSortAlphabetically] = useState(true);
 	const [scrollPosition, setScrollPosition] = useState(0);
 	const sectionRefs = useRef([]);
 	const refScrollUp = useRef();
@@ -48,7 +49,8 @@ function App() {
 		selectedMapping,
 		selectedMethod,
 		searchText,
-		hideTBDEndpoints
+		hideTBDEndpoints,
+		sortAlphabetically
 	);
 
 	return (
@@ -70,6 +72,8 @@ function App() {
 					setSearchText={setSearchText}
 					hideTBDEndpoints={hideTBDEndpoints}
 					setHideTBDEndpoints={setHideTBDEndpoints}
+					sortAlphabetically={sortAlphabetically}
+					setSortAlphabetically={setSortAlphabetically}
 					displayedSections={mappedC7Endpoints.map(
 						(section) => section.section
 					)}

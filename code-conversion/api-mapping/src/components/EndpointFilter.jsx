@@ -7,6 +7,8 @@ export function EndpointFilter({
 	setSearchText,
 	hideTBDEndpoints,
 	setHideTBDEndpoints,
+	sortAlphabetically,
+	setSortAlphabetically,
 	displayedSections,
 	scrollToSection,
 }) {
@@ -36,6 +38,16 @@ export function EndpointFilter({
 							value={searchText}
 							onChange={(e) => setSearchText(e.target.value)}
 						></input>
+					</label>
+					<label>
+						Sort alphabetically:{" "}
+						<input
+							type="checkbox"
+							checked={sortAlphabetically}
+							onChange={() =>
+								setSortAlphabetically(!sortAlphabetically)
+							}
+						/>
 					</label>
 					<label>
 						Jump to section:{" "}

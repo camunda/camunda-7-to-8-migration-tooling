@@ -51,7 +51,8 @@ export function createMappedC7Endpoints(
 	selectedMapping,
 	selectedMethod,
 	searchText,
-	hideTBDEndpoints
+	hideTBDEndpoints,
+	sortAlphabetically
 ) {
 	const sections = selectedMapping.c7_specification.tags.map(
 		(tag) => tag.name
@@ -119,13 +120,38 @@ export function createMappedC7Endpoints(
 								};
 							})
 							.filter(
-								(e) =>
+								(endpoint) =>
 									!hideTBDEndpoints ||
-									e?.direct !== undefined ||
-									e?.notPossible !== undefined
+									endpoint?.direct !== undefined ||
+									endpoint?.notPossible !== undefined ||
+									endpoint?.explanation !== undefined
 							)
 					)
-					.flat(),
+					.flat()
+					.sort((a, b) => {
+						console.log(a?.c7Info?.details?.summary);
+						console.log(b?.c7Info?.details?.summary);
+						if (!sortAlphabetically) {
+							return 0;
+						}
+						if (
+							a?.c7Info?.details?.summary <
+							b?.c7Info?.details?.summary
+						) {
+							return -1;
+						} else if (
+							a?.c7Info?.details?.summary >
+							b?.c7Info?.details?.summary
+						) {
+							return 1;
+						} else if (a?.c7Info?.path.includes("tenant-id")) {
+							return 1;
+						} else if (b?.c7Info?.path.includes("tenant-id")) {
+							return -1;
+						} else {
+							return 0;
+						}
+					}),
 			};
 		})
 		.filter(
@@ -134,7 +160,8 @@ export function createMappedC7Endpoints(
 				section.endpoints.some(
 					(endpoint) =>
 						endpoint?.direct !== undefined ||
-						endpoint?.notPossible !== undefined
+						endpoint?.notPossible !== undefined ||
+						endpoint?.explanation !== undefined
 				)
 		);
 }
