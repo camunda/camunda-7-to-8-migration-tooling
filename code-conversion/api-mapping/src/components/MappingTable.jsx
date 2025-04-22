@@ -65,14 +65,14 @@ export function MappingTable({ endpoint }) {
 												endpointInfo={endpoint.c8Info}
 											/>
 										) : endpoint.explanation ? (
-											<p>no suitable mapping</p>
+											<div>no suitable mapping</div>
 										) : (
-											<p>to be defined</p>
+											<div>to be defined</div>
 										)}
 									</td>
 									<td colSpan="2">
 										{endpoint.explanation || (
-											<p>to be defined</p>
+											<div>to be defined</div>
 										)}
 									</td>
 								</tr>

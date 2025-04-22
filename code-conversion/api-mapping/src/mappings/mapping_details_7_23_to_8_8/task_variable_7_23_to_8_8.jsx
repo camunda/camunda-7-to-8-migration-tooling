@@ -1,104 +1,245 @@
 export const task_variable_7_23_to_8_8 = [
-	// {
-	// 	origin: {
-	// 		path: "/authorization",
-	// 		operation: "get",
-	// 	},
-	// 	target: {
-	// 		path: "/authorizations/search",
-	// 		operation: "post",
-	// 	},
-	// 	explanation: (
-	// 		<div>
-	// 			<div>
-	// 				Mapping of C7 endpoint parameters to C8 endpoint request
-	// 				body fields:
-	// 			</div>
-	// 			<table>
-	// 				<thead>
-	// 					<tr>
-	// 						<th>C7 Parameter</th>
-	// 						<th>C8 Field</th>
-	// 					</tr>
-	// 				</thead>
-	// 				<tbody>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string) id
-	// 								<br />
-	// 								(integer) type
-	// 								<br />
-	// 								(integer) resourceType
-	// 								<br />
-	// 								(string) resourceId
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(string) filter.ownerId
-	// 								<br />
-	// 								(enum) filter.ownerType
-	// 								<br />
-	// 								(string[]) filter.resourceIds
-	// 								<br />
-	// 								(enum) filter.resourceType
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string[]) userIdIn
-	// 								<br />
-	// 								(string[]) groupIdIn
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							Replaced by a combination of{" "}
-	// 							<code>resourceIds</code> and{" "}
-	// 							<code>resourceType</code>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sortBy
-	// 								<br />
-	// 								(string) sortOrder
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sort[].field
-	// 								<br />
-	// 								(enum) sort[].order
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) firstResult
-	// 								<br />
-	// 								(integer) maxResults
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) page.from
-	// 								<br />
-	// 								(integer) page.limit
-	// 								<br />
-	// 								(object[]) page.searchAfter
-	// 								<br />
-	// 								(object[]) page.searchBefore
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 				</tbody>
-	// 			</table>
-	// 		</div>
-	// 	),
-	// },
+	{
+		origin: {
+			path: "/task/{id}/variables",
+			operation: "get",
+		},
+		target: {
+			path: "/user-tasks/{userTaskKey}/variables/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) userTaskKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					This endpoint returns all variables visible from the user
+					task. The scope of each variable is provided by the field{" "}
+					<code>scopeKey</code>.
+				</p>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables",
+			operation: "post",
+		},
+		target: {
+			path: "/element-instances/{elementInstanceKey}/variables",
+			operation: "put",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(object[]) modificaitons</pre>
+							</td>
+							<td>
+								<pre>(object[]) variables</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					Set the boolean <code>local</code> to <code>false</code> to
+					merge the variables into all parent scopes or until the
+					variable is defined as a local variable.
+				</p>
+			</>
+		),
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) elementInstanceKey</pre>
+								<p>
+									The <code>elementInstanceKey</code> is not
+									the <code>userTaskKey</code>. You can get
+									the <code>elementInstanceKey</code> of the
+									user task by retrieving the user task via
+									the <code>GET Get user task</code> endpoint.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string[]) deletions</pre>
+							</td>
+							<td>
+								<p>
+									It is not possible to delete process
+									variables in Camunda 8.8.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables/{varName}",
+			operation: "delete",
+		},
+		target: {},
+		explanation:
+			"In Camunda 8.8, there is no endpoint to delete a process variables. You can update it to null or an empty string.",
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables/{varName}",
+			operation: "get",
+		},
+		target: {
+			path: "/user-tasks/{userTaskKey}/variables/search",
+			operation: "post",
+		},
+		direct: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Camunda 8</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) userTaskKey</pre>
+								<p>
+									See{" "}
+									<a href="#key-to-id">
+										Camunda 7 key → Camunda 8 id
+									</a>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<pre>(string) varName</pre>
+							</td>
+							<td>
+								<pre>(string) name</pre>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+				<p>
+					This endpoint returns all variables visible from the user
+					task. The scope of each variable is provided by the field{" "}
+					<code>scopeKey</code>.
+				</p>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables/{varName}",
+			operation: "put",
+		},
+		target: {
+			path: "/element-instances/{elementInstanceKey}/variables",
+			operation: "put",
+		},
+		notPossible: (
+			<>
+				<table>
+					<thead>
+						<tr>
+							<th>Camunda 7</th>
+							<th>Explanation</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>
+								<pre>(string) id</pre>
+							</td>
+							<td>
+								<pre>(string) elementInstanceKey</pre>
+								<p>
+									The <code>elementInstanceKey</code> is not
+									the <code>userTaskKey</code>. You can get
+									the <code>elementInstanceKey</code> of the
+									user task by retrieving the user task via
+									the <code>GET Get user task</code> endpoint.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</>
+		),
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables/{varName}/data",
+			operation: "get",
+		},
+		target: {
+			path: "/documents/{documentId}",
+			operation: "get",
+		},
+		explanation:
+			"In Camunda 8.8, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+	},
+	{
+		origin: {
+			path: "/task/{id}/variables/{varName}/data",
+			operation: "post",
+		},
+		target: {
+			path: "/documents",
+			operation: "post",
+		},
+		explanation:
+			"In Camunda 8.8, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+	},
 ];

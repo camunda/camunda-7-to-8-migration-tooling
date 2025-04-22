@@ -14,10 +14,9 @@ export function EndpointInfo({ endpointInfo }) {
 				Link to docs
 			</a>
 			<br />
-			<br />
-			<div className={styles.description}>
+			<pre className={styles.description}>
 				{endpointInfo.details?.description}
-			</div>
+			</pre>
 		</>
 	);
 }
