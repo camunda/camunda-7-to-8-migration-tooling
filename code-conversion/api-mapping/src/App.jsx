@@ -78,6 +78,7 @@ function App() {
 						(section) => section.section
 					)}
 					scrollToSection={scrollToSection}
+					scrollPosition={scrollPosition}
 				/>
 				<Tables
 					sectionRefs={sectionRefs}

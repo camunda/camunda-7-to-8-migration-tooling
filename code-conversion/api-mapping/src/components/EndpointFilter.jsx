@@ -1,4 +1,4 @@
-import styles from "./filter.module.css";
+import styles from "./endpointfilter.module.css";
 
 export function EndpointFilter({
 	selectedMethod,
@@ -11,6 +11,7 @@ export function EndpointFilter({
 	setSortAlphabetically,
 	displayedSections,
 	scrollToSection,
+	scrollPosition,
 }) {
 	return (
 		<section className={styles.filterContainer}>
@@ -52,8 +53,10 @@ export function EndpointFilter({
 					<label>
 						Jump to section:{" "}
 						<select
+							key={scrollPosition}
 							className={styles.filterBySection}
 							onChange={(e) => scrollToSection(e.target.value)}
+							defaultValue={displayedSections[0]}
 						>
 							{displayedSections.map((section, index) => {
 								return (

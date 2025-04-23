@@ -1,104 +1,161 @@
 export const job_7_23_to_8_8 = [
 	// {
 	// 	origin: {
-	// 		path: "/authorization",
+	// 		path: "/job",
 	// 		operation: "get",
 	// 	},
-	// 	target: {
-	// 		path: "/authorizations/search",
+	// 	target: {},
+	// 	explanation:
+	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job",
 	// 		operation: "post",
 	// 	},
-	// 	explanation: (
-	// 		<div>
-	// 			<div>
-	// 				Mapping of C7 endpoint parameters to C8 endpoint request
-	// 				body fields:
-	// 			</div>
+	// 	target: {},
+	// 	explanation:
+	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/count",
+	// 		operation: "get",
+	// 	},
+	// 	target: {},
+	// 	explanation:
+	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/count",
+	// 		operation: "post",
+	// 	},
+	// 	target: {},
+	// 	explanation:
+	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/retries",
+	// 		operation: "post",
+	// 	},
+	// 	target: {
+	// 		path: "/jobs/{jobKey}",
+	// 		operation: "patch",
+	// 	},
+	// 	direct: (
+	// 		<>
 	// 			<table>
 	// 				<thead>
 	// 					<tr>
-	// 						<th>C7 Parameter</th>
-	// 						<th>C8 Field</th>
+	// 						<th>Camunda 7</th>
+	// 						<th>Camunda 8</th>
 	// 					</tr>
 	// 				</thead>
 	// 				<tbody>
 	// 					<tr>
 	// 						<td>
-	// 							<pre>
-	// 								(string) id
-	// 								<br />
-	// 								(integer) type
-	// 								<br />
-	// 								(integer) resourceType
-	// 								<br />
-	// 								(string) resourceId
-	// 							</pre>
+	// 							<pre>(string[]) jobIds</pre>
 	// 						</td>
 	// 						<td>
-	// 							<pre>
-	// 								(string) filter.ownerId
-	// 								<br />
-	// 								(enum) filter.ownerType
-	// 								<br />
-	// 								(string[]) filter.resourceIds
-	// 								<br />
-	// 								(enum) filter.resourceType
-	// 							</pre>
+	// 							<pre>(string) jobKey</pre>{" "}
+	// 							<p>
+	// 								See{" "}
+	// 								<a href="#key-to-id">
+	// 									Camunda 7 key → Camunda 8 id
+	// 								</a>
+	// 							</p>
 	// 						</td>
 	// 					</tr>
 	// 					<tr>
 	// 						<td>
-	// 							<pre>
-	// 								(string[]) userIdIn
-	// 								<br />
-	// 								(string[]) groupIdIn
-	// 							</pre>
+	// 							<pre>(integer) retries</pre>
 	// 						</td>
 	// 						<td>
-	// 							Replaced by a combination of{" "}
-	// 							<code>resourceIds</code> and{" "}
-	// 							<code>resourceType</code>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sortBy
-	// 								<br />
-	// 								(string) sortOrder
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sort[].field
-	// 								<br />
-	// 								(enum) sort[].order
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) firstResult
-	// 								<br />
-	// 								(integer) maxResults
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) page.from
-	// 								<br />
-	// 								(integer) page.limit
-	// 								<br />
-	// 								(object[]) page.searchAfter
-	// 								<br />
-	// 								(object[]) page.searchBefore
-	// 							</pre>
+	// 							<pre>(int32) changeset.retries</pre>{" "}
 	// 						</td>
 	// 					</tr>
 	// 				</tbody>
 	// 			</table>
-	// 		</div>
+	// 			<p>In Camunda 8.8, jobs are patched one at a time.</p>
+	// 		</>
 	// 	),
+	// 	notPossible: (
+	// 		<>
+	// 			<table>
+	// 				<thead>
+	// 					<tr>
+	// 						<th>Camunda 7</th>
+	// 						<th>Explanation</th>
+	// 					</tr>
+	// 				</thead>
+	// 				<tbody>
+	// 					<tr>
+	// 						<td>
+	// 							<pre>(object) jobQuery</pre>
+	// 						</td>
+	// 						<td>
+	// 							<p>
+	// 								In Camunda 8.8, jobs are patched one at a
+	// 								time. Thus, it is not possible to define a
+	// 								set of jobs with a jobQuery.
+	// 							</p>
+	// 						</td>
+	// 					</tr>
+	// 					<tr>
+	// 						<td>
+	// 							<pre>(dateTime) dueDate</pre>
+	// 						</td>
+	// 						<td>
+	// 							<p>Not applicable in Camunda 8.</p>
+	// 						</td>
+	// 					</tr>
+	// 				</tbody>
+	// 			</table>
+	// 		</>
+	// 	),
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/suspended",
+	// 		operation: "put",
+	// 	},
+	// 	target: {},
+	// 	explanation:
+	// 		"Not possible in Camunda 8.8. Activating/suspending a process instance is on the roadmap of Camunda 8.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/{id}",
+	// 		operation: "delete",
+	// 	},
+	// 	target: {},
+	// 	explanation: "It is not possible to delete a job in Camunda 8.8.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/{id}",
+	// 		operation: "get",
+	// 	},
+	// 	target: {},
+	// 	explanation:
+	// 		"In Camunda 8.8, there is no endpoint to get a specific job by id. Instead, a specific set of jobs is activated by job type.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/{id}/duedate",
+	// 		operation: "put",
+	// 	},
+	// 	target: {},
+	// 	explanation: "DueDate is not applicable in Camunda 8.",
+	// },
+	// {
+	// 	origin: {
+	// 		path: "/job/{id}/duedate/recalculate",
+	// 		operation: "post",
+	// 	},
+	// 	target: {},
+	// 	explanation: "DueDate is not applicable in Camunda 8.",
 	// },
 ];
