@@ -54,6 +54,14 @@ table {
 	table-layout: fixed;
 }
 
+h2 + table,
+h2 + table > thead > tr,
+h2 + table > thead > tr > th,
+h2 + table > tbody > tr,
+h2 + table > tbody > tr > td {
+	border: 2.5px solid black;
+}
+
 th,
 td {
 	border: 1px solid black;
@@ -85,8 +93,7 @@ button:focus-visible {
 	outline: 4px auto -webkit-focus-ring-color;
 }
 
-code,
-pre {
+code {
 	word-break: break-all;
 	white-space: wrap;
 }

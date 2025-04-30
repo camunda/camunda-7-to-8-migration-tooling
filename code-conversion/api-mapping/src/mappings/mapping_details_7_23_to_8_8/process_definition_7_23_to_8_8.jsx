@@ -8,242 +8,233 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>
-									(string) processDefinitionId
-									<br />
-									(string[]) processDefinitionIdIn
-								</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) name
-									<br />
-									(string) nameLike
-								</pre>
-							</td>
-							<td>
-								<pre>(string) name</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) key
-									<br />
-									(string[]) keysIn
-									<br />
-									(string) keyLike
-								</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionId</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(integer) version
-									<br />
-									(boolean) latestVersion
-									<br />
-									(string) versionTag
-									<br />
-									(string) versionTagLike
-									<br />
-									(boolean) withoutVersionTag
-								</pre>
-							</td>
-							<td>
-								<pre>
-									(integer) version
-									<br />
-									(string) versionTag
-								</pre>
-								<p>
-									In Camunda 8, versions are integers and
-									assigned on deployment. To get the latest
-									version, omit the version filter, but sort
-									by version and select the first item.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) resourceName
-									<br />
-									(string) resourceNameLike
-								</pre>
-							</td>
-							<td>
-								<pre>(string) resourceName</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string[]) tenantIdIn
-									<br />
-									(boolean) withoutTenantId
-									<br />
-									(boolean)
-									includeProcessDefinitionsWithoutTenantId
-								</pre>
-							</td>
-							<td>
-								<pre>(string) tenantId</pre>
-								<p>
-									If multi-tenancy is disabled, all resources
-									are deployed to the tenantId "default".
-									There is no "withoutTenantId" in Camunda 8.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: (
+						<pre>
+							(string) processDefinitionId
+							<br />
+							(string[]) processDefinitionIdIn
+						</pre>
+					),
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) name
+							<br />
+							(string) nameLike
+						</pre>
+					),
+					rightEntry: <pre>(string) name</pre>,
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) key
+							<br />
+							(string[]) keysIn
+							<br />
+							(string) keyLike
+						</pre>
+					),
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionId</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(integer) version
+							<br />
+							(boolean) latestVersion
+							<br />
+							(string) versionTag
+							<br />
+							(string) versionTagLike
+							<br />
+							(boolean) withoutVersionTag
+						</pre>
+					),
+					rightEntry: (
+						<>
+							<pre>
+								(integer) version
+								<br />
+								(string) versionTag
+							</pre>
+							<p>
+								In Camunda 8, versions are integers and assigned
+								on deployment. To get the latest version, omit
+								the version filter, but sort by version and
+								select the first item.
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) resourceName
+							<br />
+							(string) resourceNameLike
+						</pre>
+					),
+					rightEntry: <pre>(string) resourceName</pre>,
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string[]) tenantIdIn
+							<br />
+							(boolean) withoutTenantId
+							<br />
+							(boolean) includeProcessDefinitionsWithoutTenantId
+						</pre>
+					),
+					rightEntry: (
+						<>
+							<pre>(string) tenantId</pre>
+							<p>
+								If multi-tenancy is disabled, all resources are
+								deployed to the tenantId "default". There is no
+								"withoutTenantId" in Camunda 8.
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: (
 				<p>
 					<code>...Like</code> and <code>...In</code> parameters are
 					grouped together with the parameter they relate to.
 				</p>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>
-									(string) deploymentId
-									<br />
-									(date-time) deployedAfter
-									<br />
-									(date-time) deployedAt
-								</pre>
-							</td>
-							<td>
-								<p>
-									While deployments are assigned a
-									deploymentKey, deployments do not represent
-									resources that can be searched for or
-									otherwise used for filtering.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) category
-									<br />
-									(string) categoryLike
-								</pre>
-							</td>
-							<td>
-								<p>
-									The concept of category has not been adopted
-									in Camunda 8.8.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(boolean) active
-									<br />
-									(boolean) suspended
-								</pre>
-							</td>
-							<td>
-								Suspending a process definition is not yet
-								possible in Camunda 8.8.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) incidentId
-									<br />
-									(string) incidentType
-									<br />
-									(string) incidentMessage
-									<br />
-									(string) incidentMessageLike
-								</pre>
-							</td>
-							<td>
-								It is not possible to search for process
-								definitions with specific incident information
-								in Camunda 8.8. But it is possible to search for
-								incidents and filter or sort by process
-								definition id or key.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(string) startableBy
-									<br />
-									(boolean) startablePermissionCheck
-								</pre>
-							</td>
-							<td>
-								Search authorizations with resourceType
-								PROCESS_DEFINITION instead.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(boolean) startableInTasklist
-									<br />
-									(boolean) notStartableInTasklist
-									<br />
-								</pre>
-							</td>
-							<td>
-								All processes a users is allowed to start, can
-								be started from Tasklist.
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+			),
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: (
+						<pre>
+							(string) deploymentId
+							<br />
+							(date-time) deployedAfter
+							<br />
+							(date-time) deployedAt
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							While deployments are assigned a deploymentKey,
+							deployments do not represent resources that can be
+							searched for or otherwise used for filtering.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) category
+							<br />
+							(string) categoryLike
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							The concept of category has not been adopted in
+							Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(boolean) active
+							<br />
+							(boolean) suspended
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Suspending a process definition is not yet possible
+							in Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) incidentId
+							<br />
+							(string) incidentType
+							<br />
+							(string) incidentMessage
+							<br />
+							(string) incidentMessageLike
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							It is not possible to search for process definitions
+							with specific incident information in Camunda 8.8.
+							But it is possible to search for incidents and
+							filter or sort by process definition id or key.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) startableBy
+							<br />
+							(boolean) startablePermissionCheck
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Search authorizations with resourceType
+							PROCESS_DEFINITION instead.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(boolean) startableInTasklist
+							<br />
+							(boolean) notStartableInTasklist
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							All processes a users is allowed to start, can be
+							started from Tasklist.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -254,7 +245,11 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		explanation: "See Get List endpoint.",
+		mappedExplanation: (
+			<p>
+				See <code>GET Get list</code> endpoint.
+			</p>
+		),
 	},
 	{
 		origin: {
@@ -265,58 +260,50 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) resourceKey</pre>
-								<p>
-									In Camunda 8, the resourceKey can be a
-									processDefinitionKey, decisionDefinitionKey
-									or formKey. This does not directly map to
-									the key in Camunda 7.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(boolean) cascade</pre>
-							</td>
-							<td>
-								Deletion is only possible if there are no
-								running process instances. The effect of{" "}
-								<code>cascade</code> always applies in Camunda
-								8.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(boolean) skipCustomListeners
-									<br />
-									(boolean) skipIoMappings
-								</pre>
-							</td>
-							<td>
-								Does not apply if no running process instances
-								are deleted with the resource.
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) resourceKey</pre>
+							<p>
+								In Camunda 8, the resourceKey can be a
+								processDefinitionKey, decisionDefinitionKey or
+								formKey. This does not directly map to the key
+								in Camunda 7.
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) cascade</pre>,
+					rightEntry: (
+						<p>
+							Deletion is only possible if there are no running
+							process instances. The effect of{" "}
+							<code>cascade</code> always applies in Camunda 8.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(boolean) skipCustomListeners
+							<br />
+							(boolean) skipIoMappings
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Does not apply if no running process instances are
+							deleted with the resource.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -327,34 +314,25 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionId</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionId</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -365,37 +343,27 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the start form can be
-									retrieved for a unique processDefinitionKey
-									which does not correspond to the key in
-									Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the start form can be retrieved
+								for a unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -403,7 +371,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not available in Camunda 8.8.",
+		discontinuedExplanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -411,7 +379,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -419,7 +388,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -428,7 +397,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -439,115 +409,88 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionId</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(object) variables</pre>
-							</td>
-							<td>
-								<pre>(object) variables</pre>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(object[]) startInstructions</pre>
-							</td>
-							<td>
-								<pre>(object[]) startInstructions</pre> (only
-								startBeforeElement)
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(boolean) withVariablesInReturn</pre>
-							</td>
-							<td>
-								<pre>
-									(boolean) awaitCompletion
-									<br />
-									(integer) requestTimeout
-								</pre>
-								<p>
-									All processing in Camunda 8 is asynchronous.
-									To receive a synchronous response, you can
-									await completion and specify a request
-									timeout.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionId</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(object) variables</pre>,
+					rightEntry: <pre>(object) variables</pre>,
+				},
+				{
+					leftEntry: <pre>(object[]) startInstructions</pre>,
+					rightEntry: <pre>(object[]) startInstructions</pre>,
+				},
+				{
+					leftEntry: <pre>(boolean) withVariablesInReturn</pre>,
+					rightEntry: (
+						<>
+							<pre>
+								(boolean) awaitCompletion
+								<br />
+								(integer) requestTimeout
+							</pre>
+							<p>
+								All processing in Camunda 8 is asynchronous. To
+								receive a synchronous response, you can await
+								completion and specify a request timeout.
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: (
 				<p>
 					<strong>Different base path!</strong>
 				</p>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) businessKey</pre>
-							</td>
-							<td>
-								Not available in Camunda 8.8. Planned for
-								Camunda 8.9.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) caseInstanceId</pre>
-							</td>
-							<td>No CMMN in Camunda 8.</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(boolean) skipCustomListeners
-									<br />
-									(boolean) skipIoMappings
-								</pre>
-							</td>
-							<td>
-								Not possible in Camunda 8.8. This functionality
-								might be extended alongside the
-								startInstructions functionality.
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+			),
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) businessKey</pre>,
+					rightEntry: (
+						<p>
+							Not available in Camunda 8.8. Planned for Camunda
+							8.9.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(string) caseInstanceId</pre>,
+					rightEntry: <p>No CMMN in Camunda 8.</p>,
+				},
+				{
+					leftEntry: (
+						<pre>
+							(boolean) skipCustomListeners
+							<br />
+							(boolean) skipIoMappings
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Not possible in Camunda 8.8. This functionality
+							might be extended alongside the startInstructions
+							functionality.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -558,37 +501,27 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>{" "}
-								<p>
-									In Camunda 8, the start form can be
-									retrieved for a unique processDefinitionKey
-									which does not correspond to the key in
-									Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the start form can be retrieved
+								for a unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -599,68 +532,49 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
 			operation: "post",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the statistics can be
-									retrieved for a unique processDefinitionKey
-									which does not correspond to the key in
-									Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(boolean) failedJobs</pre>
-							</td>
-							<td>
-								<p>
-									The number of canceled instances of the flow
-									node is always included in the response.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(boolean) incidents</pre>
-							</td>
-							<td>
-								<p>
-									The number of incidents instances for the
-									flow node is always included in the
-									response.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) incidentsForType</pre>
-							</td>
-							<td>
-								<p>Not possible in Camunda 8.8.</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the statistics can be retrieved
+								for a unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) failedJobs</pre>,
+					rightEntry: (
+						<p>
+							The number of canceled instances of the flow node is
+							always included in the response.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) incidents</pre>,
+					rightEntry: (
+						<p>
+							The number of incidents instances for the flow node
+							is always included in the response.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(string) incidentsForType</pre>,
+					rightEntry: <p>Not possible in Camunda 8.8.</p>,
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -671,66 +585,41 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionId</pre>
-								<p>
-									If the processDefinitionId is used, a
-									version can be specified. Alternatively, the
-									unique processDefinitionKey can be used.
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(object) variables</pre>
-							</td>
-							<td>
-								<pre>(object) variables</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) businessKey</pre>
-							</td>
-							<td>
-								<p>
-									No businessKey in Camunda 8.8. Planned for
-									Camunda 8.9.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionId</pre>
+							<p>
+								If the processDefinitionId is used, a version
+								can be specified. Alternatively, the unique
+								processDefinitionKey can be used.
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(object) variables</pre>,
+					rightEntry: <pre>(object) variables</pre>,
+				},
+			],
+			additionalInfo: "",
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) businessKey</pre>,
+					rightEntry: (
+						<p>
+							No businessKey in Camunda 8.8. Planned for Camunda
+							8.9.
+						</p>
+					),
+				},
+			],
+		},
 	},
 	{
 		origin: {
@@ -738,7 +627,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		roadmapExplanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -750,7 +639,7 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		explanation:
+		mappedExplanation:
 			"See Delete By Key endpoint. Deletion of resource is not tenant-specific in Camunda 8.8.",
 	},
 	{
@@ -762,42 +651,28 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionId</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<pre>(string) tenantId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionId</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: <pre>(string) tenantId</pre>,
+				},
+			],
+		},
 	},
 	{
 		origin: {
@@ -808,49 +683,36 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the start form can be
-									retrieved for a unique processDefinitionKey
-									which does not correspond to the key in
-									Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<p>
-									This endpoint is not tenant-specific in
-									Camunda 8.8. The tenantId of the start form
-									can be checked in the response.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the start form can be retrieved
+								for a unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: (
+						<p>
+							This endpoint is not tenant-specific in Camunda 8.8.
+							The tenantId of the start form can be checked in the
+							response.
+						</p>
+					),
+				},
+			],
+		},
 	},
 	{
 		origin: {
@@ -858,7 +720,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not available in Camunda 8.8.",
+		discontinuedExplanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -866,7 +728,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -874,7 +737,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -883,7 +746,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -894,42 +758,36 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<pre>(string) tenantId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: <pre>(string) tenantId</pre>,
+				},
+			],
+			additionalInfo: (
+				<>
+					<p>
+						<strong>Different base path!</strong>
+					</p>
+					<p>
+						For all other fields, see{" "}
+						<strong>Start Instance</strong> endpoint without
+						tenant-id.
+					</p>
+				</>
+			),
+		},
+		discontinued: {
+			rowInfo: [],
+			additionalInfo: (
 				<p>
-					<strong>Different base path!</strong>
+					For other fields, see{" "}
+					<strong>Get Activity Instance Statistics</strong> endpoint
+					without tenant-id.
 				</p>
-				<p>
-					For all other fields, see <strong>Start Instance</strong>{" "}
-					endpoint without tenant-id.
-				</p>
-			</>
-		),
-		notPossible: (
-			<p>
-				For other fields, see{" "}
-				<strong>Get Activity Instance Statistics</strong> endpoint
-				without tenant-id.
-			</p>
-		),
+			),
+		},
 	},
 	{
 		origin: {
@@ -940,49 +798,36 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the start form can be
-									retrieved for a unique processDefinitionKey
-									which does not correspond to the key in
-									Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<p>
-									This endpoint is not tenant-specific in
-									Camunda 8.8. You can check the tenantId in
-									the response.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the start form can be retrieved
+								for a unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: (
+						<p>
+							This endpoint is not tenant-specific in Camunda 8.8.
+							You can check the tenantId in the response.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -993,40 +838,31 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<pre>(string) tenantId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: <pre>(string) tenantId</pre>,
+				},
+			],
+			additionalInfo: (
 				<p>
 					For all other fields, see{" "}
 					<strong>Get Activity Instance Statistics</strong> endpoint
 					without tenant-id.
 				</p>
-			</>
-		),
-		notPossible: (
-			<p>
-				For other fields, see{" "}
-				<strong>Get Activity Instance Statistics</strong> endpoint
-				without tenant-id.
-			</p>
-		),
+			),
+		},
+		discontinued: {
+			rowInfo: [],
+			additionalInfo: (
+				<p>
+					For other fields, see{" "}
+					<strong>Get Activity Instance Statistics</strong> endpoint
+					without tenant-id.
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -1037,38 +873,29 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<pre>(string) tenantId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: <pre>(string) tenantId</pre>,
+				},
+			],
+			additionalInfo: (
 				<p>
 					For all other fields, see <strong>Submit Start Form</strong>{" "}
 					endpoint without tenant-id.
 				</p>
-			</>
-		),
-		notPossible: (
-			<p>
-				For other fields, see <strong>Submit Start Form</strong>{" "}
-				endpoint without tenant-id.
-			</p>
-		),
+			),
+		},
+		discontinued: {
+			rowInfo: [],
+			additionalInfo: (
+				<p>
+					For other fields, see <strong>Submit Start Form</strong>{" "}
+					endpoint without tenant-id.
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -1076,7 +903,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		mappedExplanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1088,48 +915,36 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/xml",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the XML can be retrieved for a
-									unique processDefinitionKey which does not
-									correspond to the key in Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>(string) tenant-id</pre>
-							</td>
-							<td>
-								<p>
-									This endpoint is not tenant-specific in
-									Camunda 8.8. You can check the tenantId in
-									the response.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the XML can be retrieved for a
+								unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) tenant-id</pre>,
+					rightEntry: (
+						<p>
+							This endpoint is not tenant-specific in Camunda 8.8.
+							You can check the tenantId in the response.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1140,36 +955,27 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/xml",
 			operation: "get",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) key</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									In Camunda 8, the XML can be retrieved for a
-									unique processDefinitionKey which does not
-									correspond to the key in Camunda 7. See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) key</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								In Camunda 8, the XML can be retrieved for a
+								unique processDefinitionKey which does not
+								correspond to the key in Camunda 7. See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1177,7 +983,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"There is on endpoint to group process instance statistics by process definition in Camunda 8.8. Statistics can be grouped by flow nodes, see Get Activity Instance Statistics.",
 	},
 	{
@@ -1186,7 +992,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		roadmapExplanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1198,66 +1004,45 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/resources/{resourceKey}/deletion",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) resourceKey</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(boolean) cascade</pre>
-							</td>
-							<td>
-								Deletion is only possible if there are no
-								running process instances. The effect of{" "}
-								<code>cascade</code> always applies in Camunda
-								8.
-							</td>
-						</tr>
-						<tr>
-							<td>
-								<pre>
-									(boolean) skipCustomListeners
-									<br />
-									(boolean) skipIoMappings
-								</pre>
-							</td>
-							<td>
-								Does not apply if no running process instances
-								are deleted with the resource.
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: <pre>(string) resourceKey</pre>,
+				},
+			],
+			additionalInfo: "",
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(boolean) cascade</pre>,
+					rightEntry: (
+						<p>
+							Deletion is only possible if there are no running
+							process instances. The effect of{" "}
+							<code>cascade</code> always applies in Camunda 8.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(boolean) skipCustomListeners
+							<br />
+							(boolean) skipIoMappings
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Does not apply if no running process instances are
+							deleted with the resource.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1268,34 +1053,25 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/search",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1306,34 +1082,25 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1341,7 +1108,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not available in Camunda 8.8.",
+		discontinuedExplanation: "Not available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -1349,7 +1116,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1357,7 +1125,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"Time to live in Camunda 8 is not set in the process definition. Instead, the Camunda 8 applications have specific retention times.",
 	},
 	{
@@ -1366,7 +1134,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1374,7 +1143,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
@@ -1383,7 +1152,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		explanation:
+		discontinuedExplanation:
 			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
@@ -1395,47 +1164,44 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<p>
-					<strong>Different base path!</strong>
-				</p>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: (
+				<>
+					<p>
+						<strong>Different base path!</strong>
+					</p>
+					<p>
+						For other fields, see <strong>Start Instance</strong> by
+						key endpoint.
+					</p>
+				</>
+			),
+		},
+		discontinued: {
+			rowInfo: [],
+			additionalInfo: (
 				<p>
 					For other fields, see <strong>Start Instance</strong> by key
 					endpoint.
 				</p>
-			</>
-		),
-		notPossible: (
-			<p>
-				For other fields, see <strong>Start Instance</strong> by key
-				endpoint.
-			</p>
-		),
+			),
+		},
 	},
 	{
 		origin: {
@@ -1446,34 +1212,25 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/form",
 			operation: "get",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>{" "}
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
@@ -1481,7 +1238,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: "Not possible in Camunda 8.8.",
+		discontinuedExplanation: "Not possible in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -1492,46 +1249,41 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/statistics/flownode-instances",
 			operation: "post",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: (
 				<p>
 					For other fields, see{" "}
 					<strong>Get Activity Instance Statistics</strong> by key
 					endpoint.
 				</p>
-			</>
-		),
-		notPossible: (
-			<p>
-				For other fields, see{" "}
-				<strong>Get Activity Instance Statistics</strong> by key
-				endpoint.
-			</p>
-		),
+			),
+		},
+		discontinued: {
+			rowInfo: [],
+			additionalInfo: (
+				<p>
+					For other fields, see{" "}
+					<strong>Get Activity Instance Statistics</strong> by key
+					endpoint.
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -1539,7 +1291,8 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		explanation: "Redundant in Camunda 8: no Generated Task Form approach.",
+		discontinuedExplanation:
+			"Redundant in Camunda 8: no Generated Task Form approach.",
 	},
 	{
 		origin: {
@@ -1547,7 +1300,7 @@ export const process_definition_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		explanation:
+		roadmapExplanation:
 			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
@@ -1559,34 +1312,24 @@ export const process_definition_7_23_to_8_8 = [
 			path: "/process-definitions/{processDefinitionKey}/xml",
 			operation: "get",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<pre>(string) processDefinitionKey</pre>
-								<p>
-									See{" "}
-									<a href="#key-to-id">
-										Camunda 7 key → Camunda 8 id
-									</a>
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</>
-		),
-		notPossible: "Only direct mappings.",
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 ];

@@ -3054,7 +3054,7 @@ export const c7_23 = {
 					tags: ["Decision Definition"],
 					summary: "Update History Time to Live By Key And Tenant",
 					description:
-						"Updates the latest version of the decision definition for tenant.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties]\n(https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
+						"Updates the latest version of the decision definition for tenant.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties](https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
 					parameters: [
 						{
 							name: "key",
@@ -29335,7 +29335,7 @@ export const c7_23 = {
 				tags: ["Process Definition"],
 				summary: "Update History Time to Live",
 				description:
-					"Updates history time to live for the latest version of the process definition which belongs to no tenant.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties]\n(https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
+					"Updates history time to live for the latest version of the process definition which belongs to no tenant.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties](https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
 				parameters: [
 					{
 						name: "key",
@@ -32252,7 +32252,7 @@ export const c7_23 = {
 				tags: ["Process Definition"],
 				summary: "Update History Time to Live",
 				description:
-					"Updates history time to live for process definition.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties]\n(https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
+					"Updates history time to live for process definition.\nThe field is used within [History cleanup](https://docs.camunda.org/manual/develop/user-guide/process-engine/history/#history-cleanup).\nThe value of the update is mandatory by default and does not allow `null` values. To enable them, please\nset the feature flag `enforceHistoryTimeToLive` to `false`. Read more in [Configuration Properties](https://docs.camunda.org/manual/develop/reference/deployment-descriptors/tags/process-engine#configuration-properties)",
 				parameters: [
 					{
 						name: "id",
@@ -45346,7 +45346,7 @@ export const c7_23 = {
 						format: "date-time",
 						nullable: true,
 						description:
-							"The time the batch execution was started, i.e., at least one batch job has been executed. Default\nformat `yyyy-MM-dd'T'HH:mm:ss.SSSZ`. For further information, please see the [documentation]\n(https://docs.camunda.org/manual/develop/reference/rest/overview/date-format/)",
+							"The time the batch execution was started, i.e., at least one batch job has been executed. Default\nformat `yyyy-MM-dd'T'HH:mm:ss.SSSZ`. For further information, please see the [documentation](https://docs.camunda.org/manual/develop/reference/rest/overview/date-format/)",
 					},
 				},
 			},
@@ -47954,7 +47954,7 @@ export const c7_23 = {
 						format: "date-time",
 						nullable: true,
 						description:
-							"The time the batch execution was started, i.e., at least one batch job has been executed. Default format\n`yyyy-MM-dd'T'HH:mm:ss.SSSZ`. For further information, please see the [documentation]\n(https://docs.camunda.org/manual/develop/reference/rest/overview/date-format/)",
+							"The time the batch execution was started, i.e., at least one batch job has been executed. Default format\n`yyyy-MM-dd'T'HH:mm:ss.SSSZ`. For further information, please see the [documentation](https://docs.camunda.org/manual/develop/reference/rest/overview/date-format/)",
 					},
 					endTime: {
 						type: "string",

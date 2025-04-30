@@ -1,23 +1,31 @@
-.c7EndpointColumn {
-	width: 15%;
+.headers th:first-child {
+	width: 30%;
 }
 
-.c8EndpointColumn {
-	width: 15%;
+.headers th:nth-child(2) {
+	width: 25%;
 }
 
-.explanationColumn {
-	width: 70%;
+.headers th:last-child {
+	width: 45%;
 }
 
-.mappingExists {
-	background-color: rgba(0, 255, 0, 0.08);
+.headers > th {
+	align-content: center;
 }
 
-.noMapping {
-	background-color: rgba(255, 0, 0, 0.08);
+.green {
+	background-color: rgba(0, 255, 0, 0.2);
 }
 
-.notDefined {
-	background-color: rgba(0, 0, 0, 0.08);
+.red {
+	background-color: rgba(255, 0, 0, 0.3);
+}
+
+.grey {
+	background-color: rgba(0, 0, 0, 0.1);
+}
+
+.orange {
+	background-color: rgba(255, 128, 0, 0.4);
 }

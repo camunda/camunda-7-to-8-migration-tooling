@@ -115,22 +115,31 @@ export function createMappedC7Endpoints(
 										mappingInfo?.target?.operation
 									),
 									direct: mappingInfo?.direct,
-									notPossible: mappingInfo?.notPossible,
-									explanation: mappingInfo?.explanation,
+									conceptual: mappingInfo?.conceptual,
+									discontinued: mappingInfo?.discontinued,
+									mappedExplanation:
+										mappingInfo?.mappedExplanation,
+									roadmapExplanation:
+										mappingInfo?.roadmapExplanation,
+									discontinuedExplanation:
+										mappingInfo?.discontinuedExplanation,
 								};
 							})
 							.filter(
 								(endpoint) =>
 									!hideTBDEndpoints ||
 									endpoint?.direct !== undefined ||
-									endpoint?.notPossible !== undefined ||
-									endpoint?.explanation !== undefined
+									endpoint?.conceptual !== undefined ||
+									endpoint?.discontinued !== undefined ||
+									endpoint?.mappedExplanation !== undefined ||
+									endpoint?.roadmapExplanation !==
+										undefined ||
+									endpoint?.discontinuedExplanation !==
+										undefined
 							)
 					)
 					.flat()
 					.sort((a, b) => {
-						console.log(a?.c7Info?.details?.summary);
-						console.log(b?.c7Info?.details?.summary);
 						if (!sortAlphabetically) {
 							return 0;
 						}
@@ -160,8 +169,11 @@ export function createMappedC7Endpoints(
 				section.endpoints.some(
 					(endpoint) =>
 						endpoint?.direct !== undefined ||
-						endpoint?.notPossible !== undefined ||
-						endpoint?.explanation !== undefined
+						endpoint?.conceptual !== undefined ||
+						endpoint?.discontinued !== undefined ||
+						endpoint?.mappedExplanation !== undefined ||
+						endpoint?.roadmapExplanation !== undefined ||
+						endpoint?.discontinuedExplanation !== undefined
 				)
 		);
 }

@@ -1,4 +1,4 @@
-import styles from "./endpointInfo.module.css";
+import Markdown from "react-markdown";
 
 export function EndpointInfo({ endpointInfo }) {
 	return (
@@ -14,9 +14,7 @@ export function EndpointInfo({ endpointInfo }) {
 				Link to docs
 			</a>
 			<br />
-			<pre className={styles.description}>
-				{endpointInfo.details?.description}
-			</pre>
+			<Markdown>{endpointInfo.details?.description}</Markdown>
 		</>
 	);
 }

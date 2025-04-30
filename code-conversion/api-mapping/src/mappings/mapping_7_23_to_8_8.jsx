@@ -13,7 +13,6 @@ export const mapping_7_23_to_8_8 = {
 	c8_specification: c8_8,
 	introduction: (
 		<>
-			<h1>Introduction</h1>
 			<p>
 				The Camunda 7 API and Camunda 8 API share many commonalities
 				because of their similar feature sets. Both APIs handle

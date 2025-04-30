@@ -62,7 +62,10 @@ function App() {
 					})}
 					handleSelectionClick={handleSelectionClick}
 				/>
-				<section>{selectedMapping.introduction}</section>
+				<details className={styles.introduction}>
+					<summary className={styles.summary}>Introduction</summary>
+					{selectedMapping.introduction}
+				</details>
 				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
 				<EndpointFilter

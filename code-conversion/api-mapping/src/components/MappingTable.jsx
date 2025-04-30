@@ -1,85 +1,33 @@
-import { EndpointInfo } from "./EndpointInfo";
 import styles from "./mappingTable.module.css";
+import { MappingTableRows } from "./MappingTableRows";
 
 export function MappingTable({ endpoint }) {
 	return (
 		<table>
 			<thead>
+				<tr className={styles.headers}>
+					<th rowSpan="3">C7 Endpoint Information</th>
+					<th rowSpan="3">C8 Endpoint Information</th>
+					<th className={styles.green}>
+						Mapped Endpoint Explanation or ‡‡ Direct Parameter
+						Mappings
+					</th>
+				</tr>
 				<tr>
-					<th className={styles.c7EndpointColumn}>C7 Endpoint</th>
-					<th className={styles.c8EndpointColumn}>C8 Endpoint</th>
-					<th className={styles.explanationColumn} colSpan="2">
-						Explanation
+					<th className={styles.orange}>
+						On Roadmap Explanation or ‡‡ Conceptual Parameter
+						Mappings
+					</th>
+				</tr>
+				<tr>
+					<th className={styles.red}>
+						Discontinued Endpoint Explanation or ‡‡ Discontinued
+						Parameter Mappings
 					</th>
 				</tr>
 			</thead>
 			<tbody>
-				{endpoint.endpoints.map((endpoint) => {
-					return (
-						<>
-							{endpoint.direct || endpoint.notPossible ? (
-								<tr
-									className={styles.mappingExists}
-									key={
-										endpoint.c7Info.path +
-										endpoint.c7Info.operation
-									}
-								>
-									<td>
-										<EndpointInfo
-											endpointInfo={endpoint.c7Info}
-										/>
-									</td>
-									<td>
-										{endpoint.c8Info ? (
-											<EndpointInfo
-												endpointInfo={endpoint.c8Info}
-											/>
-										) : null}
-									</td>
-									<td>{endpoint.direct}</td>
-									<td>{endpoint.notPossible}</td>
-								</tr>
-							) : (
-								<tr
-									className={
-										endpoint.c8Info
-											? styles.mappingExists
-											: endpoint.explanation
-											? styles.noMapping
-											: styles.notDefined
-									}
-									key={
-										endpoint.c7Info.path +
-										endpoint.c7Info.operation
-									}
-								>
-									<td>
-										<EndpointInfo
-											endpointInfo={endpoint.c7Info}
-										/>
-									</td>
-									<td>
-										{endpoint.c8Info ? (
-											<EndpointInfo
-												endpointInfo={endpoint.c8Info}
-											/>
-										) : endpoint.explanation ? (
-											<div>no suitable mapping</div>
-										) : (
-											<div>to be defined</div>
-										)}
-									</td>
-									<td colSpan="2">
-										{endpoint.explanation || (
-											<div>to be defined</div>
-										)}
-									</td>
-								</tr>
-							)}
-						</>
-					);
-				})}
+				<MappingTableRows endpoint={endpoint} />
 			</tbody>
 		</table>
 	);

@@ -8,7 +8,7 @@ export const migration_7_23_to_8_8 = [
 	// 		path: "/authorizations/search",
 	// 		operation: "post",
 	// 	},
-	// 	explanation: (
+	// 	mappedExplanation: (
 	// 		<div>
 	// 			<div>
 	// 				Mapping of C7 endpoint parameters to C8 endpoint request

@@ -8,11 +8,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -21,7 +21,12 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		explanation: "Redundant.",
+		discontinuedExplanation: (
+			<div>
+				Redundant. The Camunda 8 API does not use <code>OPTIONS</code>{" "}
+				calls.
+			</div>
+		),
 	},
 	{
 		origin: {
@@ -32,12 +37,12 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authentication/me",
 			operation: "get",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				Instead of receiving an <code>authorized</code> boolean for a
 				specific check, a list of <code>authorizedApplications</code>{" "}
 				can be retrieved for the authenticated user.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -49,11 +54,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -65,8 +70,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations",
 			operation: "post",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -74,7 +79,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -86,8 +91,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "delete",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -95,7 +100,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -107,11 +112,11 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/search",
 			operation: "post",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				Replaced by a <code>POST search</code> endpoint. Authorizations
 				are handled via the <strong>Identity</strong> webapp.
-			</p>
+			</div>
 		),
 	},
 	{
@@ -120,7 +125,12 @@ export const authorization_7_23_to_8_8 = [
 			operation: "options",
 		},
 		target: {},
-		explanation: "Redundant.",
+		discontinuedExplanation: (
+			<div>
+				Redundant. The Camunda 8 API does not use <code>OPTIONS</code>{" "}
+				calls.
+			</div>
+		),
 	},
 	{
 		origin: {
@@ -131,8 +141,8 @@ export const authorization_7_23_to_8_8 = [
 			path: "/authorizations/{authorizationKey}",
 			operation: "put",
 		},
-		explanation: (
-			<p>
+		mappedExplanation: (
+			<div>
 				One to one mapping. For more details on authorizations in
 				Camunda 8 check the{" "}
 				<a href="https://docs.camunda.io/docs/8.8/components/identity/authorization/">
@@ -140,7 +150,7 @@ export const authorization_7_23_to_8_8 = [
 				</a>
 				. Authorizations are handled via the <strong>Identity</strong>{" "}
 				webapp.
-			</p>
+			</div>
 		),
 	},
 ];

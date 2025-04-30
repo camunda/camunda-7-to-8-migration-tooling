@@ -5,7 +5,7 @@ export const task_attachment_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: (
+		mappedExplanation: (
 			<>
 				<div>
 					In Camunda 8.8, documents can be uploaded and downloaded via
@@ -38,31 +38,22 @@ export const task_attachment_7_23_to_8_8 = [
 			path: "/documents",
 			operation: "post",
 		},
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<p>
-									In Camunda 8.8, documents are not directly
-									relatable to tasks. There are referened by
-									documentIds which are returned on upload.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<p>
+							In Camunda 8.8, documents are not directly relatable
+							to tasks. They are referenced by{" "}
+							<code>documentIds</code> which are returned on
+							upload.
+						</p>
+					),
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -71,9 +62,9 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -84,27 +75,15 @@ export const task_attachment_7_23_to_8_8 = [
 			path: "/documents/{documentId}",
 			operation: "delete",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) attachmentId</pre>
-							</td>
-							<td>
-								<pre>(string) documentId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) attachmentId</pre>,
+					rightEntry: <pre>(string) documentId</pre>,
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -113,34 +92,25 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<p>
-									In Camunda 8.8, documents are not directly
-									relatable to tasks. There are referened by
-									documentIds which are returned on upload.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+				</p>
+			),
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<p>
+							In Camunda 8.8, documents are not directly relatable
+							to tasks. They are referenced by{" "}
+							<code>documentIds</code> which are returned on
+							upload.
+						</p>
+					),
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -149,9 +119,9 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -162,27 +132,15 @@ export const task_attachment_7_23_to_8_8 = [
 			path: "/documents/{documentId}",
 			operation: "get",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) attachmentId</pre>
-							</td>
-							<td>
-								<pre>(string) documentId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) attachmentId</pre>,
+					rightEntry: <pre>(string) documentId</pre>,
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -191,34 +149,24 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<p>
-									In Camunda 8.8, documents are not directly
-									relatable to tasks. There are referened by
-									documentIds which are returned on upload.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+				</p>
+			),
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<p>
+							In Camunda 8.8, documents are not directly relatable
+							to tasks. They are referenced by documentIds, which
+							are returned on upload.
+						</p>
+					),
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -227,9 +175,9 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
+				</p>
+			),
+		},
 	},
 	{
 		origin: {
@@ -240,27 +188,15 @@ export const task_attachment_7_23_to_8_8 = [
 			path: "/documents/{documentId}",
 			operation: "get",
 		},
-		direct: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Camunda 8</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) attachmentId</pre>
-							</td>
-							<td>
-								<pre>(string) documentId</pre>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) attachmentId</pre>,
+					rightEntry: <pre>(string) documentId</pre>,
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -269,34 +205,24 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
-		notPossible: (
-			<>
-				<table>
-					<thead>
-						<tr>
-							<th>Camunda 7</th>
-							<th>Explanation</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr>
-							<td>
-								<pre>(string) id</pre>
-							</td>
-							<td>
-								<p>
-									In Camunda 8.8, documents are not directly
-									relatable to tasks. There are referened by
-									documentIds which are returned on upload.
-								</p>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-				<div>
+				</p>
+			),
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) id</pre>,
+					rightEntry: (
+						<p>
+							In Camunda 8.8, documents are not directly relatable
+							to tasks. They are referenced by documentIds which
+							are returned on upload.
+						</p>
+					),
+				},
+			],
+			additionalInfo: (
+				<p>
 					For more information, take a look at{" "}
 					<a
 						href="https://docs.camunda.io/docs/8.8/guides/document-handling/"
@@ -305,8 +231,8 @@ export const task_attachment_7_23_to_8_8 = [
 						the docs
 					</a>
 					.
-				</div>
-			</>
-		),
+				</p>
+			),
+		},
 	},
 ];

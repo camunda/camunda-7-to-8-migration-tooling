@@ -5,7 +5,7 @@ export const task_comment_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: (
+		discontinuedExplanation: (
 			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},
@@ -15,7 +15,7 @@ export const task_comment_7_23_to_8_8 = [
 			operation: "post",
 		},
 		target: {},
-		explanation: (
+		discontinuedExplanation: (
 			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},
@@ -25,7 +25,7 @@ export const task_comment_7_23_to_8_8 = [
 			operation: "get",
 		},
 		target: {},
-		explanation: (
+		discontinuedExplanation: (
 			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},

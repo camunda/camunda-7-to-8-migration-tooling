@@ -5,3 +5,12 @@
 	padding-inline: 2rem;
 	overflow-y: scroll;
 }
+
+.introduction {
+	margin-top: 2rem;
+}
+
+.summary {
+	font-size: xx-large;
+	font-weight: 700;
+}

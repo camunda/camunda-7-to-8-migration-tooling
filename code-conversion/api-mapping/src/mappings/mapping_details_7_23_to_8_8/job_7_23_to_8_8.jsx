@@ -5,7 +5,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "get",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
 	// },
 	// {
@@ -14,7 +14,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "post",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
 	// },
 	// {
@@ -23,7 +23,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "get",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
 	// },
 	// {
@@ -32,7 +32,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "post",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"In Camunda 8.8, there is no endpoint to search all jobs. Instead, a specific set of jobs is activated by job type.",
 	// },
 	// {
@@ -81,7 +81,7 @@ export const job_7_23_to_8_8 = [
 	// 			<p>In Camunda 8.8, jobs are patched one at a time.</p>
 	// 		</>
 	// 	),
-	// 	notPossible: (
+	// 	discontinued: (
 	// 		<>
 	// 			<table>
 	// 				<thead>
@@ -122,7 +122,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "put",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"Not possible in Camunda 8.8. Activating/suspending a process instance is on the roadmap of Camunda 8.",
 	// },
 	// {
@@ -131,7 +131,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "delete",
 	// 	},
 	// 	target: {},
-	// 	explanation: "It is not possible to delete a job in Camunda 8.8.",
+	// 	mappedExplanation: "It is not possible to delete a job in Camunda 8.8.",
 	// },
 	// {
 	// 	origin: {
@@ -139,7 +139,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "get",
 	// 	},
 	// 	target: {},
-	// 	explanation:
+	// 	mappedExplanation:
 	// 		"In Camunda 8.8, there is no endpoint to get a specific job by id. Instead, a specific set of jobs is activated by job type.",
 	// },
 	// {
@@ -148,7 +148,7 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "put",
 	// 	},
 	// 	target: {},
-	// 	explanation: "DueDate is not applicable in Camunda 8.",
+	// 	mappedExplanation: "DueDate is not applicable in Camunda 8.",
 	// },
 	// {
 	// 	origin: {
@@ -156,6 +156,6 @@ export const job_7_23_to_8_8 = [
 	// 		operation: "post",
 	// 	},
 	// 	target: {},
-	// 	explanation: "DueDate is not applicable in Camunda 8.",
+	// 	mappedExplanation: "DueDate is not applicable in Camunda 8.",
 	// },
 ];
