@@ -144,6 +144,8 @@ export function createMappedC7Endpoints(
 								(endpoint) =>
 									(!showMappedEndpoints ||
 										endpoint?.direct !== undefined ||
+										endpoint?.conceptual !== undefined ||
+										endpoint?.discontinued !== undefined ||
 										endpoint?.mappedExplanation !==
 											undefined) &&
 									(!showRoadmapEndpoints ||
