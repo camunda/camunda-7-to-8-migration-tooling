@@ -4,7 +4,8 @@
 
 .filters {
 	display: flex;
-	justify-content: space-between;
+	flex-direction: column;
+	gap: 2rem;
 }
 
 .stableFilters {
@@ -16,6 +17,7 @@
 	width: 15rem;
 }
 
-.filterBySection {
-	min-width: 20rem;
+.checkboxFilters {
+	display: flex;
+	flex-direction: column;
 }

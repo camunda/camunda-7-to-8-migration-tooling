@@ -9,13 +9,16 @@ export function EndpointFilter({
 	setHideTBDEndpoints,
 	sortAlphabetically,
 	setSortAlphabetically,
-	displayedSections,
-	scrollToSection,
-	scrollPosition,
+	showMappedEndpoints,
+	setShowMappedEndpoints,
+	showRoadmapEndpoints,
+	setShowRoadmapEndpoints,
+	showDiscontinuedEndpoints,
+	setShowDiscontinuedEndpoints,
 }) {
 	return (
 		<section className={styles.filterContainer}>
-			<h2>Filters</h2>
+			<h2>Filters and Sorting</h2>
 			<div className={styles.filters}>
 				<div className={styles.stableFilters}>
 					<label>
@@ -41,7 +44,7 @@ export function EndpointFilter({
 						></input>
 					</label>
 					<label>
-						Sort alphabetically:{" "}
+						Sort paths alphabetically:{" "}
 						<input
 							type="checkbox"
 							checked={sortAlphabetically}
@@ -50,25 +53,49 @@ export function EndpointFilter({
 							}
 						/>
 					</label>
-					<label>
-						Jump to section:{" "}
-						<select
-							key={scrollPosition}
-							className={styles.filterBySection}
-							onChange={(e) => scrollToSection(e.target.value)}
-							defaultValue={displayedSections[0]}
-						>
-							{displayedSections.map((section, index) => {
-								return (
-									<option key={index} value={index}>
-										{section}
-									</option>
-								);
-							})}
-						</select>
-					</label>
 				</div>
-				<div>
+				<div className={styles.checkboxFilters}>
+					<label>
+						Show only mapped endpoints:{" "}
+						<input
+							type="checkbox"
+							checked={showMappedEndpoints}
+							onChange={() => {
+								setShowMappedEndpoints(!showMappedEndpoints);
+								setShowRoadmapEndpoints(false);
+								setShowDiscontinuedEndpoints(false);
+								setHideTBDEndpoints(true);
+							}}
+						/>
+					</label>
+					<label>
+						Show only on roadmap endpoints :{" "}
+						<input
+							type="checkbox"
+							checked={showRoadmapEndpoints}
+							onChange={() => {
+								setShowMappedEndpoints(false);
+								setShowRoadmapEndpoints(!showRoadmapEndpoints);
+								setShowDiscontinuedEndpoints(false);
+								setHideTBDEndpoints(true);
+							}}
+						/>
+					</label>
+					<label>
+						Show only discontinued endpoints :{" "}
+						<input
+							type="checkbox"
+							checked={showDiscontinuedEndpoints}
+							onChange={() => {
+								setShowMappedEndpoints(false);
+								setShowRoadmapEndpoints(false);
+								setShowDiscontinuedEndpoints(
+									!showDiscontinuedEndpoints
+								);
+								setHideTBDEndpoints(true);
+							}}
+						/>
+					</label>
 					<label>
 						Hide TBD endpoints and sections:{" "}
 						<input

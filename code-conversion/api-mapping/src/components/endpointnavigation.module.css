@@ -1,0 +1,19 @@
+.navigationContainer {
+	width: 100%;
+}
+
+.navigations {
+	display: flex;
+	justify-content: start;
+	gap: 4rem;
+}
+
+.navigations label {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+}
+
+.navigateBySection {
+	min-width: 20rem;
+}

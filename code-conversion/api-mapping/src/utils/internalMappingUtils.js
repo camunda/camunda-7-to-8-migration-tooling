@@ -52,6 +52,9 @@ export function createMappedC7Endpoints(
 	selectedMethod,
 	searchText,
 	hideTBDEndpoints,
+	showMappedEndpoints,
+	showRoadmapEndpoints,
+	showDiscontinuedEndpoints,
 	sortAlphabetically
 ) {
 	const sections = selectedMapping.c7_specification.tags.map(
@@ -136,6 +139,19 @@ export function createMappedC7Endpoints(
 										undefined ||
 									endpoint?.discontinuedExplanation !==
 										undefined
+							)
+							.filter(
+								(endpoint) =>
+									(!showMappedEndpoints ||
+										endpoint?.direct !== undefined ||
+										endpoint?.mappedExplanation !==
+											undefined) &&
+									(!showRoadmapEndpoints ||
+										endpoint?.roadmapExplanation !==
+											undefined) &&
+									(!showDiscontinuedEndpoints ||
+										endpoint?.discontinuedExplanation !==
+											undefined)
 							)
 					)
 					.flat()

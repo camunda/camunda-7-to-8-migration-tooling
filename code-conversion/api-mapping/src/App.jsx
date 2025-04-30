@@ -1,17 +1,21 @@
 import { useState, useRef, useEffect } from "react";
 import { mappingIndex } from "./mappings/mappingIndex";
 import { EndpointFilter } from "./components/EndpointFilter";
-import { Tabs } from "./components/Tabs";
 import { Tables } from "./components/Tables";
 import { ToTopButton } from "./components/ToTopButton";
 import { createMappedC7Endpoints } from "./utils/internalMappingUtils";
 import styles from "./app.module.css";
+import { EndpointNavigation } from "./components/EndpointNavigation";
 
 function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
 	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
+	const [showMappedEndpoints, setShowMappedEndpoints] = useState(false);
+	const [showRoadmapEndpoints, setShowRoadmapEndpoints] = useState(false);
+	const [showDiscontinuedEndpoints, setShowDiscontinuedEndpoints] =
+		useState(false);
 	const [sortAlphabetically, setSortAlphabetically] = useState(false);
 	const [scrollPosition, setScrollPosition] = useState(0);
 	const sectionRefs = useRef([]);
@@ -50,24 +54,32 @@ function App() {
 		selectedMethod,
 		searchText,
 		hideTBDEndpoints,
+		showMappedEndpoints,
+		showRoadmapEndpoints,
+		showDiscontinuedEndpoints,
 		sortAlphabetically
 	);
 
 	return (
 		<>
 			<div className={styles.container}>
-				<Tabs
-					reducedMappingIndex={mappingIndex.map(({ id, tabName }) => {
-						return { id, tabName };
-					})}
-					handleSelectionClick={handleSelectionClick}
-				/>
 				<details className={styles.introduction}>
 					<summary className={styles.summary}>Introduction</summary>
 					{selectedMapping.introduction}
 				</details>
 				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
+				<EndpointNavigation
+					reducedMappingIndex={mappingIndex.map(({ id, tabName }) => {
+						return { id, tabName };
+					})}
+					handleSelectionClick={handleSelectionClick}
+					displayedSections={mappedC7Endpoints.map(
+						(section) => section.section
+					)}
+					scrollToSection={scrollToSection}
+					scrollPosition={scrollPosition}
+				/>
 				<EndpointFilter
 					selectedMethod={selectedMethod}
 					setSelectedMethod={setSelectedMethod}
@@ -77,11 +89,12 @@ function App() {
 					setHideTBDEndpoints={setHideTBDEndpoints}
 					sortAlphabetically={sortAlphabetically}
 					setSortAlphabetically={setSortAlphabetically}
-					displayedSections={mappedC7Endpoints.map(
-						(section) => section.section
-					)}
-					scrollToSection={scrollToSection}
-					scrollPosition={scrollPosition}
+					showMappedEndpoints={showMappedEndpoints}
+					setShowMappedEndpoints={setShowMappedEndpoints}
+					showRoadmapEndpoints={showRoadmapEndpoints}
+					setShowRoadmapEndpoints={setShowRoadmapEndpoints}
+					showDiscontinuedEndpoints={showDiscontinuedEndpoints}
+					setShowDiscontinuedEndpoints={setShowDiscontinuedEndpoints}
 				/>
 				<Tables
 					sectionRefs={sectionRefs}
