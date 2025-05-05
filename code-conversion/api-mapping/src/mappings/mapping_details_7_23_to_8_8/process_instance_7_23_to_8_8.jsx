@@ -333,7 +333,7 @@ export const process_instance_7_23_to_8_8 = [
 					leftEntry: <pre>(boolean) skipCustomListeners</pre>,
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. It's not possible to
+							Not yet possible in Camunda 8.8. It's not possible to
 							skip execution listeners for activities ended as
 							part of this request.
 						</p>
@@ -352,7 +352,7 @@ export const process_instance_7_23_to_8_8 = [
 					leftEntry: <pre>(boolean) skipIoMappings</pre>,
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. It's not possible to
+							Not yet possible in Camunda 8.8. It's not possible to
 							skip input/output mappings for activities ended as
 							part of this request.
 						</p>
@@ -542,7 +542,7 @@ export const process_instance_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<p>
-				There is no batch endpoint to update retries for multiple jobs
+				There is no batch endpoint yet to update retries for multiple jobs
 				at once. You can update each job with the Update job endpoint.
 			</p>
 		),
@@ -555,7 +555,7 @@ export const process_instance_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<p>
-				There is no batch endpoint to update retries for multiple jobs
+				There is no batch endpoint yet to update retries for multiple jobs
 				at once. You can update each job with the Update job endpoint.
 			</p>
 		),
@@ -611,7 +611,7 @@ export const process_instance_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
@@ -620,7 +620,7 @@ export const process_instance_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
@@ -719,7 +719,7 @@ export const process_instance_7_23_to_8_8 = [
 					leftEntry: <pre>(boolean) skipSubprocesses</pre>,
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. Subprocesses are also
+							Not yet possible in Camunda 8.8. Subprocesses are also
 							canceled.
 						</p>
 					),
@@ -772,7 +772,7 @@ export const process_instance_7_23_to_8_8 = [
 		target: {},
 		mappedExplanation: (
 			<p>
-				Not possible in Camunda 8.8. You can retrieve all active flow
+				Not yet possible in Camunda 8.8. You can retrieve all active flow
 				nodes of a specific process instance using the{" "}
 				<code>POST Search flow node instances</code> endpoint. But this
 				endpoint does not provide a tree structure or information about
@@ -788,7 +788,7 @@ export const process_instance_7_23_to_8_8 = [
 		target: {},
 		roadmapExplanation: (
 			<p>
-				Not possible in Camunda 8.8. Adding comments to user tasks is on
+				Not yet possible in Camunda 8.8. Adding comments to user tasks is on
 				the roadmap of Camunda 8.
 			</p>
 		),
@@ -913,7 +913,7 @@ export const process_instance_7_23_to_8_8 = [
 					leftEntry: <pre>(string) annotation</pre>,
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. A integer{" "}
+							Not yet possible in Camunda 8.8. A integer{" "}
 							<code>operationReference</code> can be added to the
 							request.
 						</p>
@@ -945,7 +945,7 @@ export const process_instance_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
