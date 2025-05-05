@@ -43,22 +43,30 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 
 		return new JavaIsoVisitor<ExecutionContext>() {
 
-//	        @Override
-//	        public J.CompilationUnit visitCompilationUnit(J.CompilationUnit compilationUnit, ExecutionContext ctx) {
-//	             // Remove old imports
-//                List<J.Import> filteredImports = compilationUnit.getImports().stream()
-//
-//                    .filter(i -> {try { return (!i.getTypeName().equals("org.camunda.bpm.engine.delegate.JavaDelegate"));} catch (Exception ex) {return true;}})
-//                    .filter(i -> {try { return (!i.getTypeName().equals("org.camunda.bpm.engine.delegate.DelegateExecution"));} catch (Exception ex) {return true;}})
-//                    .collect(Collectors.toList());
-//
-//                // Add new imports
-//                addImport(filteredImports, "io.camunda.zeebe.client.api.worker.JobWorker");
-//                addImport(filteredImports, "io.camunda.zeebe.client.api.response.ActivatedJob");
-//                
-//                compilationUnit = compilationUnit.withImports(filteredImports);  
-//                return super.visitCompilationUnit(compilationUnit, ctx); 
-//	        }
+			@Override
+			public J.CompilationUnit visitCompilationUnit(J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+				final J.CompilationUnit newCompilationUnit = super.visitCompilationUnit(compilationUnit, ctx);
+				maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
+				maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
+				return newCompilationUnit;
+			}
+
+//          @Override
+//          public J.CompilationUnit visitCompilationUnit(J.CompilationUnit compilationUnit, ExecutionContext ctx) {
+//               // Remove old imports
+//              List<J.Import> filteredImports = compilationUnit.getImports().stream()
+
+//                  .filter(i -> {try { return (!i.getTypeName().equals("org.camunda.bpm.engine.delegate.JavaDelegate"));} catch (Exception ex) {return true;}})
+//                  .filter(i -> {try { return (!i.getTypeName().equals("org.camunda.bpm.engine.delegate.DelegateExecution"));} catch (Exception ex) {return true;}})
+//                  .collect(Collectors.toList());
+
+//              // Add new imports
+//              addImport(filteredImports, "io.camunda.zeebe.client.api.worker.JobWorker");
+//              addImport(filteredImports, "io.camunda.zeebe.client.api.response.ActivatedJob");
+
+//              compilationUnit = compilationUnit.withImports(filteredImports);
+//  			return super.visitCompilationUnit(compilationUnit, ctx);
+//          }
 //
 //			private void addImport(List<J.Import> filteredImports, String fullyQualifiedName) {
 //				if (filteredImports.stream().noneMatch(i -> i.getTypeName().equals(fullyQualifiedName))) {
@@ -86,9 +94,6 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 	                // If no interfaces remain, set `implements` to null
 					classDecl = super.visitClassDeclaration(classDecl.withImplements(updatedImplements.isEmpty() ? null : updatedImplements), ctx);
 					
-					maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
-					maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
-
 					maybeAddImport("io.camunda.zeebe.client.api.worker.JobWorker", false);
 					maybeAddImport("io.camunda.zeebe.client.api.response.ActivatedJob", false);
 				}

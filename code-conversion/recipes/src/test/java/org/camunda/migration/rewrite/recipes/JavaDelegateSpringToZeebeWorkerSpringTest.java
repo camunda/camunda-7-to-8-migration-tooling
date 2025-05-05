@@ -60,6 +60,7 @@ public class RetrievePaymentAdapter {
     
     @Test
     void rewriteExecurteMethodWithVariables() {
+        // The import for the DelegateExecution should disappear ... yet I failed to achive this so far
         rewriteRun(
             java(
                 """
@@ -94,6 +95,7 @@ package org.camunda.community.migration.example;
 
 import io.camunda.zeebe.client.api.response.ActivatedJob;
 import io.camunda.zeebe.client.api.worker.JobWorker;
+import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
