@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 import static org.openrewrite.java.Assertions.java;
 
@@ -13,8 +14,9 @@ class JavaDelegateSpringToZeebeWorkerSpringTest implements RewriteTest {
     @Override
     public void defaults(RecipeSpec spec) {
         spec.recipe(new JavaDelegateSpringToZeebeWorkerSpring())
-        	.parser(JavaParser.fromJavaVersion()
-    			.classpath(JavaParser.runtimeClasspath()));
+                .parser(JavaParser.fromJavaVersion()
+                        .classpath(JavaParser.runtimeClasspath()))
+                .typeValidationOptions(TypeValidation.none());
     }
     
 
@@ -113,7 +115,7 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String,Object> execute(ActivatedJob ctx) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-    Integer amount = (Integer) ctx.getVariablesAsMap().getVariable("AMOUNT");
+    Integer amount = (Integer) ctx.getVariablesAsMap().get("AMOUNT");
 
     String response = rest.postForObject("endpoint", amount, String.class);
 

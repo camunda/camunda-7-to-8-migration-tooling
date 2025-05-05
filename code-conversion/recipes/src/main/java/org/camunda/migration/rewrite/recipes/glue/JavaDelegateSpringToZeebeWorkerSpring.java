@@ -203,7 +203,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                 return methodDeclaration;
 			}
 
-			private final JavaTemplate getVariablesAsMap = JavaTemplate.builder("#{any(io.camunda.zeebe.client.api.response.ActivatedJob)}.getVariablesAsMap().getVariable(#{any(java.lang.String)})")
+			private final JavaTemplate getVariablesAsMap = JavaTemplate.builder("#{any(io.camunda.zeebe.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})")
 					.javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
 					.imports("io.camunda.zeebe.client.api.response.ActivatedJob")
 					.build();
@@ -224,14 +224,13 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 
             private final JavaTemplate putEntryTemplate = JavaTemplate.builder("resultMap.put(#{any(java.lang.String)}, #{any()});")
 					.javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-					.imports("io.camunda.zeebe.client.api.response.ActivatedJob")
             		.build();
 
             private J.MethodInvocation transformSetVariableCall(Cursor cursor, J.MethodInvocation methodInvocation) {
                 //Expression select = methodInvocation.getSelect();  // The variable (ctx, execution, etc.)
                 Expression argumentKey = methodInvocation.getArguments().get(0); // The key ("AMOUNT")
                 Expression argumentValue = methodInvocation.getArguments().get(1); // The value
-                
+
                 return putEntryTemplate.apply(
                 	cursor,
                     methodInvocation.getCoordinates().replace(),
