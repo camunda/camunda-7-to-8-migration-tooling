@@ -1,13 +1,12 @@
 package org.camunda.migration.rewrite.recipes;
 
+import org.camunda.migration.rewrite.recipes.glue.JavaDelegateSpringToZeebeWorkerSpring;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
-
-import org.camunda.migration.rewrite.recipes.glue.JavaDelegateSpringToZeebeWorkerSpring;
 
 class JavaDelegateSpringToZeebeWorkerSpringTest implements RewriteTest {
 
@@ -33,7 +32,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RetrievePaymentAdapter implements JavaDelegate {
   @Override
-  public void execute(DelegateExecution ctx) throws Exception {    
+  public void execute(DelegateExecution ctx) throws Exception {
   }
 }
                 """,
@@ -52,14 +51,14 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String,Object> execute(ActivatedJob ctx) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        return resultMap;        
+        return resultMap;
   }
 }"""                
             )
         );
     }    
     
-    //@Test
+    @Test
     void rewriteExecurteMethodWithVariables() {
         rewriteRun(
             java(
@@ -80,7 +79,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   private RestTemplate rest;
 
   @Override
-  public void execute(DelegateExecution ctx) throws Exception {    
+  public void execute(DelegateExecution ctx) throws Exception {
     Integer amount = (Integer) ctx.getVariable("AMOUNT");
     
     String response = rest.postForObject("endpoint", amount, String.class);
