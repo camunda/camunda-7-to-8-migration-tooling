@@ -5,7 +5,7 @@
 
 ## Introduction
 
-This catalog contains code conversion patterns for **client code** and **glue code** for **Java/Java (Spring)**-based code:
+This catalog contains code conversion patterns for **client code** and **glue code** for **Java (Spring)**-based code:
 
 -   **Client code**: Whenever your solutions calls the Camunda API, e.g., to start new process instances.
 -   **Glue code**: Whenever you define code that is executed when a process arrives at a specific state in the process, e.g., via JavaDelegates.
@@ -28,10 +28,12 @@ This project focuses on the **RepositoryService**, **RuntimeService** and **Task
 
 With the release of **Camunda 8.8**, the Camunda API is harmonized to make communication with Camunda 8 clusters simpler. Thus, a new client SDK is released as well: **Camunda Spring SDK**, see the [latest release in maven central](https://mvnrepository.com/artifact/io.camunda/spring-boot-starter-camunda-sdk).
 
-The code conversion patterns describe the necessary changes to convert a Camunda 7 code base to Camunda 8. Changes to the BPMN XML are covered by different tooling.
-
 ## Glue Code
 
 In **Camunda 7**, code executed by a service task or listener can be organized in various ways. A common method is using a **JavaDelegate** for a spring-integrated engine, for which a bean implementing the JavaDelegate interface is referenced via an expression in the BPMN xml. Another method, that is closer to the architecture enforced in Camunda 8, is the **external task worker pattern**.
 
 With the enforced remote engine architecture in **Camunda 8**, only the **external task worker pattern** can be used, utilizing so-called **job workers**.
+
+## Remarks
+
+The code conversion patterns describe the necessary changes to convert a Camunda 7 code base to Camunda 8. Changes to the BPMN XML are covered by different tooling.
