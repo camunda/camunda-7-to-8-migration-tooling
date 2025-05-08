@@ -3,7 +3,11 @@
 In Camunda 7, JavaDelegates are a common way to implement glue code. Very often, JavaDelegates are Spring beans and referenced via Expression language in the BPMN xml.
 
 <details>
-<summary>Receiving and Writing Process Variables</summary>
+<summary>
+
+## Receiving and Writing Process Variables
+
+</summary>
 
 The following example focuses on receiving and writing process variables to interact with a running process instance.
 
@@ -72,7 +76,11 @@ public class RetrievePaymentWorker {
 </details>
 
 <details>
-<summary>Handling a Failure</summary>
+<summary>
+
+## Handling a Failure
+
+</summary>
 
 The execution of business code can fail, promting the engine to try again or raise an incident if no retries are left. This example focuses on throwing an exception from a JavaDelegate vs. throwing an exception from a job worker.
 
@@ -146,7 +154,11 @@ public class RetrievePaymentWorker {
 
 <details>
 
-<summary>Handling an Incident</summary>
+<summary>
+
+##Handling an Incident
+
+</summary>
 
 This example focuses on raising an incident directly from a JavaDelegate or job worker, not incidents raised by depleted retries.
 
@@ -196,7 +208,7 @@ public class RetrievePaymentWorker {
     @JobWorker(type = "retrievePaymentAdapter", fetchVariables={"amount"})
     public Map<String, Object> handleJob(JobClient client, ActivatedJob job) {
         int amount = (int) job.getVariablesAsMap().get("amount");
-        if (amount <10) {
+        if (amount < 10) {
             throw new CamundaError.jobError("My error message", new ErrorVariables(), 0, null, e);
         }
     }
@@ -211,7 +223,11 @@ public class RetrievePaymentWorker {
 
 <details>
 
-<summary>Handling a BPMN error</summary>
+<summary>
+
+## Handling a BPMN error
+
+</summary>
 
 This example focuses on throwing a BPMN error from a JavaDelegate and job worker. A BPMN error is thrown for a task or listener and caught by a BPMN catch event in the BPMN model. The BPMN error is used for business errors that require a change in the process flow, not for technical errors.
 
@@ -264,7 +280,8 @@ public class RetrievePaymentWorker {
     public Map<String, Object> handleJob(JobClient client, ActivatedJob job) {
         int amount = (int) job.getVariablesAsMap().get("amount");
         if(amount < 10) {
-            throw CamundaError.bpmnError("ERROR_CODE", "Some explanation why this does not work");
+            throw CamundaError.bpmnError("ERROR_CODE", "Some explanation why this does not work", Map.of("transactionId", "TX12345"));
+            // throwable can be included
         }
     }
 }
@@ -284,18 +301,3 @@ Setting autoComplete to false allows you to use reactive programming. For more i
 
 -   [Recipe "JavaDelegateSpringToZeebeWorkerSpring"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
 -   [Learn how to apply recipes](../recipes/)
-
-<style>
-
-.level-2-summary {
-    font-size: medium;
-    font-weight: 500;
-    text-indent: 2rem;
-}
-
-summary {
-    font-size: large;
-    font-weight: 700;
-}
-
-</style>

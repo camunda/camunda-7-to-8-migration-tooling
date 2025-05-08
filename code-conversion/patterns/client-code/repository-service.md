@@ -6,13 +6,11 @@ This document discusses code conversion patterns from the Camunda 7 engine's Rep
 
 The different commands of the RepositoryService are grouped by action, such as deploying a process definition, with multiple examples covering different methods of performing the same action.
 
-<details>
-
-<summary>Deploy Process Definition</summary>
+## Deploy Process Definition
 
 <details>
 
-<summary class="level-2-summary">tbd</summary>
+<summary>tbd</summary>
 
 #### tbd (Camunda 7)
 
@@ -33,20 +31,3 @@ tbd
 ```
 
 </details>
-
-</details>
-
-<style>
-
-.level-2-summary {
-    font-size: medium;
-    font-weight: 500;
-    text-indent: 2rem;
-}
-
-summary {
-    font-size: large;
-    font-weight: 700;
-}
-
-</style>

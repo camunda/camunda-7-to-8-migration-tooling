@@ -6,13 +6,15 @@ This document discusses code conversion patterns from the Camunda 7 engine's Run
 
 The different commands of the RuntimeService are grouped by action, such as starting a process instance, with multiple examples covering different methods of performing the same action.
 
-<details>
-
-<summary>Start Process Instances</summary>
+## Start Process Instances
 
 <details>
 
-<summary class="level-2-summary">By Process Identifier</summary>
+<summary>
+
+### By Process Identifier
+
+</summary>
 
 #### Start Process Instance by Process Identifier (Camunda 7)
 
@@ -71,20 +73,3 @@ public void startProcess(String orderId) {
 -   [Learn how to apply recipes](../recipes/)
 
 </details>
-
-</details>
-
-<style>
-
-.level-2-summary {
-    font-size: medium;
-    font-weight: 500;
-    text-indent: 2rem;
-}
-
-summary {
-    font-size: large;
-    font-weight: 700;
-}
-
-</style>

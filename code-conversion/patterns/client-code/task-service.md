@@ -6,13 +6,11 @@ This document discusses code conversion patterns from the Camunda 7 engine's Tas
 
 The different commands of the TaskService are grouped by action, such as getting a form, with multiple examples covering different methods of performing the same action.
 
-<details>
-
-<summary>Get Form</summary>
+## Get Form
 
 <details>
 
-<summary class="level-2-summary">tbd</summary>
+<summary>tbd</summary>
 
 #### tbd (Camunda 7)
 
@@ -33,20 +31,3 @@ tbd
 ```
 
 </details>
-
-</details>
-
-<style>
-
-.level-2-summary {
-    font-size: medium;
-    font-weight: 500;
-    text-indent: 2rem;
-}
-
-summary {
-    font-size: large;
-    font-weight: 700;
-}
-
-</style>
