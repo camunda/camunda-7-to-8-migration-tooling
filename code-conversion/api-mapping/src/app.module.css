@@ -1,0 +1,16 @@
+.container {
+	width: calc(100vw - 4rem);
+	display: flex;
+	flex-direction: column;
+	padding-inline: 2rem;
+	overflow-y: scroll;
+}
+
+.introduction {
+	margin-top: 2rem;
+}
+
+.summary {
+	font-size: xx-large;
+	font-weight: 700;
+}
