@@ -115,7 +115,7 @@ public class RetrievePaymentAdapter {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String,Object> execute(ActivatedJob ctx) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-    Integer amount = (Integer) ctx.getVariablesAsMap().get("AMOUNT");
+    Integer amount = (Integer) ctx.getVariable("AMOUNT");
 
     String response = rest.postForObject("endpoint", amount, String.class);
 

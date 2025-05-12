@@ -152,7 +152,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 				return super.visitMethodDeclaration(methodDeclaration, ctx); // make sure to do this so that the assignments within that method are checked			
 			 }
 			
-			public MethodDeclaration changeMethodReturnType(MethodDeclaration methodDeclaration, String expression, String type) {				 
+			public MethodDeclaration changeMethodReturnType(MethodDeclaration methodDeclaration, String expression, String type) {
 				 Method methodType = methodDeclaration.getMethodType().withReturnType( JavaType.buildType(type) );
 				 methodDeclaration = methodDeclaration.withReturnTypeExpression( TypeTree.build(expression, ' ') );		 
 	             methodDeclaration = methodDeclaration.withMethodType(methodType)
@@ -203,7 +203,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                 return methodDeclaration;
 			}
 
-			private final JavaTemplate getVariablesAsMap = JavaTemplate.builder("#{any(io.camunda.zeebe.client.api.response.ActivatedJob)}.getVariablesAsMap().get(#{any(java.lang.String)})")
+			private final JavaTemplate getVariableTemplate = JavaTemplate.builder("#{any(io.camunda.zeebe.client.api.response.ActivatedJob)}.getVariable(#{any(java.lang.String)})")
 					.javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
 					.imports("io.camunda.zeebe.client.api.response.ActivatedJob")
 					.build();
@@ -214,7 +214,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                 Expression argument = methodInvocation.getArguments().get(0); // The key ("AMOUNT")
 
                 // Apply the transformation using JavaTemplate
-                return getVariablesAsMap.apply(
+                return getVariableTemplate.apply(
                 	cursor,
                     methodInvocation.getCoordinates().replace(),
                     select,  // The original variable (ctx, execution, etc.)
@@ -267,6 +267,11 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                     return false;
                 }
 
+				final JavaType methodType = methodInvocation.getMethodType();
+				if (methodType == null || !methodInvocation.getMethodType().equals(JAVATYPE_VariableScope)) {
+					return false;
+				}
+
                 Expression select = methodInvocation.getSelect();
                 if (!(select instanceof J.Identifier)) {
                     return false;
@@ -278,6 +283,8 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                 return type instanceof JavaType.Class &&
                        ((JavaType.Class) type).getFullyQualifiedName().equals(DelegateExecution.class.getTypeName());
             }
+			private static final JavaType JAVATYPE_VariableScope = JavaType.buildType("org.camunda.bpm.engine.delegate.VariableScope");
+
             private boolean isSetVariableCall(J.MethodInvocation methodInvocation) {
                 if (!methodInvocation.getSimpleName().equals("setVariable")) {
                     return false;
