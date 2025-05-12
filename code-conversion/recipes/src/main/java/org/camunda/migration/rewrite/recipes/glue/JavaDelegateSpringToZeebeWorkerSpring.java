@@ -43,6 +43,9 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 
 		return new JavaIsoVisitor<ExecutionContext>() {
 
+			public static final String CLASS_NAME_JobWorker = "JobWorker";
+			public static final String FQN_JobWorker = "io.camunda.zeebe.spring.client.annotation.JobWorker";
+
 			@Override
 			public J.CompilationUnit visitCompilationUnit(J.CompilationUnit compilationUnit, ExecutionContext ctx) {
 				final J.CompilationUnit newCompilationUnit = super.visitCompilationUnit(compilationUnit, ctx);
@@ -94,7 +97,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 	                // If no interfaces remain, set `implements` to null
 					classDecl = super.visitClassDeclaration(classDecl.withImplements(updatedImplements.isEmpty() ? null : updatedImplements), ctx);
 					
-					maybeAddImport("io.camunda.zeebe.client.api.worker.JobWorker", false);
+					maybeAddImport(FQN_JobWorker, false);
 					maybeAddImport("io.camunda.zeebe.client.api.response.ActivatedJob", false);
 				}
 				return super.visitClassDeclaration(classDecl, ctx);
@@ -103,7 +106,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 
 			private final JavaTemplate workerMethodTemplate = JavaTemplate.builder("@JobWorker(type = \"#{}\", autoComplete=true)")
 					.javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-					.imports("io.camunda.zeebe.client.api.worker.JobWorker")
+					.imports(FQN_JobWorker)
 					.build();
 			
 	        private final JavaTemplate jobWorkerMethod = JavaTemplate.builder("ActivatedJob #{}")
@@ -113,11 +116,15 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 	       			
 			@Override
 			public MethodDeclaration visitMethodDeclaration(MethodDeclaration methodDeclaration, ExecutionContext ctx) {
+				methodDeclaration =  super.visitMethodDeclaration(methodDeclaration, ctx); // make sure to do this so that the assignments within that method are checked
 				J.ClassDeclaration classDecl = getCursor().firstEnclosing(J.ClassDeclaration.class);
+
+				final boolean hasJobWorkerAnnotation = hasAnnotation(methodDeclaration, CLASS_NAME_JobWorker);
 				
 				if (isJavaDelegate(classDecl) // only JavaDelegate classes
 					&& "execute".equals(methodDeclaration.getSimpleName()) // execute method
-				    && !hasAnnotation(methodDeclaration, "@io.camunda.zeebe.client.api.worker.JobWorker")) { // if they don't have the @JobWorker yet
+				    // && !hasAnnotation(methodDeclaration, "@io.camunda.zeebe.client.api.worker.JobWorker")) { // if they don't have the @JobWorker yet
+					&& !hasJobWorkerAnnotation) { // if they don't have the @JobWorker yet
 
 					// Remove @Override (if present)
 					methodDeclaration = removeAnnotation(methodDeclaration, "@java.lang.Override");
@@ -146,10 +153,10 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 					maybeAddImport("java.util.Map");
 	               
 					System.out.println("Adjusted JobWorker: " + methodDeclaration);
-					return methodDeclaration;
-				}				
-				
-				return super.visitMethodDeclaration(methodDeclaration, ctx); // make sure to do this so that the assignments within that method are checked			
+				}
+				return methodDeclaration;
+
+				// return super.visitMethodDeclaration(methodDeclaration, ctx); // make sure to do this so that the assignments within that method are checked
 			 }
 			
 			public MethodDeclaration changeMethodReturnType(MethodDeclaration methodDeclaration, String expression, String type) {
@@ -312,10 +319,10 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 				return methodDeclaration;
 			}
             
-            public boolean hasAnnotation(MethodDeclaration methodDeclaration, String annotationName) {
-            	AnnotationMatcher annotationMatcher = new AnnotationMatcher(annotationName);
+            public boolean hasAnnotation(MethodDeclaration methodDeclaration, String annotationClassName) {
             	for (Annotation a : methodDeclaration.getLeadingAnnotations()) {
-					if (annotationMatcher.matches(a))
+					final String aName = a.getSimpleName();
+					if (aName.equals(annotationClassName))
 						return true;
 				}
             	return false;

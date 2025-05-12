@@ -96,7 +96,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 package org.camunda.community.migration.example;
 
 import io.camunda.zeebe.client.api.response.ActivatedJob;
-import io.camunda.zeebe.client.api.worker.JobWorker;
+import io.camunda.zeebe.spring.client.annotation.JobWorker;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -119,7 +119,7 @@ public class RetrievePaymentAdapter {
 
     String response = rest.postForObject("endpoint", amount, String.class);
 
-        resultMap.put("paymentTransactionId", response);
+      resultMap.put("paymentTransactionId", response);
         return resultMap;
   }
 
