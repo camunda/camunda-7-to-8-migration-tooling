@@ -17,10 +17,10 @@ public class RetrievePaymentWorkerIncident implements ExternalTaskHandler {
         try {
             // do something...
         } catch(Exception e) {
-            Map<String, Object> variablesMap = Map.ofEntries(
+            Map<String, Object> variableMap = Map.ofEntries(
                     Map.entry("transactionId", "TX12345")
             );
-            externalTaskService.handleFailure(externalTask.getId(), "my error message", "my error details", 0, 0L, variablesMap, null);
+            externalTaskService.handleFailure(externalTask.getId(), "my error message", "my error details", 0, 0L, variableMap, null);
         }
     }
 }

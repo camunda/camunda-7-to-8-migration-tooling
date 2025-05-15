@@ -11,8 +11,8 @@ Check the [README](./README.md) for more details on class-level changes.
 ```java
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
-        Map<String, Object> variablesMap = Map.ofEntries(Map.entry("transactionId", "TX12345"));
-        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variablesMap);
+        Map<String, Object> variableMap = Map.ofEntries(Map.entry("transactionId", "TX12345"));
+        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variableMap);
     }
 ```
 
@@ -24,8 +24,8 @@ Check the [README](./README.md) for more details on class-level changes.
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         StringValue typedTransactionId = Variables.stringValue("TX12345");
-        VariableMap variablesMap = Variables.putValueTyped("transactionId", typedTransactionId);
-        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variablesMap);
+        VariableMap variableMap = Variables.putValueTyped("transactionId", typedTransactionId);
+        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variableMap);
     }
 ```
 

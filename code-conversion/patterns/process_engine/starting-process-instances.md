@@ -14,49 +14,77 @@ The following patterns focus on various methods to start process instances in Ca
 ### ProcessEngine (Camunda 7)
 
 ```java
-	public void startProcessByBPMNModelIdentifier(VariableMap variablesMap) {
-		engine.getRuntimeService().startProcessInstanceByKey("orderProcessIdentifier", variablesMap);
+	public void startProcessByBPMNModelIdentifier(VariableMap variableMap) {
+		engine.getRuntimeService().startProcessInstanceByKey("orderProcessIdentifier", variableMap);
 	}
 ```
+
+```java
+    public void startProcessByBPMNModelIdentifierViaBuilder(VariableMap variableMap) {
+        engine.getRuntimeService().createProcessInstanceByKey("order")
+                .businessKey("some business key")
+                .processDefinitionTenantId("some tenantId")
+                .setVariables(variableMap)
+                .execute();
+    }
+```
+
+-   tenantId only possible via builder pattern
+-   also possible to execute with variables in return (for synchronous part of process instance)
 
 ### CamundaClient (Camunda 8)
 
 ```java
-	public void startProcessByBPMNModelIdentifier(Map<String, Object> variablesMap) {
+	public void startProcessByBPMNModelIdentifier(Map<String, Object> variableMap) {
 		camundaClient.newCreateInstanceCommand()
 			.bpmnProcessId("orderProcessIdentifier")
 			.latestVersion()
-			.variables(variablesMap)
+			.variables(variableMap)
 			.send()
 			.join(); // add reactive response and error handling instead of join()
 	}
 ```
 
 -   no business key in Camunda 8.8
+-   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ## By Key Assigned on Deployment (specific version)
 
 ### ProcessEngine (Camunda 7)
 
 ```java
-	public void startProcessByKeyAssignedOnDeployment(VariableMap variablesMap) {
-		engine.getRuntimeService().startProcessInstanceById("order:7:444f-fkd2-dyaf", "some business key", variablesMap);
+	public void startProcessByKeyAssignedOnDeployment(VariableMap variableMap) {
+		engine.getRuntimeService().startProcessInstanceById("order:7:444f-fkd2-dyaf", "some business key", variableMap);
 	}
 ```
+
+```java
+	public void startProcessByKeyAssignedOnDeploymentViaBuilder(VariableMap variableMap) {
+        engine.getRuntimeService().createProcessInstanceById("order:7:444f-fkd2-dyaf")
+            .businessKey("some business key")
+            .processDefinitionTenantId("some tenantId")
+            .setVariables(variableMap)
+            .execute();
+    }
+```
+
+-   tenantId only possible via builder pattern
+-   also possible to execute with variables in return (for synchronous part of process instance)
 
 ### CamundaClient (Camunda 8)
 
 ```java
-	public void startProcessByKeyAssignedOnDeployment(Map<String, Object> variablesMap) {
+	public void startProcessByKeyAssignedOnDeployment(Map<String, Object> variableMap) {
 		camundaClient.newCreateInstanceCommand()
 			.processDefinitionKey(21653461L)
-			.variables(variablesMap)
+			.variables(variableMap)
 			.send()
 			.join(); // add reactive response and error handling instead of join()
 }
 ```
 
 -   no business key in Camunda 8.8
+-   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ## By Message (And ProcessDefinitionId)
 

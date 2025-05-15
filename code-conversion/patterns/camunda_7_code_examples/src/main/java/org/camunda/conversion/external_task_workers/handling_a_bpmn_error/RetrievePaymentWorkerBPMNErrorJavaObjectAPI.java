@@ -14,7 +14,7 @@ public class RetrievePaymentWorkerBPMNErrorJavaObjectAPI implements ExternalTask
 
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
-        Map<String, Object> variablesMap = Map.ofEntries(Map.entry("transactionId", "TX12345"));
-        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variablesMap);
+        Map<String, Object> variableMap = Map.ofEntries(Map.entry("transactionId", "TX12345"));
+        externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variableMap);
     }
 }

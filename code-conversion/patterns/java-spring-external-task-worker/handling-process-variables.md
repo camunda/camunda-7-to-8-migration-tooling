@@ -13,10 +13,10 @@ Check the [README](./README.md) for more details on class-level changes.
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         int amount = (int) externalTask.getVariable("amount");
         // do something
-        Map<String, Object> variablesMap = Map.ofEntries(
+        Map<String, Object> variableMap = Map.ofEntries(
             Map.entry("transactionId", "TX12345")
         );
-        externalTaskService.complete(externalTask.getId(), variablesMap, null);
+        externalTaskService.complete(externalTask.getId(), variableMap, null);
     }
 ```
 
@@ -29,8 +29,8 @@ Check the [README](./README.md) for more details on class-level changes.
         int amount = typedAmount.getValue();
         // do something
         StringValue typedTransactionId = Variables.stringValue("TX12345");
-        VariableMap variablesMap = Variables.putValueTyped("transactionId", typedTransactionId);
-        externalTaskService.complete(externalTask.getId(), variablesMap, null);
+        VariableMap variableMap = Variables.putValueTyped("transactionId", typedTransactionId);
+        externalTaskService.complete(externalTask.getId(), variableMap, null);
     }
 ```
 

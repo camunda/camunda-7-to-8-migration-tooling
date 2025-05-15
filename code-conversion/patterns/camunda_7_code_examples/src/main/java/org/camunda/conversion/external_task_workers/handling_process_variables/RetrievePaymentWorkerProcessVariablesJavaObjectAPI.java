@@ -16,9 +16,9 @@ public class RetrievePaymentWorkerProcessVariablesJavaObjectAPI implements Exter
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         int amount = (int) externalTask.getVariable("amount");
         // do something
-        Map<String, Object> variablesMap = Map.ofEntries(
+        Map<String, Object> variableMap = Map.ofEntries(
                 Map.entry("transactionId", "TX12345")
         );
-        externalTaskService.complete(externalTask.getId(), variablesMap, null);
+        externalTaskService.complete(externalTask.getId(), variableMap, null);
     }
 }
