@@ -84,10 +84,12 @@ public class RetrievePaymentAdapter implements JavaDelegate {
   @Override
   public void execute(DelegateExecution ctx) throws Exception {
     Integer amount = (Integer) ctx.getVariable("AMOUNT");
+    String text = (String) ctx.getVariableLocal("TEXT");
     
     String response = rest.postForObject("endpoint", amount, String.class);
     
     ctx.setVariable("paymentTransactionId", response);
+    ctx.setVariableLocal("paymentTransactionComment", response + "_COMMENT");
   }
 
 }
@@ -116,10 +118,12 @@ public class RetrievePaymentAdapter {
     public Map<String,Object> execute(ActivatedJob ctx) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
     Integer amount = (Integer) ctx.getVariable("AMOUNT");
+    String text = (String) ctx.getVariable("TEXT");
 
     String response = rest.postForObject("endpoint", amount, String.class);
 
       resultMap.put("paymentTransactionId", response);
+      resultMap.put("paymentTransactionComment", response + "_COMMENT");
         return resultMap;
   }
 

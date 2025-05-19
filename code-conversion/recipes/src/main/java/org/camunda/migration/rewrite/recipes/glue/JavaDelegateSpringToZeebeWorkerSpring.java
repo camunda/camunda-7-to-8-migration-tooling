@@ -3,6 +3,7 @@ package org.camunda.migration.rewrite.recipes.glue;
 import io.camunda.zeebe.client.api.response.ActivatedJob;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.jetbrains.annotations.NotNull;
 import org.openrewrite.Cursor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
@@ -84,7 +85,8 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 //			}
 	        
 			@Override
-			public ClassDeclaration visitClassDeclaration(ClassDeclaration classDecl, ExecutionContext ctx) {
+			@NotNull
+			public ClassDeclaration visitClassDeclaration(@NotNull ClassDeclaration classDecl, @NotNull ExecutionContext ctx) {
 				if (isJavaDelegate(classDecl)) {
 					System.out.println("Adjusting JavaDelegate: " + classDecl.getType().getFullyQualifiedName());
 					LOG.info("Adjusting JavaDelegate: " + classDecl.getType().getFullyQualifiedName());
@@ -246,18 +248,22 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
                 );
              }
 
-			 @Override
-            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation methodInvocation, ExecutionContext ctx) {
-                if (isGetVariableCall(methodInvocation)) {
-					System.out.println("Transform " + methodInvocation);
-                    return transformGetVariableCall(getCursor(), methodInvocation);
-                }
-                if (isSetVariableCall(methodInvocation)) {
-					System.out.println("Transform " + methodInvocation);
-                    return transformSetVariableCall(getCursor(), methodInvocation);
-                }
-                return super.visitMethodInvocation(methodInvocation, ctx);
-            }
+			@Override
+			@NotNull
+			public J.MethodInvocation visitMethodInvocation(@NotNull J.MethodInvocation methodInvocation, @NotNull ExecutionContext ctx) {
+				methodInvocation = super.visitMethodInvocation(methodInvocation, ctx);
+				if (isDelegateExecutionMethod(methodInvocation)) {
+					if (isGetVariableCall(methodInvocation)) {
+						System.out.println("Transform " + methodInvocation);
+						return transformGetVariableCall(getCursor(), methodInvocation);
+					}
+					if (isSetVariableCall(methodInvocation)) {
+						System.out.println("Transform " + methodInvocation);
+						return transformSetVariableCall(getCursor(), methodInvocation);
+					}
+				}
+				return methodInvocation;
+			}
 
             @Override
             public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
@@ -270,44 +276,39 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
             }
 
             private boolean isGetVariableCall(J.MethodInvocation methodInvocation) {
-                if (!methodInvocation.getSimpleName().equals("getVariable")) {
-                    return false;
-                }
+                return methodInvocation.getSimpleName().equals("getVariable")
+                        || methodInvocation.getSimpleName().equals("getVariableLocal");
+            }
 
-				final JavaType methodType = methodInvocation.getMethodType();
-				if (methodType == null || !methodInvocation.getMethodType().equals(JAVATYPE_VariableScope)) {
+			private static final String CLASS_NAME_VariableScope = "VariableScope";
+			private static final String PACKAGE_NAME_VariableScope = "org.camunda.bpm.engine.delegate";
+
+            private boolean isSetVariableCall(J.MethodInvocation methodInvocation) {
+                return methodInvocation.getSimpleName().equals("setVariable")
+                        || methodInvocation.getSimpleName().equals("setVariableLocal");
+            }
+
+			private boolean isDelegateExecutionMethod(@NotNull J.MethodInvocation methodInvocation) {
+				final Method methodType = methodInvocation.getMethodType();
+				if (methodType == null) {
+					return false;
+				}
+				final String methodClassName = methodType.getDeclaringType().getClassName();
+				final String methodPackageName = methodType.getDeclaringType().getPackageName();
+				if (!methodClassName.equals(CLASS_NAME_VariableScope) || !methodPackageName.equals(PACKAGE_NAME_VariableScope)) {
 					return false;
 				}
 
-                Expression select = methodInvocation.getSelect();
-                if (!(select instanceof J.Identifier)) {
-                    return false;
-                }
+				Expression select = methodInvocation.getSelect();
+				if (!(select instanceof J.Identifier selectIdentifier)) {
+					return false;
+				}
 
-                J.Identifier selectIdentifier = (J.Identifier) select;
                 JavaType type = selectIdentifier.getType();
 
-                return type instanceof JavaType.Class &&
-                       ((JavaType.Class) type).getFullyQualifiedName().equals(DelegateExecution.class.getTypeName());
-            }
-			private static final JavaType JAVATYPE_VariableScope = JavaType.buildType("org.camunda.bpm.engine.delegate.VariableScope");
-
-            private boolean isSetVariableCall(J.MethodInvocation methodInvocation) {
-                if (!methodInvocation.getSimpleName().equals("setVariable")) {
-                    return false;
-                }
-
-                Expression select = methodInvocation.getSelect();
-                if (!(select instanceof J.Identifier)) {
-                    return false;
-                }
-
-                J.Identifier selectIdentifier = (J.Identifier) select;
-                JavaType type = selectIdentifier.getType();
-
-                return type instanceof JavaType.Class &&
-                       ((JavaType.Class) type).getFullyQualifiedName().equals(DelegateExecution.class.getTypeName());
-            }
+				return type instanceof JavaType.Class &&
+						((JavaType.Class) type).getFullyQualifiedName().equals(DelegateExecution.class.getTypeName());
+			}
 
             
             public MethodDeclaration removeAnnotation(MethodDeclaration methodDeclaration, String annotationName) {
