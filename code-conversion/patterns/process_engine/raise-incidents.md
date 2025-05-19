@@ -5,8 +5,8 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
 ## ProcessEngine (Camunda 7)
 
 ```java
-	public void raiseIncident() {
-        engine.getRuntimeService().createIncident("some type", "some executionId", "some configuration", "some message");
+    public Incident raiseIncident(String type, String executionId, String configuration, String message) {
+        return engine.getRuntimeService().createIncident(type, executionId, configuration, message);
     }
 ```
 
@@ -15,13 +15,14 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
 ## CamundaClient (Camunda 8)
 
 ```java
-	public void raiseIncident(Map<String, Object> variableMap) {
-        camundaClient.newFailCommand(1235891025L)
-            .retries(0)
-            .errorMessage("some error message")
-            .variables(variableMap)
-            .send();
-	}
+    public FailJobResponse raiseIncident(Long jobKey, String errorMessage, Map<String, Object> variableMap) {
+        return camundaClient.newFailCommand(jobKey)
+                .retries(0)
+                .errorMessage(errorMessage)
+                .variables(variableMap)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
 ```
 
 -   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)

@@ -5,20 +5,20 @@ The following patterns focus on methods how to cancel process instances in Camun
 ## ProcessEngine (Camunda 7)
 
 ```java
-    public void cancelProcessInstance() {
-        engine.getRuntimeService().deleteProcessInstance("processInstanceId", "deleteReason");
+    public void cancelProcessInstance(String processInstanceId, String deleteReason) {
+        engine.getRuntimeService().deleteProcessInstance(processInstanceId, deleteReason);
     }
 ```
 
 ```java
-    public void cancelProcessInstances(List<String> processInstanceIds) {
-        engine.getRuntimeService().deleteProcessInstances(processInstanceIds, "deleteReason", true, true);
+    public void cancelProcessInstances(List<String> processInstanceIds, String deleteReason, boolean skipCustomListeners, boolean externallyTerminated) {
+        engine.getRuntimeService().deleteProcessInstances(processInstanceIds, deleteReason, skipCustomListeners, externallyTerminated);
     }
 ```
 
 ```java
-    public void cancelProcessInstancesAsync(List<String> processInstanceIds) {
-        engine.getRuntimeService().deleteProcessInstancesAsync(processInstanceIds, "deleteReason");
+    public Batch cancelProcessInstancesAsync(List<String> processInstanceIds, String deleteReason) {
+        return engine.getRuntimeService().deleteProcessInstancesAsync(processInstanceIds, deleteReason);
     }
 ```
 
@@ -29,8 +29,10 @@ The following patterns focus on methods how to cancel process instances in Camun
 ## CamundaClient (Camunda 8)
 
 ```java
-	public void cancelProcessInstance() {
-        camundaClient.newCancelInstanceCommand(2391324L).send();
+    public CancelProcessInstanceResponse cancelProcessInstance(Long processInstanceKey) {
+        return camundaClient.newCancelInstanceCommand(processInstanceKey)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 ```
 

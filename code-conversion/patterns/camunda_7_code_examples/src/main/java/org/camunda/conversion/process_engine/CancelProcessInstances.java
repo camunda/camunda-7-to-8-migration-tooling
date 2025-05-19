@@ -1,6 +1,7 @@
 package org.camunda.conversion.process_engine;
 
 import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.batch.Batch;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -13,15 +14,15 @@ public class CancelProcessInstances {
     @Autowired
     private ProcessEngine engine;
 
-    public void cancelProcessInstance() {
-        engine.getRuntimeService().deleteProcessInstance("processInstanceId", "deleteReason");
+    public void cancelProcessInstance(String processInstanceId, String deleteReason) {
+        engine.getRuntimeService().deleteProcessInstance(processInstanceId, deleteReason);
     }
 
-    public void cancelProcessInstances(List<String> processInstanceIds) {
-        engine.getRuntimeService().deleteProcessInstances(processInstanceIds, "deleteReason", true, true);
+    public void cancelProcessInstances(List<String> processInstanceIds, String deleteReason, boolean skipCustomListeners, boolean externallyTerminated) {
+        engine.getRuntimeService().deleteProcessInstances(processInstanceIds, deleteReason, skipCustomListeners, externallyTerminated);
     }
 
-    public void cancelProcessInstancesAsync(List<String> processInstanceIds) {
-        engine.getRuntimeService().deleteProcessInstancesAsync(processInstanceIds, "deleteReason");
+    public Batch cancelProcessInstancesAsync(List<String> processInstanceIds, String deleteReason) {
+        return engine.getRuntimeService().deleteProcessInstancesAsync(processInstanceIds, deleteReason);
     }
 }

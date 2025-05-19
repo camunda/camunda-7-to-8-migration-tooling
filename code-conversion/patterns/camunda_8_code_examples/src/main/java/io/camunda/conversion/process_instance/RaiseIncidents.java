@@ -1,6 +1,7 @@
 package io.camunda.conversion.process_instance;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.FailJobResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -12,11 +13,12 @@ public class RaiseIncidents {
     @Autowired
     private CamundaClient camundaClient;
 
-    public void raiseIncident(Map<String, Object> variableMap) {
-        camundaClient.newFailCommand(1235891025L)
+    public FailJobResponse raiseIncident(Long jobKey, String errorMessage, Map<String, Object> variableMap) {
+        return camundaClient.newFailCommand(jobKey)
                 .retries(0)
-                .errorMessage("some error message")
+                .errorMessage(errorMessage)
                 .variables(variableMap)
-                .send();
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 }

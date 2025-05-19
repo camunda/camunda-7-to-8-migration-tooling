@@ -1,6 +1,7 @@
 package org.camunda.conversion.process_engine;
 
 import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.batch.Batch;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.engine.variable.value.IntegerValue;
@@ -18,52 +19,56 @@ public class HandleProcessVariables {
     @Autowired
     private ProcessEngine engine;
 
-    public void getVariableJavaObjectAPI() {
-        int amount = (int) engine.getRuntimeService().getVariable("executionId", "amount");
+    // getting variables
+
+    public Object getVariableJavaObjectAPI(String executionId, String variableName) {
+        return engine.getRuntimeService().getVariable(executionId, variableName);
     }
 
-    public void getVariables(List<String> variableNames) {
-        Map<String, Object> variableMap = engine.getRuntimeService().getVariables("executionId", variableNames);
+    public TypedValue getVariableTypedValueAPI(String executionId, String variableName) {
+        return engine.getRuntimeService().getVariableTyped(executionId, variableName);
     }
 
-    public void getVariableTyped() {
-        TypedValue typedVariable = engine.getRuntimeService().getVariableTyped("executionId", "variableName");
+    public Map<String, Object> getVariablesJavaObjectAPI(String executionId, List<String> variableNames) {
+        return engine.getRuntimeService().getVariables(executionId, variableNames);
     }
 
-    public void getVariablesTyped(List<String> variableNames) {
-        VariableMap variableMap = engine.getRuntimeService().getVariablesTyped("executionId", variableNames, true);
+    public VariableMap getVariablesTypedValueAPI(String executionId, List<String> variableNames) {
+        return engine.getRuntimeService().getVariablesTyped(executionId, variableNames, true);
     }
 
-    public void setVariableJavaObjectAPI(int amount) {
-        engine.getRuntimeService().setVariable("executionId", "variableName", amount);
+    //setting variables
+
+    public void setVariableJavaObjectAPI(String executionId, int amount) {
+        engine.getRuntimeService().setVariable(executionId, "amount", amount);
     }
 
-    public void setVariableTypedValueAPI(int amount) {
+    public void setVariableTypedValueAPI(String executionId, int amount) {
         IntegerValue amountTyped = Variables.integerValue(amount);
-        engine.getRuntimeService().setVariable("executionId", "variableName", amountTyped);
+        engine.getRuntimeService().setVariable(executionId, "amount", amountTyped);
     }
 
-    public void setVariablesJavaObjectAPI(Map<String, Object> variableMap) {
-        engine.getRuntimeService().setVariables("executionId", variableMap);
+    public void setVariablesJavaObjectAPI(String executionId, Map<String, Object> variableMap) {
+        engine.getRuntimeService().setVariables(executionId, variableMap);
     }
 
-    public void setVariablesTypedValueAPI(int amount, String name) {
-        IntegerValue amountTyped = Variables.integerValue(amount);
-        StringValue nameTyped = Variables.stringValue(name);
-        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
-        variableMap.putValueTyped("name", nameTyped);
-        engine.getRuntimeService().setVariables("executionId", variableMap);
-    }
-
-    public void setVariablesAsyncJavaObjectAPI(List<String> processInstanceIds, Map<String, Object> variableMap) {
-        engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
-    }
-
-    public void setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
+    public void setVariablesTypedValueAPI(String executionId, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
         VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
-        engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
+        engine.getRuntimeService().setVariables(executionId, variableMap);
+    }
+
+    public Batch setVariablesAsyncJavaObjectAPI(List<String> processInstanceIds, Map<String, Object> variableMap) {
+        return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
+    }
+
+    public Batch setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
+        IntegerValue amountTyped = Variables.integerValue(amount);
+        StringValue nameTyped = Variables.stringValue(name);
+        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
+        variableMap.putValueTyped("name", nameTyped);
+        return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
     }
 }

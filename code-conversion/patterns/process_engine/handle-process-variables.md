@@ -6,57 +6,50 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 
 ### ProcessEngine (Camunda 7)
 
-#### Java Object API
-
 ```java
-    public void getVariableJavaObjectAPI() {
-        int amount = (int) engine.getRuntimeService().getVariable("executionId", "amount");
+    public Object getVariableJavaObjectAPI(String executionId, String variableName) {
+        return engine.getRuntimeService().getVariable(executionId, variableName);
     }
 ```
 
 ```java
-    public void getVariablesJavaObjectAPI(List<String> variableNames) {
-        Map<String, Object> variableMap = engine.getRuntimeService().getVariables("executionId", variableNames);
-    }
-```
-
-#### Typed Value API
-
-```java
-    public void getVariableTypedValueAPI() {
-        TypedValue typedVariable = engine.getRuntimeService().getVariableTyped("executionId", "variableName");
+    public TypedValue getVariableTypedValueAPI(String executionId, String variableName) {
+        return engine.getRuntimeService().getVariableTyped(executionId, variableName);
     }
 ```
 
 ```java
-    public void getVariablesTypedValueAPI(List<String> variableNames) {
-        VariableMap variableMap = engine.getRuntimeService().getVariablesTyped("executionId", variableNames, true);
+    public Map<String, Object> getVariablesJavaObjectAPI(String executionId, List<String> variableNames) {
+        return engine.getRuntimeService().getVariables(executionId, variableNames);
+    }
+```
+
+```java
+    public VariableMap getVariablesTypedValueAPI(String executionId, List<String> variableNames) {
+        return engine.getRuntimeService().getVariablesTyped(executionId, variableNames, true);
     }
 ```
 
 ## CamundaClient (Camunda 8)
 
 ```java
-    public void getVariable(Long processInstanceKey) {
-        camundaClient.newVariableSearchRequest()
-                .filter(variableFilter -> {
-                    variableFilter.processInstanceKey(processInstanceKey);
-                    variableFilter.name("amount");
-                })
+    public Variable getVariable(Long processInstanceKey, String variableName) {
+        return camundaClient.newVariableSearchRequest()
+                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(variableName))
                 .send()
-                .join();
+                .join() // add reactive response and error handling instead of join()
+                .items()
+                .get(0);
     }
 ```
 
 ```java
-    public void getVariables(Long processInstanceKey, List<String> variableNames) {
-        camundaClient.newVariableSearchRequest()
-                .filter(variableFilter -> {
-                    variableFilter.processInstanceKey(processInstanceKey);
-                    variableFilter.name(name -> name.in(variableNames));
-                })
+    public List<Variable> getVariables(Long processInstanceKey, List<String> variableNames) {
+        return camundaClient.newVariableSearchRequest()
+                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(name -> name.in(variableNames)))
                 .send()
-                .join();
+                .join() // add reactive response and error handling instead of join()
+                .items();
     }
 ```
 
@@ -70,52 +63,47 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 #### Java Object API
 
 ```java
-    public void setVariableJavaObjectAPI(int amount) {
-        engine.getRuntimeService().setVariable("executionId", "variableName", amount);
+    public void setVariableJavaObjectAPI(String executionId, int amount) {
+        engine.getRuntimeService().setVariable(executionId, "amount", amount);
     }
 ```
 
 ```java
-    public void setVariablesJavaObjectAPI(Map<String, Object> variableMap) {
-        engine.getRuntimeService().setVariables("executionId", variableMap);
-    }
-```
-
-```java
-    public void setVariablesAsyncJavaObjectAPI(List<String> processInstanceIds, Map<String, Object> variableMap) {
-        engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
-    }
-```
-
--   async: multiple variables can be set for multiple process instances
--   async: various ProcessInstanceQueries possible
-
-#### Typed Value API
-
-```java
-    public void setVariableTypedValueAPI(int amount) {
+    public void setVariableTypedValueAPI(String executionId, int amount) {
         IntegerValue amountTyped = Variables.integerValue(amount);
-        engine.getRuntimeService().setVariable("executionId", "variableName", amountTyped);
+        engine.getRuntimeService().setVariable(executionId, "amount", amountTyped);
     }
 ```
 
 ```java
-    public void setVariablesTypedValueAPI(int amount, String name) {
+    public void setVariablesJavaObjectAPI(String executionId, Map<String, Object> variableMap) {
+        engine.getRuntimeService().setVariables(executionId, variableMap);
+    }
+```
+
+```java
+    public void setVariablesTypedValueAPI(String executionId, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
         VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
-        engine.getRuntimeService().setVariables("executionId", variableMap);
+        engine.getRuntimeService().setVariables(executionId, variableMap);
     }
 ```
 
 ```java
-    public void setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
+    public Batch setVariablesAsyncJavaObjectAPI(List<String> processInstanceIds, Map<String, Object> variableMap) {
+        return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
+    }
+```
+
+```java
+    public Batch setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
         VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
-        engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
+        return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
     }
 ```
 
@@ -125,16 +113,20 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 ### CamundaClient (Camunda 8)
 
 ```java
-    public void setVariable(Long elementInstanceKey, int amount) {
-        camundaClient.newSetVariablesCommand(elementInstanceKey)
-            .variable("amount", amount).send().join();
+    public SetVariablesResponse setVariable(Long elementInstanceKey, int amount) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variable("amount", amount)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 ```
 
 ```java
-    public void setVariables(Long elementInstanceKey, Map<String, Object> variableMap) {
-        camundaClient.newSetVariablesCommand(elementInstanceKey)
-    		.variables(variableMap);
+    public SetVariablesResponse setVariables(Long elementInstanceKey, Map<String, Object> variableMap) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variables(variableMap)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 ```
 

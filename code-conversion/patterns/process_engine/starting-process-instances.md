@@ -14,16 +14,16 @@ The following patterns focus on various methods to start process instances in Ca
 ### ProcessEngine (Camunda 7)
 
 ```java
-	public void startProcessByBPMNModelIdentifier(VariableMap variableMap) {
-		engine.getRuntimeService().startProcessInstanceByKey("orderProcessIdentifier", variableMap);
-	}
+    public ProcessInstance startProcessByBPMNModelIdentifier(String processDefinitionKey, VariableMap variableMap) {
+        return engine.getRuntimeService().startProcessInstanceByKey(processDefinitionKey, variableMap);
+    }
 ```
 
 ```java
-    public void startProcessByBPMNModelIdentifierViaBuilder(VariableMap variableMap) {
-        engine.getRuntimeService().createProcessInstanceByKey("order")
-                .businessKey("some business key")
-                .processDefinitionTenantId("some tenantId")
+    public ProcessInstance startProcessByBPMNModelIdentifierViaBuilder(String processInstanceKey, String businessKey, String tenantId, VariableMap variableMap) {
+        return engine.getRuntimeService().createProcessInstanceByKey(processInstanceKey)
+                .businessKey(businessKey)
+                .processDefinitionTenantId(tenantId)
                 .setVariables(variableMap)
                 .execute();
     }
@@ -35,14 +35,15 @@ The following patterns focus on various methods to start process instances in Ca
 ### CamundaClient (Camunda 8)
 
 ```java
-	public void startProcessByBPMNModelIdentifier(Map<String, Object> variableMap) {
-		camundaClient.newCreateInstanceCommand()
-			.bpmnProcessId("orderProcessIdentifier")
-			.latestVersion()
-			.variables(variableMap)
-			.send()
-			.join(); // add reactive response and error handling instead of join()
-	}
+    public ProcessInstanceEvent startProcessByBPMNModelIdentifier(String processDefinitionId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
 ```
 
 -   no business key in Camunda 8.8
@@ -53,18 +54,18 @@ The following patterns focus on various methods to start process instances in Ca
 ### ProcessEngine (Camunda 7)
 
 ```java
-	public void startProcessByKeyAssignedOnDeployment(VariableMap variableMap) {
-		engine.getRuntimeService().startProcessInstanceById("order:7:444f-fkd2-dyaf", "some business key", variableMap);
-	}
+    public ProcessInstance startProcessByKeyAssignedOnDeployment(String processDefinitionId, String businessKey, VariableMap variableMap) {
+        return engine.getRuntimeService().startProcessInstanceById(processDefinitionId, businessKey, variableMap);
+    }
 ```
 
 ```java
-	public void startProcessByKeyAssignedOnDeploymentViaBuilder(VariableMap variableMap) {
-        engine.getRuntimeService().createProcessInstanceById("order:7:444f-fkd2-dyaf")
-            .businessKey("some business key")
-            .processDefinitionTenantId("some tenantId")
-            .setVariables(variableMap)
-            .execute();
+    public ProcessInstance startProcessByKeyAssignedOnDeploymentViaBuilder(String processDefinitionId, String businessKey, String tenantId, VariableMap variableMap) {
+        return engine.getRuntimeService().createProcessInstanceById(processDefinitionId)
+                .businessKey(businessKey)
+                .processDefinitionTenantId(tenantId)
+                .setVariables(variableMap)
+                .execute();
     }
 ```
 
@@ -74,13 +75,14 @@ The following patterns focus on various methods to start process instances in Ca
 ### CamundaClient (Camunda 8)
 
 ```java
-	public void startProcessByKeyAssignedOnDeployment(Map<String, Object> variableMap) {
-		camundaClient.newCreateInstanceCommand()
-			.processDefinitionKey(21653461L)
-			.variables(variableMap)
-			.send()
-			.join(); // add reactive response and error handling instead of join()
-}
+    public ProcessInstanceEvent startProcessByKeyAssignedOnDeployment(Long processDefinitionKey, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .processDefinitionKey(processDefinitionKey)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
 ```
 
 -   no business key in Camunda 8.8
@@ -91,28 +93,29 @@ The following patterns focus on various methods to start process instances in Ca
 ### ProcessEngine (Camunda 7)
 
 ```java
-	public void startProcessByMessage(VariableMap variableMap) {
-        engine.getRuntimeService().startProcessInstanceByMessage("message name", "some business key", variableMap);
+    public ProcessInstance startProcessByMessage(String messageName, String businessKey, VariableMap variableMap) {
+        return engine.getRuntimeService().startProcessInstanceByMessage(messageName, businessKey, variableMap);
     }
 ```
 
 ```java
-	public void startProcessByMessageAndProcessDefinitionId(VariableMap variableMap) {
-        engine.getRuntimeService().startProcessInstanceByMessageAndProcessDefinitionId("message name", "processDefinitionId", "some business key", variableMap);
+    public ProcessInstance startProcessByMessageAndProcessDefinitionId(String messageName, String processDefinitionId, String businessKey, VariableMap variableMap) {
+        return engine.getRuntimeService().startProcessInstanceByMessageAndProcessDefinitionId(messageName, processDefinitionId, businessKey, variableMap);
     }
 ```
 
 ### CamundaClient (Camunda 8)
 
 ```java
-	public void startProcessByMessage(Map<String, Object> variableMap) {
-    	camundaClient.newCorrelateMessageCommand()
-            .messageName("message name")
-            .correlationKey("some correlation key")
-            .variables(variableMap)
-            .send()
-            .join();
-  }
+    public CorrelateMessageResponse startProcessByMessage(String messageName, String correlationKey, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCorrelateMessageCommand()
+                .messageName(messageName)
+                .correlationKey(correlationKey)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
 ```
 
 -   no specific method to start a process instance by message

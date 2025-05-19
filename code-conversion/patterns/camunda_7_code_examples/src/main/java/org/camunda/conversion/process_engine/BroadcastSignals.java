@@ -13,13 +13,25 @@ public class BroadcastSignals {
     @Autowired
     private ProcessEngine engine;
 
-    public void broadcastSignal(Object signalData, VariableMap variableMap) {
-        engine.getRuntimeService().signalEventReceived("signal name", "executionId", variableMap);
+    public void broadcastSignalGlobally(String signalName, VariableMap variableMap) {
+        engine.getRuntimeService().signalEventReceived(signalName, variableMap);
     }
 
-    public void broadcastSignalViaBuilder(VariableMap variableMap) {
-        engine.getRuntimeService().createSignalEvent("signal name")
-                .tenantId("tenantId")
+    public void broadcastSignalToOneExecution(String signalName, String executionId, VariableMap variableMap) {
+        engine.getRuntimeService().signalEventReceived(signalName, executionId, variableMap);
+    }
+
+    public void broadcastSignalGloballyViaBuilder(String signalName, String tenantId, VariableMap variableMap) {
+        engine.getRuntimeService().createSignalEvent(signalName)
+                .tenantId(tenantId)
+                .setVariables(variableMap)
+                .send();
+    }
+
+    public void broadcastSignalToOneExecutionViaBuilder(String signalName, String executionId, String tenantId, VariableMap variableMap) {
+        engine.getRuntimeService().createSignalEvent(signalName)
+                .executionId(executionId)
+                .tenantId(tenantId)
                 .setVariables(variableMap)
                 .send();
     }

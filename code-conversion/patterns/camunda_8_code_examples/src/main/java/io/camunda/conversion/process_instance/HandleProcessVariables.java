@@ -1,7 +1,9 @@
 package io.camunda.conversion.process_instance;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.SetVariablesResponse;
 import io.camunda.client.api.search.filter.VariableFilter;
+import io.camunda.client.api.search.response.Variable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,27 +16,34 @@ public class HandleProcessVariables {
     @Autowired
     private CamundaClient camundaClient;
 
-    public void getVariable(Long processInstanceKey) {
-        camundaClient.newVariableSearchRequest()
-                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name("amount"))
+    public Variable getVariable(Long processInstanceKey, String variableName) {
+        return camundaClient.newVariableSearchRequest()
+                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(variableName))
                 .send()
-                .join();
+                .join() // add reactive response and error handling instead of join()
+                .items()
+                .get(0);
     }
 
-    public void getVariables(Long processInstanceKey, List<String> variableNames) {
-        camundaClient.newVariableSearchRequest()
+    public List<Variable> getVariables(Long processInstanceKey, List<String> variableNames) {
+        return camundaClient.newVariableSearchRequest()
                 .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(name -> name.in(variableNames)))
                 .send()
-                .join();
+                .join() // add reactive response and error handling instead of join()
+                .items();
     }
 
-    public void setVariable(Long elementInstanceKey, int amount) {
-        camundaClient.newSetVariablesCommand(elementInstanceKey)
-                .variable("amount", amount).send().join();
+    public SetVariablesResponse setVariable(Long elementInstanceKey, int amount) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variable("amount", amount)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 
-    public void setVariables(Long elementInstanceKey, Map<String, Object> variableMap) {
-        camundaClient.newSetVariablesCommand(elementInstanceKey)
-                .variables(variableMap);
+    public SetVariablesResponse setVariables(Long elementInstanceKey, Map<String, Object> variableMap) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variables(variableMap)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 }

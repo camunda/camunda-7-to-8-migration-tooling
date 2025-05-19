@@ -1,6 +1,8 @@
 package io.camunda.conversion.process_instance;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.CorrelateMessageResponse;
+import io.camunda.client.api.response.PublishMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -13,21 +15,23 @@ public class CorrelateMessages {
     @Autowired
     private CamundaClient camundaClient;
 
-    public void correlateMessage(Map<String, Object> variableMap) {
-        camundaClient.newCorrelateMessageCommand()
-                .messageName("message name")
-                .correlationKey("a correlation key")
+    public CorrelateMessageResponse correlateMessage(String messageName, String correlationKey, Map<String, Object> variableMap) {
+        return camundaClient.newCorrelateMessageCommand()
+                .messageName(messageName)
+                .correlationKey(correlationKey)
                 .variables(variableMap)
-                .send();
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 
-    public void publishMessage(Map<String, Object> variableMap) {
-        camundaClient.newPublishMessageCommand()
-                .messageName("message name")
-                .correlationKey("a correlation key")
-                .messageId("some messageId")
+    public PublishMessageResponse publishMessage(String messageName, String correlationKey, String messageId, Map<String, Object> variableMap) {
+        return camundaClient.newPublishMessageCommand()
+                .messageName(messageName)
+                .correlationKey(correlationKey)
+                .messageId(messageId)
                 .timeToLive(Duration.ofSeconds(30000L))
                 .variables(variableMap)
-                .send();
+                .send()
+                .join(); // add reactive response and error handling instead of join()
     }
 }

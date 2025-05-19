@@ -2,7 +2,7 @@
 
 For an introduction to code conversion patterns, see the [patterns README](../README.md).
 
-The ProcessEngine offers various service to interact with the Camunda 7 engine:
+The ProcessEngine offers various services to interact with the Camunda 7 engine:
 
 -   RepositoryService: Manages Deployments
 -   RuntimeService: For starting and searching ProcessInstances
