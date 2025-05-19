@@ -265,17 +265,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 				return methodInvocation;
 			}
 
-            @Override
-            public J.TypeCast visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
-                return super.visitTypeCast(typeCast, ctx);
-            }
-
-            @Override
-            public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
-                return super.visitAssignment(assignment, ctx);
-            }
-
-            private boolean isGetVariableCall(J.MethodInvocation methodInvocation) {
+            private boolean isGetVariableCall(@NotNull J.MethodInvocation methodInvocation) {
                 return methodInvocation.getSimpleName().equals("getVariable")
                         || methodInvocation.getSimpleName().equals("getVariableLocal");
             }
@@ -283,7 +273,7 @@ public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 			private static final String CLASS_NAME_VariableScope = "VariableScope";
 			private static final String PACKAGE_NAME_VariableScope = "org.camunda.bpm.engine.delegate";
 
-            private boolean isSetVariableCall(J.MethodInvocation methodInvocation) {
+            private boolean isSetVariableCall(@NotNull J.MethodInvocation methodInvocation) {
                 return methodInvocation.getSimpleName().equals("setVariable")
                         || methodInvocation.getSimpleName().equals("setVariableLocal");
             }
