@@ -42,7 +42,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 package org.camunda.community.migration.example;
 
 import io.camunda.zeebe.client.api.response.ActivatedJob;
-import io.camunda.zeebe.client.api.worker.JobWorker;
+import io.camunda.zeebe.spring.client.annotation.JobWorker;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
