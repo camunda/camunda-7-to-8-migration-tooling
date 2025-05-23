@@ -5,7 +5,6 @@ import io.camunda.client.api.response.BroadcastSignalResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.util.Map;
 
 @Component

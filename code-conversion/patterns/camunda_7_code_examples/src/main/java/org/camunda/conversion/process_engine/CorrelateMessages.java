@@ -37,4 +37,5 @@ public class CorrelateMessages {
                 .setVariables(variableMap)
                 .correlateAllAsync();
     }
+
 }

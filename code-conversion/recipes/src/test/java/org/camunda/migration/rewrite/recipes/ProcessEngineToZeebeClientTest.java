@@ -1,18 +1,12 @@
 package org.camunda.migration.rewrite.recipes;
 
+import org.camunda.migration.rewrite.recipes.client.ProcessEngineToZeebeClient;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
-import io.camunda.zeebe.client.api.response.ProcessInstanceEvent;
-
 import static org.openrewrite.java.Assertions.java;
-
-import java.util.Map;
-
-import org.camunda.migration.rewrite.recipes.client.ProcessEngineToZeebeClient;
-import org.camunda.migration.rewrite.recipes.glue.JavaDelegateSpringToZeebeWorkerSpring;
 
 class ProcessEngineToZeebeClientTest implements RewriteTest {
 

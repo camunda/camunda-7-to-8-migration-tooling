@@ -54,6 +54,7 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
                 .variables(variableMap)
                 .send()
                 .join(); // add reactive response and error handling instead of join()
+    }
 ```
 
 -   in Camunda 8, a signal is always correlated to all suitable signal subscriptions

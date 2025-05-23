@@ -158,6 +158,12 @@
 			  <version>5.2.4.RELEASE</version>        
 			  <scope>provided</scope>        
         </dependency>
+
+        <dependency>
+            <groupId>io.camunda</groupId>
+            <artifactId>spring-boot-starter-camunda-sdk</artifactId>
+            <version>8.8.0-alpha4</version>
+        </dependency>
         
     </dependencies>
 
