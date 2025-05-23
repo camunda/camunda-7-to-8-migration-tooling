@@ -310,7 +310,7 @@ export const task_7_23_to_8_8 = [
 					rightEntry: (
 						<>
 							<p>
-								Not possible in Camunda 8.8. In Camunda 7, the
+								Not yet possible in Camunda 8.8. In Camunda 7, the
 								executionId is used to differentiate between
 								parallel executions in one process instance.
 							</p>
@@ -425,7 +425,7 @@ export const task_7_23_to_8_8 = [
 					),
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. Activating/suspending a
+							Not yet possible in Camunda 8.8. Activating/suspending a
 							process instance is on the roadmap of Camunda 8.
 						</p>
 					),
@@ -448,14 +448,14 @@ export const task_7_23_to_8_8 = [
 				{
 					leftEntry: <pre>(string) parentTaskId</pre>,
 					rightEntry: (
-						<p>Not possible in Camunda 8.8. No sub tasks.</p>
+						<p>Not yet possible in Camunda 8.8. No sub tasks.</p>
 					),
 				},
 				{
 					leftEntry: <pre>(boolean) withCommentAttachmentInfo</pre>,
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. No comments for tasks
+							Not yet possible in Camunda 8.8. No comments for tasks
 							yet.
 						</p>
 					),
@@ -515,7 +515,7 @@ export const task_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"There is no manual creation of tasks in Camunda 8.8.",
+			"Manual creation of tasks is not yet available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -536,7 +536,7 @@ export const task_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"There is no manual deletion of tasks in Camunda 8.8.",
+			"Manual deletion of tasks is not yet available in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -797,7 +797,7 @@ export const task_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"It is not possible to delegate a task in Camunda 8.8.",
+			"It is not yet possible to delegate a task to a different assignee in Camunda 8.8.",
 	},
 	{
 		origin: {
@@ -918,7 +918,7 @@ export const task_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"Concept of owner and delegation of a task does not exist in Camunda 8.8.",
+			"It is not yet possible to delegate a task to a different assignee in Camunda 8.8, so there is also no need to resolve it.",
 	},
 	{
 		origin: {

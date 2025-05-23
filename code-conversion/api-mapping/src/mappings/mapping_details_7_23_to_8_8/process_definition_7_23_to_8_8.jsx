@@ -482,7 +482,7 @@ export const process_definition_7_23_to_8_8 = [
 					),
 					rightEntry: (
 						<p>
-							Not possible in Camunda 8.8. This functionality
+							Not yet possible in Camunda 8.8. This functionality
 							might be extended alongside the startInstructions
 							functionality.
 						</p>
@@ -628,7 +628,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
@@ -904,7 +904,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		mappedExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
@@ -984,7 +984,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"There is on endpoint to group process instance statistics by process definition in Camunda 8.8. Statistics can be grouped by flow nodes, see Get Activity Instance Statistics.",
+			"There is no endpoint yet to group process instance statistics by process definition in Camunda 8.8. Statistics can be grouped by flow nodes, see Get Activity Instance Statistics.",
 	},
 	{
 		origin: {
@@ -993,7 +993,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {
@@ -1144,7 +1144,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
+			"Not yet possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
 		origin: {
@@ -1153,7 +1153,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"Not possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
+			"Not yet possible in Camunda 8.8. A running process instance can be modified. A canceled process instance cannot be modified.",
 	},
 	{
 		origin: {
@@ -1301,7 +1301,7 @@ export const process_definition_7_23_to_8_8 = [
 		},
 		target: {},
 		roadmapExplanation:
-			"Not possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
+			"Not yet possible in Camunda 8.8. Activating/suspending process instances is on the roadmap.",
 	},
 	{
 		origin: {

@@ -6,7 +6,7 @@ export const task_comment_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation: (
-			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
+			<div>Not yet possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},
 	{
@@ -16,7 +16,7 @@ export const task_comment_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation: (
-			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
+			<div>Not yet possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},
 	{
@@ -26,7 +26,7 @@ export const task_comment_7_23_to_8_8 = [
 		},
 		target: {},
 		discontinuedExplanation: (
-			<div>Not possible in Camunda 8.8. No comments for tasks yet.</div>
+			<div>Not yet possible in Camunda 8.8. No comments for tasks yet.</div>
 		),
 	},
 ];

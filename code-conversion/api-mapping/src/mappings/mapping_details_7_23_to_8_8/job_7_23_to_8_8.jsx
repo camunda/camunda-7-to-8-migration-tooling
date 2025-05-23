@@ -123,7 +123,7 @@ export const job_7_23_to_8_8 = [
 	// 	},
 	// 	target: {},
 	// 	mappedExplanation:
-	// 		"Not possible in Camunda 8.8. Activating/suspending a process instance is on the roadmap of Camunda 8.",
+	// 		"Not yet possible in Camunda 8.8. Activating/suspending a process instance is on the roadmap of Camunda 8.",
 	// },
 	// {
 	// 	origin: {

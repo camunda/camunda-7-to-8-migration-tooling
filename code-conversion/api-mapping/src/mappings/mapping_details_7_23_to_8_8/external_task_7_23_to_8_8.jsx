@@ -7,7 +7,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to search for jobs without
+				There is no endpoint in Camunda 8.8 yet to search for jobs without
 				activating them. Please take a look at the{" "}
 				<code>POST Activate jobs</code> endpoint to check if it meets
 				your needs.
@@ -22,7 +22,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to search for jobs without
+				There is no endpoint in Camunda 8.8 yet to search for jobs without
 				activating them. Please take a look at the{" "}
 				<code>POST Activate jobs</code> endpoint to check if it meets
 				your needs.
@@ -37,7 +37,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to search for jobs without
+				There is no endpoint in Camunda 8.8 yet to search for jobs without
 				activating them. Please take a look at the{" "}
 				<code>POST Activate jobs</code> endpoint to check if it meets
 				your needs.
@@ -52,7 +52,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to search for jobs without
+				There is no endpoint in Camunda 8.8 yet to search for jobs without
 				activating them. Please take a look at the{" "}
 				<code>POST Activate jobs</code> endpoint to check if it meets
 				your needs.
@@ -354,7 +354,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to search for jobs types.
+				There is no endpoint in Camunda 8.8 yet to search for jobs types.
 			</div>
 		),
 	},
@@ -366,7 +366,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to retrieve a specific job
+				There is no endpoint in Camunda 8.8 yet to retrieve a specific job
 				by <code>jobKey</code>.
 			</div>
 		),
@@ -466,7 +466,7 @@ export const external_task_7_23_to_8_8 = [
 		target: {},
 		discontinuedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 to retrieve the error
+				There is no endpoint in Camunda 8.8 yet to retrieve the error
 				details for a specific running job.
 			</div>
 		),
@@ -621,7 +621,7 @@ export const external_task_7_23_to_8_8 = [
 			operation: "put",
 		},
 		target: {},
-		discontinuedExplanation: <p>No job priority in Camunda 8.8.</p>,
+		discontinuedExplanation: <p>There is no job priority yet in Camunda 8.8.</p>,
 	},
 	{
 		origin: {

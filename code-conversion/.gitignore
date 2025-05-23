@@ -25,3 +25,4 @@ replay_pid*
 
 # intellij
 **/.idea
+/patterns/package-lock.json

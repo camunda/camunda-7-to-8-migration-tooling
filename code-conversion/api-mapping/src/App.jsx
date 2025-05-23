@@ -11,7 +11,7 @@ function App() {
 	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
-	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(false);
+	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(true);
 	const [showMappedEndpoints, setShowMappedEndpoints] = useState(false);
 	const [showRoadmapEndpoints, setShowRoadmapEndpoints] = useState(false);
 	const [showDiscontinuedEndpoints, setShowDiscontinuedEndpoints] =
