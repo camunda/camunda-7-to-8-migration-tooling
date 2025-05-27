@@ -27,6 +27,10 @@ jobs:
         working-directory: patterns
         run: node generate-catalog.js
 
+      - name: Run all-in-one generator
+        working-directory: patterns
+        run: node generate-all-in-one.js
+
       - name: Check for changes
         run: |
           if git diff --quiet; then
@@ -35,6 +39,6 @@ jobs:
             echo "Catalog updated. Committing changes..."
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -am "🤖 Auto-update pattern catalog"
+            git commit -am "Auto-update pattern catalog"
             git push
           fi
