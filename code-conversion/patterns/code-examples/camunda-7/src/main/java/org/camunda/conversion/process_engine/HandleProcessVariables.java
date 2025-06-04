@@ -5,6 +5,7 @@ import org.camunda.bpm.engine.batch.Batch;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.engine.variable.value.IntegerValue;
+import org.camunda.bpm.engine.variable.value.ObjectValue;
 import org.camunda.bpm.engine.variable.value.StringValue;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,7 +56,7 @@ public class HandleProcessVariables {
     public void setVariablesTypedValueAPI(String executionId, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
-        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
         engine.getRuntimeService().setVariables(executionId, variableMap);
     }
@@ -67,8 +68,39 @@ public class HandleProcessVariables {
     public Batch setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
-        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
         return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
+    }
+
+    // custom variable
+
+    public CustomObject getCustomVariableJavaObjectAPI(String executionId, String customVariableName) {
+        return (CustomObject) engine.getRuntimeService().getVariable(executionId, customVariableName);
+    }
+
+    public CustomObject getCustomVariableTypedValuetAPI(String executionId, String customVariableName) {
+        ObjectValue objectValue = engine.getRuntimeService().getVariableTyped(executionId, customVariableName);
+        return (CustomObject) objectValue.getValue();
+    }
+
+    public void setCustomVariableJavaObjectAPI(String executionId, CustomObject customObject) {
+        engine.getRuntimeService().setVariable(executionId, "customObject", customObject);
+    }
+
+    public void setCustomVariableTypedValueAPI(String executionId, CustomObject customObject) {
+        ObjectValue objectValue = Variables.objectValue(customObject).create();
+        engine.getRuntimeService().setVariable(executionId, "customObject", objectValue);
+    }
+
+    private class CustomObject {
+            private String someString;
+
+            private Long someLong;
+
+            public CustomObject(String someString, Long someLong) {
+                this.someString = someString;
+                this.someLong = someLong;
+            }
     }
 }

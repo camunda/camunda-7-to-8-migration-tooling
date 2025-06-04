@@ -1,5 +1,7 @@
 package io.camunda.conversion.process_instance;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.SetVariablesResponse;
 import io.camunda.client.api.search.filter.VariableFilter;
@@ -45,5 +47,37 @@ public class HandleProcessVariables {
                 .variables(variableMap)
                 .send()
                 .join(); // add reactive response and error handling instead of join()
+    }
+
+    // custom variable
+
+    public CustomObject getCustomVariable(Long processInstanceKey, String customVariableName) throws JsonProcessingException {
+        Variable variable = camundaClient.newVariableSearchRequest()
+                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(customVariableName))
+                .send()
+                .join() // add reactive response and error handling instead of join()
+                .items()
+                .get(0);
+
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(variable.getValue(), CustomObject.class);
+    }
+
+    public SetVariablesResponse setCustomVariable(Long elementInstanceKey, CustomObject customObject) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variable("customObject", customObject)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+
+    private class CustomObject {
+        private String someString;
+
+        private Long someLong;
+
+        public CustomObject(String someString, Long someLong) {
+            this.someString = someString;
+            this.someLong = someLong;
+        }
     }
 }

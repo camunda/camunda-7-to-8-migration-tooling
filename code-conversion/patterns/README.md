@@ -11,6 +11,10 @@ These patterns are programming-language-specific. For language-agnostic informat
 <!-- The following content is automatically added with a Github Action from generate-catalog.js -->
 <!-- BEGIN-CATALOG -->
 
+Patterns:
+
+- [Camunda 7 to 8 Code Conversion Patterns](ALL_IN_ONE.md)
+
 ## General thoughts and changes
 
 Some changes need to happen on a development-project-wide level.
