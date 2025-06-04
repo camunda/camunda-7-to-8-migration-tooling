@@ -1,6 +1,7 @@
 package org.camunda.conversion.process_engine;
 
 import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -10,6 +11,9 @@ public class BroadcastSignals {
 
     @Autowired
     private ProcessEngine engine;
+
+    @Autowired
+    private RuntimeService runtimeService;
 
     public void broadcastSignalGlobally(String signalName, VariableMap variableMap) {
         engine.getRuntimeService().signalEventReceived(signalName, variableMap);

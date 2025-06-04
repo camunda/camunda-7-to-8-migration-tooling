@@ -17,7 +17,7 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                 package org.camunda.community.migration.example;
                                 
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper;
+                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -33,26 +33,14 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                     private ProcessEngine engine;
                                                                                                  
                                     public void broadcastSignalGlobally(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithoutTenantId(signalName, variableMap);
-                                    }
-                                            
-                                    public void broadcastSignalGloballyViaBuilder(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithoutTenantId(signalName, variableMap);
-                                    }
-                                            
-                                    public void broadcastSignalToOneTenantViaBuilder(String signalName, String tenantId, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithTenantId(signalName, tenantId, variableMap);
-                                    }
-                                    
-                                    public void broadcastSignalToOneTenantViaBuilder2(String signalName, String tenantId, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithTenantId(signalName, tenantId, variableMap);
+                                        camundaClientWrapper.broadcastSignalWithVariables(signalName, variableMap);
                                     }
                                 }                                                                                                       
                                 """,
                         """
                                 package org.camunda.community.migration.example;
                                 
-                                import org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper;
+                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -65,19 +53,7 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                     private CamundaClientWrapper camundaClientWrapper;
                                     
                                     public void broadcastSignalGlobally(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithoutTenantId(signalName, variableMap);
-                                    }
-                                            
-                                    public void broadcastSignalGloballyViaBuilder(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithoutTenantId(signalName, variableMap);
-                                    }
-                                            
-                                    public void broadcastSignalToOneTenantViaBuilder(String signalName, String tenantId, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithTenantId(signalName, tenantId, variableMap);
-                                    }
-                                    
-                                    public void broadcastSignalToOneTenantViaBuilder2(String signalName, String tenantId, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithTenantId(signalName, tenantId, variableMap);
+                                        camundaClientWrapper.broadcastSignalWithVariables(signalName, variableMap);
                                     }
                                 } 
                                 """

@@ -10,6 +10,7 @@ import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +50,12 @@ public class HandleProcessVariables {
     }
 
     public void setVariablesJavaObjectAPI(String executionId, Map<String, Object> variableMap) {
+        StringValue nameTyped = Variables.stringValue("2");
+        String bla = "blub";
+
+        Collections
+        VariableMap variableMap2 = Variables.createVariables().putValueTyped("name", nameTyped);
+        variableMap2.putValue("bla", bla);
         engine.getRuntimeService().setVariables(executionId, variableMap);
     }
 

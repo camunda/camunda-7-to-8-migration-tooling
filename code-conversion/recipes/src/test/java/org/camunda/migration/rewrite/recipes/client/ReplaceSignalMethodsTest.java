@@ -17,7 +17,7 @@ class ReplaceSignalMethodsTest implements RewriteTest {
                                 package org.camunda.community.migration.example;
                                         
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper;
+                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -128,7 +128,7 @@ class ReplaceSignalMethodsTest implements RewriteTest {
                                 package org.camunda.community.migration.example;
                                 
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper;
+                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 

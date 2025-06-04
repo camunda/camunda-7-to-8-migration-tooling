@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.glue;
+package org.camunda.migration.rewrite.recipes.client;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.BroadcastSignalResponse;

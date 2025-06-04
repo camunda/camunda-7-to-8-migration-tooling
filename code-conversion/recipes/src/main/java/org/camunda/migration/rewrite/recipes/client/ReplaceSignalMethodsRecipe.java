@@ -52,22 +52,22 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
 
             // wrapper - simple methods
             final JavaTemplate wrapperBroadcastSignal = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper)}.broadcastSignal(#{signalName:any(java.lang.String)});")
+                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignal(#{signalName:any(java.lang.String)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithVariables = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper)}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
+                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithTenantId = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper)}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});")
+                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithTenantIdWithVariables = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper)}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
+                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
@@ -79,7 +79,7 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
                         Markers.EMPTY,
                         null,
                         "camundaClientWrapper",
-                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper"),
+                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper"),
                         null
                 );
 

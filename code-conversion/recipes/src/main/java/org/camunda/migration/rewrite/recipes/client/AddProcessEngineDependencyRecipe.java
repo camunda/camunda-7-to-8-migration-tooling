@@ -1,49 +1,49 @@
 package org.camunda.migration.rewrite.recipes.client;
 
-import org.openrewrite.ExecutionContext;
-import org.openrewrite.Preconditions;
-import org.openrewrite.Recipe;
-import org.openrewrite.TreeVisitor;
+import org.openrewrite.*;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.template.internal.AbstractRefasterJavaVisitor;
+import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
+import org.openrewrite.java.tree.Space;
+import org.openrewrite.marker.Markers;
 
-public class AddCamundaClientWrapperDependency extends Recipe {
+public class AddProcessEngineDependencyRecipe extends Recipe {
 
     /**
      * Instantiates a new instance.
      */
-    public AddCamundaClientWrapperDependency() {
+    public AddProcessEngineDependencyRecipe() {
     }
 
     @Override
     public String getDisplayName() {
-        return "Ensure camunda 8 wrapper";
+        return "Add process engine dependency";
     }
 
     @Override
     public String getDescription() {
-        return "Adds camunda 8 wrapper dependency.";
+        return "Adds process engine dependency.";
     }
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
-
             @Override
             public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-                final String FIELD_NAME = "camundaClientWrapper";
-                final String FIELD_TYPE = "org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper";
+                final String FIELD_NAME = "engine";
+                final String FIELD_TYPE = "org.camunda.bpm.engine.ProcessEngine";
 
                 // Build the new field with JavaTemplate
                 JavaTemplate template = JavaTemplate.builder("""
-                        @Autowired
-                        private CamundaClientWrapper camundaClientWrapper;
-                    """)
+                                    @Autowired
+                                    private ProcessEngine engine;
+                                """)
                         .imports("org.springframework.beans.factory.annotation.Autowired",
                                 FIELD_TYPE)
                         .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
@@ -74,12 +74,16 @@ public class AddCamundaClientWrapperDependency extends Recipe {
                         classDecl.getBody().getCoordinates().firstStatement()
                 );
             }
+
         };
         return Preconditions.check(
                 Preconditions.and(
-                        new UsesType<>("org.camunda.bpm.engine.ProcessEngine", true),
-                        Preconditions.not(new UsesType<>("org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper", true))
-                ),
+                        Preconditions.not(new UsesType<>("org.camunda.bpm.engine.ProcessEngine", true)),
+                        Preconditions.or(
+                                new UsesType<>("org.camunda.bpm.engine.RuntimeService", true),
+                                new UsesType<>("org.camunda.bpm.engine.TaskService", true),
+                                new UsesType<>("org.camunda.bpm.engine.RepositoryService", true)
+                        )),
                 javaVisitor
         );
     }

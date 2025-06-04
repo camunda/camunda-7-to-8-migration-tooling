@@ -40,7 +40,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
             final MethodMatcher engineCancelProcessInstance = new MethodMatcher("org.camunda.bpm.engine.RuntimeService deleteProcessInstance(..)");
 
             final JavaTemplate cancelProcessInstanceWrapper = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper)}.cancelProcessInstance(Long.valueOf(#{processInstanceId:any(java.lang.String)}));")
+                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.cancelProcessInstance(Long.valueOf(#{processInstanceId:any(java.lang.String)}));")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
@@ -53,7 +53,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
                         Markers.EMPTY,
                         null,
                         "camundaClientWrapper",
-                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.glue.CamundaClientWrapper"),
+                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper"),
                         null
                 );
                 if (engineCancelProcessInstance.matches(elem)) {
