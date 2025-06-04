@@ -12,7 +12,7 @@ These patterns are programming-language-specific. For language-agnostic informat
 
 ## General thoughts and changes
 
-Some changes need to happen on a project-wide level.
+Some changes need to happen on a development-project-wide level.
 
 Patterns:
 
