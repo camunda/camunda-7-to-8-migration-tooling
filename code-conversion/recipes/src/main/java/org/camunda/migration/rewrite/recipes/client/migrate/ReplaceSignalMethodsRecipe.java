@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import org.openrewrite.*;
 import org.openrewrite.java.JavaParser;
@@ -20,7 +20,8 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
     /**
      * Instantiates a new instance.
      */
-    public ReplaceSignalMethodsRecipe() {
+    public ReplaceSignalMethodsRecipe(String CLIENT_WRAPPER_PACKAGE) {
+        this.CLIENT_WRAPPER_PACKAGE = CLIENT_WRAPPER_PACKAGE;
     }
 
     @Override
@@ -32,6 +33,8 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
     public String getDescription() {
         return "Replaces Camunda 7 signal broadcasting methods with Camunda 8 client wrapper.";
     }
+
+    String CLIENT_WRAPPER_PACKAGE;
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -52,22 +55,22 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
 
             // wrapper - simple methods
             final JavaTemplate wrapperBroadcastSignal = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignal(#{signalName:any(java.lang.String)});")
+                    .builder("#{camundaClientWrapper:any(" + CLIENT_WRAPPER_PACKAGE + ")}.broadcastSignal(#{signalName:any(java.lang.String)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithVariables = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
+                    .builder("#{camundaClientWrapper:any(" + CLIENT_WRAPPER_PACKAGE + ")}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithTenantId = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});")
+                    .builder("#{camundaClientWrapper:any(" + CLIENT_WRAPPER_PACKAGE + ")}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate wrapperBroadcastSignalWithTenantIdWithVariables = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
+                    .builder("#{camundaClientWrapper:any(" + CLIENT_WRAPPER_PACKAGE + ")}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
@@ -79,7 +82,7 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
                         Markers.EMPTY,
                         null,
                         "camundaClientWrapper",
-                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper"),
+                        JavaType.ShallowClass.build(CLIENT_WRAPPER_PACKAGE),
                         null
                 );
 

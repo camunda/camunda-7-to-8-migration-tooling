@@ -1,5 +1,6 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.prepare;
 
+import org.camunda.migration.rewrite.recipes.client.prepare.EnsureProcessEngineRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 

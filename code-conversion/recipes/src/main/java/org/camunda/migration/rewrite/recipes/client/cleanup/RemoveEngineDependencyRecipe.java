@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.cleanup;
 
 import org.openrewrite.*;
 import org.openrewrite.java.*;

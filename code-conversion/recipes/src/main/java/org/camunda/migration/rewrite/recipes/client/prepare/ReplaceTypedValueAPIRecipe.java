@@ -1,7 +1,5 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import com.google.protobuf.Method;
-import fj.data.Java;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.tree.*;
@@ -9,11 +7,7 @@ import org.openrewrite.marker.Markers;
 import org.openrewrite.internal.ListUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
-
-import org.openrewrite.staticanalysis.RemoveUnneededBlock;
 
 public class ReplaceTypedValueAPIRecipe extends Recipe {
 
@@ -144,7 +138,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     }
                 } else {
                     // Typed Variable replacement
-
                     List<J.VariableDeclarations.NamedVariable> updatedVars = new ArrayList<>();
 
                     JavaType newType = null;
@@ -170,17 +163,77 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                                 var = var.withType(newType).withInitializer(method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
                                 modified = true;
                             }
+                        } else if(var.getInitializer() instanceof J.MethodInvocation method &&
+                                  method.getSimpleName().equals("create") &&
+                                  method.getSelect() instanceof J.MethodInvocation method2 &&
+                                  method2.getSelect() instanceof J.Identifier sel &&
+                                  sel.getSimpleName().equals("Variables")){
+
+                            newType = method2.getArguments().get(0).getType();
+                            if (newType != null) {
+                                var = var.withType(newType).withInitializer(method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+                                modified = true;
+                            }
                         }
                         updatedVars.add(var);
                     }
 
+                    if (!modified && decls.getTypeExpression() instanceof J.Identifier typeExpr) {
+
+                        JavaType newType2 = null;
+
+                        switch (typeExpr.getSimpleName()) {
+                            case "BooleanValue" -> newType2 = JavaType.Primitive.Boolean;
+                            case "StringValue" -> newType2 = JavaType.ShallowClass.build("java.lang.String");
+                            case "IntegerValue" -> newType2 = JavaType.Primitive.Int;
+                            case "LongValue" -> newType2 = JavaType.Primitive.Long;
+                            case "ShortValue" -> newType2 = JavaType.Primitive.Short;
+                            case "DoubleValue" -> newType2 = JavaType.Primitive.Double;
+                            case "FloatValue" -> newType2 = JavaType.Primitive.Float;
+                            case "ByteArrayValue" -> newType2 = JavaType.buildType("byte[]");
+                            case "ObjectValue" -> newType2 = JavaType.buildType("java.lang.Object");
+                            default -> System.out.println("Type not yet implemented!");
+                        }
+
+
+                        if (newType2 != null) {
+                            String typeString = newType2.toString();
+                            if (typeString.equals("java.lang.String")) {
+                                typeString = "String";
+                            }
+                            if (typeString.equals("java.lang.Object")) {
+                                typeString = "Object";
+                            }
+
+                            J.Identifier newTypeExpression = new J.Identifier(
+                                    Tree.randomId(),
+                                    Space.EMPTY,
+                                    Markers.EMPTY,
+                                    null,
+                                    typeString,
+                                    newType2,
+                                    null
+                            );
+                            return decls.withType(newType2).withTypeExpression(newTypeExpression);
+                        }
+                    }
+
                     if (modified) {
+
+                        String typeString = newType.toString();
+                        if (typeString.equals("java.lang.String")) {
+                            typeString = "String";
+                        }
+                        if (newType instanceof JavaType.Class newClass) {
+                            typeString = newClass.getClassName();
+                        }
+
                         J.Identifier newTypeExpression = new J.Identifier(
                                 Tree.randomId(),
                                 Space.EMPTY,
                                 Markers.EMPTY,
                                 null,
-                                Objects.equals(newType.toString(), "java.lang.String") ? "String" : newType.toString(),
+                                typeString,
                                 newType,
                                 null
                         );
@@ -192,12 +245,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         maybeRemoveImport("org.camunda.bpm.engine.variable.value.LongValue");
                         maybeRemoveImport("org.camunda.bpm.engine.variable.value.IntegerValue");
                         maybeRemoveImport("org.camunda.bpm.engine.variable.value.StringValue");
+                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.ObjectValue");
                         maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
                         return decls.withType(newType).withTypeExpression(newTypeExpression).withVariables(updatedVars);
                     }
                 }
                 return super.visitVariableDeclarations(decls, ctx);
             }
+
 
             @Override
             public J visitMethodInvocation(J.MethodInvocation invoc, ExecutionContext ctx) {

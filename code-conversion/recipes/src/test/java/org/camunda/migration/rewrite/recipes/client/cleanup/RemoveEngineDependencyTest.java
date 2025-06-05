@@ -1,5 +1,6 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.cleanup;
 
+import org.camunda.migration.rewrite.recipes.client.cleanup.RemoveEngineDependencyRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 

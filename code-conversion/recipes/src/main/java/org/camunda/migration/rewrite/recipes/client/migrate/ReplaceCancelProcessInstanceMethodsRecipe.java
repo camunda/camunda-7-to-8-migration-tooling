@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client;
+package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import org.openrewrite.*;
 import org.openrewrite.java.JavaParser;
@@ -20,7 +20,8 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
     /**
      * Instantiates a new instance.
      */
-    public ReplaceCancelProcessInstanceMethodsRecipe() {
+    public ReplaceCancelProcessInstanceMethodsRecipe(String CLIENT_WRAPPER_PACKAGE) {
+        this.CLIENT_WRAPPER_PACKAGE = CLIENT_WRAPPER_PACKAGE;
     }
 
     @Override
@@ -33,6 +34,8 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
         return "Replaces Camunda 7 cancel process instance methods with Camunda 8 client wrapper.";
     }
 
+    String CLIENT_WRAPPER_PACKAGE;
+
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
@@ -40,7 +43,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
             final MethodMatcher engineCancelProcessInstance = new MethodMatcher("org.camunda.bpm.engine.RuntimeService deleteProcessInstance(..)");
 
             final JavaTemplate cancelProcessInstanceWrapper = JavaTemplate
-                    .builder("#{camundaClientWrapper:any(org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper)}.cancelProcessInstance(Long.valueOf(#{processInstanceId:any(java.lang.String)}));")
+                    .builder("#{camundaClientWrapper:any(" + CLIENT_WRAPPER_PACKAGE + ")}.cancelProcessInstance(Long.valueOf(#{processInstanceId:any(java.lang.String)}));")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
@@ -53,7 +56,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
                         Markers.EMPTY,
                         null,
                         "camundaClientWrapper",
-                        JavaType.ShallowClass.build("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper"),
+                        JavaType.ShallowClass.build(CLIENT_WRAPPER_PACKAGE),
                         null
                 );
                 if (engineCancelProcessInstance.matches(elem)) {
