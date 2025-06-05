@@ -33,10 +33,10 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         StringValue nameTyped = Variables.stringValue("2");
                                         String bla = "blub";
                                         
-                                        // VariableMap variableMap = Variables.createVariables().putValueTyped("name", nameTyped).putValueTyped("amount", amountTyped);
-                                        // variableMap.putValue("bla", bla);
+                                        VariableMap map1 = Variables.createVariables().putValueTyped("name", nameTyped).putValueTyped("amount", amountTyped);
+                                        map1.putValue("bla", bla);
                                         
-                                        VariableMap map = Variables.fromMap(Collections.singletonMap("amount", amountTyped));
+                                        VariableMap map2 = Variables.fromMap(Collections.singletonMap("amount", amountTyped));
                                     }
                                 }                                                                                                         
                                 """,
@@ -60,12 +60,12 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         String nameTyped = "2";
                                         String bla = "blub";
                                         
-                                        Map<String, Object> variableMap = new HashMap<>();
-                                        variableMap.put("amount", amountTyped);
-                                        variableMap.put("name", nameTyped);
-                                        variableMap.put("bla", bla);
+                                        Map<String, Object> map1 = new HashMap<>();
+                                        map1.put("amount", amountTyped);
+                                        map1.put("name", nameTyped);
+                                        map1.put("bla", bla);
                                         
-                                        Map<String, Object> map = Collections.singletonMap("amount", amountTyped);
+                                        Map<String, Object> map2 = Collections.singletonMap("amount", amountTyped);
                                     }
                                 } 
                                 """

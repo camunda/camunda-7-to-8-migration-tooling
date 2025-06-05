@@ -1,5 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client;
 
+import com.google.protobuf.Method;
 import fj.data.Java;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
@@ -36,19 +37,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
     public JavaVisitor<ExecutionContext> getVisitor() {
         return new JavaVisitor<>() {
 
-            // Build new variable declaration: Map<String, Object> variableMap = new HashMap<>();
             final JavaTemplate mapTemplate = JavaTemplate.builder("Map<String, Object> variableMap = new HashMap<>();")
                     .imports("java.util.Map", "java.util.HashMap")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             final JavaTemplate mapTemplate2 = JavaTemplate.builder("Map<String, Object> variableMap = #{any()}")
-                    .imports("java.util.Map", "java.util.HashMap")
+                    .imports("java.util.Map")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
             // Insert map.put(...) after the declaration
-            final JavaTemplate putTemplate = JavaTemplate.builder("variableMap.put(#{any(String)}, #{any()});")
+            final JavaTemplate putTemplate = JavaTemplate.builder("#{any(java.util.Map)}.put(#{any(String)}, #{any()});")
                     .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
 
@@ -71,7 +71,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                         J.VariableDeclarations.NamedVariable newVar = newVarDecl.getVariables().get(0);
 
-                        return decls.withVariables(List.of(newVar.withName(var.getName())));
+                        return newVarDecl.withVariables(List.of(newVar.withName(var.getName()).withVariableType(var.getVariableType())));
                     } else {
                         // createVariables replacement
 
@@ -79,7 +79,6 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                         Expression current = var.getInitializer();
                         while (current instanceof J.MethodInvocation mi) {
-                            System.out.println(mi.getSimpleName());
                             if (mi.getSimpleName().equals("putValueTyped") || mi.getSimpleName().equals("putValue")) {
                                 putValues.add(mi);
                             }
@@ -98,18 +97,30 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                         J.Identifier newName = var.getName();
 
-                        J.VariableDeclarations.NamedVariable renamedVar = newVar.withName(newName);
+                        J.VariableDeclarations.NamedVariable renamedVar = newVar.withName(newName).withVariableType(var.getVariableType());
 
                         statements.add(newVarDecl.withVariables(List.of(renamedVar)));
 
                         for (J.MethodInvocation mi : putValues) {
-                            J.MethodInvocation newMethodInvoc = putTemplate.apply(getCursor(), decls.getCoordinates().replace(), mi.getArguments().get(0), mi.getArguments().get(1)).withPrefix(Space.EMPTY);
+                            J.Identifier mapIdent = new J.Identifier(
+                                    Tree.randomId(),
+                                    Space.EMPTY,
+                                    Markers.EMPTY,
+                                    null,
+                                    newName.getSimpleName(),
+                                    JavaType.ShallowClass.build("java.util.Map"),
+                                    null
+                            );
 
-                            J.Identifier newSelect = (J.Identifier) newMethodInvoc.getSelect();
+                            J.MethodInvocation newMethodInvoc = putTemplate.apply(getCursor(), decls.getCoordinates().replace(), mapIdent, mi.getArguments().get(0), mi.getArguments().get(1)).withPrefix(Space.EMPTY);
 
-                            J.MethodInvocation renamedMethodInvoc = newMethodInvoc.withSelect(newSelect.withSimpleName(newName.getSimpleName()));
+                            //J.Identifier newSelect = (J.Identifier) newMethodInvoc.getSelect();
 
-                            statements.add(renamedMethodInvoc);
+                            //newSelect = newSelect.withSimpleName(newName.getSimpleName()).withType(JavaType.buildType("java.util.Map"));
+
+                            //J.MethodInvocation renamedMethodInvoc = newMethodInvoc.withSelect(newSelect);
+
+                            statements.add(newMethodInvoc);
                         }
 
                         List<JRightPadded<Statement>> jRightStatements = new ArrayList<>();

@@ -53,7 +53,6 @@ public class HandleProcessVariables {
         StringValue nameTyped = Variables.stringValue("2");
         String bla = "blub";
 
-        Collections
         VariableMap variableMap2 = Variables.createVariables().putValueTyped("name", nameTyped);
         variableMap2.putValue("bla", bla);
         engine.getRuntimeService().setVariables(executionId, variableMap);
