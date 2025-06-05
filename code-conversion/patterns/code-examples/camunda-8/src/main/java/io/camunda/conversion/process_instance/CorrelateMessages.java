@@ -15,13 +15,15 @@ public class CorrelateMessages {
     @Autowired
     private CamundaClient camundaClient;
 
-    public CorrelateMessageResponse correlateMessage(String messageName, String correlationKey, Map<String, Object> variableMap) {
-        return camundaClient.newCorrelateMessageCommand()
+    public Long correlateMessage(String messageName, String correlationKey, Map<String, Object> variableMap) {
+        CorrelateMessageResponse correlateMessageResponse = camundaClient.newCorrelateMessageCommand()
                 .messageName(messageName)
                 .correlationKey(correlationKey)
                 .variables(variableMap)
                 .send()
                 .join(); // add reactive response and error handling instead of join()
+
+        return correlateMessageResponse.getProcessInstanceKey();
     }
 
     public PublishMessageResponse publishMessage(String messageName, String correlationKey, String messageId, Map<String, Object> variableMap) {

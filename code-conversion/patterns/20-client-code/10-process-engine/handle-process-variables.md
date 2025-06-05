@@ -85,7 +85,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
     public void setVariablesTypedValueAPI(String executionId, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
-        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
         engine.getRuntimeService().setVariables(executionId, variableMap);
     }
@@ -101,7 +101,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
     public Batch setVariablesAsyncTypesValueAPI(List<String> processInstanceIds, int amount, String name) {
         IntegerValue amountTyped = Variables.integerValue(amount);
         StringValue nameTyped = Variables.stringValue(name);
-        VariableMap variableMap = Variables.putValueTyped("amount", amountTyped);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("amount", amountTyped);
         variableMap.putValueTyped("name", nameTyped);
         return engine.getRuntimeService().setVariablesAsync(processInstanceIds, variableMap);
     }
@@ -132,6 +132,73 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 
 -   only one element instance can be updates at a time
 -   _elementInstanceKey_ can describe any process instance, scope or activity
+
+## Setting and Getting a Custom Object
+
+### Process Engine (Camunda 7)
+
+#### Getting a Custom Object Variable
+
+```java
+    public CustomObject getCustomVariableJavaObjectAPI(String executionId, String customVariableName) {
+        return (CustomObject) engine.getRuntimeService().getVariable(executionId, customVariableName);
+    }
+```
+
+```java
+    public CustomObject getCustomVariableTypedValuetAPI(String executionId, String customVariableName) {
+        ObjectValue objectValue = engine.getRuntimeService().getVariableTyped(executionId, customVariableName);
+        return (CustomObject) objectValue.getValue();
+    }
+```
+
+#### Setting a Custom Object Variable
+
+```java
+    public void setCustomVariableJavaObjectAPI(String executionId, CustomObject customObject) {
+        engine.getRuntimeService().setVariable(executionId, "customObject", customObject);
+    }
+```
+
+```java
+    public void setCustomVariableTypedValueAPI(String executionId, CustomObject customObject) {
+        ObjectValue objectValue = Variables.objectValue(customObject).create();
+        engine.getRuntimeService().setVariable(executionId, "customObject", objectValue);
+    }
+```
+
+### CamundaClient (Camunda 8)
+
+#### Getting a Custom Object Variable
+
+```java
+    public CustomObject getCustomVariable(Long processInstanceKey, String customVariableName) throws JsonProcessingException {
+        Variable variable = camundaClient.newVariableSearchRequest()
+                .filter(variableFilter -> variableFilter.processInstanceKey(processInstanceKey).name(customVariableName))
+                .send()
+                .join() // add reactive response and error handling instead of join()
+                .items()
+                .get(0);
+
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(variable.getValue(), CustomObject.class);
+    }
+```
+
+-   the value is returned as a JSON string
+
+#### Setting a Custom Object Variable
+
+```java
+    public SetVariablesResponse setCustomVariable(Long elementInstanceKey, CustomObject customObject) {
+        return camundaClient.newSetVariablesCommand(elementInstanceKey)
+                .variable("customObject", customObject)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   the object can directly be added here
 
 ## Deleting Variables
 

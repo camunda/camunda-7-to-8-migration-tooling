@@ -2,6 +2,40 @@
 
 The following patterns focus on methods how to handle resources in Camunda 7 and how they convert to Camunda 8.
 
+## Deploy Resources via Annotation
+
+### ProcessEngine (Camunda 7)
+
+```java
+@SpringBootApplication
+@EnableProcessApplication
+public class Application {
+
+    public static void main(String... args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+```
+
+-   the annotation `@EnableProcessApplication` alongside a meta-data description `META-INF/processes.xml` takes care of deploying (and undeploying) the resources
+-   for more information, see the docs [here](https://docs.camunda.org/manual/latest/user-guide/spring-boot-integration/process-applications/) and [here](https://docs.camunda.org/manual/latest/user-guide/process-applications/the-processes-xml-deployment-descriptor/)
+
+### CamundaClient (Camunda 8)
+
+```java
+@SpringBootApplication
+@Deployment(resources = "classpath*:/bpmn/**/*.bpmn")
+public class ProcessPaymentsApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ProcessPaymentsApplication.class, args);
+	}
+}
+```
+
+-   the annotation `@Deployment` can be used to specify specific files or multiple resources via a wildcard pattern to be deployed to the engine
+-   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/getting-started/#deploy-process-models)
+
 ## Deploy BPMN Model
 
 ### ProcessEngine (Camunda 7)
