@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client.migrate;
+package org.camunda.migration.rewrite.recipes.client.prepare;
 
 import org.camunda.migration.rewrite.recipes.client.prepare.ReplaceTypedValueAPIRecipe;
 import org.junit.jupiter.api.Test;

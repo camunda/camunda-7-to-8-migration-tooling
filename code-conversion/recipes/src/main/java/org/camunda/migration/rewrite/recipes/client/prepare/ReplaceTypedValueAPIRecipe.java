@@ -1,331 +1,399 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import org.openrewrite.*;
-import org.openrewrite.java.*;
-import org.openrewrite.java.tree.*;
-import org.openrewrite.marker.Markers;
-import org.openrewrite.internal.ListUtils;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
+import org.camunda.migration.rewrite.recipes.client.utils.ClientUtils;
+import org.openrewrite.*;
+import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.*;
+import org.openrewrite.java.search.UsesType;
+import org.openrewrite.java.tree.*;
+import org.openrewrite.marker.Markers;
 
 public class ReplaceTypedValueAPIRecipe extends Recipe {
 
-    /**
-     * Instantiates a new instance.
-     */
-    public ReplaceTypedValueAPIRecipe() {
-    }
+  /** Instantiates a new instance. */
+  public ReplaceTypedValueAPIRecipe() {}
 
-    @Override
-    public String getDisplayName() {
-        return "Convert typed value api to java object api";
-    }
+  @Override
+  public String getDisplayName() {
+    return "Convert typed value api to java object api";
+  }
 
-    @Override
-    public String getDescription() {
-        return "Replaces typed value api to java object api.";
-    }
+  @Override
+  public String getDescription() {
+    return "Replaces typed value api to java object api.";
+  }
 
-    @Override
-    public JavaVisitor<ExecutionContext> getVisitor() {
-        return new JavaVisitor<>() {
+  @Override
+  public TreeVisitor<?, ExecutionContext> getVisitor() {
 
-            final JavaTemplate mapTemplate = JavaTemplate.builder("Map<String, Object> variableMap = new HashMap<>();")
-                    .imports("java.util.Map", "java.util.HashMap")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+    // define preconditions
+    TreeVisitor<?, ExecutionContext> check =
+        Preconditions.or(
+                new UsesType<>(ClientConstants.Type.VARIABLES, true),
+                new UsesType<>(ClientConstants.Type.VARIABLE_MAP, true),
+                new UsesType<>(ClientConstants.Type.TYPED_VALUE, true),
+                new UsesType<>(ClientConstants.Type.OBJECT_VALUE, true),
+                new UsesType<>(ClientConstants.Type.STRING_VALUE, true),
+                new UsesType<>(ClientConstants.Type.INTEGER_VALUE, true),
+                new UsesType<>(ClientConstants.Type.LONG_VALUE, true),
+                new UsesType<>(ClientConstants.Type.SHORT_VALUE, true),
+                new UsesType<>(ClientConstants.Type.DOUBLE_VALUE, true),
+                new UsesType<>(ClientConstants.Type.FLOAT_VALUE, true),
+                new UsesType<>(ClientConstants.Type.BYTES_VALUE, true));
 
-            final JavaTemplate mapTemplate2 = JavaTemplate.builder("Map<String, Object> variableMap = #{any()}")
-                    .imports("java.util.Map")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+    return Preconditions.check(
+        check,
+        new JavaVisitor<ExecutionContext>() {
 
-            // Insert map.put(...) after the declaration
-            final JavaTemplate putTemplate = JavaTemplate.builder("#{any(java.util.Map)}.put(#{any(String)}, #{any()});")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+          final JavaTemplate newMapAndHashMap =
+              JavaTemplate.builder("Map<String, Object> variableMap = new HashMap<>();")
+                  .imports("java.util.Map", "java.util.HashMap")
+                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .build();
 
-            @Override
-            public J visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
-                boolean modified = false;
+          final JavaTemplate newMapWithAnyInitializer =
+              JavaTemplate.builder("Map<String, Object> variableMap = #{any()}")
+                  .imports("java.util.Map")
+                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .build();
 
-                if (TypeUtils.isOfType(decls.getType(), JavaType.ShallowClass.build("org.camunda.bpm.engine.variable.VariableMap"))) {
-                    // VariableMap replacement
+          // Insert map.put(...) after the declaration
+          final JavaTemplate putElementInMap =
+              JavaTemplate.builder("#{any(java.util.Map)}.put(#{any(String)}, #{any()});")
+                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                  .build();
 
-                    // Assume one named variable
-                    J.VariableDeclarations.NamedVariable var = decls.getVariables().get(0);
+          /** Visit variable declarations to replace all typedValue types */
+          @Override
+          public J visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
 
-                    if (var.getInitializer() instanceof J.MethodInvocation oneMi
-                        && oneMi.getSimpleName().equals("fromMap")) {
-                        // from map replacement
-                        maybeAddImport("java.util.Map");
+            maybeRemoveImport(ClientConstants.Type.BOOLEAN_VALUE);
+            maybeRemoveImport(ClientConstants.Type.BYTES_VALUE);
+            maybeRemoveImport(ClientConstants.Type.FLOAT_VALUE);
+            maybeRemoveImport(ClientConstants.Type.DOUBLE_VALUE);
+            maybeRemoveImport(ClientConstants.Type.SHORT_VALUE);
+            maybeRemoveImport(ClientConstants.Type.LONG_VALUE);
+            maybeRemoveImport(ClientConstants.Type.INTEGER_VALUE);
+            maybeRemoveImport(ClientConstants.Type.STRING_VALUE);
+            maybeRemoveImport(ClientConstants.Type.OBJECT_VALUE);
+            maybeRemoveImport(ClientConstants.Type.TYPED_VALUE);
+            maybeRemoveImport(ClientConstants.Type.VARIABLE_MAP);
+            maybeRemoveImport(ClientConstants.Type.VARIABLES);
 
-                        J.VariableDeclarations newVarDecl = mapTemplate2.apply(getCursor(), decls.getCoordinates().replace(), oneMi.getArguments().get(0));
+            // Analyze first variable
+            J.VariableDeclarations.NamedVariable firstVar = decls.getVariables().get(0);
+            J.Identifier originalName = firstVar.getName();
+            JavaType.Variable originalVariableType = firstVar.getVariableType();
 
-                        J.VariableDeclarations.NamedVariable newVar = newVarDecl.getVariables().get(0);
+            // fromMap VariableMap replacement - one variable assumed
+            if (TypeUtils.isOfType(
+                    decls.getType(), JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))
+                && firstVar.getInitializer() instanceof J.MethodInvocation oneMi
+                && oneMi.getSimpleName().equals("fromMap")) {
 
-                        return newVarDecl.withVariables(List.of(newVar.withName(var.getName()).withVariableType(var.getVariableType())));
-                    } else {
-                        // createVariables replacement
+              // apply java template to create Map with name variableMap and initializer being the
+              // first argument of fromMap()
+              J.VariableDeclarations newMapDecl =
+                  newMapWithAnyInitializer.apply(
+                      getCursor(), decls.getCoordinates().replace(), oneMi.getArguments().get(0));
 
-                        List<J.MethodInvocation> putValues = new ArrayList<>();
+              maybeAddImport("java.util.Map");
 
-                        Expression current = var.getInitializer();
-                        while (current instanceof J.MethodInvocation mi) {
-                            if (mi.getSimpleName().equals("putValueTyped") || mi.getSimpleName().equals("putValue")) {
-                                putValues.add(mi);
-                            }
-                            current = mi.getSelect();
-                        }
-
-                        // Add necessary imports
-                        maybeAddImport("java.util.Map");
-                        maybeAddImport("java.util.HashMap");
-
-                        List<Statement> statements = new ArrayList<>();
-
-                        J.VariableDeclarations newVarDecl = mapTemplate.apply(getCursor(), decls.getCoordinates().replace());
-
-                        J.VariableDeclarations.NamedVariable newVar = newVarDecl.getVariables().get(0);
-
-                        J.Identifier newName = var.getName();
-
-                        J.VariableDeclarations.NamedVariable renamedVar = newVar.withName(newName).withVariableType(var.getVariableType());
-
-                        statements.add(newVarDecl.withVariables(List.of(renamedVar)));
-
-                        for (J.MethodInvocation mi : putValues) {
-                            J.Identifier mapIdent = new J.Identifier(
-                                    Tree.randomId(),
-                                    Space.EMPTY,
-                                    Markers.EMPTY,
-                                    null,
-                                    newName.getSimpleName(),
-                                    JavaType.ShallowClass.build("java.util.Map"),
-                                    null
-                            );
-
-                            J.MethodInvocation newMethodInvoc = putTemplate.apply(getCursor(), decls.getCoordinates().replace(), mapIdent, mi.getArguments().get(0), mi.getArguments().get(1)).withPrefix(Space.EMPTY);
-
-                            //J.Identifier newSelect = (J.Identifier) newMethodInvoc.getSelect();
-
-                            //newSelect = newSelect.withSimpleName(newName.getSimpleName()).withType(JavaType.buildType("java.util.Map"));
-
-                            //J.MethodInvocation renamedMethodInvoc = newMethodInvoc.withSelect(newSelect);
-
-                            statements.add(newMethodInvoc);
-                        }
-
-                        List<JRightPadded<Statement>> jRightStatements = new ArrayList<>();
-
-                        for (Statement statement : statements) {
-                            jRightStatements.add(new JRightPadded<>(statement, Space.EMPTY, Markers.EMPTY));
-                        }
-
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.VariableMap");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.StringValue");
-
-                        return new J.Block(
-                                Tree.randomId(),
-                                Space.EMPTY,
-                                Markers.EMPTY,
-                                new JRightPadded<>(false, Space.EMPTY, Markers.EMPTY),
-                                jRightStatements,
-                                Space.EMPTY
-                        );
-                    }
-                } else {
-                    // Typed Variable replacement
-                    List<J.VariableDeclarations.NamedVariable> updatedVars = new ArrayList<>();
-
-                    JavaType newType = null;
-
-                    for (J.VariableDeclarations.NamedVariable var : decls.getVariables()) {
-                        if (var.getInitializer() instanceof J.MethodInvocation method &&
-                            method.getSelect() instanceof J.Identifier sel &&
-                            sel.getSimpleName().equals("Variables")) {
-
-                            switch (method.getSimpleName()) {
-                                case "booleanValue" -> newType = JavaType.Primitive.Boolean;
-                                case "stringValue" -> newType = JavaType.ShallowClass.build("java.lang.String");
-                                case "integerValue" -> newType = JavaType.Primitive.Int;
-                                case "longValue" -> newType = JavaType.Primitive.Long;
-                                case "shortValue" -> newType = JavaType.Primitive.Short;
-                                case "doubleValue" -> newType = JavaType.Primitive.Double;
-                                case "floatValue" -> newType = JavaType.Primitive.Float;
-                                case "byteArrayValue" -> newType = JavaType.buildType("byte[]");
-                                default -> System.out.println("Type not yet implemented!");
-                            }
-
-                            if (newType != null) {
-                                var = var.withType(newType).withInitializer(method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-                                modified = true;
-                            }
-                        } else if(var.getInitializer() instanceof J.MethodInvocation method &&
-                                  method.getSimpleName().equals("create") &&
-                                  method.getSelect() instanceof J.MethodInvocation method2 &&
-                                  method2.getSelect() instanceof J.Identifier sel &&
-                                  sel.getSimpleName().equals("Variables")){
-
-                            newType = method2.getArguments().get(0).getType();
-                            if (newType != null) {
-                                var = var.withType(newType).withInitializer(method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-                                modified = true;
-                            }
-                        }
-                        updatedVars.add(var);
-                    }
-
-                    if (!modified && decls.getTypeExpression() instanceof J.Identifier typeExpr) {
-
-                        JavaType newType2 = null;
-
-                        switch (typeExpr.getSimpleName()) {
-                            case "BooleanValue" -> newType2 = JavaType.Primitive.Boolean;
-                            case "StringValue" -> newType2 = JavaType.ShallowClass.build("java.lang.String");
-                            case "IntegerValue" -> newType2 = JavaType.Primitive.Int;
-                            case "LongValue" -> newType2 = JavaType.Primitive.Long;
-                            case "ShortValue" -> newType2 = JavaType.Primitive.Short;
-                            case "DoubleValue" -> newType2 = JavaType.Primitive.Double;
-                            case "FloatValue" -> newType2 = JavaType.Primitive.Float;
-                            case "ByteArrayValue" -> newType2 = JavaType.buildType("byte[]");
-                            case "ObjectValue" -> newType2 = JavaType.buildType("java.lang.Object");
-                            default -> System.out.println("Type not yet implemented!");
-                        }
-
-
-                        if (newType2 != null) {
-                            String typeString = newType2.toString();
-                            if (typeString.equals("java.lang.String")) {
-                                typeString = "String";
-                            }
-                            if (typeString.equals("java.lang.Object")) {
-                                typeString = "Object";
-                            }
-
-                            J.Identifier newTypeExpression = new J.Identifier(
-                                    Tree.randomId(),
-                                    Space.EMPTY,
-                                    Markers.EMPTY,
-                                    null,
-                                    typeString,
-                                    newType2,
-                                    null
-                            );
-                            return decls.withType(newType2).withTypeExpression(newTypeExpression);
-                        }
-                    }
-
-                    if (modified) {
-
-                        String typeString = newType.toString();
-                        if (typeString.equals("java.lang.String")) {
-                            typeString = "String";
-                        }
-                        if (newType instanceof JavaType.Class newClass) {
-                            typeString = newClass.getClassName();
-                        }
-
-                        J.Identifier newTypeExpression = new J.Identifier(
-                                Tree.randomId(),
-                                Space.EMPTY,
-                                Markers.EMPTY,
-                                null,
-                                typeString,
-                                newType,
-                                null
-                        );
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.BooleanValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.BytesValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.FloatValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.DoubleValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.ShortValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.LongValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.IntegerValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.StringValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.value.ObjectValue");
-                        maybeRemoveImport("org.camunda.bpm.engine.variable.Variables");
-                        return decls.withType(newType).withTypeExpression(newTypeExpression).withVariables(updatedVars);
-                    }
-                }
-                return super.visitVariableDeclarations(decls, ctx);
+              // return new declaration with old name and variable type
+              return newMapDecl.withVariables(
+                  List.of(
+                      newMapDecl
+                          .getVariables()
+                          .get(0)
+                          .withName(originalName)
+                          .withVariableType(originalVariableType))); // TODO: check this
             }
 
+            // createVariables replacement - one variable assumed
+            // this case requires a non-iso visitor to replace one statement with a block
+            // the unneeded block is subsequently removed
+            if (TypeUtils.isOfType(
+                decls.getType(), JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))) {
 
-            @Override
-            public J visitMethodInvocation(J.MethodInvocation invoc, ExecutionContext ctx) {
+              List<J.MethodInvocation> putValues = new ArrayList<>();
 
-                if (invoc.getMethodType() != null && TypeUtils.isOfType(invoc.getMethodType().getDeclaringType(), JavaType.ShallowClass.build("org.camunda.bpm.engine.variable.VariableMap"))
-                    && (invoc.getSimpleName().equals("putValueTyped") || invoc.getSimpleName().equals("putValue"))) {
-                    J.Identifier ident = new J.Identifier(
-                            Tree.randomId(),
-                            Space.EMPTY,
-                            Markers.EMPTY,
-                            null,
-                            "put",
-                            JavaType.ShallowClass.build("java.lang.String"),
-                            null
-                    );
-
-                    return invoc.withName(ident);
+              // collect information on entries directly put into the map on creation
+              Expression current = firstVar.getInitializer();
+              while (current instanceof J.MethodInvocation mi) {
+                if (mi.getSimpleName().equals("putValueTyped")
+                    || mi.getSimpleName().equals("putValue")) {
+                  putValues.add(mi);
                 }
-                return super.visitMethodInvocation(invoc, ctx);
+                current = mi.getSelect();
+              }
+
+              // Add necessary imports
+              maybeAddImport("java.util.Map");
+              maybeAddImport("java.util.HashMap");
+
+              // collect statement to be put in the block
+              List<Statement> statements = new ArrayList<>();
+              List<JRightPadded<Statement>> jRightStatements = new ArrayList<>();
+
+              J.VariableDeclarations newMapAndHashMapDecl =
+                  newMapAndHashMap.apply(getCursor(), decls.getCoordinates().replace());
+
+              // added map as hashmap initialization to statements
+              jRightStatements.add(
+                  new JRightPadded<>(
+                      newMapAndHashMapDecl.withVariables(
+                          List.of(
+                              newMapAndHashMapDecl
+                                  .getVariables()
+                                  .get(0)
+                                  .withName(originalName)
+                                  .withVariableType(originalVariableType))),
+                      Space.EMPTY,
+                      Markers.EMPTY));
+
+              // add each map.put() as statement
+              for (J.MethodInvocation mi : putValues) {
+                J.Identifier mapIdent =
+                    ClientUtils.createSimpleIdentifier(
+                        originalName.getSimpleName(), "java.util.Map");
+
+                J.MethodInvocation newMethodInvoc =
+                    putElementInMap
+                        .apply(
+                            getCursor(),
+                            decls.getCoordinates().replace(),
+                            mapIdent,
+                            mi.getArguments().get(0),
+                            mi.getArguments().get(1))
+                        .withPrefix(Space.EMPTY);
+
+                jRightStatements.add(
+                    new JRightPadded<>(newMethodInvoc, Space.EMPTY, Markers.EMPTY));
+              }
+
+              // create and return block
+              return new J.Block(
+                  Tree.randomId(),
+                  Space.EMPTY,
+                  Markers.EMPTY,
+                  new JRightPadded<>(false, Space.EMPTY, Markers.EMPTY),
+                  jRightStatements,
+                  Space.EMPTY);
             }
 
-            @Override
-            public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
-                J.Block bl = (J.Block) super.visitBlock(block, ctx);
-                J directParent = getCursor().getParentTreeCursor().getValue();
-                if (directParent instanceof J.NewClass || directParent instanceof J.ClassDeclaration) {
-                    // If the direct parent is an initializer block or a static block, skip it
-                    return bl;
+            // Typed Variable replacement - multiple variables can exist
+
+            // collect all variables, changed or not
+            List<J.VariableDeclarations.NamedVariable> updatedVars = new ArrayList<>();
+
+            // new type for names variables and variable declaration
+            JavaType newType = null;
+
+            for (J.VariableDeclarations.NamedVariable var : decls.getVariables()) {
+              if (var.getInitializer() instanceof J.MethodInvocation method
+                  && method.getSelect() instanceof J.Identifier sel
+                  && sel.getSimpleName().equals("Variables")) {
+                // the initializer needs to be a method invocation which first select method is
+                // the Variables identifier
+
+                // depending on the method name, newType is set. objectValue is handled below
+                switch (method.getSimpleName()) {
+                  case "booleanValue" -> newType = JavaType.Primitive.Boolean;
+                  case "stringValue" -> newType = JavaType.ShallowClass.build("java.lang.String");
+                  case "integerValue" -> newType = JavaType.Primitive.Int;
+                  case "longValue" -> newType = JavaType.Primitive.Long;
+                  case "shortValue" -> newType = JavaType.Primitive.Short;
+                  case "doubleValue" -> newType = JavaType.Primitive.Double;
+                  case "floatValue" -> newType = JavaType.Primitive.Float;
+                  case "byteArrayValue" -> newType = JavaType.buildType("byte[]");
+                  default -> {}
                 }
 
-                return maybeInlineBlock(bl, ctx);
+                // var has typed adjusted and initializer is the first method argument: parameter
+                // of booleanValue() for example
+                if (newType != null) {
+                  var =
+                      var.withType(newType)
+                          .withInitializer(
+                              method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+                }
+              } else if (var.getInitializer() instanceof J.MethodInvocation method
+                  && method.getSimpleName().equals("create")
+                  && method.getSelect() instanceof J.MethodInvocation method2
+                  && method2.getSelect() instanceof J.Identifier sel
+                  && sel.getSimpleName().equals("Variables")) {
+                // for objectValue, the first method is called create, plus, there are two select
+                // methods until the identifier Variables is reached
+
+                // set type to the type of the parameter inside objectValue()
+                newType = method2.getArguments().get(0).getType();
+
+                // var has type adjusted and initializer is the select method's first argument:
+                // parameter of objectValue
+                if (newType != null) {
+                  var =
+                      var.withType(newType)
+                          .withInitializer(
+                              method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+                }
+              }
+              updatedVars.add(var);
             }
 
-            private J.Block maybeInlineBlock(J.Block block, ExecutionContext ctx) {
-                List<Statement> statements = block.getStatements();
-                if (statements.isEmpty()) {
-                    // Removal handled by `EmptyBlock`
-                    return block;
+            // if new type was set, update type expression of declaration and return declaration
+            // with updated variables
+            if (newType != null) {
+              String typeString = newType.toString();
+              if (typeString.equals("java.lang.String")) {
+                typeString = "String";
+              }
+              if (newType instanceof JavaType.Class newClass) {
+                typeString = newClass.getClassName();
+              }
+
+              J.Identifier newTypeExpression =
+                  ClientUtils.createSimpleIdentifier(typeString, newType);
+
+              return decls
+                  .withType(newType)
+                  .withTypeExpression(newTypeExpression)
+                  .withVariables(updatedVars);
+            }
+
+            // this replaces standalone declarations, like method parameters
+            if (decls.getTypeExpression() instanceof J.Identifier typeExpr) {
+
+              // depending on the type expression, newType is set
+              switch (typeExpr.getSimpleName()) {
+                case "BooleanValue" -> newType = JavaType.Primitive.Boolean;
+                case "StringValue" -> newType = JavaType.ShallowClass.build("java.lang.String");
+                case "IntegerValue" -> newType = JavaType.Primitive.Int;
+                case "LongValue" -> newType = JavaType.Primitive.Long;
+                case "ShortValue" -> newType = JavaType.Primitive.Short;
+                case "DoubleValue" -> newType = JavaType.Primitive.Double;
+                case "FloatValue" -> newType = JavaType.Primitive.Float;
+                case "ByteArrayValue" -> newType = JavaType.buildType("byte[]");
+                case "ObjectValue" -> newType = JavaType.buildType("java.lang.Object");
+                default -> {}
+              }
+
+              // if new type was set, update type expression of declaration and return declaration
+              if (newType != null) {
+                String typeString = newType.toString();
+                if (typeString.equals("java.lang.String")) {
+                  typeString = "String";
+                }
+                if (typeString.equals("java.lang.Object")) {
+                  typeString = "Object";
                 }
 
-                // Else perform the flattening on this block.
-                Statement lastStatement = statements.get(statements.size() - 1);
-                J.Block flattened = block.withStatements(ListUtils.flatMap(statements, (i, stmt) -> {
-                    J.Block nested;
-                    if (stmt instanceof J.Try) {
-                        J.Try _try = (J.Try) stmt;
-                        if (_try.getResources() != null || !_try.getCatches().isEmpty() || _try.getFinally() == null || !_try.getFinally().getStatements().isEmpty()) {
+                J.Identifier newTypeExpression =
+                    ClientUtils.createSimpleIdentifier(typeString, newType);
+
+                return decls.withType(newType).withTypeExpression(newTypeExpression);
+              }
+            }
+            return super.visitVariableDeclarations(decls, ctx);
+          }
+
+          /** Replace variableMap.put() or variableMap.putValue() method invocations */
+          @Override
+          public J visitMethodInvocation(J.MethodInvocation invoc, ExecutionContext ctx) {
+
+            if (invoc.getMethodType() != null
+                && TypeUtils.isOfType(
+                    invoc.getMethodType().getDeclaringType(),
+                    JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))
+                && (invoc.getSimpleName().equals("putValueTyped")
+                    || invoc.getSimpleName().equals("putValue"))) {
+
+              // rename method invocation identifier to put
+              J.Identifier ident = ClientUtils.createSimpleIdentifier("put", "java.lang.String");
+              return invoc.withName(ident);
+            }
+            return super.visitMethodInvocation(invoc, ctx);
+          }
+
+          /**
+           * Copied from unneeded block removal recipe. Adjusted to delete block with variable
+           * declaration
+           */
+          @Override
+          public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
+            J.Block bl = (J.Block) super.visitBlock(block, ctx);
+            J directParent = getCursor().getParentTreeCursor().getValue();
+            if (directParent instanceof J.NewClass || directParent instanceof J.ClassDeclaration) {
+              // If the direct parent is an initializer block or a static block, skip it
+              return bl;
+            }
+
+            return maybeInlineBlock(bl, ctx);
+          }
+
+          private J.Block maybeInlineBlock(J.Block block, ExecutionContext ctx) {
+            List<Statement> statements = block.getStatements();
+            if (statements.isEmpty()) {
+              // Removal handled by `EmptyBlock`
+              return block;
+            }
+
+            // Else perform the flattening on this block.
+            Statement lastStatement = statements.get(statements.size() - 1);
+            J.Block flattened =
+                block.withStatements(
+                    ListUtils.flatMap(
+                        statements,
+                        (i, stmt) -> {
+                          J.Block nested;
+                          if (stmt instanceof J.Try) {
+                            J.Try _try = (J.Try) stmt;
+                            if (_try.getResources() != null
+                                || !_try.getCatches().isEmpty()
+                                || _try.getFinally() == null
+                                || !_try.getFinally().getStatements().isEmpty()) {
+                              return stmt;
+                            }
+                            nested = _try.getBody();
+                          } else if (stmt instanceof J.Block) {
+                            nested = (J.Block) stmt;
+                          } else {
                             return stmt;
-                        }
-                        nested = _try.getBody();
-                    } else if (stmt instanceof J.Block) {
-                        nested = (J.Block) stmt;
-                    } else {
-                        return stmt;
-                    }
+                          }
 
-                    return ListUtils.map(nested.getStatements(), (j, inlinedStmt) -> {
-                        if (j == 0) {
-                            inlinedStmt = inlinedStmt.withPrefix(inlinedStmt.getPrefix()
-                                    .withComments(ListUtils.concatAll(nested.getComments(), inlinedStmt.getComments())));
-                        }
-                        return autoFormat(inlinedStmt, ctx, getCursor());
-                    });
-                }));
+                          return ListUtils.map(
+                              nested.getStatements(),
+                              (j, inlinedStmt) -> {
+                                if (j == 0) {
+                                  inlinedStmt =
+                                      inlinedStmt.withPrefix(
+                                          inlinedStmt
+                                              .getPrefix()
+                                              .withComments(
+                                                  ListUtils.concatAll(
+                                                      nested.getComments(),
+                                                      inlinedStmt.getComments())));
+                                }
+                                return autoFormat(inlinedStmt, ctx, getCursor());
+                              });
+                        }));
 
-                if (flattened == block) {
-                    return block;
-                } else if (lastStatement instanceof J.Block) {
-                    flattened = flattened.withEnd(flattened.getEnd()
-                            .withComments(ListUtils.concatAll(((J.Block) lastStatement).getEnd().getComments(), flattened.getEnd().getComments())));
-                }
-                return flattened;
+            if (flattened == block) {
+              return block;
+            } else if (lastStatement instanceof J.Block) {
+              flattened =
+                  flattened.withEnd(
+                      flattened
+                          .getEnd()
+                          .withComments(
+                              ListUtils.concatAll(
+                                  ((J.Block) lastStatement).getEnd().getComments(),
+                                  flattened.getEnd().getComments())));
             }
-        };
-    }
+            return flattened;
+          }
+        });
+  }
 }

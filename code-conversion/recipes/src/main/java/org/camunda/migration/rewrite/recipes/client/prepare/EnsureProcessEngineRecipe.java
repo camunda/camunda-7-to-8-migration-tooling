@@ -1,90 +1,97 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
+import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
+import org.camunda.migration.rewrite.recipes.client.utils.ClientUtils;
 import org.openrewrite.*;
-import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.UsesType;
-import org.openrewrite.java.template.internal.AbstractRefasterJavaVisitor;
 import org.openrewrite.java.tree.*;
-import org.openrewrite.marker.Markers;
 
 public class EnsureProcessEngineRecipe extends Recipe {
 
-    /**
-     * Instantiates a new instance.
-     */
-    public EnsureProcessEngineRecipe() {
-    }
+  /** Instantiates a new instance. */
+  public EnsureProcessEngineRecipe() {}
 
-    @Override
-    public String getDisplayName() {
-        return "Ensuring process engine";
-    }
+  @Override
+  public String getDisplayName() {
+    return "Ensuring process engine";
+  }
 
-    @Override
-    public String getDescription() {
-        return "Replaces specific services with process engine.";
-    }
+  @Override
+  public String getDescription() {
+    return "Replaces specific services with process engine.";
+  }
 
-    private boolean isServiceReference(Expression expr, String fqn) {
-        if (expr instanceof J.Identifier ident) {
-            JavaType type = ident.getType();
-            return type instanceof JavaType.FullyQualified fqType &&
-                    fqType.getFullyQualifiedName().equals(fqn);
-        }
-        return false;
-    }
+  private String getServiceReference(Expression expr) {
+    return expr instanceof J.Identifier ident
+            && ident.getType() instanceof JavaType.FullyQualified fqType
+        ? fqType.getFullyQualifiedName()
+        : null;
+  }
 
-    @Override
-    public TreeVisitor<?, ExecutionContext> getVisitor() {
-        JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
+  @Override
+  public TreeVisitor<?, ExecutionContext> getVisitor() {
 
-            final JavaTemplate processEngineRuntimeService = JavaTemplate.builder("#{any(org.camunda.bpm.engine.ProcessEngine)}.getRuntimeService()")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+    // define preconditions
+    TreeVisitor<?, ExecutionContext> check =
+        Preconditions.or(
+            new UsesType<>(ClientConstants.Type.RUNTIME_SERVICE, true),
+            new UsesType<>(ClientConstants.Type.TASK_SERVICE, true),
+            new UsesType<>(ClientConstants.Type.REPOSITORY_SERVICE, true));
 
-            final JavaTemplate processEngineTaskService = JavaTemplate.builder("#{any(org.camunda.bpm.engine.ProcessEngine)}.getTaskService()")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+    return Preconditions.check(
+        check,
+        new JavaVisitor<ExecutionContext>() {
 
-            final JavaTemplate processEngineRepositoryService = JavaTemplate.builder("#{any(org.camunda.bpm.engine.ProcessEngine)}.getRepositoryService()")
-                    .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .build();
+          final JavaTemplate processEngineRuntimeService =
+              ClientUtils.createSimpleJavaTemplate(
+                  "#{any(" + ClientConstants.Type.PROCESS_ENGINE + ")}.getRuntimeService()");
 
-            @Override
-            public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
-                // This is the replacement identifier for ProcessEngine
-                J.Identifier processEngineJ = new J.Identifier(
-                        Tree.randomId(),
-                        Space.EMPTY,
-                        Markers.EMPTY,
-                        null,
-                        "engine",
-                        JavaType.ShallowClass.build("org.camunda.bpm.engine.ProcessEngine"),
-                        null
-                );
+          final JavaTemplate processEngineTaskService =
+              ClientUtils.createSimpleJavaTemplate(
+                  "#{any(" + ClientConstants.Type.PROCESS_ENGINE + ")}.getTaskService()");
 
-                if (isServiceReference(elem.getSelect(), "org.camunda.bpm.engine.RuntimeService")) {
-                    return elem.withSelect(processEngineRuntimeService.apply(getCursor(), elem.getCoordinates().replace(), processEngineJ)).withPrefix(Space.EMPTY);
-                }
-                if (isServiceReference(elem.getSelect(), "org.camunda.bpm.engine.TaskService")) {
-                    return elem.withSelect(processEngineTaskService.apply(getCursor(), elem.getCoordinates().replace(), processEngineJ)).withPrefix(Space.EMPTY);
-                }
-                if (isServiceReference(elem.getSelect(), "org.camunda.bpm.engine.RepositoryService")) {
-                    return elem.withSelect(processEngineRepositoryService.apply(getCursor(), elem.getCoordinates().replace(), processEngineJ)).withPrefix(Space.EMPTY);
-                }
-                return super.visitMethodInvocation(elem, ctx);
+          final JavaTemplate processEngineRepositoryService =
+              ClientUtils.createSimpleJavaTemplate(
+                  "#{any(" + ClientConstants.Type.PROCESS_ENGINE + ")}.getRepositoryService()");
+
+          /**
+           * One method is replaced with another method, thus visiting J.MethodInvocations works.
+           * The base identifier of the method invocation changes from runtimeService to engine.
+           * This new identifier needs to be constructed manually, providing simple name and java
+           * type.
+           */
+          @Override
+          public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
+
+            if (getServiceReference(elem.getSelect()) == null) {
+              return super.visitMethodInvocation(elem, ctx);
             }
 
-        };
-        return Preconditions.check(
-                Preconditions.or(
-                        new UsesType<>("org.camunda.bpm.engine.RuntimeService", true),
-                        new UsesType<>("org.camunda.bpm.engine.TaskService", true),
-                        new UsesType<>("org.camunda.bpm.engine.RepositoryService", true)
-                ),
-                javaVisitor
-        );
-    }
+            // This is the replacement identifier for ProcessEngine
+            J.Identifier processEngineJ =
+                ClientUtils.createSimpleIdentifier("engine", ClientConstants.Type.PROCESS_ENGINE);
+
+            return switch (getServiceReference(elem.getSelect())) {
+              case ClientConstants.Type.RUNTIME_SERVICE ->
+                  elem.withSelect(
+                          processEngineRuntimeService.apply(
+                              getCursor(), elem.getCoordinates().replace(), processEngineJ))
+                      .withPrefix(Space.EMPTY);
+              case ClientConstants.Type.TASK_SERVICE ->
+                  elem.withSelect(
+                          processEngineTaskService.apply(
+                              getCursor(), elem.getCoordinates().replace(), processEngineJ))
+                      .withPrefix(Space.EMPTY);
+              case ClientConstants.Type.REPOSITORY_SERVICE ->
+                  elem.withSelect(
+                          processEngineRepositoryService.apply(
+                              getCursor(), elem.getCoordinates().replace(), processEngineJ))
+                      .withPrefix(Space.EMPTY);
+              default -> super.visitMethodInvocation(elem, ctx);
+            };
+          }
+        });
+  }
 }

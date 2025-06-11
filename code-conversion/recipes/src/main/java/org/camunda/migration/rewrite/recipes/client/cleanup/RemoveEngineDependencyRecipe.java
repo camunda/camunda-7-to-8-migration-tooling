@@ -1,58 +1,65 @@
 package org.camunda.migration.rewrite.recipes.client.cleanup;
 
+import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
-import org.openrewrite.java.template.internal.AbstractRefasterJavaVisitor;
 import org.openrewrite.java.tree.*;
 
 import java.util.*;
 
 public class RemoveEngineDependencyRecipe extends Recipe {
-    /**
-     * Instantiates a new instance.
-     */
-    public RemoveEngineDependencyRecipe() {
-    }
+  /** Instantiates a new instance. */
+  public RemoveEngineDependencyRecipe() {}
 
-    @Override
-    public String getDisplayName() {
-        return "Remove process engine dependency";
-    }
+  @Override
+  public String getDisplayName() {
+    return "Remove process engine dependency";
+  }
 
-    @Override
-    public String getDescription() {
-        return "Removes process engine dependency.";
-    }
+  @Override
+  public String getDescription() {
+    return "Removes process engine dependency. Tries to remove import.";
+  }
 
-    @Override
-    public TreeVisitor<?, ExecutionContext> getVisitor() {
-        JavaVisitor<ExecutionContext> javaVisitor = new AbstractRefasterJavaVisitor() {
+  @Override
+  public TreeVisitor<?, ExecutionContext> getVisitor() {
 
-            @Override
-            public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
-                System.out.println(classDecl);
-                List<Statement> newStatements = new ArrayList<>();
-                for (Statement statement : classDecl.getBody().getStatements()) {
-                    if (statement instanceof J.VariableDeclarations varDecls) {
-                        JavaType type = varDecls.getType();
-                        if (TypeUtils.isOfClassType(type, "org.camunda.bpm.engine.ProcessEngine")) {
-                            // This is the field we want to remove, so skip adding it
-                            continue;
-                        }
-                    }
-                    newStatements.add(statement);
-                }
+    // define preconditions
+    TreeVisitor<?, ExecutionContext> check =
+        new UsesType<>(ClientConstants.Type.PROCESS_ENGINE, true);
 
-                maybeRemoveImport("org.camunda.bpm.engine.ProcessEngine");
+    return Preconditions.check(
+        check,
+        new JavaVisitor<ExecutionContext>() {
 
-                return classDecl.withBody(classDecl.getBody().withStatements(newStatements));
+          /**
+           * Removing an LST element cannot be done by visiting it directly.
+           * Visiting J.ClassDeclaration targets the smallest LST element to filter out the dependencies to be removed.
+           * The body of the class contains statements, which can be any type that is allowed to be in a class body.
+           * All statements apart from the ones to be removed are collected.
+           * If the statement is instanceof J.VariableDeclarations and defines variables of the type to remove, it is not collected.
+           * The class declaration is returned with new statements in its body.
+           */
+          @Override
+          public J.ClassDeclaration visitClassDeclaration(
+              J.ClassDeclaration classDecl, ExecutionContext ctx) {
+
+            List<Statement> newStatements = new ArrayList<>();
+            for (Statement statement : classDecl.getBody().getStatements()) {
+              if (statement instanceof J.VariableDeclarations varDecls
+                  && TypeUtils.isOfClassType(
+                      varDecls.getType(), ClientConstants.Type.PROCESS_ENGINE)) {
+                // This is the statement we want to remove, so skip adding it
+                continue;
+              }
+              newStatements.add(statement);
             }
-        };
-        return Preconditions.check(
-                new UsesType<>("org.camunda.bpm.engine.ProcessEngine", true),
-                javaVisitor
-        );
 
-    }
+            maybeRemoveImport(ClientConstants.Type.PROCESS_ENGINE);
+
+            return classDecl.withBody(classDecl.getBody().withStatements(newStatements));
+          }
+        });
+  }
 }
