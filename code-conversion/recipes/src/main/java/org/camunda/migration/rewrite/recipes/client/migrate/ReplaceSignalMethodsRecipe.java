@@ -114,8 +114,7 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
           @Override
           public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
             J.Identifier camundaClientWrapper =
-                ClientUtils.createSimpleIdentifier(
-                    "camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+                ClientUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
             // a comment is added in case the executionId was removed
             TextComment removedExecutionIdComment =

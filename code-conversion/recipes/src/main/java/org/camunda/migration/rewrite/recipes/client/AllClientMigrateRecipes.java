@@ -2,6 +2,7 @@ package org.camunda.migration.rewrite.recipes.client;
 
 import org.camunda.migration.rewrite.recipes.client.migrate.ReplaceCancelProcessInstanceMethodsRecipe;
 import org.camunda.migration.rewrite.recipes.client.migrate.ReplaceSignalMethodsRecipe;
+import org.camunda.migration.rewrite.recipes.client.migrate.ReplaceStartProcessInstanceMethodsRecipe;
 import org.openrewrite.Recipe;
 import org.openrewrite.java.ReplaceAnnotation;
 
@@ -32,8 +33,9 @@ public class AllClientMigrateRecipes extends Recipe {
     @Override
     public List<Recipe> getRecipeList() {
         return Arrays.asList(
-                new ReplaceCancelProcessInstanceMethodsRecipe(CLIENT_WRAPPER_PACKAGE),
                 new ReplaceSignalMethodsRecipe(CLIENT_WRAPPER_PACKAGE),
+                new ReplaceCancelProcessInstanceMethodsRecipe(CLIENT_WRAPPER_PACKAGE),
+                new ReplaceStartProcessInstanceMethodsRecipe(CLIENT_WRAPPER_PACKAGE),
                 new ReplaceAnnotation("@org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication", "@io.camunda.spring.client.annotation.Deployment(resources = \"classpath*:/bpmn/**/*.bpmn\")", null)
         );
     }

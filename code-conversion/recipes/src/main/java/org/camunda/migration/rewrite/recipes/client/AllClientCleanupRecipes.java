@@ -1,6 +1,7 @@
 package org.camunda.migration.rewrite.recipes.client;
 
 import org.camunda.migration.rewrite.recipes.client.cleanup.RemoveEngineDependencyRecipe;
+import org.camunda.migration.rewrite.recipes.client.cleanup.RemoveImportsManuallyRecipe;
 import org.openrewrite.Recipe;
 import org.openrewrite.java.RemoveUnusedImports;
 
@@ -30,7 +31,8 @@ public class AllClientCleanupRecipes extends Recipe {
     public List<Recipe> getRecipeList() {
         return Arrays.asList(
                 new RemoveEngineDependencyRecipe(),
-                new RemoveUnusedImports()
+                new RemoveUnusedImports(),
+                new RemoveImportsManuallyRecipe()
         );
     }
 }

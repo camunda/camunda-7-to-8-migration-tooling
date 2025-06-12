@@ -69,8 +69,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
 
             // create new identifier for first java template argument
             J.Identifier camundaClientWrapper =
-                ClientUtils.createSimpleIdentifier(
-                    "camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+                ClientUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
             /*
              * if methodInv matches the defined method, replace it with the applied java template,
