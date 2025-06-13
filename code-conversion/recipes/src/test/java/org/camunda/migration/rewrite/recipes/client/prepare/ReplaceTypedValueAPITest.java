@@ -44,6 +44,7 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                     public void someMethod(CustomObject customObject, DoubleValue doubleTyped) {
                                         IntegerValue amountTyped = Variables.integerValue(2);
                                         StringValue nameTyped = Variables.stringValue("2");
+                                        nameTyped = Variables.stringValue("3");
                                         String bla = "blub";
                                         
                                         VariableMap map1 = Variables.createVariables().putValueTyped("name", nameTyped).putValueTyped("amount", amountTyped);
@@ -87,6 +88,7 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                     public void someMethod(CustomObject customObject, double doubleTyped) {
                                         int amountTyped = 2;
                                         String nameTyped = "2";
+                                        nameTyped = "3";
                                         String bla = "blub";
                                         
                                         Map<String, Object> map1 = new HashMap<>();

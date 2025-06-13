@@ -32,17 +32,17 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.or(
-                new UsesType<>(ClientConstants.Type.VARIABLES, true),
-                new UsesType<>(ClientConstants.Type.VARIABLE_MAP, true),
-                new UsesType<>(ClientConstants.Type.TYPED_VALUE, true),
-                new UsesType<>(ClientConstants.Type.OBJECT_VALUE, true),
-                new UsesType<>(ClientConstants.Type.STRING_VALUE, true),
-                new UsesType<>(ClientConstants.Type.INTEGER_VALUE, true),
-                new UsesType<>(ClientConstants.Type.LONG_VALUE, true),
-                new UsesType<>(ClientConstants.Type.SHORT_VALUE, true),
-                new UsesType<>(ClientConstants.Type.DOUBLE_VALUE, true),
-                new UsesType<>(ClientConstants.Type.FLOAT_VALUE, true),
-                new UsesType<>(ClientConstants.Type.BYTES_VALUE, true));
+            new UsesType<>(ClientConstants.Type.VARIABLES, true),
+            new UsesType<>(ClientConstants.Type.VARIABLE_MAP, true),
+            new UsesType<>(ClientConstants.Type.TYPED_VALUE, true),
+            new UsesType<>(ClientConstants.Type.OBJECT_VALUE, true),
+            new UsesType<>(ClientConstants.Type.STRING_VALUE, true),
+            new UsesType<>(ClientConstants.Type.INTEGER_VALUE, true),
+            new UsesType<>(ClientConstants.Type.LONG_VALUE, true),
+            new UsesType<>(ClientConstants.Type.SHORT_VALUE, true),
+            new UsesType<>(ClientConstants.Type.DOUBLE_VALUE, true),
+            new UsesType<>(ClientConstants.Type.FLOAT_VALUE, true),
+            new UsesType<>(ClientConstants.Type.BYTES_VALUE, true));
 
     return Preconditions.check(
         check,
@@ -315,6 +315,28 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               return invoc.withName(ident);
             }
             return super.visitMethodInvocation(invoc, ctx);
+          }
+
+          /** Replace initializers of assignments */
+          @Override
+          public J visitAssignment(J.Assignment assignment, ExecutionContext executionContext) {
+            Expression assignmentExpr = assignment.getAssignment();
+
+            if (assignmentExpr instanceof J.MethodInvocation method
+                && method.getSelect() instanceof J.Identifier sel
+                && sel.getSimpleName().equals("Variables")) {
+              // the initializer needs to be a method invocation which first or second select method
+              // is the Variables identifier
+
+              return assignment.withAssignment(method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+            } else if (assignmentExpr instanceof J.MethodInvocation method
+                && method.getSelect() instanceof J.MethodInvocation method2
+                && method2.getSelect() instanceof J.Identifier sel2
+                && sel2.getSimpleName().equals("Variables")) {
+              return assignment.withAssignment(method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+            }
+
+            return super.visitAssignment(assignment, executionContext);
           }
 
           /**
