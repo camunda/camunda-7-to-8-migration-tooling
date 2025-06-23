@@ -7,8 +7,6 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-import org.camunda.migration.rewrite.recipes.delegate.JavaDelegateSpringToZeebeWorkerSpring;
-
 class JavaDelegateSpringToZeebeWorkerSpringTest implements RewriteTest {
 
     @Override
