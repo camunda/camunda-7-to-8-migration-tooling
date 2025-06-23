@@ -158,6 +158,19 @@
 			  <version>5.2.4.RELEASE</version>        
 			  <scope>provided</scope>        
         </dependency>
+
+        <dependency>
+            <groupId>io.camunda</groupId>
+            <artifactId>spring-boot-starter-camunda-sdk</artifactId>
+            <version>8.8.0-alpha4</version>
+        </dependency>
+
+
+        <dependency>
+            <groupId>org.openrewrite.recipe</groupId>
+            <artifactId>rewrite-static-analysis</artifactId>
+            <version>2.9.0</version>
+        </dependency>
         
     </dependencies>
 

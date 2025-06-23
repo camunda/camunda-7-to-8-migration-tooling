@@ -34,7 +34,7 @@ export const c8_8 = {
 	],
 	tags: [
 		{
-			name: "Ad-hoc subprocess",
+			name: "Ad-hoc sub-process",
 		},
 		{
 			name: "Authentication",
@@ -65,9 +65,6 @@ export const c8_8 = {
 		},
 		{
 			name: "Element instance",
-		},
-		{
-			name: "Flow node instance",
 		},
 		{
 			name: "Group",
@@ -855,7 +852,7 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/UserSearchQueryRequest",
+								$ref: "#/components/schemas/TenantUserSearchQueryRequest",
 							},
 						},
 					},
@@ -867,10 +864,245 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/UserSearchResult",
+									$ref: "#/components/schemas/TenantUserSearchResult",
 								},
 							},
 						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/clients/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchClientsForTenant",
+				summary: "Search clients for tenant",
+				description:
+					"Retrieves a filtered and sorted list of clients for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of users for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantClientSearchResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/groups/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchGroupsForTenant",
+				summary: "Search groups for tenant",
+				description:
+					"Retrieves a filtered and sorted list of groups for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of groups for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/roles/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchRolesForTenant",
+				summary: "Search roles for tenant",
+				description:
+					"Retrieves a filtered and sorted list of roles for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of roles for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/clients/{clientId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignClientToTenant",
+				summary: "Assign a client to a tenant",
+				description: "Assign a client to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The ID of the client to assign.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The client was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The tenant was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeClientFromTenant",
+				summary: "Remove a client from a tenant",
+				description: "Removes a single client from a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description:
+							"The unique identifier of the application.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The client was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The tenant does not exist or the client was not assigned to it.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
 					},
 				},
 			},
@@ -985,7 +1217,50 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/tenants/{tenantId}/groups/{groupKey}": {
+		"/tenants/{tenantId}/mappings/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchMappingsForTenant",
+				summary: "Search mappings for tenant",
+				description:
+					"Retrieves a filtered and sorted list of mappings for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of mappings for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/groups/{groupId}": {
 			put: {
 				tags: ["Tenant"],
 				operationId: "assignGroupToTenant",
@@ -1002,7 +1277,7 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "groupKey",
+						name: "groupId",
 						in: "path",
 						required: true,
 						description: "The unique identifier of the group.",
@@ -1055,7 +1330,7 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "groupKey",
+						name: "groupId",
 						in: "path",
 						required: true,
 						description: "The unique identifier of the group.",
@@ -1078,6 +1353,113 @@ export const c8_8 = {
 					404: {
 						description:
 							"Not found. The tenant or group was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/roles/{roleId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignRoleToTenant",
+				summary: "Assign a role to a tenant",
+				description: "Assign a single role to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the role.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The role was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or role was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeRoleFromTenant",
+				summary: "Remove a role from a tenant",
+				description:
+					"Removes a single role from a specified tenant without deleting the role.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the role.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The role was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or role was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1957,14 +2339,14 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/process-definitions/{processDefinitionKey}/statistics/flownode-instances":
+		"/process-definitions/{processDefinitionKey}/statistics/element-instances":
 			{
 				post: {
 					tags: ["Process definition"],
 					operationId: "getProcessDefinitionStatistics",
 					summary: "Get process definition statistics",
 					description:
-						"Get statistics about flow nodes in currently running process instances by process definition key and search filter.\n",
+						"Get statistics about elements in currently running process instances by process definition key and search filter.\n",
 					parameters: [
 						{
 							name: "processDefinitionKey",
@@ -1982,7 +2364,7 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/ProcessDefinitionFlowNodeStatisticsQuery",
+									$ref: "#/components/schemas/ProcessDefinitionElementStatisticsQuery",
 								},
 							},
 						},
@@ -1994,7 +2376,7 @@ export const c8_8 = {
 							content: {
 								"application/json": {
 									schema: {
-										$ref: "#/components/schemas/ProcessDefinitionFlowNodeStatisticsQueryResult",
+										$ref: "#/components/schemas/ProcessDefinitionElementStatisticsQueryResult",
 									},
 								},
 							},
@@ -2137,6 +2519,99 @@ export const c8_8 = {
 				},
 			},
 		},
+		"/process-instances/{processInstanceKey}/sequence-flows": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstanceSequenceFlows",
+				summary: "Get process instance sequence flows",
+				description:
+					"Get sequence flows taken by the process instance.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The process instance sequence flows result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessInstanceSequenceFlowsQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/statistics/element-instances":
+			{
+				get: {
+					tags: ["Process instance"],
+					operationId: "getProcessInstanceStatistics",
+					summary: "Get process instance statistics",
+					description:
+						"Get statistics about elements by the process instance key.\n",
+					parameters: [
+						{
+							name: "processInstanceKey",
+							in: "path",
+							required: true,
+							description:
+								"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+							schema: {
+								type: "string",
+							},
+						},
+					],
+					responses: {
+						200: {
+							description:
+								"The process instance statistics result.",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ProcessInstanceElementStatisticsQueryResult",
+									},
+								},
+							},
+						},
+						400: {
+							$ref: "#/components/responses/InvalidData",
+						},
+						401: {
+							$ref: "#/components/responses/Unauthorized",
+						},
+						403: {
+							$ref: "#/components/responses/Forbidden",
+						},
+						500: {
+							$ref: "#/components/responses/InternalServerError",
+						},
+					},
+				},
+			},
 		"/process-instances/search": {
 			post: {
 				tags: ["Process instance"],
@@ -2232,12 +2707,13 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/process-instances/batch-operations/cancellation": {
+		"/process-instances/cancellation": {
 			post: {
 				tags: ["Process instance"],
 				operationId: "cancelProcessInstancesBatchOperation",
 				summary: "Create a batch operation to cancel process instances",
-				description: "Cancels multiple running process instances.\n",
+				description:
+					"Cancels multiple running process instances.\nSince only ACTIVE root instances can be cancelled, any given filters for state and\nparentProcessInstanceKey are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -2249,9 +2725,163 @@ export const c8_8 = {
 					},
 				},
 				responses: {
-					202: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
 						description:
-							"The batch operation request was accepted.",
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/incident-resolution": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "resolveIncidentsBatchOperation",
+				summary:
+					"Create a batch operation to resolve incidents of process instances",
+				description:
+					"Resolves multiple instances of process instances.\nSince only process instances with ACTIVE state can have unresolved incidents, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceFilter",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/migration": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "migrateProcessInstancesBatchOperation",
+				summary:
+					"Create a batch operation to migrate process instances",
+				description:
+					"Migrate multiple instances of process instances.\nSince only process instances with ACTIVE state can be migrated, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceMigrationBatchOperationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/modification": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "modifyProcessInstancesBatchOperation",
+				summary: "Create a batch operation to modify process instances",
+				description:
+					"Modify multiple process instances.\nSince only process instances with ACTIVE state can be modified, any given\nfilters for state are ignored and overridden during this batch operation.\nIn contrast to single modification operation, it is not possible to add variable instructions or modify by element key.\nIt is only possible to use the element id of the source and target.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceModificationBatchOperationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2387,30 +3017,89 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/flownode-instances/search": {
-			post: {
-				tags: ["Flow node instance"],
-				operationId: "searchFlowNodeInstances",
-				summary: "Search flow node instances",
+		"/process-instances/{processInstanceKey}/call-hierarchy": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstanceCallHierarchy",
+				summary: "Get call hierarchy for process instance",
 				description:
-					"Search for flow node instances based on given criteria.\n",
+					"Returns the call hierarchy for a given process instance, showing its ancestry up to the root instance.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the process instance to fetch the hierarchy for.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The call hierarchy is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									type: "array",
+									items: {
+										$ref: "#/components/schemas/ProcessInstanceCallHierarchyEntry",
+									},
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The process instance is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/search": {
+			post: {
+				tags: ["Element instance"],
+				operationId: "searchElementInstances",
+				summary: "Search element instances",
+				description:
+					"Search for element instances based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/FlowNodeInstanceSearchQuery",
+								$ref: "#/components/schemas/ElementInstanceSearchQuery",
 							},
 						},
 					},
 				},
 				responses: {
 					200: {
-						description: "The flow node instance search result.\n",
+						description: "The element instance search result.\n",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/FlowNodeInstanceSearchQueryResult",
+									$ref: "#/components/schemas/ElementInstanceSearchQueryResult",
 								},
 							},
 						},
@@ -2430,19 +3119,19 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/flownode-instances/{flowNodeInstanceKey}": {
+		"/element-instances/{elementInstanceKey}": {
 			get: {
-				tags: ["Flow node instance"],
-				operationId: "getFlowNodeInstance",
-				summary: "Get flow node instance",
-				description: "Returns flow node instance as JSON.\n",
+				tags: ["Element instance"],
+				operationId: "getElementInstance",
+				summary: "Get element instance",
+				description: "Returns element instance as JSON.\n",
 				parameters: [
 					{
-						name: "flowNodeInstanceKey",
+						name: "elementInstanceKey",
 						in: "path",
 						required: true,
 						description:
-							"The assigned key of the flow node instance, which acts as a unique identifier for this flow node instance.",
+							"The assigned key of the element instance, which acts as a unique identifier for this element instance.",
 						schema: {
 							type: "string",
 						},
@@ -2451,11 +3140,11 @@ export const c8_8 = {
 				responses: {
 					200: {
 						description:
-							"The flow node instance is successfully returned.\n",
+							"The element instance is successfully returned.\n",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/FlowNodeInstanceResult",
+									$ref: "#/components/schemas/ElementInstanceResult",
 								},
 							},
 						},
@@ -2471,7 +3160,7 @@ export const c8_8 = {
 					},
 					404: {
 						description:
-							"The flow node instance with the given key was not found. More details are provided in the response body.\n",
+							"The element instance with the given key was not found. More details are provided in the response body.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -3065,6 +3754,56 @@ export const c8_8 = {
 					},
 				},
 			},
+			get: {
+				tags: ["Authorization"],
+				operationId: "getAuthorization",
+				summary: "Get authorization",
+				description: "Get authorization by the given key.",
+				parameters: [
+					{
+						name: "authorizationKey",
+						in: "path",
+						required: true,
+						description: "The key of the authorization to get.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The authorization was successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AuthorizationResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The authorization with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
 			delete: {
 				tags: ["Authorization"],
 				operationId: "deleteAuthorization",
@@ -3153,9 +3892,8 @@ export const c8_8 = {
 			post: {
 				tags: ["Role"],
 				operationId: "createRole",
-				summary: "Create role (Work-in-Progress)",
-				description:
-					"Create a new role.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Create role",
+				description: "Create a new role.\n",
 				requestBody: {
 					content: {
 						"application/json": {
@@ -3195,9 +3933,8 @@ export const c8_8 = {
 			get: {
 				tags: ["Role"],
 				operationId: "getRole",
-				summary: "Get role (Work-in-Progress)",
-				description:
-					"Get a role by its ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Get role",
+				description: "Get a role by its ID.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -3245,9 +3982,8 @@ export const c8_8 = {
 			put: {
 				tags: ["Role"],
 				operationId: "updateRole",
-				summary: "Update role (Work-in-Progress)",
-				description:
-					"Update a role with the given ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Update role",
+				description: "Update a role with the given ID.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -3304,9 +4040,8 @@ export const c8_8 = {
 			delete: {
 				tags: ["Role"],
 				operationId: "deleteRole",
-				summary: "Delete role (Work-in-Progress)",
-				description:
-					"Deletes the role with the given ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Delete role",
+				description: "Deletes the role with the given ID.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -3341,13 +4076,374 @@ export const c8_8 = {
 				},
 			},
 		},
+		"/roles/{roleId}/users/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchUsersForRole",
+				summary: "Search role users",
+				description: "Search users assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleUserSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The users assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleUserSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/clients/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchClientsForRole",
+				summary: "Search role clients",
+				description: "Search clients assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The clients assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleClientSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/users/{username}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addUserToRole",
+				summary: "Assign a user to a role",
+				description: "Assigns a user to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or user with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeUserFromRole",
+				summary: "Unassign a user from a role",
+				description: "Unassigns a user from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or user with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/clients/{clientId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addClientToRole",
+				summary: "Assign a client to a role",
+				description: "Assigns a client to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The client with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeClientFromRole",
+				summary: "Unassign a client from a role",
+				description: "Unassigns a client from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or client with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
 		"/roles/search": {
 			post: {
 				tags: ["Role"],
 				operationId: "searchRoles",
-				summary: "Search roles (Work-in-Progress)",
-				description:
-					"Search for roles based on given criteria.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Search roles",
+				description: "Search for roles based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -3392,13 +4488,374 @@ export const c8_8 = {
 				},
 			},
 		},
+		"/roles/{roleId}/groups/{groupId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addGroupToRole",
+				summary: "Assign a group to a role",
+				description: "Assigns a group to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The group was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The group with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeGroupFromRole",
+				summary: "Unassign a group from a role",
+				description: "Unassigns a group from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The group was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/groups/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchGroupsForRole",
+				summary: "Search role groups",
+				description: "Search groups assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The groups assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/mappings/{mappingId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addMappingToRole",
+				summary: "Assign a mapping to a role",
+				description: "Assigns a mapping to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or mapping with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The mapping with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeMappingFromRole",
+				summary: "Unassign a mapping from a role",
+				description: "Unassigns a mapping from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or mapping with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/mapping-rules/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchMappingRulesForRole",
+				summary: "Search role mapping rules",
+				description: "Search mapping rules assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The mapping rules assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
 		"/groups": {
 			post: {
 				tags: ["Group"],
 				operationId: "createGroup",
-				summary: "Create group (Work-in-Progress)",
-				description:
-					"Create a new group.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Create group",
+				description: "Create a new group.\n",
 				requestBody: {
 					content: {
 						"application/json": {
@@ -3438,9 +4895,8 @@ export const c8_8 = {
 			get: {
 				tags: ["Group"],
 				operationId: "getGroup",
-				summary: "Get group (Work-in-Progress)",
-				description:
-					"Get a group by its ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Get group",
+				description: "Get a group by its ID.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -3488,9 +4944,8 @@ export const c8_8 = {
 			put: {
 				tags: ["Group"],
 				operationId: "updateGroup",
-				summary: "Update group (Work-in-Progress)",
-				description:
-					"Update a group with the given ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Update group",
+				description: "Update a group with the given ID.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -3548,9 +5003,8 @@ export const c8_8 = {
 			delete: {
 				tags: ["Group"],
 				operationId: "deleteGroup",
-				summary: "Delete group (Work-in-Progress)",
-				description:
-					"Deletes the group with the given ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Delete group",
+				description: "Deletes the group with the given ID.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -3586,13 +5040,268 @@ export const c8_8 = {
 				},
 			},
 		},
+		"/groups/{groupId}/users/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchUsersForGroup",
+				summary: "Search group users",
+				description: "Search users assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupUserSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The users assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupUserSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/mapping-rules/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchMappingRulesForGroup",
+				summary: "Search group mapping rules",
+				description: "Search mapping rules to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The mapping rules assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/roles/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchRolesForGroup",
+				summary: "Search group roles",
+				description: "Search roles assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The roles assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/clients/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchClientsForGroup",
+				summary: "Search group clients",
+				description: "Search clients assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The clients assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupClientSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
 		"/groups/{groupId}/users/{username}": {
 			put: {
 				tags: ["Group"],
 				operationId: "addUserToGroup",
-				summary: "Assign a user to a group (Work-in-Progress)",
-				description:
-					"Assigns a user to a group.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Assign a user to a group",
+				description: "Assigns a user to a group.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -3654,9 +5363,8 @@ export const c8_8 = {
 			delete: {
 				tags: ["Group"],
 				operationId: "unassignUserFromGroup",
-				summary: "Unassign a user from a group (Work-in-Progress)",
-				description:
-					"Unassigns a user from a group.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Unassign a user from a group",
+				description: "Unassigns a user from a group.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -3705,13 +5413,246 @@ export const c8_8 = {
 				},
 			},
 		},
+		"/groups/{groupId}/clients/{clientId}": {
+			put: {
+				tags: ["Group"],
+				operationId: "addClientToGroup",
+				summary: "Assign a client to a group",
+				description: "Assigns a client to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was assigned successfully to the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The client with the given ID is already assigned to the group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "unassignClientFromGroup",
+				summary: "Unassign a client from a group",
+				description: "Unassigns a client from a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was unassigned successfully from the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found, or the client is not assigned to this group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/mapping-rules/{mappingId}": {
+			put: {
+				tags: ["Group"],
+				operationId: "assignMappingToGroup",
+				summary: "Assign a mapping rule to a group",
+				description: "Assigns a mapping rule to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping rule ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping rule was assigned successfully to the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or mapping rule with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The mapping rule with the given ID is already assigned to the group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "unassignMappingFromGroup",
+				summary: "Unassign a mapping rule from a group",
+				description: "Unassigns a mapping rule from a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping rule ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping rule was unassigned successfully from the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or mapping rule with the given ID was not found, or the mapping rule is not assigned to this group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
 		"/groups/search": {
 			post: {
 				tags: ["Group"],
 				operationId: "searchGroups",
-				summary: "Search groups (Work-in-Progress)",
-				description:
-					"Search for groups based on given criteria.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Search groups",
+				description: "Search for groups based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -3825,7 +5766,7 @@ export const c8_8 = {
 						name: "mappingId",
 						in: "path",
 						required: true,
-						description: "The id of the mapping rule to update.",
+						description: "The ID of the mapping rule to update.",
 						schema: {
 							type: "string",
 						},
@@ -3885,15 +5826,14 @@ export const c8_8 = {
 			delete: {
 				tags: ["Mapping rule"],
 				operationId: "deleteMappingRule",
-				summary: "Delete a mapping rule (Work-in-Progress)",
-				description:
-					"Deletes the mapping rule with the given key.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+				summary: "Delete a mapping rule",
+				description: "Deletes the mapping rule with the given ID.\n",
 				parameters: [
 					{
 						name: "mappingId",
 						in: "path",
 						required: true,
-						description: "The key of the mapping rule to delete.",
+						description: "The ID of the mapping rule to delete.",
 						schema: {
 							type: "string",
 						},
@@ -3909,7 +5849,7 @@ export const c8_8 = {
 					},
 					404: {
 						description:
-							"The mapping rule with the mappingKey was not found.",
+							"The mapping rule with the mappingId was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -3926,9 +5866,8 @@ export const c8_8 = {
 			get: {
 				tags: ["Mapping rule"],
 				operationId: "getMappingRule",
-				summary: "Get a mapping rule (Work-in-Progress)",
-				description:
-					"Gets the mapping rule with the given ID.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes till\nits release with an upcoming minor release.\n",
+				summary: "Get a mapping rule",
+				description: "Gets the mapping rule with the given ID.\n",
 				parameters: [
 					{
 						name: "mappingId",
@@ -3969,9 +5908,9 @@ export const c8_8 = {
 			post: {
 				tags: ["Mapping rule"],
 				operationId: "searchMappings",
-				summary: "Search mappings (Work-in-Progress)",
+				summary: "Search mappings",
 				description:
-					"Search for mapping rules based on given criteria.\n\nThis API is in a Work-in-Progress state and will undergo potential breaking changes until\nits release with an upcoming minor release.\n",
+					"Search for mapping rules based on given criteria.\n",
 				requestBody: {
 					content: {
 						"application/json": {
@@ -4173,7 +6112,7 @@ export const c8_8 = {
 				operationId: "createDocuments",
 				summary: "Upload multiple documents",
 				description:
-					"Upload multiple documents to the Camunda 8 cluster.\n\nThe caller must provide a file name for each document, which will be used in case of a multi-status response\nto identify which documents failed to upload. The file name can be provided in the `Content-Disposition` header\nof the file part or in the `fileName` field of the metadata part. If both are provided, the `fileName` field\ntakes precedence.\n\nIn case of a multi-status response, the response body will contain a list of `DocumentBatchProblemDetail` objects,\neach of which contains the file name of the document that failed to upload and the reason for the failure.\nThe client can choose to retry the whole batch or individual documents based on the response.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n",
+					'Upload multiple documents to the Camunda 8 cluster.\n\nThe caller must provide a file name for each document, which will be used in case of a multi-status response\nto identify which documents failed to upload. The file name can be provided in the `Content-Disposition` header\nof the file part or in the `fileName` field of the metadata, which can be configured with\nthe `X-Document-Metadata` header for each file part. If both are provided, the `fileName` metadata field\ntakes precedence. For example, given the following headers for a file:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"fileName": "invoice.pdf", "size": 1234567}\n```\n\nThe filename will be `invoice.pdf`, but in the following example:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"size": 1234567}\n```\n\nit would be `bill.pdf`.\n\nIn case of a multi-status response, the response body will contain a list of `DocumentBatchProblemDetail` objects,\neach of which contains the file name of the document that failed to upload and the reason for the failure.\nThe client can choose to retry the whole batch or individual documents based on the response.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n',
 				parameters: [
 					{
 						name: "storeId",
@@ -4529,6 +6468,55 @@ export const c8_8 = {
 			},
 		},
 		"/users/{username}": {
+			get: {
+				tags: ["User"],
+				operationId: "getUser",
+				summary: "Get user",
+				description: "Get a user by its username.\n",
+				parameters: [
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The username of the user.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The user is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The user with the given username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
 			delete: {
 				tags: ["User"],
 				operationId: "deleteUser",
@@ -4975,7 +6963,7 @@ export const c8_8 = {
 				operationId: "createElementInstanceVariables",
 				summary: "Update element instance variables",
 				description:
-					"Updates all the variables of a particular scope (for example, process instance, flow element instance) with the given variable data.\nSpecify the element instance in the `elementInstanceKey` parameter.\n",
+					"Updates all the variables of a particular scope (for example, process instance, element instance) with the given variable data.\nSpecify the element instance in the `elementInstanceKey` parameter.\n",
 				parameters: [
 					{
 						name: "elementInstanceKey",
@@ -5013,17 +7001,17 @@ export const c8_8 = {
 		},
 		"/element-instances/ad-hoc-activities/search": {
 			post: {
-				tags: ["Ad-hoc subprocess"],
-				operationId: "searchAdHocSubprocessActivities",
+				tags: ["Ad-hoc sub-process"],
+				operationId: "searchAdHocSubProcessActivities",
 				summary: "Search activatable activities (alpha)",
 				description:
-					"Search for activatable activities within ad-hoc subprocesses based on given criteria.\n\nNote that this API currently requires filters for both process definition key and ad-hoc\nsubprocess ID and does not support paging or sorting.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
+					"Search for activatable activities within ad-hoc sub-processes based on given criteria.\n\nNote that this API currently requires filters for both process definition key and ad-hoc\nsub-process ID and does not support paging or sorting.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
 				requestBody: {
 					required: true,
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/AdHocSubprocessActivitySearchQuery",
+								$ref: "#/components/schemas/AdHocSubProcessActivitySearchQuery",
 							},
 						},
 					},
@@ -5031,18 +7019,18 @@ export const c8_8 = {
 				responses: {
 					200: {
 						description:
-							"The ad-hoc subprocess activities search result.\n",
+							"The ad-hoc sub-process activities search result.\n",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/AdHocSubprocessActivitySearchQueryResult",
+									$ref: "#/components/schemas/AdHocSubProcessActivitySearchQueryResult",
 								},
 							},
 						},
 					},
 					400: {
 						description:
-							"The ad-hoc subprocess activities search query failed. More details are provided in the response body.\n",
+							"The ad-hoc sub-process activities search query failed. More details are provided in the response body.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5063,21 +7051,21 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/element-instances/ad-hoc-activities/{adHocSubprocessInstanceKey}/activation":
+		"/element-instances/ad-hoc-activities/{adHocSubProcessInstanceKey}/activation":
 			{
 				post: {
-					tags: ["Ad-hoc subprocess"],
-					operationId: "activateAdHocSubprocessActivities",
-					summary: "Activate activities within an ad-hoc subprocess",
+					tags: ["Ad-hoc sub-process"],
+					operationId: "activateAdHocSubProcessActivities",
+					summary: "Activate activities within an ad-hoc sub-process",
 					description:
-						"Activates selected activities within an ad-hoc subprocess identified by element ID.\nThe provided element IDs must exist within the ad-hoc subprocess instance identified by the\nprovided adHocSubprocessInstanceKey.\n",
+						"Activates selected activities within an ad-hoc sub-process identified by element ID.\nThe provided element IDs must exist within the ad-hoc sub-process instance identified by the\nprovided adHocSubProcessInstanceKey.\n",
 					parameters: [
 						{
-							name: "adHocSubprocessInstanceKey",
+							name: "adHocSubProcessInstanceKey",
 							in: "path",
 							required: true,
 							description:
-								"The key of the ad-hoc subprocess instance that contains the activities.",
+								"The key of the ad-hoc sub-process instance that contains the activities.",
 							schema: {
 								type: "string",
 							},
@@ -5088,7 +7076,7 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/AdHocSubprocessActivateActivitiesInstruction",
+									$ref: "#/components/schemas/AdHocSubProcessActivateActivitiesInstruction",
 								},
 							},
 						},
@@ -5096,7 +7084,7 @@ export const c8_8 = {
 					responses: {
 						204: {
 							description:
-								"The ad-hoc subprocess instance is modified.",
+								"The ad-hoc sub-process instance is modified.",
 						},
 						400: {
 							$ref: "#/components/responses/InvalidData",
@@ -5109,7 +7097,7 @@ export const c8_8 = {
 						},
 						404: {
 							description:
-								"The ad-hoc subprocess instance is not found or the provided key does not identify an\nad-hoc subprocess.\n",
+								"The ad-hoc sub-process instance is not found or the provided key does not identify an\nad-hoc sub-process.\n",
 							content: {
 								"application/problem+json": {
 									schema: {
@@ -5170,7 +7158,7 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/batch-operations/{batchOperationKey}": {
+		"/batch-operations/{batchOperationId}": {
 			get: {
 				tags: ["Batch operation"],
 				operationId: "getBatchOperation",
@@ -5178,10 +7166,11 @@ export const c8_8 = {
 				description: "Get batch operation by key.",
 				parameters: [
 					{
-						name: "batchOperationKey",
+						name: "batchOperationId",
 						in: "path",
 						required: true,
-						description: "The key of the batch operation.\n",
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
 						schema: {
 							type: "string",
 						},
@@ -5224,30 +7213,30 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/batch-operations/{batchOperationKey}/items": {
-			get: {
+		"/batch-operations/search": {
+			post: {
 				tags: ["Batch operation"],
-				operationId: "getBatchOperationItems",
-				summary: "Get batch operation items",
-				description: "Get items for a batch operation.",
-				parameters: [
-					{
-						name: "batchOperationKey",
-						in: "path",
-						required: true,
-						description: "The key of the batch operation.\n",
-						schema: {
-							type: "string",
+				operationId: "searchBatchOperations",
+				summary: "Search batch operations",
+				description:
+					"Search for batch operations based on given criteria.",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/BatchOperationSearchQuery",
+							},
 						},
 					},
-				],
+				},
 				responses: {
 					200: {
-						description: "The batch operation items were found.",
+						description: "The batch operation search result.",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/BatchOperationItemSearchQueryResult",
+									$ref: "#/components/schemas/BatchOperationSearchQueryResult",
 								},
 							},
 						},
@@ -5262,8 +7251,57 @@ export const c8_8 = {
 							},
 						},
 					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}/cancellation": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "cancelBatchOperation",
+				summary: "Cancel Batch operation",
+				description:
+					"Cancels a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation cancel request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
 					404: {
-						description: "The batch operation was not found.",
+						description:
+							"Not found. The batch operation was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5278,19 +7316,137 @@ export const c8_8 = {
 				},
 			},
 		},
-		"/batch-operations/search": {
+		"/batch-operations/{batchOperationId}/suspension": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "suspendBatchOperation",
+				summary: "Suspend Batch operation",
+				description:
+					"Suspends a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation pause request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The batch operation was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}/resumption": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "resumeBatchOperation",
+				summary: "Resume Batch operation",
+				description:
+					"Resumes a suspended batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation resume request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The batch operation was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operation-items/search": {
 			post: {
 				tags: ["Batch operation"],
-				operationId: "searchBatchOperations",
-				summary: "Search batch operations",
+				operationId: "searchBatchOperationItems",
+				summary: "Search batch operation items",
 				description:
-					"Search for batch operations based on given criteria.",
+					"Search for batch operation items based on given criteria.",
 				requestBody: {
 					required: false,
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/ProcessInstanceSearchQuery",
+								$ref: "#/components/schemas/BatchOperationItemSearchQuery",
 							},
 						},
 					},
@@ -5301,7 +7457,7 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/BatchOperationSearchQueryResult",
+									$ref: "#/components/schemas/BatchOperationItemSearchQueryResult",
 								},
 							},
 						},
@@ -5583,7 +7739,7 @@ export const c8_8 = {
 						description: "The user task variable search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/VariableUserTaskFilterRequest",
+								$ref: "#/components/schemas/UserTaskVariableFilterRequest",
 							},
 						],
 					},
@@ -5697,7 +7853,7 @@ export const c8_8 = {
 						description:
 							"Process instance variables associated with the user task.",
 						items: {
-							$ref: "#/components/schemas/UserTaskVariableFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterRequest",
 						},
 					},
 					localVariables: {
@@ -5705,7 +7861,7 @@ export const c8_8 = {
 						description:
 							"Local variables associated with the user task.",
 						items: {
-							$ref: "#/components/schemas/UserTaskVariableFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterRequest",
 						},
 					},
 					userTaskKey: {
@@ -5726,7 +7882,7 @@ export const c8_8 = {
 					},
 				},
 			},
-			UserTaskVariableFilterRequest: {
+			VariableValueFilterRequest: {
 				type: "object",
 				properties: {
 					name: {
@@ -5744,7 +7900,7 @@ export const c8_8 = {
 				},
 				required: ["name", "value"],
 			},
-			VariableUserTaskFilterRequest: {
+			UserTaskVariableFilterRequest: {
 				description: "The user task variable search filters.",
 				type: "object",
 				properties: {
@@ -5981,34 +8137,57 @@ export const c8_8 = {
 						description: "The matching variables.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/VariableResult",
+							$ref: "#/components/schemas/VariableSearchResult",
 						},
+					},
+				},
+			},
+			VariableSearchResult: {
+				description: "Variable search response item.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/VariableResultBase",
+					},
+				],
+				properties: {
+					value: {
+						description:
+							"Value of this variable. Can be truncated.",
+						type: "string",
+					},
+					isTruncated: {
+						description: "Whether the value is truncated or not.",
+						type: "boolean",
 					},
 				},
 			},
 			VariableResult: {
 				description: "Variable search response item.",
 				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/VariableResultBase",
+					},
+				],
+				properties: {
+					value: {
+						description: "Full value of this variable.",
+						type: "string",
+					},
+				},
+			},
+			VariableResultBase: {
+				description: "Variable response item.",
+				type: "object",
 				properties: {
 					name: {
 						description: "Name of this variable.",
 						type: "string",
 					},
-					value: {
-						description: "Value of this variable.",
-						type: "string",
-					},
-					fullValue: {
-						description: "Full value of this variable.",
-						type: "string",
-					},
 					tenantId: {
 						description: "Tenant ID of this variable.",
 						type: "string",
-					},
-					isTruncated: {
-						description: "Whether the value is truncated or not.",
-						type: "boolean",
 					},
 					variableKey: {
 						description: "The key for this variable.",
@@ -6176,7 +8355,7 @@ export const c8_8 = {
 							"processDefinitionVersionTag",
 							"processDefinitionKey",
 							"parentProcessInstanceKey",
-							"parentFlowNodeInstanceKey",
+							"parentElementInstanceKey",
 							"startDate",
 							"endDate",
 							"state",
@@ -6315,6 +8494,14 @@ export const c8_8 = {
 							type: "string",
 						},
 					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
 				},
 			},
 			AdvancedStringFilter: {
@@ -6369,6 +8556,48 @@ export const c8_8 = {
 						type: "array",
 						items: {
 							$ref: "#/components/schemas/ProcessInstanceStateEnum",
+						},
+					},
+					$like: {
+						description:
+							"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
+						type: "string",
+					},
+				},
+			},
+			AdvancedElementInstanceStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced ElementInstanceStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceStateEnum",
 						},
 					},
 					$like: {
@@ -6484,6 +8713,26 @@ export const c8_8 = {
 					},
 				],
 			},
+			ElementInstanceStateFilterProperty: {
+				description:
+					"ElementInstanceStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedElementInstanceStateFilter",
+					},
+				],
+			},
 			DateTimeFilterProperty: {
 				description:
 					"Date-time property with full advanced search capabilities.",
@@ -6500,7 +8749,7 @@ export const c8_8 = {
 					},
 				],
 			},
-			BaseProcessInstanceFilter: {
+			BaseProcessInstanceFilterFields: {
 				description: "Base process instance search filter.",
 				type: "object",
 				properties: {
@@ -6545,7 +8794,7 @@ export const c8_8 = {
 						description: "The process instance variables.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/ProcessInstanceVariableFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterRequest",
 						},
 					},
 					processInstanceKey: {
@@ -6564,22 +8813,94 @@ export const c8_8 = {
 							},
 						],
 					},
-					parentFlowNodeInstanceKey: {
-						description: "The parent flow node instance key.",
+					parentElementInstanceKey: {
+						description: "The parent element instance key.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/BasicStringFilterProperty",
 							},
 						],
 					},
+					batchOperationId: {
+						description: "The batch operation ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					errorMessage: {
+						description:
+							"The error message related to the process.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					hasRetriesLeft: {
+						description:
+							"Whether the process has failed jobs with retries left.",
+						type: "boolean",
+					},
+					elementInstanceState: {
+						description:
+							"The state of the element instances associated with the process instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						description:
+							"The element ID associated with the process instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					hasElementInstanceIncident: {
+						description:
+							"Whether the element instance has an incident or not.",
+						type: "boolean",
+					},
+					incidentErrorHashCode: {
+						description:
+							"The incident error hash code, associated with this process.",
+						type: "integer",
+						format: "int32",
+					},
 				},
 			},
-			ProcessInstanceFilter: {
+			ProcessDefinitionStatisticsFilter: {
+				description: "Process definition statistics search filter.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
+					},
+					{
+						type: "object",
+						properties: {
+							$or: {
+								description:
+									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processInstanceId": "process_v1" },\n    { "processInstanceId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
+								},
+							},
+						},
+					},
+				],
+			},
+			ProcessInstanceFilterFields: {
 				description: "Process instance search filter.",
 				type: "object",
 				allOf: [
 					{
-						$ref: "#/components/schemas/BaseProcessInstanceFilter",
+						$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
 					},
 				],
 				properties: {
@@ -6623,48 +8944,28 @@ export const c8_8 = {
 							},
 						],
 					},
-					batchOperationId: {
-						description: "The batch operation ID.",
-						allOf: [
-							{
-								$ref: "#/components/schemas/StringFilterProperty",
-							},
-						],
-					},
-					errorMessage: {
-						description:
-							"The error message related to the process.",
-						allOf: [
-							{
-								$ref: "#/components/schemas/StringFilterProperty",
-							},
-						],
-					},
-					hasRetriesLeft: {
-						description:
-							"Whether the process has failed jobs with retries left.",
-						type: "boolean",
-					},
 				},
 			},
-			ProcessInstanceVariableFilterRequest: {
-				description: "Process instance variable filter.",
-				type: "object",
-				properties: {
-					name: {
-						description: "Name of the variable.",
-						type: "string",
+			ProcessInstanceFilter: {
+				description: "Process instance search filter.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/ProcessInstanceFilterFields",
 					},
-					value: {
-						description: "The value of the variable.",
-						allOf: [
-							{
-								$ref: "#/components/schemas/StringFilterProperty",
+					{
+						type: "object",
+						properties: {
+							$or: {
+								description:
+									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processDefinitionId": "process_v1" },\n    { "processDefinitionId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/ProcessInstanceFilterFields",
+								},
 							},
-						],
+						},
 					},
-				},
-				required: ["name", "value"],
+				],
 			},
 			ProcessInstanceSearchQueryResult: {
 				description: "Process instance search response.",
@@ -6739,9 +9040,9 @@ export const c8_8 = {
 						type: "string",
 						description: "The parent process instance key.",
 					},
-					parentFlowNodeInstanceKey: {
+					parentElementInstanceKey: {
 						type: "string",
-						description: "The parent flow node instance key.",
+						description: "The parent element instance key.",
 					},
 				},
 			},
@@ -6749,65 +9050,151 @@ export const c8_8 = {
 				description: "The state, one of ACTIVE, COMPLETED, TERMINATED.",
 				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
 			},
-			ProcessDefinitionFlowNodeStatisticsQuery: {
-				description: "Process definition flow node statistics request.",
+			ElementInstanceStateEnum: {
+				description:
+					"Element states, one of ACTIVE, COMPLETED, TERMINATED.",
+				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
+			},
+			ProcessInstanceCallHierarchyEntry: {
+				type: "object",
+				required: [
+					"processInstanceKey",
+					"processDefinitionKey",
+					"processDefinitionName",
+				],
+				properties: {
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processDefinitionName: {
+						type: "string",
+						description:
+							"The name of the process definition (fall backs to the process definition ID if not available).",
+					},
+				},
+			},
+			ProcessInstanceSequenceFlowsQueryResult: {
+				description: "Process instance sequence flows query response.",
+				type: "object",
+				properties: {
+					items: {
+						description: "The sequence flows.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceSequenceFlowResult",
+						},
+					},
+				},
+			},
+			ProcessInstanceSequenceFlowResult: {
+				description: "Process instance sequence flow result.",
+				type: "object",
+				properties: {
+					sequenceFlowId: {
+						type: "string",
+						description: "The sequence flow ID.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of this process instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The process definition key.",
+					},
+					processDefinitionId: {
+						type: "string",
+						description: "The process definition ID.",
+					},
+					elementId: {
+						type: "string",
+						description:
+							"The element ID for this sequence flow, as provided in the BPMN process.",
+					},
+					tenantId: {
+						description: "The tenant ID for this sequence flow.",
+						type: "string",
+					},
+				},
+			},
+			ProcessDefinitionElementStatisticsQuery: {
+				description: "Process definition element statistics request.",
 				type: "object",
 				properties: {
 					filter: {
-						description: "The process instance search filters.",
+						description:
+							"The process definition statistics search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BaseProcessInstanceFilter",
+								$ref: "#/components/schemas/ProcessDefinitionStatisticsFilter",
 							},
 						],
 					},
 				},
 			},
-			ProcessDefinitionFlowNodeStatisticsQueryResult: {
+			ProcessDefinitionElementStatisticsQueryResult: {
 				description:
-					"Process definition flow node statistics query response.",
+					"Process definition element statistics query response.",
 				type: "object",
 				properties: {
 					items: {
-						description: "The flow node statistics.",
+						description: "The element statistics.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/ProcessDefinitionFlowNodeStatisticsResult",
+							$ref: "#/components/schemas/ProcessElementStatisticsResult",
 						},
 					},
 				},
 			},
-			ProcessDefinitionFlowNodeStatisticsResult: {
+			ProcessInstanceElementStatisticsQueryResult: {
 				description:
-					"Process definition flow node statistics response.",
+					"Process instance element statistics query response.",
 				type: "object",
 				properties: {
-					flowNodeId: {
+					items: {
+						description: "The element statistics.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessElementStatisticsResult",
+						},
+					},
+				},
+			},
+			ProcessElementStatisticsResult: {
+				description: "Process element statistics response.",
+				type: "object",
+				properties: {
+					elementId: {
 						description:
-							"The flow node ID for which the results are aggregated.",
+							"The element ID for which the results are aggregated.",
 						type: "string",
 					},
 					active: {
 						description:
-							"The total number of active instances of the flow node.",
+							"The total number of active instances of the element.",
 						type: "integer",
 						format: "int64",
 					},
 					canceled: {
 						description:
-							"The total number of canceled instances of the flow node.",
+							"The total number of canceled instances of the element.",
 						type: "integer",
 						format: "int64",
 					},
 					incidents: {
 						description:
-							"The total number of incidents for the flow node.",
+							"The total number of incidents for the element.",
 						type: "integer",
 						format: "int64",
 					},
 					completed: {
 						description:
-							"The total number of completed instances of the flow node.",
+							"The total number of completed instances of the element.",
 						type: "integer",
 						format: "int64",
 					},
@@ -6826,20 +9213,20 @@ export const c8_8 = {
 					},
 				},
 			},
-			FlowNodeInstanceSearchQuerySortRequest: {
+			ElementInstanceSearchQuerySortRequest: {
 				type: "object",
 				properties: {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
 						enum: [
-							"flowNodeInstanceKey",
+							"elementInstanceKey",
 							"processInstanceKey",
 							"processDefinitionKey",
 							"processDefinitionId",
 							"startDate",
 							"endDate",
-							"flowNodeId",
+							"elementId",
 							"type",
 							"state",
 							"incidentKey",
@@ -6852,8 +9239,8 @@ export const c8_8 = {
 				},
 				required: ["field"],
 			},
-			FlowNodeInstanceSearchQuery: {
-				description: "Flow node instance search request.",
+			ElementInstanceSearchQuery: {
+				description: "Element instance search request.",
 				type: "object",
 				allOf: [
 					{
@@ -6865,37 +9252,40 @@ export const c8_8 = {
 						description: "Sort field criteria.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/FlowNodeInstanceSearchQuerySortRequest",
+							$ref: "#/components/schemas/ElementInstanceSearchQuerySortRequest",
 						},
 					},
 					filter: {
-						description: "The flow node instance search filters.",
+						description: "The element instance search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/FlowNodeInstanceFilter",
+								$ref: "#/components/schemas/ElementInstanceFilter",
 							},
 						],
 					},
 				},
 			},
-			FlowNodeInstanceFilter: {
-				description: "Flow node instance filter.",
+			ElementInstanceFilter: {
+				description: "Element instance filter.",
 				type: "object",
 				properties: {
 					processDefinitionId: {
 						description:
-							"The process definition ID associated to this flow node instance.",
+							"The process definition ID associated to this element instance.",
 						type: "string",
 					},
 					state: {
 						description:
-							"State of flow node instance as defined set of values.",
-						type: "string",
-						enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
+							"State of element instance as defined set of values.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateFilterProperty",
+							},
+						],
 					},
 					type: {
 						description:
-							"Type of flow node as defined set of values.",
+							"Type of element as defined set of values.",
 						type: "string",
 						enum: [
 							"UNSPECIFIED",
@@ -6926,38 +9316,38 @@ export const c8_8 = {
 							"UNKNOWN",
 						],
 					},
-					flowNodeId: {
+					elementId: {
 						type: "string",
 						description:
-							"The flow node ID for this flow node instance.",
+							"The element ID for this element instance.",
 					},
-					flowNodeName: {
+					elementName: {
 						type: "string",
-						description: "The flow node name.",
+						description: "The element name.",
 					},
 					hasIncident: {
 						type: "boolean",
 						description:
-							"Shows whether this flow node instance has an incident related to.",
+							"Shows whether this element instance has an incident related to.",
 					},
 					tenantId: {
 						description: "The tenant ID.",
 						type: "string",
 					},
-					flowNodeInstanceKey: {
+					elementInstanceKey: {
 						type: "string",
 						description:
-							"The assigned key, which acts as a unique identifier for this flow node instance.",
+							"The assigned key, which acts as a unique identifier for this element instance.",
 					},
 					processInstanceKey: {
 						type: "string",
 						description:
-							"The process instance key associated to this flow node instance.",
+							"The process instance key associated to this element instance.",
 					},
 					processDefinitionKey: {
 						type: "string",
 						description:
-							"The process definition key associated to this flow node instance.",
+							"The process definition key associated to this element instance.",
 					},
 					incidentKey: {
 						type: "string",
@@ -6966,7 +9356,7 @@ export const c8_8 = {
 					},
 				},
 			},
-			FlowNodeInstanceSearchQueryResult: {
+			ElementInstanceSearchQueryResult: {
 				type: "object",
 				allOf: [
 					{
@@ -6975,45 +9365,45 @@ export const c8_8 = {
 				],
 				properties: {
 					items: {
-						description: "The matching flow node instances.",
+						description: "The matching element instances.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/FlowNodeInstanceResult",
+							$ref: "#/components/schemas/ElementInstanceResult",
 						},
 					},
 				},
 			},
-			FlowNodeInstanceResult: {
+			ElementInstanceResult: {
 				type: "object",
 				properties: {
 					processDefinitionId: {
 						description:
-							"The process definition ID associated to this flow node instance.",
+							"The process definition ID associated to this element instance.",
 						type: "string",
 					},
 					startDate: {
-						description: "Date when flow node instance started.",
+						description: "Date when element instance started.",
 						type: "string",
 						format: "date-time",
 					},
 					endDate: {
-						description: "Date when flow node instance finished.",
+						description: "Date when element instance finished.",
 						type: "string",
 						format: "date-time",
 					},
-					flowNodeId: {
+					elementId: {
 						description:
-							"The flow node ID for this flow node instance.",
+							"The element ID for this element instance.",
 						type: "string",
 					},
-					flowNodeName: {
+					elementName: {
 						description:
-							"The flow node name for this flow node instance.",
+							"The element name for this element instance.",
 						type: "string",
 					},
 					type: {
 						description:
-							"Type of flow node as defined set of values.",
+							"Type of element as defined set of values.",
 						type: "string",
 						enum: [
 							"UNSPECIFIED",
@@ -7046,86 +9436,89 @@ export const c8_8 = {
 					},
 					state: {
 						description:
-							"State of flow node instance as defined set of values.",
-						type: "string",
-						enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
+							"State of element instance as defined set of values.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
 					},
 					hasIncident: {
 						description:
-							"Shows whether this flow node instance has an incident. If true also an incidentKey is provided.",
+							"Shows whether this element instance has an incident. If true also an incidentKey is provided.",
 						type: "boolean",
 					},
 					tenantId: {
 						description: "The tenant ID of the incident.",
 						type: "string",
 					},
-					flowNodeInstanceKey: {
+					elementInstanceKey: {
 						type: "string",
 						description:
-							"The assigned key, which acts as a unique identifier for this flow node instance.",
+							"The assigned key, which acts as a unique identifier for this element instance.",
 					},
 					processInstanceKey: {
 						description:
-							"The process instance key associated to this flow node instance.",
+							"The process instance key associated to this element instance.",
 						type: "string",
 					},
 					processDefinitionKey: {
 						description:
-							"The process definition key associated to this flow node instance.",
+							"The process definition key associated to this element instance.",
 						type: "string",
 					},
 					incidentKey: {
 						description:
-							"Incident key associated with this flow node instance.",
+							"Incident key associated with this element instance.",
 						type: "string",
 					},
 				},
 			},
-			AdHocSubprocessActivitySearchQuery: {
-				description: "Ad-hoc subprocess activities search request.",
+			AdHocSubProcessActivitySearchQuery: {
+				description: "Ad-hoc sub-process activities search request.",
 				type: "object",
 				required: ["filter"],
 				properties: {
 					filter: {
 						description:
-							"The ad-hoc subprocess activity search filters.",
+							"The ad-hoc sub-process activity search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/AdHocSubprocessActivityFilter",
+								$ref: "#/components/schemas/AdHocSubProcessActivityFilter",
 							},
 						],
 					},
 				},
 			},
-			AdHocSubprocessActivityFilter: {
-				description: "Flow node instance filter.",
+			AdHocSubProcessActivityFilter: {
+				description: "Element instance filter.",
 				type: "object",
-				required: ["processDefinitionKey", "adHocSubprocessId"],
+				required: ["processDefinitionKey", "adHocSubProcessId"],
 				properties: {
 					processDefinitionKey: {
 						description: "The process definition key.",
 						type: "string",
 					},
-					adHocSubprocessId: {
-						description: "The ad-hoc subprocess element ID.",
+					adHocSubProcessId: {
+						description: "The ad-hoc sub-process element ID.",
 						type: "string",
 					},
 				},
 			},
-			AdHocSubprocessActivitySearchQueryResult: {
+			AdHocSubProcessActivitySearchQueryResult: {
 				type: "object",
 				properties: {
 					items: {
 						description:
-							"The matching ad-hoc subprocess activities.",
+							"The matching ad-hoc sub-process activities.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/AdHocSubprocessActivityResult",
+							$ref: "#/components/schemas/AdHocSubProcessActivityResult",
 						},
 					},
 				},
 			},
-			AdHocSubprocessActivityResult: {
+			AdHocSubProcessActivityResult: {
 				type: "object",
 				properties: {
 					processDefinitionKey: {
@@ -7138,8 +9531,8 @@ export const c8_8 = {
 							"The process definition ID associated to this activity.",
 						type: "string",
 					},
-					adHocSubprocessId: {
-						description: "The ad-hoc subprocess element ID.",
+					adHocSubProcessId: {
+						description: "The ad-hoc sub-process element ID.",
 						type: "string",
 					},
 					elementId: {
@@ -7185,20 +9578,20 @@ export const c8_8 = {
 					},
 				},
 			},
-			AdHocSubprocessActivateActivitiesInstruction: {
+			AdHocSubProcessActivateActivitiesInstruction: {
 				type: "object",
 				properties: {
 					elements: {
 						description: "Activities to activate.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/AdHocSubprocessActivateActivityReference",
+							$ref: "#/components/schemas/AdHocSubProcessActivateActivityReference",
 						},
 					},
 				},
 				required: ["elements"],
 			},
-			AdHocSubprocessActivateActivityReference: {
+			AdHocSubProcessActivateActivityReference: {
 				type: "object",
 				properties: {
 					elementId: {
@@ -7309,8 +9702,8 @@ export const c8_8 = {
 							"processInstanceKey",
 							"errorType",
 							"errorMessage",
-							"flowNodeId",
-							"flowNodeInstanceKey",
+							"elementId",
+							"elementInstanceKey",
 							"creationTime",
 							"state",
 							"jobKey",
@@ -7384,10 +9777,10 @@ export const c8_8 = {
 						description:
 							"Error message which describes the error in more detail.",
 					},
-					flowNodeId: {
+					elementId: {
 						type: "string",
 						description:
-							"The flow node ID associated to this incident.",
+							"The element ID associated to this incident.",
 					},
 					creationTime: {
 						type: "string",
@@ -7419,10 +9812,10 @@ export const c8_8 = {
 						description:
 							"The process instance key associated to this incident.",
 					},
-					flowNodeInstanceKey: {
+					elementInstanceKey: {
 						type: "string",
 						description:
-							"The flow node instance key associated to this incident.",
+							"The element instance key associated to this incident.",
 					},
 					jobKey: {
 						type: "string",
@@ -7483,10 +9876,10 @@ export const c8_8 = {
 						description:
 							"Error message which describes the error in more detail.",
 					},
-					flowNodeId: {
+					elementId: {
 						type: "string",
 						description:
-							"The flow node ID associated to this incident.",
+							"The element ID associated to this incident.",
 					},
 					creationTime: {
 						type: "string",
@@ -7518,10 +9911,10 @@ export const c8_8 = {
 						description:
 							"The process instance key associated to this incident.",
 					},
-					flowNodeInstanceKey: {
+					elementInstanceKey: {
 						type: "string",
 						description:
-							"The flow node instance key associated to this incident.",
+							"The element instance key associated to this incident.",
 					},
 					jobKey: {
 						type: "string",
@@ -7613,6 +10006,14 @@ export const c8_8 = {
 				enum: [
 					"ACCESS",
 					"CREATE",
+					"CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_RESOLVE_INCIDENT",
+					"CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE",
+					"CREATE_BATCH_OPERATION_DELETE_DECISION_DEFINITION",
+					"CREATE_BATCH_OPERATION_DELETE_PROCESS_DEFINITION",
 					"CREATE_PROCESS_INSTANCE",
 					"CREATE_DECISION_INSTANCE",
 					"READ",
@@ -7641,6 +10042,7 @@ export const c8_8 = {
 					"MAPPING_RULE",
 					"MESSAGE",
 					"BATCH",
+					"BATCH_OPERATION",
 					"APPLICATION",
 					"SYSTEM",
 					"TENANT",
@@ -7655,7 +10057,14 @@ export const c8_8 = {
 			},
 			OwnerTypeEnum: {
 				description: "The type of the owner of permissions.",
-				enum: ["USER", "ROLE", "GROUP", "MAPPING", "UNSPECIFIED"],
+				enum: [
+					"USER",
+					"CLIENT",
+					"ROLE",
+					"GROUP",
+					"MAPPING",
+					"UNSPECIFIED",
+				],
 			},
 			AuthorizationRequest: {
 				type: "object",
@@ -7948,7 +10357,7 @@ export const c8_8 = {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
-						enum: ["mappingKey", "claimName", "claimValue", "name"],
+						enum: ["mappingId", "claimName", "claimValue", "name"],
 					},
 					order: {
 						$ref: "#/components/schemas/SortOrderEnum",
@@ -7987,15 +10396,27 @@ export const c8_8 = {
 				properties: {
 					username: {
 						description: "The username of the user.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 					},
 					name: {
 						description: "The name of the user.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 					},
 					email: {
 						description: "The email of the user.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 					},
 				},
 			},
@@ -8164,6 +10585,120 @@ export const c8_8 = {
 					},
 				},
 			},
+			TenantClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			TenantClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching clients.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantClientResult",
+						},
+					},
+				},
+			},
+			TenantClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			TenantClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			TenantUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			TenantUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching users.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantUserResult",
+						},
+					},
+				},
+			},
+			TenantUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			TenantUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
 			RoleCreateRequest: {
 				type: "object",
 				properties: {
@@ -8185,10 +10720,6 @@ export const c8_8 = {
 			RoleCreateResult: {
 				type: "object",
 				properties: {
-					roleKey: {
-						description: "The key of the created role.",
-						type: "string",
-					},
 					roleId: {
 						description: "The ID of the created role.",
 						type: "string",
@@ -8220,10 +10751,6 @@ export const c8_8 = {
 			RoleUpdateResult: {
 				type: "object",
 				properties: {
-					roleKey: {
-						type: "string",
-						description: "The key of the updated role.",
-					},
 					name: {
 						type: "string",
 						description: "The display name of the updated role.",
@@ -8246,17 +10773,13 @@ export const c8_8 = {
 						type: "string",
 						description: "The role name.",
 					},
-					roleKey: {
+					roleId: {
 						type: "string",
-						description: "The role key.",
+						description: "The role id.",
 					},
-					assignedMemberKeys: {
-						type: "array",
-						description:
-							"The set of keys of members assigned to the role.",
-						items: {
-							type: "string",
-						},
+					description: {
+						type: "string",
+						description: "The description of the role.",
 					},
 				},
 			},
@@ -8266,7 +10789,7 @@ export const c8_8 = {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
-						enum: ["roleKey", "name"],
+						enum: ["name", "roleId"],
 					},
 					order: {
 						$ref: "#/components/schemas/SortOrderEnum",
@@ -8290,6 +10813,28 @@ export const c8_8 = {
 							$ref: "#/components/schemas/RoleSearchQuerySortRequest",
 						},
 					},
+					filter: {
+						description: "The role search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/RoleFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			RoleFilterRequest: {
+				description: "Role filter request",
+				type: "object",
+				properties: {
+					roleId: {
+						description: "The role ID search filters.",
+						type: "string",
+					},
+					name: {
+						description: "The role name search filters.",
+						type: "string",
+					},
 				},
 			},
 			RoleSearchQueryResult: {
@@ -8309,6 +10854,120 @@ export const c8_8 = {
 						},
 					},
 				},
+			},
+			RoleUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			RoleUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching users.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleUserResult",
+						},
+					},
+				},
+			},
+			RoleUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			RoleUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			RoleClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			RoleClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching clients.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleClientResult",
+						},
+					},
+				},
+			},
+			RoleClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			RoleClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
 			},
 			GroupCreateRequest: {
 				type: "object",
@@ -8331,10 +10990,6 @@ export const c8_8 = {
 			GroupCreateResult: {
 				type: "object",
 				properties: {
-					groupKey: {
-						description: "The key of the created group.",
-						type: "string",
-					},
 					groupId: {
 						description: "The ID of the created group.",
 						type: "string",
@@ -8352,30 +11007,16 @@ export const c8_8 = {
 			GroupUpdateRequest: {
 				type: "object",
 				properties: {
-					changeset: {
-						description: "The set of changed group attributes.",
-						allOf: [
-							{
-								$ref: "#/components/schemas/GroupChangeset",
-							},
-						],
-					},
-				},
-				required: ["changeset"],
-			},
-			GroupChangeset: {
-				description: "A set of changed group attributes.",
-				type: "object",
-				properties: {
 					name: {
 						type: "string",
-						description: "The updated display name of the group.",
+						description: "The new name of the group.",
 					},
 					description: {
 						type: "string",
-						description: "The updated description of the group.",
+						description: "The new description of the group.",
 					},
 				},
+				required: ["name", "description"],
 			},
 			GroupUpdateResult: {
 				type: "object",
@@ -8392,11 +11033,6 @@ export const c8_8 = {
 						type: "string",
 						description: "The description of the group.",
 					},
-					groupKey: {
-						type: "string",
-						description:
-							"The unique system-generated internal group key.",
-					},
 				},
 			},
 			GroupResult: {
@@ -8407,17 +11043,13 @@ export const c8_8 = {
 						type: "string",
 						description: "The group name.",
 					},
-					groupKey: {
+					groupId: {
 						type: "string",
-						description: "The group key.",
+						description: "The group ID.",
 					},
-					assignedMemberKeys: {
-						type: "array",
-						description:
-							"The set of keys of members assigned to the group.",
-						items: {
-							type: "string",
-						},
+					description: {
+						type: "string",
+						description: "The group description.",
 					},
 				},
 			},
@@ -8427,7 +11059,7 @@ export const c8_8 = {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
-						enum: ["groupKey", "name"],
+						enum: ["name", "groupId"],
 					},
 					order: {
 						$ref: "#/components/schemas/SortOrderEnum",
@@ -8465,9 +11097,13 @@ export const c8_8 = {
 				description: "Group filter request",
 				type: "object",
 				properties: {
-					name: {
+					groupId: {
+						description: "The group ID search filters.",
 						type: "string",
-						description: "The name of the group.",
+					},
+					name: {
+						description: "The group name search filters.",
+						type: "string",
 					},
 				},
 			},
@@ -8488,6 +11124,120 @@ export const c8_8 = {
 						},
 					},
 				},
+			},
+			GroupUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			GroupUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching members.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupUserResult",
+						},
+					},
+				},
+			},
+			GroupUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			GroupUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			GroupClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			GroupClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching client IDs.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupClientResult",
+						},
+					},
+				},
+			},
+			GroupClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			GroupClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
 			},
 			MappingRuleCreateUpdateRequest: {
 				type: "object",
@@ -8517,7 +11267,7 @@ export const c8_8 = {
 				properties: {
 					mappingId: {
 						type: "string",
-						description: "The unique external id of the mapping.",
+						description: "The unique ID of the mapping.",
 					},
 				},
 				required: ["mappingId"],
@@ -8547,11 +11297,7 @@ export const c8_8 = {
 					},
 					mappingId: {
 						type: "string",
-						description: "The unique external id of the mapping.",
-					},
-					mappingKey: {
-						description: "The key of the created mapping rule.",
-						type: "string",
+						description: "The unique ID of the mapping.",
 					},
 				},
 			},
@@ -8606,10 +11352,6 @@ export const c8_8 = {
 					mappingId: {
 						type: "string",
 						description: "The ID of the mapping.",
-					},
-					mappingKey: {
-						description: "The key of the created mapping rule.",
-						type: "string",
 					},
 				},
 			},
@@ -9375,6 +12117,11 @@ export const c8_8 = {
 						type: "string",
 						description:
 							"The assigned key, which acts as a unique identifier for this decision requirements.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The name of the resource from which the decision requirements were parsed.",
 					},
 				},
 			},
@@ -10379,7 +13126,7 @@ export const c8_8 = {
 					},
 					fetchVariables: {
 						description:
-							"List of variables names to be included in the response.\nIf empty, all visible variables in the root scope will be returned.\n",
+							"List of variables by name to be included in the response when awaitCompletion is set to true.\nIf empty, all visible variables in the root scope will be returned.\n",
 						type: "array",
 						items: {
 							type: "string",
@@ -10445,8 +13192,43 @@ export const c8_8 = {
 					},
 				},
 			},
+			ProcessInstanceMigrationBatchOperationRequest: {
+				type: "object",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+					migrationPlan: {
+						$ref: "#/components/schemas/ProcessInstanceMigrationBatchOperationPlan",
+					},
+				},
+				required: ["filter", "migrationPlan"],
+			},
+			ProcessInstanceMigrationBatchOperationPlan: {
+				type: "object",
+				description:
+					"The migration instructions describe how to migrate a process instance from one process definition to another.\n",
+				properties: {
+					mappingInstructions: {
+						description:
+							"Element mappings from the source process instance to the target process instance.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MigrateProcessInstanceMappingInstruction",
+						},
+					},
+					targetProcessDefinitionKey: {
+						description:
+							"The key of process definition to migrate the process instance to.",
+						type: "string",
+					},
+				},
+				required: ["targetProcessDefinitionKey", "mappingInstructions"],
+			},
 			ProcessInstanceMigrationInstruction: {
 				type: "object",
+				description:
+					"The migration instructions describe how to migrate a process instance from one process definition to another.\n",
 				properties: {
 					mappingInstructions: {
 						description:
@@ -10707,17 +13489,25 @@ export const c8_8 = {
 					},
 				},
 			},
+			BatchOperationTypeEnum: {
+				description: "The type of the batch operation.",
+				type: "string",
+				enum: [
+					"CANCEL_PROCESS_INSTANCE",
+					"RESOLVE_INCIDENT",
+					"MIGRATE_PROCESS_INSTANCE",
+					"MODIFY_PROCESS_INSTANCE",
+				],
+			},
 			BatchOperationCreatedResult: {
 				type: "object",
 				properties: {
-					batchOperationKey: {
-						description: "Key of the batch operation.",
+					batchOperationId: {
+						description: "Id of the batch operation.",
 						type: "string",
 					},
 					batchOperationType: {
-						description: "The type of the batch operation.",
-						type: "string",
-						example: "PROCESS_CANCELLATION",
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
 					},
 				},
 			},
@@ -10728,9 +13518,9 @@ export const c8_8 = {
 						description: "The field to sort by.",
 						type: "string",
 						enum: [
-							"batchOperationKey",
+							"batchOperationId",
 							"operationType",
-							"status",
+							"state",
 							"startDate",
 							"endDate",
 						],
@@ -10771,27 +13561,97 @@ export const c8_8 = {
 				description: "Batch operation filter request.",
 				type: "object",
 				properties: {
-					batchOperationKey: {
-						description: "The batch operation key.",
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
 						type: "string",
 					},
 					operationType: {
-						type: "string",
-						description:
-							"The operation type of the batch operation.",
-						enum: ["PROCESS_CANCELLATION"],
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
 					},
-					status: {
+					state: {
 						type: "string",
-						description: "The status of the batch operation.",
+						description: "The state of the batch operation.",
 						enum: [
 							"CREATED",
 							"ACTIVE",
-							"PAUSED",
+							"SUSPENDED",
 							"COMPLETED",
 							"COMPLETED_WITH_ERRORS",
 							"CANCELED",
+							"INCOMPLETED",
 						],
+					},
+				},
+			},
+			BatchOperationItemSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"batchOperationId",
+							"itemKey",
+							"processInstanceKey",
+							"state",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			BatchOperationItemSearchQuery: {
+				description: "Batch operation item search request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationItemSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The batch operation search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemFilter",
+							},
+						],
+					},
+				},
+			},
+			BatchOperationItemFilter: {
+				description: "Batch operation item filter request.",
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
+						type: "string",
+					},
+					itemKey: {
+						description:
+							"The key of the item, e.g. a process instance key.",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key of the processed item.",
+						type: "string",
+					},
+					state: {
+						type: "string",
+						description: "The state of the batch operation.",
+						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
 					},
 				},
 			},
@@ -10815,26 +13675,26 @@ export const c8_8 = {
 			BatchOperationResponse: {
 				type: "object",
 				properties: {
-					batchOperationKey: {
-						description: "Key of the batch operation.",
+					batchOperationId: {
+						description:
+							"Key or (Operate Legacy ID = UUID) of the batch operation.",
 						type: "string",
 					},
-					status: {
-						description: "The status of the batch operation.",
+					state: {
+						description: "The state of the batch operation.",
 						type: "string",
 						enum: [
 							"CREATED",
 							"ACTIVE",
-							"PAUSED",
+							"SUSPENDED",
 							"COMPLETED",
 							"COMPLETED_WITH_ERRORS",
 							"CANCELED",
+							"INCOMPLETED",
 						],
 					},
 					batchOperationType: {
-						description: "The type of the batch operation.",
-						type: "string",
-						example: "PROCESS_CANCELLATION",
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
 					},
 					startDate: {
 						type: "string",
@@ -10886,8 +13746,9 @@ export const c8_8 = {
 			BatchOperationItemResponse: {
 				type: "object",
 				properties: {
-					batchOperationKey: {
-						description: "Key of the batch operation.",
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
 						type: "string",
 					},
 					itemKey: {
@@ -10895,12 +13756,65 @@ export const c8_8 = {
 							"Key of the item, e.g. a process instance key.",
 						type: "string",
 					},
-					status: {
-						description: "Status of the item.",
+					processInstanceKey: {
+						description:
+							"the process instance key of the processed item.",
 						type: "string",
-						enum: ["ACTIVE", "COMPLETED", "FAILED"],
+					},
+					state: {
+						description: "State of the item.",
+						type: "string",
+						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+					},
+					processedDate: {
+						description:
+							"the date this item was processed. This can be either completed, canceled or failed.",
+						type: "string",
+						format: "date-time",
+					},
+					errorMessage: {
+						description:
+							"the error message from the engine in case of a failed operation.",
+						type: "string",
 					},
 				},
+			},
+			ProcessInstanceModificationBatchOperationRequest: {
+				type: "object",
+				description:
+					"The process instance filter to define on which process instances tokens should be moved,\nas well as mapping instructions which active element instances should be terminated and which\nnew element instances should be activated\n",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+					moveInstructions: {
+						description:
+							"Instructions describing which elements should be activated in which scopes and which variables should be created.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceModificationMoveBatchOperationInstruction",
+						},
+					},
+				},
+				required: ["filter", "moveInstructions"],
+			},
+			ProcessInstanceModificationMoveBatchOperationInstruction: {
+				description:
+					"Instructions describing a move operation. This instruction will terminate all active elementInstance\nat sourceElementId and activate a new element instance for each terminated one at targetElementId.",
+				type: "object",
+				properties: {
+					sourceElementId: {
+						description:
+							"The ID of the element that should be terminated.",
+						type: "string",
+					},
+					targetElementId: {
+						description:
+							"The ID of the element that should be activated.",
+						type: "string",
+					},
+				},
+				required: ["sourceElementId", "targetElementId"],
 			},
 		},
 		responses: {
