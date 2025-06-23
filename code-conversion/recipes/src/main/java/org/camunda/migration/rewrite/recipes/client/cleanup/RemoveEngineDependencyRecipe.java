@@ -1,6 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.cleanup;
 
-import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
+import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
@@ -27,7 +27,7 @@ public class RemoveEngineDependencyRecipe extends Recipe {
 
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
-        new UsesType<>(ClientConstants.Type.PROCESS_ENGINE, true);
+        new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true);
 
     return Preconditions.check(
         check,
@@ -49,14 +49,14 @@ public class RemoveEngineDependencyRecipe extends Recipe {
             for (Statement statement : classDecl.getBody().getStatements()) {
               if (statement instanceof J.VariableDeclarations varDecls
                   && TypeUtils.isOfClassType(
-                      varDecls.getType(), ClientConstants.Type.PROCESS_ENGINE)) {
+                      varDecls.getType(), RecipeConstants.Type.PROCESS_ENGINE)) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
               newStatements.add(statement);
             }
 
-            maybeRemoveImport(ClientConstants.Type.PROCESS_ENGINE);
+            maybeRemoveImport(RecipeConstants.Type.PROCESS_ENGINE);
 
             return classDecl.withBody(classDecl.getBody().withStatements(newStatements));
           }

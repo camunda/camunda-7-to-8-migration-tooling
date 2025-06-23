@@ -1,6 +1,6 @@
-package org.camunda.migration.rewrite.recipes.client.utils;
+package org.camunda.migration.rewrite.recipes.utils;
 
-public class ClientConstants {
+public class RecipeConstants {
 
   public static class Type {
     public static final String PROCESS_ENGINE = "org.camunda.bpm.engine.ProcessEngine";
@@ -32,44 +32,55 @@ public class ClientConstants {
 
     public static final String ENGINE_PROCESS_INSTANCE =
         "org.camunda.bpm.engine.runtime.ProcessInstance";
-    public static final String CORRELATION_MESSAGE_RESPONSE = "io.camunda.client.api.response.CorrelateMessageResponse";
-    public static final String PROCESS_INSTANCE_EVENT = "io.camunda.client.api.response.ProcessInstanceEvent";
+    public static final String CORRELATION_MESSAGE_RESPONSE =
+        "io.camunda.client.api.response.CorrelateMessageResponse";
+    public static final String PROCESS_INSTANCE_EVENT =
+        "io.camunda.client.api.response.ProcessInstanceEvent";
+
+    public static final String ACTIVATED_JOB = "io.camunda.client.api.response.ActivatedJob";
+    public static final String JOB_WORKER = "io.camunda.spring.client.annotation.JobWorker";
+    public static final String VARIABLE_SCOPE = "org.camunda.bpm.engine.delegate.VariableScope";
+    public static final String DELEGATE_EXECUTION =
+        "org.camunda.bpm.engine.delegate.DelegateExecution";
+    public static final String JAVA_DELEGATE = "org.camunda.bpm.engine.delegate.JavaDelegate";
+    public static final String ENGINE_BPMN_ERROR = "org.camunda.bpm.engine.delegate.BpmnError";
+    public static final String ENGINE_EXCEPTION = "org.camunda.bpm.engine.ProcessEngineException";
+
+    public static final String CLIENT_CAMUNDA_ERROR =
+        "io.camunda.spring.client.exception.CamundaError";
   }
 
-  public static class EngineMethod {
+  public static class Method {
     public static final String GET_RUNTIME_SERVICE =
-        ClientConstants.Type.PROCESS_ENGINE_SERVICES + " getRuntimeService()";
-  }
-
-  public static class RuntimeServiceMethod {
+        RecipeConstants.Type.PROCESS_ENGINE_SERVICES + " getRuntimeService()";
     public static final String DELETE_PROCESS_INSTANCE =
-        ClientConstants.Type.RUNTIME_SERVICE + " deleteProcessInstance(String, String)";
+        RecipeConstants.Type.RUNTIME_SERVICE + " deleteProcessInstance(String, String)";
     public static final String SIGNAL_EVENT_RECEIVED =
-        ClientConstants.Type.RUNTIME_SERVICE + " signalEventReceived";
+        RecipeConstants.Type.RUNTIME_SERVICE + " signalEventReceived";
     public static final String CREATE_SIGNAL_EVENT =
-        ClientConstants.Type.RUNTIME_SERVICE + " createSignalEvent(String)";
+        RecipeConstants.Type.RUNTIME_SERVICE + " createSignalEvent(String)";
     public static final String SIGNAL_BUILDER_SET_VARIABLES =
-        ClientConstants.Type.SIGNAL_BUILDER + " setVariables(java.util.Map)";
+        RecipeConstants.Type.SIGNAL_BUILDER + " setVariables(java.util.Map)";
     public static final String SIGNAL_BUILDER_TENANT_ID =
-        ClientConstants.Type.SIGNAL_BUILDER + " tenantId(String)";
+        RecipeConstants.Type.SIGNAL_BUILDER + " tenantId(String)";
     public static final String SIGNAL_BUILDER_EXECUTION_ID =
-        ClientConstants.Type.SIGNAL_BUILDER + " executionId(String)";
+        RecipeConstants.Type.SIGNAL_BUILDER + " executionId(String)";
     public static final String SIGNAL_BUILDER_SEND =
-        ClientConstants.Type.SIGNAL_BUILDER + " send()";
+        RecipeConstants.Type.SIGNAL_BUILDER + " send()";
 
     public static final String START_PROCESS_INSTANCE_BY_KEY =
-        ClientConstants.Type.RUNTIME_SERVICE + " startProcessInstanceByKey";
+        RecipeConstants.Type.RUNTIME_SERVICE + " startProcessInstanceByKey";
     public static final String START_PROCESS_INSTANCE_BY_ID =
-        ClientConstants.Type.RUNTIME_SERVICE + " startProcessInstanceById";
+        RecipeConstants.Type.RUNTIME_SERVICE + " startProcessInstanceById";
     public static final String START_PROCESS_INSTANCE_BY_MESSAGE =
-        ClientConstants.Type.RUNTIME_SERVICE + " startProcessInstanceByMessage";
+        RecipeConstants.Type.RUNTIME_SERVICE + " startProcessInstanceByMessage";
     public static final String START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID =
-        ClientConstants.Type.RUNTIME_SERVICE
+        RecipeConstants.Type.RUNTIME_SERVICE
             + " startProcessInstanceByMessageAndProcessDefinitionId";
     public static final String CREATE_PROCESS_INSTANCE_BY_KEY =
-        ClientConstants.Type.RUNTIME_SERVICE + " createProcessInstanceByKey(String)";
+        RecipeConstants.Type.RUNTIME_SERVICE + " createProcessInstanceByKey(String)";
     public static final String CREATE_PROCESS_INSTANCE_BY_ID =
-        ClientConstants.Type.RUNTIME_SERVICE + " createProcessInstanceById(String)";
+        RecipeConstants.Type.RUNTIME_SERVICE + " createProcessInstanceById(String)";
     public static final String PROCESS_INSTANCE_BUILDER_BUSINESS_KEY =
         Type.PROCESS_INSTANTIATION_BUILDER + " businessKey(String)";
     public static final String PROCESS_INSTANCE_BUILDER_TENANT_ID =
@@ -78,6 +89,12 @@ public class ClientConstants {
         Type.ACTIVITY_INSTANTIATION_BUILDER + " setVariables(java.util.Map)";
     public static final String PROCESS_INSTANCE_BUILDER_EXECUTE =
         Type.PROCESS_INSTANTIATION_BUILDER + " execute()";
+
+    public static final String GET_VARIABLE = Type.VARIABLE_SCOPE + " getVariable(String)";
+    public static final String SET_VARIABLE =
+        Type.VARIABLE_SCOPE + " setVariable(String, java.lang.Object)";
+
+    public static final String CREATE_INCIDENT = Type.DELEGATE_EXECUTION + " createIncident";
   }
 
   public static class Parameters {

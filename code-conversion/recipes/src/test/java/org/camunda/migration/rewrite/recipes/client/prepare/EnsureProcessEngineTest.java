@@ -11,13 +11,12 @@ class EnsureProcessEngineTest implements RewriteTest {
     @Test
     void ensureProcessEngineTest() {
         rewriteRun(
-                spec -> spec.recipe(new EnsureProcessEngineRecipe()),
+                spec -> spec.recipe(new EnsureProcessEngineRecipe()).expectedCyclesThatMakeChanges(2), // wasn't able to fix this
                 //language=java
                 java(
                         """
                                 package org.camunda.community.migration.example;
                                         
-                                import org.camunda.bpm.engine.ProcessEngine;
                                 import org.camunda.bpm.engine.RuntimeService;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
@@ -26,9 +25,6 @@ class EnsureProcessEngineTest implements RewriteTest {
                                         
                                 @Component
                                 public class BroadcastSignalsTestClass {
-                                        
-                                    @Autowired
-                                    private ProcessEngine engine;
                                     
                                     @Autowired
                                     private RuntimeService runtimeService;

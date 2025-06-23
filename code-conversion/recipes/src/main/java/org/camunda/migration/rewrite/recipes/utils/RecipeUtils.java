@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client.utils;
+package org.camunda.migration.rewrite.recipes.utils;
 
 import org.openrewrite.Tree;
 import org.openrewrite.java.JavaParser;
@@ -8,7 +8,7 @@ import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Space;
 import org.openrewrite.marker.Markers;
 
-public class ClientUtils {
+public class RecipeUtils {
 
   public static J.Identifier createSimpleIdentifier(String simpleName, String javaType) {
     return new J.Identifier(

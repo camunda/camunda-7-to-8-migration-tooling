@@ -1,22 +1,13 @@
 package org.camunda.migration.rewrite.recipes.client.cleanup;
 
-import static java.util.Collections.emptyList;
-
 import java.util.List;
 import java.util.stream.Collectors;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
 import org.openrewrite.java.JavaIsoVisitor;
-import org.openrewrite.java.JavaParser;
-import org.openrewrite.java.JavaTemplate;
-import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.tree.J;
-import org.openrewrite.java.tree.J.Identifier;
-import org.openrewrite.java.tree.J.MethodInvocation;
-import org.openrewrite.java.tree.JavaType;
-import org.openrewrite.marker.Markers;
 
-public class RemoveImportsManuallyRecipe extends Recipe {
+public class RemoveClientImportsManuallyRecipe extends Recipe {
 
     @Override
     public String getDisplayName() {

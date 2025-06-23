@@ -4,7 +4,6 @@ import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.worker.JobClient;
 import io.camunda.spring.client.annotation.JobWorker;
 import io.camunda.spring.client.annotation.Variable;
-import io.camunda.spring.client.exception.CamundaError;
 
 import java.util.Map;
 

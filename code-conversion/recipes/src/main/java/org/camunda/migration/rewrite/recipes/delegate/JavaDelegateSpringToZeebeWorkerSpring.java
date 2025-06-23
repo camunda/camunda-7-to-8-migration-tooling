@@ -1,8 +1,5 @@
-package org.camunda.migration.rewrite.recipes.glue;
+package org.camunda.migration.rewrite.recipes.delegate;
 
-import static org.openrewrite.Tree.randomId;
-
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,25 +14,20 @@ import org.openrewrite.java.AnnotationMatcher;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
-import org.openrewrite.java.tree.Comment;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.J.Annotation;
 import org.openrewrite.java.tree.J.ClassDeclaration;
 import org.openrewrite.java.tree.J.MethodDeclaration;
 import org.openrewrite.java.tree.J.MethodInvocation;
-import org.openrewrite.java.tree.JLeftPadded;
 import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.JavaType.Method;
-import org.openrewrite.java.tree.Space;
 import org.openrewrite.java.tree.TypeTree;
 import org.openrewrite.java.tree.TypeUtils;
-import org.openrewrite.marker.Markers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.camunda.zeebe.client.api.response.ActivatedJob;
-import io.camunda.zeebe.client.api.worker.JobWorker;
 
 public class JavaDelegateSpringToZeebeWorkerSpring extends Recipe {
 	

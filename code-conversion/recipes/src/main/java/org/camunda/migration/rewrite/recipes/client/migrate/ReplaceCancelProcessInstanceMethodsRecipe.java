@@ -1,7 +1,7 @@
 package org.camunda.migration.rewrite.recipes.client.migrate;
 
-import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
-import org.camunda.migration.rewrite.recipes.client.utils.ClientUtils;
+import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
+import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
@@ -35,9 +35,9 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
-            new UsesType<>(ClientConstants.Type.PROCESS_ENGINE, true),
-            new UsesMethod<>(ClientConstants.EngineMethod.GET_RUNTIME_SERVICE, true),
-            new UsesMethod<>(ClientConstants.RuntimeServiceMethod.DELETE_PROCESS_INSTANCE, true));
+            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
+            new UsesMethod<>(RecipeConstants.Method.GET_RUNTIME_SERVICE, true),
+            new UsesMethod<>(RecipeConstants.Method.DELETE_PROCESS_INSTANCE, true));
 
     return Preconditions.check(
         check,
@@ -45,7 +45,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
 
           // method to be replaced
           final MethodMatcher engineDeleteProcessInstance =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.DELETE_PROCESS_INSTANCE);
+              new MethodMatcher(RecipeConstants.Method.DELETE_PROCESS_INSTANCE);
 
           /*
            * This java template uses the camunda client wrapper to replace the above method. The
@@ -53,7 +53,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
            * elsewhere, it will also be cast to a string.
            */
           final JavaTemplate wrapperCancelProcessInstance =
-              ClientUtils.createSimpleJavaTemplate(
+              RecipeUtils.createSimpleJavaTemplate(
                   "#{camundaClientWrapper:any("
                       + CLIENT_WRAPPER_PACKAGE
                       + ")}.cancelProcessInstance(Long.valueOf(#{processInstanceId:any(java.lang.String)}));");
@@ -69,7 +69,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
 
             // create new identifier for first java template argument
             J.Identifier camundaClientWrapper =
-                ClientUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+                RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
             /*
              * if methodInv matches the defined method, replace it with the applied java template,

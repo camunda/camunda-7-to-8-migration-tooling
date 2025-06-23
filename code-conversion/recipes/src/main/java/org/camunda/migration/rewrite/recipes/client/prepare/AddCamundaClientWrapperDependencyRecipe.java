@@ -1,6 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
+import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
@@ -33,7 +33,7 @@ public class AddCamundaClientWrapperDependencyRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
-            new UsesType<>(ClientConstants.Type.PROCESS_ENGINE, true),
+            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
             Preconditions.not(new UsesType<>(CLIENT_WRAPPER_PACKAGE, true)));
 
     return Preconditions.check(

@@ -1,8 +1,8 @@
 package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import java.util.List;
-import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
-import org.camunda.migration.rewrite.recipes.client.utils.ClientUtils;
+import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
+import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.JavaVisitor;
@@ -37,14 +37,14 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
-            new UsesType<>(ClientConstants.Type.PROCESS_ENGINE, true),
-            new UsesMethod<>(ClientConstants.EngineMethod.GET_RUNTIME_SERVICE, true),
+            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
+            new UsesMethod<>(RecipeConstants.Method.GET_RUNTIME_SERVICE, true),
             Preconditions.or(
                 new UsesMethod<>(
-                    ClientConstants.RuntimeServiceMethod.SIGNAL_EVENT_RECEIVED
-                        + ClientConstants.Parameters.ANY,
-                    true),
-                new UsesMethod<>(ClientConstants.RuntimeServiceMethod.CREATE_SIGNAL_EVENT, true)));
+                        RecipeConstants.Method.SIGNAL_EVENT_RECEIVED
+                        + RecipeConstants.Parameters.ANY,
+                        true),
+                new UsesMethod<>(RecipeConstants.Method.CREATE_SIGNAL_EVENT, true)));
 
     return Preconditions.check(
         check,
@@ -53,54 +53,54 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
           // engine - simple method
           final MethodMatcher engineBroadcastSignalGlobally =
               new MethodMatcher(
-                  ClientConstants.RuntimeServiceMethod.SIGNAL_EVENT_RECEIVED
-                      + ClientConstants.Parameters.build("String"));
+                      RecipeConstants.Method.SIGNAL_EVENT_RECEIVED
+                      + RecipeConstants.Parameters.build("String"));
           final MethodMatcher engineBroadcastSignalToOneExecution =
               new MethodMatcher(
-                  ClientConstants.RuntimeServiceMethod.SIGNAL_EVENT_RECEIVED
-                      + ClientConstants.Parameters.build("String", "String"));
+                      RecipeConstants.Method.SIGNAL_EVENT_RECEIVED
+                      + RecipeConstants.Parameters.build("String", "String"));
           final MethodMatcher engineBroadcastSignalGloballyWithVariables =
               new MethodMatcher(
-                  ClientConstants.RuntimeServiceMethod.SIGNAL_EVENT_RECEIVED
-                      + ClientConstants.Parameters.build("String", "java.util.Map"));
+                      RecipeConstants.Method.SIGNAL_EVENT_RECEIVED
+                      + RecipeConstants.Parameters.build("String", "java.util.Map"));
           final MethodMatcher engineBroadcastSignalToOneExecutionWithVariables =
               new MethodMatcher(
-                  ClientConstants.RuntimeServiceMethod.SIGNAL_EVENT_RECEIVED
-                      + ClientConstants.Parameters.build("String", "String", "java.util.Map"));
+                      RecipeConstants.Method.SIGNAL_EVENT_RECEIVED
+                      + RecipeConstants.Parameters.build("String", "String", "java.util.Map"));
 
           // engine - builder pattern
           final MethodMatcher engineBroadcastSignalGloballyViaBuilderSend =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.SIGNAL_BUILDER_SEND);
+              new MethodMatcher(RecipeConstants.Method.SIGNAL_BUILDER_SEND);
           final MethodMatcher engineBroadcastSignalGloballyViaBuilderSetVariables =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.SIGNAL_BUILDER_SET_VARIABLES);
+              new MethodMatcher(RecipeConstants.Method.SIGNAL_BUILDER_SET_VARIABLES);
           final MethodMatcher engineBroadcastSignalGloballyViaBuilderTenantId =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.SIGNAL_BUILDER_TENANT_ID);
+              new MethodMatcher(RecipeConstants.Method.SIGNAL_BUILDER_TENANT_ID);
           final MethodMatcher engineBroadcastSignalGloballyViaBuilderExecutionId =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.SIGNAL_BUILDER_EXECUTION_ID);
+              new MethodMatcher(RecipeConstants.Method.SIGNAL_BUILDER_EXECUTION_ID);
           final MethodMatcher engineBroadcastSignalGloballyViaBuilderCreateSignalEvent =
-              new MethodMatcher(ClientConstants.RuntimeServiceMethod.CREATE_SIGNAL_EVENT);
+              new MethodMatcher(RecipeConstants.Method.CREATE_SIGNAL_EVENT);
 
           // wrapper - simple methods
           final JavaTemplate wrapperBroadcastSignal =
-              ClientUtils.createSimpleJavaTemplate(
+              RecipeUtils.createSimpleJavaTemplate(
                   "#{camundaClientWrapper:any("
                       + CLIENT_WRAPPER_PACKAGE
                       + ")}.broadcastSignal(#{signalName:any(java.lang.String)});");
 
           final JavaTemplate wrapperBroadcastSignalWithVariables =
-              ClientUtils.createSimpleJavaTemplate(
+              RecipeUtils.createSimpleJavaTemplate(
                   "#{camundaClientWrapper:any("
                       + CLIENT_WRAPPER_PACKAGE
                       + ")}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
 
           final JavaTemplate wrapperBroadcastSignalWithTenantId =
-              ClientUtils.createSimpleJavaTemplate(
+              RecipeUtils.createSimpleJavaTemplate(
                   "#{camundaClientWrapper:any("
                       + CLIENT_WRAPPER_PACKAGE
                       + ")}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});");
 
           final JavaTemplate wrapperBroadcastSignalWithTenantIdWithVariables =
-              ClientUtils.createSimpleJavaTemplate(
+              RecipeUtils.createSimpleJavaTemplate(
                   "#{camundaClientWrapper:any("
                       + CLIENT_WRAPPER_PACKAGE
                       + ")}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
@@ -114,7 +114,7 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
           @Override
           public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
             J.Identifier camundaClientWrapper =
-                ClientUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+                RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
             // a comment is added in case the executionId was removed
             TextComment removedExecutionIdComment =

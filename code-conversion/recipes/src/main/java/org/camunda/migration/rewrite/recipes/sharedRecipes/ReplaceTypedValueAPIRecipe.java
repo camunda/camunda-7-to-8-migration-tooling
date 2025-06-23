@@ -1,9 +1,9 @@
-package org.camunda.migration.rewrite.recipes.client.prepare;
+package org.camunda.migration.rewrite.recipes.sharedRecipes;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.camunda.migration.rewrite.recipes.client.utils.ClientConstants;
-import org.camunda.migration.rewrite.recipes.client.utils.ClientUtils;
+import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
+import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
@@ -32,17 +32,17 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.or(
-            new UsesType<>(ClientConstants.Type.VARIABLES, true),
-            new UsesType<>(ClientConstants.Type.VARIABLE_MAP, true),
-            new UsesType<>(ClientConstants.Type.TYPED_VALUE, true),
-            new UsesType<>(ClientConstants.Type.OBJECT_VALUE, true),
-            new UsesType<>(ClientConstants.Type.STRING_VALUE, true),
-            new UsesType<>(ClientConstants.Type.INTEGER_VALUE, true),
-            new UsesType<>(ClientConstants.Type.LONG_VALUE, true),
-            new UsesType<>(ClientConstants.Type.SHORT_VALUE, true),
-            new UsesType<>(ClientConstants.Type.DOUBLE_VALUE, true),
-            new UsesType<>(ClientConstants.Type.FLOAT_VALUE, true),
-            new UsesType<>(ClientConstants.Type.BYTES_VALUE, true));
+            new UsesType<>(RecipeConstants.Type.VARIABLES, true),
+            new UsesType<>(RecipeConstants.Type.VARIABLE_MAP, true),
+            new UsesType<>(RecipeConstants.Type.TYPED_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.OBJECT_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.STRING_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.INTEGER_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.LONG_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.SHORT_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.DOUBLE_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.FLOAT_VALUE, true),
+            new UsesType<>(RecipeConstants.Type.BYTES_VALUE, true));
 
     return Preconditions.check(
         check,
@@ -70,18 +70,18 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
 
-            maybeRemoveImport(ClientConstants.Type.BOOLEAN_VALUE);
-            maybeRemoveImport(ClientConstants.Type.BYTES_VALUE);
-            maybeRemoveImport(ClientConstants.Type.FLOAT_VALUE);
-            maybeRemoveImport(ClientConstants.Type.DOUBLE_VALUE);
-            maybeRemoveImport(ClientConstants.Type.SHORT_VALUE);
-            maybeRemoveImport(ClientConstants.Type.LONG_VALUE);
-            maybeRemoveImport(ClientConstants.Type.INTEGER_VALUE);
-            maybeRemoveImport(ClientConstants.Type.STRING_VALUE);
-            maybeRemoveImport(ClientConstants.Type.OBJECT_VALUE);
-            maybeRemoveImport(ClientConstants.Type.TYPED_VALUE);
-            maybeRemoveImport(ClientConstants.Type.VARIABLE_MAP);
-            maybeRemoveImport(ClientConstants.Type.VARIABLES);
+            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLES);
 
             // Analyze first variable
             J.VariableDeclarations.NamedVariable firstVar = decls.getVariables().get(0);
@@ -90,7 +90,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
             // fromMap VariableMap replacement - one variable assumed
             if (TypeUtils.isOfType(
-                    decls.getType(), JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))
+                    decls.getType(), JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))
                 && firstVar.getInitializer() instanceof J.MethodInvocation oneMi
                 && oneMi.getSimpleName().equals("fromMap")) {
 
@@ -116,7 +116,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             // this case requires a non-iso visitor to replace one statement with a block
             // the unneeded block is subsequently removed
             if (TypeUtils.isOfType(
-                decls.getType(), JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))) {
+                decls.getType(), JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))) {
 
               List<J.MethodInvocation> putValues = new ArrayList<>();
 
@@ -157,7 +157,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               // add each map.put() as statement
               for (J.MethodInvocation mi : putValues) {
                 J.Identifier mapIdent =
-                    ClientUtils.createSimpleIdentifier(
+                    RecipeUtils.createSimpleIdentifier(
                         originalName.getSimpleName(), "java.util.Map");
 
                 J.MethodInvocation newMethodInvoc =
@@ -255,7 +255,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               }
 
               J.Identifier newTypeExpression =
-                  ClientUtils.createSimpleIdentifier(typeString, newType);
+                  RecipeUtils.createSimpleIdentifier(typeString, newType);
 
               return decls
                   .withType(newType)
@@ -291,7 +291,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
 
                 J.Identifier newTypeExpression =
-                    ClientUtils.createSimpleIdentifier(typeString, newType);
+                    RecipeUtils.createSimpleIdentifier(typeString, newType);
 
                 return decls.withType(newType).withTypeExpression(newTypeExpression);
               }
@@ -303,16 +303,33 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           @Override
           public J visitMethodInvocation(J.MethodInvocation invoc, ExecutionContext ctx) {
 
+            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLES);
+
             if (invoc.getMethodType() != null
                 && TypeUtils.isOfType(
                     invoc.getMethodType().getDeclaringType(),
-                    JavaType.ShallowClass.build(ClientConstants.Type.VARIABLE_MAP))
+                    JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))
                 && (invoc.getSimpleName().equals("putValueTyped")
                     || invoc.getSimpleName().equals("putValue"))) {
 
               // rename method invocation identifier to put
-              J.Identifier ident = ClientUtils.createSimpleIdentifier("put", "java.lang.String");
+              J.Identifier ident = RecipeUtils.createSimpleIdentifier("put", "java.lang.String");
               return invoc.withName(ident);
+            }
+
+            if (invoc.getSimpleName().equals("getValue")) {
+              return invoc.getSelect().withPrefix(Space.SINGLE_SPACE);
             }
             return super.visitMethodInvocation(invoc, ctx);
           }
@@ -320,6 +337,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           /** Replace initializers of assignments */
           @Override
           public J visitAssignment(J.Assignment assignment, ExecutionContext executionContext) {
+
+            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
+            maybeRemoveImport(RecipeConstants.Type.VARIABLES);
+
             Expression assignmentExpr = assignment.getAssignment();
 
             if (assignmentExpr instanceof J.MethodInvocation method
@@ -328,12 +359,19 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               // the initializer needs to be a method invocation which first or second select method
               // is the Variables identifier
 
-              return assignment.withAssignment(method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+              return assignment.withAssignment(
+                  method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
             } else if (assignmentExpr instanceof J.MethodInvocation method
                 && method.getSelect() instanceof J.MethodInvocation method2
                 && method2.getSelect() instanceof J.Identifier sel2
                 && sel2.getSimpleName().equals("Variables")) {
-              return assignment.withAssignment(method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+              return assignment.withAssignment(
+                  method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
+            }
+
+            if (assignmentExpr instanceof J.MethodInvocation method
+                && method.getSimpleName().equals("getValue")) {
+              return assignment.withAssignment(method.getSelect().withPrefix(Space.SINGLE_SPACE));
             }
 
             return super.visitAssignment(assignment, executionContext);

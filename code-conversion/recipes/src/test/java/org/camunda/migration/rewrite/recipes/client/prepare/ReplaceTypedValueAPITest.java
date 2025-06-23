@@ -1,6 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import org.camunda.migration.rewrite.recipes.client.prepare.ReplaceTypedValueAPIRecipe;
+import org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -47,6 +47,9 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         nameTyped = Variables.stringValue("3");
                                         String bla = "blub";
                                         
+                                        double someDouble = doubleTyped.getValue();
+                                        someDouble = doubleTyped.getValue();
+                                        
                                         VariableMap map1 = Variables.createVariables().putValueTyped("name", nameTyped).putValueTyped("amount", amountTyped);
                                         map1.putValue("bla", bla);
                                         map1.putValueTyped("double", doubleTyped);
@@ -90,6 +93,9 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         String nameTyped = "2";
                                         nameTyped = "3";
                                         String bla = "blub";
+                                        
+                                        double someDouble = doubleTyped;
+                                        someDouble = doubleTyped;
                                         
                                         Map<String, Object> map1 = new HashMap<>();
                                         map1.put("amount", amountTyped);
