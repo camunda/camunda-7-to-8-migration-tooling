@@ -7,7 +7,6 @@ These patterns are programming-language-specific. For language-agnostic informat
 > [!NOTE]  
 > The pattern catalog was just kicked off and will be filled with more patterns throughout Q2 of 2025. The current patterns are more exemplary to discuss the structure. Feedback of course welcome.
 
-
 <!-- The following content is automatically added with a Github Action from generate-catalog.js -->
 <!-- BEGIN-CATALOG -->
 
@@ -76,4 +75,3 @@ Patterns:
 - [Handling Process Variables](30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
 
 <!-- END-CATALOG -->
-

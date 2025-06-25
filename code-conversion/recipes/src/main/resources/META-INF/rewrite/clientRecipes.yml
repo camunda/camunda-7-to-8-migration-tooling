@@ -1,0 +1,47 @@
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllClientPrepareRecipes
+displayName: Runs all delegate cleanup recipes
+description: Removes delegate code and unused imports.
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: spring-boot-starter-camunda-sdk
+      version: 8.8.0-alpha4.1
+  - org.camunda.migration.rewrite.recipes.client.prepare.EnsureProcessEngineRecipe
+  - org.camunda.migration.rewrite.recipes.client.prepare.AddCamundaClientWrapperDependencyRecipe:
+      CLIENT_WRAPPER_PACKAGE: org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper
+  - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllClientMigrateRecipes
+displayName: Runs all delegate cleanup recipes
+description: Removes delegate code and unused imports.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceSignalMethodsRecipe:
+      CLIENT_WRAPPER_PACKAGE: org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper
+  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceCancelProcessInstanceMethodsRecipe:
+      CLIENT_WRAPPER_PACKAGE: org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper
+  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceStartProcessInstanceMethodsRecipe:
+      CLIENT_WRAPPER_PACKAGE: org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper
+  - org.openrewrite.java.ReplaceAnnotation:
+      annotationPatternToReplace: "@org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication"
+      annotationTemplateToInsert: "@io.camunda.spring.client.annotation.Deployment(resources = \"classpath*:/bpmn/**/*.bpmn\")"
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllClientCleanupRecipes
+displayName: Runs all delegate cleanup recipes
+description: Removes delegate code and unused imports.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.client.cleanup.RemoveEngineDependencyRecipe
+  - org.openrewrite.java.RemoveUnusedImports
+  - org.camunda.migration.rewrite.recipes.client.cleanup.RemoveClientImportsManuallyRecipe
+  - org.camunda.migration.rewrite.recipes.sharedRecipes.RemoveSharedImportsManuallyRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllClientRecipes
+displayName: Runs all client recipes
+description: Runs all client recipes.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.AllClientPrepareRecipes
+  - org.camunda.migration.rewrite.recipes.AllClientMigrateRecipes
+  - org.camunda.migration.rewrite.recipes.AllClientCleanupRecipes
