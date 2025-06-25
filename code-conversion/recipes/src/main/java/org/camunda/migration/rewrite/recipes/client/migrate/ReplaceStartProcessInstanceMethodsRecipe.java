@@ -312,13 +312,11 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by key methods
             if (engineStartByKey.matches(elem)) {
-                System.out.println("Prefix: '" + elem.getPrefix().getWhitespace() + "'");
               return wrapperCreateByBPMNModelIdentifier.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
                   camundaClientWrapper,
-                  elem.getArguments().get(0))
-                      .withPrefix(elem.getPrefix());
+                  elem.getArguments().get(0));
             }
 
             if (engineStartByKeyAndBusinessKey.matches(elem)) {

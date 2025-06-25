@@ -62,7 +62,7 @@ public class VariousProcessEngineFunctionsTestClass {
 
     public void variousProcessEngineFunctions(String processDefinitionKey, String signalName, String deleteReason) {
 
-        ProcessInstanceEvent instance1 = camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
+        ProcessInstanceEvent instance1 =camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
         String processInstanceId = instance1.getProcessInstanceKey().toString();
         System.out.println(instance1.getProcessInstanceKey().toString());
 
