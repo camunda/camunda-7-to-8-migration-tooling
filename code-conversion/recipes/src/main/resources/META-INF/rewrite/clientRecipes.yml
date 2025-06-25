@@ -7,10 +7,10 @@ recipeList:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
       version: 8.8.0-alpha4.1
+  - org.camunda.migration.rewrite.recipes.client.prepare.EnsureProcessEngineRecipe
   - org.camunda.migration.rewrite.recipes.client.prepare.AddCamundaClientWrapperDependencyRecipe:
       CLIENT_WRAPPER_PACKAGE: org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper
   - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
-  - org.camunda.migration.rewrite.recipes.client.prepare.EnsureProcessEngineRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllClientMigrateRecipes
@@ -39,8 +39,8 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllClientRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client recipes
+description: Runs all client recipes.
 recipeList:
   - org.camunda.migration.rewrite.recipes.AllClientPrepareRecipes
   - org.camunda.migration.rewrite.recipes.AllClientMigrateRecipes

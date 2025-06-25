@@ -44,7 +44,7 @@ type: specs.openrewrite.org/v1beta/recipe
 name: a.name.for.your.recipe
 description: a recipe to specify what you want to do
 recipeList:
-  - org.camunda.migration.rewrite.recipes.AllClientPrepareRecipes2:
+  - org.camunda.migration.rewrite.recipes.AllClientPrepareRecipes:
       CLIENT_WRAPPER_PACKAGE: fully.qualified.name.of.the.CamundaClientWrapper
 ```
 

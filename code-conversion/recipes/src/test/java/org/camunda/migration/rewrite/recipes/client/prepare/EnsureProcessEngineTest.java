@@ -11,7 +11,7 @@ class EnsureProcessEngineTest implements RewriteTest {
     @Test
     void ensureProcessEngineTest() {
         rewriteRun(
-                spec -> spec.recipe(new EnsureProcessEngineRecipe()).expectedCyclesThatMakeChanges(2), // wasn't able to fix this
+                spec -> spec.recipe(new EnsureProcessEngineRecipe()),
                 //language=java
                 java(
                         """

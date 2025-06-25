@@ -11,9 +11,11 @@ class ProcessEngineToCamundaClientTest implements RewriteTest {
 
   @Override
   public void defaults(RecipeSpec spec) {
-    spec.recipeFromResources("org.camunda.migration.rewrite.recipes.AllClientRecipes")
-            .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+    spec.recipeFromResources(
+            "org.camunda.migration.rewrite.recipes.AllClientRecipes")
+        .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
   }
+
   @Test
   void variousProcessEngineFunctionsTest() {
     rewriteRun(
@@ -22,26 +24,25 @@ class ProcessEngineToCamundaClientTest implements RewriteTest {
 """
 package org.camunda.community.migration.example;
 
-import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CancelProcessInstanceTestClass {
+public class VariousProcessEngineFunctionsTestClass {
 
     @Autowired
-    private ProcessEngine engine;
+    private RuntimeService runtimeService;
 
     public void variousProcessEngineFunctions(String processDefinitionKey, String signalName, String deleteReason) {
 
-        ProcessInstance instance1 = engine.getRuntimeService().startProcessInstanceByKey(processDefinitionKey);
+        ProcessInstance instance1 = runtimeService.startProcessInstanceByKey(processDefinitionKey);
         String processInstanceId = instance1.getProcessInstanceId();
         System.out.println(instance1.getProcessInstanceId());
 
-        engine.getRuntimeService().createSignalEvent(signalName).send();
-
-        engine.getRuntimeService().deleteProcessInstance(processInstanceId, deleteReason);
+        runtimeService.createSignalEvent(signalName).send();
+        runtimeService.deleteProcessInstance(processInstanceId, deleteReason);
     }
 }
 """,
@@ -54,7 +55,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CancelProcessInstanceTestClass {
+public class VariousProcessEngineFunctionsTestClass {
 
     @Autowired
     private CamundaClientWrapper camundaClientWrapper;
@@ -66,7 +67,6 @@ public class CancelProcessInstanceTestClass {
         System.out.println(instance1.getProcessInstanceKey().toString());
 
         camundaClientWrapper.broadcastSignal(signalName);
-
         camundaClientWrapper.cancelProcessInstance(Long.valueOf(processInstanceId));
     }
 }

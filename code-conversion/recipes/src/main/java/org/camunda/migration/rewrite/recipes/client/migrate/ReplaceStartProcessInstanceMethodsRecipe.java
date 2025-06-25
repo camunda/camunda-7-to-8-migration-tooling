@@ -291,14 +291,6 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
           /** Method invocations are visited and replaced */
           @Override
           public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
-            return replaceMethodInvocation(elem, ctx);
-          }
-
-          /**
-           * This method is used to replace all standalone method invocations and also the
-           * initializers of method declarations. Thus, it is extracted.
-           */
-          private J replaceMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
             J.Identifier camundaClientWrapper =
                 RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
@@ -320,11 +312,13 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by key methods
             if (engineStartByKey.matches(elem)) {
+                System.out.println("Prefix: '" + elem.getPrefix().getWhitespace() + "'");
               return wrapperCreateByBPMNModelIdentifier.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
                   camundaClientWrapper,
-                  elem.getArguments().get(0));
+                  elem.getArguments().get(0))
+                      .withPrefix(elem.getPrefix());
             }
 
             if (engineStartByKeyAndBusinessKey.matches(elem)) {
