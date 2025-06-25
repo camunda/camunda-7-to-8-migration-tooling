@@ -1,6 +1,6 @@
 package org.camunda.community.migration.example;
 
-import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -13,15 +13,16 @@ import jakarta.annotation.PostConstruct;
 public class SampleProcessStarter {
 	
 	@Autowired
-	private ProcessEngine processEngine;
+	private RuntimeService runtimeService;
 	
 	@PostConstruct
 	public void startOneProcess() {
 		System.out.println( "Demo usage of Camunda API during startup, typically wired into your own code somewhere..." );
 		
-		VariableMap variables = Variables.createVariables().putValue("x", 7);
+		VariableMap variables = Variables.createVariables();
+		variables.putValue("x", 7);
 		
-		ProcessInstance processInstance = processEngine.getRuntimeService().startProcessInstanceByKey("sample-process-solution-process", variables);
+		ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("sample-process-solution-process", variables);
 		
 		System.out.println( "Started " + processInstance.getId() );
 	}
