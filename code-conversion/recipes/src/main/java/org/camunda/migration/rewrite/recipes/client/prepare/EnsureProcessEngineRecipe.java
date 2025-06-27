@@ -48,9 +48,9 @@ public class EnsureProcessEngineRecipe extends Recipe {
           final JavaTemplate template =
               JavaTemplate.builder(
                       """
-                                                      @Autowired
-                                                      private ProcessEngine engine;
-                                                  """)
+                          @Autowired
+                          private ProcessEngine engine;
+                      """)
                   .imports(
                       "org.springframework.beans.factory.annotation.Autowired",
                       RecipeConstants.Type.PROCESS_ENGINE)
@@ -89,8 +89,10 @@ public class EnsureProcessEngineRecipe extends Recipe {
             maybeAddImport("org.springframework.beans.factory.annotation.Autowired");
 
             // Insert the new field at the top of the class body
-            return template.apply(
-                updateCursor(classDecl), classDecl.getBody().getCoordinates().firstStatement());
+            return super.visitClassDeclaration(
+                template.apply(
+                    updateCursor(classDecl), classDecl.getBody().getCoordinates().firstStatement()),
+                ctx);
           }
 
           final JavaTemplate processEngineRuntimeService =

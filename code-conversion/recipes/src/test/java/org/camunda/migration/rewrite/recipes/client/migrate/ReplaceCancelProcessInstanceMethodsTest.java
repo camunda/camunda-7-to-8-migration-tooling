@@ -32,6 +32,8 @@ class ReplaceCancelProcessInstanceMethodsTest implements RewriteTest {
                                     private CamundaClientWrapper camundaClientWrapper;
                                                                           
                                     public void cancelProcessInstance(String processInstanceId, String deleteReason) {
+                                        camundaClientWrapper.broadcastSignal("signalName");
+                                        
                                         engine.getRuntimeService().deleteProcessInstance(processInstanceId, deleteReason);
                                     }
                                 }                                                                                                         
@@ -54,6 +56,8 @@ class ReplaceCancelProcessInstanceMethodsTest implements RewriteTest {
                                     private CamundaClientWrapper camundaClientWrapper;
                                                                                  
                                     public void cancelProcessInstance(String processInstanceId, String deleteReason) {
+                                        camundaClientWrapper.broadcastSignal("signalName");
+                                        
                                         camundaClientWrapper.cancelProcessInstance(Long.valueOf(processInstanceId));
                                     }
                                 } 

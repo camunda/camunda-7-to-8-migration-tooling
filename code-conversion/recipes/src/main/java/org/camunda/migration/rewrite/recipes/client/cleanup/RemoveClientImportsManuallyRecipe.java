@@ -32,7 +32,7 @@ public class RemoveClientImportsManuallyRecipe extends Recipe {
                         .filter(i -> {try { return (!i.getTypeName().equals("org.camunda.bpm.engine.runtime.ProcessInstance"));} catch (Exception ex) {return true;}})
                     .collect(Collectors.toList());
 
-                compilationUnit = compilationUnit.withImports(filteredImports);  
+                compilationUnit = compilationUnit.withImports(filteredImports);
                 return super.visitCompilationUnit(compilationUnit, ctx); 
 	        }
         };

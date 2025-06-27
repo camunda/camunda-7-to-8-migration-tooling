@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component;
 public class SampleJavaDelegate implements JavaDelegate {
 
   public void execute(DelegateExecution execution) throws Exception {
-    System.out.println("SampleJavaDelegate " + execution.getVariable("x"));
+    Object x = execution.getVariable("x");
+	System.out.println("SampleJavaDelegate " + x);
     execution.setVariable("y", "hello world");
   }
 }

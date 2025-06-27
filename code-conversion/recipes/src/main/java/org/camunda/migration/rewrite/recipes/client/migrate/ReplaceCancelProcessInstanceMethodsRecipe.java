@@ -76,11 +76,12 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
              * else resume tree traversal
              */
             if (engineDeleteProcessInstance.matches(methodInv)) {
-              return wrapperCancelProcessInstance.apply(
-                  getCursor(),
-                  methodInv.getCoordinates().replace(),
-                  camundaClientWrapper,
-                  methodInv.getArguments().get(0));
+              return wrapperCancelProcessInstance
+                  .apply(
+                      getCursor(),
+                      methodInv.getCoordinates().replace(),
+                      camundaClientWrapper,
+                      methodInv.getArguments().get(0));
             }
             return super.visitMethodInvocation(methodInv, ctx);
           }

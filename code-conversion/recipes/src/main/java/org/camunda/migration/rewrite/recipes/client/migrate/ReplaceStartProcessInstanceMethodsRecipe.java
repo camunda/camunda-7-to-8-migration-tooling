@@ -291,14 +291,6 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
           /** Method invocations are visited and replaced */
           @Override
           public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
-            return replaceMethodInvocation(elem, ctx);
-          }
-
-          /**
-           * This method is used to replace all standalone method invocations and also the
-           * initializers of method declarations. Thus, it is extracted.
-           */
-          private J replaceMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
             J.Identifier camundaClientWrapper =
                 RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
 
