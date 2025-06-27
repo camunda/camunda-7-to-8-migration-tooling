@@ -154,7 +154,7 @@ public class ReplaceExecutionRecipe extends Recipe {
                 new MethodMatcher(RecipeConstants.Method.SET_VARIABLE);
 
             @Override
-            public J.MethodInvocation visitMethodInvocation(
+            public J visitMethodInvocation(
                 J.MethodInvocation methodInvocation, ExecutionContext ctx) {
 
               // ensure we are not inside the delegate method
@@ -168,31 +168,37 @@ public class ReplaceExecutionRecipe extends Recipe {
               if (engineSetVariable.matches(methodInvocation)) {
                 return transformSetVariableCall(getCursor(), methodInvocation);
               }
-              return methodInvocation;
+              return super.visitMethodInvocation(methodInvocation, ctx);
             }
 
             @Override
-            public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
+            public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
 
               // ensure we are not inside the delegate method
               if (isInsideDelegateMethod()) {
                 return assignment;
               }
+              return super.visitAssignment(assignment, ctx);
+            }
 
-              Expression assignmentExpr = assignment.getAssignment();
+            @Override
+            public J visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
 
-              if (assignmentExpr instanceof J.MethodInvocation methodInvocation) {
-
-                if (engineGetVariable.matches(methodInvocation)) {
-                  return assignment.withAssignment(
-                      transformGetVariableCall(getCursor(), methodInvocation));
-                }
-                if (engineSetVariable.matches(methodInvocation)) {
-                  return assignment.withAssignment(
-                      transformSetVariableCall(getCursor(), methodInvocation));
-                }
+              // ensure we are not inside the delegate method
+              if (isInsideDelegateMethod()) {
+                return typeCast;
               }
-              return assignment;
+              return super.visitTypeCast(typeCast, ctx);
+            }
+
+            @Override
+            public J visitBinary(J.Binary binary, ExecutionContext ctx) {
+
+              // ensure we are not inside the delegate method
+              if (isInsideDelegateMethod()) {
+                return binary;
+              }
+              return super.visitBinary(binary, ctx);
             }
 
             private boolean isInsideDelegateMethod() {
@@ -662,7 +668,7 @@ public class ReplaceExecutionRecipe extends Recipe {
                         .withPrefix(((Statement) statementCursor.getValue()).getPrefix());
 
                 return stmt.withComments(List.of(incidentNoRetries));
-                //return stmt;
+                // return stmt;
               }
 
               if (engineCreateIncidentWithMessage.matches(methodInvocation)) {
