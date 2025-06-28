@@ -60,7 +60,7 @@ public class RetrievePaymentAdapter {
         );
     }    
     
-    //@Test
+    @Test
     void rewriteExecurteMethodWithVariables() {
         rewriteRun(
             java(
@@ -70,7 +70,6 @@ package org.camunda.community.migration.example;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -88,7 +87,6 @@ public class RetrievePaymentAdapter implements JavaDelegate {
         
         ctx.setVariable("paymentTransactionId", response);
     }
-
 }
                 """,
                 """
@@ -97,7 +95,6 @@ package org.camunda.community.migration.example;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -111,16 +108,15 @@ public class RetrievePaymentAdapter {
     private RestTemplate rest;
 
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
-    public Map<String,Object> execute(ActivatedJob job) throws Exception {
+    public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        Integer amount = (Integer) job.getVariablesAsMap().getVariable("AMOUNT");
+        Integer amount = (Integer) job.getVariablesAsMap().get("AMOUNT");
     
         String response = rest.postForObject("endpoint", amount, String.class);
 
         resultMap.put("paymentTransactionId", response);
         return resultMap;
-  }
-
+    }
 }"""                
             )
         );
