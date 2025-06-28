@@ -1,6 +1,5 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import org.camunda.migration.rewrite.recipes.client.prepare.AddCamundaClientWrapperDependencyRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -11,7 +10,7 @@ class AddCamundaClientWrapperDependencyTest implements RewriteTest {
     @Test
     void addCamundaClientWrapperDependencyTest() {
         rewriteRun(
-                spec -> spec.recipe(new AddCamundaClientWrapperDependencyRecipe("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
+                spec -> spec.recipe(new AddCamundaClientDependencyRecipe("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
                 //language=java
                 java(
                         """

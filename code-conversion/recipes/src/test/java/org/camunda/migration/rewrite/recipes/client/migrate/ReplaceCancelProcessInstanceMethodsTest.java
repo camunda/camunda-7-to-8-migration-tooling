@@ -11,7 +11,7 @@ class ReplaceCancelProcessInstanceMethodsTest implements RewriteTest {
     @Test
     void replaceCancelProcessInstanceMethodsTest() {
         rewriteRun(
-                spec -> spec.recipe(new ReplaceCancelProcessInstanceMethodsRecipe("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
+                spec -> spec.recipe(new ReplaceCancelProcessInstanceMethodsRecipe()),
                 //language=java
                 java(
                         """

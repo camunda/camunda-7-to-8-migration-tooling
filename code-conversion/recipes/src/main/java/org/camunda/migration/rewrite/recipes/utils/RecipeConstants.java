@@ -3,6 +3,7 @@ package org.camunda.migration.rewrite.recipes.utils;
 public class RecipeConstants {
 
   public static class Type {
+    public static final String CAMUNDA_CLIENT = "io.camunda.client.CamundaClient";
     public static final String PROCESS_ENGINE = "org.camunda.bpm.engine.ProcessEngine";
     public static final String PROCESS_ENGINE_SERVICES =
         "org.camunda.bpm.engine.ProcessEngineServices";
