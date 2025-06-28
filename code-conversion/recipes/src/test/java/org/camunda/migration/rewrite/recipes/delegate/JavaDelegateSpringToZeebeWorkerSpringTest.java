@@ -161,7 +161,7 @@ public class RetrievePaymentAdapter {
 
         resultMap.put("paymentTransactionId", response);
         return resultMap;
-  }
+    }
 }"""));
     }
 }

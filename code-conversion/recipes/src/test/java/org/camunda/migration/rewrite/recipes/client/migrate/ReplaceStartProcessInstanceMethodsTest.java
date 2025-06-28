@@ -8,23 +8,20 @@ import org.openrewrite.test.RewriteTest;
 class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
 
   @Test
-  void replaceStartProcessInstanceMethodsTest() {
+  void replaceStartProcessInstanceMethodsTest() {  // new line after packages vanishes...
     rewriteRun(
-        spec ->
-            spec.recipe(
-                new ReplaceStartProcessInstanceMethodsRecipe(
-                    "org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
+        spec -> spec.recipe(new ReplaceStartProcessInstanceMethodsRecipe()),
         // language=java
         java(
             """
                                 package org.camunda.community.migration.example;
-
+                                
                                 import org.camunda.bpm.engine.ProcessEngine;
                                 import org.camunda.bpm.engine.runtime.ProcessInstance;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
+                                import io.camunda.client.CamundaClient;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
-                                
+
                                 import java.util.Map;
 
                                 @Component
@@ -34,7 +31,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                     private ProcessEngine engine;
 
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
+                                    private CamundaClient camundaClient;
 
                                     public void startProcessInstance(String processDefinitionKey, String processDefinitionId, String businessKey, String tenantId, Map<String, Object> variableMap, String messageName) {
                                         // by BPMNModelIdentifier
@@ -148,118 +145,285 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                 }
                                 """,
             """
-                                package org.camunda.community.migration.example;
+                                 package org.camunda.community.migration.example;
+                                 import io.camunda.client.api.response.CorrelateMessageResponse;
+                                 import io.camunda.client.api.response.ProcessInstanceEvent;
+                                 import org.camunda.bpm.engine.ProcessEngine;
+                                 import org.camunda.bpm.engine.runtime.ProcessInstance;
+                                 import io.camunda.client.CamundaClient;
+                                 import org.springframework.beans.factory.annotation.Autowired;
+                                 import org.springframework.stereotype.Component;
 
-                                import io.camunda.client.api.response.CorrelateMessageResponse;
-                                import io.camunda.client.api.response.ProcessInstanceEvent;
-                                import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.bpm.engine.runtime.ProcessInstance;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
-                                import org.springframework.beans.factory.annotation.Autowired;
-                                import org.springframework.stereotype.Component;
+                                 import java.util.Map;
 
-                                import java.util.Map;
+                                 @Component
+                                 public class CancelProcessInstanceTestClass {
 
-                                @Component
-                                public class CancelProcessInstanceTestClass {
+                                     @Autowired
+                                     private ProcessEngine engine;
 
-                                    @Autowired
-                                    private ProcessEngine engine;
+                                     @Autowired
+                                     private CamundaClient camundaClient;
 
-                                    @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
+                                     public void startProcessInstance(String processDefinitionKey, String processDefinitionId, String businessKey, String tenantId, Map<String, Object> variableMap, String messageName) {
+                                         // by BPMNModelIdentifier
+                                         ProcessInstanceEvent instance1 = camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .send()
+                                                 .join();
+                                         String id = instance1.getProcessInstanceKey().toString();
+                                         System.out.println(instance1.getProcessInstanceKey().toString());
 
-                                    public void startProcessInstance(String processDefinitionKey, String processDefinitionId, String businessKey, String tenantId, Map<String, Object> variableMap, String messageName) {
-                                        // by BPMNModelIdentifier
-                                        ProcessInstanceEvent instance1 = camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
-                                        String id = instance1.getProcessInstanceKey().toString();
-                                        System.out.println(instance1.getProcessInstanceKey().toString());
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithVariables(processDefinitionKey, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithVariables(processDefinitionKey, variableMap);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .tenantId(tenantId)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithTenantId(processDefinitionKey, tenantId);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithVariables(processDefinitionKey, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .tenantId(tenantId)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithTenantId(processDefinitionKey, tenantId);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithVariables(processDefinitionKey, variableMap);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .tenantId(tenantId)
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithTenantIdWithVariables(processDefinitionKey, tenantId, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .bpmnProcessId(processDefinitionKey)
+                                                 .latestVersion()
+                                                 .tenantId(tenantId)
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByBPMNModelIdentifierWithTenantIdWithVariables(processDefinitionKey, tenantId, variableMap);
+                                         // by key assigned on deployment
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .send()
+                                                 .join();
 
-                                        // by key assigned on deployment
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeployment(processDefinitionId);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeployment(processDefinitionId);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithVariables(processDefinitionId, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithVariables(processDefinitionId, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeployment(processDefinitionId);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .tenantId(tenantId)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithTenantId(processDefinitionId, tenantId);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithVariables(processDefinitionId, variableMap);
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .tenantId(tenantId)
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithTenantIdWithVariables(processDefinitionId, tenantId, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithVariables(processDefinitionId, variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .tenantId(tenantId)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithTenantId(processDefinitionId, tenantId);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .tenantId(tenantId)
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.createProcessByKeyAssignedOnDeploymentWithTenantIdWithVariables(processDefinitionId, tenantId, variableMap);
+                                         // by message
+                                         CorrelateMessageResponse instance2 = camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .send()
+                                                 .join();
+                                         String id2 = instance2.getProcessInstanceKey().toString();
+                                         System.out.println(instance2.getProcessInstanceKey().toString());
 
-                                        // by message
-                                        CorrelateMessageResponse instance2 = camundaClientWrapper.correlateMessage(messageName, "someCorrelationKey");
-                                        String id2 = instance2.getProcessInstanceKey().toString();
-                                        System.out.println(instance2.getProcessInstanceKey().toString());
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.correlateMessage(messageName, "someCorrelationKey");
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        camundaClientWrapper.correlateMessageWithVariables(messageName, "someCorrelationKey", variableMap);
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        camundaClientWrapper.correlateMessageWithVariables(messageName, "someCorrelationKey", variableMap);
+                                         // processDefinitionId was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .send()
+                                                 .join();
 
-                                        // processDefinitionId was removed
-                                        camundaClientWrapper.correlateMessage(messageName, "someCorrelationKey");
+                                         // businessKey was removed
+                                         // processDefinitionId was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .send()
+                                                 .join();
 
-                                        // businessKey was removed
-                                        // processDefinitionId was removed
-                                        camundaClientWrapper.correlateMessage(messageName, "someCorrelationKey");
+                                         // processDefinitionId was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
 
-                                        // processDefinitionId was removed
-                                        camundaClientWrapper.correlateMessageWithVariables(messageName, "someCorrelationKey", variableMap);
-
-                                        // businessKey was removed
-                                        // processDefinitionId was removed
-                                        camundaClientWrapper.correlateMessageWithVariables(messageName, "someCorrelationKey", variableMap);
-                                    }
-                                }
-                                """));
+                                         // businessKey was removed
+                                         // processDefinitionId was removed
+                                         camundaClient
+                                                 .newCorrelateMessageCommand()
+                                                 .messageName(messageName)
+                                                 .correlationKey("add correlationKey here")
+                                                 .variables(variableMap)
+                                                 .send()
+                                                 .join();
+                                     }
+                                 }
+                                 """));
   }
 }

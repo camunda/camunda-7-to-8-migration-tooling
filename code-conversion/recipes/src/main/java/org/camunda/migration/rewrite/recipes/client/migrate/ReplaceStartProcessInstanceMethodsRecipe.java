@@ -3,11 +3,12 @@ package org.camunda.migration.rewrite.recipes.client.migrate;
 import static java.util.Collections.emptyList;
 
 import java.util.List;
+import org.camunda.migration.rewrite.recipes.utils.CamundaClientCodes;
 import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
+import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.JavaTemplate;
-import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
@@ -17,9 +18,7 @@ import org.openrewrite.marker.Markers;
 public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public ReplaceStartProcessInstanceMethodsRecipe(String CLIENT_WRAPPER_PACKAGE) {
-    this.CLIENT_WRAPPER_PACKAGE = CLIENT_WRAPPER_PACKAGE;
-  }
+  public ReplaceStartProcessInstanceMethodsRecipe() {}
 
   @Override
   public String getDisplayName() {
@@ -31,8 +30,6 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
     return "Replaces Camunda 7 create process instance methods with Camunda 8 client wrapper.";
   }
 
-  String CLIENT_WRAPPER_PACKAGE;
-
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
 
@@ -43,208 +40,167 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
             new UsesMethod<>(RecipeConstants.Method.GET_RUNTIME_SERVICE, true),
             Preconditions.or(
                 new UsesMethod<>(
-                        RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
+                    RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
                         + RecipeConstants.Parameters.ANY,
-                        true),
+                    true),
+                new UsesMethod<>(RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_KEY, true),
                 new UsesMethod<>(
-                        RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_KEY, true),
-                new UsesMethod<>(
-                        RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
+                    RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
                         + RecipeConstants.Parameters.ANY,
-                        true),
+                    true),
+                new UsesMethod<>(RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_ID, true),
                 new UsesMethod<>(
-                        RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_ID, true),
-                new UsesMethod<>(
-                        RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
+                    RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
                         + RecipeConstants.Parameters.ANY,
-                        true),
+                    true),
                 new UsesMethod<>(
-                        RecipeConstants.Method
+                    RecipeConstants.Method
                             .START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
                         + RecipeConstants.Parameters.ANY,
-                        true)));
+                    true)));
 
     return Preconditions.check(
         check,
-        new JavaVisitor<ExecutionContext>() {
+        new JavaIsoVisitor<ExecutionContext>() {
 
           // engine - start by key methods
           final MethodMatcher engineStartByKey =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
                       + RecipeConstants.Parameters.build("String"));
           final MethodMatcher engineStartByKeyAndBusinessKey =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
                       + RecipeConstants.Parameters.build("String", "String"));
           final MethodMatcher engineStartByKeyAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
                       + RecipeConstants.Parameters.build("String", "java.util.Map"));
           final MethodMatcher engineStartByKeyAndBusinessKeyAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_KEY
                       + RecipeConstants.Parameters.build("String", "String", "java.util.Map"));
 
           // engine - start by id methods
           final MethodMatcher engineStartById =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
                       + RecipeConstants.Parameters.build("String"));
           final MethodMatcher engineStartByIdAndBusinessKey =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
                       + RecipeConstants.Parameters.build("String", "String"));
           final MethodMatcher engineStartByIdAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
                       + RecipeConstants.Parameters.build("String", "java.util.Map"));
           final MethodMatcher engineStartByIdAndBusinessKeyAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_ID
                       + RecipeConstants.Parameters.build("String", "String", "java.util.Map"));
 
           // engine - start by message
           final MethodMatcher engineStartByMessage =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
                       + RecipeConstants.Parameters.build("String"));
           final MethodMatcher engineStartByMessageAndBusinessKey =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
                       + RecipeConstants.Parameters.build("String", "String"));
           final MethodMatcher engineStartByMessageAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
                       + RecipeConstants.Parameters.build("String", "java.util.Map"));
           final MethodMatcher engineStartByMessageAndBusinessKeyAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE
                       + RecipeConstants.Parameters.build("String", "String", "java.util.Map"));
 
           // engine - start by message and processDefinitionId
           final MethodMatcher engineStartByMessageAndProcessDefinitionId =
               new MethodMatcher(
-                      RecipeConstants.Method
-                          .START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
                       + RecipeConstants.Parameters.build("String", "String"));
           final MethodMatcher engineStartByMessageAndProcessDefinitionIdAndBusinessKey =
               new MethodMatcher(
-                      RecipeConstants.Method
-                          .START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
                       + RecipeConstants.Parameters.build("String", "String", "String"));
           final MethodMatcher engineStartByMessageAndProcessDefinitionIdAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method
-                          .START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
                       + RecipeConstants.Parameters.build("String", "String", "java.util.Map"));
           final MethodMatcher engineStartByMessageAndProcessDefinitionIdAndBusinessKeyAndVariables =
               new MethodMatcher(
-                      RecipeConstants.Method
-                          .START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
+                  RecipeConstants.Method.START_PROCESS_INSTANCE_BY_MESSAGE_AND_PROCESS_DEFINITION_ID
                       + RecipeConstants.Parameters.build(
                           "String", "String", "String", "java.util.Map"));
 
           // engine - create by key builder pattern
           final MethodMatcher engineCreateByKey =
-              new MethodMatcher(
-                      RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_KEY);
+              new MethodMatcher(RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_KEY);
           final MethodMatcher engineCreateById =
               new MethodMatcher(RecipeConstants.Method.CREATE_PROCESS_INSTANCE_BY_ID);
           final MethodMatcher engineCreateBusinessKey =
-              new MethodMatcher(
-                      RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_BUSINESS_KEY);
+              new MethodMatcher(RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_BUSINESS_KEY);
           final MethodMatcher engineCreateTenantId =
-              new MethodMatcher(
-                      RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_TENANT_ID);
+              new MethodMatcher(RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_TENANT_ID);
           final MethodMatcher engineCreateSetVariables =
-              new MethodMatcher(
-                      RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_SET_VARIABLES);
+              new MethodMatcher(RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_SET_VARIABLES);
           final MethodMatcher engineCreateExecute =
-              new MethodMatcher(
-                      RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_EXECUTE);
+              new MethodMatcher(RecipeConstants.Method.PROCESS_INSTANCE_BUILDER_EXECUTE);
 
           // wrapper - create by BPMN Model Identifier methods
-          final JavaTemplate wrapperCreateByBPMNModelIdentifier =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByBPMNModelIdentifier(#{processDefinitionId:any(java.lang.String)});");
 
-          final JavaTemplate wrapperCreateByBPMNModelIdentifierWithTenantId =
+          final JavaTemplate clientCreateByBPMNModelIdentifier =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByBPMNModelIdentifierWithTenantId(#{processDefinitionId:any(java.lang.String)}, #{tenantId:any(java.lang.String)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_BPMN_MODEL_IDENTIFIER);
 
-          final JavaTemplate wrapperCreateByBPMNModelIdentifierWithVariables =
+          final JavaTemplate clientCreateByBPMNModelIdentifierWithTenantId =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByBPMNModelIdentifierWithVariables(#{processDefinitionId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_BPMN_MODEL_IDENTIFIER_WITH_TENANT_ID);
 
-          final JavaTemplate wrapperCreateByBPMNModelIdentifierWithTenantIdWithVariables =
+          final JavaTemplate clientCreateByBPMNModelIdentifierWithVariables =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByBPMNModelIdentifierWithTenantIdWithVariables(#{processDefinitionId:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_BPMN_MODEL_IDENTIFIER_WITH_VARIABLES);
+
+          final JavaTemplate clientCreateByBPMNModelIdentifierWithTenantIdWithVariables =
+              RecipeUtils.createSimpleJavaTemplate(
+                  CamundaClientCodes
+                      .CREATE_PROCESS_BY_BPMN_MODEL_IDENTIFIER_WITH_TENANT_ID_WITH_VARIABLES);
 
           // wrapper - create by key assigned on deployment methods
-          final JavaTemplate wrapperCreateByKeyAssignedOnDeployment =
+          final JavaTemplate clientCreateByKeyAssignedOnDeployment =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByKeyAssignedOnDeployment(#{processDefinitionKey:any(java.lang.String)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_KEY_ASSIGNED_ON_DEPLOYMENT);
 
-          final JavaTemplate wrapperCreateByKeyAssignedOnDeploymentWithTenantId =
+          final JavaTemplate clientCreateByKeyAssignedOnDeploymentWithTenantId =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByKeyAssignedOnDeploymentWithTenantId(#{processDefinitionKey:any(java.lang.String)}, #{tenantId:any(java.lang.String)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_KEY_ASSIGNED_ON_DEPLOYMENT_WITH_TENANT_ID);
 
-          final JavaTemplate wrapperCreateByKeyAssignedOnDeploymentWithVariables =
+          final JavaTemplate clientCreateByKeyAssignedOnDeploymentWithVariables =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByKeyAssignedOnDeploymentWithVariables(#{processDefinitionKey:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+                  CamundaClientCodes.CREATE_PROCESS_BY_KEY_ASSIGNED_ON_DEPLOYMENT_WITH_VARIABLES);
 
-          final JavaTemplate wrapperCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables =
+          final JavaTemplate clientCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.createProcessByKeyAssignedOnDeploymentWithTenantIdWithVariables(#{processDefinitionKey:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+                  CamundaClientCodes
+                      .CREATE_PROCESS_BY_KEY_ASSIGNED_ON_DEPLOYMENT_WITH_TENANT_ID_WITH_VARIABLES);
 
           // wrapper - correlate message
-          final JavaTemplate wrapperCorrelateMessage =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.correlateMessage(#{messageName:any(java.lang.String)}, \"someCorrelationKey\");");
+          final JavaTemplate clientCorrelateMessage =
+              RecipeUtils.createSimpleJavaTemplate(CamundaClientCodes.CORRELATE_MESSAGE);
 
-          final JavaTemplate wrapperCorrelateMessageWithTenantId =
+          final JavaTemplate clientCorrelateMessageWithVariables =
               RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.correlateMessageWithTenantId(#{messageName:any(java.lang.String)}, \"someCorrelationKey\", #{tenantId:any(java.lang.String)});");
-
-          final JavaTemplate wrapperCorrelateMessageWithVariables =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.correlateMessageWithVariables(#{messageName:any(java.lang.String)}, \"someCorrelationKey\", #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
-
-          final JavaTemplate wrapperCorrelateMessageWithTenantIdWithVariables =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.correlateMessageWithTenantIdWithVariables(#{messageName:any(java.lang.String)}, \"someCorrelationKey\", #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+                  CamundaClientCodes.CORRELATE_MESSAGE_WITH_VARIABLES);
 
           /**
            * Variable declarations are visited. Types are adjusted appropriately. Initializers are
            * replaced by wrapper methods + class methods.
            */
           @Override
-          public J visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
+          public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
 
             // Analyze first variable
             J.VariableDeclarations.NamedVariable firstVar = decls.getVariables().get(0);
@@ -264,9 +220,9 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
                       meth)) {
                 decls =
                     changeVariableTypeIfApplicable(
-                            decls,
-                            RecipeConstants.Type.ENGINE_PROCESS_INSTANCE,
-                            RecipeConstants.Type.CORRELATION_MESSAGE_RESPONSE);
+                        decls,
+                        RecipeConstants.Type.ENGINE_PROCESS_INSTANCE,
+                        RecipeConstants.Type.CORRELATION_MESSAGE_RESPONSE);
               } else if (engineStartByKey.matches(meth)
                   || engineStartByKeyAndVariables.matches(meth)
                   || engineStartByKeyAndBusinessKey.matches(meth)
@@ -278,9 +234,9 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
                   || engineCreateExecute.matches(meth)) {
                 decls =
                     changeVariableTypeIfApplicable(
-                            decls,
-                            RecipeConstants.Type.ENGINE_PROCESS_INSTANCE,
-                            RecipeConstants.Type.PROCESS_INSTANCE_EVENT);
+                        decls,
+                        RecipeConstants.Type.ENGINE_PROCESS_INSTANCE,
+                        RecipeConstants.Type.PROCESS_INSTANCE_EVENT);
               }
             }
 
@@ -290,9 +246,10 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
           /** Method invocations are visited and replaced */
           @Override
-          public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
-            J.Identifier camundaClientWrapper =
-                RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+          public J.MethodInvocation visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
+            J.Identifier camundaClient =
+                RecipeUtils.createSimpleIdentifier(
+                    "camundaClient", RecipeConstants.Type.CAMUNDA_CLIENT);
 
             // a comment is added in case the businessKey was removed
             TextComment removedBusinessKeyComment =
@@ -312,38 +269,38 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by key methods
             if (engineStartByKey.matches(elem)) {
-              return wrapperCreateByBPMNModelIdentifier.apply(
+              return clientCreateByBPMNModelIdentifier.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0));
             }
 
             if (engineStartByKeyAndBusinessKey.matches(elem)) {
-              return wrapperCreateByBPMNModelIdentifier
+              return clientCreateByBPMNModelIdentifier
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0))
                   .withComments(List.of(removedBusinessKeyComment));
             }
 
             if (engineStartByKeyAndVariables.matches(elem)) {
-              return wrapperCreateByBPMNModelIdentifierWithVariables.apply(
+              return clientCreateByBPMNModelIdentifierWithVariables.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0),
                   elem.getArguments().get(1));
             }
 
             if (engineStartByKeyAndBusinessKeyAndVariables.matches(elem)) {
-              return wrapperCreateByBPMNModelIdentifierWithVariables
+              return clientCreateByBPMNModelIdentifierWithVariables
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0),
                       elem.getArguments().get(2))
                   .withComments(List.of(removedBusinessKeyComment));
@@ -351,38 +308,38 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by id methods
             if (engineStartById.matches(elem)) {
-              return wrapperCreateByKeyAssignedOnDeployment.apply(
+              return clientCreateByKeyAssignedOnDeployment.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0));
             }
 
             if (engineStartByIdAndBusinessKey.matches(elem)) {
-              return wrapperCreateByKeyAssignedOnDeployment
+              return clientCreateByKeyAssignedOnDeployment
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0))
                   .withComments(List.of(removedBusinessKeyComment));
             }
 
             if (engineStartByIdAndVariables.matches(elem)) {
-              return wrapperCreateByKeyAssignedOnDeploymentWithVariables.apply(
+              return clientCreateByKeyAssignedOnDeploymentWithVariables.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0),
                   elem.getArguments().get(1));
             }
 
             if (engineStartByIdAndBusinessKeyAndVariables.matches(elem)) {
-              return wrapperCreateByKeyAssignedOnDeploymentWithVariables
+              return clientCreateByKeyAssignedOnDeploymentWithVariables
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0),
                       elem.getArguments().get(2))
                   .withComments(List.of(removedBusinessKeyComment));
@@ -390,38 +347,38 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by message
             if (engineStartByMessage.matches(elem)) {
-              return wrapperCorrelateMessage.apply(
+              return clientCorrelateMessage.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0));
             }
 
             if (engineStartByMessageAndBusinessKey.matches(elem)) {
-              return wrapperCorrelateMessage
+              return clientCorrelateMessage
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0))
                   .withComments(List.of(removedBusinessKeyComment));
             }
 
             if (engineStartByMessageAndVariables.matches(elem)) {
-              return wrapperCorrelateMessageWithVariables.apply(
+              return clientCorrelateMessageWithVariables.apply(
                   getCursor(),
                   elem.getCoordinates().replace(),
-                  camundaClientWrapper,
+                  camundaClient,
                   elem.getArguments().get(0),
                   elem.getArguments().get(1));
             }
 
             if (engineStartByMessageAndBusinessKeyAndVariables.matches(elem)) {
-              return wrapperCorrelateMessageWithVariables
+              return clientCorrelateMessageWithVariables
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0),
                       elem.getArguments().get(2))
                   .withComments(List.of(removedBusinessKeyComment));
@@ -429,32 +386,32 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             // replace by message and processDefinitionId
             if (engineStartByMessageAndProcessDefinitionId.matches(elem)) {
-              return wrapperCorrelateMessage
+              return clientCorrelateMessage
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0))
                   .withComments(List.of(removedProcessDefinitionIdComment));
             }
 
             if (engineStartByMessageAndProcessDefinitionIdAndBusinessKey.matches(elem)) {
-              return wrapperCorrelateMessage
+              return clientCorrelateMessage
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0))
                   .withComments(
                       List.of(removedBusinessKeyComment, removedProcessDefinitionIdComment));
             }
 
             if (engineStartByMessageAndProcessDefinitionIdAndVariables.matches(elem)) {
-              return wrapperCorrelateMessageWithVariables
+              return clientCorrelateMessageWithVariables
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0),
                       elem.getArguments().get(2))
                   .withComments(List.of(removedProcessDefinitionIdComment));
@@ -462,11 +419,11 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
 
             if (engineStartByMessageAndProcessDefinitionIdAndBusinessKeyAndVariables.matches(
                 elem)) {
-              return wrapperCorrelateMessageWithVariables
+              return clientCorrelateMessageWithVariables
                   .apply(
                       getCursor(),
                       elem.getCoordinates().replace(),
-                      camundaClientWrapper,
+                      camundaClient,
                       elem.getArguments().get(0),
                       elem.getArguments().get(3))
                   .withComments(
@@ -501,140 +458,140 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
               if (processDefinitionKey != null) {
                 if (businessKey != null) {
                   if (tenantId != null && variableMap != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithTenantIdWithVariables
+                    return clientCreateByBPMNModelIdentifierWithTenantIdWithVariables
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionKey,
                             tenantId,
                             variableMap)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else if (variableMap != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithVariables
+                    return clientCreateByBPMNModelIdentifierWithVariables
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionKey,
                             variableMap)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else if (tenantId != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithTenantId
+                    return clientCreateByBPMNModelIdentifierWithTenantId
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionKey,
                             tenantId)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else {
-                    return wrapperCreateByBPMNModelIdentifier
+                    return clientCreateByBPMNModelIdentifier
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionKey)
                         .withComments(List.of(removedBusinessKeyComment));
                   }
                 } else {
                   if (tenantId != null && variableMap != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithTenantIdWithVariables.apply(
+                    return clientCreateByBPMNModelIdentifierWithTenantIdWithVariables.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionKey,
                         tenantId,
                         variableMap);
                   } else if (variableMap != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithVariables.apply(
+                    return clientCreateByBPMNModelIdentifierWithVariables.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionKey,
                         variableMap);
                   } else if (tenantId != null) {
-                    return wrapperCreateByBPMNModelIdentifierWithTenantId.apply(
+                    return clientCreateByBPMNModelIdentifierWithTenantId.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionKey,
                         tenantId);
                   } else {
-                    return wrapperCreateByBPMNModelIdentifier.apply(
+                    return clientCreateByBPMNModelIdentifier.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionKey);
                   }
                 }
               } else if (processDefinitionId != null) {
                 if (businessKey != null) {
                   if (tenantId != null && variableMap != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables
+                    return clientCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionId,
                             tenantId,
                             variableMap)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else if (variableMap != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithVariables
+                    return clientCreateByKeyAssignedOnDeploymentWithVariables
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionId,
                             variableMap)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else if (tenantId != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithTenantId
+                    return clientCreateByKeyAssignedOnDeploymentWithTenantId
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionId,
                             tenantId)
                         .withComments(List.of(removedBusinessKeyComment));
                   } else {
-                    return wrapperCreateByKeyAssignedOnDeployment
+                    return clientCreateByKeyAssignedOnDeployment
                         .apply(
                             getCursor(),
                             elem.getCoordinates().replace(),
-                            camundaClientWrapper,
+                            camundaClient,
                             processDefinitionId)
                         .withComments(List.of(removedBusinessKeyComment));
                   }
                 } else {
                   if (tenantId != null && variableMap != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables.apply(
+                    return clientCreateByKeyAssignedOnDeploymentWithTenantIdWithVariables.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionId,
                         tenantId,
                         variableMap);
                   } else if (variableMap != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithVariables.apply(
+                    return clientCreateByKeyAssignedOnDeploymentWithVariables.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionId,
                         variableMap);
                   } else if (tenantId != null) {
-                    return wrapperCreateByKeyAssignedOnDeploymentWithTenantId.apply(
+                    return clientCreateByKeyAssignedOnDeploymentWithTenantId.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionId,
                         tenantId);
                   } else {
-                    return wrapperCreateByKeyAssignedOnDeployment.apply(
+                    return clientCreateByKeyAssignedOnDeployment.apply(
                         getCursor(),
                         elem.getCoordinates().replace(),
-                        camundaClientWrapper,
+                        camundaClient,
                         processDefinitionId);
                   }
                 }
@@ -649,7 +606,7 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
                     || elem.getSimpleName().equals("getId"))) {
               JavaTemplate getProcessInstanceKeyToString =
                   RecipeUtils.createSimpleJavaTemplate(
-                          "#{any("
+                      "#{any("
                           + RecipeConstants.Type.CORRELATION_MESSAGE_RESPONSE
                           + ")}.getProcessInstanceKey().toString()");
 

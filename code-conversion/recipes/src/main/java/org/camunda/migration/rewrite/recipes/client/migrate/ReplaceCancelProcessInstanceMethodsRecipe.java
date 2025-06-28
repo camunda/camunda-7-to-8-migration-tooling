@@ -24,7 +24,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
 
   @Override
   public String getDescription() {
-    return "Replaces Camunda 7 cancel process instance methods with Camunda 8 client wrapper.";
+    return "Replaces Camunda 7 cancel process instance methods with Camunda 8 client.";
   }
 
 
@@ -51,7 +51,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
            * processInstanceId is expected to be a string. If any method returns a processInstanceId
            * elsewhere, it will also be cast to a string.
            */
-            final JavaTemplate wrapperCancelProcessInstance =
+            final JavaTemplate clientCancelProcessInstance =
                     RecipeUtils.createSimpleJavaTemplate(
                             CamundaClientCodes.CANCEL_PROCESS_INSTANCE);
 
@@ -73,7 +73,7 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends Recipe {
              * else resume tree traversal
              */
             if (engineDeleteProcessInstance.matches(methodInv)) {
-              return wrapperCancelProcessInstance
+              return clientCancelProcessInstance
                   .apply(
                       getCursor(),
                       methodInv.getCoordinates().replace(),

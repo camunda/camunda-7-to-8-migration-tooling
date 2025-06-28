@@ -54,7 +54,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .bpmnProcessId(#{signalName:any(processDefinitionId)})
+                .bpmnProcessId(#{processDefinitionId:any(String)})
                 .latestVersion()
                 .send()
                 .join();
@@ -64,7 +64,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .bpmnProcessId(#{signalName:any(processDefinitionId)})
+                .bpmnProcessId(#{processDefinitionId:any(String)})
                 .latestVersion()
                 .tenantId(#{tenantId:any(String)})
                 .send()
@@ -75,7 +75,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .bpmnProcessId(#{signalName:any(processDefinitionId)})
+                .bpmnProcessId(#{processDefinitionId:any(String)})
                 .latestVersion()
                 .variables(#{variableMap:any(java.util.Map)})
                 .send()
@@ -86,7 +86,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .bpmnProcessId(#{signalName:any(processDefinitionId)})
+                .bpmnProcessId(#{processDefinitionId:any(String)})
                 .latestVersion()
                 .tenantId(#{tenantId:any(String)})
                 .variables(#{variableMap:any(java.util.Map)})
@@ -98,7 +98,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .processDefinitionKey(Long.valueOf(#{tenantId:any(processDefinitionKey)}))
+                .processDefinitionKey(Long.valueOf(#{tenantId:any(String)}))
                 .send()
                 .join();
             """;
@@ -107,7 +107,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .processDefinitionKey(Long.valueOf(#{tenantId:any(processDefinitionKey)}))
+                .processDefinitionKey(Long.valueOf(#{tenantId:any(String)}))
                 .tenantId(#{tenantId:any(String)})
                 .send()
                 .join();
@@ -117,7 +117,7 @@ public class CamundaClientCodes {
       """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .processDefinitionKey(Long.valueOf(#{tenantId:any(processDefinitionKey)}))
+                .processDefinitionKey(Long.valueOf(#{tenantId:any(String)}))
                 .variables(#{variableMap:any(java.util.Map)})
                 .send()
                 .join();
@@ -128,7 +128,7 @@ public class CamundaClientCodes {
           """
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCreateInstanceCommand()
-                .processDefinitionKey(Long.valueOf(#{tenantId:any(processDefinitionKey)}))
+                .processDefinitionKey(Long.valueOf(#{tenantId:any(String)}))
                 .tenantId(#{tenantId:any(String)})
                 .variables(#{variableMap:any(java.util.Map)})
                 .send()
@@ -140,7 +140,7 @@ public class CamundaClientCodes {
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCorrelateMessageCommand()
                 .messageName(#{messageName:any(String)})
-                .correlationKey(#{correlationKey:any(String)})
+                .correlationKey("add correlationKey here")
                 .send()
                 .join();
             """;
@@ -150,7 +150,7 @@ public class CamundaClientCodes {
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCorrelateMessageCommand()
                 .messageName(#{messageName:any(String)})
-                .correlationKey(#{correlationKey:any(String)})
+                .correlationKey("add correlationKey here")
                 .tenantId(#{tenantId:any(String)})
                 .send()
                 .join();
@@ -161,7 +161,7 @@ public class CamundaClientCodes {
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCorrelateMessageCommand()
                 .messageName(#{messageName:any(String)})
-                .correlationKey(#{correlationKey:any(String)})
+                .correlationKey("add correlationKey here")
                 .variables(#{variableMap:any(java.util.Map)})
                 .send()
                 .join();
@@ -172,7 +172,7 @@ public class CamundaClientCodes {
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newCorrelateMessageCommand()
                 .messageName(#{messageName:any(String)})
-                .correlationKey(#{correlationKey:any(String)})
+                .correlationKey("add correlationKey here")
                 .tenantId(#{tenantId:any(String)})
                 .variables(#{variableMap:any(java.util.Map)})
                 .send()
