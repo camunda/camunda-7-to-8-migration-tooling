@@ -227,7 +227,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
                             // incident is raised by throwing jobError with no retries
                             throw CamundaError.jobError("Add an error message here", new HashMap<>(), 0);
-                            
+
                             // incident is raised by throwing jobError with no retries
                             throw CamundaError.jobError("someMessage", new HashMap<>(), 0);
                             return resultMap;

@@ -62,7 +62,7 @@ recipeList:
                     <activeRecipes>
                         <recipe>a.name.for.your.recipe</recipe>
                     </activeRecipes>
-                    <skipMavenParsing>true</skipMavenParsing>
+                    <skipMavenParsing>false</skipMavenParsing>
                 </configuration>
                 <dependencies>
                     <dependency>

@@ -1,17 +1,16 @@
 package org.camunda.migration.rewrite.recipes.client.prepare;
 
-import org.camunda.migration.rewrite.recipes.client.prepare.AddCamundaClientWrapperDependencyRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-class AddCamundaClientWrapperDependencyTest implements RewriteTest {
+class AddCamundaClientDependencyTest implements RewriteTest {
 
     @Test
-    void addCamundaClientWrapperDependencyTest() {
+    void addCamundaClientDependencyTest() {
         rewriteRun(
-                spec -> spec.recipe(new AddCamundaClientWrapperDependencyRecipe("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
+                spec -> spec.recipe(new AddCamundaClientDependencyRecipe()),
                 //language=java
                 java(
                         """
@@ -43,9 +42,9 @@ class AddCamundaClientWrapperDependencyTest implements RewriteTest {
                                 """,
                         """
                                 package org.camunda.community.migration.example;
-                                        
+                                  
+                                import io.camunda.client.CamundaClient;        
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -55,7 +54,7 @@ class AddCamundaClientWrapperDependencyTest implements RewriteTest {
                                 public class BroadcastSignalsTestClass {
                                         
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
+                                    private CamundaClient camundaClient;
                                     
                                     @Autowired
                                     private ProcessEngine engine;

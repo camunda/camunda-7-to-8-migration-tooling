@@ -10,59 +10,56 @@ class ReplaceCancelProcessInstanceMethodsTest implements RewriteTest {
 
     @Test
     void replaceCancelProcessInstanceMethodsTest() {
-        rewriteRun(
-                spec -> spec.recipe(new ReplaceCancelProcessInstanceMethodsRecipe("org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper")),
-                //language=java
-                java(
-                        """
+    rewriteRun(
+        spec -> spec.recipe(new ReplaceCancelProcessInstanceMethodsRecipe()),
+        // language=java
+        java(
+            """
                                 package org.camunda.community.migration.example;
-                                        
+
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
+                                import io.camunda.client.CamundaClient;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
-                                                                
+
                                 @Component
                                 public class CancelProcessInstanceTestClass {
-                                    
+
                                     @Autowired
                                     private ProcessEngine engine;
-                                           
+
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
-                                                                          
+                                    private CamundaClient camundaClient;
+
                                     public void cancelProcessInstance(String processInstanceId, String deleteReason) {
-                                        camundaClientWrapper.broadcastSignal("signalName");
-                                        
                                         engine.getRuntimeService().deleteProcessInstance(processInstanceId, deleteReason);
                                     }
-                                }                                                                                                         
+                                }
                                 """,
-                        """
+            """
                                 package org.camunda.community.migration.example;
-                                                                
+
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
+                                import io.camunda.client.CamundaClient;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
-                                                                
+
                                 @Component
                                 public class CancelProcessInstanceTestClass {
-                                    
+
                                     @Autowired
                                     private ProcessEngine engine;
-                                    
+
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
-                                                                                 
+                                    private CamundaClient camundaClient;
+
                                     public void cancelProcessInstance(String processInstanceId, String deleteReason) {
-                                        camundaClientWrapper.broadcastSignal("signalName");
-                                        
-                                        camundaClientWrapper.cancelProcessInstance(Long.valueOf(processInstanceId));
+                                        camundaClient
+                                                .newCancelInstanceCommand(Long.valueOf(processInstanceId))
+                                                .send()
+                                                .join();
                                     }
-                                } 
-                                """
-                )
-        );
+                                }
+                                """));
     }
 }

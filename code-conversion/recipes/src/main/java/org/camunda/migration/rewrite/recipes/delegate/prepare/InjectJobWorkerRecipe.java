@@ -30,7 +30,7 @@ public class InjectJobWorkerRecipe extends Recipe {
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
             Preconditions.not(
-                new UsesType<>(RecipeConstants.Type.JOB_WORKER, true)),
+                new UsesType<>(RecipeConstants.Type.ACTIVATED_JOB, true)),
             new UsesType<>(RecipeConstants.Type.DELEGATE_EXECUTION, true));
 
     return Preconditions.check(

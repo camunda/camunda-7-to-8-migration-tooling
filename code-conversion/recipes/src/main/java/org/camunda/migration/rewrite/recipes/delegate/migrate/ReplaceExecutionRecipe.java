@@ -181,6 +181,26 @@ public class ReplaceExecutionRecipe extends Recipe {
               return super.visitAssignment(assignment, ctx);
             }
 
+            @Override
+            public J visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
+
+              // ensure we are not inside the delegate method
+              if (isInsideDelegateMethod()) {
+                return typeCast;
+              }
+              return super.visitTypeCast(typeCast, ctx);
+            }
+
+            @Override
+            public J visitBinary(J.Binary binary, ExecutionContext ctx) {
+
+              // ensure we are not inside the delegate method
+              if (isInsideDelegateMethod()) {
+                return binary;
+              }
+              return super.visitBinary(binary, ctx);
+            }
+
             private boolean isInsideDelegateMethod() {
               J.MethodDeclaration enclosingMethod =
                   getCursor().firstEnclosing(J.MethodDeclaration.class);
@@ -648,7 +668,7 @@ public class ReplaceExecutionRecipe extends Recipe {
                         .withPrefix(((Statement) statementCursor.getValue()).getPrefix());
 
                 return stmt.withComments(List.of(incidentNoRetries));
-                //return stmt;
+                // return stmt;
               }
 
               if (engineCreateIncidentWithMessage.matches(methodInvocation)) {

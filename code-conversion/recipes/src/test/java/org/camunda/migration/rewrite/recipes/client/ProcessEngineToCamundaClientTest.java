@@ -49,8 +49,8 @@ public class VariousProcessEngineFunctionsTestClass {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
-import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -58,16 +58,28 @@ import org.springframework.stereotype.Component;
 public class VariousProcessEngineFunctionsTestClass {
 
     @Autowired
-    private CamundaClientWrapper camundaClientWrapper;
+    private CamundaClient camundaClient;
 
     public void variousProcessEngineFunctions(String processDefinitionKey, String signalName, String deleteReason) {
 
-        ProcessInstanceEvent instance1 =camundaClientWrapper.createProcessByBPMNModelIdentifier(processDefinitionKey);
+        ProcessInstanceEvent instance1 =camundaClient
+                .newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionKey)
+                .latestVersion()
+                .send()
+                .join();
         String processInstanceId = instance1.getProcessInstanceKey().toString();
         System.out.println(instance1.getProcessInstanceKey().toString());
 
-        camundaClientWrapper.broadcastSignal(signalName);
-        camundaClientWrapper.cancelProcessInstance(Long.valueOf(processInstanceId));
+        camundaClient
+                .newBroadcastSignalCommand()
+                .signalName(signalName)
+                .send()
+                .join();
+        camundaClient
+                .newCancelInstanceCommand(Long.valueOf(processInstanceId))
+                .send()
+                .join();
     }
 }
 """));

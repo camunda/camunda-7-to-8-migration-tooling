@@ -8,24 +8,20 @@ import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
-public class AddCamundaClientWrapperDependencyRecipe extends Recipe {
+public class AddCamundaClientDependencyRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public AddCamundaClientWrapperDependencyRecipe(String CLIENT_WRAPPER_PACKAGE) {
-    this.CLIENT_WRAPPER_PACKAGE = CLIENT_WRAPPER_PACKAGE;
-  }
+  public AddCamundaClientDependencyRecipe() {}
 
   @Override
   public String getDisplayName() {
-    return "Ensure camunda 8 wrapper";
+    return "Ensure camunda 8 client";
   }
 
   @Override
   public String getDescription() {
-    return "Adds camunda 8 wrapper dependency.";
+    return "Adds camunda 8 client dependency.";
   }
-
-  String CLIENT_WRAPPER_PACKAGE;
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -34,7 +30,7 @@ public class AddCamundaClientWrapperDependencyRecipe extends Recipe {
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
             new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
-            Preconditions.not(new UsesType<>(CLIENT_WRAPPER_PACKAGE, true)));
+            Preconditions.not(new UsesType<>(RecipeConstants.Type.CAMUNDA_CLIENT, true)));
 
     return Preconditions.check(
         check,
@@ -49,11 +45,11 @@ public class AddCamundaClientWrapperDependencyRecipe extends Recipe {
                 JavaTemplate.builder(
                         """
                         @Autowired
-                        private CamundaClientWrapper camundaClientWrapper;
+                        private CamundaClient camundaClient;
                     """)
                     .imports(
                         "org.springframework.beans.factory.annotation.Autowired",
-                        CLIENT_WRAPPER_PACKAGE)
+                        RecipeConstants.Type.CAMUNDA_CLIENT)
                     .javaParser(
                         JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
                     .build();
@@ -71,14 +67,14 @@ public class AddCamundaClientWrapperDependencyRecipe extends Recipe {
                     .anyMatch(
                         varDecl ->
                             varDecl.getVariables().stream()
-                                .anyMatch(v -> v.getSimpleName().equals(CLIENT_WRAPPER_PACKAGE)));
+                                .anyMatch(v -> v.getSimpleName().equals(RecipeConstants.Type.CAMUNDA_CLIENT)));
 
             if (hasField) {
               return classDecl; // Already present
             }
 
             // Insert the new field at the top of the class body
-            maybeAddImport(CLIENT_WRAPPER_PACKAGE);
+            maybeAddImport(RecipeConstants.Type.CAMUNDA_CLIENT);
             maybeAddImport("org.springframework.beans.factory.annotation.Autowired");
 
             return template.apply(

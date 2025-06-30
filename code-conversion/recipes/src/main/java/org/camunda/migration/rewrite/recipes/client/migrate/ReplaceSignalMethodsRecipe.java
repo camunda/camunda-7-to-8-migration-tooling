@@ -1,6 +1,8 @@
 package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import java.util.List;
+
+import org.camunda.migration.rewrite.recipes.utils.CamundaClientCodes;
 import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
@@ -15,8 +17,7 @@ import org.openrewrite.marker.Markers;
 public class ReplaceSignalMethodsRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public ReplaceSignalMethodsRecipe(String CLIENT_WRAPPER_PACKAGE) {
-    this.CLIENT_WRAPPER_PACKAGE = CLIENT_WRAPPER_PACKAGE;
+  public ReplaceSignalMethodsRecipe() {
   }
 
   @Override
@@ -28,8 +29,6 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
   public String getDescription() {
     return "Replaces Camunda 7 signal broadcasting methods with Camunda 8 client wrapper.";
   }
-
-  String CLIENT_WRAPPER_PACKAGE;
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -82,28 +81,16 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
 
           // wrapper - simple methods
           final JavaTemplate wrapperBroadcastSignal =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.broadcastSignal(#{signalName:any(java.lang.String)});");
+              RecipeUtils.createSimpleJavaTemplate(CamundaClientCodes.BROADCAST_SIGNAL);
 
           final JavaTemplate wrapperBroadcastSignalWithVariables =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.broadcastSignalWithVariables(#{signalName:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+              RecipeUtils.createSimpleJavaTemplate(CamundaClientCodes.BROADCAST_SIGNAL_WITH_VARIABLES);
 
           final JavaTemplate wrapperBroadcastSignalWithTenantId =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.broadcastSignalWithTenantId(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)});");
+              RecipeUtils.createSimpleJavaTemplate(CamundaClientCodes.BROADCAST_SIGNAL_WITH_TENANT_ID);
 
           final JavaTemplate wrapperBroadcastSignalWithTenantIdWithVariables =
-              RecipeUtils.createSimpleJavaTemplate(
-                  "#{camundaClientWrapper:any("
-                      + CLIENT_WRAPPER_PACKAGE
-                      + ")}.broadcastSignalWithTenantIdWithVariables(#{signalName:any(java.lang.String)}, #{tenantId:any(java.lang.String)}, #{variableMap:any(java.util.Map<java.lang.String,java.lang.Object>)});");
+              RecipeUtils.createSimpleJavaTemplate(CamundaClientCodes.BROADCAST_SIGNAL_WITH_TENANT_ID_WITH_VARIABLES);
 
           /**
            * One method is replaced with another method, thus visiting J.MethodInvocations works.
@@ -114,7 +101,7 @@ public class ReplaceSignalMethodsRecipe extends Recipe {
           @Override
           public J visitMethodInvocation(J.MethodInvocation elem, ExecutionContext ctx) {
             J.Identifier camundaClientWrapper =
-                RecipeUtils.createSimpleIdentifier("camundaClientWrapper", CLIENT_WRAPPER_PACKAGE);
+                RecipeUtils.createSimpleIdentifier("camundaClient", RecipeConstants.Type.CAMUNDA_CLIENT);
 
             // a comment is added in case the executionId was removed
             TextComment removedExecutionIdComment =
