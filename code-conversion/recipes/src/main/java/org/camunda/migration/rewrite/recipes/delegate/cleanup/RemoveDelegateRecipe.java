@@ -2,12 +2,12 @@ package org.camunda.migration.rewrite.recipes.delegate.cleanup;
 
 import java.util.List;
 import java.util.stream.Collectors;
-import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
+import org.openrewrite.jgit.annotations.NonNull;
 
 public class RemoveDelegateRecipe extends Recipe {
 
@@ -36,8 +36,9 @@ public class RemoveDelegateRecipe extends Recipe {
         new JavaIsoVisitor<ExecutionContext>() {
 
           @Override
+          @NonNull
           public J.ClassDeclaration visitClassDeclaration(
-              J.ClassDeclaration classDecl, ExecutionContext ctx) {
+              @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
             // Skip interfaces
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
@@ -50,7 +51,7 @@ public class RemoveDelegateRecipe extends Recipe {
                     .filter(
                         id ->
                             !TypeUtils.isOfClassType(
-                                id.getType(), JavaDelegate.class.getTypeName()))
+                                id.getType(), RecipeConstants.Type.JAVA_DELEGATE))
                     .collect(Collectors.toList());
 
             List<Statement> filteredStatements =

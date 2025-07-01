@@ -1,7 +1,9 @@
 package org.camunda.migration.rewrite.recipes.sharedRecipes;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
@@ -144,13 +146,15 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               // added map as hashmap initialization to statements
               jRightStatements.add(
                   new JRightPadded<>(
-                      newMapAndHashMapDecl.withVariables(
-                          List.of(
-                              newMapAndHashMapDecl
-                                  .getVariables()
-                                  .get(0)
-                                  .withName(originalName)
-                                  .withVariableType(originalVariableType))),
+                      newMapAndHashMapDecl
+                          .withVariables(
+                              List.of(
+                                  newMapAndHashMapDecl
+                                      .getVariables()
+                                      .get(0)
+                                      .withName(originalName)
+                                      .withVariableType(originalVariableType)))
+                          .withPrefix(decls.getPrefix()),
                       Space.EMPTY,
                       Markers.EMPTY));
 
@@ -322,6 +326,48 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))
                 && (invoc.getSimpleName().equals("putValueTyped")
                     || invoc.getSimpleName().equals("putValue"))) {
+
+              List<J.MethodInvocation> putValues = new ArrayList<>();
+
+              Expression current = invoc;
+
+              while (current instanceof J.MethodInvocation mi) {
+                current = mi.getSelect();
+                if (mi.getSimpleName().equals("putValueTyped")
+                    || mi.getSimpleName().equals("putValue")) {
+                  putValues.add(mi);
+                }
+              }
+
+              if (current instanceof J.Identifier ident
+                  && ident.getSimpleName().equals("Variables")) {
+                // replace inline map creation with Map.ofEntries()
+
+                String mapOfEntriesCode =
+                    "Map.ofEntries("
+                        + putValues.stream()
+                            .map((put) -> "Map.entry(#{any(String)}, #{any(java.lang.Object)})")
+                            .collect(Collectors.joining(", "))
+                        + ")";
+
+                JavaTemplate mapOfEntries =
+                    JavaTemplate.builder(mapOfEntriesCode)
+                        .javaParser(
+                            JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
+                        .imports("java.util.Map")
+                        .build();
+
+                Collections.reverse(putValues);
+
+                List<Expression> args = new ArrayList<>();
+                for (J.MethodInvocation put : putValues) {
+                  args.add(put.getArguments().get(0));
+                  args.add(put.getArguments().get(1));
+                }
+
+                return mapOfEntries.apply(
+                    getCursor(), invoc.getCoordinates().replace(), args.toArray(new Object[0]));
+              }
 
               // rename method invocation identifier to put
               J.Identifier ident = RecipeUtils.createSimpleIdentifier("put", "java.lang.String");

@@ -54,6 +54,8 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         map1.putValue("bla", bla);
                                         map1.putValueTyped("double", doubleTyped);
                                         
+                                        Variables.createVariables().putValue("blub", "blub").putValueTyped("name", nameTyped);
+                                        
                                         VariableMap map2 = Variables.fromMap(Collections.singletonMap("amount", amountTyped));
                                         
                                         ObjectValue objectValue = Variables.objectValue(customObject).create();
@@ -102,6 +104,8 @@ class ReplaceTypedValueAPITest implements RewriteTest {
                                         map1.put("name", nameTyped);
                                         map1.put("bla", bla);
                                         map1.put("double", doubleTyped);
+                                        
+                                        Map.ofEntries(Map.entry("blub", "blub"), Map.entry("name", nameTyped));
                                         
                                         Map<String, Object> map2 = Collections.singletonMap("amount", amountTyped);
                                         

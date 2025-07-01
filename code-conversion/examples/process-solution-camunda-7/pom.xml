@@ -84,15 +84,15 @@
                 <configuration>
                     <activeRecipes>
                         <!-- Adjust list of recipes to what you want to apply: -->
-                        <recipe>org.camunda.migration.rewrite.recipes.glue.JavaDelegateSpringToZeebeWorkerSpring</recipe>
+                        <recipe>org.camunda.migration.rewrite.recipes.AllDelegatePrepareRecipes</recipe>
                     </activeRecipes>
-                    <skipMavenParsing>true</skipMavenParsing>
+                    <skipMavenParsing>false</skipMavenParsing>
                 </configuration>
                 <dependencies>
                     <dependency>
                       <groupId>org.camunda.community</groupId>
                       <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
-                      <version>0.0.1-SNAPSHOT</version>
+                      <version>0.0.1-alpha2-SNAPSHOT</version>
                     </dependency>
                 </dependencies>
       </plugin>

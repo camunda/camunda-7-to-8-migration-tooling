@@ -606,9 +606,9 @@ public class ReplaceStartProcessInstanceMethodsRecipe extends Recipe {
                     || elem.getSimpleName().equals("getId"))) {
               JavaTemplate getProcessInstanceKeyToString =
                   RecipeUtils.createSimpleJavaTemplate(
-                      "#{any("
+                      "String.valueOf(#{any("
                           + RecipeConstants.Type.CORRELATION_MESSAGE_RESPONSE
-                          + ")}.getProcessInstanceKey().toString()");
+                          + ")}.getProcessInstanceKey())");
 
               return getProcessInstanceKeyToString.apply(
                   getCursor(), elem.getCoordinates().replace(), elem.getSelect());

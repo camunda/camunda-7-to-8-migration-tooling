@@ -173,8 +173,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .latestVersion()
                                                  .send()
                                                  .join();
-                                         String id = instance1.getProcessInstanceKey().toString();
-                                         System.out.println(instance1.getProcessInstanceKey().toString());
+                                         String id = String.valueOf(instance1.getProcessInstanceKey());
+                                         System.out.println(String.valueOf(instance1.getProcessInstanceKey()));
 
                                          // businessKey was removed
                                          camundaClient
@@ -359,8 +359,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .correlationKey("add correlationKey here")
                                                  .send()
                                                  .join();
-                                         String id2 = instance2.getProcessInstanceKey().toString();
-                                         System.out.println(instance2.getProcessInstanceKey().toString());
+                                         String id2 = String.valueOf(instance2.getProcessInstanceKey());
+                                         System.out.println(String.valueOf(instance2.getProcessInstanceKey()));
 
                                          // businessKey was removed
                                          camundaClient

@@ -68,8 +68,8 @@ public class VariousProcessEngineFunctionsTestClass {
                 .latestVersion()
                 .send()
                 .join();
-        String processInstanceId = instance1.getProcessInstanceKey().toString();
-        System.out.println(instance1.getProcessInstanceKey().toString());
+        String processInstanceId = String.valueOf(instance1.getProcessInstanceKey());
+        System.out.println(String.valueOf(instance1.getProcessInstanceKey()));
 
         camundaClient
                 .newBroadcastSignalCommand()
