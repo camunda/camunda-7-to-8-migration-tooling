@@ -1,10 +1,9 @@
 package org.camunda.community.migration.example;
 
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byName;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.time.Duration;
 import java.util.HashMap;
 
 import org.junit.jupiter.api.Test;
@@ -43,6 +42,10 @@ public class ApplicationTest {
       
       assertThat(processInstance).isCompleted()
       	.hasCompletedElements("Event_GreaterThan5");
+      
+      // Additional check to verify the expression is working properly
+      assertThat(processInstance).hasVariableNames("theAnswer");
+      assertThat(processInstance).hasVariable("theAnswer", 42);
     }
 
 	@Test

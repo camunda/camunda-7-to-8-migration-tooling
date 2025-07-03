@@ -30,7 +30,7 @@
           <zeebe:header key="expression" value="#{sampleBean.someMethod(y)}" />
           <zeebe:header key="resultVariable" value="theAnswer" />
         </zeebe:taskHeaders>
-        <zeebe:taskDefinition type="sampleJavaDelegate" />
+        <zeebe:taskDefinition type="JuelExpressionEvaluatorWorker" />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_133deh1</bpmn:incoming>
       <bpmn:outgoing>Flow_1yz9a8i</bpmn:outgoing>
