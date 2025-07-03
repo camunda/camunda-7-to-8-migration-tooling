@@ -15,7 +15,7 @@ public class SampleProcessStarter {
 	@Autowired
 	private RuntimeService runtimeService;
 	
-	@PostConstruct
+//	@PostConstruct
 	public void startOneProcess() {
 		System.out.println( "Demo usage of Camunda API during startup, typically wired into your own code somewhere..." );
 		
