@@ -15,6 +15,7 @@ import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.response.SearchResponse;
 import io.camunda.client.api.search.response.UserTask;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.process.test.api.assertions.UserTaskSelectors;
 
 @SpringBootTest
 //(properties = {"camunda.client.worker.defaults.enabled=true"})
@@ -35,7 +36,13 @@ public class ApplicationTest {
 				.variables(variables)
 				.send().join();    	
       
+		assertThat(processInstance).isActive();
       assertThat(processInstance).hasActiveElements(byName("Say hello to demo"));
+      
+      assertThat(UserTaskSelectors.byTaskName("Say hello to demo"))
+        .isCreated()
+        .hasName("Say hello to demo")
+      	.hasAssignee("demo");
       
       // C7 convenience: complete(task());
       complete(task(processInstance));

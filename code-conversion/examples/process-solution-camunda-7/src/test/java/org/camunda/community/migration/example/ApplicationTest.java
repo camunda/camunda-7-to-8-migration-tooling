@@ -5,6 +5,7 @@ import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.assertThat;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.task;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.complete;
@@ -16,11 +17,15 @@ public class ApplicationTest {
 	
   @Test
   void shouldRunProcess_withUserTask() {
-	    ProcessInstance processInstance = runtimeService().startProcessInstanceByKey(
-                "sample-process-solution-process",
-                Variables.createVariables().putValue("x", 7));
+    ProcessInstance processInstance = runtimeService().startProcessInstanceByKey(
+            "sample-process-solution-process",
+            Variables.createVariables().putValue("x", 7));
     // assert / verify that we arrive in the user task with the name "Say hello to demo"
     assertThat(processInstance).isWaitingAt(findId("Say hello to demo"));
+    assertThat(task())
+    	.hasName("Say hello to demo")
+    	.isAssignedTo("demo");
+    
     // complete that task, so that the process instance advances
     complete(task());
     // Assert that it completed in the right end event, and that a Spring Bean hooked into the service task has written the expected process variable

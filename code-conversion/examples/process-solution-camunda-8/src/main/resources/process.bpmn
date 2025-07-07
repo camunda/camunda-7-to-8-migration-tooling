@@ -71,6 +71,7 @@
     <bpmn:userTask id="say-hello" name="Say hello to demo">
       <bpmn:extensionElements>
         <zeebe:userTask />
+        <zeebe:assignmentDefinition assignee="demo" />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0hyyc2w</bpmn:incoming>
       <bpmn:outgoing>SequenceFlow_16gzt2m</bpmn:outgoing>

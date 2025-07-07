@@ -34,6 +34,14 @@ Patterns:
     - [Handling a Failure](#handling-a-failure)
     - [Handling an Incident](#handling-an-incident)
     - [Handling Process Variables](#handling-process-variables)
+- [Test Code](#test-code)
+  - [Camunda Platform Assert &#8594; Camunda Process Test (CPT)](#camunda-platform-assert-8594-camunda-process-test-cpt)
+    - [Complete Test Case](#complete-test-case)
+    - [Process Instance Assertions](#process-instance-assertions)
+    - [Process Variable Assertions](#process-variable-assertions)
+    - [User Task Assertions](#user-task-assertions)
+    - [Message Correlation](#message-correlation)
+    - [Job Execution in Test Cases](#job-execution-in-test-cases)
 
 ## General thoughts and changes
 
@@ -1681,5 +1689,442 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+---
+
+## Test Code
+
+Code written to test your solution, e.g. using JUnit.
+
+
+### Camunda Platform Assert &#8594; Camunda Process Test (CPT)
+
+Most tests for Camunda 7 use [Camunda Platform Assert](https://github.com/camunda/camunda-bpm-platform/tree/master/test-utils/assert) combined with JUnit for automated unit tests, whereas in Camunda 8 you will use [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) (starting from version 8.8).
+
+
+#### Complete Test Case
+
+A typical test case includes:
+
+- Bootstrapping the application (e.g. with Spring Boot as shown here)
+- Starting a process instance via the client API
+- Asserting key milestones such as:
+  - Reaching user tasks
+  - Completing the process
+  - Validating variable values
+
+Note: Distinguish between tests that rely on job workers and those that do not. See our [testing best practices](/components/best-practices/development/testing-process-definitions/) for more context and [Job Execution in Test Cases](./60-job.md) for details.
+
+###### Camunda 7: 
+
+This example starts a process instance, waits for a user task, completes it, and validates the result.
+
+[View full source code](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/main/examples/process-solution-camunda-7/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
+
+```java
+import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.engine.variable.Variables;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.assertThat;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.task;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.complete;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.runtimeService;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.findId;
+
+@SpringBootTest
+public class ApplicationTest {	
+  @Test
+  void testHappyPathWithUserTask() {
+    ProcessInstance processInstance = runtimeService().startProcessInstanceByKey(
+                "sample-process-solution-process",
+                Variables.createVariables().putValue("x", 7));
+    // assert / verify that we arrive in the user task with the name "Say hello to demo"
+    assertThat(processInstance).isWaitingAt(findId("Say hello to demo"));
+    // complete that task, so that the process instance advances
+    complete(task());
+    // Assert that it completed in the right end event, and that a Spring Bean hooked into the service task has written the expected process variable
+    assertThat(processInstance).isEnded().hasPassed("Event_GreaterThan5");
+    assertThat(processInstance).variables().containsEntry("theAnswer", 42);
+  }
+}
+```
+
+###### Camunda 8: 
+
+Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
+
+ [View full source code](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/main/examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java)
+
+```java
+import java.util.HashMap;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.ProcessInstanceEvent;
+import io.camunda.client.api.search.response.SearchResponse;
+import io.camunda.client.api.search.response.UserTask;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+
+import static io.camunda.process.test.api.CamundaAssert.assertThat;
+import static io.camunda.process.test.api.assertions.ElementSelectors.byName;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@SpringBootTest
+@CamundaSpringProcessTest
+public class ApplicationTest {
+
+    @Autowired
+    private CamundaClient client;
+
+    @Test
+    void testHappyPathWithUserTask() {
+		HashMap<String, Object> variables = new HashMap<String, Object>();
+		variables.put("x", 7);
+		
+		ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
+				.bpmnProcessId("sample-process-solution-process")
+				.latestVersion()
+				.variables(variables)
+				.send().join();    	
+      
+      assertThat(processInstance).hasActiveElements(byName("Say hello to demo"));
+      
+      // C7 convenience method is missing in Camunda 8 at the moment
+      complete(task(processInstance));
+      
+      assertThat(processInstance).isCompleted()
+      	.hasCompletedElements("Event_GreaterThan5");
+      
+      assertThat(processInstance).hasVariable("theAnswer", 42);
+    }
+```
+
+This code requires custom utility methods (`task` and `complete`) to query tasks and simulate user task completion. 
+See [User Task Assertions](./40-user-task.md) for details and a code sample.
+Such convenience methods may be added to CPT itself over time.
+
+---
+
+#### Process Instance Assertions
+
+###### Camunda 7
+
+Camunda 7 provides fluent assertions via [Camunda Platform Assert](https://github.com/camunda/camunda-bpm-platform/tree/master/test-utils/assert), allowing you to check the current state of a process instance:
+
+```java
+@Test
+void testProcessInstanceIsWaitingAtUserTask() {
+  ProcessInstance processInstance = runtimeService()
+    .startProcessInstanceByKey("example-process");
+
+  assertThat(processInstance)
+    .isNotEnded()
+    .isWaitingAt("UserTask_1");
+}
+```
+
+###### Camunda 8
+
+Camunda 8 uses [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) to check the state of a process instance. There are currently less utility methods (like `runtimeService()`) and tests rely on normal Spring behavior plus custom code.
+
+In test cases you typically want blocking behavior for the client API, so use `send().join()`:
+
+```java
+@Autowired
+CamundaClient client;
+
+@Test
+void testProcessInstanceIsWaitingAtUserTask() {
+  ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
+    .bpmnProcessId("example-process")
+    .latestVersion()
+    .send().join();
+
+  assertThat(processInstance)
+    .isActive()
+    .hasActiveElements("UserTask_1");
+}
+```
+
+[List of supported assertions](https://docs.camunda.io/docs/next/apis-tools/testing/assertions/).
+
+---
+
+#### Process Variable Assertions
+
+###### Camunda 7
+
+Camunda 7 provides a nested variable assertion:
+
+```java
+@Test
+void testProcessVariable() {
+  ProcessInstance processInstance = runtimeService()
+    .startProcessInstanceByKey("example-process", Variables.putValue("x", 5));
+
+  assertThat(processInstance)
+    .variables()
+    .containsEntry("x", 5);
+}
+```
+
+You can also check variables at the end of the process:
+
+```java
+assertThat(processInstance)
+  .isEnded()
+  .variables()
+  .containsEntry("result", "done");
+```
+
+###### Camunda 8
+
+[Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) has direct support for assertions on the process instance level:
+
+```java
+@Test
+void testProcessVariable() {
+  Map<String, Object> variables = new HashMap<>();
+  variables.put("x", 5);
+  
+  ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
+    .bpmnProcessId("example-process")
+    .latestVersion()
+    .variables(variables)
+    .send().join();
+
+  assertThat(processInstance)
+    .hasVariable("x", 5);   
+}
+```
+
+You can also assert final output variables after completion:
+```java
+assertThat(processInstance)
+  .isCompleted()
+  .hasVariable("result", "done");
+```
+
+---
+
+#### User Task Assertions
+
+###### Camunda 7
+
+You can assert that the process is waiting at a user task, and complete it using built-in helpers:
+
+```java
+@Test
+void testUserTaskIsReachedAndCompleted() {
+  ProcessInstance processInstance = runtimeService()
+    .startProcessInstanceByKey("example-process");
+
+  assertThat(processInstance)
+    .isWaitingAt("UserTask_Approve");
+
+  // Optionally assert task name or assignee
+  assertThat(task())
+    .hasName("Approve Request")
+    .isAssignedTo("demo");
+
+  complete(task());
+
+  assertThat(processInstance)
+    .hasPassed("UserTask_Approve")
+    .isEnded();
+}
+```
+
+
+###### Camunda 8
+
+With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. 
+At the moment you need to use the normal client API to retrieve and complete tasks. Of course, you can easily built own utility methods for this.
+Such utility methods might be added to CPT over time.
+
+Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
+
+```java
+@Test
+void testUserTaskIsReachedAndCompleted() {
+  ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
+    .bpmnProcessId("example-process")
+    .latestVersion()
+    .send().join();
+
+  assertThat(processInstance)
+    .hasActiveElements(byName("Approve Request"));
+      
+  assertThat(UserTaskSelectors.byTaskName("Approve Request"))
+    .isCreated()
+    .hasName("Approve Request")
+    .hasAssignee("demo");
+
+  // Retrieve and complete task using custom methods
+  UserTask task = task(processInstance);
+  complete(task);
+
+  assertThat(processInstance)
+    .hasCompletedElements("UserTask_Approve")
+    .isCompleted();
+}
+```
+
+The following utility methods are used in this test case:
+
+```java
+  private void complete(UserTask task) {
+        client.newUserTaskCompleteCommand(task.getUserTaskKey()).send().join();
+	}
+
+	private UserTask task(ProcessInstanceEvent processInstance) {
+		SearchResponse<UserTask> tasks = client.newUserTaskSearchRequest()
+		  	.filter((f) -> f.bpmnProcessId(processInstance.getBpmnProcessId()))
+		  	.send().join();
+		  assertEquals(1, tasks.items().size());
+		  return tasks.items().get(0);
+	}
+```
+
+---
+
+#### Message Correlation
+
+###### Camunda 7
+
+In Camunda 7, you can correlate a message using runtimeService and then assert that the process advanced. You can provide multiple correlationKeys that must match process variables of the process instance.
+
+```java
+@Test
+void testMessageCorrelation() {
+  ProcessInstance instance = runtimeService()
+    .startProcessInstanceByKey("message-process");
+
+  assertThat(instance)
+    .isWaitingAt("MessageCatchEvent");
+    
+  // Correlate message to waiting message event
+	Map<String, Object> correlationKeys = //...
+	runtimeService().correlateMessage("Message_Continue", correlationKeys);
+
+  assertThat(instance)
+    .hasPassed("MessageCatchEvent")
+    .isEnded();
+}
+```
+
+###### Camunda 8
+
+Camunda 8 uses the client API to publish a message, and assertions are typically based on observing that the process moved forward. Note that the correlation is based on one single String - the correlationKey.
+
+```java
+@Test
+void testMessageCorrelation() {
+  ProcessInstanceEvent instance = client.newCreateInstanceCommand()
+    .bpmnProcessId("message-process")
+    .latestVersion()
+    .send().join();
+
+ assertThat(instance)
+   .hasActiveElements("MessageCatchEvent");
+
+  client.newPublishMessageCommand()
+    .messageName("Message_Continue")
+    .correlationKey("some-key")
+    .send().join();
+
+  // Wait or assert state transition
+  assertThat(instance)
+    .hasCompletedElements("MessageCatchEvent")
+    .isCompleted();
+}
+```
+
+---
+
+#### Job Execution in Test Cases
+
+###### Camunda 7
+
+Camunda 7 provides control over job execution through the `managementService`, which is useful for timers, asynchronous continuations, or retries.
+
+
+```java
+@Test
+void testTimerFires() {
+  ProcessInstance instance = runtimeService()
+    .startProcessInstanceByKey("timer-process");
+
+  // Execute the pending job (e.g. a timer)
+  Job timerJob = managementService.createJobQuery()
+    .processInstanceId(instance.getId())
+    .singleResult();
+
+  managementService.executeJob(timerJob.getId());
+
+  assertThat(instance)
+    .hasPassed("TimerEvent")
+    .isEnded();
+}
+
+```
+
+You can also assert job retries and incidents:
+
+```java
+Job job = managementService.createJobQuery()
+  .processInstanceId(instance.getId())
+  .singleResult();
+
+assertEquals(2, job.getRetries());
+```
+
+###### Camunda 8
+
+Camunda 8 handles timers and async jobs in the job worker model, and does not expose them via the Client API as directly.
+
+To test timer events or ensure the process continues, you generally wait for the engine to progress:
+
+```java
+@Test
+void testTimerTriggered() {
+  ProcessInstanceEvent instance = client.newCreateInstanceCommand()
+    .bpmnProcessId("timer-process")
+    .latestVersion()
+    .send().join();
+
+  assertThat(instance)
+    .hasCompletedElements("TimerEvent")
+    .isCompleted();
+}
+```
+
+You might not want to execute any JobWorkers automatically, then you can disable those for your test case:
+
+```java
+@SpringBootTest(
+	    properties = {
+	    	      "camunda.client.worker.defaults.enabled=false" // disable all job workers
+	    })
+```
+
+And execute jobs manually in your test, probably using this utility method:
+
+```java
+  private void completeJobs(final String jobType, final Map<String, Object> variables) {
+    client
+        .newWorker()
+        .jobType(jobType)
+        .handler((jobClient, job) -> jobClient.newCompleteCommand(job).variables(variables).send())
+        .open();
+  }
+```
+
+This way you can leave out job workers from test execution.
 
 ---
