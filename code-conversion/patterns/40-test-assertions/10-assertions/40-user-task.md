@@ -29,13 +29,16 @@ void testUserTaskIsReachedAndCompleted() {
 
 ## Camunda 8
 
-With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. 
-At the moment you need to use the normal client API to retrieve and complete tasks. Of course, you can easily built own utility methods for this.
-Such utility methods might be added to CPT over time.
+With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete jobs](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-user-tasks).
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
 
 ```java
+@Autowired
+private CamundaClient client;
+@Autowired
+private CamundaProcessTestContext processTestContext;
+
 @Test
 void testUserTaskIsReachedAndCompleted() {
   ProcessInstanceEvent processInstance = client.newCreateInstanceCommand()
@@ -52,27 +55,10 @@ void testUserTaskIsReachedAndCompleted() {
     .hasAssignee("demo");
 
   // Retrieve and complete task using custom methods
-  UserTask task = task(processInstance);
-  complete(task);
+  processTestContext.completeUserTask("Approve Request", variables);
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
     .isCompleted();
 }
-```
-
-The following utility methods are used in this test case:
-
-```java
-  private void complete(UserTask task) {
-        client.newUserTaskCompleteCommand(task.getUserTaskKey()).send().join();
-	}
-
-	private UserTask task(ProcessInstanceEvent processInstance) {
-		SearchResponse<UserTask> tasks = client.newUserTaskSearchRequest()
-		  	.filter((f) -> f.bpmnProcessId(processInstance.getBpmnProcessId()))
-		  	.send().join();
-		  assertEquals(1, tasks.items().size());
-		  return tasks.items().get(0);
-	}
 ```

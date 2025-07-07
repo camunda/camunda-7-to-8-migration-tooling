@@ -11,11 +11,10 @@ void testTimerFires() {
   ProcessInstance instance = runtimeService()
     .startProcessInstanceByKey("timer-process");
 
-  // Execute the pending job (e.g. a timer)
+  // Execute the pending job (e.g. a timer or async)
   Job timerJob = managementService.createJobQuery()
     .processInstanceId(instance.getId())
     .singleResult();
-
   managementService.executeJob(timerJob.getId());
 
   assertThat(instance)
@@ -25,29 +24,24 @@ void testTimerFires() {
 
 ```
 
-You can also assert job retries and incidents:
-
-```java
-Job job = managementService.createJobQuery()
-  .processInstanceId(instance.getId())
-  .singleResult();
-
-assertEquals(2, job.getRetries());
-```
-
 ## Camunda 8
 
-Camunda 8 handles timers and async jobs in the job worker model, and does not expose them via the Client API as directly.
+Camunda 8 handles timers and async jobs differently, but you also have control in test cases.
 
-To test timer events or ensure the process continues, you generally wait for the engine to progress:
+You can [manipulate the clock](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#manipulate-the-clock) to trigger a BPMN timer event that would be due in the future.
 
 ```java
+@Autowired
+private CamundaProcessTestContext processTestContext;
+
 @Test
 void testTimerTriggered() {
   ProcessInstanceEvent instance = client.newCreateInstanceCommand()
     .bpmnProcessId("timer-process")
     .latestVersion()
     .send().join();
+
+  processTestContext.increaseTime(Duration.ofDays(2)); // for a 2 days timer
 
   assertThat(instance)
     .hasCompletedElements("TimerEvent")
@@ -64,16 +58,33 @@ You might not want to execute any JobWorkers automatically, then you can disable
 	    })
 ```
 
-And execute jobs manually in your test, probably using this utility method:
+And execute jobs manually in your test, probably using the [complete job](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#complete-jobs) utility method to simulate the behavior of a job worker without invoking the actual worker. The command waits for the first job with the given job type and completes it. If no job exists, the command fails.
+
 
 ```java
-  private void completeJobs(final String jobType, final Map<String, Object> variables) {
-    client
-        .newWorker()
-        .jobType(jobType)
-        .handler((jobClient, job) -> jobClient.newCompleteCommand(job).variables(variables).send())
-        .open();
-  }
+@Autowired
+private CamundaProcessTestContext processTestContext;
+
+@Test
+void testTimerTriggered() {
+  // ...
+  processTestContext.completeJob("the-job-to-complete");
+  //...
+}
 ```
 
-This way you can leave out job workers from test execution. 
+Alternatively you could also [mock workers](https://docs.camunda.io/docs/next/apis-tools/testing/utilities/#mock-job-workers) which allows you to specify the behavior of the worker for the test case at hand, for example to verify it is executed, to simulate specific result data, or to throw an exception.
+
+```java
+processTestContext.mockJobWorker("serviceTask1").thenComplete(variables);
+processTestContext.mockJobWorker("serviceTask2").thenThrowBpmnError("SOME_ERROR");
+processTestContext.mockJobWorker("serviceTask3")
+        .withHandler(
+            (jobClient, job) -> {
+                final Map<String, Object> variables = job.getVariablesAsMap();
+                final double orderAmount = (double) variables.get("orderAmount");
+                final double discount = orderAmount > 100 ? 0.1 : 0.0;
+
+                jobClient.newCompleteCommand(job).variable("discount", discount).send().join();
+            });
+```

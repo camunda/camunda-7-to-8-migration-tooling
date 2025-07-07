@@ -1,5 +1,6 @@
 package org.camunda.community.migration.example;
 
+import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.assertT
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.task;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.complete;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.runtimeService;
+import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.managementService;
 import static org.camunda.bpm.engine.test.assertions.bpmn.BpmnAwareTests.findId;
 
 @SpringBootTest
@@ -38,6 +40,15 @@ public class ApplicationTest {
     ProcessInstance processInstance = runtimeService().startProcessInstanceByKey(
                 "sample-process-solution-process", //
                 Variables.createVariables().putValue("x", 5));
+    
+    // Query and trigger timmer
+    // Execute the pending job (e.g. a timer or async)
+    Job timerJob = managementService().createJobQuery()
+      .processInstanceId(processInstance.getId())
+      .singleResult();
+    managementService().executeJob(timerJob.getId());
+
+    
     assertThat(processInstance).isEnded().hasPassed("Event_SmallerThan5");
   }
 }

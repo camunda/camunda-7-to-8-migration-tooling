@@ -6,9 +6,8 @@
     </bpmn:startEvent>
     <bpmn:sequenceFlow id="SequenceFlow_1fp17al" sourceRef="StartEvent_1" targetRef="Activity_0gzk3kq" />
     <bpmn:endEvent id="Event_GreaterThan5">
-      <bpmn:incoming>SequenceFlow_16gzt2m</bpmn:incoming>
+      <bpmn:incoming>Flow_18633gb</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="SequenceFlow_16gzt2m" sourceRef="say-hello" targetRef="Event_GreaterThan5" />
     <bpmn:sequenceFlow id="Flow_133deh1" sourceRef="Activity_0gzk3kq" targetRef="Activity_065ruya" />
     <bpmn:serviceTask id="Activity_0gzk3kq" name="Java Delegate" implementation="##WebService">
       <bpmn:extensionElements>
@@ -60,9 +59,9 @@
       <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=x&gt;5</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     <bpmn:endEvent id="Event_SmallerThan5">
-      <bpmn:incoming>Flow_0802zv9</bpmn:incoming>
+      <bpmn:incoming>Flow_1ekygvz</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_0802zv9" name="x&#60;=5" sourceRef="Gateway_05tivv6" targetRef="Event_SmallerThan5">
+    <bpmn:sequenceFlow id="Flow_0802zv9" name="x&#60;=5" sourceRef="Gateway_05tivv6" targetRef="Event_0prc0mb">
       <bpmn:extensionElements>
         <conversion:message severity="TASK">Condition expression: Please review transformed expression: '#{x&lt;=5}' -&gt; '=x&lt;=5'.</conversion:message>
       </bpmn:extensionElements>
@@ -74,16 +73,22 @@
         <zeebe:assignmentDefinition assignee="demo" />
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_0hyyc2w</bpmn:incoming>
-      <bpmn:outgoing>SequenceFlow_16gzt2m</bpmn:outgoing>
+      <bpmn:outgoing>Flow_18633gb</bpmn:outgoing>
     </bpmn:userTask>
+    <bpmn:intermediateCatchEvent id="Event_0prc0mb" name="5 minutes">
+      <bpmn:incoming>Flow_0802zv9</bpmn:incoming>
+      <bpmn:outgoing>Flow_1ekygvz</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition_17l2ikv">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">PT5M</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:sequenceFlow id="Flow_18633gb" sourceRef="say-hello" targetRef="Event_GreaterThan5" />
+    <bpmn:sequenceFlow id="Flow_1ekygvz" sourceRef="Event_0prc0mb" targetRef="Event_SmallerThan5" />
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="sample-process-solution-process">
       <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
         <dc:Bounds x="179" y="99" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EndEvent_0x6ir2l_di" bpmnElement="Event_GreaterThan5">
-        <dc:Bounds x="952" y="99" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0dad33h_di" bpmnElement="Activity_0gzk3kq">
         <dc:Bounds x="240" y="77" width="100" height="80" />
@@ -97,20 +102,25 @@
       <bpmndi:BPMNShape id="Gateway_05tivv6_di" bpmnElement="Gateway_05tivv6" isMarkerVisible="true">
         <dc:Bounds x="665" y="92" width="50" height="50" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Event_15mbd4d_di" bpmnElement="Event_SmallerThan5">
-        <dc:Bounds x="672" y="212" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Activity_0sdvg8m_di" bpmnElement="say-hello">
         <dc:Bounds x="780" y="77" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1w732je_di" bpmnElement="Event_0prc0mb">
+        <dc:Bounds x="812" y="192" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="806" y="235" width="49" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_15mbd4d_di" bpmnElement="Event_SmallerThan5">
+        <dc:Bounds x="962" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_0x6ir2l_di" bpmnElement="Event_GreaterThan5">
+        <dc:Bounds x="962" y="99" width="36" height="36" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="SequenceFlow_1fp17al_di" bpmnElement="SequenceFlow_1fp17al">
         <di:waypoint x="215" y="117" />
         <di:waypoint x="240" y="117" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="SequenceFlow_16gzt2m_di" bpmnElement="SequenceFlow_16gzt2m">
-        <di:waypoint x="880" y="117" />
-        <di:waypoint x="952" y="117" />
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_133deh1_di" bpmnElement="Flow_133deh1">
         <di:waypoint x="340" y="117" />
@@ -133,10 +143,19 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_0802zv9_di" bpmnElement="Flow_0802zv9">
         <di:waypoint x="690" y="142" />
-        <di:waypoint x="690" y="212" />
+        <di:waypoint x="690" y="210" />
+        <di:waypoint x="812" y="210" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="693" y="174" width="24" height="14" />
+          <dc:Bounds x="746" y="188" width="24" height="14" />
         </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18633gb_di" bpmnElement="Flow_18633gb">
+        <di:waypoint x="880" y="117" />
+        <di:waypoint x="962" y="117" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ekygvz_di" bpmnElement="Flow_1ekygvz">
+        <di:waypoint x="848" y="210" />
+        <di:waypoint x="962" y="210" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
