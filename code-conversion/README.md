@@ -13,3 +13,5 @@ This project:
     -   Which Camunda 7 endpoints are on the roadmap for upcoming Camunda 8 releases
     -   Which Camunda 7 endpoints are handled conceptually differently in Camunda 8
     -   Which Camunda 7 endpoints are discontinued
+
+See also **[Camunda 7 to 8 Migration Example in Action)(https://github.com/camunda-community-hub/camunda-7-to-8-migration-example)**
