@@ -2,6 +2,8 @@ package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import static org.openrewrite.java.Assertions.java;
 
+import org.camunda.migration.rewrite.recipes.sharedRecipes.LogRecipe;
+import org.camunda.migration.rewrite.recipes.sharedRecipes.LogTypeRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -15,7 +17,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
         java(
             """
                                 package org.camunda.community.migration.example;
-                                
+
                                 import org.camunda.bpm.engine.ProcessEngine;
                                 import org.camunda.bpm.engine.runtime.ProcessInstance;
                                 import io.camunda.client.CamundaClient;
@@ -149,7 +151,6 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                  import io.camunda.client.api.response.CorrelateMessageResponse;
                                  import io.camunda.client.api.response.ProcessInstanceEvent;
                                  import org.camunda.bpm.engine.ProcessEngine;
-                                 import org.camunda.bpm.engine.runtime.ProcessInstance;
                                  import io.camunda.client.CamundaClient;
                                  import org.springframework.beans.factory.annotation.Autowired;
                                  import org.springframework.stereotype.Component;
@@ -353,6 +354,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .join();
 
                                          // by message
+                                         // please configure you correlationKey
                                          CorrelateMessageResponse instance2 = camundaClient
                                                  .newCorrelateMessageCommand()
                                                  .messageName(messageName)
@@ -362,6 +364,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          String id2 = String.valueOf(instance2.getProcessInstanceKey());
                                          System.out.println(String.valueOf(instance2.getProcessInstanceKey()));
 
+                                         // please configure you correlationKey
                                          // businessKey was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
@@ -370,6 +373,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          camundaClient
                                                  .newCorrelateMessageCommand()
                                                  .messageName(messageName)
@@ -378,6 +382,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          // businessKey was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
@@ -387,6 +392,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          // processDefinitionId was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
@@ -395,6 +401,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          // businessKey was removed
                                          // processDefinitionId was removed
                                          camundaClient
@@ -404,6 +411,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          // processDefinitionId was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
@@ -413,6 +421,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
+                                         // please configure you correlationKey
                                          // businessKey was removed
                                          // processDefinitionId was removed
                                          camundaClient
@@ -425,5 +434,66 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                      }
                                  }
                                  """));
+  }
+
+  @Test
+  void variousProcessEngineFunctionsTest() {
+    rewriteRun(
+        spec -> spec.recipes(new ReplaceStartProcessInstanceMethodsRecipe(), new LogRecipe(), new LogTypeRecipe()),
+        // language=java
+        java(
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.camunda.bpm.engine.runtime.ProcessInstance;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    public class VariousProcessEngineFunctionsTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        public void variousProcessEngineFunctions(String processDefinitionKey, String signalName, String deleteReason) {
+
+                            ProcessInstance instance1 = runtimeService.startProcessInstanceByKey(processDefinitionKey);
+                        }
+                    }
+                    """,
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import io.camunda.client.api.response.ProcessInstanceEvent;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    public class VariousProcessEngineFunctionsTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        public void variousProcessEngineFunctions(String processDefinitionKey, String signalName, String deleteReason) {
+
+                            ProcessInstanceEvent instance1 = camundaClient
+                                    .newCreateInstanceCommand()
+                                    .bpmnProcessId(processDefinitionKey)
+                                    .latestVersion()
+                                    .send()
+                                    .join();
+                        }
+                    }
+                    """));
   }
 }

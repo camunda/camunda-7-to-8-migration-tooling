@@ -77,8 +77,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        int typedAmount = job.getVariablesAsMap().get("amount");
-        Integer amount = (Integer) job.getVariablesAsMap().get("AMOUNT");
+        int typedAmount = job.getVariable("amount");
+        Integer amount = (Integer) job.getVariable("AMOUNT");
         // do something...
         String typedTransactionId = "TX12345";
         resultMap.put("transactionId", typedTransactionId);
