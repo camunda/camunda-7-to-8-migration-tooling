@@ -26,7 +26,11 @@ public class RemoveEngineDependencyRecipe extends Recipe {
 
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
-        new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true);
+        Preconditions.or(
+            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
+            new UsesType<>(RecipeConstants.Type.RUNTIME_SERVICE, true),
+            new UsesType<>(RecipeConstants.Type.TASK_SERVICE, true),
+            new UsesType<>(RecipeConstants.Type.REPOSITORY_SERVICE, true));
 
     return Preconditions.check(
         check,

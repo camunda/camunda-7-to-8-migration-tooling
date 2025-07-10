@@ -141,6 +141,16 @@
 		    <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.camunda.bpm</groupId>
+            <artifactId>camunda-engine-plugin-spin</artifactId>
+            <version>7.23.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.camunda.spin</groupId>
+            <artifactId>camunda-spin-dataformat-all</artifactId>
+            <version>7.23.0</version>
+        </dependency>
+        <dependency>
 			  <groupId>io.camunda</groupId>
 			  <artifactId>zeebe-client-java</artifactId>
 			  <version>8.6.0</version>

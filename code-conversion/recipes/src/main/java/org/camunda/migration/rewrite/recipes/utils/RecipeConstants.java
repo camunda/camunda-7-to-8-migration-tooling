@@ -92,8 +92,11 @@ public class RecipeConstants {
         Type.PROCESS_INSTANTIATION_BUILDER + " execute()";
 
     public static final String GET_VARIABLE = Type.VARIABLE_SCOPE + " getVariable(String)";
+    public static final String GET_VARIABLE_LOCAL = Type.VARIABLE_SCOPE + " getVariableLocal(String)";
     public static final String SET_VARIABLE =
         Type.VARIABLE_SCOPE + " setVariable(String, java.lang.Object)";
+    public static final String SET_VARIABLE_LOCAL =
+            Type.VARIABLE_SCOPE + " setVariableLocal(String, java.lang.Object)";
 
     public static final String CREATE_INCIDENT = Type.DELEGATE_EXECUTION + " createIncident";
   }

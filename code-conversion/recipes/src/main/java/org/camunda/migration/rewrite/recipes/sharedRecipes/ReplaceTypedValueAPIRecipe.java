@@ -1,14 +1,14 @@
 package org.camunda.migration.rewrite.recipes.sharedRecipes;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
+import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -44,81 +44,310 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             new UsesType<>(RecipeConstants.Type.SHORT_VALUE, true),
             new UsesType<>(RecipeConstants.Type.DOUBLE_VALUE, true),
             new UsesType<>(RecipeConstants.Type.FLOAT_VALUE, true),
-            new UsesType<>(RecipeConstants.Type.BYTES_VALUE, true));
+            new UsesType<>(RecipeConstants.Type.BYTES_VALUE, true),
+            new UsesMethod<>("org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)"),
+            new UsesMethod<>(
+                "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)"));
 
     return Preconditions.check(
         check,
         new JavaVisitor<ExecutionContext>() {
 
-          final JavaTemplate newMapAndHashMap =
-              JavaTemplate.builder("Map<String, Object> variableMap = new HashMap<>();")
-                  .imports("java.util.Map", "java.util.HashMap")
-                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                  .build();
+          private final List<RecipeUtils.MethodInvocationSimpleReplacementSpec>
+              simpleMethodInvocations =
+                  List.of(
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "booleanValue(Boolean bool)"
+                              "org.camunda.bpm.engine.variable.Variables booleanValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Boolean)}"),
+                          "java.lang.Boolean",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "booleanValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "stringValue(String string)"
+                              "org.camunda.bpm.engine.variable.Variables stringValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Boolean)}"),
+                          "java.lang.String",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "stringValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "integerValue(Integer integer)"
+                              "org.camunda.bpm.engine.variable.Variables integerValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Integer)}"),
+                          "java.lang.Integer",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "integerValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "longValue(Long long)"
+                              "org.camunda.bpm.engine.variable.Variables longValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Long)}"),
+                          "java.lang.Long",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "longValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "shortValue(Short short)"
+                              "org.camunda.bpm.engine.variable.Variables shortValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Short)}"),
+                          "java.lang.Short",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "shortValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "doubleValue(Double double)"
+                              "org.camunda.bpm.engine.variable.Variables doubleValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Double)}"),
+                          "java.lang.Double",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "doubleValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "floatValue(Float float)"
+                              "org.camunda.bpm.engine.variable.Variables floatValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Float)}"),
+                          "java.lang.Float",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "floatValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "byteArrayValue(java.lang.Byte[] bytes)"
+                              "org.camunda.bpm.engine.variable.Variables byteArrayValue(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Byte[])}"),
+                          "java.lang.Byte[]",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "byteArrayValue", 0)),
+                          Collections.emptyList()),
+                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                          new MethodMatcher(
+                              // "fromMap(java.util.Map map)"
+                              "org.camunda.bpm.engine.variable.Variables fromMap(..)"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Map)}"),
+                          "java.util.Map<String, Object>",
+                          List.of(
+                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                                  "fromMap", 0)),
+                          Collections.emptyList()));
 
-          final JavaTemplate newMapWithAnyInitializer =
-              JavaTemplate.builder("Map<String, Object> variableMap = #{any()}")
-                  .imports("java.util.Map")
-                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                  .build();
+          private final List<RecipeUtils.MethodInvocationBuilderReplacementSpec>
+              builderMethodInvocations =
+                  List.of(
+                      new RecipeUtils.MethodInvocationBuilderReplacementSpec(
+                          new MethodMatcher(
+                              "org.camunda.bpm.engine.variable.value.builder.TypedValueBuilder create()"),
+                          Set.of("objectValue"),
+                          List.of("objectValue"),
+                          RecipeUtils.createSimpleJavaTemplate("#{any()}"),
+                          "java.lang.Object",
+                          List.of(" type set to java.lang.Object")));
 
-          // Insert map.put(...) after the declaration
-          final JavaTemplate putElementInMap =
-              JavaTemplate.builder("#{any(java.util.Map)}.put(#{any(String)}, #{any()});")
-                  .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                  .build();
+          // join specs - possible because we don't touch the method invocations
+          final List<RecipeUtils.MethodInvocationReplacementSpec> commonSpecs =
+              Stream.concat(
+                      simpleMethodInvocations.stream()
+                          .map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec),
+                      builderMethodInvocations.stream()
+                          .map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec))
+                  .toList();
+
+          final Map<MethodMatcher, List<RecipeUtils.MethodInvocationBuilderReplacementSpec>>
+              builderSpecMap =
+                  builderMethodInvocations.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              RecipeUtils.MethodInvocationBuilderReplacementSpec::matcher));
+
+          public static String mapTypedValueToNewFqn(JavaType type) {
+            if (!(type instanceof JavaType.FullyQualified fqType)) {
+              return "java.lang.Object"; // Default fallback
+            }
+
+            String fqn = fqType.getFullyQualifiedName();
+
+            if (fqn.equals("org.camunda.bpm.engine.variable.value.TypedValue")) {
+              return "java.lang.Object";
+            }
+
+            // Handle known subclasses like IntegerValue, StringValue, etc.
+            if (fqn.startsWith("org.camunda.bpm.engine.variable.value.")) {
+              String simpleName = fqn.substring(fqn.lastIndexOf('.') + 1);
+
+              return switch (simpleName) {
+                case "IntegerValue" -> "java.lang.Integer";
+                case "StringValue" -> "java.lang.String";
+                case "BooleanValue" -> "java.lang.Boolean";
+                case "DoubleValue" -> "java.lang.Double";
+                case "LongValue" -> "java.lang.Long";
+                case "ShortValue" -> "java.lang.Short";
+                case "DateValue" -> "java.util.Date";
+                case "BytesValue" -> "byte[]";
+                default -> "java.lang.Object"; // Fallback for unknown types
+              };
+            }
+
+            return "java.lang.Object";
+          }
 
           /** Visit variable declarations to replace all typedValue types */
           @Override
-          public J visitVariableDeclarations(J.VariableDeclarations decls, ExecutionContext ctx) {
+          public J visitVariableDeclarations(
+              J.VariableDeclarations declarations, ExecutionContext ctx) {
 
-            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
+            // Analyze first variable
+            J.VariableDeclarations.NamedVariable firstVar = declarations.getVariables().get(0);
+            J.Identifier originalName = firstVar.getName();
+            Expression originalInitializer = firstVar.getInitializer();
+
+            // work with initializer that is a method invocation
+            if (originalInitializer instanceof J.MethodInvocation invocation) {
+
+              // run through prepared migration rules
+              for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+
+                // if match is found for the invocation, check returnTypeFqn to adjust variable
+                // declaration type
+                if (spec.matcher().matches(invocation)) {
+
+                  // get modifiers
+                  List<J.Modifier> modifiers = declarations.getModifiers();
+
+                  // Create simple java template to adjust variable declaration type, but keep
+                  // invocation as is
+                  J.VariableDeclarations modifiedDeclarations =
+                      RecipeUtils.createSimpleJavaTemplate(
+                              (modifiers == null || modifiers.isEmpty()
+                                      ? ""
+                                      : modifiers.stream()
+                                          .map(J.Modifier::toString)
+                                          .collect(Collectors.joining(" ", "", " ")))
+                                  + spec.returnTypeFqn()
+                                      .substring(spec.returnTypeFqn().lastIndexOf('.') + 1)
+                                  + " "
+                                  + originalName.getSimpleName()
+                                  + " = #{any()}",
+                              spec.returnTypeFqn())
+                          .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
+
+                  maybeAddImport(spec.returnTypeFqn());
+
+                  // ensure comments are added here, not on method invocation
+                  getCursor().putMessage(invocation.getId().toString(), "comments added");
+
+                  // record fqn of identifier for later uses
+                  getCursor()
+                      .dropParentUntil(parent -> parent instanceof J.Block)
+                      .putMessage(originalName.toString(), spec.returnTypeFqn());
+
+                  // merge comments
+                  modifiedDeclarations =
+                      modifiedDeclarations.withComments(
+                          Stream.concat(
+                                  declarations.getComments().stream(),
+                                  spec.textComments().stream()
+                                      .map(
+                                          text ->
+                                              RecipeUtils.createSimpleComment(declarations, text)))
+                              .toList());
+
+                  // visit method invocations
+                  modifiedDeclarations =
+                      (J.VariableDeclarations)
+                          super.visitVariableDeclarations(modifiedDeclarations, ctx);
+
+                  maybeRemoveImport(declarations.getTypeAsFullyQualified());
+
+                  System.out.println(modifiedDeclarations);
+
+                  return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
+                }
+              }
+
+              if ((new MethodMatcher(
+                          "org.camunda.bpm.engine.delegate.VariableScope getVariableTyped(..)")
+                      .matches(invocation)
+                  || new MethodMatcher(
+                          "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)")
+                      .matches(invocation))) {
+
+                // get modifiers
+                List<J.Modifier> modifiers = declarations.getModifiers();
+
+                String newFqn = mapTypedValueToNewFqn(originalName.getType());
+
+                // Create simple java template to adjust variable declaration type, but keep
+                // invocation as is
+                J.VariableDeclarations modifiedDeclarations =
+                    RecipeUtils.createSimpleJavaTemplate(
+                            (modifiers == null || modifiers.isEmpty()
+                                    ? ""
+                                    : modifiers.stream()
+                                        .map(J.Modifier::toString)
+                                        .collect(Collectors.joining(" ", "", " ")))
+                                + newFqn.substring(newFqn.lastIndexOf('.') + 1)
+                                + " "
+                                + originalName.getSimpleName()
+                                + " = #{any()}",
+                            "java.lang.Object")
+                        .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
+
+                maybeAddImport(newFqn);
+
+                // record fqn of identifier for later uses
+                getCursor()
+                    .dropParentUntil(parent -> parent instanceof J.Block)
+                    .putMessage(originalName.toString(), newFqn);
+
+                // merge comments
+                modifiedDeclarations =
+                    modifiedDeclarations.withComments(
+                        Stream.concat(
+                                declarations.getComments().stream(),
+                                Stream.of(
+                                    RecipeUtils.createSimpleComment(
+                                        declarations, " please check type")))
+                            .toList());
+
+                // visit method invocations
+                modifiedDeclarations =
+                    (J.VariableDeclarations)
+                        super.visitVariableDeclarations(modifiedDeclarations, ctx);
+
+                if (originalName.getType() instanceof JavaType.FullyQualified oldFqn) {
+                  maybeRemoveImport(oldFqn);
+                }
+
+                return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
+              }
+            }
+
             maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
             maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
             maybeRemoveImport(RecipeConstants.Type.VARIABLES);
-
-            // Analyze first variable
-            J.VariableDeclarations.NamedVariable firstVar = decls.getVariables().get(0);
-            J.Identifier originalName = firstVar.getName();
-            JavaType.Variable originalVariableType = firstVar.getVariableType();
-
-            // fromMap VariableMap replacement - one variable assumed
-            if (TypeUtils.isOfType(
-                    decls.getType(), JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))
-                && firstVar.getInitializer() instanceof J.MethodInvocation oneMi
-                && oneMi.getSimpleName().equals("fromMap")) {
-
-              // apply java template to create Map with name variableMap and initializer being the
-              // first argument of fromMap()
-              J.VariableDeclarations newMapDecl =
-                  newMapWithAnyInitializer.apply(
-                      getCursor(), decls.getCoordinates().replace(), oneMi.getArguments().get(0));
-
-              maybeAddImport("java.util.Map");
-
-              // return new declaration with old name and variable type
-              return newMapDecl.withVariables(
-                  List.of(
-                      newMapDecl
-                          .getVariables()
-                          .get(0)
-                          .withName(originalName)
-                          .withVariableType(originalVariableType))); // TODO: check this
-            }
 
             // createVariables replacement - one variable assumed
             // this case requires a non-iso visitor to replace one statement with a block
             // the unneeded block is subsequently removed
             if (TypeUtils.isOfType(
-                decls.getType(), JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))) {
+                declarations.getType(),
+                JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))) {
 
               List<J.MethodInvocation> putValues = new ArrayList<>();
 
@@ -137,26 +366,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               maybeAddImport("java.util.HashMap");
 
               // collect statement to be put in the block
-              List<Statement> statements = new ArrayList<>();
               List<JRightPadded<Statement>> jRightStatements = new ArrayList<>();
 
               J.VariableDeclarations newMapAndHashMapDecl =
-                  newMapAndHashMap.apply(getCursor(), decls.getCoordinates().replace());
+                  RecipeUtils.createSimpleJavaTemplate(
+                          "Map<String, Object> "
+                              + originalName.getSimpleName()
+                              + " = new HashMap<>();",
+                          "java.util.Map",
+                          "java.util.HashMap")
+                      .apply(getCursor(), declarations.getCoordinates().replace());
 
               // added map as hashmap initialization to statements
               jRightStatements.add(
-                  new JRightPadded<>(
-                      newMapAndHashMapDecl
-                          .withVariables(
-                              List.of(
-                                  newMapAndHashMapDecl
-                                      .getVariables()
-                                      .get(0)
-                                      .withName(originalName)
-                                      .withVariableType(originalVariableType)))
-                          .withPrefix(decls.getPrefix()),
-                      Space.EMPTY,
-                      Markers.EMPTY));
+                  new JRightPadded<>(newMapAndHashMapDecl, Space.EMPTY, Markers.EMPTY));
 
               // add each map.put() as statement
               for (J.MethodInvocation mi : putValues) {
@@ -165,13 +388,14 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                         originalName.getSimpleName(), "java.util.Map");
 
                 J.MethodInvocation newMethodInvoc =
-                    putElementInMap
+                    RecipeUtils.createSimpleJavaTemplate(
+                            "#{any(java.util.Map)}.put(#{any(String)}, #{any()});")
                         .apply(
                             getCursor(),
-                            decls.getCoordinates().replace(),
+                            declarations.getCoordinates().replace(),
                             mapIdent,
-                            mi.getArguments().get(0),
-                            mi.getArguments().get(1))
+                            RecipeUtils.updateType(getCursor(), mi.getArguments().get(0)),
+                            RecipeUtils.updateType(getCursor(), mi.getArguments().get(1)))
                         .withPrefix(Space.EMPTY);
 
                 jRightStatements.add(
@@ -188,148 +412,211 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                   Space.EMPTY);
             }
 
-            // Typed Variable replacement - multiple variables can exist
-
-            // collect all variables, changed or not
-            List<J.VariableDeclarations.NamedVariable> updatedVars = new ArrayList<>();
-
-            // new type for names variables and variable declaration
-            JavaType newType = null;
-
-            for (J.VariableDeclarations.NamedVariable var : decls.getVariables()) {
-              if (var.getInitializer() instanceof J.MethodInvocation method
-                  && method.getSelect() instanceof J.Identifier sel
-                  && sel.getSimpleName().equals("Variables")) {
-                // the initializer needs to be a method invocation which first select method is
-                // the Variables identifier
-
-                // depending on the method name, newType is set. objectValue is handled below
-                switch (method.getSimpleName()) {
-                  case "booleanValue" -> newType = JavaType.Primitive.Boolean;
-                  case "stringValue" -> newType = JavaType.ShallowClass.build("java.lang.String");
-                  case "integerValue" -> newType = JavaType.Primitive.Int;
-                  case "longValue" -> newType = JavaType.Primitive.Long;
-                  case "shortValue" -> newType = JavaType.Primitive.Short;
-                  case "doubleValue" -> newType = JavaType.Primitive.Double;
-                  case "floatValue" -> newType = JavaType.Primitive.Float;
-                  case "byteArrayValue" -> newType = JavaType.buildType("byte[]");
-                  default -> {}
-                }
-
-                // var has typed adjusted and initializer is the first method argument: parameter
-                // of booleanValue() for example
-                if (newType != null) {
-                  var =
-                      var.withType(newType)
-                          .withInitializer(
-                              method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-                }
-              } else if (var.getInitializer() instanceof J.MethodInvocation method
-                  && method.getSimpleName().equals("create")
-                  && method.getSelect() instanceof J.MethodInvocation method2
-                  && method2.getSelect() instanceof J.Identifier sel
-                  && sel.getSimpleName().equals("Variables")) {
-                // for objectValue, the first method is called create, plus, there are two select
-                // methods until the identifier Variables is reached
-
-                // set type to the type of the parameter inside objectValue()
-                newType = method2.getArguments().get(0).getType();
-
-                // var has type adjusted and initializer is the select method's first argument:
-                // parameter of objectValue
-                if (newType != null) {
-                  var =
-                      var.withType(newType)
-                          .withInitializer(
-                              method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-                }
-              }
-              updatedVars.add(var);
-            }
-
-            // if new type was set, update type expression of declaration and return declaration
-            // with updated variables
-            if (newType != null) {
-              String typeString = newType.toString();
-              if (typeString.equals("java.lang.String")) {
-                typeString = "String";
-              }
-              if (newType instanceof JavaType.Class newClass) {
-                typeString = newClass.getClassName();
-              }
-
-              J.Identifier newTypeExpression =
-                  RecipeUtils.createSimpleIdentifier(typeString, newType);
-
-              return decls
-                  .withType(newType)
-                  .withTypeExpression(newTypeExpression)
-                  .withVariables(updatedVars);
-            }
-
             // this replaces standalone declarations, like method parameters
-            if (decls.getTypeExpression() instanceof J.Identifier typeExpr) {
+            if (declarations.getTypeExpression() instanceof J.Identifier typeExpr) {
+
+              String newFqn = null;
 
               // depending on the type expression, newType is set
               switch (typeExpr.getSimpleName()) {
-                case "BooleanValue" -> newType = JavaType.Primitive.Boolean;
-                case "StringValue" -> newType = JavaType.ShallowClass.build("java.lang.String");
-                case "IntegerValue" -> newType = JavaType.Primitive.Int;
-                case "LongValue" -> newType = JavaType.Primitive.Long;
-                case "ShortValue" -> newType = JavaType.Primitive.Short;
-                case "DoubleValue" -> newType = JavaType.Primitive.Double;
-                case "FloatValue" -> newType = JavaType.Primitive.Float;
-                case "ByteArrayValue" -> newType = JavaType.buildType("byte[]");
-                case "ObjectValue" -> newType = JavaType.buildType("java.lang.Object");
+                case "BooleanValue" -> newFqn = "java.lang.Boolean";
+                case "StringValue" -> newFqn = "java.lang.String";
+                case "IntegerValue" -> newFqn = "java.lang.Integer";
+                case "LongValue" -> newFqn = "java.lang.Long";
+                case "ShortValue" -> newFqn = "java.lang.Short";
+                case "DoubleValue" -> newFqn = "java.lang.Double";
+                case "FloatValue" -> newFqn = "java.lang.Float";
+                case "ByteArrayValue" -> newFqn = "java.lang.Byte[]";
+                case "ObjectValue" -> newFqn = "java.lang.Object";
                 default -> {}
               }
 
-              // if new type was set, update type expression of declaration and return declaration
-              if (newType != null) {
-                String typeString = newType.toString();
-                if (typeString.equals("java.lang.String")) {
-                  typeString = "String";
-                }
-                if (typeString.equals("java.lang.Object")) {
-                  typeString = "Object";
-                }
+              // if new fqn was set, update type expression of declaration and return declaration
+              if (newFqn != null) {
 
-                J.Identifier newTypeExpression =
-                    RecipeUtils.createSimpleIdentifier(typeString, newType);
+                // record fqn of identifier for later uses
+                getCursor()
+                    .dropParentUntil(parent -> parent instanceof J.Block)
+                    .putMessage(originalName.toString(), newFqn);
 
-                return decls.withType(newType).withTypeExpression(newTypeExpression);
+                maybeRemoveImport(declarations.getTypeAsFullyQualified());
+
+                return maybeAutoFormat(
+                    declarations,
+                    RecipeUtils.createSimpleJavaTemplate(
+                            newFqn.substring(newFqn.lastIndexOf('.') + 1)
+                                + " "
+                                + firstVar.getSimpleName())
+                        .apply(getCursor(), declarations.getCoordinates().replace()),
+                    ctx);
               }
             }
-            return super.visitVariableDeclarations(decls, ctx);
+            return super.visitVariableDeclarations(declarations, ctx);
+          }
+
+          /** Replace initializers of assignments */
+          @Override
+          public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
+
+            if (!(assignment.getVariable() instanceof J.Identifier originalName)) {
+              return super.visitAssignment(assignment, ctx);
+            }
+
+            if (!(assignment.getAssignment() instanceof J.MethodInvocation invocation)) {
+              return super.visitAssignment(assignment, ctx);
+            }
+
+            // run through prepared migration rules
+            for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+
+              // if match is found for the invocation, check returnTypeFqn to adjust variable
+              // declaration type
+              if (spec.matcher().matches(invocation)) {
+
+                // Create simple java template to adjust variable declaration type, but keep
+                // invocation as is
+                J.Assignment modifiedAssignment =
+                    RecipeUtils.createSimpleJavaTemplate(
+                            originalName.getSimpleName() + " = #{any()}", spec.returnTypeFqn())
+                        .apply(getCursor(), assignment.getCoordinates().replace(), invocation);
+
+                modifiedAssignment =
+                    modifiedAssignment.withVariable(
+                        modifiedAssignment
+                            .getVariable()
+                            .withType(JavaType.buildType(spec.returnTypeFqn())));
+                modifiedAssignment =
+                    modifiedAssignment.withType(JavaType.buildType(spec.returnTypeFqn()));
+
+                maybeAddImport(spec.returnTypeFqn());
+
+                // ensure comments are added here, not on method invocation
+                getCursor().putMessage(invocation.getId().toString(), "comments added");
+
+                // record fqn of identifier for later uses
+                getCursor()
+                    .dropParentUntil(parent -> parent instanceof J.Block)
+                    .putMessage(originalName.toString(), spec.returnTypeFqn());
+
+                // merge comments
+                modifiedAssignment =
+                    modifiedAssignment.withComments(
+                        Stream.concat(
+                                assignment.getComments().stream(),
+                                spec.textComments().stream()
+                                    .map(text -> RecipeUtils.createSimpleComment(assignment, text)))
+                            .toList());
+
+                // visit method invocations
+                modifiedAssignment = (J.Assignment) super.visitAssignment(modifiedAssignment, ctx);
+
+                if (originalName.getType() instanceof JavaType.FullyQualified fqn) {
+                  maybeRemoveImport(fqn);
+                }
+
+                return maybeAutoFormat(assignment, modifiedAssignment, ctx);
+              }
+            }
+            return super.visitAssignment(assignment, ctx);
           }
 
           /** Replace variableMap.put() or variableMap.putValue() method invocations */
           @Override
-          public J visitMethodInvocation(J.MethodInvocation invoc, ExecutionContext ctx) {
+          public J visitMethodInvocation(J.MethodInvocation invocation, ExecutionContext ctx) {
 
-            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
+            // visit simple method invocations
+            for (RecipeUtils.MethodInvocationSimpleReplacementSpec spec : simpleMethodInvocations) {
+              if (spec.matcher().matches(invocation)) {
+
+                if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
+                  maybeRemoveImport(fqn);
+                }
+
+                Expression modifiedInvocation =
+                    RecipeUtils.applyTemplate(
+                        spec.template(),
+                        invocation,
+                        getCursor(),
+                        spec.argumentIndexes().stream()
+                            .map(i -> invocation.getArguments().get(i.index()))
+                            .toArray(),
+                        getCursor().getNearestMessage(invocation.getId().toString()) != null
+                            ? Collections.emptyList()
+                            : spec.textComments());
+
+                if (modifiedInvocation instanceof J.MethodInvocation) {
+                  modifiedInvocation =
+                      (Expression)
+                          super.visitMethodInvocation((J.MethodInvocation) modifiedInvocation, ctx);
+                }
+                return maybeAutoFormat(invocation, modifiedInvocation, ctx);
+              }
+            }
+
+            // loop through builder pattern groups
+            for (Map.Entry<MethodMatcher, List<RecipeUtils.MethodInvocationBuilderReplacementSpec>>
+                entry : builderSpecMap.entrySet()) {
+              MethodMatcher matcher = entry.getKey();
+              if (matcher.matches(invocation)) {
+                Map<String, Expression> collectedArgs = new HashMap<>();
+                Expression current = invocation.getSelect();
+
+                // extract arguments
+                while (current instanceof J.MethodInvocation mi) {
+                  String name = mi.getSimpleName();
+                  if (!mi.getArguments().isEmpty()
+                      && !(mi.getArguments().get(0) instanceof J.Empty)) {
+                    collectedArgs.put(name, mi.getArguments().get(0));
+                  }
+                  current = mi.getSelect();
+                }
+
+                // loop through pattern options
+                for (RecipeUtils.MethodInvocationBuilderReplacementSpec spec : entry.getValue()) {
+                  if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
+                    Object[] args =
+                        spec.extractedParametersToApply().stream()
+                            .map(collectedArgs::get)
+                            .toArray();
+
+                    if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
+                      maybeRemoveImport(fqn);
+                    }
+
+                    Expression modifiedInvocation =
+                        RecipeUtils.applyTemplate(
+                            spec.template(),
+                            invocation,
+                            getCursor(),
+                            args,
+                            getCursor().getNearestMessage(invocation.getId().toString()) != null
+                                ? Collections.emptyList()
+                                : spec.textComments());
+
+                    if (modifiedInvocation instanceof J.MethodInvocation) {
+                      modifiedInvocation =
+                          (Expression)
+                              super.visitMethodInvocation(
+                                  (J.MethodInvocation) modifiedInvocation, ctx);
+                    }
+                    return maybeAutoFormat(invocation, modifiedInvocation, ctx);
+                  }
+                }
+              }
+            }
+
             maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
-            maybeRemoveImport(RecipeConstants.Type.VARIABLES);
 
-            if (invoc.getMethodType() != null
+            if (invocation.getMethodType() != null
                 && TypeUtils.isOfType(
-                    invoc.getMethodType().getDeclaringType(),
+                    invocation.getMethodType().getDeclaringType(),
                     JavaType.ShallowClass.build(RecipeConstants.Type.VARIABLE_MAP))
-                && (invoc.getSimpleName().equals("putValueTyped")
-                    || invoc.getSimpleName().equals("putValue"))) {
+                && (invocation.getSimpleName().equals("putValueTyped")
+                    || invocation.getSimpleName().equals("putValue"))) {
 
               List<J.MethodInvocation> putValues = new ArrayList<>();
 
-              Expression current = invoc;
+              Expression current = invocation;
 
               while (current instanceof J.MethodInvocation mi) {
                 current = mi.getSelect();
@@ -361,66 +648,61 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
 
                 List<Expression> args = new ArrayList<>();
                 for (J.MethodInvocation put : putValues) {
-                  args.add(put.getArguments().get(0));
-                  args.add(put.getArguments().get(1));
+                  args.add(RecipeUtils.updateType(getCursor(), put.getArguments().get(0)));
+                  args.add(RecipeUtils.updateType(getCursor(), put.getArguments().get(1)));
                 }
 
+                maybeAddImport("java.util.Map");
+
                 return mapOfEntries.apply(
-                    getCursor(), invoc.getCoordinates().replace(), args.toArray(new Object[0]));
+                    getCursor(),
+                    invocation.getCoordinates().replace(),
+                    args.toArray(new Object[0]));
               }
 
-              // rename method invocation identifier to put
-              J.Identifier ident = RecipeUtils.createSimpleIdentifier("put", "java.lang.String");
-              return invoc.withName(ident);
+              if (!(invocation.getSelect() instanceof J.Identifier select)) {
+                return super.visitMethodInvocation(invocation, ctx);
+              }
+
+              J.Identifier newIdent =
+                  RecipeUtils.createSimpleIdentifier(select.getSimpleName(), "java.util.Map");
+
+              return RecipeUtils.createSimpleJavaTemplate("#{any()}.put(#{any()}, #{any()})")
+                  .apply(
+                      getCursor(),
+                      invocation.getCoordinates().replace(),
+                      newIdent,
+                      RecipeUtils.updateType(getCursor(), invocation.getArguments().get(0)),
+                      RecipeUtils.updateType(getCursor(), invocation.getArguments().get(1)));
             }
 
-            if (invoc.getSimpleName().equals("getValue")) {
-              return invoc.getSelect().withPrefix(Space.SINGLE_SPACE);
+            if (invocation.getSimpleName().equals("getValue")
+                && invocation.getSelect() instanceof J.Identifier select) {
+
+              // get returnTypeFqn from cursor message
+              String returnTypeFqn = getCursor().getNearestMessage(select.getSimpleName());
+
+              return RecipeUtils.createSimpleJavaTemplate("#{any()}")
+                  .apply(
+                      getCursor(),
+                      invocation.getCoordinates().replace(),
+                      invocation.getSelect().withType(JavaType.buildType(returnTypeFqn)));
             }
-            return super.visitMethodInvocation(invoc, ctx);
+
+            if (invocation.getSimpleName().equals("getVariableTyped")
+                || invocation.getSimpleName().equals("getVariableLocalTyped")) {
+              J.Identifier newIdent =
+                  RecipeUtils.createSimpleIdentifier("getVariable", "java.lang.String");
+              return invocation.withName(newIdent);
+            }
+
+            return super.visitMethodInvocation(invocation, ctx);
           }
 
-          /** Replace initializers of assignments */
           @Override
-          public J visitAssignment(J.Assignment assignment, ExecutionContext executionContext) {
+          public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
 
-            maybeRemoveImport(RecipeConstants.Type.BOOLEAN_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.BYTES_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.FLOAT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.DOUBLE_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.SHORT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.LONG_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.INTEGER_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.STRING_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.OBJECT_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.TYPED_VALUE);
-            maybeRemoveImport(RecipeConstants.Type.VARIABLE_MAP);
-            maybeRemoveImport(RecipeConstants.Type.VARIABLES);
-
-            Expression assignmentExpr = assignment.getAssignment();
-
-            if (assignmentExpr instanceof J.MethodInvocation method
-                && method.getSelect() instanceof J.Identifier sel
-                && sel.getSimpleName().equals("Variables")) {
-              // the initializer needs to be a method invocation which first or second select method
-              // is the Variables identifier
-
-              return assignment.withAssignment(
-                  method.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-            } else if (assignmentExpr instanceof J.MethodInvocation method
-                && method.getSelect() instanceof J.MethodInvocation method2
-                && method2.getSelect() instanceof J.Identifier sel2
-                && sel2.getSimpleName().equals("Variables")) {
-              return assignment.withAssignment(
-                  method2.getArguments().get(0).withPrefix(Space.SINGLE_SPACE));
-            }
-
-            if (assignmentExpr instanceof J.MethodInvocation method
-                && method.getSimpleName().equals("getValue")) {
-              return assignment.withAssignment(method.getSelect().withPrefix(Space.SINGLE_SPACE));
-            }
-
-            return super.visitAssignment(assignment, executionContext);
+            return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
           }
 
           /**

@@ -29,7 +29,11 @@ public class AddCamundaClientDependencyRecipe extends Recipe {
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
-            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
+            Preconditions.or(
+                new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
+                new UsesType<>(RecipeConstants.Type.RUNTIME_SERVICE, true),
+                new UsesType<>(RecipeConstants.Type.TASK_SERVICE, true),
+                new UsesType<>(RecipeConstants.Type.REPOSITORY_SERVICE, true)),
             Preconditions.not(new UsesType<>(RecipeConstants.Type.CAMUNDA_CLIENT, true)));
 
     return Preconditions.check(
@@ -67,7 +71,10 @@ public class AddCamundaClientDependencyRecipe extends Recipe {
                     .anyMatch(
                         varDecl ->
                             varDecl.getVariables().stream()
-                                .anyMatch(v -> v.getSimpleName().equals(RecipeConstants.Type.CAMUNDA_CLIENT)));
+                                .anyMatch(
+                                    v ->
+                                        v.getSimpleName()
+                                            .equals(RecipeConstants.Type.CAMUNDA_CLIENT)));
 
             if (hasField) {
               return classDecl; // Already present
