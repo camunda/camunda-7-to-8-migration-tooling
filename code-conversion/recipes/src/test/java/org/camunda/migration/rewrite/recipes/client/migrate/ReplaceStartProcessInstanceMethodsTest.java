@@ -2,8 +2,6 @@ package org.camunda.migration.rewrite.recipes.client.migrate;
 
 import static org.openrewrite.java.Assertions.java;
 
-import org.camunda.migration.rewrite.recipes.sharedRecipes.LogRecipe;
-import org.camunda.migration.rewrite.recipes.sharedRecipes.LogTypeRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -439,7 +437,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
   @Test
   void variousProcessEngineFunctionsTest() {
     rewriteRun(
-        spec -> spec.recipes(new ReplaceStartProcessInstanceMethodsRecipe(), new LogRecipe(), new LogTypeRecipe()),
+        spec -> spec.recipes(new ReplaceStartProcessInstanceMethodsRecipe()),
         // language=java
         java(
             """

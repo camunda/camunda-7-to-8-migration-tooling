@@ -1,14 +1,16 @@
 package org.camunda.migration.rewrite.recipes.delegate.migrate;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import org.camunda.migration.rewrite.recipes.sharedRecipes.AbstractMigrationRecipe;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
-import org.openrewrite.marker.Markers;
 
 public class ReplaceExecutionRecipe extends Recipe {
 
@@ -29,10 +31,8 @@ public class ReplaceExecutionRecipe extends Recipe {
   public List<Recipe> getRecipeList() {
     return List.of(
         new CopyDelegateToJobWorkerRecipe(),
-        new MigrateDelegateVariableHandlingInJobWorker(),
-        new MigrateDelegateBPMNErrorAndExceptionInJobWorker()
-        //    new MigrateDelegateIncidentInJobWorker()
-        );
+        new MigrateDelegateExecutionMethodsInJobWorker(),
+        new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
   }
 
   private static class CopyDelegateToJobWorkerRecipe extends Recipe {
@@ -56,21 +56,22 @@ public class ReplaceExecutionRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>(RecipeConstants.Type.JOB_WORKER, true),
-              new UsesType<>(RecipeConstants.Type.VARIABLE_SCOPE, true));
+              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
 
       return Preconditions.check(
           check,
-          new JavaVisitor<ExecutionContext>() {
+          new JavaIsoVisitor<>() {
 
             @Override
-            public J visitClassDeclaration(J.ClassDeclaration classDecl, ExecutionContext ctx) {
+            public J.ClassDeclaration visitClassDeclaration(
+                J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
               // Skip interfaces
-              if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
-                return super.visitClassDeclaration(classDecl, ctx);
+              if (classDeclaration.getKind() != J.ClassDeclaration.Kind.Type.Class) {
+                return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
-              List<Statement> currentStatements = classDecl.getBody().getStatements();
+              List<Statement> currentStatements = classDeclaration.getBody().getStatements();
               List<Statement> updatedStatements = new ArrayList<>();
 
               // find delegate method
@@ -111,18 +112,16 @@ public class ReplaceExecutionRecipe extends Recipe {
                     updatedStatements.add(stmt);
                   }
                 }
-                return classDecl.withBody(classDecl.getBody().withStatements(updatedStatements));
+                return classDeclaration.withBody(
+                    classDeclaration.getBody().withStatements(updatedStatements));
               }
-              return super.visitClassDeclaration(classDecl, ctx);
+              return super.visitClassDeclaration(classDeclaration, ctx);
             }
           });
     }
   }
 
-  private static class MigrateDelegateVariableHandlingInJobWorker extends Recipe {
-
-    /** Instantiates a new instance. */
-    public MigrateDelegateVariableHandlingInJobWorker() {}
+  private static class MigrateDelegateExecutionMethodsInJobWorker extends AbstractMigrationRecipe {
 
     @Override
     public String getDisplayName() {
@@ -135,139 +134,135 @@ public class ReplaceExecutionRecipe extends Recipe {
     }
 
     @Override
-    public TreeVisitor<?, ExecutionContext> getVisitor() {
+    protected TreeVisitor<?, ExecutionContext> preconditions() {
+      return Preconditions.and(
+          new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+          new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
+    }
 
-      // define preconditions
-      TreeVisitor<?, ExecutionContext> check =
-          Preconditions.and(
-              new UsesType<>(RecipeConstants.Type.JOB_WORKER, true),
-              new UsesType<>(RecipeConstants.Type.DELEGATE_EXECUTION, true));
+    @Override
+    protected Predicate<Cursor> visitorSkipCondition() {
+      return cursor -> {
+        J.MethodDeclaration m = cursor.firstEnclosing(J.MethodDeclaration.class);
+        return m != null && "execute".equals(m.getSimpleName());
+      };
+    }
 
-      return Preconditions.check(
-          check,
-          new JavaVisitor<ExecutionContext>() {
+    @Override
+    protected List<RecipeUtils.MethodInvocationSimpleReplacementSpec> simpleMethodInvocations() {
+      return List.of(
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getVariable(String variableName)"
+                  "org.camunda.bpm.engine.delegate.VariableScope getVariable(java.lang.String)"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariable(#{any(java.lang.String)})"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              null,
+              RecipeUtils.ReturnTypeStrategy.INFER_FROM_CONTEXT,
+              List.of(
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                      "variableName", 0)),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getVariableLocal(String variableName)"
+                  "org.camunda.bpm.engine.delegate.VariableScope getVariableLocal(java.lang.String)"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "#{job:any(io.camunda.client.api.response.ActivatedJob)}.getVariable(#{any(java.lang.String)})"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              null,
+              RecipeUtils.ReturnTypeStrategy.INFER_FROM_CONTEXT,
+              List.of(
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                      "variableName", 0)),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "setVariable(String variableName, Object value)"
+                  "org.camunda.bpm.engine.delegate.VariableScope setVariable(java.lang.String, java.lang.Object)"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "#{resultMap:any(java.util.Map)}.put(#{any(java.lang.String)}, #{any(java.lang.Object)})"),
+              RecipeUtils.createSimpleIdentifier("resultMap", "java.util.Map"),
+              null,
+              RecipeUtils.ReturnTypeStrategy.VOID,
+              List.of(
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("variableName", 0),
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("value", 1)),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "setVariableLocal(String variableName, Object value)"
+                  "org.camunda.bpm.engine.delegate.VariableScope setVariableLocal(java.lang.String, java.lang.Object)"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "#{resultMap:any(java.util.Map)}.put(#{any(java.lang.String)}, #{any(java.lang.Object)})"),
+              RecipeUtils.createSimpleIdentifier("resultMap", "java.util.Map"),
+              null,
+              RecipeUtils.ReturnTypeStrategy.VOID,
+              List.of(
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("variableName", 0),
+                  new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("value", 1)),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getProcessInstanceId()"
+                  "org.camunda.bpm.engine.delegate.DelegateExecution getProcessInstanceId()"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "String.valueOf(#{any(io.camunda.client.api.response.ActivatedJob)}.getProcessInstanceKey())"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              "java.lang.String",
+              RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              Collections.emptyList(),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getProcessDefinitionId()"
+                  "org.camunda.bpm.engine.delegate.DelegateExecution getProcessDefinitionId()"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "String.valueOf(#{any(io.camunda.client.api.response.ActivatedJob)}.getProcessDefinitionKey())"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              "java.lang.String",
+              RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              Collections.emptyList(),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getCurrentActivityId()"
+                  "org.camunda.bpm.engine.delegate.DelegateExecution getCurrentActivityId()"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "#{any(io.camunda.client.api.response.ActivatedJob)}.getElementId()"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              "java.lang.String",
+              RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              Collections.emptyList(),
+              Collections.emptyList()),
+          new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+              new MethodMatcher(
+                  // "getActivityInstanceId()"
+                  "org.camunda.bpm.engine.delegate.DelegateExecution getActivityInstanceId()"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  "String.valueOf(#{any(io.camunda.client.api.response.ActivatedJob)}.getElementInstanceKey())"),
+              RecipeUtils.createSimpleIdentifier(
+                  "job", "io.camunda.client.api.response.ActivatedJob"),
+              "java.lang.String",
+              RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              Collections.emptyList(),
+              Collections.emptyList()));
+    }
 
-            final MethodMatcher engineGetVariable =
-                new MethodMatcher(RecipeConstants.Method.GET_VARIABLE);
+    @Override
+    protected List<RecipeUtils.MethodInvocationBuilderReplacementSpec> builderMethodInvocations() {
+      return Collections.emptyList();
+    }
 
-            final MethodMatcher engineGetVariableLocal =
-                new MethodMatcher(RecipeConstants.Method.GET_VARIABLE_LOCAL);
-
-            final MethodMatcher engineSetVariable =
-                new MethodMatcher(RecipeConstants.Method.SET_VARIABLE);
-
-            final MethodMatcher engineSetVariableLocal =
-                new MethodMatcher(RecipeConstants.Method.SET_VARIABLE_LOCAL);
-
-            @Override
-            public J visitMethodInvocation(
-                J.MethodInvocation methodInvocation, ExecutionContext ctx) {
-
-              // ensure we are not inside the delegate method
-              if (isInsideDelegateMethod()) {
-                return methodInvocation;
-              }
-
-              if (engineGetVariable.matches(methodInvocation)
-                  || engineGetVariableLocal.matches(methodInvocation)) {
-                return transformGetVariableCall(getCursor(), methodInvocation);
-              }
-              if (engineSetVariable.matches(methodInvocation)
-                  || engineSetVariableLocal.matches(methodInvocation)) {
-                return transformSetVariableCall(getCursor(), methodInvocation);
-              }
-              return super.visitMethodInvocation(methodInvocation, ctx);
-            }
-
-            @Override
-            public J visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
-
-              // ensure we are not inside the delegate method
-              if (isInsideDelegateMethod()) {
-                return assignment;
-              }
-              return super.visitAssignment(assignment, ctx);
-            }
-
-            @Override
-            public J visitTypeCast(J.TypeCast typeCast, ExecutionContext ctx) {
-
-              // ensure we are not inside the delegate method
-              if (isInsideDelegateMethod()) {
-                return typeCast;
-              }
-              return super.visitTypeCast(typeCast, ctx);
-            }
-
-            @Override
-            public J visitBinary(J.Binary binary, ExecutionContext ctx) {
-
-              // ensure we are not inside the delegate method
-              if (isInsideDelegateMethod()) {
-                return binary;
-              }
-              return super.visitBinary(binary, ctx);
-            }
-
-            private boolean isInsideDelegateMethod() {
-              J.MethodDeclaration enclosingMethod =
-                  getCursor().firstEnclosing(J.MethodDeclaration.class);
-              return enclosingMethod != null && "execute".equals(enclosingMethod.getSimpleName());
-            }
-
-            private final JavaTemplate getVariablesAsMap =
-                JavaTemplate.builder(
-                        "#{job:any("
-                            + RecipeConstants.Type.ACTIVATED_JOB
-                            + ")}.getVariable(#{any(java.lang.String)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.ACTIVATED_JOB)
-                    .build();
-
-            private J.MethodInvocation transformGetVariableCall(
-                Cursor cursor, J.MethodInvocation methodInvocation) {
-              J.Identifier jobIdent =
-                  RecipeUtils.createSimpleIdentifier("job", RecipeConstants.Type.ACTIVATED_JOB);
-
-              Expression argument = methodInvocation.getArguments().get(0); // The key ("AMOUNT")
-
-              // Apply the transformation using JavaTemplate
-              return getVariablesAsMap.apply(
-                  cursor,
-                  methodInvocation.getCoordinates().replace(),
-                  jobIdent, // job ident
-                  argument // The original argument ("AMOUNT")
-                  );
-            }
-
-            private final JavaTemplate putEntryTemplate =
-                JavaTemplate.builder(
-                        "#{resultMap:any(java.util.Map)}.put(#{any(java.lang.String)}, #{any()});")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.ACTIVATED_JOB)
-                    .build();
-
-            private J.MethodInvocation transformSetVariableCall(
-                Cursor cursor, J.MethodInvocation methodInvocation) {
-              // Expression select = methodInvocation.getSelect();  // The variable (ctx, execution,
-              // etc.)
-              J.Identifier mapIdent =
-                  RecipeUtils.createSimpleIdentifier("resultMap", "java.util.Map");
-              Expression argumentKey = methodInvocation.getArguments().get(0); // The key ("AMOUNT")
-              Expression argumentValue = methodInvocation.getArguments().get(1); // The value
-
-              return putEntryTemplate
-                  .apply(
-                      cursor,
-                      methodInvocation.getCoordinates().replace(),
-                      mapIdent,
-                      argumentKey,
-                      argumentValue)
-                  .withPrefix(methodInvocation.getPrefix());
-            }
-          });
+    @Override
+    protected List<RecipeUtils.MethodInvocationReturnReplacementSpec> returnMethodInvocations() {
+      return Collections.emptyList();
     }
   }
 
@@ -286,162 +281,205 @@ public class ReplaceExecutionRecipe extends Recipe {
       return "During a previous step, delegate code was copied into the job worker. This recipe migrates BPMN error throwing code.";
     }
 
+    List<RecipeUtils.MethodInvocationSimpleReplacementSpec> errorSpecs =
+        List.of(
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // BpmnError(java.lang.String errorCode)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\")",
+                    "io.camunda.spring.client.exception.CamundaError"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("errorCode", 0)),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // BpmnError(java.lang.String errorCode, java.lang.String errorMessage)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.String)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)})",
+                    "io.camunda.spring.client.exception.CamundaError"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("errorCode", 0),
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                        "errorMessage", 1)),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // BpmnError(java.lang.String errorCode, java.lang.String errorMessage,
+                // java.lang.Throwable throwable)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.String, java.lang.Throwable)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, Collections.emptyMap(), #{any(java.lang.Throwable)})",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("errorCode", 0),
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                        "errorMessage", 1),
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("throwable", 2)),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // BpmnError(java.lang.String errorCode, java.lang.Throwable cause)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.Throwable)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\", Collections.emptyMap(), #{any(java.lang.Throwable)})",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("errorCode", 0),
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("throwable", 1)),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // ProcessEngineException()
+                new MethodMatcher("org.camunda.bpm.engine.ProcessEngineException <constructor>()"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\")",
+                    "io.camunda.spring.client.exception.CamundaError"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                Collections.emptyList(),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // ProcessEngineException(java.lang.String message)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)})",
+                    "io.camunda.spring.client.exception.CamundaError"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("message", 0)),
+                Collections.emptyList()),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // ProcessEngineException(java.lang.String message, java.lang.Throwable throwable)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String, java.lang.Throwable)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(String)}, Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections",
+                    "java.time.Duration"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("message", 0),
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("throwable", 1)),
+                List.of(" set retries with job.getRetries() - 1")),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // ProcessEngineException(java.lang.String message, int code)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String, int)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(String)})",
+                    "io.camunda.spring.client.exception.CamundaError"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("message", 0)),
+                List.of(" error code was removed")),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // ProcessEngineException(java.lang.Throwable throwable)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.Throwable)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections",
+                    "java.time.Duration"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("throwable", 0)),
+                Collections.emptyList()));
+
+    List<RecipeUtils.MethodInvocationSimpleReplacementSpec> incidentSpecs =
+        List.of(
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // createIncident(java.lang.String incidentType, java.lang.String configuration)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.DelegateExecution createIncident(java.lang.String, java.lang.String)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 0)",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                Collections.emptyList(),
+                List.of(
+                    " incidentType was removed",
+                    " configuration was removed",
+                    " incident created by retries being 0")),
+            new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                // createIncident(java.lang.String incidentType, java.lang.String configuration,
+                // java.lang.String message)
+                new MethodMatcher(
+                    "org.camunda.bpm.engine.delegate.DelegateExecution createIncident(java.lang.String, java.lang.String, java.lang.String)"),
+                RecipeUtils.createSimpleJavaTemplate(
+                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), 0)",
+                    "io.camunda.spring.client.exception.CamundaError",
+                    "java.util.Collections"),
+                RecipeUtils.createSimpleIdentifier(
+                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                null,
+                RecipeUtils.ReturnTypeStrategy.VOID,
+                List.of(
+                    new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg("message", 0)),
+                List.of(
+                    " incidentType was removed",
+                    " configuration was removed",
+                    " incident created by retries being 0")));
+
+    List<RecipeUtils.MethodInvocationReplacementSpec> commonSpecs =
+        Stream.concat(
+                errorSpecs.stream().map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec),
+                incidentSpecs.stream()
+                    .map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec))
+            .toList();
+
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
 
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>(RecipeConstants.Type.JOB_WORKER, true),
-              new UsesType<>(RecipeConstants.Type.VARIABLE_SCOPE, true));
+              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
 
       return Preconditions.check(
           check,
           new JavaVisitor<ExecutionContext>() {
-
-            // engine
-            // BpmnError(java.lang.String errorCode)
-            final MethodMatcher engineErrorWithCode =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_BPMN_ERROR
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String"));
-            // BpmnError(java.lang.String errorCode, java.lang.String message)
-            final MethodMatcher engineErrorWithCodeWithMessage =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_BPMN_ERROR
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String", "String"));
-            // BpmnError(java.lang.String errorCode, java.lang.String message,
-            // java.lang.Throwable cause)
-            final MethodMatcher engineErrorWithCodeWithMessageWithThrowable =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_BPMN_ERROR
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build(
-                            "String", "String", "java.lang.Throwable"));
-            // BpmnError(java.lang.String errorCode, java.lang.Throwable cause)
-            final MethodMatcher engineErrorWithCodeWithThrowable =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_BPMN_ERROR
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String", "java.lang.Throwable"));
-
-            // client errors
-            // bpmnError(java.lang.String errorCode, java.lang.String errorMessage)
-            final JavaTemplate clientBPMNErrorWithCodeWithMessage =
-                JavaTemplate.builder("throw CamundaError.bpmnError(#{any(String)}, #{any(String)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-            // bpmnError(java.lang.String errorCode, java.lang.String errorMessage,java.lang.Object
-            // variables, java.lang.Throwable cause)
-            final JavaTemplate clientBPMNErrorWithCodeWithMessageWithVariablesWithThrowable =
-                JavaTemplate.builder(
-                        "throw CamundaError.bpmnError(#{any(String)}, #{any(String)}, #{any(java.util.Map)}, #{any(java.lang.Throwable)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-
-            // engine
-            // public ProcessEngineException()
-            final MethodMatcher engineException =
-                new MethodMatcher(RecipeConstants.Type.ENGINE_EXCEPTION + " <constructor>()");
-            // public ProcessEngineException(java.lang.String message, java.lang.Throwable cause)
-            final MethodMatcher engineExceptionWithMessageWithThrowable =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_EXCEPTION
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String", "java.lang.Throwable"));
-            // public ProcessEngineException(java.lang.String message) { /* compiled code */ }
-            final MethodMatcher engineExceptionWithMessage =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_EXCEPTION
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String"));
-            // public ProcessEngineException(java.lang.String message, int code) { /* compiled code
-            // */ }
-            final MethodMatcher engineExceptionWithMessageAndCode =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_EXCEPTION
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("String", "int"));
-            // public ProcessEngineException(java.lang.Throwable cause) { /* compiled code */ }
-            final MethodMatcher engineExceptionWithThrowable =
-                new MethodMatcher(
-                    RecipeConstants.Type.ENGINE_EXCEPTION
-                        + " <constructor>"
-                        + RecipeConstants.Parameters.build("java.lang.Throwable"));
-
-            // jobError(java.lang.String errorMessage)
-            final JavaTemplate clientExceptionWithMessage =
-                JavaTemplate.builder("throw CamundaError.jobError(#{any(String)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-
-            // jobError(java.lang.String errorMessage, java.lang.Object variables)
-            final JavaTemplate clientExceptionWithMessageWithVariables =
-                JavaTemplate.builder(
-                        "throw CamundaError.jobError(#{any(String)}, #{any(java.util.Map)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-
-            // jobError(java.lang.String errorMessage, java.lang.Object variables, java.lang.Integer
-            // retries)
-            final JavaTemplate clientExceptionWithMessageWithVariablesWithRetries =
-                JavaTemplate.builder(
-                        "throw CamundaError.jobError(#{any(String)}, #{any(java.util.Map)}, #{any(Integer)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-
-            final JavaTemplate clientExceptionWithMessageWithVariablesWithRetriesFixedMapIncident =
-                JavaTemplate.builder(
-                        "throw CamundaError.jobError(#{any(String)}, new HashMap<>(), 0)")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(
-                        RecipeConstants.Type.CLIENT_CAMUNDA_ERROR,
-                        "java.util.HashMap") // adjust imports
-                    .build();
-            final JavaTemplate
-                clientExceptionWithMessageWithVariablesWithRetriesFixedMessageFixedMapIncident =
-                    JavaTemplate.builder(
-                            "throw CamundaError.jobError(\"Add an error message here\", new HashMap<>(), 0)")
-                        .javaParser(
-                            JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                        .imports(
-                            RecipeConstants.Type.CLIENT_CAMUNDA_ERROR,
-                            "java.util.HashMap") // adjust imports
-                        .build();
-
-            // jobError(java.lang.String errorMessage, java.lang.Object variables, java.lang.Integer
-            // retries, java.time.Duration retryBackoff)
-            final JavaTemplate clientExceptionWithMessageWithVariablesWithRetriesWithBackoff =
-                JavaTemplate.builder(
-                        "throw CamundaError.jobError(#{any(String)}, #{any(java.util.Map)}, #{any(Integer)}, #{any(java.time.Duration)})")
-                    .javaParser(
-                        JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                    .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                    .build();
-
-            // jobError(java.lang.String errorMessage, java.lang.Object variables, java.lang.Integer
-            // retries, java.time.Duration retryBackoff, java.lang.Throwable cause)
-            final JavaTemplate
-                clientExceptionWithMessageWithVariablesWithRetriesWithBackoffWithThrowable =
-                    JavaTemplate.builder(
-                            "throw CamundaError.jobError(#{any(String)}, #{any(java.util.Map)}, #{any(Integer)}, #{any(java.time.Duration)}, #{any(java.lang.Throwable)})")
-                        .javaParser(
-                            JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
-                        .imports(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR) // adjust imports
-                        .build();
 
             @Override
             public J visitThrow(J.Throw throwStmt, ExecutionContext ctx) {
@@ -452,156 +490,21 @@ public class ReplaceExecutionRecipe extends Recipe {
               Expression exception = throwStmt.getException();
               if (exception instanceof J.NewClass newClass) {
 
-                TextComment variableComment =
-                    new TextComment(
-                        false,
-                        " error variables can be added to the BPMN error event",
-                        "\n" + throwStmt.getPrefix().getIndent(),
-                        Markers.EMPTY);
+                for (RecipeUtils.MethodInvocationSimpleReplacementSpec spec : errorSpecs) {
+                  if (spec.matcher().matches(newClass)) {
 
-                TextComment addErrorMessage =
-                    new TextComment(
-                        false,
-                        " throwing a BPMN error event requires an error message in Camunda 8",
-                        "\n" + throwStmt.getPrefix().getIndent(),
-                        Markers.EMPTY);
+                    maybeAddImport("io.camunda.spring.client.exception.CamundaError");
 
-                TextComment noErrorCodeComment =
-                    new TextComment(
-                        false,
-                        " no error code when throwing job error in Camunda 8",
-                        "\n" + throwStmt.getPrefix().getIndent(),
-                        Markers.EMPTY);
-
-                TextComment retriesDurationComment =
-                    new TextComment(
-                        false,
-                        " you can specify retries and backoff when failing a job",
-                        "\n" + throwStmt.getPrefix().getIndent(),
-                        Markers.EMPTY);
-
-                J.Identifier addAnErrorMessage =
-                    RecipeUtils.createSimpleIdentifier("\"Add an error message here\"", "String");
-
-                J.Identifier newHashMap =
-                    RecipeUtils.createSimpleIdentifier("new HashMap<>()", "java.util.Map");
-
-                J.Identifier retriesIdent =
-                    RecipeUtils.createSimpleIdentifier("job.getRetries() - 1", "java.lang.Integer");
-
-                J.Identifier durationIdent =
-                    RecipeUtils.createSimpleIdentifier(
-                        "Duration.ofSeconds(30)", "java.time.Duration");
-
-                if (engineErrorWithCode.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                  return clientBPMNErrorWithCodeWithMessage
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0),
-                          addAnErrorMessage)
-                      .withComments(List.of(variableComment, addErrorMessage));
-                }
-
-                if (engineErrorWithCodeWithMessage.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                  return clientBPMNErrorWithCodeWithMessage
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0),
-                          newClass.getArguments().get(1))
-                      .withComments(List.of(variableComment));
-                }
-
-                if (engineErrorWithCodeWithMessageWithThrowable.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-                  maybeAddImport("java.util.HashMap");
-
-                  return clientBPMNErrorWithCodeWithMessageWithVariablesWithThrowable
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0),
-                          newClass.getArguments().get(1),
-                          newHashMap,
-                          newClass.getArguments().get(2))
-                      .withComments(List.of(variableComment));
-                }
-
-                if (engineErrorWithCodeWithThrowable.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-                  maybeAddImport("java.util.HashMap");
-
-                  return clientBPMNErrorWithCodeWithMessageWithVariablesWithThrowable
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0),
-                          addAnErrorMessage,
-                          newHashMap,
-                          newClass.getArguments().get(1))
-                      .withComments(List.of(variableComment, addErrorMessage));
-                }
-
-                if (engineException.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                  return clientExceptionWithMessage.apply(
-                      getCursor(), throwStmt.getCoordinates().replace(), addAnErrorMessage);
-                }
-                if (engineExceptionWithMessage.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                  return clientExceptionWithMessage.apply(
-                      getCursor(),
-                      throwStmt.getCoordinates().replace(),
-                      newClass.getArguments().get(0));
-                }
-                if (engineExceptionWithThrowable.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-                  maybeAddImport("java.util.HashMap");
-                  maybeAddImport("java.time.Duration");
-
-                  return clientExceptionWithMessageWithVariablesWithRetriesWithBackoffWithThrowable
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          addAnErrorMessage,
-                          newHashMap,
-                          retriesIdent,
-                          durationIdent,
-                          newClass.getArguments().get(0))
-                      .withComments(List.of(retriesDurationComment));
-                }
-                if (engineExceptionWithMessageAndCode.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                  return clientExceptionWithMessage
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0))
-                      .withComments(List.of(noErrorCodeComment));
-                }
-                if (engineExceptionWithMessageWithThrowable.matches(throwStmt.getException())) {
-                  maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-                  maybeAddImport("java.util.HashMap");
-                  maybeAddImport("java.time.Duration");
-
-                  return clientExceptionWithMessageWithVariablesWithRetriesWithBackoffWithThrowable
-                      .apply(
-                          getCursor(),
-                          throwStmt.getCoordinates().replace(),
-                          newClass.getArguments().get(0),
-                          newHashMap,
-                          retriesIdent,
-                          durationIdent,
-                          newClass.getArguments().get(1))
-                      .withComments(List.of(retriesDurationComment));
+                    return maybeAutoFormat(
+                        throwStmt,
+                        spec.template()
+                            .apply(
+                                getCursor(),
+                                throwStmt.getCoordinates().replace(),
+                                RecipeUtils.createArgs(
+                                    newClass, spec.baseIdentifier(), spec.argumentIndexes())),
+                        ctx);
+                  }
                 }
               }
 
@@ -619,36 +522,53 @@ public class ReplaceExecutionRecipe extends Recipe {
                 J.VariableDeclarations.NamedVariable var =
                     variableDeclarations.getVariables().get(0);
                 if (var.getInitializer() instanceof J.MethodInvocation methodInvocation) {
-                  Statement newStatement =
-                      (Statement) replaceIncidentCreation(methodInvocation, ctx);
-                  if (newStatement != null) {
-                    return newStatement;
+                  for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+                    if (spec.matcher().matches(methodInvocation)) {
+                      Statement newStatement =
+                          (Statement) replaceIncidentCreation(methodInvocation, ctx);
+                      if (newStatement != null) {
+
+                        newStatement =
+                            newStatement.withComments(
+                                Stream.concat(
+                                        stmt.getComments().stream(),
+                                        spec.textComments().stream()
+                                            .map(
+                                                text ->
+                                                    RecipeUtils.createSimpleComment(stmt, text)))
+                                    .toList());
+
+                        return newStatement;
+                      }
+                    }
                   }
                 }
               }
 
               if (stmt instanceof J.MethodInvocation methodInvocation) {
-                Statement newStatement = (Statement) replaceIncidentCreation(methodInvocation, ctx);
-                if (newStatement != null) {
-                  return newStatement;
+                for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+                  if (spec.matcher().matches(methodInvocation)) {
+
+                    Statement newStatement =
+                        (Statement) replaceIncidentCreation(methodInvocation, ctx);
+                    if (newStatement != null) {
+
+                      newStatement =
+                          newStatement.withComments(
+                              Stream.concat(
+                                      stmt.getComments().stream(),
+                                      spec.textComments().stream()
+                                          .map(text -> RecipeUtils.createSimpleComment(stmt, text)))
+                                  .toList());
+
+                      return newStatement;
+                    }
+                  }
                 }
               }
 
               return super.visitStatement(stmt, ctx);
             }
-
-            // createIncident(java.lang.String incidentType, java.lang.String configuration)
-            final MethodMatcher engineCreateIncident =
-                new MethodMatcher(
-                    RecipeConstants.Method.CREATE_INCIDENT
-                        + RecipeConstants.Parameters.build("String", "String"));
-
-            // createIncident(java.lang.String incidentType, java.lang.String configuration,
-            // java.lang.String message)
-            final MethodMatcher engineCreateIncidentWithMessage =
-                new MethodMatcher(
-                    RecipeConstants.Method.CREATE_INCIDENT
-                        + RecipeConstants.Parameters.build("String", "String", "String"));
 
             public J replaceIncidentCreation(
                 J.MethodInvocation methodInvocation, ExecutionContext ctx) {
@@ -658,42 +578,25 @@ public class ReplaceExecutionRecipe extends Recipe {
                       ? getCursor()
                       : getCursor().dropParentUntil(Statement.class::isInstance);
 
-              TextComment incidentNoRetries =
-                  new TextComment(
-                      false,
-                      " incident is raised by throwing jobError with no retries",
-                      "\n" + ((Statement) statementCursor.getValue()).getPrefix().getIndent(),
-                      Markers.EMPTY);
+              for (RecipeUtils.MethodInvocationSimpleReplacementSpec specs : incidentSpecs) {
+                if (specs.matcher().matches(methodInvocation)) {
 
-              if (engineCreateIncident.matches(methodInvocation)) {
-                maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
+                  Statement statement =
+                      specs
+                          .template()
+                          .apply(
+                              statementCursor,
+                              ((Statement) statementCursor.getValue()).getCoordinates().replace(),
+                              RecipeUtils.createArgs(
+                                  methodInvocation,
+                                  specs.baseIdentifier(),
+                                  specs.argumentIndexes()));
 
-                Statement stmt =
-                    clientExceptionWithMessageWithVariablesWithRetriesFixedMessageFixedMapIncident
-                        .apply(
-                            statementCursor,
-                            ((Statement) statementCursor.getValue()).getCoordinates().replace())
-                        .withPrefix(((Statement) statementCursor.getValue()).getPrefix());
+                  maybeAddImport("io.camunda.spring.client.exception.CamundaError");
 
-                return stmt.withComments(List.of(incidentNoRetries));
-                // return stmt;
+                  return maybeAutoFormat(methodInvocation, statement, ctx);
+                }
               }
-
-              if (engineCreateIncidentWithMessage.matches(methodInvocation)) {
-                maybeAddImport(RecipeConstants.Type.CLIENT_CAMUNDA_ERROR);
-
-                Statement stmt =
-                    clientExceptionWithMessageWithVariablesWithRetriesFixedMapIncident
-                        .apply(
-                            statementCursor,
-                            ((Statement) statementCursor.getValue()).getCoordinates().replace(),
-                            methodInvocation.getArguments().get(2))
-                        .withPrefix(((Statement) statementCursor.getValue()).getPrefix());
-
-                return stmt.withComments(List.of(incidentNoRetries));
-                // return stmt;
-              }
-
               return null;
             }
 

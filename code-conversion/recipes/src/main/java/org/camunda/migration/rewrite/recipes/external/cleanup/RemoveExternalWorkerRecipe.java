@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.delegate.cleanup;
+package org.camunda.migration.rewrite.recipes.external.cleanup;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -8,19 +8,19 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.jgit.annotations.NonNull;
 
-public class RemoveDelegateRecipe extends Recipe {
+public class RemoveExternalWorkerRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public RemoveDelegateRecipe() {}
+  public RemoveExternalWorkerRecipe() {}
 
   @Override
   public String getDisplayName() {
-    return "Removes delegate-related code";
+    return "Removes external worker-related code";
   }
 
   @Override
   public String getDescription() {
-    return "Removes delegate-related code.";
+    return "Removes external worker-related code.";
   }
 
   @Override
@@ -28,11 +28,15 @@ public class RemoveDelegateRecipe extends Recipe {
 
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
-        new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true);
+        new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true);
 
     return Preconditions.check(
         check,
         new JavaIsoVisitor<>() {
+
+          AnnotationMatcher subscription =
+              new AnnotationMatcher(
+                  "@org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription");
 
           @Override
           @NonNull
@@ -50,7 +54,7 @@ public class RemoveDelegateRecipe extends Recipe {
                     .filter(
                         id ->
                             !TypeUtils.isOfClassType(
-                                id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))
+                                id.getType(), "org.camunda.bpm.client.task.ExternalTaskHandler"))
                     .collect(Collectors.toList());
 
             List<Statement> filteredStatements =
@@ -61,12 +65,20 @@ public class RemoveDelegateRecipe extends Recipe {
                                 && methDecl.getSimpleName().equals("execute"))))
                     .toList();
 
-            maybeRemoveImport("org.camunda.bpm.engine.delegate.JavaDelegate");
-            maybeRemoveImport("org.camunda.bpm.engine.delegate.DelegateExecution");
+            List<J.Annotation> filteredAnnotations =
+                classDecl.getLeadingAnnotations().stream()
+                    .filter((annotation -> !(subscription.matches(annotation))))
+                    .toList();
+
+            maybeRemoveImport("org.camunda.bpm.client.task.ExternalTask");
+            maybeRemoveImport("org.camunda.bpm.client.task.ExternalTaskService");
+            maybeRemoveImport("org.camunda.bpm.client.task.ExternalTaskHandler");
+            maybeRemoveImport("org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription");
 
             return classDecl
                 .withBody(classDecl.getBody().withStatements(filteredStatements))
-                .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
+                .withImplements(updatedImplements.isEmpty() ? null : updatedImplements)
+                .withLeadingAnnotations(filteredAnnotations);
           }
         });
   }

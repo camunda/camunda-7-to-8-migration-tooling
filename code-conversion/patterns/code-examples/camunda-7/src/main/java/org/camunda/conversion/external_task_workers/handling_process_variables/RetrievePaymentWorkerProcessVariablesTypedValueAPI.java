@@ -20,7 +20,7 @@ public class RetrievePaymentWorkerProcessVariablesTypedValueAPI implements Exter
         int amount = typedAmount.getValue();
         // do something
         StringValue typedTransactionId = Variables.stringValue("TX12345");
-        VariableMap variableMap = Variables.putValueTyped("transactionId", typedTransactionId);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("transactionId", typedTransactionId);
         externalTaskService.complete(externalTask.getId(), variableMap, null);
     }
 }

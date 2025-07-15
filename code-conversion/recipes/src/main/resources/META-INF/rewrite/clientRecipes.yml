@@ -29,8 +29,6 @@ description: Removes delegate code and unused imports.
 recipeList:
   - org.camunda.migration.rewrite.recipes.client.cleanup.RemoveEngineDependencyRecipe
   - org.openrewrite.java.RemoveUnusedImports
-#  - org.camunda.migration.rewrite.recipes.client.cleanup.RemoveClientImportsManuallyRecipe
-#  - org.camunda.migration.rewrite.recipes.sharedRecipes.RemoveSharedImportsManuallyRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllClientRecipes

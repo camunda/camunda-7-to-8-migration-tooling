@@ -36,7 +36,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
-        int typedAmount = execution.getVariable("amount");
+        int typedAmount = (int) execution.getVariable("amount");
         Integer amount = (Integer) execution.getVariable("AMOUNT");
         // do something...
         String typedTransactionId = "TX12345";
@@ -67,7 +67,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 
     @Override
     public void execute(DelegateExecution execution) {
-        int typedAmount = execution.getVariable("amount");
+        int typedAmount = (int) execution.getVariable("amount");
         Integer amount = (Integer) execution.getVariable("AMOUNT");
         // do something...
         String typedTransactionId = "TX12345";
@@ -77,7 +77,7 @@ public class RetrievePaymentAdapter implements JavaDelegate {
     @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        int typedAmount = job.getVariable("amount");
+        int typedAmount = (int) job.getVariable("amount");
         Integer amount = (Integer) job.getVariable("AMOUNT");
         // do something...
         String typedTransactionId = "TX12345";
@@ -195,41 +195,35 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                         @JobWorker(type = "retrievePaymentAdapter", autoComplete = true)
                         public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
                             Map<String, Object> resultMap = new HashMap<>();
-                            // error variables can be added to the BPMN error event
-                            // throwing a BPMN error event requires an error message in Camunda 8
                             throw CamundaError.bpmnError("someErrorCode", "Add an error message here");
-
-                            // error variables can be added to the BPMN error event
+                            
                             throw CamundaError.bpmnError("someErrorCode", "someErrorMessage");
-
-                            // error variables can be added to the BPMN error event
-                            throw CamundaError.bpmnError("someErrorCode", "someErrorMessage", new HashMap<>(), new RuntimeException());
-
-                            // error variables can be added to the BPMN error event
-                            // throwing a BPMN error event requires an error message in Camunda 8
-                            throw CamundaError.bpmnError("someErrorCode", "Add an error message here", new HashMap<>(), new RuntimeException());
-
+                            
+                            throw CamundaError.bpmnError("someErrorCode", "someErrorMessage", Collections.emptyMap(), new RuntimeException());
+                            
+                            throw CamundaError.bpmnError("someErrorCode", "Add an error message here", Collections.emptyMap(), new RuntimeException());
+                            
                             throw CamundaError.jobError("Add an error message here");
-
+                            
                             throw CamundaError.jobError("my error message");
-
-                            // you can specify retries and backoff when failing a job
-                            throw CamundaError.jobError("my error message", new HashMap<>(), job.getRetries() - 1, Duration.ofSeconds(30), new RuntimeException());
-
-                            // no error code when throwing job error in Camunda 8
+                            
+                            throw CamundaError.jobError("my error message", Collections.emptyMap(), 3, Duration.ofSeconds(30), new RuntimeException());
+                            
                             throw CamundaError.jobError("my error message");
-
-                            // you can specify retries and backoff when failing a job
-                            throw CamundaError.jobError("my error message", new HashMap<>(), job.getRetries() - 1, Duration.ofSeconds(30), new RuntimeException());
-
-                            // you can specify retries and backoff when failing a job
-                            throw CamundaError.jobError("Add an error message here", new HashMap<>(), job.getRetries() - 1, Duration.ofSeconds(30), new RuntimeException());
-
-                            // incident is raised by throwing jobError with no retries
-                            throw CamundaError.jobError("Add an error message here", new HashMap<>(), 0);
-
-                            // incident is raised by throwing jobError with no retries
-                            throw CamundaError.jobError("someMessage", new HashMap<>(), 0);
+                            
+                            throw CamundaError.jobError("my error message", Collections.emptyMap(), 3, Duration.ofSeconds(30), new RuntimeException());
+                            
+                            throw CamundaError.jobError("Add an error message here", Collections.emptyMap(), 3, Duration.ofSeconds(30), new RuntimeException());
+                            
+                            // incidentType was removed
+                            // configuration was removed
+                            // incident created by retries being 0
+                            throw CamundaError.jobError("Add an error message here", Collections.emptyMap(), 0);
+                            
+                            // incidentType was removed
+                            // configuration was removed
+                            // incident created by retries being 0
+                            throw CamundaError.jobError("someType", Collections.emptyMap(), 0);
                             return resultMap;
                         }
                     }

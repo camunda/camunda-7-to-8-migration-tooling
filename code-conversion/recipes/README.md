@@ -80,8 +80,8 @@ public TreeVisitor<?, ExecutionContext> getVisitor() {
 // define preconditions
 TreeVisitor<?, ExecutionContext> check =
     Preconditions.and(
-        Preconditions.not(new UsesType<>(RecipeConstants.Type.ACTIVATED_JOB, true)),
-        new UsesType<>(RecipeConstants.Type.DELEGATE_EXECUTION, true)); // org.camunda.bpm.engine.delegate.DelegateExecution
+        Preconditions.not(new UsesType<>("io.camunda.client.api.response.ActivatedJob", true)),
+        new UsesType<>("org.camunda.bpm.engine.delegate.DelegateExecution", true));
 ```
 
 You could now adjust this to
@@ -94,7 +94,7 @@ TreeVisitor<?, ExecutionContext> check =
     Preconditions.and(
         Preconditions.not(new UsesType<>(RecipeConstants.Type.ACTIVATED_JOB, true)),
         Preconditions.or(
-            new UsesType<>(RecipeConstants.Type.DELEGATE_EXECUTION, true),// org.camunda.bpm.engine.delegate.DelegateExecution
+            new UsesType<>("org.camunda.bpm.engine.delegate.DelegateExecution", true),
             new UsesType<>("org.acme.MyJavaDelegate", true),
         )); 
 ```

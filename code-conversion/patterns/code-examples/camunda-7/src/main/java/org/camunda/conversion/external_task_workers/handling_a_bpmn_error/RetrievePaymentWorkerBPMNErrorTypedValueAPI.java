@@ -16,7 +16,7 @@ public class RetrievePaymentWorkerBPMNErrorTypedValueAPI implements ExternalTask
     @Override
     public void execute(ExternalTask externalTask, ExternalTaskService externalTaskService) {
         StringValue typedTransactionId = Variables.stringValue("TX12345");
-        VariableMap variableMap = Variables.putValueTyped("transactionId", typedTransactionId);
+        VariableMap variableMap = Variables.createVariables().putValueTyped("transactionId", typedTransactionId);
         externalTaskService.handleBpmnError(externalTask, "my error code", "my error message", variableMap);
     }
 }

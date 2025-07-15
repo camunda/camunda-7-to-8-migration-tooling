@@ -1,19 +1,19 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllDelegatePrepareRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all delegate prepare recipes
+description: Injects job worker and migrate typed value API.
 recipeList:
   - org.openrewrite.java.dependencies.AddDependency:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
       version: 8.8.0-alpha4.1
   - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
-  - org.camunda.migration.rewrite.recipes.delegate.prepare.InjectJobWorkerRecipe
+  - org.camunda.migration.rewrite.recipes.delegate.prepare.InjectJobWorkerBeneathDelegateRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllDelegateMigrateRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all delegate migrate recipes
+description: Migrates delegate methods to job worker methods.
 recipeList:
   - org.camunda.migration.rewrite.recipes.delegate.migrate.ReplaceExecutionRecipe
 ---
@@ -24,12 +24,11 @@ description: Removes delegate code and unused imports.
 recipeList:
   - org.camunda.migration.rewrite.recipes.delegate.cleanup.RemoveDelegateRecipe
   - org.openrewrite.java.RemoveUnusedImports
-#  - org.camunda.migration.rewrite.recipes.sharedRecipes.RemoveSharedImportsManuallyRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: org.camunda.migration.rewrite.recipes.AllDelegateRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all delegate recipes in order
+description: Migrates delegate to job worker.
 recipeList:
   - org.camunda.migration.rewrite.recipes.AllDelegatePrepareRecipes
   - org.camunda.migration.rewrite.recipes.AllDelegateMigrateRecipes

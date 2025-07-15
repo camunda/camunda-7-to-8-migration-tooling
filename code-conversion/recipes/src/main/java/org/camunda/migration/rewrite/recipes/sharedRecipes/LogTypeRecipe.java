@@ -23,12 +23,13 @@ public class LogTypeRecipe extends Recipe {
 
   @Override
   public JavaVisitor<ExecutionContext> getVisitor() {
-    return new JavaIsoVisitor<ExecutionContext>() {
+    return new JavaIsoVisitor<>() {
 
       @Override
       public Expression visitExpression(Expression expression, ExecutionContext ctx) {
         JavaType type = expression.getType();
-        if (TypeUtils.isOfType(type, JavaType.buildType("org.camunda.bpm.engine.runtime.ProcessInstance"))) {
+        if (TypeUtils.isOfType(
+            type, JavaType.buildType("org.camunda.bpm.engine.runtime.ProcessInstance"))) {
           System.out.println("--- ⚠️ Found lingering reference ---");
           System.out.println("Expression: " + expression);
           System.out.println("Type: " + type);

@@ -1,7 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.cleanup;
 
 import java.util.*;
-import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
@@ -21,20 +20,25 @@ public class RemoveEngineDependencyRecipe extends Recipe {
     return "Removes process engine dependency. Tries to remove import.";
   }
 
+  String PROCESS_ENGINE = "org.camunda.bpm.engine.ProcessEngine";
+  String RUNTIME_SERVICE = "org.camunda.bpm.engine.RuntimeService";
+  String TASK_SERVICE = "org.camunda.bpm.engine.TaskService";
+  String REPOSITORY_SERVICE = "org.camunda.bpm.engine.RepositoryService";
+
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
 
     // define preconditions
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.or(
-            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
-            new UsesType<>(RecipeConstants.Type.RUNTIME_SERVICE, true),
-            new UsesType<>(RecipeConstants.Type.TASK_SERVICE, true),
-            new UsesType<>(RecipeConstants.Type.REPOSITORY_SERVICE, true));
+            new UsesType<>(PROCESS_ENGINE, true),
+            new UsesType<>(RUNTIME_SERVICE, true),
+            new UsesType<>(TASK_SERVICE, true),
+            new UsesType<>(REPOSITORY_SERVICE, true));
 
     return Preconditions.check(
         check,
-        new JavaVisitor<ExecutionContext>() {
+        new JavaIsoVisitor<>() {
 
           /**
            * Removing an LST element cannot be done by visiting it directly. Visiting
@@ -47,28 +51,28 @@ public class RemoveEngineDependencyRecipe extends Recipe {
            */
           @Override
           public J.ClassDeclaration visitClassDeclaration(
-              J.ClassDeclaration classDecl, ExecutionContext ctx) {
+              J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
 
             List<Statement> newStatements = new ArrayList<>();
-            for (Statement statement : classDecl.getBody().getStatements()) {
+            for (Statement statement : classDeclaration.getBody().getStatements()) {
               if (statement instanceof J.VariableDeclarations varDecls
-                  && (TypeUtils.isOfClassType(
-                          varDecls.getType(), RecipeConstants.Type.PROCESS_ENGINE)
-                      || TypeUtils.isOfClassType(
-                          varDecls.getType(), RecipeConstants.Type.RUNTIME_SERVICE)
-                      || TypeUtils.isOfClassType(
-                          varDecls.getType(), RecipeConstants.Type.TASK_SERVICE)
-                      || TypeUtils.isOfClassType(
-                          varDecls.getType(), RecipeConstants.Type.REPOSITORY_SERVICE))) {
+                  && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
+                      || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
+                      || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
+                      || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE))) {
                 // This is the statement we want to remove, so skip adding it
                 continue;
               }
               newStatements.add(statement);
             }
 
-            maybeRemoveImport(RecipeConstants.Type.PROCESS_ENGINE);
+            maybeRemoveImport(PROCESS_ENGINE);
+            maybeRemoveImport(RUNTIME_SERVICE);
+            maybeRemoveImport(TASK_SERVICE);
+            maybeRemoveImport(REPOSITORY_SERVICE);
 
-            return classDecl.withBody(classDecl.getBody().withStatements(newStatements));
+            return classDeclaration.withBody(
+                classDeclaration.getBody().withStatements(newStatements));
           }
         });
   }

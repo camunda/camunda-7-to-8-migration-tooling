@@ -151,6 +151,11 @@
             <version>7.23.0</version>
         </dependency>
         <dependency>
+            <groupId>org.camunda.bpm.springboot</groupId>
+            <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
+            <version>7.23.0</version>
+        </dependency>
+        <dependency>
 			  <groupId>io.camunda</groupId>
 			  <artifactId>zeebe-client-java</artifactId>
 			  <version>8.6.0</version>

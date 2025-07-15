@@ -7,7 +7,7 @@ import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.java;
 
-class JavaDelegateSpringToZeebeWorkerSpringTest implements RewriteTest {
+class JavaDelegateSpringToJobWorkerSpringTest implements RewriteTest {
 
     @Override
     public void defaults(RecipeSpec spec) {
@@ -203,11 +203,10 @@ public class TestDelegate implements JavaDelegate {
         final var boolVariableLocal = execution.getVariableLocal("boolVariableLocal");
         final var jsonVariableLocal = execution.getVariableLocal("jsonVariableLocal");
 
-        // TODO:
-        // final String procInstanceId = execution.getProcessInstanceId();
-        // final String procDefId = execution.getProcessDefinitionId();
-        // final String curActId = execution.getCurrentActivityId();
-        // final String actInstanceId = execution.getActivityInstanceId();
+        final String procInstanceId = execution.getProcessInstanceId();
+        final String procDefId = execution.getProcessDefinitionId();
+        final String curActId = execution.getCurrentActivityId();
+        final String actInstanceId = execution.getActivityInstanceId();
 
         execution.setVariable("newStringVariable", "Warum");
         execution.setVariable("newIntegerVariable", 42);
@@ -246,7 +245,7 @@ public class TestDelegate {
     @JobWorker(type = "testDelegate", autoComplete = true)
     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
         Map<String, Object> resultMap = new HashMap<>();
-        
+
         System.out.println("C7 delegate called");
         final var stringVariable = job.getVariable("stringVariable");
         final var integerVariable = job.getVariable("integerVariable");
@@ -271,13 +270,12 @@ public class TestDelegate {
         final var doubleVariableLocal = job.getVariable("doubleVariableLocal");
         final var boolVariableLocal = job.getVariable("boolVariableLocal");
         final var jsonVariableLocal = job.getVariable("jsonVariableLocal");
-        
-        // TODO:
-        // final String procInstanceId = execution.getProcessInstanceId();
-        // final String procDefId = execution.getProcessDefinitionId();
-        // final String curActId = execution.getCurrentActivityId();
-        // final String actInstanceId = execution.getActivityInstanceId();
-        
+
+        final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
+        final String procDefId = String.valueOf(job.getProcessDefinitionKey());
+        final String curActId = job.getElementId();
+        final String actInstanceId = String.valueOf(job.getElementInstanceKey());
+
         resultMap.put("newStringVariable", "Warum");
         resultMap.put("newIntegerVariable", 42);
         resultMap.put("newDoubleVariable", 2.71828);
@@ -288,7 +286,7 @@ public class TestDelegate {
         resultMap.put("newDoubleVariableLocal", 6.626);
         resultMap.put("newBoolVariableLocal", false);
         resultMap.put("newJsonVariableLocal", JSON("{\\"key2\\" : \\"value2\\"}"));
-        
+
         resultMap.put("newObjectVariable", new DummyClass(215, 9.81, "Ein Beispielstring zum testen"));
         System.out.println("C7 finished");
         return resultMap;
@@ -297,10 +295,3 @@ public class TestDelegate {
 """));
     }
 }
-
-/*
-final String procInstanceId = String.valueOf(job.getProcessInstanceKey());
-        final String procDefId = String.valueOf(job.getProcessDefinitionKey());
-        final String curActId = job.getElementId();
-        final String actInstanceId = String.valueOf(job.getElementInstanceKey());
- */

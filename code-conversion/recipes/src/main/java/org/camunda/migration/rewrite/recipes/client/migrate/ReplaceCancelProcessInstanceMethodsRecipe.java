@@ -3,12 +3,10 @@ package org.camunda.migration.rewrite.recipes.client.migrate;
 import java.util.Collections;
 import java.util.List;
 import org.camunda.migration.rewrite.recipes.sharedRecipes.AbstractMigrationRecipe;
-import org.camunda.migration.rewrite.recipes.utils.RecipeConstants;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
-import org.openrewrite.java.search.UsesType;
 
 public class ReplaceCancelProcessInstanceMethodsRecipe extends AbstractMigrationRecipe {
 
@@ -27,28 +25,28 @@ public class ReplaceCancelProcessInstanceMethodsRecipe extends AbstractMigration
 
   @Override
   protected TreeVisitor<?, ExecutionContext> preconditions() {
-    return Preconditions.and(
-        Preconditions.or(
-            new UsesType<>(RecipeConstants.Type.PROCESS_ENGINE, true),
-            new UsesType<>(RecipeConstants.Type.RUNTIME_SERVICE, true)),
-        new UsesMethod<>(RecipeConstants.Method.DELETE_PROCESS_INSTANCE, true));
+    return new UsesMethod<>(
+        "org.camunda.bpm.engine.RuntimeService deleteProcessInstance(java.lang.String, java.lang.String)",
+        true);
   }
 
   @Override
   protected List<RecipeUtils.MethodInvocationSimpleReplacementSpec> simpleMethodInvocations() {
     return List.of(
         new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+            // "signalEventReceived(String signalName)"
             new MethodMatcher(
-                // "signalEventReceived(String signalName)"
                 "org.camunda.bpm.engine.RuntimeService deleteProcessInstance(java.lang.String, java.lang.String)"),
             RecipeUtils.createSimpleJavaTemplate(
                 """
-                                #{camundaClient:any(io.camunda.client.CamundaClient)}
-                                    .newCancelInstanceCommand(Long.valueOf(#{processInstanceKey:any(String)}))
-                                    .send()
-                                    .join();
-                                """),
+                #{camundaClient:any(io.camunda.client.CamundaClient)}
+                    .newCancelInstanceCommand(Long.valueOf(#{processInstanceKey:any(String)}))
+                    .send()
+                    .join();
+                """),
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             null,
+            RecipeUtils.ReturnTypeStrategy.VOID,
             List.of(
                 new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
                     "processInstanceKey", 0)),

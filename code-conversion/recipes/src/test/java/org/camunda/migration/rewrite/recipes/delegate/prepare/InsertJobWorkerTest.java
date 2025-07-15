@@ -11,7 +11,7 @@ class InsertJobWorkerTest implements RewriteTest {
 
   @Override
   public void defaults(RecipeSpec spec) {
-    spec.recipes(new InjectJobWorkerRecipe())
+    spec.recipes(new InjectJobWorkerBeneathDelegateRecipe())
         .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
   }
 

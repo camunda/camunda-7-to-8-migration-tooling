@@ -18,7 +18,7 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                 package org.camunda.community.migration.example;
                                 
                                 import org.camunda.bpm.engine.ProcessEngine;
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
+                                import io.camunda.client.CamundaClient;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -28,20 +28,25 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                 public class BroadcastSignalsTestClass {
                                     
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
+                                    private CamundaClient camundaClient;
                                     
                                     @Autowired
                                     private ProcessEngine engine;
                                                                                                  
                                     public void broadcastSignalGlobally(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithVariables(signalName, variableMap);
+                                        camundaClient
+                                                .newBroadcastSignalCommand()
+                                                .signalName(signalName)
+                                                .variables(variableMap)
+                                                .send()
+                                                .join();
                                     }
                                 }                                                                                                       
                                 """,
                         """
                                 package org.camunda.community.migration.example;
                                 
-                                import org.camunda.migration.rewrite.recipes.client.CamundaClientWrapper;
+                                import io.camunda.client.CamundaClient;
                                 import org.springframework.beans.factory.annotation.Autowired;
                                 import org.springframework.stereotype.Component;
                                 
@@ -51,10 +56,15 @@ class RemoveEngineDependencyTest implements RewriteTest {
                                 public class BroadcastSignalsTestClass {
                                     
                                     @Autowired
-                                    private CamundaClientWrapper camundaClientWrapper;
+                                    private CamundaClient camundaClient;
                                     
                                     public void broadcastSignalGlobally(String signalName, Map<String, Object> variableMap) {
-                                        camundaClientWrapper.broadcastSignalWithVariables(signalName, variableMap);
+                                        camundaClient
+                                                .newBroadcastSignalCommand()
+                                                .signalName(signalName)
+                                                .variables(variableMap)
+                                                .send()
+                                                .join();
                                     }
                                 } 
                                 """
