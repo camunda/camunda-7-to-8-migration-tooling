@@ -22,12 +22,13 @@ Patterns:
     - [Search Process Definitions](#search-process-definitions)
     - [Starting Process Instances](#starting-process-instances)
 - [Glue code](#glue-code)
-  - [JavaDelegate (Spring) &#8594; Job Worker (Spring)](#javadelegate-spring-8594-job-worker-spring)
+  - [JavaDelegate &#8594; Job Worker (Spring)](#javadelegate-8594-job-worker-spring)
     - [Class-level Changes](#class-level-changes)
     - [Handling a BPMN error](#handling-a-bpmn-error)
     - [Handling a Failure](#handling-a-failure)
     - [Handling an Incident](#handling-an-incident)
     - [Handling Process Variables](#handling-process-variables)
+  - [Expression &#8594; Job Worker (Spring)](#expression-8594-job-worker-spring)
   - [External Task Worker (Spring) &#8594; Job Worker (Spring)](#external-task-worker-spring-8594-job-worker-spring)
     - [Class-level Changes](#class-level-changes)
     - [Handling a BPMN error](#handling-a-bpmn-error)
@@ -871,36 +872,43 @@ The following patterns focus on various methods to start process instances in Ca
 
 Whenever you define code that is executed when a process arrives at a specific state in the process, specifically JavaDelegates and external task workers.
 
-In **Camunda 7**, code executed by a service task or listener can be organized in various ways. A common method is using a **JavaDelegate** for a spring-integrated engine, for which a bean implementing the JavaDelegate interface is referenced via an expression in the BPMN xml. Another method, that is closer to the architecture enforced in Camunda 8, is the **external task worker pattern**.
+In **Camunda 7**, code executed by a service task or listener can be organized in various ways. A common method is using a **JavaDelegate** for a spring-integrated engine, for which a bean implementing the JavaDelegate interface is referenced via an expression in the BPMN xml. Another method, is the **external task worker pattern**. But you might also leverage Java Unified Expression Language (JUEL).
 
-With the enforced remote engine architecture in **Camunda 8**, only the **external task worker pattern** can be used, utilizing so-called **job workers**.
+With the remote engine architecture in **Camunda 8**, you need to use so-called **job workers**.
+
+The glue code patterns look into the different scenarios and proposes code conversion patterns - here a quick summary, including default the  [Migration Analyzer & Diagram Converter](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer) sets.
+
+| Camunda 7 Implementation           | Example                                         | Camunda 8 Job Type        | Notes                                                                 | Link |
+|-----------------------------------|-------------------------------------------------|----------------------------|-----------------------------------------------------------------------|------|
+| `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
+| `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
+| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [15-java-expression/]() |
+| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | []() |
 
 
-### JavaDelegate (Spring) &#8594; Job Worker (Spring)
+### JavaDelegate &#8594; Job Worker (Spring)
 
-In Camunda 7, JavaDelegates are a common way to implement glue code. Very often, JavaDelegates are Spring beans and referenced via Expression language in the BPMN xml.
+In Camunda 7, JavaDelegates are a common way to implement glue code. JavaDelegates might be
+
+- Spring beans referenced via Expression language (``delegateExpression``)
+- Java classes referenced via the class name (``class``)
 
 JavaDelegates run in the same context as the engine. In addition to the DelegateExecution class that provides an interface to interact with the running process instance, a JavaDelegate can also call all engine services, like the Runtime service.
 
 The code conversion patterns for the JavaDelegate cover the most important methods how a JavaDelegate can interact with the running process instance:
 
--   getting and setting process variables
--   reporting a failure
--   raising an incident
--   throwing a BPMN error
+- class level changes
+- getting and setting process variables
+- reporting a failure
+- raising an incident
+- throwing a BPMN error
 
 There are often multiple methods that achieve the same result. The patterns try to capture as many examples as possible. Delegate code that accesses the engine services is not covered here. Please refer to the patterns for the engine services. In general, delegate code that utilizes engines services is more difficult to migrate to Camunda 8.
 
 
-###### OpenRewrite recipe (WIP)
-
--   [Recipe "JavaDelegateSpringToZeebeWorkerSpring"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
--   [Learn how to apply recipes](../recipes/)
-
-
 #### Class-level Changes
 
-###### Camunda 7: JavaDelegate
+###### Camunda 7: JavaDelegate as Spring Bean
 
 Each JavaDelegate is implemented as a Spring bean that implements the JavaDelegate interface. The execution code is added by overriding the _execute_ function. This provides the _DelegateExecution_ class to interact with the running process instance. The bean name is used in the BPMN xml to specify which JavaDeleate to execute.
 
@@ -914,6 +922,33 @@ public class RetrievePaymentAdapter implements JavaDelegate {
     }
 }
 ```
+
+In the process model this is referenced as `delegateExpression`:
+
+```xml
+<bpmn:serviceTask id="ServiceTask_A" camunda:delegateExpression="retrievePaymentAdapter">
+```
+
+###### Camunda 7: JavaDelegate as Class
+
+If defined via class name, Camunda instantiates the delegate itself.
+
+```java
+public class RetrievePaymentAdapter implements JavaDelegate {
+
+    @Override
+    public void execute(DelegateExecution execution) {
+        // execution code
+    }
+}
+```
+
+In the process model this is referenced as `class`:
+
+```xml
+<bpmn:serviceTask id="ServiceTask_A" camunda:class="com.sample.RetrievePaymentAdapter">
+```
+
 
 ###### Camunda 8: Job Worker
 
@@ -930,9 +965,16 @@ public class RetrievePaymentWorker {
 }
 ```
 
-For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/configuration/).
+When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration Analyzer & Diagram Converter](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer), you can automatically set the `job type` to either the Spring bean name, or the class name (in Camel case).
 
-The code conversion patterns will not cover the above class-level changes between JavaDelegates and job workers. Instead, they focus on method-level changes.
+```xml
+<bpmn:serviceTask id="ServiceTask_A" >
+  <bpmn:extensionElements>
+    <zeebe:taskDefinition type="retrievePaymentAdapter"/>
+```
+
+
+For more information, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/get-started/).
 
 ---
 
@@ -1263,6 +1305,59 @@ Check the [README](./README.md) for more details on class-level changes.
 -   this non-blocking programming style is **recommended** by Camunda
 
 ---
+
+### Expression &#8594; Job Worker (Spring)
+
+In Camunda 7, you can use arbitrary expression in JUEL, the Java Unified Expression Language. Those expressions might access the Spring context as well as Camunda's context.
+
+JUEL is not supported in Camunda 8. And more importantly, Camunda cannot directly evaluate any expressions that might include your own applications context, like its Spring beans.
+
+The default way to migrate now is to add a custom JUEL job worker, that evaluates the expression in your application.
+
+###### Camunda 7: Expression
+
+You can use expressions denoted by `$` or `#`. The following example will call a method on the Spring bean `someBean` and hand over the process variable `processVariableA` as a parameter. The return value is captured in the process variable `someResult`:
+
+```xml
+<camunda:expression="${someBean.doStuff(processVariableA)}" camunda:resultVariable="someResult">
+```
+
+
+###### Camunda 8: JUEL Job Worker
+
+In Camunda 8 you can store the required configuration parameters in header attributes. This is what the [Migration Analyzer & Diagram Converter](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer) does out-of-the-box.
+
+```xml
+<bpmn:serviceTask >
+  <bpmn:extensionElements>
+    <zeebe:taskHeaders>
+      <zeebe:header key="expression" value="${someBean.doStuff(processVariableA)}"/>
+      <zeebe:header key="resultVariable" value="someResult"/>
+    </zeebe:taskHeaders>
+```
+
+Then you need to add a worker that can evaluate JUEL expressions. How this is implemented exactly depends on the exact requirements you have. A simple example is shown in [the camunda-7-to-8-migration-example](https://github.com/camunda-community-hub/camunda-7-to-8-migration-example/blob/main/process-solution-camunda-8/src/main/java/org/camunda/community/migration/example/el/JuelExpressionEvaluatorWorker.java):
+
+```java
+  @JobWorker(type = "JuelExpressionEvaluatorWorker")
+  public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+    Map<String, Object> resultMap = new HashMap<>();
+    String expression = job.getCustomHeaders().get("expression");
+    Object result = evaluate(expression, job.getVariablesAsMap());
+    String resultVariable = job.getCustomHeaders().get("resultVariable");
+    resultMap.put(resultVariable, result);
+    return resultMap;
+  }
+```
+
+Then you can set the job type to 
+
+```xml
+<bpmn:serviceTask >
+  <bpmn:extensionElements>
+    <zeebe:taskDefinition type="JuelExpressionEvaluatorWorker"/>
+```
+
 
 ### External Task Worker (Spring) &#8594; Job Worker (Spring)
 

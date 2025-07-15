@@ -50,9 +50,9 @@ Patterns:
 Whenever you define code that is executed when a process arrives at a specific state in the process, specifically JavaDelegates and external task workers.
 
 
-### JavaDelegate (Spring) &#8594; Job Worker (Spring)
+### JavaDelegate &#8594; Job Worker (Spring)
 
-In Camunda 7, JavaDelegates are a common way to implement glue code. Very often, JavaDelegates are Spring beans and referenced via Expression language in the BPMN xml.
+In Camunda 7, JavaDelegates are a common way to implement glue code. JavaDelegates might be
 
 Patterns:
 
@@ -61,6 +61,11 @@ Patterns:
 - [Handling a Failure](30-glue-code/10-java-spring-delegate/handling-a-failure.md)
 - [Handling an Incident](30-glue-code/10-java-spring-delegate/handling-an-incident.md)
 - [Handling Process Variables](30-glue-code/10-java-spring-delegate/handling-process-variables.md)
+
+### Expression &#8594; Job Worker (Spring)
+
+In Camunda 7, you can use arbitrary expression in JUEL, the Java Unified Expression Language. Those expressions might access the Spring context as well as Camunda's context.
+
 
 ### External Task Worker (Spring) &#8594; Job Worker (Spring)
 
