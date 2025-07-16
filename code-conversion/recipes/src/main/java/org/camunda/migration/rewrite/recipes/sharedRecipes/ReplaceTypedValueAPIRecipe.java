@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
+import org.camunda.migration.rewrite.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.*;
@@ -55,149 +56,149 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
         check,
         new JavaVisitor<ExecutionContext>() {
 
-          private final List<RecipeUtils.MethodInvocationSimpleReplacementSpec>
+          private final List<ReplacementUtils.SimpleReplacementSpec>
               simpleMethodInvocations =
                   List.of(
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "booleanValue(Boolean bool)"
                               "org.camunda.bpm.engine.variable.Variables booleanValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Boolean)}"),
                           null,
                           "java.lang.Boolean",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "booleanValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "stringValue(String string)"
                               "org.camunda.bpm.engine.variable.Variables stringValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Boolean)}"),
                           null,
                           "java.lang.String",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "stringValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "integerValue(Integer integer)"
                               "org.camunda.bpm.engine.variable.Variables integerValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Integer)}"),
                           null,
                           "java.lang.Integer",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "integerValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "longValue(Long long)"
                               "org.camunda.bpm.engine.variable.Variables longValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Long)}"),
                           null,
                           "java.lang.Long",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "longValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "shortValue(Short short)"
                               "org.camunda.bpm.engine.variable.Variables shortValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Short)}"),
                           null,
                           "java.lang.Short",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "shortValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "doubleValue(Double double)"
                               "org.camunda.bpm.engine.variable.Variables doubleValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Double)}"),
                           null,
                           "java.lang.Double",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "doubleValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "floatValue(Float float)"
                               "org.camunda.bpm.engine.variable.Variables floatValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Float)}"),
                           null,
                           "java.lang.Float",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "floatValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "byteArrayValue(java.lang.Byte[] bytes)"
                               "org.camunda.bpm.engine.variable.Variables byteArrayValue(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Byte[])}"),
                           null,
                           "java.lang.Byte[]",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "byteArrayValue", 0)),
                           Collections.emptyList()),
-                      new RecipeUtils.MethodInvocationSimpleReplacementSpec(
+                      new ReplacementUtils.SimpleReplacementSpec(
                           new MethodMatcher(
                               // "fromMap(java.util.Map map)"
                               "org.camunda.bpm.engine.variable.Variables fromMap(..)"),
                           RecipeUtils.createSimpleJavaTemplate("#{any(java.lang.Map)}"),
                           null,
                           "java.util.Map<String, Object>",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                          ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                           List.of(
-                              new RecipeUtils.MethodInvocationSimpleReplacementSpec.NamedArg(
+                              new ReplacementUtils.SimpleReplacementSpec.NamedArg(
                                   "fromMap", 0)),
                           Collections.emptyList()));
 
           // "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)"
 
-          private final List<RecipeUtils.MethodInvocationBuilderReplacementSpec>
+          private final List<ReplacementUtils.BuilderReplacementSpec>
               builderMethodInvocations =
                   List.of(
-                      new RecipeUtils.MethodInvocationBuilderReplacementSpec(
-                          new MethodMatcher(
+                      new ReplacementUtils.BuilderReplacementSpec(
+                              new MethodMatcher(
                               "org.camunda.bpm.engine.variable.value.builder.TypedValueBuilder create()"),
-                          Set.of("objectValue"),
-                          List.of("objectValue"),
-                          RecipeUtils.createSimpleJavaTemplate("#{any()}"),
-                          null,
-                          "java.lang.Object",
-                          RecipeUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-                          List.of(" type set to java.lang.Object")));
+                              Set.of("objectValue"),
+                              List.of("objectValue"),
+                              RecipeUtils.createSimpleJavaTemplate("#{any()}"),
+                              null,
+                              "java.lang.Object",
+                              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+                              List.of(" type set to java.lang.Object")));
 
           // join specs - possible because we don't touch the method invocations
-          final List<RecipeUtils.MethodInvocationReplacementSpec> commonSpecs =
+          final List<ReplacementUtils.ReplacementSpec> commonSpecs =
               Stream.concat(
                       simpleMethodInvocations.stream()
-                          .map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec),
+                          .map(spec -> (ReplacementUtils.ReplacementSpec) spec),
                       builderMethodInvocations.stream()
-                          .map(spec -> (RecipeUtils.MethodInvocationReplacementSpec) spec))
+                          .map(spec -> (ReplacementUtils.ReplacementSpec) spec))
                   .toList();
 
-          final Map<MethodMatcher, List<RecipeUtils.MethodInvocationBuilderReplacementSpec>>
+          final Map<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>>
               builderSpecMap =
                   builderMethodInvocations.stream()
                       .collect(
                           Collectors.groupingBy(
-                              RecipeUtils.MethodInvocationBuilderReplacementSpec::matcher));
+                                  ReplacementUtils.BuilderReplacementSpec::matcher));
 
           public static String mapTypedValueToNewFqn(JavaType type) {
             if (!(type instanceof JavaType.FullyQualified fqType)) {
@@ -248,7 +249,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             if (originalInitializer instanceof J.MethodInvocation invocation) {
 
               // run through prepared migration rules
-              for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+              for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
 
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
@@ -504,7 +505,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             // run through prepared migration rules
-            for (RecipeUtils.MethodInvocationReplacementSpec spec : commonSpecs) {
+            for (ReplacementUtils.ReplacementSpec spec : commonSpecs) {
 
               // if match is found for the invocation, check returnTypeFqn to adjust variable
               // declaration type
@@ -562,7 +563,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J visitMethodInvocation(J.MethodInvocation invocation, ExecutionContext ctx) {
 
             // visit simple method invocations
-            for (RecipeUtils.MethodInvocationSimpleReplacementSpec spec : simpleMethodInvocations) {
+            for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
               if (spec.matcher().matches(invocation)) {
 
                 if (invocation.getType() instanceof JavaType.FullyQualified fqn) {
@@ -591,7 +592,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             }
 
             // loop through builder pattern groups
-            for (Map.Entry<MethodMatcher, List<RecipeUtils.MethodInvocationBuilderReplacementSpec>>
+            for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>>
                 entry : builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
@@ -609,7 +610,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                 }
 
                 // loop through pattern options
-                for (RecipeUtils.MethodInvocationBuilderReplacementSpec spec : entry.getValue()) {
+                for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
                     Object[] args =
                         spec.extractedParametersToApply().stream()

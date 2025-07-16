@@ -2,7 +2,7 @@ package org.camunda.migration.rewrite.recipes.external.prepare;
 
 import static org.openrewrite.java.Assertions.java;
 
-import org.camunda.migration.rewrite.recipes.delegate.prepare.InjectJobWorkerBeneathDelegateRecipe;
+import org.camunda.migration.rewrite.recipes.external.PrepareJobWorkerBeneathExternalWorkerRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.java.JavaParser;
 import org.openrewrite.test.RecipeSpec;
@@ -12,7 +12,7 @@ class InsertJobWorkerTest implements RewriteTest {
 
   @Override
   public void defaults(RecipeSpec spec) {
-    spec.recipes(new InjectJobWorkerBeneathExternalWorkerRecipe())
+    spec.recipes(new PrepareJobWorkerBeneathExternalWorkerRecipe())
         .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
   }
 

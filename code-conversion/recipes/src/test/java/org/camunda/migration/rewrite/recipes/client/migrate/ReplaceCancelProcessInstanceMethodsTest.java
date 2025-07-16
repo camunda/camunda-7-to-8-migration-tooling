@@ -1,5 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.migrate;
 
+import org.camunda.migration.rewrite.recipes.client.MigrateCancelProcessInstanceMethodsRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -10,7 +11,7 @@ class ReplaceCancelProcessInstanceMethodsTest implements RewriteTest {
     @Test
     void replaceCancelProcessInstanceMethodsTest() {
     rewriteRun(
-        spec -> spec.recipe(new ReplaceCancelProcessInstanceMethodsRecipe()),
+        spec -> spec.recipe(new MigrateCancelProcessInstanceMethodsRecipe()),
         // language=java
         java(
             """

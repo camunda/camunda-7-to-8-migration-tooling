@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client.cleanup;
+package org.camunda.migration.rewrite.recipes.client;
 
 import java.util.*;
 import org.openrewrite.*;
@@ -6,9 +6,9 @@ import org.openrewrite.java.*;
 import org.openrewrite.java.search.*;
 import org.openrewrite.java.tree.*;
 
-public class RemoveEngineDependencyRecipe extends Recipe {
+public class CleanupEngineDependencyRecipe extends Recipe {
   /** Instantiates a new instance. */
-  public RemoveEngineDependencyRecipe() {}
+  public CleanupEngineDependencyRecipe() {}
 
   @Override
   public String getDisplayName() {

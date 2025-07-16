@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.delegate.cleanup;
+package org.camunda.migration.rewrite.recipes.delegate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -8,10 +8,10 @@ import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.jgit.annotations.NonNull;
 
-public class RemoveDelegateRecipe extends Recipe {
+public class CleanupDelegateRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public RemoveDelegateRecipe() {}
+  public CleanupDelegateRecipe() {}
 
   @Override
   public String getDisplayName() {

@@ -1,5 +1,6 @@
 package org.camunda.migration.rewrite.recipes.client.migrate;
 
+import org.camunda.migration.rewrite.recipes.client.MigrateSignalMethodsRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -10,7 +11,7 @@ class ReplaceSignalMethodsTest implements RewriteTest {
     @Test
     void replaceSignalMethodsTest() {
     rewriteRun(
-        spec -> spec.recipe(new ReplaceSignalMethodsRecipe()),
+        spec -> spec.recipe(new MigrateSignalMethodsRecipe()),
         // language=java
         java(
             """

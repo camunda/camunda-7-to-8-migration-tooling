@@ -1,5 +1,6 @@
-package org.camunda.migration.rewrite.recipes.delegate.prepare;
+package org.camunda.migration.rewrite.recipes.external;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
@@ -7,10 +8,10 @@ import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
 
-public class InjectJobWorkerBeneathDelegateRecipe extends Recipe {
+public class PrepareJobWorkerBeneathExternalWorkerRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public InjectJobWorkerBeneathDelegateRecipe() {}
+  public PrepareJobWorkerBeneathExternalWorkerRecipe() {}
 
   @Override
   public String getDisplayName() {
@@ -29,11 +30,19 @@ public class InjectJobWorkerBeneathDelegateRecipe extends Recipe {
     TreeVisitor<?, ExecutionContext> check =
         Preconditions.and(
             Preconditions.not(new UsesType<>("io.camunda.client.api.response.ActivatedJob", true)),
-            new UsesType<>("org.camunda.bpm.engine.delegate.DelegateExecution", true));
+            new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
 
     return Preconditions.check(
         check,
         new JavaIsoVisitor<>() {
+
+          final AnnotationMatcher configurationMatcher =
+              new AnnotationMatcher("@org.springframework.context.annotation.Configuration");
+
+          final JavaTemplate componentTemplate =
+              RecipeUtils.createSimpleJavaTemplate(
+                  "@org.springframework.stereotype.Component",
+                  "org.springframework.stereotype.Component");
 
           @Override
           public J.ClassDeclaration visitClassDeclaration(
@@ -42,6 +51,36 @@ public class InjectJobWorkerBeneathDelegateRecipe extends Recipe {
             // Skip interfaces
             if (classDeclaration.getKind() != J.ClassDeclaration.Kind.Type.Class) {
               return classDeclaration;
+            }
+
+            List<J.Annotation> newAnnotations = new ArrayList<>();
+
+            boolean changed = false;
+
+            for (J.Annotation annotation : classDeclaration.getLeadingAnnotations()) {
+              if (annotation.getAnnotationType() instanceof J.Identifier id
+                  && "Configuration".equals(id.getSimpleName())) {
+
+                // Replace with @Component
+                J.Annotation componentAnnotation =
+                    annotation.withAnnotationType(
+                        id.withSimpleName("Component")
+                            .withType(
+                                JavaType.ShallowClass.build(
+                                    "org.springframework.stereotype.Component")));
+                newAnnotations.add(componentAnnotation);
+                changed = true;
+
+                maybeRemoveImport("org.springframework.context.annotation.Configuration");
+                maybeAddImport("org.springframework.stereotype.Component");
+
+              } else {
+                newAnnotations.add(annotation);
+              }
+            }
+
+            if (changed) {
+              classDeclaration = classDeclaration.withLeadingAnnotations(newAnnotations);
             }
 
             List<Statement> currentStatements = classDeclaration.getBody().getStatements();
@@ -55,8 +94,6 @@ public class InjectJobWorkerBeneathDelegateRecipe extends Recipe {
 
                 maybeAddImport("io.camunda.spring.client.annotation.JobWorker");
                 maybeAddImport("io.camunda.client.api.response.ActivatedJob");
-                maybeAddImport("java.util.Map");
-                maybeAddImport("java.util.HashMap");
 
                 // Insert the new field at the bottom of the class body
                 return RecipeUtils.createSimpleJavaTemplate(
@@ -77,7 +114,7 @@ public class InjectJobWorkerBeneathDelegateRecipe extends Recipe {
                         workerName);
               }
             }
-            return super.visitClassDeclaration(classDeclaration, ctx);
+            return classDeclaration;
           }
         });
   }

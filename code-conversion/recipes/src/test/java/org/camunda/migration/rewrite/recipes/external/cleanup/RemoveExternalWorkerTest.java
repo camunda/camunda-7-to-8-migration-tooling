@@ -2,7 +2,7 @@ package org.camunda.migration.rewrite.recipes.external.cleanup;
 
 import static org.openrewrite.java.Assertions.java;
 
-import org.camunda.migration.rewrite.recipes.delegate.cleanup.RemoveDelegateRecipe;
+import org.camunda.migration.rewrite.recipes.external.CleanupExternalWorkerRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -11,7 +11,7 @@ class RemoveExternalWorkerTest implements RewriteTest {
   @Test
   void RemoveExternalWorkerTest() {
     rewriteRun(
-        spec -> spec.recipe(new RemoveExternalWorkerRecipe()),
+        spec -> spec.recipe(new CleanupExternalWorkerRecipe()),
         java(
 """
 package org.camunda.community.migration.example;

@@ -1,4 +1,4 @@
-package org.camunda.migration.rewrite.recipes.client.prepare;
+package org.camunda.migration.rewrite.recipes.client;
 
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
@@ -7,10 +7,10 @@ import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 
-public class AddCamundaClientDependencyRecipe extends Recipe {
+public class PrepareCamundaClientDependencyRecipe extends Recipe {
 
   /** Instantiates a new instance. */
-  public AddCamundaClientDependencyRecipe() {}
+  public PrepareCamundaClientDependencyRecipe() {}
 
   @Override
   public String getDisplayName() {

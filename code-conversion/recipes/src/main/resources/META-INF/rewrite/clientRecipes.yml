@@ -7,7 +7,7 @@ recipeList:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
       version: 8.8.0-alpha4.1
-  - org.camunda.migration.rewrite.recipes.client.prepare.AddCamundaClientDependencyRecipe
+  - org.camunda.migration.rewrite.recipes.client.PrepareCamundaClientDependencyRecipe
   - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -15,9 +15,9 @@ name: org.camunda.migration.rewrite.recipes.AllClientMigrateRecipes
 displayName: Runs all delegate cleanup recipes
 description: Removes delegate code and unused imports.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceSignalMethodsRecipe
-  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceCancelProcessInstanceMethodsRecipe
-  - org.camunda.migration.rewrite.recipes.client.migrate.ReplaceStartProcessInstanceMethodsRecipe
+  - org.camunda.migration.rewrite.recipes.client.MigrateSignalMethodsRecipe
+  - org.camunda.migration.rewrite.recipes.client.MigrateCancelProcessInstanceMethodsRecipe
+  - org.camunda.migration.rewrite.recipes.client.MigrateStartProcessInstanceMethodsRecipe
   - org.openrewrite.java.ReplaceAnnotation:
       annotationPatternToReplace: "@org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication"
       annotationTemplateToInsert: "@io.camunda.spring.client.annotation.Deployment(resources = \"classpath*:/bpmn/**/*.bpmn\")"
@@ -27,7 +27,7 @@ name: org.camunda.migration.rewrite.recipes.AllClientCleanupRecipes
 displayName: Runs all delegate cleanup recipes
 description: Removes delegate code and unused imports.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.client.cleanup.RemoveEngineDependencyRecipe
+  - org.camunda.migration.rewrite.recipes.client.CleanupEngineDependencyRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe

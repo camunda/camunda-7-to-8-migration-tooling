@@ -2,6 +2,7 @@ package org.camunda.migration.rewrite.recipes.delegate.cleanup;
 
 import static org.openrewrite.java.Assertions.java;
 
+import org.camunda.migration.rewrite.recipes.delegate.CleanupDelegateRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -10,7 +11,7 @@ class RemoveDelegateTest implements RewriteTest {
   @Test
   void RemoveDelegateTest() {
     rewriteRun(
-        spec -> spec.recipe(new RemoveDelegateRecipe()),
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
         java(
 """
 package org.camunda.conversion.java_delegates.handling_process_variables;
