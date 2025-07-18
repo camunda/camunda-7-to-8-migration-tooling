@@ -5,11 +5,11 @@
     <parent>
         <groupId>org.camunda.community</groupId>
         <artifactId>camunda-7-to-8-rewrite-recipes-root</artifactId>
-        <version>0.0.1-alpha2</version>
+        <version>0.0.1-alpha3-SNAPSHOT</version>
     </parent>
 
     <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
-    <version>0.0.1-alpha2</version>
+    <version>0.0.1-alpha3-SNAPSHOT</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
