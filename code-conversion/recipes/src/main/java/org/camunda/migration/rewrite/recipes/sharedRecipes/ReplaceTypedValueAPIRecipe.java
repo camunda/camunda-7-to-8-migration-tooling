@@ -378,6 +378,7 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
               // Add necessary imports
               maybeAddImport("java.util.Map");
               maybeAddImport("java.util.HashMap");
+              maybeRemoveImport("org.camunda.bpm.engine.variable.VariableMap");
 
               // Dynamically build the put(...) lines using the variable name
               StringBuilder mapPutLines = new StringBuilder();
@@ -399,15 +400,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       """,
                       originalName.getSimpleName(), mapPutLines.toString().stripTrailing());
 
-              return super.visit(
-                  (Tree)
-                      RecipeUtils.createSimpleJavaTemplate(
-                              blockCode, "java.util.Map", "java.util.HashMap")
-                          .apply(
-                              getCursor(),
-                              declarations.getCoordinates().replace(),
-                              putValues.toArray(new Object[0])),
-                  ctx);
+              // record fqn of identifier for later uses
+              getCursor()
+                  .dropParentUntil(parent -> parent instanceof J.Block)
+                  .putMessage(originalName.toString(), "java.util.Map");
+
+              J.Block newBlock =
+                  RecipeUtils.createSimpleJavaTemplate(
+                          blockCode, "java.util.Map", "java.util.HashMap")
+                      .apply(
+                          getCursor(),
+                          declarations.getCoordinates().replace(),
+                          putValues.toArray(new Object[0]));
+
+              return super.visit(newBlock, ctx);
             }
 
             // this replaces standalone declarations, like method parameters
