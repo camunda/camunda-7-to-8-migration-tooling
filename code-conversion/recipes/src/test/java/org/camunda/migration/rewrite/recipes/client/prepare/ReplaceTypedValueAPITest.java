@@ -93,7 +93,6 @@ public class TypeValueTestClass {
 
         double someDouble = doubleTyped;
         someDouble = doubleTyped;
-
         Map<String, Object> map1 = new HashMap<>();
         map1.put("amount", amountTyped);
         map1.put("name", nameTyped);
