@@ -32,14 +32,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
     return cursor -> false;
   }
 
-  protected abstract List<ReplacementUtils.SimpleReplacementSpec>
-      simpleMethodInvocations();
+  protected abstract List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations();
 
-  protected abstract List<ReplacementUtils.BuilderReplacementSpec>
-      builderMethodInvocations();
+  protected abstract List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations();
 
-  protected abstract List<ReplacementUtils.ReturnReplacementSpec>
-      returnMethodInvocations();
+  protected abstract List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations();
+
+  protected abstract List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations();
 
   @Override
   public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -241,12 +240,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
           final List<ReplacementUtils.SimpleReplacementSpec> simpleMethodInvocations =
               simpleMethodInvocations();
 
-          final Map<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>>
-              builderSpecMap =
-                  builderMethodInvocations().stream()
-                      .collect(
-                          Collectors.groupingBy(
-                                  ReplacementUtils.BuilderReplacementSpec::matcher));
+          final Map<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> builderSpecMap =
+              builderMethodInvocations().stream()
+                  .collect(Collectors.groupingBy(ReplacementUtils.BuilderReplacementSpec::matcher));
 
           final List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations =
               returnMethodInvocations();
@@ -263,10 +259,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
+
               if (spec.matcher().matches(invocation)) {
 
-                return maybeAutoFormat(
-                    invocation,
+                spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
+                spec.maybeAddImports().forEach(this::maybeAddImport);
+
+                J.MethodInvocation modifiedInvocation =
                     (J.MethodInvocation)
                         RecipeUtils.applyTemplate(
                             spec.template(),
@@ -276,14 +275,16 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                                 invocation, spec.baseIdentifier(), spec.argumentIndexes()),
                             getCursor().getNearestMessage(invocation.getId().toString()) != null
                                 ? Collections.emptyList()
-                                : spec.textComments()),
-                    ctx);
+                                : spec.textComments());
+
+                return maybeAutoFormat(
+                    invocation, super.visitMethodInvocation(modifiedInvocation, ctx), ctx);
               }
             }
 
             // loop through builder pattern groups
-            for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>>
-                entry : builderSpecMap.entrySet()) {
+            for (Map.Entry<MethodMatcher, List<ReplacementUtils.BuilderReplacementSpec>> entry :
+                builderSpecMap.entrySet()) {
               MethodMatcher matcher = entry.getKey();
               if (matcher.matches(invocation)) {
                 Map<String, Expression> collectedArgs = new HashMap<>();
@@ -335,8 +336,7 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               String returnTypeFqn = getCursor().getNearestMessage(currentSelect.getSimpleName());
 
               // loop through return replacement specs
-              for (ReplacementUtils.ReturnReplacementSpec spec :
-                  returnMethodInvocations) {
+              for (ReplacementUtils.ReturnReplacementSpec spec : returnMethodInvocations) {
 
                 // matching old identifier and method invocation
                 if (spec.matcher().matches(invocation)) {
@@ -359,6 +359,16 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                               Collections.emptyList()),
                       ctx);
                 }
+              }
+            }
+
+            for (ReplacementUtils.RenameReplacementSpec spec : renameMethodInvocations()) {
+              if (spec.matcher().matches(invocation)) {
+                return super.visitMethodInvocation(
+                    invocation.withName(
+                        RecipeUtils.createSimpleIdentifier(
+                            spec.newSimpleName(), "java.lang.String")),
+                    ctx);
               }
             }
 

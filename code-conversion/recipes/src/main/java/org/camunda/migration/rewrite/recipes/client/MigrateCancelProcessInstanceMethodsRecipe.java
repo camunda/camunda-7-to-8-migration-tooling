@@ -48,9 +48,7 @@ public class MigrateCancelProcessInstanceMethodsRecipe extends AbstractMigration
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             null,
             ReplacementUtils.ReturnTypeStrategy.VOID,
-            List.of(
-                new ReplacementUtils.SimpleReplacementSpec.NamedArg(
-                    "processInstanceKey", 0)),
+            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processInstanceKey", 0)),
             List.of(" delete reason was removed")));
   }
 
@@ -61,6 +59,11 @@ public class MigrateCancelProcessInstanceMethodsRecipe extends AbstractMigration
 
   @Override
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return Collections.emptyList();
   }
 }

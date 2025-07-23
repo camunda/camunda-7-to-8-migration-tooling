@@ -265,6 +265,12 @@ public class MigrateExecutionRecipe extends Recipe {
     protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
       return Collections.emptyList();
     }
+
+
+    @Override
+    protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
+      return Collections.emptyList();
+    }
   }
 
   private static class MigrateDelegateBPMNErrorAndExceptionInJobWorker extends Recipe {
