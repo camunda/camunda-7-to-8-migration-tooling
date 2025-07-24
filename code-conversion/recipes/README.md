@@ -100,39 +100,9 @@ See also thge [Camunda 7 to 8 Migration Example](https://github.com/camunda-comm
 
 You might also want to check the [Quickstart Guide: Setting up your project and running recipes](https://docs.openrewrite.org/running-recipes/getting-started).
 
-# Extending recipes
+## Extending recipes
 
-For many scenarios you might want to extend the recipes.
+For many scenarios you might want to extend the recipes. For example, your Java Delegates might not implement ` org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes. 
 
-For example, your Java Delegates might not implement ` org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes. 
-
-However, you can could extend [InjectJobWorkerRecipe.java](/recipes/src/main/java/org/camunda/migration/rewrite/recipes/delegate/prepare/InjectJobWorkerRecipe.java#L34) where the preconditions only include classes implementing the original JavaDelegate:
-
-```java
-public TreeVisitor<?, ExecutionContext> getVisitor() {
-
-// define preconditions
-TreeVisitor<?, ExecutionContext> check =
-    Preconditions.and(
-        Preconditions.not(new UsesType<>("io.camunda.client.api.response.ActivatedJob", true)),
-        new UsesType<>("org.camunda.bpm.engine.delegate.DelegateExecution", true));
-```
-
-You could now adjust this to
-
-```java
-public TreeVisitor<?, ExecutionContext> getVisitor() {
-
-// define preconditions
-TreeVisitor<?, ExecutionContext> check =
-    Preconditions.and(
-        Preconditions.not(new UsesType<>(RecipeConstants.Type.ACTIVATED_JOB, true)),
-        Preconditions.or(
-            new UsesType<>("org.camunda.bpm.engine.delegate.DelegateExecution", true),
-            new UsesType<>("org.acme.MyJavaDelegate", true),
-        )); 
-```
-
-Now the recipe would also pick up those delegates and add the Camunda 8 Job Worker.
-
-You might need to do some more changes, as your `execute` method might have also been renamed or carry different parameters. We recommend not trying to perfectly extend our recipe code - but to check it out and change it on your own fork/branch. Remember that such refactoring code is only running once for the migration and can be dumped afterwards.
+Please read:
+- [Developer Guide](developer_guide.md)

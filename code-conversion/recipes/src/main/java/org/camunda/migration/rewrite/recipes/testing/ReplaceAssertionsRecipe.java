@@ -78,7 +78,7 @@ public class ReplaceAssertionsRecipe extends AbstractMigrationRecipe {
         rename("isActive()", "isActive"),
         rename("hasVariables(..)", "hasVariableNames")
     );
-}
+  }
   
   private ReplacementUtils.RenameReplacementSpec rename(String methodC7, String methodC8) {
     return new ReplacementUtils.RenameReplacementSpec(

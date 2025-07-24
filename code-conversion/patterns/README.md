@@ -40,7 +40,7 @@ Patterns:
 - [Correlate Messages](20-client-code/10-process-engine/correlate-messages.md)
 - [Handle Variables](20-client-code/10-process-engine/handle-process-variables.md)
 - [Handle Resources](20-client-code/10-process-engine/handle-resources.md)
-- [handle user tasks](20-client-code/10-process-engine/handle-user-tasks.md)
+- [Handle User Tasks](20-client-code/10-process-engine/handle-user-tasks.md)
 - [Raise Incidents](20-client-code/10-process-engine/raise-incidents.md)
 - [Search Process Definitions](20-client-code/10-process-engine/search-process-definitions.md)
 - [Starting Process Instances](20-client-code/10-process-engine/starting-process-instances.md)
