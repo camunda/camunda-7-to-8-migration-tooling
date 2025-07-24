@@ -78,4 +78,72 @@ public class RecipeUtils {
     }
     return input;
   }
+
+  public static String getShortName(String fqn) {
+    if (fqn == null || fqn.isEmpty()) {
+      return fqn;
+    }
+
+    int genericStart = fqn.indexOf('<');
+    if (genericStart == -1) {
+      // No generics, return the simple class name
+      return fqn.substring(fqn.lastIndexOf('.') + 1);
+    }
+
+    String rawType = fqn.substring(0, genericStart);
+    String genericPart = fqn.substring(genericStart + 1, fqn.length() - 1); // remove < and >
+
+    String rawShort = rawType.substring(rawType.lastIndexOf('.') + 1);
+    String[] genericTypes = genericPart.split("\\s*,\\s*");
+    StringJoiner joiner = new StringJoiner(", ");
+    for (String g : genericTypes) {
+      joiner.add(g.substring(g.lastIndexOf('.') + 1));
+    }
+
+    return rawShort + "<" + joiner + ">";
+  }
+
+  public static String getGenericShortName(String fqn) {
+    if (fqn == null || fqn.isEmpty()) {
+      return fqn;
+    }
+
+    int genericStart = fqn.indexOf('<');
+    if (genericStart == -1) {
+      // No generics, return the simple class name
+      return fqn.substring(fqn.lastIndexOf('.') + 1);
+    }
+
+    String genericPart = fqn.substring(genericStart + 1, fqn.length() - 1); // remove < and >
+
+    String[] genericTypes = genericPart.split("\\s*,\\s*");
+    StringJoiner joiner = new StringJoiner(", ");
+    for (String g : genericTypes) {
+      joiner.add(g.substring(g.lastIndexOf('.') + 1));
+    }
+
+    return joiner + "";
+  }
+
+  public static String getGenericLongName(String fqn) {
+    if (fqn == null || fqn.isEmpty()) {
+      return fqn;
+    }
+
+    int genericStart = fqn.indexOf('<');
+    if (genericStart == -1) {
+      // No generics, return the simple class name
+      return fqn;
+    }
+
+    String genericPart = fqn.substring(genericStart + 1, fqn.length() - 1); // remove < and >
+
+    String[] genericTypes = genericPart.split("\\s*,\\s*");
+    StringJoiner joiner = new StringJoiner(", ");
+    for (String g : genericTypes) {
+      joiner.add(g);
+    }
+
+    return joiner + "";
+  }
 }

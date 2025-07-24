@@ -3,12 +3,8 @@ package io.camunda.conversion.process_instance;
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.AssignUserTaskResponse;
 import io.camunda.client.api.response.CompleteUserTaskResponse;
-import io.camunda.client.api.response.DeleteResourceResponse;
-import io.camunda.client.api.response.DeploymentEvent;
-import io.camunda.client.api.search.response.DecisionDefinition;
 import io.camunda.client.api.search.response.UserTask;
 import io.camunda.client.api.search.response.Variable;
-import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

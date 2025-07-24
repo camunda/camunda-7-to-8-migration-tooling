@@ -104,6 +104,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   // Create simple java template to adjust variable declaration type, but keep
                   // invocation as is
                   assert resolvedFqn != null;
+
+                  String shortName = RecipeUtils.getShortName(resolvedFqn);
+                  String genericLongName = RecipeUtils.getGenericLongName(resolvedFqn);
+
                   J.VariableDeclarations modifiedDeclarations =
                       RecipeUtils.createSimpleJavaTemplate(
                               (modifiers == null || modifiers.isEmpty()
@@ -111,14 +115,14 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                                       : modifiers.stream()
                                           .map(J.Modifier::toString)
                                           .collect(Collectors.joining(" ", "", " ")))
-                                  + resolvedFqn.substring(resolvedFqn.lastIndexOf('.') + 1)
+                                  + shortName
                                   + " "
                                   + originalName.getSimpleName()
                                   + " = #{any(java.lang.Object)}",
-                              resolvedFqn)
+                              genericLongName)
                           .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
-                  maybeAddImport(resolvedFqn);
+                  maybeAddImport(genericLongName);
 
                   // ensure comments are added here, not on method invocation
                   getCursor().putMessage(invocation.getId().toString(), "comments added");
@@ -142,10 +146,45 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   // visit method invocations
                   modifiedDeclarations = super.visitVariableDeclarations(modifiedDeclarations, ctx);
 
-                  maybeRemoveImport(declarations.getTypeAsFullyQualified());
+                  maybeRemoveImport(
+                      RecipeUtils.getGenericLongName(
+                          declarations.getTypeAsFullyQualified().toString()));
 
                   return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
                 }
+              }
+
+              // transform access to lists
+              if (invocation.getSelect() instanceof J.Identifier ident
+                  && invocation.getSimpleName().equals("get")
+                  && getCursor().getNearestMessage(ident.getSimpleName()) != null) {
+
+                String listMessage = getCursor().getNearestMessage(ident.getSimpleName());
+
+                String shortName = RecipeUtils.getGenericShortName(listMessage);
+                String longName = RecipeUtils.getGenericLongName(listMessage);
+
+                J.VariableDeclarations modifiedDeclarations =
+                    RecipeUtils.createSimpleJavaTemplate(
+                            shortName + " " + originalName.getSimpleName() + " = #{any()}",
+                            longName)
+                        .apply(
+                            getCursor(),
+                            declarations.getCoordinates().replace(),
+                            originalInitializer);
+
+                maybeAddImport(longName);
+
+                // record fqn of identifier for later uses
+                getCursor()
+                    .dropParentUntil(parent -> parent instanceof J.Block)
+                    .putMessage(
+                        originalName.getSimpleName(), RecipeUtils.getGenericLongName(listMessage));
+
+                // visit method invocations
+                modifiedDeclarations = super.visitVariableDeclarations(modifiedDeclarations, ctx);
+
+                return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
               }
             }
 
@@ -348,6 +387,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                   maybeRemoveImport(currentFQN);
 
+                  spec.maybeAddImports().forEach(this::maybeAddImport);
+                  spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
+
                   return maybeAutoFormat(
                       invocation,
                       (J.MethodInvocation)
@@ -361,6 +403,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 }
               }
             }
+
+            System.out.println(invocation.getMethodType());
 
             for (ReplacementUtils.RenameReplacementSpec spec : renameMethodInvocations()) {
               if (spec.matcher().matches(invocation)) {

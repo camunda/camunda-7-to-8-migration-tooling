@@ -677,7 +677,21 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
         new ReplacementUtils.ReturnReplacementSpec(
             new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessInstanceId()"),
             RecipeUtils.createSimpleJavaTemplate(
-                "String.valueOf(#{any()}.getProcessInstanceKey())")));
+                "String.valueOf(#{any()}.getProcessInstanceKey())")),
+        new ReplacementUtils.ReturnReplacementSpec(
+                // this does not work for message correlation
+                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionId()"),
+                RecipeUtils.createSimpleJavaTemplate(
+                        "String.valueOf(#{any()}.getProcessDefinitionKey())")),
+        new ReplacementUtils.ReturnReplacementSpec(
+                // this does not work for message correlation
+                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionKey()"),
+                RecipeUtils.createSimpleJavaTemplate(
+                        "String.valueOf(#{any()}.getBpmnProcessId())")),
+        new ReplacementUtils.ReturnReplacementSpec(
+                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getTenantId()"),
+                RecipeUtils.createSimpleJavaTemplate(
+                        "String.valueOf(#{any()}.getTenantId())")));
   }
 
   @Override

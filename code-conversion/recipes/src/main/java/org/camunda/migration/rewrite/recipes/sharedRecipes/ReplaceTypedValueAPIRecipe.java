@@ -49,7 +49,9 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
             new UsesMethod<>(
                 "org.camunda.bpm.engine.delegate.VariableScope getVariableLocalTyped(..)"),
             new UsesMethod<>("org.camunda.bpm.client.task.ExternalTask getVariableTyped(..)"),
-            new UsesMethod<>("org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)"));
+            new UsesMethod<>("org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)"),
+            new UsesMethod<>("org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)"),
+            new UsesMethod<>("org.camunda.bpm.engine.TaskService getVariableTyped(..)"));
 
     return Preconditions.check(
         check,
@@ -299,7 +301,13 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       .matches(invocation)
                   || new MethodMatcher(
                           "org.camunda.bpm.client.task.ExternalTask getAllVariablesTyped(..)")
-                      .matches(invocation)) {
+                      .matches(invocation)
+                  || new MethodMatcher(
+                      "org.camunda.bpm.engine.TaskService getVariableLocalTyped(..)")
+                          .matches(invocation)
+                  || new MethodMatcher(
+                      "org.camunda.bpm.engine.TaskService getVariableTyped(..)")
+                          .matches(invocation)) {
 
                 // get modifiers
                 List<J.Modifier> modifiers = declarations.getModifiers();

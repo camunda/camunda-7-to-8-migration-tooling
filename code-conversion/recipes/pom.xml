@@ -155,6 +155,11 @@
             <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
             <version>7.23.0</version>
         </dependency>
+	    <dependency>
+	      <groupId>org.camunda.bpm.springboot</groupId>
+	      <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
+          <version>7.23.0</version>
+	    </dependency>
         <dependency>
             <groupId>org.camunda.bpm.springboot</groupId>
             <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
@@ -182,13 +187,13 @@
         <dependency>
             <groupId>io.camunda</groupId>
             <artifactId>spring-boot-starter-camunda-sdk</artifactId>
-            <version>8.8.0-alpha4</version>
+            <version>8.8.0-alpha6</version>
         </dependency>
-        <dependency>
-            <groupId>io.camunda</groupId>
-            <artifactId>camunda-process-test-spring</artifactId>
-            <version>8.8.0-alpha4</version>
-        </dependency>
+	    <dependency>
+	      <groupId>io.camunda</groupId>
+	      <artifactId>camunda-process-test-spring</artifactId>
+	      <version>8.8.0-alpha6</version>
+	    </dependency>
 
 
         <dependency>

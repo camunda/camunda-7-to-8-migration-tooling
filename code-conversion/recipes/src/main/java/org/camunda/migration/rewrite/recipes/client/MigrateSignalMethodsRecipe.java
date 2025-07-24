@@ -19,7 +19,7 @@ public class MigrateSignalMethodsRecipe extends AbstractMigrationRecipe {
 
   @Override
   public String getDescription() {
-    return "Replaces Camunda 7 signal broadcasting methods with Camunda 8 client wrapper.";
+    return "Replaces Camunda 7 signal broadcasting methods with Camunda 8 client methods.";
   }
 
   @Override

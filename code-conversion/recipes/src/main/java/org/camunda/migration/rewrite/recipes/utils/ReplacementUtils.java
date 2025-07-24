@@ -142,7 +142,15 @@ public class ReplacementUtils {
     }
   }
 
-  public record ReturnReplacementSpec(MethodMatcher matcher, JavaTemplate template) {}
+  public record ReturnReplacementSpec(
+          MethodMatcher matcher,
+          JavaTemplate template,
+          List<String> maybeRemoveImports,
+          List<String> maybeAddImports) {
+    public ReturnReplacementSpec(MethodMatcher matcher, JavaTemplate template) {
+      this(matcher, template, Collections.emptyList(), Collections.emptyList());
+    }
+  }
 
   public record RenameReplacementSpec(MethodMatcher matcher, String newSimpleName) {}
 
