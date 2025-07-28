@@ -342,6 +342,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
                   if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
+
+                    spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
+                    spec.maybeAddImports().forEach(this::maybeAddImport);
+
                     Object[] args =
                         ReplacementUtils.prependBaseIdentifier(
                             spec.baseIdentifier(),
@@ -403,8 +407,6 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 }
               }
             }
-
-            System.out.println(invocation.getMethodType());
 
             for (ReplacementUtils.RenameReplacementSpec spec : renameMethodInvocations()) {
               if (spec.matcher().matches(invocation)) {

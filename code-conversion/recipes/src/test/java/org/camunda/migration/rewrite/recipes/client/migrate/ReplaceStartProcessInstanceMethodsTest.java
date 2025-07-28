@@ -254,8 +254,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
                                                  .latestVersion()
-                                                 .tenantId(tenantId)
                                                  .variables(variableMap)
+                                                 .tenantId(tenantId)
                                                  .send()
                                                  .join();
 
@@ -264,8 +264,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
                                                  .latestVersion()
-                                                 .tenantId(tenantId)
                                                  .variables(variableMap)
+                                                 .tenantId(tenantId)
                                                  .send()
                                                  .join();
 
@@ -322,23 +322,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
-                                                 .tenantId(tenantId)
                                                  .variables(variableMap)
-                                                 .send()
-                                                 .join();
-
-                                         // businessKey was removed
-                                         camundaClient
-                                                 .newCreateInstanceCommand()
-                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
-                                                 .variables(variableMap)
-                                                 .send()
-                                                 .join();
-
-                                         // businessKey was removed
-                                         camundaClient
-                                                 .newCreateInstanceCommand()
-                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
                                                  .tenantId(tenantId)
                                                  .send()
                                                  .join();
@@ -347,8 +331,24 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
-                                                 .tenantId(tenantId)
                                                  .variables(variableMap)
+                                                 .send()
+                                                 .join();
+
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .tenantId(tenantId)
+                                                 .send()
+                                                 .join();
+
+                                         // businessKey was removed
+                                         camundaClient
+                                                 .newCreateInstanceCommand()
+                                                 .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .variables(variableMap)
+                                                 .tenantId(tenantId)
                                                  .send()
                                                  .join();
 

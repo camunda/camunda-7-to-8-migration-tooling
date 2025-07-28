@@ -2,8 +2,9 @@ package org.camunda.migration.rewrite.recipes.client;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import org.camunda.migration.rewrite.recipes.sharedRecipes.AbstractMigrationRecipe;
+import org.camunda.migration.rewrite.recipes.utils.BuilderSpecFactory;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.camunda.migration.rewrite.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
@@ -52,7 +53,9 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             "io.camunda.client.api.response.CorrelateMessageResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
-            List.of(" executionId was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+            List.of(
+                " executionId was removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "messageEventReceived(String messageName, String executionId, Map<String, Objects>
             // variables)"
@@ -74,7 +77,9 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 2)),
-            List.of(" executionId was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+            List.of(
+                " executionId was removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "correlateMessage(String messageName)"
             new MethodMatcher(
@@ -110,7 +115,9 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             "io.camunda.client.api.response.CorrelateMessageResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
-            List.of(" businessKey was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+            List.of(
+                " processInstanceBusinessKey was removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "correlateMessage(String messageName, Map<String, Object> correlationKeys)"
             new MethodMatcher(
@@ -129,7 +136,8 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
             List.of(
-                " correlationKeys were removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+                " correlationKeys were removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "correlateMessage(String messageName, Map<String, Object> correlationKeys,
             // Map<String, Object> variables)"
@@ -152,7 +160,8 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 2)),
             List.of(
-                " correlationKeys were removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+                " correlationKeys were removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "correlateMessage(String messageName, String businessKey, Map<String, Object>
             // correlationKeys,
@@ -176,7 +185,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 3)),
             List.of(
-                " businessKey was removed",
+                " processInstanceBusinessKey was removed",
                 " correlationKeys were removed",
                 " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
@@ -196,7 +205,9 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             "io.camunda.client.api.response.CorrelateMessageResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
-            List.of(" executionId was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+            List.of(
+                " executionId was removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "messageEventReceived(String messageName, String executionId, Map<String, Objects>
             // variables)"
@@ -218,21 +229,46 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 2)),
-            List.of(" executionId was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")));
+            List.of(
+                " executionId was removed",
+                " Hint: In Camunda 8 messages could also be correlated asynchronously")));
   }
-
-  static final MethodMatcher correlateMethodMatcher =
-      new MethodMatcher("org.camunda.bpm.engine.runtime.MessageCorrelationBuilder correlate()");
 
   @Override
   protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
-    return List.of(
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation"),
-            List.of("createMessageCorrelation"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+    return BuilderSpecFactory.createBuilderSpecs(
+        "org.camunda.bpm.engine.runtime.MessageCorrelationBuilder correlate()",
+        "createMessageCorrelation",
+        List.of("processInstanceBusinessKey", "setVariables", "tenantId"),
+        Map.ofEntries(
+            Map.entry(
+                "createMessageCorrelation", ".messageName(#{messageName:any(java.lang.String)})"),
+            Map.entry("setVariables", ".variables(#{variables:any(java.util.Map)})"),
+            Map.entry("tenantId", ".tenantId(#{tenantId:any(java.lang.String)})")),
+        """
+              #{camundaClient:any(io.camunda.client.CamundaClient)}
+                  .newCorrelateMessageCommand()
+              """,
+        ".correlationKey(\"add correlationKey here\")",
+        """
+                  .send()
+                  .join();
+              """,
+        "io.camunda.client.api.response.CorrelateMessageResponse",
+        List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously"));
+  }
+
+  /*static final MethodMatcher correlateMethodMatcher =
+          new MethodMatcher("org.camunda.bpm.engine.runtime.MessageCorrelationBuilder correlate()");
+
+  List<ReplacementUtils.BuilderReplacementSpec> parkedList =
+      List.of(
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation"),
+              List.of("createMessageCorrelation"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -240,16 +276,17 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "processInstanceBusinessKey"),
-            List.of("createMessageCorrelation"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "processInstanceBusinessKey"),
+              List.of("createMessageCorrelation"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -257,16 +294,19 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" businessKey was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "tenantId"),
-            List.of("createMessageCorrelation", "tenantId"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(
+                  " businessKey was removed",
+                  " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "tenantId"),
+              List.of("createMessageCorrelation", "tenantId"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -275,16 +315,17 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "tenantId", "processInstanceBusinessKey"),
-            List.of("createMessageCorrelation", "tenantId"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "tenantId", "processInstanceBusinessKey"),
+              List.of("createMessageCorrelation", "tenantId"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -293,16 +334,19 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" businessKey was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "setVariables"),
-            List.of("createMessageCorrelation", "setVariables"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(
+                  " businessKey was removed",
+                  " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "setVariables"),
+              List.of("createMessageCorrelation", "setVariables"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -311,16 +355,17 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "setVariables", "processInstanceBusinessKey"),
-            List.of("createMessageCorrelation", "setVariables"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "setVariables", "processInstanceBusinessKey"),
+              List.of("createMessageCorrelation", "setVariables"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -329,16 +374,19 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" businessKey was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of("createMessageCorrelation", "setVariables", "tenantId"),
-            List.of("createMessageCorrelation", "setVariables", "tenantId"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(
+                  " businessKey was removed",
+                  " Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of("createMessageCorrelation", "setVariables", "tenantId"),
+              List.of("createMessageCorrelation", "setVariables", "tenantId"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newCorrelateMessageCommand()
                     .messageName(#{messageName:any(java.lang.String)})
@@ -348,20 +396,21 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     .send()
                     .join();
                 """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
-        new ReplacementUtils.BuilderReplacementSpec(
-            correlateMethodMatcher,
-            Set.of(
-                "createMessageCorrelation",
-                "setVariables",
-                "tenantId",
-                "processInstanceBusinessKey"),
-            List.of("createMessageCorrelation", "setVariables", "tenantId"),
-            RecipeUtils.createSimpleJavaTemplate(
-                """
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously")),
+          new ReplacementUtils.BuilderReplacementSpec(
+              correlateMethodMatcher,
+              Set.of(
+                  "createMessageCorrelation",
+                  "setVariables",
+                  "tenantId",
+                  "processInstanceBusinessKey"),
+              List.of("createMessageCorrelation", "setVariables", "tenantId"),
+              RecipeUtils.createSimpleJavaTemplate(
+                  """
                         #{camundaClient:any(io.camunda.client.CamundaClient)}
                             .newCorrelateMessageCommand()
                             .messageName(#{messageName:any(java.lang.String)})
@@ -371,11 +420,13 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                             .send()
                             .join();
                         """),
-            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
-            "io.camunda.client.api.response.CorrelateMessageResponse",
-            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" businessKey was removed", " Hint: In Camunda 8 messages could also be correlated asynchronously")));
-  }
+              RecipeUtils.createSimpleIdentifier(
+                  "camundaClient", "io.camunda.client.CamundaClient"),
+              "io.camunda.client.api.response.CorrelateMessageResponse",
+              ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+              List.of(
+                  " businessKey was removed",
+                  " Hint: In Camunda 8 messages could also be correlated asynchronously")));*/
 
   @Override
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
@@ -386,6 +437,4 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
   protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return Collections.emptyList();
   }
-
-
 }

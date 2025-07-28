@@ -17,6 +17,7 @@ public class SampleMessageStartEvent implements JavaDelegate {
         final String processInstanceId = execution.getProcessInstanceId();
         final String parameter = (String) execution.getVariable("parameter");
 
+        // the following lines needs to be filtered out by visiting blocks (if all references have been eliminated)
         RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
         final Map<String, Object> processVariables = Map.of("parameter", parameter);
 

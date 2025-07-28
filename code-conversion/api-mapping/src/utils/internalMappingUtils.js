@@ -11,8 +11,8 @@ function createC8DocLink(selectedMapping, operationId) {
 	return (
 		selectedMapping.c8BaseUrl +
 		operationId
-			?.split(/(?=[A-Z])/)
-			.map((word) => word.charAt(0).toLowerCase() + word.slice(1))
+			?.match(/([A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+)/g)
+			.map((word) => word.toLowerCase())
 			.join("-")
 	);
 }

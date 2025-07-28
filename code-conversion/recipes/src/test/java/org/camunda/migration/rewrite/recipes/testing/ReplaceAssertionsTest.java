@@ -108,6 +108,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -126,7 +127,7 @@ public class Testcases {
     private TaskService taskService;
 
     @Test
-    void somePath() {
+    void somePath(Date someDate) {
         ProcessInstance processInstance = runtimeService
                  .startProcessInstanceByKey(
                          "sample-process-solution-process",
@@ -135,6 +136,7 @@ public class Testcases {
                  
         List<Task> userTasks = taskService.createTaskQuery()
                 .processDefinitionKey("sample-process-solution-process")
+                .dueBefore(someDate)
                 .list();
                 
         Task firstTask = userTasks.get(0);
@@ -157,6 +159,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -176,7 +180,7 @@ public class Testcases {
     private TaskService taskService;
 
     @Test
-    void somePath() {
+    void somePath(Date someDate) {
         ProcessInstanceEvent processInstance = camundaClient
                 .newCreateInstanceCommand()
                 .bpmnProcessId("sample-process-solution-process")
@@ -187,7 +191,8 @@ public class Testcases {
                 
         List<UserTask> userTasks = camundaClient
                 .newUserTaskSearchRequest()
-                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId("sample-process-solution-process"))
+                .filter(filter -> filter.bpmnProcessId("sample-process-solution-process")
+                        .dueDate(dateTimeProperty -> dateTimeProperty.lt(someDate.toInstant().atOffset(ZoneOffset.UTC))))
                 .send()
                 .join()
                 .items();

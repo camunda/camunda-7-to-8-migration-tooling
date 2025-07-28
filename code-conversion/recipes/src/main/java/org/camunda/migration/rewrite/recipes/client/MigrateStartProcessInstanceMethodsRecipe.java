@@ -1,7 +1,9 @@
 package org.camunda.migration.rewrite.recipes.client;
 
 import java.util.*;
+import java.util.stream.Stream;
 import org.camunda.migration.rewrite.recipes.sharedRecipes.AbstractMigrationRecipe;
+import org.camunda.migration.rewrite.recipes.utils.BuilderSpecFactory;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.camunda.migration.rewrite.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
@@ -375,6 +377,57 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                 " processDefinitionId was removed")));
   }
 
+  @Override
+  protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
+    return Stream.concat(
+            BuilderSpecFactory.createBuilderSpecs(
+                "org.camunda.bpm.engine.runtime.ProcessInstantiationBuilder execute(..)",
+                "createProcessInstanceByKey",
+                List.of("businessKey", "setVariables", "processDefinitionTenantId"),
+                Map.ofEntries(
+                    Map.entry(
+                        "createProcessInstanceByKey",
+                        ".bpmnProcessId(#{bpmnProcessId:any(java.lang.String)})"),
+                    Map.entry("setVariables", ".variables(#{variables:any(java.util.Map)})"),
+                    Map.entry("processDefinitionTenantId", ".tenantId(#{tenantId:any(java.lang.String)})")),
+                """
+                  #{camundaClient:any(io.camunda.client.CamundaClient)}
+                      .newCreateInstanceCommand()
+                  """,
+                ".latestVersion()",
+                """
+                      .send()
+                      .join();
+                  """,
+                "io.camunda.client.api.response.ProcessInstanceEvent",
+                Collections.emptyList())
+                .stream(),
+            BuilderSpecFactory.createBuilderSpecs(
+                "org.camunda.bpm.engine.runtime.ProcessInstantiationBuilder execute(..)",
+                "createProcessInstanceById",
+                List.of("businessKey", "setVariables", "processDefinitionTenantId"),
+                Map.ofEntries(
+                    Map.entry(
+                        "createProcessInstanceById",
+                        ".processDefinitionKey(Long.valueOf(#{processDefinitionKey:any(java.lang.String)}))"),
+                    Map.entry("setVariables", ".variables(#{variables:any(java.util.Map)})"),
+                    Map.entry("processDefinitionTenantId", ".tenantId(#{tenantId:any(java.lang.String)})")),
+                """
+                  #{camundaClient:any(io.camunda.client.CamundaClient)}
+                      .newCreateInstanceCommand()
+                  """,
+                "",
+                """
+                      .send()
+                      .join();
+                  """,
+                "io.camunda.client.api.response.ProcessInstanceEvent",
+                Collections.emptyList())
+                .stream())
+        .toList();
+  }
+
+  /*
   static final MethodMatcher executeMethodMatcher =
       new MethodMatcher("org.camunda.bpm.engine.runtime.ProcessInstantiationBuilder execute(..)");
 
@@ -670,6 +723,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(" businessKey was removed")));
   }
+  */
 
   @Override
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
@@ -679,19 +733,17 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleJavaTemplate(
                 "String.valueOf(#{any()}.getProcessInstanceKey())")),
         new ReplacementUtils.ReturnReplacementSpec(
-                // this does not work for message correlation
-                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionId()"),
-                RecipeUtils.createSimpleJavaTemplate(
-                        "String.valueOf(#{any()}.getProcessDefinitionKey())")),
+            // this does not work for message correlation
+            new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionId()"),
+            RecipeUtils.createSimpleJavaTemplate(
+                "String.valueOf(#{any()}.getProcessDefinitionKey())")),
         new ReplacementUtils.ReturnReplacementSpec(
-                // this does not work for message correlation
-                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionKey()"),
-                RecipeUtils.createSimpleJavaTemplate(
-                        "String.valueOf(#{any()}.getBpmnProcessId())")),
+            // this does not work for message correlation
+            new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessDefinitionKey()"),
+            RecipeUtils.createSimpleJavaTemplate("String.valueOf(#{any()}.getBpmnProcessId())")),
         new ReplacementUtils.ReturnReplacementSpec(
-                new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getTenantId()"),
-                RecipeUtils.createSimpleJavaTemplate(
-                        "String.valueOf(#{any()}.getTenantId())")));
+            new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getTenantId()"),
+            RecipeUtils.createSimpleJavaTemplate("String.valueOf(#{any()}.getTenantId())")));
   }
 
   @Override

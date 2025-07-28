@@ -2,6 +2,7 @@ package org.camunda.migration.rewrite.recipes.client;
 
 import java.util.*;
 import org.camunda.migration.rewrite.recipes.sharedRecipes.AbstractMigrationRecipe;
+import org.camunda.migration.rewrite.recipes.utils.BuilderSpecFactory;
 import org.camunda.migration.rewrite.recipes.utils.RecipeUtils;
 import org.camunda.migration.rewrite.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
@@ -109,6 +110,35 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(" please check type")));
   }
 
+
+  @Override
+  protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
+    return BuilderSpecFactory.createBuilderFilterSpecs(
+        "org.camunda.bpm.engine.query.Query list()",
+        null,
+        List.of("processDefinitionKey", "dueBefore"),
+        Map.ofEntries(
+            Map.entry(
+                "processDefinitionKey",
+                ".bpmnProcessId(#{processDefinitionKey:any(java.lang.String)})"),
+            Map.entry(
+                "dueBefore",
+                ".dueDate(dateTimeProperty -> dateTimeProperty.lt(#{date:any(java.util.Date)}.toInstant().atOffset(ZoneOffset.UTC)))")),
+        """
+        #{camundaClient:any(io.camunda.client.CamundaClient)}
+            .newUserTaskSearchRequest()
+        """,
+        """
+            .send()
+            .join()
+            .items();
+        """,
+        "List<io.camunda.client.api.search.response.UserTask>",
+        Collections.emptyList(),
+        Map.ofEntries(Map.entry("dueBefore", "java.time.ZoneOffset")));
+  }
+
+  /*
   static final MethodMatcher listMethodMatcher =
       new MethodMatcher("org.camunda.bpm.engine.query.Query list()");
 
@@ -138,8 +168,31 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "List<io.camunda.client.api.search.response.UserTask>",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            Collections.emptyList()));
+            Collections.emptyList()),
+        new ReplacementUtils.BuilderReplacementSpec(
+            listMethodMatcher,
+            Set.of("processDefinitionKey", "dueBefore"),
+            List.of("processDefinitionKey", "dueBefore"),
+            RecipeUtils.createSimpleJavaTemplate(
+                """
+                        #{camundaClient:any(io.camunda.client.CamundaClient)}
+                            .newUserTaskSearchRequest()
+                            .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(#{processDefinitionKey:any(java.lang.String)})
+                                    .dueDate(dateTimeProperty -> dateTimeProperty.lt(#{date:any(java.util.Date)}.toInstant().atOffset(ZoneOffset.UTC))))
+                            .send()
+                            .join()
+                            .items();
+                        """,
+                "io.camunda.client.api.search.response.UserTask",
+                "java.time.ZoneOffset"),
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+            "List<io.camunda.client.api.search.response.UserTask>",
+            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            List.of("java.time.ZoneOffset")));
   }
+*/
 
   @Override
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
@@ -174,6 +227,4 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
   protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return Collections.emptyList();
   }
-
-
 }

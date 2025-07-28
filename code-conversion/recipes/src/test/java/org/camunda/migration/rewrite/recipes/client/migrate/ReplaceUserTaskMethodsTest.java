@@ -78,7 +78,7 @@ public class HandleUserTasksTestClass {
     public void handleUserTasks(String processDefinitionKey, String taskId, String userId, Map<String, Object> variableMap, String variableName) {
         List<UserTask> userTasks = camundaClient
                 .newUserTaskSearchRequest()
-                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(processDefinitionKey))
+                .filter(filter -> filter.bpmnProcessId(processDefinitionKey))
                 .send()
                 .join()
                 .items();
