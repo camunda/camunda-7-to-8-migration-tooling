@@ -79,7 +79,7 @@ We describe the process for Maven-based projects here, but you can check the  [Q
                     <dependency>
                       <groupId>org.camunda.community</groupId>
                       <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
-                      <version>0.0.1-alpha2</version>
+                      <version>0.0.2</version>
                     </dependency>
                 </dependencies>
             </plugin>
