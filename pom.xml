@@ -55,6 +55,7 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <modules>
+        <module>code-conversion</module>
         <module>data-migrator</module>
       </modules>
     </profile>
@@ -64,6 +65,7 @@
       <!-- Used in release workflow. -->
       <id>central-release</id>
       <modules>
+        <module>code-conversion</module>
         <module>data-migrator/core</module>
         <module>data-migrator/plugins/cockpit</module>
       </modules>
