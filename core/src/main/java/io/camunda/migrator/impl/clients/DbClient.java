@@ -110,6 +110,12 @@ public class DbClient {
   protected final List<IdKeyDbModel> insertBuffer = new java.util.ArrayList<>();
 
   /**
+   * Tracks C8 process instance keys created in the current batch.
+   * Used for rollback if batch insert fails.
+   */
+  protected final List<Long> currentBatchC8Keys = new java.util.ArrayList<>();
+
+  /**
    * Checks if an entity exists in the mapping table by type and id.
    */
   public boolean checkExistsByC7IdAndType(String c7Id, TYPE type) {
@@ -192,6 +198,11 @@ public class DbClient {
     synchronized (insertBuffer) {
       insertBuffer.add(model);
       
+      // Track C8 keys for potential rollback
+      if (c8Key != null && TYPE.RUNTIME_PROCESS_INSTANCE.equals(type)) {
+        currentBatchC8Keys.add(c8Key);
+      }
+      
       // Flush if batch size is reached
       if (insertBuffer.size() >= properties.getBatchSize()) {
         flushBatch();
@@ -202,18 +213,33 @@ public class DbClient {
   /**
    * Flushes all pending INSERT operations in the batch buffer.
    * Should be called at the end of a migration process or when batch size is reached.
+   * If the batch insert fails, returns the list of C8 process instance keys that need to be rolled back.
+   * 
+   * @return List of C8 process instance keys to rollback, or empty list if successful
    */
-  public void flushBatch() {
+  public List<Long> flushBatch() {
     synchronized (insertBuffer) {
       if (insertBuffer.isEmpty()) {
-        return;
+        return java.util.Collections.emptyList();
       }
       
       DbClientLogs.flushingBatch(insertBuffer.size());
       List<IdKeyDbModel> toFlush = new java.util.ArrayList<>(insertBuffer);
-      insertBuffer.clear();
+      List<Long> keysToRollback = new java.util.ArrayList<>(currentBatchC8Keys);
       
-      callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
+      try {
+        callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
+        // Success - clear the buffers
+        insertBuffer.clear();
+        currentBatchC8Keys.clear();
+        return java.util.Collections.emptyList();
+      } catch (Exception e) {
+        // Failed - clear buffers and return keys that need rollback
+        insertBuffer.clear();
+        currentBatchC8Keys.clear();
+        DbClientLogs.batchInsertFailed(keysToRollback.size());
+        return keysToRollback;
+      }
     }
   }
 
