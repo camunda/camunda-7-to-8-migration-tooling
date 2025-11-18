@@ -103,6 +103,17 @@
     VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=BIGINT}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})
   </insert>
 
+  <insert
+    id="insertBatch"
+    parameterType="java.util.List"
+    flushCache="true">
+    INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON)
+    VALUES
+    <foreach collection="list" item="item" separator=",">
+      (#{item.c7Id, jdbcType=VARCHAR}, #{item.c8Key, jdbcType=BIGINT}, #{item.createTime, jdbcType=TIMESTAMP}, #{item.type, jdbcType=VARCHAR}, #{item.skipReason, jdbcType=VARCHAR})
+    </foreach>
+  </insert>
+
   <delete id="deleteByC7Id">
     DELETE FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id}

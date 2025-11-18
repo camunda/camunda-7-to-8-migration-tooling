@@ -64,6 +64,7 @@ import org.springframework.stereotype.Component;
 /**
  * Wrapper class for IdKeyMapper database operations with exception handling.
  * Maintains the same exception wrapping behavior as ExceptionUtils.callApi.
+ * Supports batch insert operations to reduce database interactions.
  */
 @Component
 public class DbClient {
@@ -102,6 +103,11 @@ public class DbClient {
 
   @Autowired(required = false)
   protected DecisionRequirementsMapper decisionRequirementsMapper;
+
+  /**
+   * Buffer for collecting INSERT operations to be batched.
+   */
+  protected final List<IdKeyDbModel> insertBuffer = new java.util.ArrayList<>();
 
   /**
    * Checks if an entity exists in the mapping table by type and id.
@@ -181,7 +187,43 @@ public class DbClient {
     String finalSkipReason = properties.getSaveSkipReason() ? skipReason : null;
     DbClientLogs.insertingRecord(c7Id, createTime, null, finalSkipReason);
     var model = createIdKeyDbModel(c7Id, createTime, c8Key, type, finalSkipReason);
-    callApi(() -> idKeyMapper.insert(model), FAILED_TO_INSERT_RECORD + c7Id);
+    
+    // Add to batch buffer
+    synchronized (insertBuffer) {
+      insertBuffer.add(model);
+      
+      // Flush if batch size is reached
+      if (insertBuffer.size() >= properties.getBatchSize()) {
+        flushBatch();
+      }
+    }
+  }
+
+  /**
+   * Flushes all pending INSERT operations in the batch buffer.
+   * Should be called at the end of a migration process or when batch size is reached.
+   */
+  public void flushBatch() {
+    synchronized (insertBuffer) {
+      if (insertBuffer.isEmpty()) {
+        return;
+      }
+      
+      DbClientLogs.flushingBatch(insertBuffer.size());
+      List<IdKeyDbModel> toFlush = new java.util.ArrayList<>(insertBuffer);
+      insertBuffer.clear();
+      
+      callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
+    }
+  }
+
+  /**
+   * Returns the current size of the batch buffer.
+   */
+  public int getBatchBufferSize() {
+    synchronized (insertBuffer) {
+      return insertBuffer.size();
+    }
   }
 
   /**
