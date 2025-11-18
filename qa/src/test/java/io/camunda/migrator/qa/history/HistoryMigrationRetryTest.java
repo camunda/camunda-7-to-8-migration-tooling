@@ -25,17 +25,25 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldMigratePreviouslySkippedProcessDefinition() {
-    // given state in c7
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    String c7Id = repositoryService.createProcessDefinitionQuery().singleResult().getId();
-    markEntityAsSkipped(c7Id, HISTORY_PROCESS_DEFINITION);
-    // when history migration is retried
+    // given: DMN with requirements, create natural skip scenario
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    
+    // First migration: Migrate decision definitions WITHOUT requirements
+    // This causes definitions to naturally skip due to missing parent
+    historyMigrator.migrateDecisionDefinitions();
+    
+    // Verify definitions were skipped
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+    
+    // when: Retry migration - now migrate requirements then retry skipped definitions
+    historyMigrator.migrateDecisionRequirementsDefinitions();
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.migrateDecisionDefinitions();
 
-    // then process definition is migrated and no longer skipped
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
-    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_DEFINITION)).isEqualTo(0);
+    // then: Previously skipped definitions are now migrated
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id").size()).isEqualTo(1);
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test

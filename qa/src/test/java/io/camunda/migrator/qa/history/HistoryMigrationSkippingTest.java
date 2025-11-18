@@ -116,29 +116,33 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldNotMigrateAlreadySkippedUserTask() {
-    // given state in c7
+    // given: Process with user task in C7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
     var task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
 
-    // and the user task is manually set as skipped
-    String taskId = historyService.createHistoricTaskInstanceQuery().singleResult().getId();
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_USER_TASK);
+    // when: First migration - migrate user tasks WITHOUT process instances (naturally skips)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks(); // Skips due to missing process instance
+    
+    // Verify task was skipped
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(1);
+    
+    // Second migration: Now migrate everything including process instances
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateUserTasks(); // Should not reprocess already-skipped task
 
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance was migrated but user task was not
+    // then: Process instance was migrated but user task remains skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(historicProcesses.size()).isEqualTo(1);
     var processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricUserTasks(processInstance.processInstanceKey())).isEmpty();
 
-    // verify the task was skipped exactly once
+    // Verify the task was skipped exactly once (not duplicated)
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(1);
 
-    // and verify logs don't contain any additional skip operations for this task
+    // and verify logs don't contain duplicate skip operations
     logs.assertDoesNotContain("Migration of C7 user task with id [" + task.getId() + "] skipped");
 
   }
