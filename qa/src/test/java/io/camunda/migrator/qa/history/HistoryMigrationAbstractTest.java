@@ -181,4 +181,23 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
       taskService.complete(task.getId());
     }
   }
+
+  /**
+   * Simulates a previously skipped entity by marking it in the internal tracking database.
+   * <p>
+   * This method is used for testing the skip/retry mechanism. In a real migration scenario,
+   * entities would be skipped naturally when parent entities are missing or when migration fails.
+   * However, for testing purposes, we need to simulate this state directly.
+   * </p>
+   * <p>
+   * Note: This is a white-box testing approach used only when natural skipping scenarios
+   * are not feasible (e.g., for top-level entities like process definitions that have no parents).
+   * </p>
+   *
+   * @param c7Id the Camunda 7 ID of the entity to mark as skipped
+   * @param type the type of the entity
+   */
+  protected void simulateSkippedEntity(String c7Id, IdKeyMapper.TYPE type) {
+    dbClient.insert(c7Id, null, type);
+  }
 }

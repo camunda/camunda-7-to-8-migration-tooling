@@ -53,7 +53,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // and the process definition is manually set as skipped
     String c7Id = repositoryService.createProcessDefinitionQuery().singleResult().getId();
-    dbClient.insert(c7Id, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    simulateSkippedEntity(c7Id, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -74,7 +74,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -99,7 +99,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     taskService.complete(task.getId());
 
     // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -120,7 +120,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // and the user task is manually set as skipped
     String taskId = historyService.createHistoricTaskInstanceQuery().singleResult().getId();
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_USER_TASK);
+    simulateSkippedEntity(taskId, IdKeyMapper.TYPE.HISTORY_USER_TASK);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -162,7 +162,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
 
     // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -194,7 +194,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // and manually mark the incident as skipped
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
-    dbClient.insert(incidentId, null, IdKeyMapper.TYPE.HISTORY_INCIDENT);
+    simulateSkippedEntity(incidentId, IdKeyMapper.TYPE.HISTORY_INCIDENT);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -231,7 +231,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     }
 
     // and manually mark the job as skipped
-    dbClient.insert(job.getId(), null, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
+    simulateSkippedEntity(job.getId(), IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -255,7 +255,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     taskService.complete(task.getId());
 
     // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -280,7 +280,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var variableToSkip = historicVariables.getFirst();
 
     // and the variable is manually set as skipped
-    dbClient.insert(variableToSkip.getId(), null, IdKeyMapper.TYPE.HISTORY_VARIABLE);
+    simulateSkippedEntity(variableToSkip.getId(), IdKeyMapper.TYPE.HISTORY_VARIABLE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -308,7 +308,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // and the task is manually set as skipped
     String taskId = historyService.createHistoricTaskInstanceQuery().singleResult().getId();
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_USER_TASK);
+    simulateSkippedEntity(taskId, IdKeyMapper.TYPE.HISTORY_USER_TASK);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -356,7 +356,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(serviceTaskVariable).isNotNull().as("Expected to find local variable on service task");
 
     // Mark the service task as skipped
-    dbClient.insert(serviceTaskActivityInstanceId, null, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
+    simulateSkippedEntity(serviceTaskActivityInstanceId, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -382,7 +382,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .decisionRequirementsDefinitionKey("simpleDmnWithReqsId")
         .singleResult()
         .getId();
-    dbClient.insert(decisionRequirementsId, null, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
+    simulateSkippedEntity(decisionRequirementsId, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
 
     // when
     historyMigrator.migrate();
@@ -404,7 +404,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .decisionDefinitionKey("simpleDecisionId")
         .singleResult()
         .getId();
-    dbClient.insert(decisionDefinitionId, null, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
+    simulateSkippedEntity(decisionDefinitionId, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
 
     // when
     historyMigrator.migrate();
@@ -425,7 +425,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .processDefinitionKey("businessRuleProcessId")
         .singleResult()
         .getId();
-    dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    simulateSkippedEntity(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
 
     // when
     historyMigrator.migrate();
@@ -442,7 +442,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("businessRuleProcessId",
         Variables.createVariables().putValue("inputA", stringValue("A")));
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
     // when
     historyMigrator.migrate();
@@ -461,7 +461,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         Variables.createVariables().putValue("inputA", stringValue("A")));
     String c7FlowNodeId =
         historyService.createHistoricActivityInstanceQuery().activityId("businessRuleTaskId").singleResult().getId();
-    dbClient.insert(c7FlowNodeId, null, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
+    simulateSkippedEntity(c7FlowNodeId, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
 
     // when
     historyMigrator.migrate();
@@ -481,7 +481,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Simulate ID collision by manually inserting a record with the same ID as the task
     // but with a different type (HISTORY_INCIDENT)
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_INCIDENT);
+    simulateSkippedEntity(taskId, IdKeyMapper.TYPE.HISTORY_INCIDENT);
     // Verify the collision record exists before completing the task
     assertThat(dbClient.checkExistsByC7IdAndType(taskId, IdKeyMapper.TYPE.HISTORY_INCIDENT)).as(
         "Record with task ID should exist").isTrue();

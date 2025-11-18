@@ -48,7 +48,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         verifyC7EntitiesExist();
 
         // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+        simulateSkippedEntity(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
         historyMigrator.migrate();
 
         // Verify all entities were marked as skipped
