@@ -116,6 +116,12 @@ public class DbClient {
   protected final List<Long> currentBatchC8Keys = new java.util.ArrayList<>();
 
   /**
+   * Stores C8 keys that failed to persist in the last batch operation.
+   * This allows retrieving them after an exception for rollback purposes.
+   */
+  protected final ThreadLocal<List<Long>> failedBatchKeys = ThreadLocal.withInitial(java.util.ArrayList::new);
+
+  /**
    * Checks if an entity exists in the mapping table by type and id.
    */
   public boolean checkExistsByC7IdAndType(String c7Id, TYPE type) {
@@ -213,32 +219,55 @@ public class DbClient {
   /**
    * Flushes all pending INSERT operations in the batch buffer.
    * Should be called at the end of a migration process or when batch size is reached.
-   * If the batch insert fails, returns the list of C8 process instance keys that need to be rolled back.
+   * If the batch insert fails, stores the C8 keys in ThreadLocal for rollback handling.
    * 
-   * @return List of C8 process instance keys to rollback, or empty list if successful
+   * @throws RuntimeException if the batch insert fails
    */
-  public List<Long> flushBatch() {
+  public void flushBatch() {
     synchronized (insertBuffer) {
       if (insertBuffer.isEmpty()) {
-        return java.util.Collections.emptyList();
+        return;
       }
       
       DbClientLogs.flushingBatch(insertBuffer.size());
       List<IdKeyDbModel> toFlush = new java.util.ArrayList<>(insertBuffer);
       List<Long> keysToRollback = new java.util.ArrayList<>(currentBatchC8Keys);
       
+      // Clear buffers before attempting flush
+      insertBuffer.clear();
+      currentBatchC8Keys.clear();
+      
       try {
         callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
-        // Success - clear the buffers
-        insertBuffer.clear();
-        currentBatchC8Keys.clear();
-        return java.util.Collections.emptyList();
-      } catch (Exception e) {
-        // Failed - clear buffers and return keys that need rollback
-        insertBuffer.clear();
-        currentBatchC8Keys.clear();
+        // Success - clear any previous failed keys
+        failedBatchKeys.get().clear();
+      } catch (RuntimeException e) {
+        // Failed - store keys for rollback and log error
+        failedBatchKeys.get().clear();
+        failedBatchKeys.get().addAll(keysToRollback);
         DbClientLogs.batchInsertFailed(keysToRollback.size());
-        return keysToRollback;
+        // Rethrow the exception
+        throw e;
+      }
+    }
+  }
+
+  /**
+   * Gets the C8 process instance keys from the last failed batch operation.
+   * This should be called after catching an exception from flushBatch().
+   * 
+   * @return List of C8 process instance keys that need to be rolled back
+   */
+  public List<Long> getFailedBatchKeys() {
+    return new java.util.ArrayList<>(failedBatchKeys.get());
+  }
+
+  /**
+   * Clears the failed batch keys from ThreadLocal.
+   */
+  public void clearFailedBatchKeys() {
+    failedBatchKeys.get().clear();
+  }
       }
     }
   }

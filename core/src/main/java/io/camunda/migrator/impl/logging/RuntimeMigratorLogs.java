@@ -102,4 +102,8 @@ public class RuntimeMigratorLogs {
   public static void failedToRollbackProcessInstance(Long processInstanceKey, Exception e) {
     LOGGER.error("Failed to rollback process instance with key: {}", processInstanceKey, e);
   }
+
+  public static void batchFlushFailed(String message) {
+    LOGGER.error("Batch flush failed: {}", message);
+  }
 }

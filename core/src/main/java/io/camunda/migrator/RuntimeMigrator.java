@@ -91,15 +91,29 @@ public class RuntimeMigrator {
         }
       });
 
-      // Flush any remaining records in the batch and handle rollback if needed
-      List<Long> keysToRollback = dbClient.flushBatch();
-      rollbackProcessInstances(keysToRollback);
+      // Flush any remaining records in the batch
+      flushBatchWithRollback();
 
       activateMigratorJobs();
     } finally {
       // Ensure batch is flushed even if an exception occurs
-      List<Long> keysToRollback = dbClient.flushBatch();
+      flushBatchWithRollback();
+    }
+  }
+
+  /**
+   * Flushes the batch and handles rollback if it fails.
+   */
+  protected void flushBatchWithRollback() {
+    try {
+      dbClient.flushBatch();
+    } catch (RuntimeException e) {
+      // Batch insert failed - rollback any C8 process instances created
+      List<Long> keysToRollback = dbClient.getFailedBatchKeys();
       rollbackProcessInstances(keysToRollback);
+      dbClient.clearFailedBatchKeys();
+      // Don't rethrow - allow migration to continue with next batch
+      RuntimeMigratorLogs.batchFlushFailed(e.getMessage());
     }
   }
 
