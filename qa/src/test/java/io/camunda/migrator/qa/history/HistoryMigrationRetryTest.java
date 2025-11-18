@@ -29,9 +29,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
     String decisionRequirementsId = repositoryService.createDecisionRequirementsDefinitionQuery().singleResult().getId();
     
-    // First migration: Mark decision requirements as already migrated (skip it)
-    // This causes child decision definitions to be skipped naturally
-    dbClient.insert(decisionRequirementsId, null, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
+    // Simulate that decision requirements was previously skipped during an earlier migration attempt
+    // This causes child decision definitions to be naturally skipped due to missing parent
+    simulateSkippedEntity(decisionRequirementsId, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
     historyMigrator.migrate();
     
     // Verify decision definitions were skipped due to missing decision requirements

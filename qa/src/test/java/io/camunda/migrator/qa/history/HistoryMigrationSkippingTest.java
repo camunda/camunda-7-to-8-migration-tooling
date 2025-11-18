@@ -41,7 +41,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldSkipElementsWhenProcessDefinitionIsSkipped() {
-    // given state in c7
+    // given state in c7: deploy process and create instances
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
     for (int i = 0; i < 5; i++) {
@@ -51,17 +51,18 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
       taskService.complete(task.getId());
     }
 
-    // and the process definition is manually set as skipped
+    // Simulate that the process definition was previously skipped (e.g., due to migration error)
+    // This tests the cascading skip behavior: when a parent is skipped, children should also skip
     String c7Id = repositoryService.createProcessDefinitionQuery().singleResult().getId();
     simulateSkippedEntity(c7Id, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
 
     // when history is migrated
     historyMigrator.migrate();
 
-    // then nothing was migrated
+    // then nothing was migrated due to skipped process definition
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
 
-    // and all elements for the definition were skipped
+    // and all child elements for the definition were automatically skipped
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_FLOW_NODE)).isEqualTo(15);
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(5);
@@ -69,23 +70,24 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldNotMigrateAlreadySkippedProcessInstance() {
-    // given state in c7
+    // given state in c7: deploy process and create single instance
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    // and the process instance is manually set as skipped
+    // Simulate that the process instance was previously skipped
+    // This tests that already-skipped entities are not processed again during regular migration
     simulateSkippedEntity(processInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
-    // when history is migrated
+    // when history is migrated in regular mode (not retry)
     historyMigrator.migrate();
 
-    // then no process instances were migrated
+    // then the already-skipped process instance is not migrated
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
 
-    // verify the process instance was skipped exactly once
+    // and the process instance remains skipped exactly once (not duplicated)
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(1);
 
-    // and verify logs don't contain any additional skip operations for this process instance
+    // and logs confirm no additional skip operations were performed
     logs.assertDoesNotContain(
         "Migration of historic process instance with C7 ID [" + processInstance.getId() + "] skipped");
   }
