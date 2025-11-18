@@ -60,4 +60,8 @@ public class DbClientLogs {
   public static void flushingBatch(int size) {
     LOGGER.info(FLUSHING_BATCH, size);
   }
+
+  public static void batchInsertFailed(int rollbackCount) {
+    LOGGER.error("Batch insert failed. Need to rollback {} C8 process instances", rollbackCount);
+  }
 }

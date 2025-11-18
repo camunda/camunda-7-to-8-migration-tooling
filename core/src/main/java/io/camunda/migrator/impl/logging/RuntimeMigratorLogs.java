@@ -90,4 +90,16 @@ public class RuntimeMigratorLogs {
   public static void externallyStartedProcessInstance(long processInstanceKey) {
     LOGGER.info(EXTERNALLY_STARTED_PROCESS_INSTANCE, processInstanceKey);
   }
+
+  public static void rollingBackProcessInstances(int count) {
+    LOGGER.warn("Rolling back {} process instances due to batch insert failure", count);
+  }
+
+  public static void rolledBackProcessInstance(Long processInstanceKey) {
+    LOGGER.info("Successfully rolled back process instance with key: {}", processInstanceKey);
+  }
+
+  public static void failedToRollbackProcessInstance(Long processInstanceKey, Exception e) {
+    LOGGER.error("Failed to rollback process instance with key: {}", processInstanceKey, e);
+  }
 }
