@@ -339,6 +339,34 @@ public class DistributionSmokeTest {
     assertThat(output).contains("ENGINE-03057 There are no Camunda tables in the database.");
   }
 
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldCreateLogFileWhenConfigured() throws Exception {
+    // given
+    Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
+    assertThat(configFile).exists();
+
+    // Read the existing configuration file and set auto-ddl to true
+    replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+
+    // when
+    process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+
+    // Verify that log file was created at the configured location
+    Path logFile = extractedDistributionPath.resolve("logs/camunda-7-to-8-data-migrator.log");
+    assertThat(logFile).exists();
+    assertThat(logFile.toFile().length()).isGreaterThan(0);
+
+    // Verify the log file contains expected log messages
+    String logContent = Files.readString(logFile);
+    assertThat(logContent).contains("Starting migration with flags: --runtime");
+  }
+
   private void replaceConfigProperty(String before, String after) throws IOException {
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
     String originalConfig = Files.readString(configFile);
