@@ -137,7 +137,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .activityId("callActivityId")
         .processInstanceId(subInstance.getId())
         .singleResult();
-    simulateSkippedEntity(callActivity.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    dbClient.insert(callActivity.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
     
     // when
     historyMigrator.migrate();

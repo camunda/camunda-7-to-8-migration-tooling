@@ -45,7 +45,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Mark the process definition as skipped and run migration
-        simulateSkippedEntity(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
         historyMigrator.migrate();
 
         // when running history migration with list skipped mode and single entity type filter
@@ -78,7 +78,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Mark the process definition as skipped and run migration
-        simulateSkippedEntity(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
         historyMigrator.migrate();
 
         // when running history migration with list skipped mode and multiple entity type filters
