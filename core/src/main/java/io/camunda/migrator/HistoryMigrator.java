@@ -154,45 +154,53 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
+    migrateProcessDefinitions();
+    // Flush batch after process definitions (errors logged, migration continues)
+    safeFlushBatch();
+    
+    migrateProcessInstances();
+    // Flush batch after process instances
+    safeFlushBatch();
+    
+    migrateFlowNodes();
+    // Flush batch after flow nodes
+    safeFlushBatch();
+    
+    migrateUserTasks();
+    // Flush batch after user tasks
+    safeFlushBatch();
+    
+    migrateVariables();
+    // Flush batch after variables
+    safeFlushBatch();
+    
+    migrateIncidents();
+    // Flush batch after incidents
+    safeFlushBatch();
+    
+    migrateDecisionRequirementsDefinitions();
+    // Flush batch after decision requirements
+    safeFlushBatch();
+    
+    migrateDecisionDefinitions();
+    // Flush batch after decision definitions
+    safeFlushBatch();
+    
+    migrateDecisionInstances();
+    // Flush batch after decision instances (and handle any final errors)
+    safeFlushBatch();
+  }
+
+  /**
+   * Safely flushes the batch, catching and logging any exceptions.
+   * For history migration, we log errors but continue processing.
+   */
+  protected void safeFlushBatch() {
     try {
-      migrateProcessDefinitions();
-      // Flush batch after process definitions
       dbClient.flushBatch();
-      
-      migrateProcessInstances();
-      // Flush batch after process instances
-      dbClient.flushBatch();
-      
-      migrateFlowNodes();
-      // Flush batch after flow nodes
-      dbClient.flushBatch();
-      
-      migrateUserTasks();
-      // Flush batch after user tasks
-      dbClient.flushBatch();
-      
-      migrateVariables();
-      // Flush batch after variables
-      dbClient.flushBatch();
-      
-      migrateIncidents();
-      // Flush batch after incidents
-      dbClient.flushBatch();
-      
-      migrateDecisionRequirementsDefinitions();
-      // Flush batch after decision requirements
-      dbClient.flushBatch();
-      
-      migrateDecisionDefinitions();
-      // Flush batch after decision definitions
-      dbClient.flushBatch();
-      
-      migrateDecisionInstances();
-      // Flush batch after decision instances
-      dbClient.flushBatch();
-    } finally {
-      // Ensure any remaining records are flushed
-      dbClient.flushBatch();
+    } catch (Exception e) {
+      HistoryMigratorLogs.batchFlushFailed(e.getMessage());
+      dbClient.clearFailedBatchKeys();
     }
   }
 
