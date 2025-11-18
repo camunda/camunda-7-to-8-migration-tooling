@@ -76,21 +76,29 @@ public class RuntimeMigrator {
   }
 
   protected void migrate() {
-    fetchProcessInstancesToMigrate(c7ProcessInstance -> {
-      String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
-      Date createTime = c7ProcessInstance.getCreateTime();
+    try {
+      fetchProcessInstancesToMigrate(c7ProcessInstance -> {
+        String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
+        Date createTime = c7ProcessInstance.getCreateTime();
 
-      String skipReason = getSkipReason(c7ProcessInstanceId);
-      if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
-        startProcessInstance(c7ProcessInstanceId, createTime);
-      } else if (isUnknown(c7ProcessInstanceId)) {
-        dbClient.insert(c7ProcessInstanceId, null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
-      } else {
-        dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
-      }
-    });
+        String skipReason = getSkipReason(c7ProcessInstanceId);
+        if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
+          startProcessInstance(c7ProcessInstanceId, createTime);
+        } else if (isUnknown(c7ProcessInstanceId)) {
+          dbClient.insert(c7ProcessInstanceId, null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+        } else {
+          dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+        }
+      });
 
-    activateMigratorJobs();
+      // Flush any remaining records in the batch
+      dbClient.flushBatch();
+
+      activateMigratorJobs();
+    } finally {
+      // Ensure batch is flushed even if an exception occurs
+      dbClient.flushBatch();
+    }
   }
 
   protected String getSkipReason(String c7ProcessInstanceId) {

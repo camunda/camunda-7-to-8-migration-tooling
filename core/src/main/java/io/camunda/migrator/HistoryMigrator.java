@@ -154,15 +154,46 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
-    migrateProcessDefinitions();
-    migrateProcessInstances();
-    migrateFlowNodes();
-    migrateUserTasks();
-    migrateVariables();
-    migrateIncidents();
-    migrateDecisionRequirementsDefinitions();
-    migrateDecisionDefinitions();
-    migrateDecisionInstances();
+    try {
+      migrateProcessDefinitions();
+      // Flush batch after process definitions
+      dbClient.flushBatch();
+      
+      migrateProcessInstances();
+      // Flush batch after process instances
+      dbClient.flushBatch();
+      
+      migrateFlowNodes();
+      // Flush batch after flow nodes
+      dbClient.flushBatch();
+      
+      migrateUserTasks();
+      // Flush batch after user tasks
+      dbClient.flushBatch();
+      
+      migrateVariables();
+      // Flush batch after variables
+      dbClient.flushBatch();
+      
+      migrateIncidents();
+      // Flush batch after incidents
+      dbClient.flushBatch();
+      
+      migrateDecisionRequirementsDefinitions();
+      // Flush batch after decision requirements
+      dbClient.flushBatch();
+      
+      migrateDecisionDefinitions();
+      // Flush batch after decision definitions
+      dbClient.flushBatch();
+      
+      migrateDecisionInstances();
+      // Flush batch after decision instances
+      dbClient.flushBatch();
+    } finally {
+      // Ensure any remaining records are flushed
+      dbClient.flushBatch();
+    }
   }
 
   public void migrateProcessDefinitions() {
