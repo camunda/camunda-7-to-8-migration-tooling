@@ -70,7 +70,7 @@ public class SchemaShutdownCleaner {
     }
   }
 
-  private void rollbackTableCreation(String prefix) {
+  protected void rollbackTableCreation(String prefix) {
     try (Connection conn = dataSource.getConnection()) {
       Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(conn));
       Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.2.0.xml", new ClassLoaderResourceAccessor(),
@@ -85,11 +85,11 @@ public class SchemaShutdownCleaner {
     }
   }
 
-  private static boolean schemaDropEnabled(Environment context) {
+  protected static boolean schemaDropEnabled(Environment context) {
     return context.containsProperty("drop-schema");
   }
 
-  private static boolean forceEnabled(Environment context) {
+  protected static boolean forceEnabled(Environment context) {
     return context.containsProperty("force");
   }
 

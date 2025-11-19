@@ -38,13 +38,13 @@ import org.springframework.test.context.TestPropertySource;
 public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest {
 
   @Autowired
-  private List<VariableInterceptor> configuredVariableInterceptors;
+  protected List<VariableInterceptor> configuredVariableInterceptors;
 
   @Autowired
-  private UniversalInterceptor universalInterceptor;
+  protected UniversalInterceptor universalInterceptor;
 
   @Autowired
-  private StringOnlyInterceptor stringOnlyInterceptor;
+  protected StringOnlyInterceptor stringOnlyInterceptor;
 
   @BeforeEach
   void setUp() {

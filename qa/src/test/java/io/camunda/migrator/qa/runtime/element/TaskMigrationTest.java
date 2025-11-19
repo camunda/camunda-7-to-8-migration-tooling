@@ -11,12 +11,11 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureNotNull;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.stream.Stream;
+import org.assertj.core.api.Assertions;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,7 @@ import io.camunda.process.test.api.CamundaAssert;
 public class TaskMigrationTest extends AbstractElementMigrationTest {
 
   @Autowired
-  private RuntimeService runtimeService;
+  protected RuntimeService runtimeService;
 
   @Autowired
   protected CamundaClient camundaClient;
@@ -60,8 +59,12 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
     Task task1 = taskService.createTaskQuery().taskDefinitionKey("userTask1").singleResult();
     taskService.complete(task1.getId());
     Task task2 = taskService.createTaskQuery().taskDefinitionKey("userTask2").singleResult();
-    ensureNotNull("Unexpected process state: userTask2 should exist", task2);
-    ensureTrue("Unexpected process state: userTask2 should be 'created'", "created".equalsIgnoreCase(task2.getTaskState()));
+    Assertions.assertThat(task2)
+        .as("Unexpected process state: userTask2 should exist")
+        .isNotNull();
+    Assertions.assertThat(task2.getTaskState())
+        .as("Unexpected process state: userTask2 should be 'created'")
+        .isEqualToIgnoringCase("created");
 
     // when running runtime migration
     runtimeMigrator.start();

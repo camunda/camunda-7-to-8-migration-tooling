@@ -54,7 +54,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
   public static final String PARALLEL = "parallel";
 
   @Autowired
-  private ObjectMapper objectMapper;
+  protected ObjectMapper objectMapper;
 
   @Test
   public void shouldSetVariableWithNullValue() {
@@ -397,7 +397,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     CamundaAssert.assertThat(byProcessId(SUB_PROCESS)).hasLocalVariable(byId("userTask_1"), "localVariable", "local value");
   }
 
-  private void deploySubprocessModels() {
+  protected void deploySubprocessModels() {
     String process = SUB_PROCESS;
     // C7
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
@@ -427,7 +427,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     deployer.deployModelInstance(process, c7Model, c8Model);
   }
 
-  private void deployParallelModels() {
+  protected void deployParallelModels() {
     String process = PARALLEL;
     // C7
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)

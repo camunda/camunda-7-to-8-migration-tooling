@@ -10,7 +10,6 @@ package io.camunda.migrator.qa.history.entity;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
-import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -43,7 +42,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Autowired
-  private C7Client c7Client;
+  protected C7Client c7Client;
 
   @Test
   public void migrateSingleHistoricDecision() {
@@ -132,7 +131,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
-    HistoricDecisionInstance c7Instance = c7Client.getHistoricDecisionInstanceByDefinitionKey("simpleDecisionId");
+    HistoricDecisionInstance c7Instance = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey("simpleDecisionId").singleResult();
 
     assertThat(migratedInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionInstanceId()).isEqualTo(
@@ -210,7 +209,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     Map<String, Object> variables = Variables.createVariables().putValue("inputA", stringValue("A"));
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", variables);
-    String decisionInstanceId = c7Client.getHistoricDecisionInstanceByDefinitionKey("simpleDecisionId").getId();
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey("simpleDecisionId").singleResult().getId();
 
     // when
     historyMigrator.migrate();

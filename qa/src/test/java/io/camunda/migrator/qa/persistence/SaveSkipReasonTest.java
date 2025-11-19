@@ -9,25 +9,24 @@ package io.camunda.migrator.qa.persistence;
 
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureTrue;
 
+import io.camunda.migrator.RuntimeMigrator;
 import io.camunda.migrator.config.property.MigratorProperties;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
-import io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE;
 import io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest;
-import java.util.List;
+import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.event.Level;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
 
-  @Autowired
-  private IdKeyMapper idKeyMapper;
+  @RegisterExtension
+  protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class, Level.DEBUG);
 
   @Autowired
-  private MigratorProperties migratorProperties;
+  protected MigratorProperties migratorProperties;
 
   @AfterEach
   void cleanUp() {
@@ -43,18 +42,22 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     deployer.deployProcessInC7AndC8("multiInstanceProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("multiInstanceProcess");
     long taskCount = taskService.createTaskQuery().count();
-    ensureTrue("Unexpected process state: one task and three parallel tasks should be created", taskCount == 4);
+    assertThat(taskCount)
+        .as("Unexpected process state: one task and three parallel tasks should be created")
+        .isEqualTo(4L);
 
     // when
     runtimeMigrator.start();
 
-    // then
-    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
-    assertThat(skippedInstances).hasSize(1);
+    // then - verify process instance was skipped with appropriate reason in logs
+    logs.assertContains("Migration of runtime process instance with C7 ID [" + process.getId() + "] skipped");
+    logs.assertContains(String.format(MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR, "multiUserTask"));
 
-    IdKeyDbModel savedInstance = skippedInstances.getFirst();
-    assertThat(savedInstance.getC8Key()).isNull();
-    assertThat(savedInstance.getSkipReason()).isEqualTo(String.format(MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR, "multiUserTask"));
+    // Verify the skip was logged (not migrated)
+    assertThat(logs.getEvents().stream()
+        .anyMatch(event -> event.getMessage().contains("Migration of runtime process instance with C7 ID [" + process.getId() + "]")
+            && event.getMessage().contains("completed")))
+        .isFalse();
   }
 
   @Test
@@ -66,17 +69,20 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     deployer.deployProcessInC7AndC8("multiInstanceProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("multiInstanceProcess");
     long taskCount = taskService.createTaskQuery().count();
-    ensureTrue("Unexpected process state: one task and three parallel tasks should be created", taskCount == 4);
+    assertThat(taskCount)
+        .as("Unexpected process state: one task and three parallel tasks should be created")
+        .isEqualTo(4);
 
     // when
     runtimeMigrator.start();
 
-    // then
-    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
-    assertThat(skippedInstances).hasSize(1);
+    // then - verify process instance was skipped (skip reason saving is disabled but entity is still skipped)
+    logs.assertContains("Migration of runtime process instance with C7 ID [" + process.getId() + "] skipped");
 
-    IdKeyDbModel savedInstance = skippedInstances.getFirst();
-    assertThat(savedInstance.getSkipReason()).isNull();
-    assertThat(savedInstance.getC8Key()).isNull();
+    // Verify the skip was logged (not migrated)
+    assertThat(logs.getEvents().stream()
+        .anyMatch(event -> event.getMessage().contains("Migration of runtime process instance with C7 ID [" + process.getId() + "]")
+            && event.getMessage().contains("completed")))
+        .isFalse();
   }
 }

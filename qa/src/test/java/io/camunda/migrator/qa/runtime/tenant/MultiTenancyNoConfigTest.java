@@ -114,9 +114,9 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         .withoutTenantId()
         .singleResult()
         .getId();
-    runtimeService.startProcessInstanceById(definitionWithTenant1, Variables.putValue("myVar", 1))
+    String instanceWithTenant1 = runtimeService.startProcessInstanceById(definitionWithTenant1, Variables.putValue("myVar", 1))
         .getId();
-    runtimeService.startProcessInstanceById(definitionWithTenant2, Variables.putValue("myVar", 2))
+    String instanceWithTenant2 = runtimeService.startProcessInstanceById(definitionWithTenant2, Variables.putValue("myVar", 2))
         .getId();
     String c7instance = runtimeService.startProcessInstanceById(definitionWithoutTenant,
         Variables.putValue("myVar", 10)).getId();
@@ -127,7 +127,12 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
     assertProcessInstanceState(C8_DEFAULT_TENANT, c7instance, 10);
-    assertThat(dbClient.countSkipped()).isEqualTo(2);
+
+    // Verify the two tenant instances were skipped via logs
+    logs.assertContains(String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), instanceWithTenant1,
+        String.format(TENANT_ID_ERROR, TENANT_ID_1)));
+    logs.assertContains(String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), instanceWithTenant2,
+        String.format(TENANT_ID_ERROR, TENANT_ID_2)));
   }
 
   @Test

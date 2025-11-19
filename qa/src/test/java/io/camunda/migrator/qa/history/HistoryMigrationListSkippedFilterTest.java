@@ -31,7 +31,7 @@ import org.springframework.test.context.TestPropertySource;
 public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstractTest {
 
     @Autowired
-    private ManagementService managementService;
+    protected ManagementService managementService;
 
     @Autowired
     protected HistoryService historyService;
@@ -44,9 +44,8 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create natural skip scenario: Migrate instances without definition
+        historyMigrator.migrateProcessInstances();
 
         // when running history migration with list skipped mode and single entity type filter
         historyMigrator.setMode(LIST_SKIPPED);
@@ -77,9 +76,9 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create natural skip scenario: Migrate instances and tasks without definition
+        historyMigrator.migrateProcessInstances();
+        historyMigrator.migrateUserTasks();
 
         // when running history migration with list skipped mode and multiple entity type filters
         historyMigrator.setMode(LIST_SKIPPED);
@@ -121,7 +120,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         assertThat(skippedEntitiesByType).doesNotContainKey(IdKeyMapper.TYPE.HISTORY_INCIDENT.getDisplayName());
     }
 
-    private List<String> createTestProcessInstances() {
+    protected List<String> createTestProcessInstances() {
         List<String> processInstanceIds = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             var processInstance = runtimeService.startProcessInstanceByKey("comprehensiveSkippingTestProcessId",
@@ -150,7 +149,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         return processInstanceIds;
     }
 
-    private String getProcessDefinitionId() {
+    protected String getProcessDefinitionId() {
         return repositoryService.createProcessDefinitionQuery()
             .processDefinitionKey("comprehensiveSkippingTestProcessId")
             .latestVersion()

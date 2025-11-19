@@ -69,7 +69,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 @EnableConfigurationProperties(MigratorProperties.class)
 public class MigratorAutoConfiguration {
 
-  private final MigratorProperties migratorProperties;
+  protected final MigratorProperties migratorProperties;
 
   public MigratorAutoConfiguration(MigratorProperties migratorProperties) {
     this.migratorProperties = migratorProperties;

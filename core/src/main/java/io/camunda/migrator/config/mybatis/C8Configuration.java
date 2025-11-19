@@ -37,6 +37,7 @@ import io.camunda.db.rdbms.read.service.UsageMetricsDbReader;
 import io.camunda.db.rdbms.read.service.UserDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
+import io.camunda.db.rdbms.read.service.ClusterVariableDbReader;
 import io.camunda.db.rdbms.sql.AuthorizationMapper;
 import io.camunda.db.rdbms.sql.BatchOperationMapper;
 import io.camunda.db.rdbms.sql.CorrelatedMessageSubscriptionMapper;
@@ -62,6 +63,7 @@ import io.camunda.db.rdbms.sql.UsageMetricTUMapper;
 import io.camunda.db.rdbms.sql.UserMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
 import io.camunda.db.rdbms.write.RdbmsWriterMetrics;
 import io.camunda.migrator.config.C8DataSourceConfigured;
@@ -191,6 +193,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public MapperFactoryBean<ClusterVariableMapper> clusterVariableMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, ClusterVariableMapper.class);
+  }
+
+  @Bean
   public MapperFactoryBean<RoleMapper> roleMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, RoleMapper.class);
   }
@@ -268,6 +275,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public VariableDbReader variableRdbmsReader(VariableMapper variableMapper) {
     return new VariableDbReader(variableMapper);
+  }
+
+  @Bean
+  public ClusterVariableDbReader clusterVariableRdbmsReader(ClusterVariableMapper clusterVariableMapper) {
+    return new ClusterVariableDbReader(clusterVariableMapper);
   }
 
   @Bean
@@ -429,7 +441,8 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricTUMapper usageMetricTUMapper,
       BatchOperationMapper batchOperationMapper,
       MessageSubscriptionMapper messageSubscriptionMapper,
-      CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
+      CorrelatedMessageSubscriptionMapper correlatedMessageMapper,
+      ClusterVariableMapper clusterVariableMapper) {
     return new RdbmsWriterFactory(
         c8SqlSessionFactory,
         exporterPositionMapper,
@@ -449,7 +462,8 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricTUMapper,
         batchOperationMapper,
         messageSubscriptionMapper,
-        correlatedMessageMapper);
+        correlatedMessageMapper,
+        clusterVariableMapper);
   }
 
   @Bean
@@ -481,7 +495,8 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
+      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
+      ClusterVariableDbReader clusterVariableReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         authorizationReader,
@@ -495,6 +510,7 @@ public class C8Configuration extends AbstractConfiguration {
         processDefinitionReader,
         processInstanceReader,
         variableReader,
+        clusterVariableReader,
         roleReader,
         roleMemberReader,
         tenantReader,

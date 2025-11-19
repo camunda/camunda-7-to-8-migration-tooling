@@ -8,33 +8,38 @@
 package io.camunda.migrator.qa.runtime.element;
 
 import static io.camunda.migrator.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
+import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.ACTIVE_JOINING_PARALLEL_GATEWAY_ERROR;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 
+import io.camunda.migrator.RuntimeMigrator;
 import io.camunda.migrator.config.property.MigratorProperties;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
 import io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
 
+  @RegisterExtension
+  protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
+
   @Autowired
-  private RuntimeService runtimeService;
+  protected RuntimeService runtimeService;
 
 
   @Autowired
-  private MigratorProperties migratorProperties;
+  protected MigratorProperties migratorProperties;
 
   @AfterEach
   void cleanUp() {
@@ -80,13 +85,8 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     // when
     runtimeMigrator.start();
 
-    // then - the instance is skipped
-    IdKeyDbModel idKeyDbModel = dbClient.findSkippedProcessInstances().stream()
-        .filter(skipped -> skipped.getC7Id().equals(instance.getProcessInstanceId()))
-        .findFirst().get();
-
-    Assertions.assertNull(idKeyDbModel.getC8Key());
-    Assertions.assertEquals(String.format(ACTIVE_JOINING_PARALLEL_GATEWAY_ERROR, "mergingGatewayActivity", instance.getId()),
-        idKeyDbModel.getSkipReason());
+    // then - the instance is skipped and logged
+    logs.assertContains(String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), instance.getId(),
+        String.format(ACTIVE_JOINING_PARALLEL_GATEWAY_ERROR, "mergingGatewayActivity", instance.getId())));
   }
 }

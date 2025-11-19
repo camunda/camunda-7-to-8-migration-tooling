@@ -82,11 +82,11 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     return Stream.empty();
   }
 
-  private boolean hasScenarios_activeElementPostMigration(){
+  protected boolean hasScenarios_activeElementPostMigration(){
     return elementScenarios_activeElementPostMigration().findAny().isPresent();
   }
 
-  private boolean hasScenarios_completedElementPostMigration(){
+  protected boolean hasScenarios_completedElementPostMigration(){
     return elementScenarios_completedElementPostMigration().findAny().isPresent();
   }
 }

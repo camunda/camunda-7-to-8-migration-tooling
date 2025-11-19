@@ -21,10 +21,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class TimerElementMigrationTest extends AbstractElementMigrationTest {
 
-  private static final OffsetDateTime DATE_IN_TIMER_DATE_CATCH_PROCESS = OffsetDateTime.parse("2050-11-23T00:00:00Z");
+  protected static final OffsetDateTime DATE_IN_TIMER_DATE_CATCH_PROCESS = OffsetDateTime.parse("2050-11-23T00:00:00Z");
 
   @Autowired
-  private CamundaProcessTestContext processTestContext;
+  protected CamundaProcessTestContext processTestContext;
 
   @Test
   public void migrateTimerInterruptingBoundaryWithDuration() {

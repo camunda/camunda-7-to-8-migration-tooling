@@ -16,8 +16,6 @@ import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migrator.RuntimeMigrator;
 import io.camunda.migrator.qa.AbstractMigratorTest;
-import io.camunda.migrator.impl.clients.DbClient;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 
@@ -41,10 +39,8 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   protected RuntimeMigrator runtimeMigrator;
 
   @Autowired
-  private IdKeyMapper idKeyMapper;
+  protected IdKeyMapper idKeyMapper;
 
-  @Autowired
-  protected DbClient dbClient;
 
   // C7 ---------------------------------------
 
@@ -82,7 +78,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     }
 
     // Migrator
-    dbClient.deleteAllMappings();
+    idKeyMapper.findAllC7Ids().forEach(idKeyMapper::deleteByC7Id);
     runtimeMigrator.setMode(MIGRATE);
   }
 
@@ -100,10 +96,6 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
     });
-  }
-
-  public List<IdKeyDbModel> findSkippedRuntimeProcessInstances() {
-    return idKeyMapper.findSkippedByType(IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE, 0, Integer.MAX_VALUE);
   }
 
 }

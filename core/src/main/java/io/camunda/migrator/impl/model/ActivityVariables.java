@@ -9,12 +9,22 @@ package io.camunda.migrator.impl.model;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Represents variables grouped by activity instance ID.
  * This provides a more readable alternative to Map<String, Map<String, Object>>.
  */
-public record ActivityVariables(Map<String, Map<String, Object>> variablesByActivity) {
+public class ActivityVariables {
+
+  protected Map<String, Map<String, Object>> variablesByActivity;
+
+  /**
+   *
+   */
+  public ActivityVariables(Map<String, Map<String, Object>> variablesByActivity) {
+    this.variablesByActivity = variablesByActivity;
+  }
 
   /**
    * Gets variables for a specific activity instance.
@@ -34,6 +44,30 @@ public record ActivityVariables(Map<String, Map<String, Object>> variablesByActi
    */
   public Map<String, Object> getGlobalVariables(String processInstanceId) {
     return getVariablesForActivity(processInstanceId);
+  }
+
+  public Map<String, Map<String, Object>> variablesByActivity() {
+    return variablesByActivity;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this)
+      return true;
+    if (obj == null || obj.getClass() != this.getClass())
+      return false;
+    var that = (ActivityVariables) obj;
+    return Objects.equals(this.variablesByActivity, that.variablesByActivity);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(variablesByActivity);
+  }
+
+  @Override
+  public String toString() {
+    return "ActivityVariables[" + "variablesByActivity=" + variablesByActivity + ']';
   }
 
 }

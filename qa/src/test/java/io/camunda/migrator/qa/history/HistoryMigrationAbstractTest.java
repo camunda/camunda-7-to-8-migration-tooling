@@ -17,6 +17,7 @@ import io.camunda.migrator.HistoryMigrator;
 import io.camunda.migrator.MigratorMode;
 import io.camunda.migrator.config.C8DataSourceConfigured;
 import io.camunda.migrator.config.MigratorAutoConfiguration;
+import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.migrator.qa.AbstractMigratorTest;
 import io.camunda.migrator.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migrator.qa.util.WithSpringProfile;
@@ -76,14 +77,17 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   @Autowired
   protected HistoryService historyService;
 
+  @Autowired
+  protected IdKeyMapper idKeyMapper;
+
   @AfterEach
   public void cleanup() {
     // C7
     ClockUtil.reset();
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
-    // Migrator
-    dbClient.deleteAllMappings();
+    // Migrator - cleanup all mappings
+    idKeyMapper.findAllC7Ids().forEach(idKeyMapper::deleteByC7Id);
     historyMigrator.setMode(MigratorMode.MIGRATE);
     historyMigrator.setRequestedEntityTypes(null);
 

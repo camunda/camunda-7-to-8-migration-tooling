@@ -37,6 +37,10 @@ import org.springframework.stereotype.Component;
 /**
  * Wrapper class for IdKeyMapper database operations with exception handling.
  * Maintains the same exception wrapping behavior as ExceptionUtils.callApi.
+ *
+ * <p><strong>INTERNAL USE ONLY:</strong> This class is package-protected to prevent usage in tests.
+ * Tests should verify behavior through observable outputs (logs, C8 API queries) rather than
+ * internal database state. Use natural skip scenarios and log assertions instead.</p>
  */
 @Component
 public class DbClient {

@@ -114,6 +114,42 @@ mvn test
 
 # Integration tests only
 mvn integration-test
+
+# Architecture tests (enforce testing best practices)
+mvn test -Dtest=ArchitectureTest
+```
+
+### Testing Guidelines
+
+We follow a **black-box testing approach** where tests verify behavior through observable outputs rather than internal implementation details. 
+
+**Key Principles:**
+- ✅ Use `LogCapturer` to verify skip reasons and behavior via logs
+- ✅ Use C8 API queries to verify successful migrations
+- ✅ Create natural skip scenarios (e.g., migrate children without parents)
+- ❌ Don't access `DbClient` or `IdKeyMapper` in tests
+- ❌ Don't manipulate internal database state
+
+**Resources:**
+- 📖 [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md) - Comprehensive testing guide with examples
+- 📋 [CODE_REVIEW_CHECKLIST.md](CODE_REVIEW_CHECKLIST.md) - Checklist for code reviewers
+- 🏗️ `ArchitectureTest.java` - Automated enforcement of testing rules
+
+**Example:**
+```java
+@Test
+void shouldSkipInstanceWhenDefinitionMissing() {
+    // given: natural skip scenario - no C8 deployment
+    deployer.deployCamunda7Process("process.bpmn");
+    var instance = runtimeService.startProcessInstanceByKey("processId");
+    
+    // when
+    runtimeMigrator.start();
+    
+    // then: verify via observable outputs
+    logs.assertContains("Skipping process instance with C7 ID");
+    assertThatProcessInstanceCountIsEqualTo(0);
+}
 ```
 
 ### Development Environment Setup
