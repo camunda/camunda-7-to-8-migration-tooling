@@ -154,41 +154,20 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
-    migrateProcessDefinitions();
-    // Flush batch after process definitions (errors logged, migration continues)
-    safeFlushBatch();
-    
-    migrateProcessInstances();
-    // Flush batch after process instances
-    safeFlushBatch();
-    
-    migrateFlowNodes();
-    // Flush batch after flow nodes
-    safeFlushBatch();
-    
-    migrateUserTasks();
-    // Flush batch after user tasks
-    safeFlushBatch();
-    
-    migrateVariables();
-    // Flush batch after variables
-    safeFlushBatch();
-    
-    migrateIncidents();
-    // Flush batch after incidents
-    safeFlushBatch();
-    
-    migrateDecisionRequirementsDefinitions();
-    // Flush batch after decision requirements
-    safeFlushBatch();
-    
-    migrateDecisionDefinitions();
-    // Flush batch after decision definitions
-    safeFlushBatch();
-    
-    migrateDecisionInstances();
-    // Flush batch after decision instances (and handle any final errors)
-    safeFlushBatch();
+    try {
+      migrateProcessDefinitions();
+      migrateProcessInstances();
+      migrateFlowNodes();
+      migrateUserTasks();
+      migrateVariables();
+      migrateIncidents();
+      migrateDecisionRequirementsDefinitions();
+      migrateDecisionDefinitions();
+      migrateDecisionInstances();
+    } finally {
+      // Flush any remaining records at the end
+      safeFlushBatch();
+    }
   }
 
   /**
