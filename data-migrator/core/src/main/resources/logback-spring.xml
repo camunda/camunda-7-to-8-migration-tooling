@@ -2,8 +2,15 @@
 
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
   <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-  <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
   <springProperty scope="context" name="LOG_LEVEL_PATTERN" source="logging.pattern.level"/>
+  <springProperty scope="context" name="LOG_FILE" source="logging.file.name"/>
+
+  <!-- Only include file appender if LOG_FILE is defined -->
+  <if condition='isDefined("LOG_FILE")'>
+    <then>
+      <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+    </then>
+  </if>
 
   <appender name="RAW_PRINTER" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
@@ -13,7 +20,11 @@
 
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
-    <appender-ref ref="FILE"/>
+    <if condition='isDefined("LOG_FILE")'>
+      <then>
+        <appender-ref ref="FILE"/>
+      </then>
+    </if>
   </root>
 
   <logger name="PRINTER" level="INFO" additivity="false">
