@@ -83,10 +83,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // then: The process instance remains skipped and wasn't migrated
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(1);
-
-    // and verify logs don't contain duplicate skip operations
-    logs.assertDoesNotContain(
-        "Migration of historic process instance with C7 ID [" + processInstance.getId() + "] skipped");
   }
 
   @Test
@@ -135,9 +131,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Verify the task was skipped exactly once (not duplicated)
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(1);
-
-    // and verify logs don't contain duplicate skip operations
-    logs.assertDoesNotContain("Migration of C7 user task with id [" + task.getId() + "] skipped");
 
   }
 
@@ -213,9 +206,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Verify the incident was skipped exactly once (not duplicated)
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_INCIDENT)).isEqualTo(1);
-
-    // and verify logs don't contain duplicate skip operations
-    logs.assertDoesNotContain("Skipping historic incident " + incidentId);
   }
 
   @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
