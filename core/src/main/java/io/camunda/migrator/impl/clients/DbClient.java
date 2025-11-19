@@ -268,9 +268,6 @@ public class DbClient {
   public void clearFailedBatchKeys() {
     failedBatchKeys.get().clear();
   }
-      }
-    }
-  }
 
   /**
    * Returns the current size of the batch buffer.
