@@ -20,6 +20,9 @@ public class MigratorProperties {
   public static final int DEFAULT_PAGE_SIZE = 100;
   public static final String PREFIX = "camunda.migrator";
   public static final String DEFAULT_JOB_TYPE = "migrator";
+  public static final int DEFAULT_MAX_SUSPENSIONS = 3;
+  public static final long DEFAULT_INITIAL_BACKOFF_MS = 100;
+  public static final double DEFAULT_BACKOFF_MULTIPLIER = 2.0;
 
   public enum DataSource {
     C7, C8
@@ -39,6 +42,10 @@ public class MigratorProperties {
   protected C8Properties c8;
 
   protected List<InterceptorProperty> interceptors;
+
+  protected Integer maxSuspensions = DEFAULT_MAX_SUSPENSIONS;
+  protected Long initialBackoffMs = DEFAULT_INITIAL_BACKOFF_MS;
+  protected Double backoffMultiplier = DEFAULT_BACKOFF_MULTIPLIER;
 
   public int getPageSize() {
     return pageSize;
@@ -151,5 +158,29 @@ public class MigratorProperties {
 
   public void setInterceptors(List<InterceptorProperty> interceptors) {
     this.interceptors = interceptors;
+  }
+
+  public int getMaxSuspensions() {
+    return maxSuspensions != null ? maxSuspensions : DEFAULT_MAX_SUSPENSIONS;
+  }
+
+  public void setMaxSuspensions(int maxSuspensions) {
+    this.maxSuspensions = maxSuspensions;
+  }
+
+  public long getInitialBackoffMs() {
+    return initialBackoffMs != null ? initialBackoffMs : DEFAULT_INITIAL_BACKOFF_MS;
+  }
+
+  public void setInitialBackoffMs(long initialBackoffMs) {
+    this.initialBackoffMs = initialBackoffMs;
+  }
+
+  public double getBackoffMultiplier() {
+    return backoffMultiplier != null ? backoffMultiplier : DEFAULT_BACKOFF_MULTIPLIER;
+  }
+
+  public void setBackoffMultiplier(double backoffMultiplier) {
+    this.backoffMultiplier = backoffMultiplier;
   }
 }
