@@ -270,6 +270,18 @@ public class DbClient {
   }
 
   /**
+   * Clears all buffers without flushing.
+   * This is useful for testing or resetting state between operations.
+   */
+  public void clearBuffers() {
+    synchronized (insertBuffer) {
+      insertBuffer.clear();
+      currentBatchC8Keys.clear();
+    }
+    clearFailedBatchKeys();
+  }
+
+  /**
    * Returns the current size of the batch buffer.
    */
   public int getBatchBufferSize() {
