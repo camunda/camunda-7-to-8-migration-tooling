@@ -47,13 +47,9 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         // Verify expected entities exist in C7
         verifyC7EntitiesExist();
 
-        // Create natural skip scenario: Migrate instances without definition
-        // This causes all child entities to naturally skip due to missing process definition
-        historyMigrator.migrateProcessInstances();
-        historyMigrator.migrateFlowNodes();
-        historyMigrator.migrateUserTasks();
-        historyMigrator.migrateVariables();
-        historyMigrator.migrateIncidents();
+        // Mark the process definition as skipped and run migration
+        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+        historyMigrator.migrate();
 
         // Verify all entities were marked as skipped
         verifyEntitiesMarkedAsSkipped();
