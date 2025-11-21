@@ -34,9 +34,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
   protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Autowired
-  protected DbClient dbClient;
-
-  @Autowired
   protected HistoryService historyService;
 
   @Test

@@ -31,9 +31,6 @@ import org.springframework.test.context.TestPropertySource;
 public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTest {
 
     @Autowired
-    protected DbClient dbClient;
-
-    @Autowired
     protected HistoryService historyService;
 
     @Test
