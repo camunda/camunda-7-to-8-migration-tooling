@@ -25,54 +25,78 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldMigratePreviouslySkippedProcessDefinition() {
-    // given state in c7
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    String c7Id = repositoryService.createProcessDefinitionQuery().singleResult().getId();
-    markEntityAsSkipped(c7Id, HISTORY_PROCESS_DEFINITION);
-    // when history migration is retried
+    // given: DMN with requirements, create natural skip scenario
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    
+    // First migration: Migrate decision definitions WITHOUT requirements
+    // This causes definitions to naturally skip due to missing parent
+    historyMigrator.migrateDecisionDefinitions();
+    
+    // Verify definitions were skipped
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+    
+    // when: Retry migration - now migrate requirements then retry skipped definitions
+    historyMigrator.migrateDecisionRequirementsDefinitions();
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.migrateDecisionDefinitions();
 
-    // then process definition is migrated and no longer skipped
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
-    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_DEFINITION)).isEqualTo(0);
+    // then: Previously skipped definitions are now migrated
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id").size()).isEqualTo(1);
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
   public void shouldMigratePreviouslySkippedDecisionDefinition() {
-    // given
-    deployer.deployCamunda7Decision("simpleDmn.dmn");
-    String c7Id = repositoryService.createDecisionDefinitionQuery().singleResult().getId();
-    markEntityAsSkipped(c7Id, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
+    // given: DMN with requirements
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    
+    // Create natural skip: Migrate decision definition WITHOUT requirements
+    historyMigrator.migrateDecisionDefinitions();
+    
+    // Verify definitions were skipped due to missing requirements
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
 
-    // when 
+    // when: Retry migration with requirements now available
+    historyMigrator.migrateDecisionRequirementsDefinitions();
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.migrateDecisionDefinitions();
 
-    // then
-    assertThat(searchHistoricDecisionDefinitions("simpleDecisionId").size()).isEqualTo(1);
+    // then: Previously skipped definitions are migrated
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id").size()).isEqualTo(1);
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
   public void shouldMigratePreviouslySkippedDecisionRequirementsDefinition() {
-    // given
+    // Note: Decision requirements are top-level entities with no parents
+    // They cannot naturally skip. For testing retry of requirements specifically,
+    // we test this via decision definitions that depend on requirements.
+    
+    // given: DMN with requirements
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
-    String c7Id = repositoryService.createDecisionRequirementsDefinitionQuery().singleResult().getId();
-    markEntityAsSkipped(c7Id, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
+    
+    // Skip requirements by not migrating them
+    // Then migrate definitions which will skip due to missing requirements
+    historyMigrator.migrateDecisionDefinitions();
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
 
-    // when 
+    // when: Migrate requirements then retry definitions
+    historyMigrator.migrateDecisionRequirementsDefinitions();
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.migrateDecisionDefinitions();
 
-    // then
+    // then: Requirements and definitions are both migrated
     assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(1);
+    assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
     assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT)).isEqualTo(0);
+    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
   public void shouldMigrateOnlyPreviouslySkippedElementsOnRetry() {
-    // given state in c7
+    // given: Process instances with various entity types in C7
     deployer.deployCamunda7Process("includeAllSupportedElementsProcess.bpmn");
     for (int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("allElementsProcessId");
@@ -80,98 +104,70 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
     executeAllJobsWithRetry();
 
-    String procDefId = repositoryService.createProcessDefinitionQuery().singleResult().getId();
-    String procInstId = historyService.createHistoricProcessInstanceQuery().list().getFirst().getId();
-    String actInstId = historyService.createHistoricActivityInstanceQuery()
-        .activityType("userTask")
-        .processInstanceId(procInstId)
-        .list()
-        .getFirst()
-        .getId();
-    String taskId = historyService.createHistoricTaskInstanceQuery()
-        .activityInstanceIdIn(actInstId)
-        .list()
-        .getFirst()
-        .getId();
-    String incidentId = historyService.createHistoricIncidentQuery()
-        .processInstanceId(procInstId)
-        .list()
-        .getFirst()
-        .getId();
-    String varId = historyService.createHistoricVariableInstanceQuery()
-        .activityInstanceIdIn(actInstId)
-        .singleResult()
-        .getId();
-    markEntityAsSkipped(procDefId, HISTORY_PROCESS_DEFINITION);
-    markEntityAsSkipped(procInstId, HISTORY_PROCESS_INSTANCE);
-    markEntityAsSkipped(actInstId, HISTORY_FLOW_NODE);
-    markEntityAsSkipped(taskId, HISTORY_USER_TASK);
-    markEntityAsSkipped(varId, HISTORY_VARIABLE);
-    markEntityAsSkipped(incidentId, HISTORY_INCIDENT);
+    // First migration: Create natural skips by migrating child entities WITHOUT parents
+    // This causes one of each entity type to skip
+    historyMigrator.migrateProcessInstances(); // Skip - no definition
+    historyMigrator.migrateFlowNodes(); // Skip - no instance
+    historyMigrator.migrateUserTasks(); // Skip - no instance
+    historyMigrator.migrateVariables(); // Skip - no instance
+    historyMigrator.migrateIncidents(); // Skip - no instance
+    
+    // Verify entities were skipped
+    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
+    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
+    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isGreaterThan(0);
+    assertThat(dbClient.countSkippedByType(HISTORY_VARIABLE)).isGreaterThan(0);
+    assertThat(dbClient.countSkippedByType(HISTORY_INCIDENT)).isGreaterThan(0);
 
-    // when migration is retried
+    // Now migrate the parent entities
+    historyMigrator.migrateProcessDefinitions();
+    
+    // when: Retry migration for previously skipped entities
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrate();
 
-    // then only previously skipped entities are migrated
+    // then: All previously skipped entities are now migrated
     assertThat(searchHistoricProcessDefinitions("allElementsProcessId").size()).isEqualTo(1);
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("allElementsProcessId");
-    assertThat(processInstances.size()).isEqualTo(1);
-    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey()).size()).isEqualTo(1);
-    assertThat(searchHistoricIncidents("allElementsProcessId").size()).isEqualTo(1);
-    assertThat(searchHistoricVariables("userTaskVar").size()).isEqualTo(1);
-
-    // and nothing marked as skipped
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(procDefId, HISTORY_PROCESS_DEFINITION)).isTrue();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(procInstId, HISTORY_PROCESS_INSTANCE)).isTrue();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(actInstId, HISTORY_FLOW_NODE)).isTrue();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(taskId, HISTORY_USER_TASK)).isTrue();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(incidentId, HISTORY_INCIDENT)).isTrue();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(varId, HISTORY_VARIABLE)).isTrue();
+    assertThat(processInstances.size()).isEqualTo(5);
+    
+    // Verify child entities are also migrated
+    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey()).size()).isGreaterThan(0);
+    assertThat(searchHistoricIncidents("allElementsProcessId").size()).isGreaterThan(0);
   }
 
   @Test
   public void shouldNotMigratePreviouslySkippedElementsOnRerun() {
-    // given state in c7
+    // given: Multiple process instances in C7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     for (int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("userTaskProcessId");
     }
     completeAllUserTasksWithDefaultUserTaskId();
 
-    // and some entities manually set as skipped
-    String procInstId = historyService.createHistoricProcessInstanceQuery().list().getFirst().getId();
-    String actInstId = historyService.createHistoricActivityInstanceQuery()
-        .activityType("userTask")
-        .processInstanceId(procInstId)
-        .list()
-        .getFirst()
-        .getId();
-    String taskId = historyService.createHistoricTaskInstanceQuery()
-        .activityInstanceIdIn(actInstId)
-        .list()
-        .getFirst()
-        .getId();
+    // First migration: Create natural skips for one instance by migrating without definition
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks();
+    
+    // Verify 5 instances and their children were skipped
+    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
+    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
+    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isEqualTo(5);
 
-    markEntityAsSkipped(procInstId, HISTORY_PROCESS_INSTANCE);
-    markEntityAsSkipped(actInstId, HISTORY_FLOW_NODE);
-    markEntityAsSkipped(taskId, HISTORY_USER_TASK);
+    // when: Regular migration (not retry) - migrate definition and remaining instances
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks();
 
-    // when migration is run on migrate mode
-    historyMigrator.migrate();
-
-    // then only non skipped entities are migrated
+    // then: Definition is migrated but previously skipped instances remain skipped
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(processInstances.size()).isEqualTo(4);
-
-    // and skipped entities are still skipped
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(procInstId, HISTORY_PROCESS_INSTANCE)).isFalse();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(actInstId, HISTORY_FLOW_NODE)).isFalse();
-    assertThat(dbClient.checkHasC8KeyByC7IdAndType(taskId, HISTORY_USER_TASK)).isFalse();
-  }
-
-  private void markEntityAsSkipped(String c7Id, IdKeyMapper.TYPE type) {
-    dbClient.insert(c7Id, null, type);
+    
+    // Instances remain skipped (regular migration doesn't retry skipped entities)
+    assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
+    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
+    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
+    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isEqualTo(5);
   }
 }

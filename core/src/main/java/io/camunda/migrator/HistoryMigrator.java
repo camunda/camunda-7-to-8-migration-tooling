@@ -189,7 +189,7 @@ public class HistoryMigrator {
     }
   }
 
-  private void migrateProcessInstances() {
+  public void migrateProcessInstances() {
     HistoryMigratorLogs.migratingProcessInstances();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_INSTANCE, idKeyDbModel -> {
@@ -375,7 +375,7 @@ public class HistoryMigrator {
     }
   }
 
-  private void migrateIncidents() {
+  public void migrateIncidents() {
     HistoryMigratorLogs.migratingHistoricIncidents();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_INCIDENT, idKeyDbModel -> {

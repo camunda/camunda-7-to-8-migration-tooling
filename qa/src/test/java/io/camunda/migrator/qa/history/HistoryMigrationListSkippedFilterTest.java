@@ -44,9 +44,8 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create natural skip scenario: Migrate instances without definition
+        historyMigrator.migrateProcessInstances();
 
         // when running history migration with list skipped mode and single entity type filter
         historyMigrator.setMode(LIST_SKIPPED);
@@ -77,9 +76,9 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create natural skip scenario: Migrate instances and tasks without definition
+        historyMigrator.migrateProcessInstances();
+        historyMigrator.migrateUserTasks();
 
         // when running history migration with list skipped mode and multiple entity type filters
         historyMigrator.setMode(LIST_SKIPPED);
