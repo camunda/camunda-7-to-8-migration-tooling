@@ -3,6 +3,7 @@
 
 # Log file
 *.log
+LOG_FILE_IS_UNDEFINED
 
 # BlueJ files
 *.ctxt

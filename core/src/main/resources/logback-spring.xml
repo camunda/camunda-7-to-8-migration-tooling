@@ -1,13 +1,9 @@
 <configuration>
 
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+  <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
   <springProperty scope="context" name="LOG_LEVEL_PATTERN" source="logging.pattern.level"/>
-
-  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
-      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
-    </encoder>
-  </appender>
 
   <appender name="RAW_PRINTER" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
@@ -17,6 +13,7 @@
 
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
   </root>
 
   <logger name="PRINTER" level="INFO" additivity="false">
