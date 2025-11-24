@@ -7,21 +7,24 @@
  */
 package io.camunda.migrator.qa.history;
 
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
-import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migrator.HistoryMigrator;
 import io.camunda.migrator.MigratorMode;
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.event.Level;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+@ExtendWith({ OutputCaptureExtension.class })
 public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Test
   public void shouldMigratePreviouslySkippedProcessDefinition() {
@@ -125,7 +128,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     
     // Verify entities were skipped with proper counts
     logs.assertContains("Migration of historic process instance with C7 ID");
-    logs.assertContains("skipped. Process definition not yet available");
+    logs.assertContains("skipped. process definition not yet available");
     assertThat(logs.getEvents().stream()
         .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
         .filter(event -> event.getMessage().contains("skipped"))
@@ -169,7 +172,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     
     // Verify 5 instances and their children were skipped
     logs.assertContains("Migration of historic process instance with C7 ID");
-    logs.assertContains("skipped. Process definition not yet available");
+    logs.assertContains("skipped. process definition not yet available");
     assertThat(logs.getEvents().stream()
         .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
         .filter(event -> event.getMessage().contains("skipped"))

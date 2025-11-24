@@ -57,7 +57,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // then: All child elements are naturally skipped due to missing process definition
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
     logs.assertContains("Migration of historic process instance with C7 ID");
-    logs.assertContains("skipped. Process definition not yet available");
+    logs.assertContains("skipped. process definition not yet available");
     assertThat(logs.getEvents().stream()
         .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
         .filter(event -> event.getMessage().contains("skipped"))
