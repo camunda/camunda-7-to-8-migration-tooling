@@ -9,7 +9,7 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>camunda-7-to-8-data-migrator</artifactId>
+  <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
   <packaging>pom</packaging>
 
   <name>Camunda 7 to 8 Migration Tooling - Data Migrator</name>
