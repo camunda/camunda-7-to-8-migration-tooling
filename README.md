@@ -93,12 +93,12 @@ start.bat --help
    
    The Cockpit plugin module requires Node.js. You can exclude building it by running:
    ```bash
-   mvn clean install -pl '!plugins/cockpit'
+   mvn clean install -pl '!data-migrator/plugins/cockpit'
    ```
 
-3. **Find distribution** in `assembly/target/` directory
+3. **Find distribution** in `data-migrator/assembly/target/` directory
 
-4. The **Migrator Cockpit Plugin** can be found in `plugins/cockpit/target` directory
+4. The **Migrator Cockpit Plugin** can be found in `data-migrator/plugins/cockpit/target` directory
 
 ### Running Tests
 

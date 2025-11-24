@@ -43,8 +43,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           ARTIFACT_DIR=$(mktemp -d)
-          cp assembly/target/camunda-7-to-8-data-migrator-*.tar.gz "${ARTIFACT_DIR}/"
-          cp assembly/target/camunda-7-to-8-data-migrator-*.zip "${ARTIFACT_DIR}/"
+          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.tar.gz "${ARTIFACT_DIR}/"
+          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.zip "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload distro
