@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Use async appender for better performance during tests -->
+  <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
+    <!-- Don't block if queue is full, drop messages instead -->
+    <neverBlock>true</neverBlock>
+    <!-- Reduce queue size for faster shutdown -->
+    <queueSize>256</queueSize>
+    <appender-ref ref="STDOUT" />
+  </appender>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Set default log level to WARN for better test performance -->
+  <root level="WARN">
+    <appender-ref ref="ASYNC_STDOUT" />
+  </root>
+
+  <!-- Keep important migrator logs at INFO level -->
+  <logger name="io.camunda.migrator" level="INFO" />
+  
+  <!-- Reduce testcontainers verbosity -->
+  <logger name="org.testcontainers" level="WARN" />
+  <logger name="com.github.dockerjava" level="WARN" />
+  <logger name="tc" level="WARN" />
+  
+  <!-- Reduce Spring Boot verbosity -->
+  <logger name="org.springframework" level="WARN" />
+  <logger name="org.hibernate" level="WARN" />
+  
+  <!-- Reduce Camunda 7 verbosity -->
+  <logger name="org.camunda.bpm" level="WARN" />
+  
+  <!-- Reduce database driver verbosity -->
+  <logger name="org.postgresql" level="WARN" />
+  <logger name="oracle" level="WARN" />
+</configuration>

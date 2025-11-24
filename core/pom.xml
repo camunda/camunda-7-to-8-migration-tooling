@@ -239,6 +239,18 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.4</version>
+        <configuration>
+          <!-- Enable parallel execution at the class level -->
+          <parallel>classes</parallel>
+          <!-- Use 2 threads for parallel execution to balance speed and resource usage -->
+          <threadCount>2</threadCount>
+          <!-- Use unlimited thread lifetime to avoid thread churn -->
+          <perCoreThreadCount>false</perCoreThreadCount>
+          <!-- Fork count matches thread count for proper isolation in parallel execution -->
+          <forkCount>2</forkCount>
+          <!-- Don't reuse forks to ensure clean state between test classes -->
+          <reuseForks>false</reuseForks>
+        </configuration>
       </plugin>
     </plugins>
   </build>

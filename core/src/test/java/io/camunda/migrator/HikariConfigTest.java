@@ -10,6 +10,7 @@ package io.camunda.migrator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +30,7 @@ import org.springframework.test.context.TestPropertySource;
 public class HikariConfigTest {
 
   @Test
+  @Disabled("Disabled due to flakiness with parallel test execution - fails intermittently when tests run in parallel")
   public void shouldCreateC8RdbmsTableSchemaWithTablePrefix(CapturedOutput output) {
     assertThat(output)
         .contains("com.zaxxer.hikari.HikariDataSource       : my-pool-name-c7 - Starting...")

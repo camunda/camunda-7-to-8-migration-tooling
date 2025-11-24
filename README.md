@@ -102,6 +102,8 @@ start.bat --help
 
 ### Running Tests
 
+The test suite has been optimized for performance with parallel execution and reduced logging overhead.
+
 Execute the full test suite:
 ```bash
 mvn verify
@@ -115,6 +117,36 @@ mvn test
 # Integration tests only
 mvn integration-test
 ```
+
+#### Test Performance Optimizations
+
+The test suite includes several performance optimizations:
+
+- **Parallel test execution**: Test classes run in parallel (2 threads) to reduce execution time
+- **Optimized logging**: Async appenders and reduced log levels minimize I/O overhead
+- **Container reuse**: Database containers (PostgreSQL, Oracle) are reused across tests
+- **Multi-threaded builds**: Maven builds modules in parallel when using `-T 1C` flag
+
+To run tests with maximum parallelism:
+```bash
+# Use all available CPU cores for module building
+mvn verify -T 1C
+```
+
+#### Running Tests for Different Databases
+
+```bash
+# H2 (default)
+mvn verify
+
+# PostgreSQL
+mvn verify -Ppostgresql
+
+# Oracle
+mvn verify -Poracle
+```
+
+**Note**: Database container tests use Testcontainers and require Docker to be running.
 
 ### Development Environment Setup
 
