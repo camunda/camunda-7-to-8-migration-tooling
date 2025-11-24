@@ -16,12 +16,27 @@ import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARI
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migrator.MigratorMode;
+import io.camunda.migrator.config.property.MigratorProperties;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+@ExtendWith({OutputCaptureExtension.class})
 public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
+
+  @Autowired
+  private MigratorProperties migratorProperties;
+
+  @AfterEach
+  void resetMigratorProperties() {
+    migratorProperties.setSaveSkipReason(false);
+  }
 
   @Test
   public void shouldMigratePreviouslySkippedProcessDefinition() {
@@ -169,6 +184,49 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     assertThat(dbClient.checkHasC8KeyByC7IdAndType(procInstId, HISTORY_PROCESS_INSTANCE)).isFalse();
     assertThat(dbClient.checkHasC8KeyByC7IdAndType(actInstId, HISTORY_FLOW_NODE)).isFalse();
     assertThat(dbClient.checkHasC8KeyByC7IdAndType(taskId, HISTORY_USER_TASK)).isFalse();
+  }
+
+  @Test
+  public void shouldUpdateSkipReasonOnRetry(CapturedOutput output) {
+    // given: enable skip reason saving
+    migratorProperties.setSaveSkipReason(true);
+
+    // given: process instances in c7 but NO process definition deployed in c8
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    for (int i = 0; i < 3; i++) {
+      runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    }
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when: initial migration - process instances should be skipped due to missing c8 process definition
+    historyMigrator.migrate();
+
+    // then: verify process instances were skipped (not migrated to c8)
+    assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
+
+    // and: verify skip reason by listing skipped entities
+    historyMigrator.setMode(MigratorMode.LIST_SKIPPED);
+    historyMigrator.setRequestedEntityTypes(List.of(HISTORY_PROCESS_INSTANCE));
+    historyMigrator.start();
+    
+    // Verify initial skip output (skip reasons should be visible if saveSkipReason is enabled)
+    assertThat(output.getOut()).contains("Previously skipped [Historic Process Instance]");
+
+    // when: deploy process definition to c8 and retry migration
+    deployer.deployCamunda8Process("userTaskProcess.bpmn");
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrate();
+
+    // then: verify process instances are now successfully migrated
+    var migratedInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(migratedInstances).hasSize(3);
+
+    // and: verify no more skipped entities after successful migration
+    historyMigrator.setMode(MigratorMode.LIST_SKIPPED);
+    historyMigrator.setRequestedEntityTypes(List.of(HISTORY_PROCESS_INSTANCE));
+    historyMigrator.start();
+    
+    assertThat(output.getOut()).contains("No entities of type [Historic Process Instances] were skipped");
   }
 
   private void markEntityAsSkipped(String c7Id, IdKeyMapper.TYPE type) {

@@ -664,6 +664,9 @@ public class HistoryMigrator {
   protected void saveRecord(String c7Id, Long c8Key, TYPE type, Date createTime, String skipReason) {
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.updateC8KeyByC7IdAndType(c7Id, c8Key, type);
+      if (c8Key == null && skipReason != null) {
+        dbClient.updateSkipReason(c7Id, type, skipReason);
+      }
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Id, c8Key, createTime, type, skipReason);
 
