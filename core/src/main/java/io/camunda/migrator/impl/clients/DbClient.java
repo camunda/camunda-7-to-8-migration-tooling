@@ -122,6 +122,20 @@ public class DbClient {
   protected final ThreadLocal<List<Long>> failedBatchKeys = ThreadLocal.withInitial(java.util.ArrayList::new);
 
   /**
+   * In-memory cache for C7 ID to C8 Key mappings.
+   * Key format: "TYPE:C7_ID" -> C8_KEY
+   * This allows lookups of entities that are in the batch buffer but not yet committed to DB.
+   */
+  protected final java.util.Map<String, Long> idKeyCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+  /**
+   * In-memory cache for existence checks.
+   * Key format: "TYPE:C7_ID" -> Boolean (exists and has C8 key)
+   * Used for isMigrated() checks on buffered entities.
+   */
+  protected final java.util.Map<String, Boolean> existenceCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+  /**
    * Checks if an entity exists in the mapping table by type and id.
    */
   public boolean checkExistsByC7IdAndType(String c7Id, TYPE type) {
@@ -130,9 +144,25 @@ public class DbClient {
 
   /**
    * Checks if an entity exists in the mapping table by type and id.
+   * This checks both the in-memory cache and the database.
    */
   public boolean checkHasC8KeyByC7IdAndType(String c7Id, TYPE type) {
+    // First check cache
+    String cacheKey = getCacheKey(type, c7Id);
+    Boolean cached = existenceCache.get(cacheKey);
+    if (cached != null) {
+      return cached;
+    }
+
+    // Fall back to database
     return callApi(() -> idKeyMapper.checkHasC8KeyByC7IdAndType(type, c7Id), FAILED_TO_CHECK_KEY + c7Id);
+  }
+
+  /**
+   * Generates a cache key from type and C7 ID.
+   */
+  private String getCacheKey(TYPE type, String c7Id) {
+    return type.name() + ":" + c7Id;
   }
 
   /**
@@ -147,8 +177,17 @@ public class DbClient {
 
   /**
    * Finds the key by C7 ID and type.
+   * This checks the in-memory cache first before querying the database.
    */
   public Long findC8KeyByC7IdAndType(String c7Id, TYPE type) {
+    // First check cache for buffered entities
+    String cacheKey = getCacheKey(type, c7Id);
+    Long cachedKey = idKeyCache.get(cacheKey);
+    if (cachedKey != null) {
+      return cachedKey;
+    }
+
+    // Fall back to database
     return callApi(() -> idKeyMapper.findC8KeyByC7IdAndType(c7Id, type), FAILED_TO_FIND_KEY_BY_ID + c7Id);
   }
 
@@ -161,11 +200,22 @@ public class DbClient {
 
   /**
    * Updates a record by setting the key for an existing ID and type.
+   * Also updates the in-memory cache.
    */
   public void updateC8KeyByC7IdAndType(String c7Id, Long c8Key, TYPE type) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, null, c8Key, type);
     callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
+
+    // Update cache after successful database update
+    String cacheKey = getCacheKey(type, c7Id);
+    if (c8Key != null) {
+      idKeyCache.put(cacheKey, c8Key);
+      existenceCache.put(cacheKey, true);
+    } else {
+      idKeyCache.remove(cacheKey);
+      existenceCache.put(cacheKey, false);
+    }
   }
 
   public void updateSkipReason(String c7Id, TYPE type, String skipReason) {
@@ -205,6 +255,16 @@ public class DbClient {
     synchronized (insertBuffer) {
       insertBuffer.add(model);
       
+      // Update in-memory caches
+      String cacheKey = getCacheKey(type, c7Id);
+      if (c8Key != null) {
+        idKeyCache.put(cacheKey, c8Key);
+        existenceCache.put(cacheKey, true);
+      } else {
+        // Entity is being skipped (no C8 key)
+        existenceCache.put(cacheKey, false);
+      }
+
       // Track C8 keys for potential rollback
       if (c8Key != null && TYPE.RUNTIME_PROCESS_INSTANCE.equals(type)) {
         currentBatchC8Keys.add(c8Key);
@@ -245,10 +305,17 @@ public class DbClient {
       
       try {
         callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
-        // Success - clear any previous failed keys
+        // Success - cache remains populated with committed data
         failedBatchKeys.get().clear();
       } catch (RuntimeException e) {
-        // Failed - store keys for rollback and log error
+        // Failed - remove cache entries for failed records since they weren't persisted
+        for (IdKeyDbModel model : toFlush) {
+          String cacheKey = getCacheKey(model.getType(), model.getC7Id());
+          idKeyCache.remove(cacheKey);
+          existenceCache.remove(cacheKey);
+        }
+
+        // Store keys for rollback and log error
         failedBatchKeys.get().clear();
         failedBatchKeys.get().addAll(keysToRollback);
         DbClientLogs.batchInsertFailed(keysToRollback.size());
@@ -276,13 +343,15 @@ public class DbClient {
   }
 
   /**
-   * Clears all buffers without flushing.
+   * Clears all buffers and caches without flushing.
    * This is useful for testing or resetting state between operations.
    */
   public void clearBuffers() {
     synchronized (insertBuffer) {
       insertBuffer.clear();
       currentBatchC8Keys.clear();
+      idKeyCache.clear();
+      existenceCache.clear();
     }
     clearFailedBatchKeys();
   }
