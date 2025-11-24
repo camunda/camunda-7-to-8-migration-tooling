@@ -190,6 +190,8 @@ Follow conventional commits format:
 
 **Scope:** Module or component affected (e.g., `core`, `history`, `distro`, `deps`)
 
+**Body:** Reference the related issue in the commit message body using `related to #<issue-number>`
+
 **Examples:**
 - `feat(runtime): add support for message correlation`
 - `fix(core): resolve variable serialization issue`
