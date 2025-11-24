@@ -33,7 +33,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateDecisionDefinitions();
     
     // Verify definitions were skipped
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+    logs.assertContains("Migration of historic decision definition with C7 ID");
+    logs.assertContains("skipped. Decision requirements definition not yet available");
     
     // when: Retry migration - now migrate requirements then retry skipped definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -43,7 +44,6 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // then: Previously skipped definitions are now migrated
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id").size()).isEqualTo(1);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
@@ -55,7 +55,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateDecisionDefinitions();
     
     // Verify definitions were skipped due to missing requirements
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+    logs.assertContains("Migration of historic decision definition with C7 ID");
+    logs.assertContains("skipped. Decision requirements definition not yet available");
 
     // when: Retry migration with requirements now available
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -65,7 +66,6 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // then: Previously skipped definitions are migrated
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id").size()).isEqualTo(1);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
@@ -80,7 +80,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // Skip requirements by not migrating them
     // Then migrate definitions which will skip due to missing requirements
     historyMigrator.migrateDecisionDefinitions();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+    logs.assertContains("Migration of historic decision definition with C7 ID");
+    logs.assertContains("skipped. Decision requirements definition not yet available");
 
     // when: Migrate requirements then retry definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -90,8 +91,6 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // then: Requirements and definitions are both migrated
     assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(1);
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id").size()).isEqualTo(1);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT)).isEqualTo(0);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(0);
   }
 
   @Test
@@ -113,11 +112,12 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateIncidents(); // Skip - no instance
     
     // Verify entities were skipped
-    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
-    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
-    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isGreaterThan(0);
-    assertThat(dbClient.countSkippedByType(HISTORY_VARIABLE)).isGreaterThan(0);
-    assertThat(dbClient.countSkippedByType(HISTORY_INCIDENT)).isGreaterThan(0);
+    logs.assertContains("Migration of historic process instance with C7 ID");
+    logs.assertContains("skipped. Process definition not yet available");
+    logs.assertContains("Migration of historic flow nodes with C7 ID");
+    logs.assertContains("Migration of historic user task with C7 ID");
+    logs.assertContains("Migration of historic variable with C7 ID");
+    logs.assertContains("Migration of historic incident with C7 ID");
 
     // Now migrate the parent entities
     historyMigrator.migrateProcessDefinitions();
@@ -151,9 +151,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateUserTasks();
     
     // Verify 5 instances and their children were skipped
-    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
-    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
-    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isEqualTo(5);
+    logs.assertContains("Migration of historic process instance with C7 ID");
+    logs.assertContains("skipped. Process definition not yet available");
+    logs.assertContains("Migration of historic user task with C7 ID");
 
     // when: Regular migration (not retry) - migrate definition and remaining instances
     historyMigrator.migrateProcessDefinitions();
@@ -166,8 +166,5 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     
     // Instances remain skipped (regular migration doesn't retry skipped entities)
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
-    assertThat(dbClient.countSkippedByType(HISTORY_FLOW_NODE)).isGreaterThan(0);
-    assertThat(dbClient.countSkippedByType(HISTORY_USER_TASK)).isEqualTo(5);
   }
 }

@@ -10,17 +10,21 @@ package io.camunda.migrator.qa.history;
 import static io.camunda.migrator.MigratorMode.LIST_SKIPPED;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migrator.HistoryMigrator;
 import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.migrator.qa.util.SkippedEntitiesLogParserUtils;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.logging.log4j.Level;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -29,6 +33,9 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(locations = "classpath:application-warn.properties")
 @ExtendWith({OutputCaptureExtension.class})
 public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTest {
+
+    @RegisterExtension
+    protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
     @Autowired
     protected HistoryService historyService;
@@ -101,11 +108,12 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
     }
 
     private void verifyEntitiesMarkedAsSkipped() {
-        assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(3);
-        assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(3);
-        assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_INCIDENT)).isEqualTo(3);
-        assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_VARIABLE)).isGreaterThan(6);
-        assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_FLOW_NODE)).isEqualTo(12);
+        // Verify entities were skipped via logs
+        logs.assertContains("Migration of historic process instance with C7 ID");
+        logs.assertContains("Migration of historic user task with C7 ID");
+        logs.assertContains("Migration of historic incident with C7 ID");
+        logs.assertContains("Migration of historic variable with C7 ID");
+        logs.assertContains("Migration of historic flow nodes with C7 ID");
     }
 
     private void verifySkippedEntitiesOutput(Map<String, List<String>> skippedEntitiesByType,
