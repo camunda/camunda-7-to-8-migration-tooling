@@ -11,12 +11,12 @@
   </parent>
 
   <groupId>io.camunda</groupId>
-  <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
+  <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
   <version>0.2.0-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
-  <name>Camunda 7 to 8 Data Migrator - Root</name>
+  <name>Camunda 7 to 8 Migration Tooling - Root</name>
 
   <licenses>
     <license>
@@ -55,12 +55,7 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <modules>
-        <module>core</module>
-        <module>plugins/cockpit</module>
-        <module>examples</module>
-        <module>qa</module>
-        <module>distro</module>
-        <module>assembly</module>
+        <module>data-migrator</module>
       </modules>
     </profile>
     <profile>
@@ -69,8 +64,8 @@
       <!-- Used in release workflow. -->
       <id>central-release</id>
       <modules>
-        <module>core</module>
-        <module>plugins/cockpit</module>
+        <module>data-migrator/core</module>
+        <module>data-migrator/plugins/cockpit</module>
       </modules>
     </profile>
   </profiles>
