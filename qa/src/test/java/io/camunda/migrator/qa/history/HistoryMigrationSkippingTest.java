@@ -58,10 +58,19 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
     logs.assertContains("Migration of historic process instance with C7 ID");
     logs.assertContains("skipped. Process definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(5);
+    
     logs.assertContains("Migration of historic flow nodes with C7 ID");
     logs.assertContains("skipped. Process instance yet not available");
     logs.assertContains("Migration of historic user task with C7 ID");
     logs.assertContains("skipped. Process instance yet not available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(5);
   }
 
   @Test
@@ -73,8 +82,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // Phase 1: Migrate instances without definition (they skip naturally)
     historyMigrator.migrateProcessInstances();
     
-    // Verify the instance was skipped
+    // Verify the instance was skipped (1 instance)
     logs.assertContains("Migration of historic process instance with C7 ID [" + processInstance.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
     
     // Phase 2: Now migrate with definition - already skipped instance should not be reprocessed
     historyMigrator.migrateProcessDefinitions();
@@ -82,8 +95,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: The process instance remains skipped and wasn't migrated
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
-    // Verify it was only logged once (no duplicate processing)
+    // Verify it was only logged once (no duplicate processing) - still 1
     logs.assertContains("Migration of historic process instance with C7 ID [" + processInstance.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test
@@ -99,9 +116,13 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions(); // Need definition for reference
     historyMigrator.migrateUserTasks(); // Try to migrate tasks without instances
 
-    // then: User task is naturally skipped due to missing process instance
+    // then: User task is naturally skipped due to missing process instance (1 task)
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
     logs.assertContains("Migration of historic user task with C7 ID [" + task.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test
@@ -116,8 +137,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateUserTasks(); // Skips due to missing process instance
     
-    // Verify task was skipped
+    // Verify task was skipped (1 task)
     logs.assertContains("Migration of historic user task with C7 ID [" + task.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
     
     // Second migration: Now migrate everything including process instances
     historyMigrator.migrateProcessInstances();
@@ -129,8 +154,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricUserTasks(processInstance.processInstanceKey())).isEmpty();
 
-    // Verify the task was skipped (remains in skipped state)
+    // Verify the task was skipped (remains in skipped state, still count is 1)
     logs.assertContains("Migration of historic user task with C7 ID [" + task.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
 
   }
 
@@ -160,9 +189,13 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateIncidents(); // Skips due to missing process instance
 
-    // then: Incidents are naturally skipped due to missing process instance
+    // then: Incidents are naturally skipped due to missing process instance (1 incident)
     assertThat(searchHistoricProcessInstances("failingServiceTaskProcessId")).isEmpty();
     logs.assertContains("Migration of historic incident with C7 ID [" + incidentId + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic incident with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test
@@ -190,8 +223,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateIncidents(); // Skips due to missing process instance
     
-    // Verify incident was skipped
+    // Verify incident was skipped (1 incident)
     logs.assertContains("Migration of historic incident with C7 ID [" + incidentId + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic incident with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
 
     // Second migration: Migrate process instances, but already-skipped incident should not be reprocessed
     historyMigrator.migrateProcessInstances();
@@ -203,8 +240,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     ProcessInstanceEntity c8ProcessInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8ProcessInstance.processDefinitionId())).isEmpty();
 
-    // Verify the incident remains skipped
+    // Verify the incident remains skipped (still 1)
     logs.assertContains("Migration of historic incident with C7 ID [" + incidentId + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic incident with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
@@ -237,8 +278,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     ProcessInstanceEntity c8processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
 
-    // verify the incident was skipped
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_INCIDENT)).isEqualTo(1);
+    // verify the incident was skipped (1 incident)
+    logs.assertContains("Migration of historic incident with C7 ID");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic incident with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test
@@ -253,10 +298,14 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateVariables(); // Skips due to missing process instance
 
-    // then: Variables are naturally skipped due to missing process instance
+    // then: Variables are naturally skipped due to missing process instance (likely 2-3 variables)
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
     logs.assertContains("Migration of historic variable with C7 ID");
     logs.assertContains("skipped. Process instance not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isGreaterThan(0);
   }
 
   @Test
@@ -272,9 +321,13 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateVariables(); // All variables skip due to missing process instance
     
-    // Verify variables were skipped
+    // Verify variables were skipped (2 or more variables created)
     logs.assertContains("Migration of historic variable with C7 ID");
     logs.assertContains("skipped. Process instance not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isGreaterThanOrEqualTo(2);
 
     // Second migration: Migrate process instances and variables again
     historyMigrator.migrateProcessInstances();
@@ -290,9 +343,13 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(variablesTestVar.size()).isEqualTo(0);
     assertThat(variablesAnotherVar.size()).isEqualTo(0);
 
-    // Verify variables remain in skipped state
+    // Verify variables remain in skipped state (still >= 2)
     logs.assertContains("Migration of historic variable with C7 ID");
     logs.assertContains("skipped. Process instance not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isGreaterThanOrEqualTo(2);
   }
 
   @Test
@@ -326,6 +383,10 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var taskVariable = historyService.createHistoricVariableInstanceQuery().taskIdIn(taskId).singleResult();
 
     logs.assertContains("Migration of historic variable with C7 ID [" + taskVariable.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isGreaterThan(0);
   }
 
   @Test
@@ -366,6 +427,10 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     logs.assertContains("Migration of historic flow nodes with C7 ID");
     logs.assertContains("skipped. Process instance yet not available");
     logs.assertContains("Migration of historic variable with C7 ID [" + serviceTaskVariable.getId() + "] skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isGreaterThan(0);
   }
 
   @Test
@@ -377,11 +442,15 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // This creates a natural skip scenario - definitions can't migrate without their parent requirements
     historyMigrator.migrateDecisionDefinitions();
 
-    // then: Decision definitions are naturally skipped due to missing requirements
+    // then: Decision definitions are naturally skipped due to missing requirements (2 definitions)
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id")).isEmpty();
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id")).isEmpty();
     logs.assertContains("Migration of historic decision definition with C7 ID");
     logs.assertContains("skipped. Decision requirements definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision definition with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(2);
     
     // Verify the skip reason confirms it was due to missing requirements
     // (This is implicit in the natural skip - no manual marking needed)
@@ -403,10 +472,14 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateProcessDefinitions();
     historyMigrator.migrateDecisionInstances(); // Skips due to missing decision definition
 
-    // then: Decision instances are naturally skipped due to missing decision definition
+    // then: Decision instances are naturally skipped due to missing decision definition (1 instance)
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
     logs.assertContains("Migration of historic decision instance with C7 ID");
     logs.assertContains("skipped. decision definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test
@@ -425,10 +498,14 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateDecisionDefinitions();
     historyMigrator.migrateDecisionInstances(); // Skips due to missing process definition
 
-    // then: Decision instances are naturally skipped due to missing process definition
+    // then: Decision instances are naturally skipped due to missing process definition (1 instance)
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
     logs.assertContains("Migration of historic decision instance with C7 ID");
     logs.assertContains("skipped");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(1);
   }
 
   @Test

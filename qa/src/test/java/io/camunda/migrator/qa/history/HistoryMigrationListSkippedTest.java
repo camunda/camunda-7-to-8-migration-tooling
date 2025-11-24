@@ -108,12 +108,36 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
     }
 
     private void verifyEntitiesMarkedAsSkipped() {
-        // Verify entities were skipped via logs
+        // Verify entities were skipped via logs with counts
         logs.assertContains("Migration of historic process instance with C7 ID");
+        assertThat(logs.getEvents().stream()
+            .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+            .filter(event -> event.getMessage().contains("skipped"))
+            .count()).isEqualTo(3);
+        
         logs.assertContains("Migration of historic user task with C7 ID");
+        assertThat(logs.getEvents().stream()
+            .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+            .filter(event -> event.getMessage().contains("skipped"))
+            .count()).isEqualTo(3);
+        
         logs.assertContains("Migration of historic incident with C7 ID");
+        assertThat(logs.getEvents().stream()
+            .filter(event -> event.getMessage().contains("Migration of historic incident with C7 ID"))
+            .filter(event -> event.getMessage().contains("skipped"))
+            .count()).isEqualTo(3);
+        
         logs.assertContains("Migration of historic variable with C7 ID");
+        assertThat(logs.getEvents().stream()
+            .filter(event -> event.getMessage().contains("Migration of historic variable with C7 ID"))
+            .filter(event -> event.getMessage().contains("skipped"))
+            .count()).isGreaterThan(6);
+        
         logs.assertContains("Migration of historic flow nodes with C7 ID");
+        assertThat(logs.getEvents().stream()
+            .filter(event -> event.getMessage().contains("Migration of historic flow nodes with C7 ID"))
+            .filter(event -> event.getMessage().contains("skipped"))
+            .count()).isEqualTo(12);
     }
 
     private void verifySkippedEntitiesOutput(Map<String, List<String>> skippedEntitiesByType,

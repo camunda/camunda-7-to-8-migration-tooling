@@ -32,9 +32,13 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // This causes definitions to naturally skip due to missing parent
     historyMigrator.migrateDecisionDefinitions();
     
-    // Verify definitions were skipped
+    // Verify definitions were skipped (2 definitions in the DMN file)
     logs.assertContains("Migration of historic decision definition with C7 ID");
     logs.assertContains("skipped. Decision requirements definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision definition with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(2);
     
     // when: Retry migration - now migrate requirements then retry skipped definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -54,9 +58,13 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // Create natural skip: Migrate decision definition WITHOUT requirements
     historyMigrator.migrateDecisionDefinitions();
     
-    // Verify definitions were skipped due to missing requirements
+    // Verify definitions were skipped due to missing requirements (2 definitions)
     logs.assertContains("Migration of historic decision definition with C7 ID");
     logs.assertContains("skipped. Decision requirements definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision definition with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(2);
 
     // when: Retry migration with requirements now available
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -82,6 +90,10 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateDecisionDefinitions();
     logs.assertContains("Migration of historic decision definition with C7 ID");
     logs.assertContains("skipped. Decision requirements definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic decision definition with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(2);
 
     // when: Migrate requirements then retry definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -111,9 +123,14 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateVariables(); // Skip - no instance
     historyMigrator.migrateIncidents(); // Skip - no instance
     
-    // Verify entities were skipped
+    // Verify entities were skipped with proper counts
     logs.assertContains("Migration of historic process instance with C7 ID");
     logs.assertContains("skipped. Process definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(5);
+    
     logs.assertContains("Migration of historic flow nodes with C7 ID");
     logs.assertContains("Migration of historic user task with C7 ID");
     logs.assertContains("Migration of historic variable with C7 ID");
@@ -153,7 +170,16 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // Verify 5 instances and their children were skipped
     logs.assertContains("Migration of historic process instance with C7 ID");
     logs.assertContains("skipped. Process definition not yet available");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic process instance with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(5);
+    
     logs.assertContains("Migration of historic user task with C7 ID");
+    assertThat(logs.getEvents().stream()
+        .filter(event -> event.getMessage().contains("Migration of historic user task with C7 ID"))
+        .filter(event -> event.getMessage().contains("skipped"))
+        .count()).isEqualTo(5);
 
     // when: Regular migration (not retry) - migrate definition and remaining instances
     historyMigrator.migrateProcessDefinitions();
