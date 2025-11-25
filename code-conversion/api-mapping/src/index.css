@@ -1,0 +1,99 @@
+:root {
+	font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+	line-height: 1.3;
+	font-weight: 400;
+}
+
+a {
+	font-weight: 500;
+	text-decoration: inherit;
+}
+a:hover {
+	color: #535bf2;
+}
+
+body {
+	margin: 0;
+	display: flex;
+	place-items: center;
+	min-width: 320px;
+	min-height: 100vh;
+}
+
+h1 {
+	line-height: 1.1;
+	margin-block: 1.5rem 1rem;
+	font-size: xx-large;
+}
+
+h2 {
+	margin-block: 1rem 0.5rem;
+}
+
+h3,
+h4,
+h5 {
+	margin-block: 1rem 0.3rem;
+}
+
+td h3:first-child {
+	margin-top: 0;
+}
+
+p {
+	margin-block: 0.5rem 0.5rem;
+}
+
+ul {
+	margin-block: 0.5rem 0.5rem;
+}
+
+table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+h2 + table,
+h2 + table > thead > tr,
+h2 + table > thead > tr > th,
+h2 + table > tbody > tr,
+h2 + table > tbody > tr > td {
+	border: 2.5px solid black;
+}
+
+th,
+td {
+	border: 1px solid black;
+	padding: 5px;
+	align-content: start;
+}
+
+td th {
+	width: 50%;
+}
+
+button {
+	border-radius: 8px;
+	border: 1px solid black;
+	padding: 0.6em 1.2em;
+	font-size: 1em;
+	font-weight: 500;
+	font-family: inherit;
+	cursor: pointer;
+	transition: border-color 0.25s;
+}
+
+button:hover {
+	border-color: #646cff;
+}
+
+button:focus,
+button:focus-visible {
+	outline: 4px auto -webkit-focus-ring-color;
+}
+
+code {
+	word-break: break-all;
+	white-space: wrap;
+}
