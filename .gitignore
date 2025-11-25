@@ -22,18 +22,24 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# IDE
 /.idea
-**/target/
-**/h2/
 .classpath
 .project
 .settings
+.vscode
 
-# Plugin front end dependencies
+# Build outputs
+**/target/
+**/h2/
+
+# Node.js / Frontend
 node_modules/
 node
 dist
+code-conversion/patterns/package-lock.json
 
-# VS Code
+# OS
 *.DS_Store
 
