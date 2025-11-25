@@ -82,6 +82,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     }
 
     // Migrator
+    dbClient.clearBuffers(); // Clear in-memory buffers before deleting mappings
     dbClient.deleteAllMappings();
     runtimeMigrator.setMode(MIGRATE);
   }
