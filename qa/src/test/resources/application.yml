@@ -27,7 +27,7 @@ logging:
 spring:
   config:
     activate:
-      on-profile: history
+      on-profile: history-level-full
 
 camunda:
   migrator:
