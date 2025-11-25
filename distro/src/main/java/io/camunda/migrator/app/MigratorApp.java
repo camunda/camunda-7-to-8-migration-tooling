@@ -52,6 +52,13 @@ public class MigratorApp {
   protected static final Set<String> VALID_ENTITY_TYPES = IdKeyMapper.getHistoryTypeNames();
 
   public static void main(String[] args) {
+    // Handle --help early to avoid loading Spring Boot (only when used alone)
+    List<String> argsList = java.util.Arrays.asList(args);
+    if (argsList.contains("--" + ARG_HELP) && argsList.size() == 1) {
+      printUsage();
+      System.exit(1);
+    }
+    
     try {
       // Early validation before Spring Boot starts
       validateArguments(args);
@@ -60,6 +67,7 @@ public class MigratorApp {
       printUsage();
       System.exit(1);
     }
+    
     LOGGER.info("Starting migration with flags: {}", String.join(" ", args));
 
     // Continue with Spring Boot application
@@ -69,10 +77,7 @@ public class MigratorApp {
     try {
       AutoDeployer autoDeployer = context.getBean(AutoDeployer.class);
       autoDeployer.deploy();
-      if (appArgs.containsOption(ARG_HELP)) {
-        printUsage();
-        System.exit(1);
-      } else if (hasMigrationFlags(appArgs)) {
+      if (hasMigrationFlags(appArgs)) {
         runMigratorsInOrder(context, appArgs, mode, args);
       } else {
         LOGGER.error("Error: Invalid argument combination."); // Last resort error, should be caught by validation
@@ -150,7 +155,7 @@ public class MigratorApp {
     System.out.println("                      HISTORY_VARIABLE, HISTORY_USER_TASK, HISTORY_FLOW_NODE,");
     System.out.println("                      HISTORY_DECISION_INSTANCE, HISTORY_DECISION_DEFINITION");
     System.out.println("  --retry-skipped   - Retry only previously skipped history data");
-    System.out.println("  --drop-schema     - Drop the migrator schema on shutdown ff migration was successful");
+    System.out.println("  --drop-schema     - Drop the migrator schema on shutdown if migration was successful");
     System.out.println("  --force           - Force the dropping of the migrator schema in all cases, to be used in combination with --drop-schema");
     System.out.println();
     System.out.println("Mutually exclusive options:");
