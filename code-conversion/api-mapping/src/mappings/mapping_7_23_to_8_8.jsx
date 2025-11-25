@@ -1,3 +1,10 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
 import { c7_23 } from "../openapi/camunda7/c7_23";
 import { c8_8 } from "../openapi/camunda8/c8_8";
 import * as mappings from "./mapping_details_7_23_to_8_8/index.js";
