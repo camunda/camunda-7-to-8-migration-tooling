@@ -2,7 +2,7 @@
 
 [![Java Version](https://img.shields.io/badge/Java-21-blue)](https://www.oracle.com/java/technologies/downloads/#java21)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen)](https://spring.io/projects/spring-boot)
-[![Status](https://img.shields.io/badge/Status-In%20Development-yellow)](https://github.com/camunda/camunda-7-to-8-data-migrator)
+[![Status](https://img.shields.io/badge/Status-In%20Development-yellow)](https://github.com/camunda/camunda-7-to-8-migration-tooling)
 
 A tool for migrating Camunda 7 process instances and related data to Camunda 8. This migrator helps organizations seamlessly transition their process instances while preserving execution state and variables ensuring minimal disruption to ongoing business processes.
 
@@ -47,18 +47,17 @@ Before using the Data Migrator, ensure you have:
 ## Installation & Setup
 
 ### Option 1: Download Pre-built Release
-1. Download the latest release from the [releases page](https://github.com/camunda/camunda-7-to-8-data-migrator/releases)
+1. Download the latest release from the [releases page](https://github.com/camunda/camunda-7-to-8-migration-tooling/releases)
 2. Extract the archive to your preferred directory
 3. Navigate to the extracted directory
 
 ### Option 2: Build from Source
 ```bash
 # Clone the repository
-git clone https://github.com/camunda/camunda-7-to-8-data-migrator.git
-cd camunda-7-to-8-data-migrator
+git clone https://github.com/camunda/camunda-7-to-8-migration-tooling.git
+cd camunda-7-to-8-migration-tooling/data-migrator
 
 # Build the data-migrator module
-cd data-migrator
 mvn clean install -DskipTests
 
 # Navigate to the distribution
@@ -82,8 +81,8 @@ start.bat --help
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/camunda/camunda-7-to-8-data-migrator.git
-   cd camunda-7-to-8-data-migrator/data-migrator
+   git clone https://github.com/camunda/camunda-7-to-8-migration-tooling.git
+   cd camunda-7-to-8-migration-tooling/data-migrator
    ```
 
 2. **Build the project**:

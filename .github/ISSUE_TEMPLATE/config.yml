@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Browse open tickets
-    url: https://github.com/camunda/camunda-7-to-8-data-migrator/issues
+    url: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues
     about: Check if a feature or bug has already been reported.
   - name: User Forum
     url: https://forum.camunda.io/tags/c/camunda-platform-8-topics/40/migration

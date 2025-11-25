@@ -29,12 +29,12 @@ We welcome contributions to the Data Migrator! Here's how you can help:
 4. **Improve documentation** - Help others understand the tool
 5. **Test and provide feedback** - Try the tool and share your experience
 
-See our [issue tracker](https://github.com/camunda/camunda-7-to-8-data-migrator/issues/).
+See our [issue tracker](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/).
 
 ### Before Contributing
 
 1. **Read the [Contributions Guide](https://github.com/camunda/camunda-bpm-platform/blob/master/CONTRIBUTING.md)**
-2. **Check existing issues** to avoid duplicates [link](https://github.com/camunda/camunda-7-to-8-data-migrator/issues/)
+2. **Check existing issues** to avoid duplicates [link](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/)
 3. **Discuss major changes** in an issue before implementing
 
 ### Development Guidelines
