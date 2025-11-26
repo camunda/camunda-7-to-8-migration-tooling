@@ -1,6 +1,6 @@
 {
 	"name": "api-mapping",
-	"homepage": "https://camunda-community-hub.github.io/camunda-7-to-8-code-conversion/",
+	"homepage": "https://camunda.github.io/camunda-7-to-8-migration-tooling/",
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
