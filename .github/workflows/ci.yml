@@ -55,9 +55,10 @@ jobs:
           path: ${{ steps.distro.outputs.dir }}
           retention-days: 7
 
-  postgresql:
+
+  code-conversion:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
@@ -81,37 +82,25 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run tests with PostgreSQL
-        run: mvn verify -Ppostgresql
+      - name: Build code-conversion module
+        working-directory: code-conversion
+        run: mvn verify -PcheckFormat --batch-mode
 
-  oracle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+      - name: Collect code-conversion artifacts
+        id: code-conversion-artifacts
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ARTIFACT_DIR=$(mktemp -d)
+          cp code-conversion/recipes/target/camunda-7-to-8-rewrite-recipes-*.jar "${ARTIFACT_DIR}/"
+          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+      - name: Upload code-conversion artifacts
+        uses: actions/upload-artifact@v5
+        if: github.ref == 'refs/heads/main'
         with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run tests with Oracle
-        run: mvn verify -Poracle
+          name: code-conversion
+          path: ${{ steps.code-conversion-artifacts.outputs.dir }}
+          retention-days: 7
 
   windows-h2:
     runs-on: windows-latest
@@ -144,6 +133,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Build and run default tests
+        working-directory: data-migrator
         run: mvn clean install -Pwindows --batch-mode
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
@@ -152,6 +142,7 @@ jobs:
       - distro-h2
       - postgresql
       - oracle
+      - code-conversion
       - windows-h2
     if: failure() && fromJSON(github.run_attempt) < 3
     runs-on: ubuntu-latest
@@ -169,3 +160,64 @@ jobs:
           vault-addr: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+  postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run tests with PostgreSQL
+        working-directory: data-migrator
+        run: mvn verify -Ppostgresql
+
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run tests with Oracle
+        working-directory: data-migrator
+        run: mvn verify -Poracle
+
