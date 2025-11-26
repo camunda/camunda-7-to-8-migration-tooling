@@ -9,6 +9,7 @@ package io.camunda.migrator.impl.clients;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
+import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
 import static io.camunda.migrator.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migrator.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
@@ -19,6 +20,7 @@ import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PRO
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.CreateTenantCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.response.ActivatedJob;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
+import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -145,6 +148,11 @@ public class C8Client {
     if (deployResourceCmd != null) {
       callApi(deployResourceCmd::execute, FAILED_TO_DEPLOY_C8_RESOURCES + models);
     }
+  }
+
+  public void createTenant(Tenant tenant) {
+    CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
+    callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
 
 }

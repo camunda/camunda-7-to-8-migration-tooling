@@ -25,12 +25,14 @@ public class DbClientLogs {
   public static final String UPDATING_SKIP_REASON = "Updating skip reason for C7 ID [{}] with value [{}]";
   public static final String INSERTING_RECORD = "Inserting record [{}], [{}], [{}], [{}]";
   public static final String FOUND_CREATE_TIME_FOR_TYPE = "Latest create time for {}: {}";
+  public static final String FOUND_LATEST_C7_ID_FOR_TYPE = "Latest migrated C7 ID for {}: {}";
 
   // DbClient Error Messages
   public static final String FAILED_TO_CHECK_EXISTENCE = "Failed to check existence for C7 ID: ";
   public static final String FAILED_TO_CHECK_KEY = "Failed to check key for C7 ID: ";
   public static final String FAILED_TO_FIND_ALL = "Failed to find all C7 IDs";
   public static final String FAILED_TO_FIND_LATEST_CREATE_TIME = "Failed to find latest create time for type: ";
+  public static final String FAILED_TO_FIND_LATEST_C7_ID = "Failed to find latest C7 ID for type: ";
   public static final String FAILED_TO_FIND_KEY_BY_ID = "Failed to find key by C7 ID: ";
   public static final String FAILED_TO_UPDATE_KEY = "Failed to update key for C7 ID: ";
   public static final String FAILED_TO_UPDATE_SKIP_REASON = "Failed to update skip reason for C7 ID: ";
@@ -54,5 +56,9 @@ public class DbClientLogs {
 
   public static void foundLatestCreateTime(Date latestCreateTime, TYPE type) {
     LOGGER.debug(FOUND_CREATE_TIME_FOR_TYPE, type, latestCreateTime);
+  }
+
+  public static void foundLatestIdForType(String c7Id, TYPE type) {
+    LOGGER.debug(FOUND_LATEST_C7_ID_FOR_TYPE, type, c7Id);
   }
 }
