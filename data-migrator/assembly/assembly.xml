@@ -32,7 +32,7 @@
 
   <files>
     <file>
-      <source>${project.parent.basedir}/CAMUNDA-LICENSE-1.0.txt</source>
+      <source>${maven.multiModuleProjectDirectory}/CAMUNDA-LICENSE-1.0.txt</source>
       <outputDirectory/>
       <destName>LICENSE.TXT</destName>
       <filtered>false</filtered>
@@ -75,7 +75,7 @@
       <fileMode>0755</fileMode>
     </file>
     <file>
-      <source>../NOTICE.txt</source>
+      <source>${maven.multiModuleProjectDirectory}/NOTICE.txt</source>
       <filtered>true</filtered>
       <lineEnding>crlf</lineEnding>
       <outputDirectory/>

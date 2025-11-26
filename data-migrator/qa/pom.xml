@@ -4,8 +4,9 @@
 
   <parent>
     <groupId>io.camunda</groupId>
-    <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
+    <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
+    <relativePath>../</relativePath>
   </parent>
 
   <name>Camunda 7 to 8 Data Migrator - QA</name>
