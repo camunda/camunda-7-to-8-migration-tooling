@@ -38,6 +38,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Build and run default tests
+        working-directory: data-migrator
         run: mvn clean install -Dmaven.test.skip --batch-mode
 
       - name: Collect distro
@@ -55,6 +56,54 @@ jobs:
         with:
           name: distro
           path: ${{ steps.distro.outputs.dir }}
+          retention-days: 7
+
+  code-conversion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Build code-conversion module
+        working-directory: code-conversion
+        run: mvn verify -PcheckFormat --batch-mode
+
+      - name: Collect code-conversion artifacts
+        id: code-conversion-artifacts
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ARTIFACT_DIR=$(mktemp -d)
+          cp code-conversion/recipes/target/camunda-7-to-8-rewrite-recipes-*.jar "${ARTIFACT_DIR}/"
+          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Upload code-conversion artifacts
+        uses: actions/upload-artifact@v5
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: code-conversion
+          path: ${{ steps.code-conversion-artifacts.outputs.dir }}
           retention-days: 7
 
   it-postgresql:
@@ -86,6 +135,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run tests with PostgreSQL
+        working-directory: data-migrator
         run: mvn verify -Ppostgresql,integration
 
   it-h2:
@@ -117,6 +167,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run tests with H2
+        working-directory: data-migrator
         run: mvn verify -Pintegration
 
   it-oracle:
@@ -148,6 +199,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run tests with Oracle
+        working-directory: data-migrator
         run: mvn verify -Poracle,integration
 
   it-h2-windows:
@@ -183,6 +235,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Build and run default tests
+        working-directory: data-migrator
         run: mvn clean install -P'windows,integration' --batch-mode
 
   e2e:
@@ -223,6 +276,7 @@ jobs:
           password: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_PSW }}
 
       - name: Run E2E tests via Maven
+        working-directory: data-migrator
         run: mvn clean install -Pe2e -Dmaven.test.skip --batch-mode
         env:
           CI: true
