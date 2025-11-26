@@ -13,6 +13,7 @@ import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_DELETE;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_ALL;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_ALL_SKIPPED;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_KEY_BY_ID;
+import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_C7_ID;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_CREATE_TIME;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_FIND_SKIPPED_COUNT;
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_INSERT_RECORD;
@@ -69,6 +70,15 @@ public class DbClient {
         FAILED_TO_FIND_LATEST_CREATE_TIME + type);
     DbClientLogs.foundLatestCreateTime(latestCreateTime, type);
     return latestCreateTime;
+  }
+
+  /**
+   * Finds the latest migrated ID time by type.
+   */
+  public String findLatestIdByType(TYPE type) {
+    String c7Id = callApi(() -> idKeyMapper.findLatestIdByType(type), FAILED_TO_FIND_LATEST_C7_ID + type);
+    DbClientLogs.foundLatestIdForType(c7Id, type);
+    return c7Id;
   }
 
   /**
