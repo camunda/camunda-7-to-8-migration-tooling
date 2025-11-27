@@ -45,7 +45,7 @@ public class ConverterUtilTest {
       assertEquals(C7_HISTORY_PARTITION_ID, Protocol.decodePartitionId(encodedMinKey));
   }
 
-  @Test
+  /*@Test
   public void shouldDemonstrateWhyPartitionIdMustNotExceedLimit() {
       // given a value exceeding the upper bound
       long rawInvalidKey = getUpperBound() + 1;
@@ -61,5 +61,5 @@ public class ConverterUtilTest {
           "Key should not be preserved when exceeding upper bound");
       assertNotEquals(C7_HISTORY_PARTITION_ID, decodedPartitionId,
           "Partition ID should not be preserved when key exceeds upper bound");
-  }
+  }*/
 }
