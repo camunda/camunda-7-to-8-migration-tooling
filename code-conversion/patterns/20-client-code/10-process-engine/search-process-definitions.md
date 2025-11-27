@@ -13,7 +13,7 @@ The following patterns focus on methods how to search for process definitions in
     }
 ```
 
--   various filter options, for more information, see the [API Mapping WebApp](https://camunda-community-hub.github.io/camunda-7-to-8-code-conversion/)
+-   various filter options, for more information, see the [API Mapping WebApp](https://camunda.github.io/camunda-7-to-8-migration-tooling/)
 
 ## CamundaClient (Camunda 8)
 
