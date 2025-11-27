@@ -8,7 +8,13 @@
 package io.camunda.migrator.qa.util;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -21,7 +27,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
  * JUnit extension that starts Camunda 8 once via Docker Compose before all tests
  * and shares it across all test classes. The container is started only once
  * per test run using a static block.
- * 
+ *
  * This extension sets up system properties to configure the Camunda Process Test
  * library to use REMOTE mode with the shared C8 instance.
  */
@@ -49,18 +55,11 @@ public class Camunda8DockerComposeExtension implements BeforeAllCallback {
         return;
       }
 
-      URL resource = Camunda8DockerComposeExtension.class.getClassLoader()
-          .getResource("docker-compose/docker-compose-c8.yml");
-
-      if (resource == null) {
-        throw new IllegalStateException("Docker Compose file not found: docker-compose/docker-compose-c8.yml");
-      }
-
-      String dockerComposeFile = resource.getFile();
+      File dockerComposeFile = getDockerComposeFile();
 
       LOGGER.info("Starting Camunda 8 via Docker Compose from: {}", dockerComposeFile);
 
-      container = new ComposeContainer(new File(dockerComposeFile))
+      container = new ComposeContainer(dockerComposeFile)
           .withExposedService(CAMUNDA8_SERVICE, CAMUNDA8_GRPC_PORT,
               Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(3)))
           .withExposedService(CAMUNDA8_SERVICE, CAMUNDA8_REST_PORT,
@@ -95,6 +94,38 @@ public class Camunda8DockerComposeExtension implements BeforeAllCallback {
           container.stop();
         }
       }));
+    }
+  }
+
+  private static File getDockerComposeFile() {
+    String resourcePath = "docker-compose/docker-compose-c8.yml";
+    URL resource = Camunda8DockerComposeExtension.class.getClassLoader().getResource(resourcePath);
+
+    if (resource == null) {
+      throw new IllegalStateException("Docker Compose file not found: " + resourcePath);
+    }
+
+    // Try to get the file directly if it's on the file system
+    if ("file".equals(resource.getProtocol())) {
+      try {
+        return new File(resource.toURI());
+      } catch (URISyntaxException e) {
+        throw new IllegalStateException("Failed to get Docker Compose file from URI: " + resource, e);
+      }
+    }
+
+    // If resource is inside a JAR, copy it to a temporary file
+    try (InputStream inputStream = Camunda8DockerComposeExtension.class.getClassLoader()
+        .getResourceAsStream(resourcePath)) {
+      if (inputStream == null) {
+        throw new IllegalStateException("Could not read Docker Compose file: " + resourcePath);
+      }
+      Path tempFile = Files.createTempFile("docker-compose-c8", ".yml");
+      Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+      tempFile.toFile().deleteOnExit();
+      return tempFile.toFile();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to copy Docker Compose file to temp location", e);
     }
   }
 
