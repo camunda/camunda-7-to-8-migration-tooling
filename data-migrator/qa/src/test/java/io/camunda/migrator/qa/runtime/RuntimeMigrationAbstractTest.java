@@ -40,7 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @WithSharedCamunda8
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(RuntimeMigrationAbstractTest.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(RuntimeMigrationAbstractTest.class);
 
   // Migrator ---------------------------------------
 
@@ -75,30 +75,27 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     ClockUtil.reset();
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
-    // C8 - Delete process instances first
+    // C8 - Cancel all active process instances first
     List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
     for (ProcessInstance i : items) {
       try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-      } catch (io.camunda.client.api.command.ClientStatusException e) {
-        if (!e.getMessage().contains("NOT_FOUND")) {
-          throw e;
-        }
-        // Ignore NOT_FOUND errors as the instance might have been deleted already
+        camundaClient.newCancelInstanceCommand(i.getProcessInstanceKey()).execute();
+      } catch (Exception e) {
+        // Ignore errors as the instance might already be completed/cancelled
+        LOGGER.debug("Failed to cancel process instance {}: {}", i.getProcessInstanceKey(), e.getMessage());
       }
     }
 
-    // C8 - Delete all deployments (process definitions)
+    // C8 - Delete all process definitions (resources)
+    // Note: This can only succeed if all process instances are cancelled/completed
     try {
       List<ProcessDefinition> definitions = camundaClient.newProcessDefinitionSearchRequest().execute().items();
       for (ProcessDefinition def : definitions) {
         try {
-          camundaClient.newDeleteResourceCommand(def.getProcessDefinitionKey()).execute();
-        } catch (io.camunda.client.api.command.ClientStatusException e) {
-          if (!e.getMessage().contains("NOT_FOUND") && !e.getMessage().contains("FAILED_PRECONDITION")) {
-            LOGGER.warn("Failed to delete process definition {}: {}", def.getProcessDefinitionKey(), e.getMessage());
-          }
-          // Ignore NOT_FOUND and FAILED_PRECONDITION errors
+          camundaClient.newDeleteResourceCommand(def.getProcessDefinitionKey()).send().join();
+        } catch (Exception e) {
+          // Log but don't fail - shared test environment may have constraints
+          LOGGER.debug("Failed to delete process definition {}: {}", def.getProcessDefinitionKey(), e.getMessage());
         }
       }
     } catch (Exception e) {

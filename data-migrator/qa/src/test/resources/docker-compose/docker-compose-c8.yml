@@ -1,7 +1,6 @@
 services:
   camunda8:
     image: camunda/camunda:8.9.0-alpha1
-    container_name: camunda8-test
     ports:
       - "26500:26500"
       - "9600:9600"
@@ -15,9 +14,7 @@ services:
       timeout: 5s
     volumes:
       - zeebe:/usr/local/zeebe/data
-    configs:
-      - source: camunda8-config
-        target: /usr/local/camunda/config/application.yaml
+      - ./camunda8-application.yaml:/usr/local/camunda/config/application.yaml:ro
     networks:
       - c8-test-network
     depends_on:
@@ -26,7 +23,6 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
-    container_name: elasticsearch-test
     ports:
       - "9200:9200"
       - "9300:9300"
@@ -49,35 +45,6 @@ services:
     networks:
       - c8-test-network
 
-configs:
-  camunda8-config:
-    content: |
-      management.endpoints.configprops.show-values: always
-      camunda:
-        system:
-          cpu-thread-count: "3"
-          io-thread-count: "3"
-        security:
-          authentication:
-            method: "basic"
-            unprotectedApi: true
-          authorizations:
-            enabled: false
-          initialization:
-            users:
-              - username: "demo"
-                password: "demo"
-                name: "Demo User"
-                email: "demo@demo.com"
-            defaultRoles.admin.users:
-              - "demo"
-        database.index.numberOfReplicas: 0
-        data:
-          secondary-storage:
-            type: elasticsearch
-            elasticsearch:
-              cluster-name: elasticsearch
-              url: "http://elasticsearch:9200"
 
 volumes:
   zeebe:
