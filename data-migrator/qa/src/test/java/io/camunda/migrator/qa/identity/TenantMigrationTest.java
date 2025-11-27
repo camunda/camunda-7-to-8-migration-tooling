@@ -44,9 +44,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 4);
     var tenants = request.execute().items();
-    assertThat(tenants)
-        .extracting(Tenant::getTenantId, Tenant::getName)
-        .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
+    assertThatTenantsMatch(expectedTenants, tenants);
   }
 
   @Test
@@ -65,7 +63,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
-    assertTenantsMatch(expectedTenants, tenants);
+    assertThatTenantsMatch(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
     assertThat(idKeyMapper.countSkippedByType(IdKeyMapper.TYPE.TENANT)).isEqualTo(1);
@@ -73,7 +71,31 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     assertThat(skipped.getC7Id()).isEqualTo(tenant2.getId());
   }
 
-  private static void assertTenantsMatch(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<Tenant> tenants) {
+  @Test
+  public void shouldMigrateOnlyNonPreviouslyMigratedTenants() {
+    // given 3 tenants in c7 but one was is already marked as migrated
+    var tenant1 = createTenant("tenantId1", "tenantName1");
+    var tenant2 = createTenant("tenantId2", "tenantName2");
+    var tenant3 = createTenant("tenantId3", "tenantName3");
+    dbClient.insert(tenant1.getId(), 1L, IdKeyMapper.TYPE.TENANT);
+    var expectedTenants = List.of(tenant2, tenant3);
+
+    // when migrating
+    identityMigrator.migrate();
+
+    // then c8 has default tenant + the 2 migrated ones
+    TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
+    await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
+    var tenants = request.execute().items();
+    assertThatTenantsMatch(expectedTenants, tenants);
+  }
+
+  /**
+   * Compares a list of {@link org.camunda.bpm.engine.identity.Tenant}
+   * and a list of {@link io.camunda.client.api.search.response.Tenant}
+   * by checking that all elements have matching tenantId and name
+   */
+  private static void assertThatTenantsMatch(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<Tenant> tenants) {
     assertThat(tenants)
         .extracting(Tenant::getTenantId, Tenant::getName)
         .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
