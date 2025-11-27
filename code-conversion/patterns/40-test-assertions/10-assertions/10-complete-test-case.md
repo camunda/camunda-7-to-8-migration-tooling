@@ -20,7 +20,7 @@ The test cases starts a process instance and either wait for a user task or a ti
 
 ## Camunda 7 
 
-[View full source code](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/main/examples/process-solution-camunda-7/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
+[View full source code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/examples/process-solution-camunda-7/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
 
 ```java
 import org.junit.jupiter.api.Test;
@@ -79,7 +79,7 @@ public class ApplicationTest {
 
 Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
 
- [View full source code](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/main/examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
+ [View full source code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
 
 ```java
 import org.junit.jupiter.api.Test;
