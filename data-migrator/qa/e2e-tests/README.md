@@ -92,7 +92,13 @@ npm run test:debug       # Debug mode
    - Only after migration completes, tests are allowed to start
    - This ensures the database is fully populated before any test runs
 
-3. **Playwright Tests:**
+3. **Automatic Cleanup:**
+   - **`global-teardown.ts`** (Playwright global teardown hook) runs after all tests complete
+   - Stops and removes all Docker Compose containers, networks, and volumes
+   - Ensures clean environment for subsequent test runs
+   - Always executes, even if tests fail
+
+4. **Playwright Tests:**
    - Tests navigate to the Cockpit, login, and interact with the plugin UI
    - Validates plugin behavior with actual migrated/skipped entities
    - Screenshots are captured for verification and debugging
@@ -105,15 +111,18 @@ bash start-services.sh &
 # Wait for migration message in logs, then:
 npm test
 
-# Cleanup
-docker compose down -v
+# Cleanup (automatically done by global-teardown.ts, but can be run manually)
+bash stop-services.sh
+# Or directly: docker compose down -v
 ```
 
 ## Test Structure
 
 - `docker-compose.yml` - Complete test stack with Camunda 7, Camunda 8 Run, and Data Migrator
 - `start-services.sh` - Helper script to start services and wait for migration completion
+- `stop-services.sh` - Helper script to manually stop and clean up Docker Compose services
 - `global-setup.ts` - Playwright global setup that waits for migration before tests start
+- `global-teardown.ts` - Playwright global teardown that stops Docker Compose after tests complete
 - `playwright.config.ts` - Playwright configuration with webServer and globalSetup
 - `tests/cockpit-plugin.spec.ts` - Main E2E test suite
 

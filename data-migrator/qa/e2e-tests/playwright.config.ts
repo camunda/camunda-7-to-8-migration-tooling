@@ -53,4 +53,7 @@ export default defineConfig({
 
   /* Global setup to ensure migration is complete before tests start */
   globalSetup: require.resolve('./global-setup.ts'),
+
+  /* Global teardown to stop Docker Compose after tests complete */
+  globalTeardown: require.resolve('./global-teardown.ts'),
 });
