@@ -1,0 +1,55 @@
+services:
+  camunda8:
+    image: camunda/camunda:8.9.0-alpha1
+    ports:
+      - "26500:26500"
+      - "9600:9600"
+      - "8080:8080"
+    restart: "no"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9600/actuator/health/status || exit 1" ]
+      interval: 5s
+      retries: 30
+      start_period: 60s
+      timeout: 5s
+    volumes:
+      - zeebe:/usr/local/zeebe/data
+      - ./camunda8-application.yaml:/usr/local/camunda/config/application.yaml:ro
+    networks:
+      - c8-test-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      # allow running with low disk space
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      # Disable noisy deprecation logs
+      - logger.org.elasticsearch.deprecation="OFF"
+    restart: "no"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9200/_cat/health | grep -q green" ]
+      interval: 5s
+      retries: 30
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - elastic:/usr/share/elasticsearch/data
+    networks:
+      - c8-test-network
+
+
+volumes:
+  zeebe:
+  elastic:
+
+networks:
+  c8-test-network:
+    driver: bridge
