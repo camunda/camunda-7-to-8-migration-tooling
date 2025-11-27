@@ -1,60 +1,38 @@
 # E2E Tests for Cockpit Plugin
 
-This directory contains end-to-end tests for the Camunda 7 to 8 Data Migrator Cockpit Plugin using Playwright.
+End-to-end tests for the Camunda 7 to 8 Data Migrator Cockpit Plugin using Playwright.
 
 ## Overview
 
-These tests validate that:
-- Camunda 7 starts successfully with the plugin deployed
-- The Cockpit UI is accessible
-- The plugin UI is visible on the processes dashboard
-- The plugin can interact with the UI to display migrated/skipped entities
+These tests validate that the Cockpit plugin loads correctly and can display migrated/skipped entities from the data migrator.
 
 ## Prerequisites
 
-- Node.js 18+ and npm
 - Docker and Docker Compose
-- Built Cockpit plugin JAR and distribution
+- Java 21+ (for Maven build)
+- Node.js 18+ (installed automatically by Maven)
 
 ## Version Management
 
-All component versions (Camunda 7, Camunda 8, Elasticsearch, Project version) are managed in the **root `pom.xml`** and automatically resolved via **Maven resource filtering** applied directly to the `docker-compose.yml` file.
+The `docker-compose.yml` file is **generated from a template** during the Maven build.
 
-The `docker-compose.yml` is generated from a template during the Maven build process:
-- Source: `src/main/resources/docker-compose.yml.template`
-- Generated: `docker-compose.yml` (git-ignored, filtered with actual versions)
-- Maven properties used:
-  - `${version.camunda-7}` - Camunda 7 version
-  - `${version.camunda-8}` - Camunda 8 version
-  - `${version.elasticsearch}` - Elasticsearch version
-  - `${project.version}` - Project version for JAR/ZIP paths
+- **Template**: `src/main/resources/docker-compose.yml.template`
+- **Generated**: `docker-compose.yml` (git-ignored, contains actual versions)
 
-This ensures consistency between Maven builds and Docker containers with direct property substitution, no intermediate `.env` file needed.
+Maven automatically substitutes these properties from the root `pom.xml`:
+- `${version.camunda-7}` → Camunda 7 version
+- `${version.camunda-8}` → Camunda 8 version  
+- `${version.elasticsearch}` → Elasticsearch version
+- `${project.version}` → Project version for JAR/ZIP paths
 
-## Module Structure
-
-The E2E tests are now a proper Maven module under `qa/`:
-
-```
-qa/
-├── pom.xml                    # Parent POM
-├── integration-tests/         # Java integration tests
-│   ├── pom.xml
-│   └── src/
-└── e2e-tests/                 # This module - Playwright E2E tests
-    ├── pom.xml
-    ├── src/main/resources/
-    │   └── .env.template
-    ├── tests/
-    └── docker-compose.yml
-```
+This ensures all components use consistent, up-to-date versions without manual coordination.
 
 ## Setup
 
 1. **Build the project from root:**
    ```bash
    cd ../..
-   mvn clean install
+   mvn clean install -DskipTests
    ```
 
 2. **Or build just the E2E tests module:**
@@ -80,44 +58,21 @@ This will:
 
 ### Via npm (Manual)
 ```bash
-cd qa/e2e-tests
-# Ensure docker-compose.yml exists (run: mvn process-resources)
+# Ensure docker-compose.yml exists first
+mvn process-resources
+
+# Run all tests (Chromium, Firefox, Edge)
 npm test
-```
 
-This will run all tests across three browsers:
-- **Chromium** (Chrome-based)
-- **Firefox**
-- **Microsoft Edge**
-
-### Run tests on a specific browser
-```bash
-# Run only on Chromium
+# Run specific browser (options: chromium, firefox, edge)
 npx playwright test --project=chromium
 
-# Run only on Firefox
-npx playwright test --project=firefox
-
-# Run only on Edge
-npx playwright test --project=edge
-```
-
-### Run tests with UI mode (interactive)
-```bash
-npm run test:ui
-```
-
-### Run tests in headed mode (see the browser)
-```bash
-npm run test:headed
-
-# Or for a specific browser
+# Development modes
+npm run test:ui          # Interactive UI mode
+npm run test:headed      # See browser windows
 npx playwright test --project=firefox --headed
-```
 
-### Run tests in debug mode
-```bash
-npm run test:debug
+npm run test:debug       # Debug mode
 ```
 
 ## How It Works
@@ -141,9 +96,6 @@ npm run test:debug
    - Tests navigate to the Cockpit, login, and interact with the plugin UI
    - Validates plugin behavior with actual migrated/skipped entities
    - Screenshots are captured for verification and debugging
-
-**Why the wait is important:**
-The migration process can take 30-60 seconds to complete. Without waiting, tests would run against an empty database and fail. The global setup ensures tests always have the required test data.
 
 **Manual approach:**
 ```bash
@@ -178,17 +130,15 @@ The test suite includes:
 ## Troubleshooting
 
 ### Tests fail with "Connection refused"
-- Ensure Docker is running
-- Check that port 8080 is not already in use
+- Ensure Docker is running and ports 8090 are free
 - Increase the timeout in `playwright.config.ts`
 
 ### Plugin not found error
-- Verify the plugin JAR exists at `../../plugins/cockpit/target/`
 - Build the plugin with `mvn clean install -pl plugins/cockpit`
 
 ### Camunda takes too long to start
-- Increase `webServer.timeout` in `playwright.config.ts`
-- Check Docker logs: `docker compose logs -f`
+- Migration can take up to 5 minutes on slower systems
+- Increase `webServer.timeout` in `playwright.config.ts` if needed
 
 ### docker-compose command not found
 - The tests use Docker Compose V2 (`docker compose` with a space)
