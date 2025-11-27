@@ -313,6 +313,30 @@ public class DistributionSmokeTest {
 
   @Test
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldIgnoreHiddenFiles() throws Exception {
+    // given
+    Path resourcesDir = extractedDistributionPath.resolve("configuration/resources");
+    Files.createDirectories(resourcesDir);
+
+    // Read the existing configuration file and set auto-dll to true
+    replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+
+    String hiddenFileContent = "foo";
+    Path hiddenFile = resourcesDir.resolve(".hiddenFile");
+    Files.write(hiddenFile, hiddenFileContent.getBytes());
+
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+
+    // when
+    process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+    assertThat(output).doesNotContain(FAILED_TO_DEPLOY_C8_RESOURCES);
+  }
+
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldApplyConfigurationChanges() throws Exception {
     // given
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
@@ -339,7 +363,7 @@ public class DistributionSmokeTest {
     assertThat(output).contains("ENGINE-03057 There are no Camunda tables in the database.");
   }
 
-  private void replaceConfigProperty(String before, String after) throws IOException {
+  protected void replaceConfigProperty(String before, String after) throws IOException {
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
     String originalConfig = Files.readString(configFile);
     String modifiedConfig = originalConfig.replace(before, after);

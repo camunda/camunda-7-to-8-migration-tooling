@@ -48,13 +48,13 @@ public class SkippedEntitiesLogParserUtils {
         return result;
     }
 
-    private static String extractRelevantOutput(String output) {
+    protected static String extractRelevantOutput(String output) {
         Pattern startPattern = Pattern.compile("(Previously skipped \\[[^\\]]+\\]:|No entities of type \\[[^\\]]+\\] were skipped during previous migration)");
         Matcher matcher = startPattern.matcher(output);
         return matcher.find() ? output.substring(matcher.start()) : "";
     }
 
-    private static List<EntitySection> extractEntitySections(String output) {
+    protected static List<EntitySection> extractEntitySections(String output) {
         List<EntitySection> sections = new ArrayList<>();
         Pattern headerPattern = Pattern.compile("(Previously skipped \\[([^\\]]+)\\]:|No entities of type \\[([^\\]]+)\\] were skipped during previous migration)");
         Matcher matcher = headerPattern.matcher(output);
@@ -86,7 +86,7 @@ public class SkippedEntitiesLogParserUtils {
         return sections;
     }
 
-    private static List<String> extractEntityIds(String sectionContent) {
+    protected static List<String> extractEntityIds(String sectionContent) {
         if (sectionContent.isEmpty()) {
             return new ArrayList<>();
         }
@@ -101,7 +101,7 @@ public class SkippedEntitiesLogParserUtils {
      * Checks if a line is a log message that should be filtered out in CI environments.
      * This is necessary because CI may output debug/info logs mixed with actual entity IDs.
      */
-    private static boolean isLogLine(String line) {
+    protected static boolean isLogLine(String line) {
         return line.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z.*") || // ISO timestamp
                line.matches(".*(DEBUG|INFO|WARN|ERROR).*") || // Log levels
                line.matches(".*(==>|<==|Preparing:|Parameters:|Total:).*"); // SQL logging patterns
@@ -110,7 +110,7 @@ public class SkippedEntitiesLogParserUtils {
     /**
      * Internal class to hold entity section information during parsing.
      */
-    private static class EntitySection {
+    protected static class EntitySection {
         final String entityType;
         final String content;
 

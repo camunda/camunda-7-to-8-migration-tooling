@@ -11,12 +11,11 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureNotNull;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.stream.Stream;
+import org.assertj.core.api.Assertions;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
@@ -32,13 +31,13 @@ import io.camunda.process.test.api.CamundaAssert;
 public class TaskMigrationTest extends AbstractElementMigrationTest {
 
   @Autowired
-  private RuntimeService runtimeService;
+  protected RuntimeService runtimeService;
 
   @Autowired
   protected CamundaClient camundaClient;
 
   @Test
-  public void migrateUserTaskInstance() {
+  public void shouldMigrateUserTaskInstance() {
     // given
     deployer.deployProcessInC7AndC8("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
@@ -52,33 +51,33 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
 
   @Test
   public void shouldMigrateSecondUserTask() {
-    // deploy processes
+    // given
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-
-    // given process state in c7
     var simpleProcess = runtimeService.startProcessInstanceByKey("simpleProcess");
     Task task1 = taskService.createTaskQuery().taskDefinitionKey("userTask1").singleResult();
     taskService.complete(task1.getId());
     Task task2 = taskService.createTaskQuery().taskDefinitionKey("userTask2").singleResult();
-    ensureNotNull("Unexpected process state: userTask2 should exist", task2);
-    ensureTrue("Unexpected process state: userTask2 should be 'created'", "created".equalsIgnoreCase(task2.getTaskState()));
+    Assertions.assertThat(task2)
+        .as("Unexpected process state: userTask2 should exist")
+        .isNotNull();
+    Assertions.assertThat(task2.getTaskState())
+        .as("Unexpected process state: userTask2 should be 'created'")
+        .isEqualToIgnoringCase("created");
 
-    // when running runtime migration
+    // when
     runtimeMigrator.start();
 
-    // then there is one expected process instance
+    // then
     List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
     assertEquals(1, processInstances.size());
     ProcessInstance processInstance = processInstances.getFirst();
     assertEquals(simpleProcess.getProcessDefinitionKey(), processInstance.getProcessDefinitionId());
 
-    // and the process instance has expected state
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .isActive()
         .hasActiveElements(byId("userTask2"))
         .hasVariable("legacyId", simpleProcess.getProcessInstanceId());
 
-    // and the user task has expected state
     CamundaAssert.assertThat(byTaskName("User Task 2"))
         .isCreated()
         .hasElementId("userTask2")

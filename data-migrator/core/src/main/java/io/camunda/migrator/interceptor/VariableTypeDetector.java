@@ -24,7 +24,7 @@ import org.camunda.spin.plugin.variable.value.SpinValue;
  */
 public final class VariableTypeDetector {
 
-    private VariableTypeDetector() {
+    protected VariableTypeDetector() {
         // Utility class - prevent instantiation
     }
 
