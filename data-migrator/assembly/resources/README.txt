@@ -3,13 +3,13 @@ This is a distribution of
        Camunda 7 to 8 Data Migrator v${project.version}
 
 visit
-       https://github.com/camunda/camunda-7-to-8-data-migrator/blob/main/README.md
+       https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/README.md
 
 ==================
 
 Usage
 
-Before running the migrator, some setup steps are required for both Camunda 7 and Camunda 8. Please refer to the [project README](https://github.com/camunda/camunda-7-to-8-data-migrator/blob/main/README.md) for details.
+Before running the migrator, some setup steps are required for both Camunda 7 and Camunda 8. Please refer to the [project README](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/data-migrator/README.md) for details.
 To run the Data Migrator:
 
 1. Adjust `./configuration/application.yml`  
