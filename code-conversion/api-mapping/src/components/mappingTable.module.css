@@ -1,0 +1,31 @@
+.headers th:first-child {
+	width: 30%;
+}
+
+.headers th:nth-child(2) {
+	width: 25%;
+}
+
+.headers th:last-child {
+	width: 45%;
+}
+
+.headers > th {
+	align-content: center;
+}
+
+.green {
+	background-color: rgba(0, 255, 0, 0.2);
+}
+
+.red {
+	background-color: rgba(255, 0, 0, 0.3);
+}
+
+.grey {
+	background-color: rgba(0, 0, 0, 0.1);
+}
+
+.orange {
+	background-color: rgba(255, 128, 0, 0.4);
+}

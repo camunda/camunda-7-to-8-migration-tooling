@@ -1,0 +1,23 @@
+.filterContainer {
+	width: 100%;
+}
+
+.filters {
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+}
+
+.stableFilters {
+	display: flex;
+	gap: 2rem;
+}
+
+.filterByText {
+	width: 15rem;
+}
+
+.checkboxFilters {
+	display: flex;
+	flex-direction: column;
+}

@@ -1,0 +1,10 @@
+.buttonHidden {
+	display: none;
+}
+
+.buttonToTop {
+	display: block;
+	position: fixed;
+	bottom: 5%;
+	left: 90%;
+}

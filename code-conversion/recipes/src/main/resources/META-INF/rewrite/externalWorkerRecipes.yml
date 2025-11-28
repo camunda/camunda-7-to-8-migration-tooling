@@ -1,0 +1,35 @@
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllExternalWorkerPrepareRecipes
+displayName: Runs all external worker prepare recipes
+description: Injects job worker and migrate typed value API.
+recipeList:
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: spring-boot-starter-camunda-sdk
+      version: 8.8.0-alpha4.1
+  - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
+  - org.camunda.migration.rewrite.recipes.external.PrepareJobWorkerBeneathExternalWorkerRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllExternalWorkerMigrateRecipes
+displayName: Runs all external worker migration recipes
+description: Migrates external worker methods to job worker methods.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.external.MigrateExternalWorkerRecipe
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllExternalWorkerCleanupRecipes
+displayName: Runs all external worker cleanup recipes
+description: Removes external worker code and unused imports.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.external.CleanupExternalWorkerRecipe
+  - org.openrewrite.java.RemoveUnusedImports
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.camunda.migration.rewrite.recipes.AllExternalWorkerRecipes
+displayName: Runs all external worker recipes in order
+description: Migrates external worker to job worker.
+recipeList:
+  - org.camunda.migration.rewrite.recipes.AllExternalWorkerPrepareRecipes
+  - org.camunda.migration.rewrite.recipes.AllExternalWorkerMigrateRecipes
+  - org.camunda.migration.rewrite.recipes.AllExternalWorkerCleanupRecipes
