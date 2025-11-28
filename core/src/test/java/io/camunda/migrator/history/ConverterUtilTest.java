@@ -13,8 +13,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.camunda.migrator.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migrator.impl.util.ConverterUtil.getUpperBound;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class ConverterUtilTest {
 
@@ -46,20 +47,20 @@ public class ConverterUtilTest {
   }
 
   @Test
-  public void shouldDemonstrateWhyPartitionIdMustNotExceedLimit() {
+  public void shouldThrowExceptionWhenKeyExceedsUpperBound() {
       // given a value exceeding the upper bound
       long rawInvalidKey = getUpperBound() + 1;
 
-      // when
-      long encodedInvalidKey = Protocol.encodePartitionId(C7_HISTORY_PARTITION_ID, rawInvalidKey);
+      // when/then
+      assertThat(rawInvalidKey)
+          .withFailMessage("Expected key to exceed upper bound")
+          .isGreaterThan(getUpperBound());
 
-      // then both the key and partition ID are corrupted during encoding/decoding
-      long decodedKey = Protocol.decodeKeyInPartition(encodedInvalidKey);
-      int decodedPartitionId = Protocol.decodePartitionId(encodedInvalidKey);
-
-      assertNotEquals(rawInvalidKey, decodedKey,
-          "Key should not be preserved when exceeding upper bound");
-      assertNotEquals(C7_HISTORY_PARTITION_ID, decodedPartitionId,
-          "Partition ID should not be preserved when key exceeds upper bound");
+      assertThat(
+          assertThrows(
+              IllegalArgumentException.class,
+              () -> Protocol.encodePartitionId(C7_HISTORY_PARTITION_ID, rawInvalidKey)
+          )
+      ).hasMessageContaining("Expected that the provided value is smaller");
   }
 }
