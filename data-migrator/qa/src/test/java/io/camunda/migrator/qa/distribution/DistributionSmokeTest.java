@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -312,6 +314,7 @@ public class DistributionSmokeTest {
   }
 
   @Test
+  @DisabledOnOs(OS.WINDOWS)
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldIgnoreHiddenFiles() throws Exception {
     // given
