@@ -39,7 +39,7 @@
     <version.npm>10.8.2</version.npm>
     <plugin.version.compiler>3.14.1</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
-    <plugin.version.frontend-maven>1.15.1</plugin.version.frontend-maven>
+    <plugin.version.frontend-maven>1.15.4</plugin.version.frontend-maven>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
