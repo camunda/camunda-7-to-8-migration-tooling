@@ -35,10 +35,10 @@ import org.springframework.stereotype.Service;
 public class VariableService {
 
   @Autowired
-  private C7Client c7Client;
+  protected C7Client c7Client;
 
   @Autowired
-  private C8Client c8Client;
+  protected C8Client c8Client;
 
   @Autowired(required = false)
   protected List<VariableInterceptor> configuredVariableInterceptors;
@@ -105,7 +105,7 @@ public class VariableService {
    *
    * @return true if interceptors are configured, false otherwise
    */
-  private boolean hasInterceptors() {
+  protected boolean hasInterceptors() {
     return configuredVariableInterceptors != null && !configuredVariableInterceptors.isEmpty();
   }
 
@@ -159,7 +159,7 @@ public class VariableService {
    * @param variableInvocation the variable invocation to process
    * @throws VariableInterceptorException if any interceptor fails
    */
-  private void executeInterceptors(VariableInvocation variableInvocation) {
+  protected void executeInterceptors(VariableInvocation variableInvocation) {
     if (hasInterceptors()) {
       for (VariableInterceptor interceptor : configuredVariableInterceptors) {
         // Only execute interceptors that support this variable type using Camunda's native types

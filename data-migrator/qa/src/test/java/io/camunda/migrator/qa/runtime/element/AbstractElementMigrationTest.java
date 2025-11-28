@@ -63,7 +63,7 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
   }
 
   /**
-   * Test cases for elements with a natural wait state in C7 and C8.
+   * Test cases for elements with a real-world wait state in C7 and C8.
    * Post migration we expect an active process instance in the same element.
    *
    * @return Stream of 3 String arguments: processFile, processId, elementId
@@ -82,11 +82,11 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     return Stream.empty();
   }
 
-  private boolean hasScenarios_activeElementPostMigration(){
+  protected boolean hasScenarios_activeElementPostMigration(){
     return elementScenarios_activeElementPostMigration().findAny().isPresent();
   }
 
-  private boolean hasScenarios_completedElementPostMigration(){
+  protected boolean hasScenarios_completedElementPostMigration(){
     return elementScenarios_completedElementPostMigration().findAny().isPresent();
   }
 }

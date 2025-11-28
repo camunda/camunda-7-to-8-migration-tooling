@@ -30,7 +30,7 @@ import org.junit.Test;
 
 public class MigratorResourceTest extends AbstractCockpitPluginTest {
 
-  private MigratorResource resource;
+  protected MigratorResource resource;
 
   @Before
   public void setUp() throws Exception {
@@ -128,7 +128,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     assertThat(skippedInstances.size()).isEqualTo(0);
   }
 
-  private void assertIdKeyDbModelListsEqual(List<IdKeyDbModel> expected, List<IdKeyDbModel> actual) {
+  protected void assertIdKeyDbModelListsEqual(List<IdKeyDbModel> expected, List<IdKeyDbModel> actual) {
     assertThat(actual).isNotNull();
     assertThat(expected).isNotNull();
     assertThat(actual.size()).isEqualTo(expected.size());
@@ -157,7 +157,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     }
   }
 
-  private IdKeyDbModel createExpectedMigratedModel(String c7Id) {
+  protected IdKeyDbModel createExpectedMigratedModel(String c7Id) {
     IdKeyDbModel model = new IdKeyDbModel();
     model.setC7Id(c7Id);
     model.setC8Key(getNextKey());
@@ -165,14 +165,14 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     return model;
   }
 
-  private IdKeyDbModel createExpectedSkippedModel(String c7Id, String skipReason) {
+  protected IdKeyDbModel createExpectedSkippedModel(String c7Id, String skipReason) {
     IdKeyDbModel model = createExpectedMigratedModel(c7Id);
     model.setSkipReason(skipReason);
     model.setC8Key(null);
     return model;
   }
 
-  private static void insertTestData(IdKeyDbModel idKeyDbModel) {
+  protected static void insertTestData(IdKeyDbModel idKeyDbModel) {
     try (Connection conn = DriverManager.getConnection(
         "jdbc:h2:mem:default-process-engine;DB_CLOSE_DELAY=-1", "sa", "")) {
       String insertSql = "INSERT INTO MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON) VALUES (?, ?, ?, ?, ?)";
@@ -193,7 +193,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     }
   }
 
-  private void runLiquibaseMigrations() throws Exception {
+  protected void runLiquibaseMigrations() throws Exception {
     try (Connection conn = DriverManager.getConnection(
         "jdbc:h2:mem:default-process-engine;DB_CLOSE_DELAY=-1", "sa", "")) {
 

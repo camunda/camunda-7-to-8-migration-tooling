@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  * Contains all log messages and string constants used in VariableConverter.
  */
 public class VariableConverterLogs {
-  private static final Logger LOGGER = LoggerFactory.getLogger(VariableConverter.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(VariableConverter.class);
 
   // VariableConverter Messages
   public static final String CONVERTING_OF_TYPE = "Converting variable with C7 ID [{}] of type: {}";

@@ -14,12 +14,12 @@ import org.slf4j.LoggerFactory;
 
 public class ComplexInterceptor implements VariableInterceptor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ComplexInterceptor.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(ComplexInterceptor.class);
 
   // Configurable properties that can be set declaratively
-  private String logMessage = "Hello from declarative interceptor configured via properties";
-  private boolean enableTransformation = true;
-  private String targetVariable = "var";
+  protected String logMessage = "Hello from declarative interceptor configured via properties";
+  protected boolean enableTransformation = true;
+  protected String targetVariable = "var";
 
   @Override
   public void execute(VariableInvocation invocation) {

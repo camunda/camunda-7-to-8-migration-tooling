@@ -10,6 +10,7 @@ package io.camunda.migrator;
 import static io.camunda.migrator.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migrator.MigratorMode.MIGRATE;
 import static io.camunda.migrator.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.ENABLE_DEBUG_LOGGING;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE;
 

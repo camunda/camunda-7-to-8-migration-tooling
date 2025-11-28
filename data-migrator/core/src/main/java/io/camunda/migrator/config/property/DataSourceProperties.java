@@ -11,9 +11,9 @@ import com.zaxxer.hikari.HikariConfig;
 
 public class DataSourceProperties extends HikariConfig {
 
-  private Boolean autoDdl;
-  private String tablePrefix;
-  private String vendor;
+  protected Boolean autoDdl;
+  protected String tablePrefix;
+  protected String vendor;
 
   public Boolean getAutoDdl() {
     return autoDdl;

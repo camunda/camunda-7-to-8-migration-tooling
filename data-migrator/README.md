@@ -114,6 +114,51 @@ mvn test
 
 # Integration tests only
 mvn integration-test
+
+# Architecture tests (enforce testing best practices)
+mvn test -Dtest=ArchitectureTest
+```
+
+### Testing Guidelines
+
+We follow a **black-box testing approach** where tests verify behavior through observable outputs rather than internal implementation details. 
+
+**Key Principles:**
+- ✅ Use `LogCapturer` to verify skip reasons and behavior via logs
+- ✅ Use C8 API queries to verify successful migrations
+- ✅ Create real-world skip scenarios (e.g., migrate children without parents)
+- ❌ Don't access `DbClient` or `IdKeyMapper` in tests
+- ❌ Don't manipulate internal database state
+
+**Architecture Enforcement:**
+The `ArchitectureTest` class automatically enforces code quality and testing best practices:
+- Prevents access to internal implementation (`..impl..` package) from tests
+- Enforces visibility rules (no private methods/fields/constructors in production code)
+- Ensures proper package organization and naming conventions
+- Validates logging patterns and test structure
+
+**Documentation:**
+- 📖 **[docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md)** - Comprehensive testing guide with examples
+- 📋 **[docs/CODE_REVIEW_CHECKLIST.md](docs/CODE_REVIEW_CHECKLIST.md)** - Checklist for code reviewers
+- 🏛️ **[docs/ARCHITECTURE_RULES.md](docs/ARCHITECTURE_RULES.md)** - Enforced architectural constraints
+- 🧪 **ArchitectureTest.java** - Automated enforcement of rules
+
+**Example:**
+```java
+@Test
+void shouldSkipInstanceWhenDefinitionMissing() {
+    // given: real-world skip scenario - no C8 deployment
+    deployer.deployCamunda7Process("process.bpmn");
+    var instance = runtimeService.startProcessInstanceByKey("processId");
+    
+    // when
+    runtimeMigrator.start();
+    
+    // then: verify via observable outputs
+    logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, 
+        instance.getId(), "No C8 deployment found"));
+    assertThatProcessInstanceCountIsEqualTo(0);
+}
 ```
 
 ### Development Environment Setup

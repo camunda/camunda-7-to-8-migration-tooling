@@ -102,7 +102,7 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     assertThat(output.getOut()).contains("Method: #fetchAndHandleProcessInstances, max count: 3, offset: 0, page size: 2");
   }
 
-  private void deployModels(String rootId, String level1Id, String level2Id) {
+  protected void deployModels(String rootId, String level1Id, String level2Id) {
     // C7
     var c7rootModel = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(rootId)
         .startEvent("start_1")

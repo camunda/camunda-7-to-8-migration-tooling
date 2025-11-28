@@ -38,7 +38,7 @@ public class IncidentConverter {
         .build();
   }
 
-  private IncidentEntity.IncidentState convertState(Integer state) {
+  protected IncidentEntity.IncidentState convertState(Integer state) {
     return switch (state) {
       case 0 -> IncidentEntity.IncidentState.ACTIVE; // open
       case 1, 2 -> IncidentEntity.IncidentState.RESOLVED; // resolved/deleted

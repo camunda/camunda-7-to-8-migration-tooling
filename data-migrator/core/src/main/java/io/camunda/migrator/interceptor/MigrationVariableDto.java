@@ -9,8 +9,8 @@ package io.camunda.migrator.interceptor;
 
 public class MigrationVariableDto {
 
-  private String name;
-  private Object value;
+  protected String name;
+  protected Object value;
 
   public MigrationVariableDto(String name, Object value) {
     this.name = name;

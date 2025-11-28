@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migrator.impl.persistence.IdKeyDbModel;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
+import io.camunda.migrator.qa.util.WhiteBox;
 import java.util.Date;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +23,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class IdKeyCreateTimeMappingTest extends HistoryMigrationAbstractTest {
 
   @Autowired
-  private IdKeyMapper idKeyMapper;
+  protected IdKeyMapper idKeyMapper;
 
   @Test
+  @WhiteBox
   public void shouldCorrectlyMapCreateTimeDuringActualMigration() {
 
     // Given

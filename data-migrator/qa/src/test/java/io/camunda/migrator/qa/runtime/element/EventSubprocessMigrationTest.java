@@ -40,7 +40,7 @@ public class EventSubprocessMigrationTest extends AbstractElementMigrationTest {
   }
 
   @Test
-  public void migrateInterruptingEventSubprocess() {
+  public void shouldMigrateInterruptingEventSubprocess() {
     // given
     deployer.deployProcessInC7AndC8("interruptingEventSubprocess.bpmn");
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("eventSubprocessId");

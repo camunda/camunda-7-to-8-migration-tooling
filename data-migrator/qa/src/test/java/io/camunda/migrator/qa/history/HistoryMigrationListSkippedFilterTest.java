@@ -8,6 +8,7 @@
 package io.camunda.migrator.qa.history;
 
 import static io.camunda.migrator.MigratorMode.LIST_SKIPPED;
+import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
@@ -31,57 +32,56 @@ import org.springframework.test.context.TestPropertySource;
 public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstractTest {
 
     @Autowired
-    private ManagementService managementService;
+    protected ManagementService managementService;
 
     @Autowired
     protected HistoryService historyService;
 
     @Test
     public void shouldListSkippedEntitiesWithSingleTypeFilter(CapturedOutput output) {
-        // given multiple process instances with comprehensive entity generation
+        // given
         deployer.deployCamunda7Process("comprehensiveSkippingTestProcess.bpmn");
 
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create real-world skip scenario by migrating instances without definition
+        historyMigrator.migrateProcessInstances();
 
-        // when running history migration with list skipped mode and single entity type filter
+        // when
         historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.setRequestedEntityTypes(List.of(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE));
+        historyMigrator.setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
         historyMigrator.start();
 
-        // then verify the output contains only process instances
+        // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
 
         // Should only contain process instances
         assertThat(skippedEntitiesByType).hasSize(1);
-        assertThat(skippedEntitiesByType).containsKey(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
+        assertThat(skippedEntitiesByType).containsKey(TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName());
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
         // Should not contain other entity types
-        assertThat(skippedEntitiesByType).doesNotContainKey(IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName());
-        assertThat(skippedEntitiesByType).doesNotContainKey(IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName());
-        assertThat(skippedEntitiesByType).doesNotContainKey(IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName());
+        assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName());
+        assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_USER_TASK.getDisplayName());
+        assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_VARIABLE.getDisplayName());
     }
 
     @Test
     public void shouldListSkippedEntitiesWithMultipleTypeFilters(CapturedOutput output) {
-        // given multiple process instances with comprehensive entity generation
+        // given
         deployer.deployCamunda7Process("comprehensiveSkippingTestProcess.bpmn");
 
         List<String> processInstanceIds = createTestProcessInstances();
         String processDefinitionId = getProcessDefinitionId();
 
-        // Mark the process definition as skipped and run migration
-        dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-        historyMigrator.migrate();
+        // Create real-world skip scenario by migrating instances and tasks without definition
+        historyMigrator.migrateProcessInstances();
+        historyMigrator.migrateUserTasks();
 
-        // when running history migration with list skipped mode and multiple entity type filters
+        // when
         historyMigrator.setMode(LIST_SKIPPED);
         historyMigrator.setRequestedEntityTypes(List.of(
             IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE,
@@ -89,7 +89,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         ));
         historyMigrator.start();
 
-        // then verify the output contains only process instances and user tasks
+        // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
 
         // Should only contain process instances and user tasks
@@ -121,7 +121,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         assertThat(skippedEntitiesByType).doesNotContainKey(IdKeyMapper.TYPE.HISTORY_INCIDENT.getDisplayName());
     }
 
-    private List<String> createTestProcessInstances() {
+    protected List<String> createTestProcessInstances() {
         List<String> processInstanceIds = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             var processInstance = runtimeService.startProcessInstanceByKey("comprehensiveSkippingTestProcessId",
@@ -150,7 +150,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         return processInstanceIds;
     }
 
-    private String getProcessDefinitionId() {
+    protected String getProcessDefinitionId() {
         return repositoryService.createProcessDefinitionQuery()
             .processDefinitionKey("comprehensiveSkippingTestProcessId")
             .latestVersion()

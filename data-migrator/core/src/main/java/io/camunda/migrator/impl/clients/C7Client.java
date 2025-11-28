@@ -64,7 +64,7 @@ public class C7Client {
   protected HistoryService historyService;
 
   @Autowired
-  private RepositoryService repositoryService;
+  protected RepositoryService repositoryService;
 
   @Autowired
   protected MigratorProperties properties;

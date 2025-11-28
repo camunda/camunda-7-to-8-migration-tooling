@@ -20,18 +20,17 @@ public class HistoryTaskMigrationTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldHistoricUserTasksBeMigrated() {
+    // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
-
-    // given state in c7
     for(int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("userTaskProcessId");
     }
     completeAllUserTasksWithDefaultUserTaskId();
 
-    // when history is migrated
+    // when
     historyMigrator.migrate();
 
-    // then expected number of historic process instances
+    // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances.size()).isEqualTo(5);
     for (ProcessInstanceEntity processInstance : processInstances) {

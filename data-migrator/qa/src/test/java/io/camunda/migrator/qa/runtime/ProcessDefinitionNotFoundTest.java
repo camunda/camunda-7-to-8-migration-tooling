@@ -12,9 +12,7 @@ import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOY
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.migrator.RuntimeMigrator;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
 import io.github.netmikey.logunit.api.LogCapturer;
-import java.util.List;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -35,12 +33,9 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
 
     // then
     logs.assertContains(
-        String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7Instance.getId(),
-            String.format(NO_C8_DEPLOYMENT_ERROR, "simpleProcess", c7Instance.getId())));
+        formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7Instance.getId(),
+            formatMessage(NO_C8_DEPLOYMENT_ERROR, "simpleProcess", c7Instance.getId())));
     assertThatProcessInstanceCountIsEqualTo(0);
-    List<IdKeyDbModel> skippedProcessInstanceIds = dbClient.findSkippedProcessInstances();
-    assertThat(skippedProcessInstanceIds.size()).isEqualTo(1);
-    assertThat(skippedProcessInstanceIds.getFirst().getC7Id()).isEqualTo(c7Instance.getId());
   }
 
   @Test
@@ -57,8 +52,8 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    String missingDefinitionLog = String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"),
-        c7Instance.getId(), String.format(NO_C8_DEPLOYMENT_ERROR, "simpleProcess", c7Instance.getId()));
+    String missingDefinitionLog = formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR,
+        c7Instance.getId(), formatMessage(NO_C8_DEPLOYMENT_ERROR, "simpleProcess", c7Instance.getId()));
     long logCountAfterFirstRun = logs.getEvents().stream()
         .filter(event -> event.getMessage().contains(missingDefinitionLog))
         .count();

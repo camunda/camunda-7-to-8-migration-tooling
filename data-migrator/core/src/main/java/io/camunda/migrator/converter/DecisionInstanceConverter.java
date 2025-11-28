@@ -58,7 +58,7 @@ public class DecisionInstanceConverter {
         .build();
   }
 
-  private List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
+  protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
                                                                  List<HistoricDecisionInputInstance> c7Inputs) {
     return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
         input.getId(),
@@ -67,7 +67,7 @@ public class DecisionInstanceConverter {
     )).toList();
   }
 
-  private List<DecisionInstanceDbModel.EvaluatedOutput> mapOutputs(String decisionInstanceId,
+  protected List<DecisionInstanceDbModel.EvaluatedOutput> mapOutputs(String decisionInstanceId,
                                                                    List<HistoricDecisionOutputInstance> c7Outputs) {
     return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
         output.getId(),

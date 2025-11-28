@@ -40,10 +40,10 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
 
   @Autowired
-  private MigratorProperties migratorProperties;
+  protected MigratorProperties migratorProperties;
 
   @Autowired
-  private List<VariableInterceptor> configuredVariableInterceptors;
+  protected List<VariableInterceptor> configuredVariableInterceptors;
 
   @Test
   public void shouldLoadVariableInterceptorFromConfiguration() {

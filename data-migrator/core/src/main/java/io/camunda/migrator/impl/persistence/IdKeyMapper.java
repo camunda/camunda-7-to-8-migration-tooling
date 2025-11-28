@@ -32,7 +32,7 @@ public interface IdKeyMapper {
 
     RUNTIME_PROCESS_INSTANCE("Process Instance");
 
-    private final String displayName;
+    protected final String displayName;
 
     TYPE(String displayName) {
       this.displayName = displayName;

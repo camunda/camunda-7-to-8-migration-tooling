@@ -21,13 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class TimerElementMigrationTest extends AbstractElementMigrationTest {
 
-  private static final OffsetDateTime DATE_IN_TIMER_DATE_CATCH_PROCESS = OffsetDateTime.parse("2050-11-23T00:00:00Z");
+  protected static final OffsetDateTime DATE_IN_TIMER_DATE_CATCH_PROCESS = OffsetDateTime.parse("2050-11-23T00:00:00Z");
 
   @Autowired
-  private CamundaProcessTestContext processTestContext;
+  protected CamundaProcessTestContext processTestContext;
 
   @Test
-  public void migrateTimerInterruptingBoundaryWithDuration() {
+  public void shouldMigrateTimerInterruptingBoundaryWithDuration() {
     // given a process with a timer boundary event that has a duration of 10 days and leftover duration var of 1 day
     // the timer duration definition uses an expression as described in our workaround suggestions
     deployer.deployProcessInC7AndC8("timerDurationBoundaryEventProcess.bpmn");
@@ -59,7 +59,7 @@ public class TimerElementMigrationTest extends AbstractElementMigrationTest {
   }
 
   @Test
-  public void migrateTimerBoundaryNonInterruptingWithCycle() {
+  public void shouldMigrateTimerBoundaryNonInterruptingWithCycle() {
     // given a process with a timer boundary event that has a cycle of 10 days
     deployer.deployProcessInC7AndC8("timerCycleBoundaryEventProcess.bpmn");
     ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerCycleBoundaryEventProcessId");
@@ -85,7 +85,7 @@ public class TimerElementMigrationTest extends AbstractElementMigrationTest {
   }
 
   @Test
-  public void migrateTimerCatchWithDate() {
+  public void shouldMigrateTimerCatchWithDate() {
     // given
     deployer.deployProcessInC7AndC8("timerDateCatchProcess.bpmn");
     ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerDateCatchProcessId");

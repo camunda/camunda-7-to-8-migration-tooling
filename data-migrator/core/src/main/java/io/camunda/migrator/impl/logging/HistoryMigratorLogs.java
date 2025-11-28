@@ -60,10 +60,11 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_VARIABLES = "Migrating historic variables";
   public static final String MIGRATING_VARIABLE = "Migrating historic variables with C7 ID: [{}]";
   public static final String MIGRATING_VARIABLE_COMPLETED = "Migration of historic variable with C7 ID [{}] completed.";
-  public static final String SKIPPING_VARIABLE_MISSING_FLOW_NODE = "Migration of historic variable with C7 ID [{}] skipped. Flow node instance not yet available.";
-  public static final String SKIPPING_VARIABLE_MISSING_PROCESS = "Migration of historic variable with C7 ID [{}] skipped. Process instance not yet available.";
-  public static final String SKIPPING_VARIABLE_MISSING_TASK = "Migration of historic variable with C7 ID [{}] skipped. Associated task [{}] was skipped.";
-  public static final String SKIPPING_VARIABLE_MISSING_SCOPE = "Migration of historic variable with C7 ID [{}] skipped. Scope key is not yet available.";
+  public static final String SKIPPING_VARIABLE = "Migration of historic variable with C7 ID [{}] skipped.";
+  public static final String SKIPPING_VARIABLE_MISSING_FLOW_NODE = SKIPPING_VARIABLE + " Flow node instance not yet available.";
+  public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
+  public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
+  public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
 
   public static final String MIGRATING_USER_TASKS = "Migrating historic user tasks";
   public static final String MIGRATING_USER_TASK = "Migrating historic user task with C7 ID: [{}]";

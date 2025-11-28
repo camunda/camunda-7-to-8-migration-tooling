@@ -15,9 +15,8 @@ import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migrator.RuntimeMigrator;
-import io.camunda.migrator.qa.AbstractMigratorTest;
 import io.camunda.migrator.impl.clients.DbClient;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
+import io.camunda.migrator.qa.AbstractMigratorTest;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 
@@ -41,10 +40,8 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   protected RuntimeMigrator runtimeMigrator;
 
   @Autowired
-  private IdKeyMapper idKeyMapper;
-
-  @Autowired
   protected DbClient dbClient;
+
 
   // C7 ---------------------------------------
 
@@ -61,6 +58,18 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected CamundaClient camundaClient;
+
+  /**
+   * Helper method to format SLF4J-style log messages by replacing {} placeholders with actual values.
+   */
+  protected String formatMessage(String template, Object... args) {
+    String result = template;
+    for (Object arg : args) {
+      result = result.replaceFirst("\\{}", String.valueOf(arg));
+      result = result.replaceFirst("%s", String.valueOf(arg));
+    }
+    return result;
+  }
 
   @AfterEach
   public void cleanup() {
@@ -100,10 +109,6 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
     });
-  }
-
-  public List<IdKeyDbModel> findSkippedRuntimeProcessInstances() {
-    return idKeyMapper.findSkippedByType(IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE, 0, Integer.MAX_VALUE);
   }
 
 }

@@ -23,7 +23,7 @@ import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 public class ProcessDefinitionConverter {
 
   @Autowired
-  private C7Client c7Client;
+  protected C7Client c7Client;
 
   public ProcessDefinitionDbModel apply(ProcessDefinition c7ProcessDefinition) {
     String bpmnXml = getBpmnXmlAsString(c7ProcessDefinition);
@@ -40,7 +40,7 @@ public class ProcessDefinitionConverter {
         .build();
   }
 
-  private String getBpmnXmlAsString(ProcessDefinition processDefinition) {
+  protected String getBpmnXmlAsString(ProcessDefinition processDefinition) {
     try {
       var resourceStream = c7Client.getResourceAsStream(processDefinition.getDeploymentId(),
           processDefinition.getResourceName());
@@ -52,7 +52,7 @@ public class ProcessDefinitionConverter {
     }
   }
 
-  private String readInputStreamToString(InputStream inputStream) throws IOException {
+  protected String readInputStreamToString(InputStream inputStream) throws IOException {
     ByteArrayOutputStream result = new ByteArrayOutputStream();
     byte[] buffer = new byte[1024];
 

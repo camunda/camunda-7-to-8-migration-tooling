@@ -36,7 +36,6 @@ public class VariableServiceLogs {
   public static final String FILE_TYPE_UNSUPPORTED_ERROR = "Variable of type 'file' is unsupported in C8.";
   public static final String JAVA_SERIALIZED_UNSUPPORTED_ERROR = "Objects serialized as 'application/x-java-serialized-object' are unsupported in C8.";
   public static final String JSON_DESERIALIZATION_ERROR = "Error while deserializing JSON into Map type.";
-  public static final String GENERIC_TYPE_UNSUPPORTED_ERROR = "Variable of type '%s' is unsupported in C8.";
 
   /**
    * Logs a warning message for variable interceptor failure.

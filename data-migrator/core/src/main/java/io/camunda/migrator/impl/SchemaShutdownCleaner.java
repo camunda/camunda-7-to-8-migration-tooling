@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.config.mybatis;
+package io.camunda.migrator.impl;
 
 import static io.camunda.migrator.impl.logging.DbClientLogs.FAILED_TO_DROP_MIGRATION_TABLE;
 import static io.camunda.migrator.impl.logging.SchemaShutdownCleanerLogs.logForceDrop;
@@ -70,7 +70,7 @@ public class SchemaShutdownCleaner {
     }
   }
 
-  private void rollbackTableCreation(String prefix) {
+  protected void rollbackTableCreation(String prefix) {
     try (Connection conn = dataSource.getConnection()) {
       Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(conn));
       Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.2.0.xml", new ClassLoaderResourceAccessor(),
@@ -85,11 +85,11 @@ public class SchemaShutdownCleaner {
     }
   }
 
-  private static boolean schemaDropEnabled(Environment context) {
+  protected static boolean schemaDropEnabled(Environment context) {
     return context.containsProperty("drop-schema");
   }
 
-  private static boolean forceEnabled(Environment context) {
+  protected static boolean forceEnabled(Environment context) {
     return context.containsProperty("force");
   }
 

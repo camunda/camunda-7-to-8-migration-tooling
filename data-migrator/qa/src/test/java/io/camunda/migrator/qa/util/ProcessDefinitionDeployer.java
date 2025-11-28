@@ -82,7 +82,7 @@ public class ProcessDefinitionDeployer {
     }
   }
 
-  private void checkC8ProcessDefinitionAvailable(String resourcePath, String tenantId) {
+  protected void checkC8ProcessDefinitionAvailable(String resourcePath, String tenantId) {
 
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       ProcessDefinitionSearchRequest endFilter = null;
