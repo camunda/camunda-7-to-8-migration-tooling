@@ -14,6 +14,11 @@
       "enabled": false
     },
     {
+      "description": "Disable updates for code-conversion modules",
+      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-rewrite-recipes"],
+      "enabled": false
+    },
+    {
       "description": "Automerge all updates with green CI.",
       "matchPackageNames": [
         "*"
