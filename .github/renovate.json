@@ -10,7 +10,7 @@
     },
     {
       "description": "Pin internal modules to current version",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-data-migrator"],
+      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-data-migrator", "io.camunda:camunda-7-to-8-migration-tooling-root"],
       "enabled": false
     },
     {
