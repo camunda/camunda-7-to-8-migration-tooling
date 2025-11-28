@@ -1,6 +1,6 @@
 # Camunda 7 API to Camunda 8 API Mapping WebApp
 
-Link to WebApp: [Camunda 7 API to Camunda 8 API Mapping WebApp](https://camunda-community-hub.github.io/camunda-7-to-8-code-conversion/).
+Link to WebApp: [Camunda 7 API to Camunda 8 API Mapping WebApp](https://camunda.github.io/camunda-7-to-8-migration-tooling/).
 
 This README covers how to maintain and extend the Camunda 7 API to Camunda 8 API Mapping WebApp. For a user-facing introduction, see the [project README](../README.md).
 
