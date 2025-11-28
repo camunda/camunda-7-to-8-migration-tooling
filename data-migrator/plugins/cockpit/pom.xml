@@ -23,8 +23,6 @@
     <junit.version>4.13.2</junit.version>
     <h2.version>2.4.240</h2.version>
     <slf4j.version>2.0.17</slf4j.version>
-    <node.version>v18.16.0</node.version>
-    <npmVersion>10.7.0</npmVersion>
     <assertj.version>3.27.6</assertj.version>
     <liquibase.version>5.0.1</liquibase.version>
 
@@ -32,7 +30,6 @@
     <frontend.build.path>${frontend.working.directory}dist/</frontend.build.path>
     <frontend.target.path>plugin-webapp/migrator-plugin/app</frontend.target.path>
 
-    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -113,9 +110,7 @@
       <plugin>
         <groupId>com.github.eirslett</groupId>
         <artifactId>frontend-maven-plugin</artifactId>
-        <version>${frontend-maven-plugin.version}</version>
         <configuration>
-          <nodeVersion>${node.version}</nodeVersion>
           <workingDirectory>${frontend.working.directory}</workingDirectory>
         </configuration>
         <executions>

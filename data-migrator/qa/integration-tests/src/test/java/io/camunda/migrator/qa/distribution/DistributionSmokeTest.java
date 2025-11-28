@@ -383,7 +383,7 @@ public class DistributionSmokeTest {
   protected Path findZipDistribution() {
     // Look for the ZIP file in the assembly target directory
     Path assemblyTarget = Paths.get(System.getProperty("user.dir"))
-        .resolve("../assembly/target");
+        .resolve("../../assembly/target");
 
     try (var stream = Files.list(assemblyTarget)) {
       return stream

@@ -1,0 +1,18 @@
+{
+  "name": "cockpit-plugin-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for the Camunda 7 to 8 Data Migrator Cockpit Plugin",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SEE LICENSE IN ../../CAMUNDA-LICENSE-1.0.txt",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.10.1"
+  }
+}
