@@ -13,6 +13,6 @@
   "license": "SEE LICENSE IN ../../CAMUNDA-LICENSE-1.0.txt",
   "devDependencies": {
     "@playwright/test": "^1.48.0",
-    "@types/node": "^22.10.1"
+    "@types/node": "^24.0.0"
   }
 }
