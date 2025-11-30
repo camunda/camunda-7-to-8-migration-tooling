@@ -17,7 +17,7 @@
 
   <properties>
     <frontend-maven-plugin.version>1.15.4</frontend-maven-plugin.version>
-    <maven-resources-plugin.version>3.3.1</maven-resources-plugin.version>
+    <maven-resources-plugin.version>3.4.0</maven-resources-plugin.version>
     <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
     <jakarta.ws.rs-api.version>4.0.0</jakarta.ws.rs-api.version>
     <junit.version>4.13.2</junit.version>
