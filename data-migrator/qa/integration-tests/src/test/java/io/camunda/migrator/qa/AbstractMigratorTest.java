@@ -8,7 +8,6 @@
 
 package io.camunda.migrator.qa;
 
-import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.qa.util.ProcessDefinitionDeployer;
 import io.camunda.migrator.qa.util.WithMultiDb;
 import io.camunda.migrator.qa.util.WithSpringProfile;
@@ -31,8 +30,6 @@ public class AbstractMigratorTest {
   @Autowired
   protected ProcessDefinitionDeployer deployer;
 
-  @Autowired
-  protected DbClient dbClient;
 
   // C7 ---------------------------------------
 

@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -312,6 +314,31 @@ public class DistributionSmokeTest {
   }
 
   @Test
+  @DisabledOnOs(OS.WINDOWS)
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldIgnoreHiddenFiles() throws Exception {
+    // given
+    Path resourcesDir = extractedDistributionPath.resolve("configuration/resources");
+    Files.createDirectories(resourcesDir);
+
+    // Read the existing configuration file and set auto-dll to true
+    replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+
+    String hiddenFileContent = "foo";
+    Path hiddenFile = resourcesDir.resolve(".hiddenFile");
+    Files.write(hiddenFile, hiddenFileContent.getBytes());
+
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+
+    // when
+    process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+    assertThat(output).doesNotContain(FAILED_TO_DEPLOY_C8_RESOURCES);
+  }
+
+  @Test
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldApplyConfigurationChanges() throws Exception {
     // given
@@ -371,7 +398,7 @@ public class DistributionSmokeTest {
     );
   }
 
-  private void replaceConfigProperty(String before, String after) throws IOException {
+  protected void replaceConfigProperty(String before, String after) throws IOException {
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
     String originalConfig = Files.readString(configFile);
     String modifiedConfig = originalConfig.replace(before, after);

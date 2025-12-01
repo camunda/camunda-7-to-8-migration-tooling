@@ -9,7 +9,6 @@
 package io.camunda.migrator.qa.runtime.element;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.camunda.bpm.engine.impl.util.EnsureUtil.ensureNotNull;
 
 import io.camunda.migrator.RuntimeMigrator;
 import io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest;
@@ -30,8 +29,9 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
     String id = runtimeService.startProcessInstanceByKey("noneStartProcess").getId();
 
     // assume
-    ensureNotNull("Unexpected process state: process instance should exist",
-        runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult());
+    assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult())
+        .as("Unexpected process state: process instance should exist")
+        .isNotNull();
 
     // when
     runtimeMigrator.start();
@@ -66,8 +66,9 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
     String id = runtimeService.startProcessInstanceByKey("multipleStartEvent").getId();
 
     // assume
-    ensureNotNull("Unexpected process state: process instance should exist",
-        runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult());
+    assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult())
+        .as("Unexpected process state: process instance should exist")
+        .isNotNull();
 
     // when
     runtimeMigrator.start();
@@ -84,8 +85,9 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
     String id = runtimeService.startProcessInstanceByKey("messageStartEventWithSubprocess").getId();
 
     // assume
-    ensureNotNull("Unexpected process state: process instance should exist",
-        runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult());
+    assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult())
+        .as("Unexpected process state: process instance should exist")
+        .isNotNull();
 
     // when
     runtimeMigrator.start();

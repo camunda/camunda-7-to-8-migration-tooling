@@ -17,6 +17,8 @@ import io.camunda.migrator.HistoryMigrator;
 import io.camunda.migrator.MigratorMode;
 import io.camunda.migrator.config.C8DataSourceConfigured;
 import io.camunda.migrator.config.MigratorAutoConfiguration;
+import io.camunda.migrator.impl.clients.DbClient;
+import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import io.camunda.migrator.qa.AbstractMigratorTest;
 import io.camunda.migrator.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migrator.qa.util.WithSpringProfile;
@@ -75,6 +77,20 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected HistoryService historyService;
+
+  @Autowired
+  protected DbClient dbClient;
+
+  /**
+   * Helper method to format SLF4J-style log messages by replacing {} placeholders with actual values.
+   */
+  protected String formatMessage(String template, Object... args) {
+    String result = template;
+    for (Object arg : args) {
+      result = result.replaceFirst("\\{}", String.valueOf(arg));
+    }
+    return result;
+  }
 
   @AfterEach
   public void cleanup() {

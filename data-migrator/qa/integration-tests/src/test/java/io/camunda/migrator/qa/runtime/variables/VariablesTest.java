@@ -54,7 +54,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
   public static final String PARALLEL = "parallel";
 
   @Autowired
-  private ObjectMapper objectMapper;
+  protected ObjectMapper objectMapper;
 
   @Test
   public void shouldSetVariableWithNullValue() {
@@ -119,7 +119,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
 
     Arrays.asList(piIdFloat, piIdByte, piIdChar, piIdList, piIdMap)
         .forEach(piId -> LOGS.assertContains(
-            String.format(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR.replace("{}", "%s"), piId,
+            formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, piId,
                 JAVA_SERIALIZED_UNSUPPORTED_ERROR)));
   }
 
@@ -136,7 +136,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
     LOGS.assertContains(
-        String.format(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR.replace("{}", "%s"), c7Id,
+        formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
             BYTE_ARRAY_UNSUPPORTED_ERROR));
   }
 
@@ -257,7 +257,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
-    LOGS.assertContains(String.format(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR.replace("{}", "%s"), c7Id,
+    LOGS.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
         "Error while deserializing JSON into Map type."));
   }
 
@@ -310,7 +310,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
     LOGS.assertContains(
-        String.format(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR.replace("{}", "%s"), c7Id,
+        formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
             FILE_TYPE_UNSUPPORTED_ERROR));
   }
 
@@ -376,7 +376,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
   }
 
   @Test
-  @Disabled // https://github.com/camunda/camunda-bpm-platform/issues/5235
+  @Disabled("https://github.com/camunda/camunda-bpm-platform/issues/5235")
   public void shouldSetVariableIntoSubprocess() {
     // deploy processes
     deploySubprocessModels();
@@ -397,7 +397,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     CamundaAssert.assertThat(byProcessId(SUB_PROCESS)).hasLocalVariable(byId("userTask_1"), "localVariable", "local value");
   }
 
-  private void deploySubprocessModels() {
+  protected void deploySubprocessModels() {
     String process = SUB_PROCESS;
     // C7
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
@@ -427,7 +427,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     deployer.deployModelInstance(process, c7Model, c8Model);
   }
 
-  private void deployParallelModels() {
+  protected void deployParallelModels() {
     String process = PARALLEL;
     // C7
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
