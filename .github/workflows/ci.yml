@@ -228,7 +228,7 @@ jobs:
         if: always()
         with:
           name: playwright-report
-          path: qa/e2e-tests/playwright-report/
+          path: data-migrator/qa/e2e-tests/playwright-report/
           retention-days: 7
 
       - name: Upload screenshots
@@ -236,7 +236,7 @@ jobs:
         if: always()
         with:
           name: e2e-screenshots
-          path: qa/e2e-tests/test-results/
+          path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
