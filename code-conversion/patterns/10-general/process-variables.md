@@ -8,6 +8,6 @@ The code conversion examples cover both Camunda 7 approaches to handle process v
 
 TODO: Add proper links to:
 
-* [Process variables in client code](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/conversion-pattern/patterns/20-client-code/10-process-engine/handle-process-variables.md)
-* [Process variables in glue code (Java Delegate)](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/conversion-pattern/patterns/30-glue-code/10-java-spring-delegate/handling-process-variables.md)
-* [Process variables in glue code (External Task Worker)](https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/blob/conversion-pattern/patterns/30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
+* [Process variables in client code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/handle-process-variables.md)
+* [Process variables in glue code (Java Delegate)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/10-java-spring-delegate/handling-process-variables.md)
+* [Process variables in glue code (External Task Worker)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)

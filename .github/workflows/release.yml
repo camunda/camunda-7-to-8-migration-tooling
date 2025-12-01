@@ -140,7 +140,8 @@ jobs:
           ARTIFACT_DIR=$(mktemp -d)
           cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.tar.gz "${ARTIFACT_DIR}/"
           cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip "${ARTIFACT_DIR}/"
-          cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/" 
+          cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp code-conversion/recipes/target/camunda-7-to-8-rewrite-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}

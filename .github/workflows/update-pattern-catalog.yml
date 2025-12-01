@@ -2,8 +2,10 @@ name: Update Pattern Catalog
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'patterns/**'
+      - "code-conversion/patterns/**"
   workflow_dispatch:
 
 jobs:
@@ -20,20 +22,20 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        working-directory: patterns
+        working-directory: code-conversion/patterns
         run: npm install
 
       - name: Run catalog generator
-        working-directory: patterns
+        working-directory: code-conversion/patterns
         run: node generate-catalog.js
 
       - name: Run all-in-one generator
-        working-directory: patterns
+        working-directory: code-conversion/patterns
         run: node generate-all-in-one.js
 
       - name: Check for changes
         run: |
-          git add -A
+          git add code-conversion/patterns/README.md code-conversion/patterns/ALL_IN_ONE.md
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
@@ -43,4 +45,3 @@ jobs:
             git commit -m "Auto-update pattern catalog"
             git push
           fi
-
