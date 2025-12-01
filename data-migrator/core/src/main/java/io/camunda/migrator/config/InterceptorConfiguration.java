@@ -21,6 +21,8 @@ import io.camunda.migrator.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migrator.impl.interceptor.SpinJsonVariableTransformer;
 import io.camunda.migrator.impl.interceptor.SpinXmlVariableTransformer;
 import io.camunda.migrator.impl.logging.ConfigurationLogs;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.GlobalInterceptor;
 import io.camunda.migrator.interceptor.VariableInterceptor;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,7 +67,30 @@ public class InterceptorConfiguration {
         context.getBeansOfType(VariableInterceptor.class).values());
 
     // Handle unified interceptor configuration (supports both custom and built-in interceptor control)
-    processUnifiedInterceptorConfiguration(contextInterceptors, migratorProperties.getInterceptors());
+    processUnifiedInterceptorConfiguration(contextInterceptors, migratorProperties.getInterceptors(), VariableInterceptor.class);
+
+    // Sort by order annotation if present
+    AnnotationAwareOrderComparator.sort(contextInterceptors);
+
+    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size());
+    return contextInterceptors;
+  }
+
+  /**
+   * Creates a composite list of entity interceptors from both Spring context and config data files.
+   *
+   * @return List of configured entity interceptors
+   */
+  @Bean
+  public List<EntityInterceptor> configuredEntityInterceptors() {
+    ConfigurationLogs.logConfiguringInterceptors();
+
+    // Get interceptors from Spring context (annotated with @Component)
+    List<EntityInterceptor> contextInterceptors = new ArrayList<>(
+        context.getBeansOfType(EntityInterceptor.class).values());
+
+    // Handle unified interceptor configuration (supports both custom and built-in interceptor control)
+    processUnifiedInterceptorConfiguration(contextInterceptors, migratorProperties.getInterceptors(), EntityInterceptor.class);
 
     // Sort by order annotation if present
     AnnotationAwareOrderComparator.sort(contextInterceptors);
@@ -77,12 +102,20 @@ public class InterceptorConfiguration {
   /**
    * Processes unified interceptor configuration that supports both custom interceptors
    * and property-based configuration including the enabled property.
+   * <p>
+   * This method is generic and can process both {@link VariableInterceptor} and {@link EntityInterceptor}
+   * instances by filtering based on the interceptor type.
+   * </p>
    *
    * @param contextInterceptors List of interceptors discovered from Spring context
    * @param interceptorConfigs List of interceptor configurations from config files
+   * @param interceptorType The type of interceptor to filter (VariableInterceptor.class or EntityInterceptor.class)
+   * @param <T> The interceptor type that extends GlobalInterceptor
    */
-  protected void processUnifiedInterceptorConfiguration(List<VariableInterceptor> contextInterceptors,
-                                                       List<InterceptorProperty> interceptorConfigs) {
+  protected <T extends GlobalInterceptor<?>> void processUnifiedInterceptorConfiguration(
+      List<T> contextInterceptors,
+      List<InterceptorProperty> interceptorConfigs,
+      Class<T> interceptorType) {
     if (interceptorConfigs == null || interceptorConfigs.isEmpty()) {
       ConfigurationLogs.logNoInterceptorsConfigured();
       return;
@@ -94,13 +127,21 @@ public class InterceptorConfiguration {
         handleInterceptorDisable(contextInterceptors, interceptorConfig);
       } else {
         // Handle interceptor creation/registration or property binding
-        VariableInterceptor existingInterceptor = findExistingInterceptor(contextInterceptors, interceptorConfig.getClassName());
+        T existingInterceptor = findExistingInterceptor(contextInterceptors, interceptorConfig.getClassName());
         if (existingInterceptor != null) {
           // Interceptor already loaded by Spring @Component - log that it's already loaded
           ConfigurationLogs.logInterceptorAlreadyLoaded(interceptorConfig.getClassName());
         } else {
-          // Create new interceptor instance
-          registerCustomInterceptor(contextInterceptors, interceptorConfig);
+          // Create new interceptor instance if it matches the expected type
+          try {
+            Class<?> clazz = Class.forName(interceptorConfig.getClassName());
+            if (interceptorType.isAssignableFrom(clazz)) {
+              registerCustomInterceptor(contextInterceptors, interceptorConfig, interceptorType);
+            }
+          } catch (ClassNotFoundException e) {
+            // Log but don't fail - this allows configurations to contain both types
+            ConfigurationLogs.logInterceptorNotFoundForDisabling(interceptorConfig.getClassName());
+          }
         }
       }
     }
@@ -111,9 +152,10 @@ public class InterceptorConfiguration {
    *
    * @param contextInterceptors List of interceptors in context
    * @param className Class name to search for
+   * @param <T> The interceptor type that extends GlobalInterceptor
    * @return The interceptor if found, null otherwise
    */
-  protected VariableInterceptor findExistingInterceptor(List<VariableInterceptor> contextInterceptors, String className) {
+  protected <T extends GlobalInterceptor<?>> T findExistingInterceptor(List<T> contextInterceptors, String className) {
     return contextInterceptors.stream()
         .filter(interceptor -> interceptor.getClass().getName().equals(className))
         .findFirst()
@@ -125,9 +167,11 @@ public class InterceptorConfiguration {
    *
    * @param contextInterceptors List of context interceptors to modify
    * @param interceptorConfig Configuration for the interceptor to disable
+   * @param <T> The interceptor type that extends GlobalInterceptor
    */
-  protected void handleInterceptorDisable(List<VariableInterceptor> contextInterceptors,
-                                         InterceptorProperty interceptorConfig) {
+  protected <T extends GlobalInterceptor<?>> void handleInterceptorDisable(
+      List<T> contextInterceptors,
+      InterceptorProperty interceptorConfig) {
     boolean removed = contextInterceptors.removeIf(interceptor ->
         interceptor.getClass().getName().equals(interceptorConfig.getClassName()));
 
@@ -143,11 +187,15 @@ public class InterceptorConfiguration {
    *
    * @param contextInterceptors List of interceptors to add to
    * @param interceptorConfig Configuration for the custom interceptor
+   * @param interceptorType The type of interceptor to create
+   * @param <T> The interceptor type that extends GlobalInterceptor
    */
-  protected void registerCustomInterceptor(List<VariableInterceptor> contextInterceptors,
-                                          InterceptorProperty interceptorConfig) {
+  protected <T extends GlobalInterceptor<?>> void registerCustomInterceptor(
+      List<T> contextInterceptors,
+      InterceptorProperty interceptorConfig,
+      Class<T> interceptorType) {
     try {
-      VariableInterceptor interceptor = createInterceptorInstance(interceptorConfig);
+      T interceptor = createInterceptorInstance(interceptorConfig, interceptorType);
       contextInterceptors.add(interceptor);
       ConfigurationLogs.logSuccessfullyRegistered(interceptorConfig.getClassName());
     } catch (Exception e) {
@@ -157,13 +205,18 @@ public class InterceptorConfiguration {
   }
 
   /**
-   * Creates a variable interceptor instance from the configuration.
+   * Creates an interceptor instance from the configuration.
    *
    * @param interceptorProperty Interceptor configuration
-   * @return VariableInterceptor instance
+   * @param interceptorType The type of interceptor to create (VariableInterceptor.class or EntityInterceptor.class)
+   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @return Interceptor instance
    * @throws Exception if instantiation fails
    */
-  protected VariableInterceptor createInterceptorInstance(InterceptorProperty interceptorProperty) throws Exception {
+  @SuppressWarnings("unchecked")
+  protected <T extends GlobalInterceptor<?>> T createInterceptorInstance(
+      InterceptorProperty interceptorProperty,
+      Class<T> interceptorType) throws Exception {
     String className = interceptorProperty.getClassName();
     if (className == null || className.trim().isEmpty()) {
       throw new IllegalArgumentException(ConfigurationLogs.getClassNameNullOrEmptyError());
@@ -172,11 +225,11 @@ public class InterceptorConfiguration {
     ConfigurationLogs.logCreatingInstance(className);
 
     Class<?> clazz = Class.forName(className);
-    if (!VariableInterceptor.class.isAssignableFrom(clazz)) {
+    if (!interceptorType.isAssignableFrom(clazz)) {
       throw new IllegalArgumentException(ConfigurationLogs.getClassNotImplementInterfaceError(className));
     }
 
-    VariableInterceptor interceptor = (VariableInterceptor) clazz.getDeclaredConstructor().newInstance();
+    T interceptor = (T) clazz.getDeclaredConstructor().newInstance();
 
     // Set properties if provided
     Map<String, Object> properties = interceptorProperty.getProperties();
