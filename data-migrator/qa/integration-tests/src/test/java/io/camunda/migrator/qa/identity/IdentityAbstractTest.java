@@ -33,9 +33,7 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
 
   @AfterEach
   public void cleanup() {
-    identityService.createTenantQuery().list().forEach(tenant -> {
-      identityService.deleteTenant(tenant.getId());
-    });
+    identityService.createTenantQuery().list().forEach(tenant -> identityService.deleteTenant(tenant.getId()));
     dbClient.deleteAllMappings();
   }
 }

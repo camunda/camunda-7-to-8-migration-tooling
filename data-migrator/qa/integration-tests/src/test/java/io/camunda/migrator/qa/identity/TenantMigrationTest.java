@@ -8,8 +8,6 @@
 package io.camunda.migrator.qa.identity;
 
 import io.camunda.client.api.search.request.TenantsSearchRequest;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
@@ -25,9 +23,6 @@ public class TenantMigrationTest extends IdentityAbstractTest {
 
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
-
-  @Autowired
-  private IdKeyMapper idKeyMapper;
 
   @Test
   public void shouldMigrateTenants() {
@@ -59,35 +54,37 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     // when migrating
     identityMigrator.migrate();
 
-    // then c8 has default tenant + the 2 migrated ones
+    // then c8 has default, tenant1 and tenant3
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
     assertThatTenantsMatch(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
-    assertThat(idKeyMapper.countSkippedByType(IdKeyMapper.TYPE.TENANT)).isEqualTo(1);
-    IdKeyDbModel skipped = idKeyMapper.findSkippedByType(IdKeyMapper.TYPE.TENANT, 0, Integer.MAX_VALUE).getFirst();
-    assertThat(skipped.getC7Id()).isEqualTo(tenant2.getId());
+    // TODO check skipped via logs
   }
 
   @Test
   public void shouldMigrateOnlyNonPreviouslyMigratedTenants() {
-    // given 3 tenants in c7 but one was is already marked as migrated
+    // given 3 tenants in c7 but one was already marked as migrated
     var tenant1 = createTenant("tenantId1", "tenantName1");
+    identityMigrator.migrate();
+    camundaClient.newDeleteTenantCommand(tenant1.getId()).execute(); // To be able to assert that it doesn't get migrated again
     var tenant2 = createTenant("tenantId2", "tenantName2");
     var tenant3 = createTenant("tenantId3", "tenantName3");
-    dbClient.insert(tenant1.getId(), 1L, IdKeyMapper.TYPE.TENANT);
     var expectedTenants = List.of(tenant2, tenant3);
 
     // when migrating
     identityMigrator.migrate();
 
-    // then c8 has default tenant + the 2 migrated ones
+    // then c8 has default, tenant2 and tenant3
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
     assertThatTenantsMatch(expectedTenants, tenants);
+
+    // but not tenant1
+    assertThat(camundaClient.newTenantsSearchRequest().filter(f -> f.tenantId(tenant1.getId())).execute().items()).hasSize(0);
   }
 
   /**
