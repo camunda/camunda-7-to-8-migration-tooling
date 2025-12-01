@@ -366,7 +366,6 @@ public class DistributionSmokeTest {
     // Note: early startup messages before Spring Boot initializes logging won't be in the file
     String logContent = Files.readString(logFile);
     assertThat(logContent).containsAnyOf(
-        "ZeebeClient is deprecated",
         "Failed to activate jobs",
         "ENGINE-"
     );
