@@ -10,6 +10,7 @@ package io.camunda.migrator.qa.history;
 import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_INCIDENT;
 import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_DEFINITION;
 import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_USER_TASK_MISSING_PROCESS;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 

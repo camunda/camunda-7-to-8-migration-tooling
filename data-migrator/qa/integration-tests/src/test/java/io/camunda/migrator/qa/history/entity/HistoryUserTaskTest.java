@@ -8,6 +8,7 @@
 package io.camunda.migrator.qa.history.entity;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migrator.HistoryMigrator;

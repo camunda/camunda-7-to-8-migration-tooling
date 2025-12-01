@@ -12,7 +12,7 @@ Use this checklist when reviewing pull requests that add or modify tests.
 
 ### Observable Outputs
 - [ ] ✅ Uses `LogCapturer` for verifying behavior
-- [ ] ✅ Uses C8 API queries (`camundaClient.*SearchRequest()`)
+- [ ] ✅ Uses C8 API queries (`camundaClient.*SearchRequest()` for runtime, RDBMS queries for history)
 - [ ] ✅ Uses log constants from `*Logs` classes (not string literals)
 - [ ] ✅ Uses `formatMessage()` helper for log assertions
 
@@ -31,17 +31,12 @@ Use this checklist when reviewing pull requests that add or modify tests.
 
 ## 🏗️ Test Quality
 
-### Structure
-- [ ] Test follows Given-When-Then pattern with clear comments
+### Structure & Readability
+- [ ] Test follows **Given-When-Then** pattern with clear comments
 - [ ] Each section (given/when/then) is clearly separated
-- [ ] Test focuses on a **single behavior**
-- [ ] Test is **independent** (doesn't depend on execution order)
-
-### Readability
-- [ ] Variable names are descriptive
-- [ ] Comments explain **why**, not **what**
+- [ ] Test focuses on a **single behavior** and is **independent**
+- [ ] Variable names are descriptive, comments explain **why** not **what**
 - [ ] No magic numbers or strings (use constants)
-- [ ] Code is concise and easy to understand
 
 ### Correctness
 - [ ] Test actually **fails** if the behavior is broken (verify by temporarily breaking code)

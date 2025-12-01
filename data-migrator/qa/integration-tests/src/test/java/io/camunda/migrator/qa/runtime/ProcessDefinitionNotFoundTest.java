@@ -9,6 +9,7 @@ package io.camunda.migrator.qa.runtime;
 
 import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOYMENT_ERROR;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.migrator.RuntimeMigrator;
