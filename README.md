@@ -10,11 +10,21 @@ A tool for migrating Camunda 7 process instances and related data to Camunda 8. 
 
 Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/).
 
+### [Code Conversion](./code-conversion/)
+A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module provides:
+
+- **[Code Conversion Patterns](./code-conversion/patterns/)** - Best practices and patterns for migrating Java (Spring) client code and glue code
+- **[OpenRewrite Recipes](./code-conversion/recipes/)** - Automated refactoring recipes to streamline Java code migration
+- **[API Mapping WebApp](https://camunda.github.io/camunda-7-to-8-migration-tooling/)** - Interactive tool showing how Camunda 7 API endpoints map to Camunda 8
+
+For detailed information, see the [Code Conversion README](./code-conversion/README.md).
+
 
 ## Documentation
 
 - **[Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)** - Official migration documentation
 - **[Data Migrator Documentation](./data-migrator/README.md)** - Detailed data migrator documentation
+- **[Code Conversion Documentation](./code-conversion/README.md)** - Code conversion patterns and tools
 - **[Camunda 8 Documentation](https://docs.camunda.io/)** - Official Camunda 8 documentation
 
 ## Contributing

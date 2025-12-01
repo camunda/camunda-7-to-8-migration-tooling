@@ -1,0 +1,10 @@
+{
+  "name": "camunda-pattern-catalog",
+  "version": "1.0.0",
+  "description": "Auto-generates a pattern catalog from markdown files",
+  "main": "generate-catalog.js",
+  "scripts": {
+    "generate-catalog": "node generate-catalog.js",
+    "generate-all-in-one": "node generate-all-in-one.js"
+  }
+}
