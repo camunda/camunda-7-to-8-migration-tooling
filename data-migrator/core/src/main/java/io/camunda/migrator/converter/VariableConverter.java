@@ -25,7 +25,7 @@ import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 public class VariableConverter {
 
   @Autowired
-  private ObjectMapper objectMapper;
+  protected ObjectMapper objectMapper;
 
   public VariableDbModel apply(HistoricVariableInstance historicVariable, Long processInstanceKey, Long scopeKey) {
     // TODO currently the VariableDbModelBuilder maps all variables to String type
@@ -42,7 +42,7 @@ public class VariableConverter {
         .build();
   }
 
-  private String convertValue(HistoricVariableInstance variable) {
+  protected String convertValue(HistoricVariableInstance variable) {
     var variableId = variable.getId();
 
     if (isNullValueType(variable)) {
@@ -69,19 +69,19 @@ public class VariableConverter {
     return null;
   }
 
-  private boolean isNullValueType(HistoricVariableInstance variable) {
+  protected boolean isNullValueType(HistoricVariableInstance variable) {
     return variable.getTypedValue() instanceof NullValueImpl;
   }
 
-  private boolean isObjectType(HistoricVariableInstance variable) {
+  protected boolean isObjectType(HistoricVariableInstance variable) {
     return variable.getTypedValue() instanceof ObjectValueImpl;
   }
 
-  private boolean isPrimitiveType(HistoricVariableInstance variable) {
+  protected boolean isPrimitiveType(HistoricVariableInstance variable) {
     return variable.getTypedValue() instanceof PrimitiveTypeValueImpl;
   }
 
-  private String getJsonValue(ObjectValueImpl typedValue) {
+  protected String getJsonValue(ObjectValueImpl typedValue) {
     try {
       return objectMapper.writeValueAsString(typedValue.getValue());
     } catch (JsonProcessingException e) {

@@ -53,7 +53,7 @@ public class UserTaskConverter {
   }
 
   // See TaskEntity.TaskState
-  private UserTaskDbModel.UserTaskState convertState(String state) {
+  protected UserTaskDbModel.UserTaskState convertState(String state) {
     return switch (state) {
       case "Init", "Created" -> UserTaskDbModel.UserTaskState.CREATED;
       case "Completed" -> UserTaskDbModel.UserTaskState.COMPLETED;

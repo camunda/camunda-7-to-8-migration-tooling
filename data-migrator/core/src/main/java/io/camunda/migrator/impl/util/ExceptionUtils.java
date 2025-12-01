@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 public class ExceptionUtils {
 
-  private static final ThreadLocal<ExceptionContext> EXCEPTION_CONTEXT = ThreadLocal.withInitial(() -> null);
+  protected static final ThreadLocal<ExceptionContext> EXCEPTION_CONTEXT = ThreadLocal.withInitial(() -> null);
 
   public enum ExceptionContext {
     RUNTIME,
