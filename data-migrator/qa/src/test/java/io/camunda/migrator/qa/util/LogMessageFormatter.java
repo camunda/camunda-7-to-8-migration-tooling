@@ -12,10 +12,6 @@ package io.camunda.migrator.qa.util;
  */
 public class LogMessageFormatter {
 
-  private LogMessageFormatter() {
-    // Utility class
-  }
-
   /**
    * Helper method to format SLF4J-style log messages by replacing {} placeholders with actual values.
    */
