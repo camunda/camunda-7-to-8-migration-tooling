@@ -17,7 +17,7 @@ import java.util.Set;
  * </p>
  * <p>
  * Implementers should define specific interceptor behavior through specialized sub-interfaces
- * like {@link VariableInterceptor}.
+ * like {@link VariableInterceptor} and {@link EntityInterceptor}.
  * </p>
  *
  * @param <T> the type of invocation object that this interceptor handles
@@ -36,6 +36,23 @@ public interface GlobalInterceptor<T> {
    * <p>
    * Interceptors can specify which types they handle to allow the system to only call
    * relevant interceptors based on the data type being processed.
+   * </p>
+   * <p>
+   * For {@link VariableInterceptor}, use Camunda's variable value types like:
+   * - {@code PrimitiveValue.class} for primitive variables
+   * - {@code DateValue.class} for date variables
+   * - {@code ObjectValue.class} for object variables (JSON, XML, Java serialized)
+   * - {@code FileValue.class} for file variables
+   * - {@code SpinValue.class} for Spin variables
+   * </p>
+   * <p>
+   * For {@link EntityInterceptor}, use Camunda 7 historic entity classes like:
+   * - {@code HistoricProcessInstance.class} for process instances
+   * - {@code HistoricActivityInstance.class} for flow nodes/activities
+   * - {@code HistoricVariableInstance.class} for variables
+   * - {@code HistoricTaskInstance.class} for user tasks
+   * - {@code HistoricIncident.class} for incidents
+   * - {@code HistoricDecisionInstance.class} for decision instances
    * </p>
    * <p>
    * If the returned set is empty, this interceptor will be called for all types.
