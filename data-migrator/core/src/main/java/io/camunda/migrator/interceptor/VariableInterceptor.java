@@ -7,7 +7,6 @@
  */
 package io.camunda.migrator.interceptor;
 
-import java.util.Set;
 
 /**
  * Interceptor interface for handling variable invocations with type-specific filtering.
@@ -62,8 +61,17 @@ import java.util.Set;
  *     - className: "io.camunda.migrator.impl.interceptor.SpinJsonVariableTransformer"
  *       enabled: false
  * </pre>
+ * <p>
+ * The {@link #getTypes()} method inherited from {@link GlobalInterceptor} allows specifying
+ * variable value types like:
+ * - {@code PrimitiveValue.class} for primitive variables
+ * - {@code DateValue.class} for date variables
+ * - {@code ObjectValue.class} for object variables (JSON, XML, Java serialized)
+ * - {@code FileValue.class} for file variables
+ * - {@code SpinValue.class} for Spin variables
+ * </p>
  */
-public interface VariableInterceptor {
+public interface VariableInterceptor extends GlobalInterceptor<VariableInvocation> {
 
   /**
    * Executes the interceptor logic for a variable invocation.
@@ -71,28 +79,6 @@ public interface VariableInterceptor {
    *
    * @param invocation the variable invocation containing C7 variable data and methods to modify it
    */
+  @Override
   void execute(VariableInvocation invocation);
-
-  /**
-   * Returns the set of variable value types that this interceptor can handle.
-   * <p>
-   * Use Camunda's existing type interfaces like:
-   * - {@code PrimitiveValue.class} for primitive variables
-   * - {@code DateValue.class} for date variables
-   * - {@code ObjectValue.class} for object variables (JSON, XML, Java serialized)
-   * - {@code FileValue.class} for file variables
-   * - {@code SpinValue.class} for Spin variables
-   * </p>
-   * <p>
-   * If the returned set is empty, this interceptor will be called for all variable types.
-   * </p>
-   * <p>
-   * Default implementation returns an empty set (handle all types) for backward compatibility.
-   * </p>
-   *
-   * @return set of supported variable value types, or empty set to handle all types
-   */
-  default Set<Class<?>> getTypes() {
-    return Set.of(); // Empty set = handle all types for backward compatibility
-  }
 }
