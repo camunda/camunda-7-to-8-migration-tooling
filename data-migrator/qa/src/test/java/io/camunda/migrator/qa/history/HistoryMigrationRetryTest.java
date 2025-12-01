@@ -34,7 +34,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // First migration skipps with a real-world scenario due to missing process definition migration
     historyMigrator.migrateProcessInstances(); // Skips because definition not migrated
 
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(0);
+    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
 
     // when: Now migrate definitions and retry skipped instances
     historyMigrator.migrateProcessDefinitions();
@@ -52,7 +52,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
     // Migrate decision definitions
     historyMigrator.migrateDecisionDefinitions();
-    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(0);
+    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(0);
 
     // Migrate dependency
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -80,11 +80,11 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateVariables();
     historyMigrator.migrateIncidents();
 
-    assertThat(searchHistoricProcessDefinitions("allElementsProcessId").size()).isEqualTo(0);
+    assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(0);
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("allElementsProcessId");
-    assertThat(processInstances.size()).isEqualTo(0);
-    assertThat(searchHistoricIncidents("allElementsProcessId").size()).isEqualTo(0);
-    assertThat(searchHistoricVariables("userTaskVar").size()).isEqualTo(0);
+    assertThat(processInstances).hasSize(0);
+    assertThat(searchHistoricIncidents("allElementsProcessId")).hasSize(0);
+    assertThat(searchHistoricVariables("userTaskVar")).hasSize(0);
 
     // Create more instances that will be skipped
     for (int i = 0; i < 5; i++) {
@@ -120,8 +120,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateFlowNodes();
     historyMigrator.migrateUserTasks();
 
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(0);
-    assertThat(searchHistoricProcessInstances("userTaskProcessId").size()).isEqualTo(0);
+    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
+    assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(0);
 
     // Start 4 more process instances
     for (int i = 0; i < 4; i++) {

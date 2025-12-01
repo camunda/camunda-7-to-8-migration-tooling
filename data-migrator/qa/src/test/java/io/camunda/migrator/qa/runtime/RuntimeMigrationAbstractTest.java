@@ -8,6 +8,7 @@
 package io.camunda.migrator.qa.runtime;
 
 import static io.camunda.migrator.MigratorMode.MIGRATE;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
@@ -58,18 +59,6 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected CamundaClient camundaClient;
-
-  /**
-   * Helper method to format SLF4J-style log messages by replacing {} placeholders with actual values.
-   */
-  protected String formatMessage(String template, Object... args) {
-    String result = template;
-    for (Object arg : args) {
-      result = result.replaceFirst("\\{}", String.valueOf(arg));
-      result = result.replaceFirst("%s", String.valueOf(arg));
-    }
-    return result;
-  }
 
   @AfterEach
   public void cleanup() {

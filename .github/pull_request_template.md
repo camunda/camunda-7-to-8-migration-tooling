@@ -9,15 +9,13 @@
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
 - [ ] Refactoring (no functional changes)
+- [ ] Test-only changes (no production code changes)
 
 ## Testing Checklist
 
 ### Black-Box Testing Requirements
-- [ ] All new tests follow **black-box testing approach** (see [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md))
-- [ ] Tests verify behavior through **observable outputs** (logs, C8 API queries)
-- [ ] Tests use **real-world skip scenarios** instead of manipulating internal state
-- [ ] Tests **DO NOT** access `DbClient` or `IdKeyMapper` (except in abstract test classes for cleanup)
-- [ ] Tests **DO NOT** access classes in `..impl..` package (except logging constants)
+- [ ] Tests follow **black-box testing approach**: verify behavior through observable outputs (logs, C8 API queries, real-world skip scenarios)
+- [ ] Tests **DO NOT** access implementation details (`DbClient`, `IdKeyMapper`, `..impl..` packages except logging constants)
 - [ ] Architecture tests pass (`ArchitectureTest` validates these rules)
 
 ### Test Coverage

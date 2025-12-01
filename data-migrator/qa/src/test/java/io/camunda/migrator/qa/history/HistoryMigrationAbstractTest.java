@@ -8,6 +8,7 @@
 package io.camunda.migrator.qa.history;
 
 import static io.camunda.migrator.constants.MigratorConstants.USER_TASK_ID;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -80,17 +81,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected DbClient dbClient;
-
-  /**
-   * Helper method to format SLF4J-style log messages by replacing {} placeholders with actual values.
-   */
-  protected String formatMessage(String template, Object... args) {
-    String result = template;
-    for (Object arg : args) {
-      result = result.replaceFirst("\\{}", String.valueOf(arg));
-    }
-    return result;
-  }
 
   @AfterEach
   public void cleanup() {
