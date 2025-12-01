@@ -28,6 +28,6 @@ public class IdentityMigratorLogs {
   }
 
   public static void logSkippedTenant(String tenantId) {
-    LOGGER.info(SKIPPED_TENANT, tenantId);
+    LOGGER.warn(SKIPPED_TENANT, tenantId);
   }
 }

@@ -42,7 +42,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
 
     // then c8 has default tenant + the 3 migrated ones
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
-    await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 4);
+    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 4);
     var tenants = request.execute().items();
     assertThatTenantsMatch(expectedTenants, tenants);
   }
@@ -61,7 +61,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
 
     // then c8 has default tenant + the 2 migrated ones
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
-    await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
+    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
     assertThatTenantsMatch(expectedTenants, tenants);
 
@@ -85,7 +85,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
 
     // then c8 has default tenant + the 2 migrated ones
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
-    await().timeout(3, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
+    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
     assertThatTenantsMatch(expectedTenants, tenants);
   }

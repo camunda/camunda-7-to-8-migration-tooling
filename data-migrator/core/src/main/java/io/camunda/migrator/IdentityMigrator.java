@@ -22,6 +22,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class IdentityMigrator {
 
+  public static final long DEFAULT_TENANT_KEY = 1L;
+
   @Autowired
   protected DbClient dbClient;
 
@@ -45,7 +47,7 @@ public class IdentityMigrator {
       IdentityMigratorLogs.logMigratingTenant(tenant.getId());
       c8Client.createTenant(tenant);
       IdentityMigratorLogs.logMigratedTenant(tenant.getId());
-      saveRecord(tenant.getId(), 1L); // Tenants do not have keys, we need a value different from null
+      saveRecord(tenant.getId(), DEFAULT_TENANT_KEY); // Tenants do not have keys, we need a value different from null
     } catch (MigratorException e) {
       IdentityMigratorLogs.logSkippedTenant(tenant.getId());
       saveRecord(tenant.getId(), null);
