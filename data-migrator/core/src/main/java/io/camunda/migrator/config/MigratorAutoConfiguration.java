@@ -13,7 +13,6 @@ import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
 import io.camunda.migrator.IdentityMigrator;
-import io.camunda.migrator.config.mybatis.SchemaShutdownCleaner;
 import io.camunda.migrator.impl.SchemaShutdownCleaner;
 import io.camunda.migrator.impl.AutoDeployer;
 import com.zaxxer.hikari.HikariDataSource;
