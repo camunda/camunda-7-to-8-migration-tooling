@@ -38,7 +38,7 @@ public class MigratorProperties {
   protected C7Properties c7;
   protected C8Properties c8;
 
-  protected List<InterceptorProperty> interceptors;
+  protected List<InterceptorConfig> interceptors;
 
   public int getPageSize() {
     return pageSize;
@@ -145,11 +145,11 @@ public class MigratorProperties {
     return jobType;
   }
 
-  public List<InterceptorProperty> getInterceptors() {
+  public List<InterceptorConfig> getInterceptors() {
     return interceptors;
   }
 
-  public void setInterceptors(List<InterceptorProperty> interceptors) {
+  public void setInterceptors(List<InterceptorConfig> interceptors) {
     this.interceptors = interceptors;
   }
 }

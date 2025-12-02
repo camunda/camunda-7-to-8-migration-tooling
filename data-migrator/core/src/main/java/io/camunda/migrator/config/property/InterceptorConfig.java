@@ -10,10 +10,10 @@ package io.camunda.migrator.config.property;
 import java.util.Map;
 
 /**
- * Configuration properties for interceptors that can be loaded from config data file.
+ * Configuration for interceptors that can be loaded from config data file.
  * Supports both custom interceptors and any interceptor control via enabled property.
  */
-public class InterceptorProperty {
+public class InterceptorConfig {
 
   private String className;
   private Map<String, Object> properties;
@@ -43,3 +43,4 @@ public class InterceptorProperty {
     this.enabled = enabled;
   }
 }
+

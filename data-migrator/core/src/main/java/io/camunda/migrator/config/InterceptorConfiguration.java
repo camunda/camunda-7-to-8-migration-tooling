@@ -7,7 +7,7 @@
  */
 package io.camunda.migrator.config;
 
-import io.camunda.migrator.config.property.InterceptorProperty;
+import io.camunda.migrator.config.property.InterceptorConfig;
 import io.camunda.migrator.config.property.MigratorProperties;
 import io.camunda.migrator.exception.MigratorException;
 import io.camunda.migrator.impl.interceptor.ByteArrayVariableValidator;
@@ -114,14 +114,14 @@ public class InterceptorConfiguration {
    */
   protected <T extends GlobalInterceptor<?>> void processUnifiedInterceptorConfiguration(
       List<T> contextInterceptors,
-      List<InterceptorProperty> interceptorConfigs,
+      List<InterceptorConfig> interceptorConfigs,
       Class<T> interceptorType) {
     if (interceptorConfigs == null || interceptorConfigs.isEmpty()) {
       ConfigurationLogs.logNoInterceptorsConfigured();
       return;
     }
 
-    for (InterceptorProperty interceptorConfig : interceptorConfigs) {
+    for (InterceptorConfig interceptorConfig : interceptorConfigs) {
       if (!interceptorConfig.isEnabled()) {
         // Handle interceptor disable by removing from context
         handleInterceptorDisable(contextInterceptors, interceptorConfig);
@@ -171,7 +171,7 @@ public class InterceptorConfiguration {
    */
   protected <T extends GlobalInterceptor<?>> void handleInterceptorDisable(
       List<T> contextInterceptors,
-      InterceptorProperty interceptorConfig) {
+      InterceptorConfig interceptorConfig) {
     boolean removed = contextInterceptors.removeIf(interceptor ->
         interceptor.getClass().getName().equals(interceptorConfig.getClassName()));
 
@@ -192,7 +192,7 @@ public class InterceptorConfiguration {
    */
   protected <T extends GlobalInterceptor<?>> void registerCustomInterceptor(
       List<T> contextInterceptors,
-      InterceptorProperty interceptorConfig,
+      InterceptorConfig interceptorConfig,
       Class<T> interceptorType) {
     try {
       T interceptor = createInterceptorInstance(interceptorConfig, interceptorType);
@@ -215,9 +215,9 @@ public class InterceptorConfiguration {
    */
   @SuppressWarnings("unchecked")
   protected <T extends GlobalInterceptor<?>> T createInterceptorInstance(
-      InterceptorProperty interceptorProperty,
+      InterceptorConfig interceptorConfig,
       Class<T> interceptorType) throws Exception {
-    String className = interceptorProperty.getClassName();
+    String className = interceptorConfig.getClassName();
     if (className == null || className.trim().isEmpty()) {
       throw new IllegalArgumentException(ConfigurationLogs.getClassNameNullOrEmptyError());
     }
@@ -232,7 +232,7 @@ public class InterceptorConfiguration {
     T interceptor = (T) clazz.getDeclaredConstructor().newInstance();
 
     // Set properties if provided
-    Map<String, Object> properties = interceptorProperty.getProperties();
+    Map<String, Object> properties = interceptorConfig.getProperties();
     if (properties != null && !properties.isEmpty()) {
       ConfigurationLogs.logSettingProperties(className);
       applyProperties(interceptor, properties, false);
