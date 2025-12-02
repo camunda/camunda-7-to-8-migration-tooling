@@ -12,7 +12,7 @@ import io.camunda.migrator.IdentityMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static io.camunda.migrator.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
@@ -31,7 +31,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
 
   @Autowired
-  protected ProcessEngineConfigurationImpl processEngineConfiguration;
+  protected ProcessEngineConfiguration processEngineConfiguration;
 
   @Test
   public void shouldMigrateTenants() {
