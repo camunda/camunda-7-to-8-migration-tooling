@@ -90,6 +90,29 @@ jobs:
         working-directory: code-conversion
         run: mvn verify -PcheckFormat --batch-mode
 
+      - name: Set up Node.js for pattern validation
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Install pattern dependencies
+        working-directory: code-conversion/patterns
+        run: npm install
+
+      - name: Validate pattern catalog is up-to-date
+        working-directory: code-conversion/patterns
+        run: |
+          echo "Generating pattern catalog..."
+          node generate-catalog.js
+          node generate-all-in-one.js
+          
+          echo "Checking if catalog files are in sync..."
+          if ! git diff --exit-code README.md ALL_IN_ONE.md; then
+            echo "❌ Pattern catalog is out of sync!"
+            exit 1
+          fi
+          echo "✅ Pattern catalog is up-to-date!"
+
       - name: Collect code-conversion artifacts
         id: code-conversion-artifacts
         if: github.ref == 'refs/heads/main'
