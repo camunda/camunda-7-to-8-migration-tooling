@@ -61,6 +61,7 @@ import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
 import io.camunda.migrator.impl.util.ExceptionUtils;
 import io.camunda.migrator.impl.util.PrintUtils;
+import io.camunda.migrator.migration.MigrationDescriptor;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
@@ -165,16 +166,55 @@ public class HistoryMigrator {
     migrateDecisionInstances();
   }
 
-  public void migrateProcessDefinitions() {
-    HistoryMigratorLogs.migratingProcessDefinitions();
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_DEFINITION, idKeyDbModel -> {
-        ProcessDefinition historicProcessDefinition = c7Client.getProcessDefinition(idKeyDbModel.getC7Id());
-        migrateProcessDefinition(historicProcessDefinition);
-      });
-    } else {
-      c7Client.fetchAndHandleProcessDefinitions(this::migrateProcessDefinition, dbClient.findLatestCreateTimeByType((HISTORY_PROCESS_DEFINITION)));
+  /**
+   * Safely flushes the batch, catching and logging any exceptions.
+   * For history migration, we log errors but continue processing.
+   */
+  protected void safeFlushBatch() {
+    try {
+      dbClient.flushBatch();
+    } catch (Exception e) {
+      HistoryMigratorLogs.batchFlushFailed(e.getMessage());
+      dbClient.clearFailedBatchKeys();
     }
+  }
+
+  /**
+   * Generic template method for executing entity migrations.
+   * Handles both MIGRATE and RETRY_SKIPPED modes with consistent error handling.
+   *
+   * @param descriptor Configuration for how to migrate this entity type
+   * @param <C7Entity> The Camunda 7 entity type
+   */
+  protected <C7Entity> void executeMigration(MigrationDescriptor<C7Entity> descriptor) {
+    try {
+      descriptor.logStart();
+      if (RETRY_SKIPPED.equals(mode)) {
+        dbClient.fetchAndHandleSkippedForType(descriptor.type(), idKeyDbModel -> {
+          C7Entity entity = descriptor.c7Fetcher().apply(idKeyDbModel.getC7Id());
+          descriptor.migrator().accept(entity);
+        });
+      } else {
+        descriptor.c7BatchFetcher().accept(
+            descriptor.migrator(),
+            dbClient.findLatestCreateTimeByType(descriptor.type())
+        );
+      }
+    } finally {
+      safeFlushBatch();
+    }
+  }
+
+  public void migrateProcessDefinitions() {
+    MigrationDescriptor<ProcessDefinition> descriptor = MigrationDescriptor.<ProcessDefinition>builder()
+        .type(HISTORY_PROCESS_DEFINITION)
+        .c7Fetcher(c7Client::getProcessDefinition)
+        .c7BatchFetcher(c7Client::fetchAndHandleProcessDefinitions)
+        .migrator(this::migrateProcessDefinition)
+        .startLogger(HistoryMigratorLogs::migratingProcessDefinitions)
+        .build();
+
+    executeMigration(descriptor);
   }
 
   protected void migrateProcessDefinition(ProcessDefinition c7ProcessDefinition) {
@@ -190,15 +230,15 @@ public class HistoryMigrator {
   }
 
   public void migrateProcessInstances() {
-    HistoryMigratorLogs.migratingProcessInstances();
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_INSTANCE, idKeyDbModel -> {
-        HistoricProcessInstance historicProcessInstance = c7Client.getHistoricProcessInstance(idKeyDbModel.getC7Id());
-        migrateProcessInstance(historicProcessInstance);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricProcessInstances(this::migrateProcessInstance, dbClient.findLatestCreateTimeByType((HISTORY_PROCESS_INSTANCE)));
-    }
+    MigrationDescriptor<HistoricProcessInstance> descriptor = MigrationDescriptor.<HistoricProcessInstance>builder()
+        .type(HISTORY_PROCESS_INSTANCE)
+        .c7Fetcher(c7Client::getHistoricProcessInstance)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricProcessInstances)
+        .migrator(this::migrateProcessInstance)
+        .startLogger(HistoryMigratorLogs::migratingProcessInstances)
+        .build();
+
+    executeMigration(descriptor);
   }
 
   protected void migrateProcessInstance(HistoricProcessInstance c7ProcessInstance) {
@@ -234,17 +274,15 @@ public class HistoryMigrator {
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    HistoryMigratorLogs.migratingDecisionRequirements();
+    MigrationDescriptor<DecisionRequirementsDefinition> descriptor = MigrationDescriptor.<DecisionRequirementsDefinition>builder()
+        .type(HISTORY_DECISION_REQUIREMENT)
+        .c7Fetcher(c7Client::getDecisionRequirementsDefinition)
+        .c7BatchFetcher((callback, date) -> c7Client.fetchAndHandleDecisionRequirementsDefinitions(callback))
+        .migrator(this::migrateDecisionRequirementsDefinition)
+        .startLogger(HistoryMigratorLogs::migratingDecisionRequirements)
+        .build();
 
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_REQUIREMENT, idKeyDbModel -> {
-        DecisionRequirementsDefinition c7DecisionRequirement = c7Client.getDecisionRequirementsDefinition(
-            idKeyDbModel.getC7Id());
-        migrateDecisionRequirementsDefinition(c7DecisionRequirement);
-      });
-    } else {
-      c7Client.fetchAndHandleDecisionRequirementsDefinitions(this::migrateDecisionRequirementsDefinition);
-    }
+    executeMigration(descriptor);
   }
 
   protected void migrateDecisionRequirementsDefinition(DecisionRequirementsDefinition c7DecisionRequirements) {
@@ -260,17 +298,15 @@ public class HistoryMigrator {
   }
 
   public void migrateDecisionDefinitions() {
-    HistoryMigratorLogs.migratingDecisionDefinitions();
+    MigrationDescriptor<DecisionDefinition> descriptor = MigrationDescriptor.<DecisionDefinition>builder()
+        .type(HISTORY_DECISION_DEFINITION)
+        .c7Fetcher(c7Client::getDecisionDefinition)
+        .c7BatchFetcher(c7Client::fetchAndHandleDecisionDefinitions)
+        .migrator(this::migrateDecisionDefinition)
+        .startLogger(HistoryMigratorLogs::migratingDecisionDefinitions)
+        .build();
 
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_DEFINITION, idKeyDbModel -> {
-        DecisionDefinition c7DecisionDefinition = c7Client.getDecisionDefinition(idKeyDbModel.getC7Id());
-        migrateDecisionDefinition(c7DecisionDefinition);
-      });
-    } else {
-      c7Client.fetchAndHandleDecisionDefinitions(this::migrateDecisionDefinition,
-          dbClient.findLatestCreateTimeByType((HISTORY_DECISION_DEFINITION)));
-    }
+    executeMigration(descriptor);
   }
 
   protected void migrateDecisionDefinition(DecisionDefinition c7DecisionDefinition) {
@@ -300,16 +336,15 @@ public class HistoryMigrator {
   }
 
   public void migrateDecisionInstances() {
-    HistoryMigratorLogs.migratingDecisionInstances();
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_INSTANCE, idKeyDbModel -> {
-        HistoricDecisionInstance historicDecisionInstance = c7Client.getHistoricDecisionInstance(idKeyDbModel.getC7Id());
-        migrateDecisionInstance(historicDecisionInstance);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricDecisionInstances(this::migrateDecisionInstance,
-          dbClient.findLatestCreateTimeByType((HISTORY_DECISION_INSTANCE)));
-    }
+    MigrationDescriptor<HistoricDecisionInstance> descriptor = MigrationDescriptor.<HistoricDecisionInstance>builder()
+        .type(HISTORY_DECISION_INSTANCE)
+        .c7Fetcher(c7Client::getHistoricDecisionInstance)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricDecisionInstances)
+        .migrator(this::migrateDecisionInstance)
+        .startLogger(HistoryMigratorLogs::migratingDecisionInstances)
+        .build();
+
+    executeMigration(descriptor);
   }
 
   protected void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) {
@@ -376,15 +411,15 @@ public class HistoryMigrator {
   }
 
   public void migrateIncidents() {
-    HistoryMigratorLogs.migratingHistoricIncidents();
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_INCIDENT, idKeyDbModel -> {
-        HistoricIncident historicIncident = c7Client.getHistoricIncident(idKeyDbModel.getC7Id());
-        migrateIncident(historicIncident);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricIncidents(this::migrateIncident, dbClient.findLatestCreateTimeByType((HISTORY_INCIDENT)));
-    }
+    MigrationDescriptor<HistoricIncident> descriptor = MigrationDescriptor.<HistoricIncident>builder()
+        .type(HISTORY_INCIDENT)
+        .c7Fetcher(c7Client::getHistoricIncident)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricIncidents)
+        .migrator(this::migrateIncident)
+        .startLogger(HistoryMigratorLogs::migratingHistoricIncidents)
+        .build();
+
+    executeMigration(descriptor);
   }
 
   protected void migrateIncident(HistoricIncident c7Incident) {
@@ -414,16 +449,15 @@ public class HistoryMigrator {
   }
 
   public void migrateVariables() {
-    HistoryMigratorLogs.migratingHistoricVariables();
+    MigrationDescriptor<HistoricVariableInstance> descriptor = MigrationDescriptor.<HistoricVariableInstance>builder()
+        .type(HISTORY_VARIABLE)
+        .c7Fetcher(c7Client::getHistoricVariableInstance)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricVariables)
+        .migrator(this::migrateVariable)
+        .startLogger(HistoryMigratorLogs::migratingHistoricVariables)
+        .build();
 
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_VARIABLE, idKeyDbModel -> {
-        HistoricVariableInstance historicVariableInstance = c7Client.getHistoricVariableInstance(idKeyDbModel.getC7Id());
-        migrateVariable(historicVariableInstance);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricVariables(this::migrateVariable, dbClient.findLatestCreateTimeByType(HISTORY_VARIABLE));
-    }
+    executeMigration(descriptor);
   }
 
   protected void migrateVariable(HistoricVariableInstance c7Variable) {
@@ -467,16 +501,15 @@ public class HistoryMigrator {
   }
 
   public void migrateUserTasks() {
-    HistoryMigratorLogs.migratingHistoricUserTasks();
+    MigrationDescriptor<HistoricTaskInstance> descriptor = MigrationDescriptor.<HistoricTaskInstance>builder()
+        .type(HISTORY_USER_TASK)
+        .c7Fetcher(c7Client::getHistoricTaskInstance)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricUserTasks)
+        .migrator(this::migrateUserTask)
+        .startLogger(HistoryMigratorLogs::migratingHistoricUserTasks)
+        .build();
 
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_USER_TASK, idKeyDbModel -> {
-        HistoricTaskInstance historicTaskInstance = c7Client.getHistoricTaskInstance(idKeyDbModel.getC7Id());
-        migrateUserTask(historicTaskInstance);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricUserTasks(this::migrateUserTask, dbClient.findLatestCreateTimeByType((HISTORY_USER_TASK)));
-    }
+    executeMigration(descriptor);
   }
 
   protected void migrateUserTask(HistoricTaskInstance c7UserTask) {
@@ -504,16 +537,15 @@ public class HistoryMigrator {
   }
 
   public void migrateFlowNodes() {
-    HistoryMigratorLogs.migratingHistoricFlowNodes();
+    MigrationDescriptor<HistoricActivityInstance> descriptor = MigrationDescriptor.<HistoricActivityInstance>builder()
+        .type(HISTORY_FLOW_NODE)
+        .c7Fetcher(c7Client::getHistoricActivityInstance)
+        .c7BatchFetcher(c7Client::fetchAndHandleHistoricFlowNodes)
+        .migrator(this::migrateFlowNode)
+        .startLogger(HistoryMigratorLogs::migratingHistoricFlowNodes)
+        .build();
 
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_FLOW_NODE, idKeyDbModel -> {
-        HistoricActivityInstance historicActivityInstance = c7Client.getHistoricActivityInstance(idKeyDbModel.getC7Id());
-        migrateFlowNode(historicActivityInstance);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricFlowNodes(this::migrateFlowNode, dbClient.findLatestCreateTimeByType((HISTORY_FLOW_NODE)));
-    }
+    executeMigration(descriptor);
   }
 
   protected void migrateFlowNode(HistoricActivityInstance c7FlowNode) {
@@ -535,61 +567,77 @@ public class HistoryMigrator {
     }
   }
 
-  protected ProcessInstanceEntity findProcessInstanceByC7Id(String processInstanceId) {
-    if (processInstanceId == null)
-      return null;
-
-    Long c8Key = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
-    if (c8Key == null) {
+  /**
+   * Generic helper method to find a C8 entity by its C7 ID.
+   * Reduces code duplication in entity lookup methods.
+   *
+   * @param c7Id The Camunda 7 entity ID
+   * @param type The entity type for lookup
+   * @param searchFunction Function that performs the search using the C8 key
+   * @param <T> The entity type to return
+   * @return The found entity or null
+   */
+  protected <T> T findEntityByC7Id(String c7Id, TYPE type, java.util.function.Function<Long, List<T>> searchFunction) {
+    if (c7Id == null) {
       return null;
     }
 
-    return dbClient.findProcessInstance(c8Key);
+    Long key = dbClient.findC8KeyByC7IdAndType(c7Id, type);
+    if (key == null) {
+      return null;
+    }
+
+    return searchFunction.apply(key)
+        .stream()
+        .findFirst()
+        .orElse(null);
+  }
+
+  protected ProcessInstanceEntity findProcessInstanceByC7Id(String processInstanceId) {
+    return findEntityByC7Id(
+        processInstanceId,
+        HISTORY_PROCESS_INSTANCE,
+        key -> dbClient.searchProcessInstances(
+            ProcessInstanceDbQuery.of(b -> b.filter(value -> value.processInstanceKeys(key))))
+    );
   }
 
   protected DecisionInstanceEntity findDecisionInstance(String decisionInstanceId) {
-    if (decisionInstanceId == null)
-      return null;
-
-    Long key = dbClient.findC8KeyByC7IdAndType(decisionInstanceId, HISTORY_DECISION_INSTANCE);
-    if (key == null) {
-      return null;
-    }
-
-    return dbClient.searchDecisionInstances(
+    return findEntityByC7Id(
+        decisionInstanceId,
+        HISTORY_DECISION_INSTANCE,
+        key -> dbClient.searchDecisionInstances(
             DecisionInstanceDbQuery.of(b -> b.filter(value -> value.decisionInstanceKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
+    );
   }
 
   protected DecisionDefinitionEntity findDecisionDefinition(String decisionDefinitionId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(decisionDefinitionId, HISTORY_DECISION_DEFINITION);
-    if (key == null) {
-      return null;
-    }
-
-    return dbClient.searchDecisionDefinitions(
+    return findEntityByC7Id(
+        decisionDefinitionId,
+        HISTORY_DECISION_DEFINITION,
+        key -> dbClient.searchDecisionDefinitions(
             DecisionDefinitionDbQuery.of(b -> b.filter(value -> value.decisionDefinitionKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
+    );
+  }
+
+  protected FlowNodeInstanceDbModel findFlowNodeInstance(String activityInstanceId) {
+    return findEntityByC7Id(
+        activityInstanceId,
+        HISTORY_FLOW_NODE,
+        key -> dbClient.searchFlowNodeInstances(
+            FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.flowNodeInstanceKeys(key))))
+    );
   }
 
   protected Long findProcessDefinitionKey(String processDefinitionId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId, HISTORY_PROCESS_DEFINITION);
-    if (key == null) {
-      return null;
-    }
-
-    List<ProcessDefinitionEntity> processDefinitions = dbClient.searchProcessDefinitions(
-        ProcessDefinitionDbQuery.of(b -> b.filter(value -> value.processDefinitionKeys(key))));
-
-    if (!processDefinitions.isEmpty()) {
-      return processDefinitions.getFirst().processDefinitionKey();
-    } else {
-      return null;
-    }
+    return Optional.ofNullable(findEntityByC7Id(
+        processDefinitionId,
+        HISTORY_PROCESS_DEFINITION,
+        key -> dbClient.searchProcessDefinitions(
+            ProcessDefinitionDbQuery.of(b -> b.filter(value -> value.processDefinitionKeys(key))))
+    ))
+    .map(ProcessDefinitionEntity::processDefinitionKey)
+    .orElse(null);
   }
 
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
@@ -614,32 +662,19 @@ public class HistoryMigrator {
         .orElse(null);
   }
 
-  protected FlowNodeInstanceDbModel findFlowNodeInstance(String activityInstanceId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(activityInstanceId, HISTORY_FLOW_NODE);
-    if (key == null) {
-      return null;
-    }
-
-    return dbClient.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.flowNodeInstanceKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
-  }
-
   protected Long findScopeKey(String instanceId) {
     Long key = findFlowNodeInstanceKey(instanceId);
     if (key != null) {
       return key;
     }
 
-    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(instanceId, HISTORY_PROCESS_INSTANCE);
-    if (processInstanceKey == null) {
-      return null;
-    }
-
-    List<ProcessInstanceEntity> processInstances = dbClient.searchProcessInstances(
-        ProcessInstanceDbQuery.of(b -> b.filter(value -> value.processInstanceKeys(processInstanceKey))));
-    return processInstances.isEmpty() ? null : processInstanceKey;
+    return Optional.ofNullable(dbClient.findC8KeyByC7IdAndType(instanceId, HISTORY_PROCESS_INSTANCE))
+        .flatMap(processInstanceKey -> {
+          List<ProcessInstanceEntity> processInstances = dbClient.searchProcessInstances(
+              ProcessInstanceDbQuery.of(b -> b.filter(value -> value.processInstanceKeys(processInstanceKey))));
+          return processInstances.isEmpty() ? Optional.empty() : Optional.of(processInstanceKey);
+        })
+        .orElse(null);
   }
 
   protected boolean isMigrated(String id, TYPE type) {

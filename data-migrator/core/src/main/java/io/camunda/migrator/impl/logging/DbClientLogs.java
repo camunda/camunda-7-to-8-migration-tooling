@@ -24,6 +24,7 @@ public class DbClientLogs {
   public static final String UPDATING_KEY_FOR_C7_ID = "Updating key for C7 ID [{}] with value [{}]";
   public static final String UPDATING_SKIP_REASON = "Updating skip reason for C7 ID [{}] with value [{}]";
   public static final String INSERTING_RECORD = "Inserting record [{}], [{}], [{}], [{}]";
+  public static final String FLUSHING_BATCH = "Flushing batch of {} records to database";
   public static final String FOUND_CREATE_TIME_FOR_TYPE = "Latest create time for {}: {}";
 
   // DbClient Error Messages
@@ -54,5 +55,13 @@ public class DbClientLogs {
 
   public static void foundLatestCreateTime(Date latestCreateTime, TYPE type) {
     LOGGER.debug(FOUND_CREATE_TIME_FOR_TYPE, type, latestCreateTime);
+  }
+
+  public static void flushingBatch(int size) {
+    LOGGER.info(FLUSHING_BATCH, size);
+  }
+
+  public static void batchInsertFailed(int rollbackCount) {
+    LOGGER.error("Batch insert failed. Need to rollback {} C8 process instances", rollbackCount);
   }
 }

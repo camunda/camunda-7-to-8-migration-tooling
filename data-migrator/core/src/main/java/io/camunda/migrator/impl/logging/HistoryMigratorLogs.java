@@ -256,4 +256,8 @@ public class HistoryMigratorLogs {
   public static void migratingDecisionRequirementsCompleted(String c7DecisionRequirementsId) {
     LOGGER.debug(MIGRATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionRequirementsId);
   }
+
+  public static void batchFlushFailed(String message) {
+    LOGGER.error("Batch flush failed during history migration: {}", message);
+  }
 }
