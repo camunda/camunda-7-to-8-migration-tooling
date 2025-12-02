@@ -83,7 +83,7 @@ public interface EntityInterceptor extends GlobalInterceptor<EntityConversionCon
    * Executes the interceptor logic for an entity conversion.
    * This method will only be called if the entity type matches one of the supported types.
    *
-   * @param context the entity conversion context containing C7 entity, C8 builder, and entity type
+   * @param context the entity conversion context containing C7 entity, C8 builder, entity type, and process engine
    */
   @Override
   void execute(EntityConversionContext<?, ?> context);

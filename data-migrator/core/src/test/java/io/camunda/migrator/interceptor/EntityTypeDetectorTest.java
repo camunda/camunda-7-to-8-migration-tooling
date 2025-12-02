@@ -68,7 +68,7 @@ class EntityTypeDetectorTest {
     }
   }
 
-  static class VariableInterceptor implements EntityInterceptor {
+  static class TestVariableInterceptor implements EntityInterceptor {
     @Override
     public void execute(EntityConversionContext<?, ?> context) {
       // No-op for testing
