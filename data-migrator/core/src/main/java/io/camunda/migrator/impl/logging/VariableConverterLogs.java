@@ -22,6 +22,7 @@ public class VariableConverterLogs {
 
   // VariableConverter Messages
   public static final String CONVERTING_OF_TYPE = "Converting variable with C7 ID [{}] of type: {}";
+  public static final String INTERCEPTOR_WARN = "Interceptor [{}] failed for variable [{}]";
 
   // VariableConverter Error Messages
   public static final String WARN_NO_HANDLING_AVAILABLE = "No existing handling for variable with id= {}, type: {}, returning null.";
@@ -37,5 +38,13 @@ public class VariableConverterLogs {
 
   public static void failedConvertingJson(ObjectValueImpl typedValue, String message) {
     LOGGER.error(ERROR_CONVERTING_JSON, typedValue, message);
+  }
+
+  public static void logInterceptorWarn(String interceptorName, String variableName) {
+    LOGGER.warn(INTERCEPTOR_WARN, interceptorName, variableName);
+  }
+
+  public static String formatInterceptorWarn(String interceptorName, String variableName) {
+    return String.format("Interceptor [%s] failed for variable [%s]", interceptorName, variableName);
   }
 }
