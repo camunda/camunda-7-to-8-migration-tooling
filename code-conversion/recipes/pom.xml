@@ -191,7 +191,7 @@
 	    <dependency>
 	      <groupId>io.camunda</groupId>
 	      <artifactId>camunda-process-test-spring</artifactId>
-	      <version>8.8.5</version>
+	      <version>8.8.6</version>
 	    </dependency>
 
 
