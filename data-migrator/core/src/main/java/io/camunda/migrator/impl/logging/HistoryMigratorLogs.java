@@ -65,6 +65,8 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
+  public static final String SKIPPING_VARIABLE_INTERCEPTOR_ERROR = SKIPPING_VARIABLE + " Variable interceptor error: {}";
+
 
   public static final String MIGRATING_USER_TASKS = "Migrating historic user tasks";
   public static final String MIGRATING_USER_TASK = "Migrating historic user task with C7 ID: [{}]";
@@ -207,6 +209,14 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricVariableDueToMissingScopeKey(String c7VariableId) {
     LOGGER.debug(SKIPPING_VARIABLE_MISSING_SCOPE, c7VariableId);
+  }
+
+  public static void skippingHistoricVariableDueToInterceptorError(String c7VariableId, String message) {
+    LOGGER.warn(SKIPPING_VARIABLE_INTERCEPTOR_ERROR, c7VariableId, message);
+  }
+
+  public static void stacktrace(Exception e) {
+    LOGGER.debug("Stack trace:", e);
   }
 
   public static void migratingHistoricUserTasks() {

@@ -56,6 +56,7 @@ import io.camunda.migrator.converter.ProcessDefinitionConverter;
 import io.camunda.migrator.converter.ProcessInstanceConverter;
 import io.camunda.migrator.converter.UserTaskConverter;
 import io.camunda.migrator.converter.VariableConverter;
+import io.camunda.migrator.exception.VariableInterceptorException;
 import io.camunda.migrator.impl.clients.C7Client;
 import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
@@ -447,10 +448,14 @@ public class HistoryMigrator {
           Long processInstanceKey = processInstance.processInstanceKey();
           Long scopeKey = findScopeKey(c7Variable.getActivityInstanceId());
           if (scopeKey != null) {
-            VariableDbModel dbModel = variableConverter.apply(c7Variable, processInstanceKey, scopeKey);
-            dbClient.insertVariable(dbModel);
-            markMigrated(c7VariableId, dbModel.variableKey(), c7Variable.getCreateTime(), HISTORY_VARIABLE);
-            HistoryMigratorLogs.migratingHistoricVariableCompleted(c7VariableId);
+            try {
+              VariableDbModel dbModel = variableConverter.apply(c7Variable, processInstanceKey, scopeKey);
+              dbClient.insertVariable(dbModel);
+              markMigrated(c7VariableId, dbModel.variableKey(), c7Variable.getCreateTime(), HISTORY_VARIABLE);
+              HistoryMigratorLogs.migratingHistoricVariableCompleted(c7VariableId);
+            } catch (VariableInterceptorException e) {
+              handleVariableInterceptorException(e, c7VariableId, c7Variable.getCreateTime());
+            }
           } else {
             markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
             HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
@@ -464,6 +469,12 @@ public class HistoryMigrator {
         HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
       }
     }
+  }
+
+  protected void handleVariableInterceptorException(VariableInterceptorException e, String c7VariableId, Date createTime) {
+    HistoryMigratorLogs.skippingHistoricVariableDueToInterceptorError(c7VariableId, e.getMessage());
+    HistoryMigratorLogs.stacktrace(e);
+    markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, createTime, e.getMessage());
   }
 
   public void migrateUserTasks() {

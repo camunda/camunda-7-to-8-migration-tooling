@@ -7,32 +7,37 @@
  */
 package io.camunda.migrator.converter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migrator.constants.MigratorConstants;
-import io.camunda.migrator.impl.logging.VariableConverterLogs;
+import io.camunda.migrator.exception.VariableInterceptorException;
 import io.camunda.migrator.impl.util.ConverterUtil;
+import io.camunda.migrator.interceptor.VariableInterceptor;
+import io.camunda.migrator.interceptor.VariableInvocation;
+import io.camunda.migrator.interceptor.VariableTypeDetector;
+import io.camunda.migrator.impl.logging.VariableConverterLogs;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.camunda.bpm.engine.variable.impl.value.NullValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
+import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.List;
 
 import static io.camunda.migrator.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 
 public class VariableConverter {
 
-  @Autowired
-  protected ObjectMapper objectMapper;
+  @Autowired(required = false)
+  protected List<VariableInterceptor> configuredVariableInterceptors;
 
   public VariableDbModel apply(HistoricVariableInstance historicVariable, Long processInstanceKey, Long scopeKey) {
+    // Process variable through interceptors same as runtime migration
+    Object convertedValue = convertValue(historicVariable);
+    
     // TODO currently the VariableDbModelBuilder maps all variables to String type
     return new VariableDbModel.VariableDbModelBuilder()
         .variableKey(getNextKey())
         .name(historicVariable.getName())
-        .value(convertValue(historicVariable)) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5329
+        .value(convertedValue) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5329
         .scopeKey(scopeKey)
         .processInstanceKey(processInstanceKey)
         .processDefinitionId(historicVariable.getProcessDefinitionKey())
@@ -42,53 +47,75 @@ public class VariableConverter {
         .build();
   }
 
-  protected String convertValue(HistoricVariableInstance variable) {
-    var variableId = variable.getId();
-
-    if (isNullValueType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "NullValue");
-      return null;
+  /**
+   * Converts a historic variable value using the same interceptor mechanism as runtime migration.
+   * This ensures consistency between runtime and history variable transformation.
+   *
+   * @param historicVariable the historic variable instance to convert
+   * @return the converted value
+   * @throws VariableInterceptorException if any interceptor fails
+   * @throws ClassCastException if historicVariable is not a VariableInstanceEntity
+   */
+  protected Object convertValue(HistoricVariableInstance historicVariable) {
+    // In Camunda 7, HistoricVariableInstance is implemented by HistoricVariableInstanceEntity
+    // which extends VariableInstanceEntity. This cast is safe for all Camunda 7.x versions.
+    // The cast allows us to reuse the VariableInvocation infrastructure that expects VariableInstanceEntity.
+    if (!(historicVariable instanceof VariableInstanceEntity)) {
+      throw new ClassCastException(
+          "Expected HistoricVariableInstance to be a VariableInstanceEntity, but got: " +
+          historicVariable.getClass().getName());
     }
+    VariableInstanceEntity variableEntity = (VariableInstanceEntity) historicVariable;
+    
+    // Use the same interceptor mechanism as runtime migration
+    VariableInvocation variableInvocation = new VariableInvocation(variableEntity);
+    executeInterceptors(variableInvocation);
+    
+    return variableInvocation.getMigrationVariable().getValue();
+  }
 
-    if (isPrimitiveType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "Primitive");
-      var typedValue = variable.getTypedValue().getValue();
+  /**
+   * Executes all configured variable interceptors on the given variable invocation.
+   * Only interceptors that support the variable's type will be called.
+   * This is the same logic used in VariableService for runtime migration.
+   * 
+   * Note: This method duplicates logic from VariableService.executeInterceptors() to avoid
+   * coupling between history and runtime migration components. Both serve different purposes
+   * (history vs runtime) and may diverge in future implementations.
+   *
+   * @param variableInvocation the variable invocation to process
+   * @throws VariableInterceptorException if any interceptor fails
+   */
+  protected void executeInterceptors(VariableInvocation variableInvocation) {
+    if (hasInterceptors()) {
+      for (VariableInterceptor interceptor : configuredVariableInterceptors) {
+        // Only execute interceptors that support this variable type using Camunda's native types
+        if (VariableTypeDetector.supportsVariable(interceptor, variableInvocation)) {
+          try {
+            interceptor.execute(variableInvocation);
+          } catch (Exception ex) {
+            String interceptorName = interceptor.getClass().getSimpleName();
+            String variableName = variableInvocation.getC7Variable().getName();
+            VariableConverterLogs.logInterceptorWarn(interceptorName, variableName);
 
-      return typedValue != null ? typedValue.toString() : null;
+            if (ex instanceof VariableInterceptorException) {
+              throw ex;
+            } else {
+              throw new VariableInterceptorException(VariableConverterLogs.formatInterceptorWarn(interceptorName, variableName), ex);
+            }
+          }
+        }
+      }
     }
-
-    if (isObjectType(variable)) {
-      ObjectValueImpl typedValue = (ObjectValueImpl) (variable.getTypedValue());
-      Class<?> objectType = typedValue.getObjectType();
-      VariableConverterLogs.convertingOfType(variableId, objectType.getSimpleName());
-
-      return getJsonValue(typedValue);
-    }
-
-    VariableConverterLogs.warnNoHandlingAvailable(variableId, "unknown"/*variable.getTypeName()*/);
-    return null;
   }
 
-  protected boolean isNullValueType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof NullValueImpl;
+  /**
+   * Checks if there are any configured variable interceptors.
+   *
+   * @return true if interceptors are configured, false otherwise
+   */
+  protected boolean hasInterceptors() {
+    return configuredVariableInterceptors != null && !configuredVariableInterceptors.isEmpty();
   }
-
-  protected boolean isObjectType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof ObjectValueImpl;
-  }
-
-  protected boolean isPrimitiveType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof PrimitiveTypeValueImpl;
-  }
-
-  protected String getJsonValue(ObjectValueImpl typedValue) {
-    try {
-      return objectMapper.writeValueAsString(typedValue.getValue());
-    } catch (JsonProcessingException e) {
-      VariableConverterLogs.failedConvertingJson(typedValue, e.getMessage());
-      return null;
-    }
-  }
-
 
 }
