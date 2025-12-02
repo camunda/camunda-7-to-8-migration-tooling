@@ -7,6 +7,8 @@
  */
 package io.camunda.migrator.interceptor.property;
 
+import org.camunda.bpm.engine.ProcessEngine;
+
 /**
  * Context for entity conversion from Camunda 7 to Camunda 8.
  * Stores the C7 entity, entity type, and C8 database model builder.
@@ -16,9 +18,11 @@ package io.camunda.migrator.interceptor.property;
  */
 public class EntityConversionContext<C7, C8> {
 
-  private final C7 c7Entity;
-  private C8 c8DbModelBuilder;
-  private final Class<?> entityType;
+  protected final C7 c7Entity;
+  protected C8 c8DbModelBuilder;
+  protected final Class<?> entityType;
+  protected ProcessEngine processEngine;
+
 
   /**
    * Creates a new context with a C7 entity and entity type.
@@ -28,12 +32,18 @@ public class EntityConversionContext<C7, C8> {
    * @throws IllegalArgumentException if c7Entity is null
    */
   public EntityConversionContext(C7 c7Entity, Class<?> entityType) {
-    if (c7Entity == null) {
-      throw new IllegalArgumentException("C7 entity cannot be null");
-    }
-    this.c7Entity = c7Entity;
-    this.entityType = entityType;
-    this.c8DbModelBuilder = null;
+    this(c7Entity, entityType, null);
+  }
+
+  /**
+   * Creates a new context with a C7 entity and entity type.
+   *
+   * @param c7Entity the Camunda 7 entity
+   * @param entityType the entity type class
+   * @throws IllegalArgumentException if c7Entity is null
+   */
+  public EntityConversionContext(C7 c7Entity, Class<?> entityType, ProcessEngine processEngine) {
+    this(c7Entity, entityType, null, processEngine);
   }
 
   /**
@@ -44,13 +54,14 @@ public class EntityConversionContext<C7, C8> {
    * @param c8DbModelBuilder the Camunda 8 database model builder
    * @throws IllegalArgumentException if c7Entity is null
    */
-  public EntityConversionContext(C7 c7Entity, Class<?> entityType, C8 c8DbModelBuilder) {
+  public EntityConversionContext(C7 c7Entity, Class<?> entityType, C8 c8DbModelBuilder, ProcessEngine processEngine) {
     if (c7Entity == null) {
       throw new IllegalArgumentException("C7 entity cannot be null");
     }
     this.c7Entity = c7Entity;
     this.entityType = entityType;
     this.c8DbModelBuilder = c8DbModelBuilder;
+    this.processEngine = processEngine;
   }
 
   /**
@@ -87,6 +98,15 @@ public class EntityConversionContext<C7, C8> {
    */
   public Class<?> getEntityType() {
     return entityType;
+  }
+
+  /**
+   * Gets the Camunda Process Engine.
+   *
+   * @return the process engine
+   */
+  public ProcessEngine getProcessEngine() {
+    return processEngine;
   }
 }
 
