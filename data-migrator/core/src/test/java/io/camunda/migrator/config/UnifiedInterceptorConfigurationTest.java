@@ -83,25 +83,6 @@ public class UnifiedInterceptorConfigurationTest {
     assertThat(hasPrimitiveTransformer).isFalse();
   }
 
-  @Test
-  @Disabled // TODO
-  void shouldIncludeProgrammaticInterceptorsFromSpringContext() {
-    // Spring-managed interceptors should be included
-    assertThat(configuredVariableInterceptors).isNotNull();
-
-    boolean hasSpringManagedInterceptor = configuredVariableInterceptors.stream()
-        .anyMatch(interceptor -> interceptor instanceof SpringManagedVariableInterceptor);
-
-    assertThat(hasSpringManagedInterceptor).isTrue();
-
-    assertThat(configuredEntityInterceptors).isNotNull();
-
-    boolean hasSpringManagedEntityInterceptor = configuredEntityInterceptors.stream()
-        .anyMatch(interceptor -> interceptor instanceof SpringManagedEntityInterceptor);
-
-    assertThat(hasSpringManagedEntityInterceptor).isTrue();
-  }
-
   // Custom interceptor classes for testing
   public static class CustomVariableInterceptor implements VariableInterceptor {
     @Override
