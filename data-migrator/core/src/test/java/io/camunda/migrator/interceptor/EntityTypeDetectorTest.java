@@ -277,7 +277,7 @@ class EntityTypeDetectorTest {
   @Test
   void shouldOnlySupportSpecifiedTypeWithSpecificInterceptor() {
     // Given
-    EntityInterceptor interceptor = new VariableInterceptor();
+    EntityInterceptor interceptor = new TestVariableInterceptor();
 
     // When & Then
     assertThat(EntityTypeDetector.supportsEntityType(interceptor, HistoricVariableInstance.class))
