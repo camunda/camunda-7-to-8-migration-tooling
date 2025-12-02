@@ -13,7 +13,7 @@ import org.apache.ibatis.mapping.VendorDatabaseIdProvider;
 
 public class DbVendorProvider extends VendorDatabaseIdProvider {
 
-  private static final Properties VENDOR_PROPERTIES = new Properties();
+  protected static final Properties VENDOR_PROPERTIES = new Properties();
 
   static {
     VENDOR_PROPERTIES.put("H2", "h2");
@@ -23,7 +23,7 @@ public class DbVendorProvider extends VendorDatabaseIdProvider {
     VENDOR_PROPERTIES.put("MySQL", "mariadb");
   }
 
-  private final String databaseIdOverride;
+  protected final String databaseIdOverride;
 
   public DbVendorProvider(final String databaseIdOverride) {
     this.databaseIdOverride = databaseIdOverride;

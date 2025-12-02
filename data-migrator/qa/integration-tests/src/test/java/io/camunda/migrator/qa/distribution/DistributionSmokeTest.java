@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -312,6 +314,31 @@ public class DistributionSmokeTest {
   }
 
   @Test
+  @DisabledOnOs(OS.WINDOWS)
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldIgnoreHiddenFiles() throws Exception {
+    // given
+    Path resourcesDir = extractedDistributionPath.resolve("configuration/resources");
+    Files.createDirectories(resourcesDir);
+
+    // Read the existing configuration file and set auto-dll to true
+    replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+
+    String hiddenFileContent = "foo";
+    Path hiddenFile = resourcesDir.resolve(".hiddenFile");
+    Files.write(hiddenFile, hiddenFileContent.getBytes());
+
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+
+    // when
+    process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+    assertThat(output).doesNotContain(FAILED_TO_DEPLOY_C8_RESOURCES);
+  }
+
+  @Test
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldApplyConfigurationChanges() throws Exception {
     // given
@@ -339,7 +366,39 @@ public class DistributionSmokeTest {
     assertThat(output).contains("ENGINE-03057 There are no Camunda tables in the database.");
   }
 
-  private void replaceConfigProperty(String before, String after) throws IOException {
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldCreateLogFileWhenConfigured() throws Exception {
+    // given
+    Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
+    assertThat(configFile).exists();
+
+    // Read the existing configuration file and set auto-ddl to true
+    replaceConfigProperty("auto-ddl: false", "auto-ddl: true");
+
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime");
+
+    // when
+    process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+
+    // Verify that log file was created at the configured location
+    Path logFile = extractedDistributionPath.resolve("logs/camunda-7-to-8-data-migrator.log");
+    assertThat(logFile).exists();
+    assertThat(logFile.toFile().length()).isGreaterThan(0);
+
+    // Verify the log file contains expected log messages
+    // Note: early startup messages before Spring Boot initializes logging won't be in the file
+    String logContent = Files.readString(logFile);
+    assertThat(logContent).containsAnyOf(
+        "Failed to activate jobs",
+        "ENGINE-"
+    );
+  }
+
+  protected void replaceConfigProperty(String before, String after) throws IOException {
     Path configFile = extractedDistributionPath.resolve("configuration/application.yml");
     String originalConfig = Files.readString(configFile);
     String modifiedConfig = originalConfig.replace(before, after);

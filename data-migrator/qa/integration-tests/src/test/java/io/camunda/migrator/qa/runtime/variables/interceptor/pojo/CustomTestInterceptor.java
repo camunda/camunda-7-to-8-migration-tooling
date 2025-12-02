@@ -13,7 +13,7 @@ import java.util.Set;
 import org.camunda.bpm.engine.variable.value.StringValue;
 
 public class CustomTestInterceptor implements VariableInterceptor {
-  private String prefix;
+  protected String prefix;
 
   @Override
   public Set<Class<?>> getTypes() {

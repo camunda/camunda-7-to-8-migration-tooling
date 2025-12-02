@@ -12,6 +12,7 @@ import static io.camunda.migrator.constants.MigratorConstants.LEGACY_ID_VAR_NAME
 import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_C8_TENANT_DEPLOYMENT_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.TENANT_ID_ERROR;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,8 +100,8 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
         .items()
         .getFirst();
     assertThat(c8ProcessInstance).isNotNull();
-    logs.assertContains(String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7WithT1,
-        String.format(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7WithT1)));
+    logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7WithT1,
+        formatMessage(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7WithT1)));
   }
 
 }

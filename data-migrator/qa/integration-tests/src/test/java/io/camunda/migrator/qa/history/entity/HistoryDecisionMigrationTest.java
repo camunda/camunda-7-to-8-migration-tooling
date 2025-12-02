@@ -10,13 +10,12 @@ package io.camunda.migrator.qa.history.entity;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
-import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migrator.HistoryMigrator;
-import io.camunda.migrator.impl.clients.C7Client;
 import io.camunda.migrator.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -35,18 +34,14 @@ import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
-import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
-  @Autowired
-  private C7Client c7Client;
-
   @Test
-  public void migrateSingleHistoricDecision() {
+  public void shouldMigrateSingleHistoricDecision() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
@@ -67,7 +62,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void migrateHistoricDecisionWithRequirements() {
+  public void shouldMigrateHistoricDecisionWithRequirements() {
     // given
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
@@ -111,7 +106,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void migrateHistoricDecisionInstance() {
+  public void shouldMigrateHistoricDecisionInstance() {
     // given
     Date now = ClockUtil.now();
     ClockUtil.setCurrentTime(now);
@@ -132,7 +127,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
-    HistoricDecisionInstance c7Instance = c7Client.getHistoricDecisionInstanceByDefinitionKey("simpleDecisionId");
+    HistoricDecisionInstance c7Instance = historyService.createHistoricDecisionInstanceQuery()
+        .decisionDefinitionKey("simpleDecisionId")
+        .singleResult();
 
     assertThat(migratedInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionInstanceId()).isEqualTo(
@@ -169,7 +166,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void migrateHistoricDecisionInstanceWithNonDefaultTenant() {
+  public void shouldMigrateHistoricDecisionInstanceWithNonDefaultTenant() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn", "aTenantId");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn", "aTenantId");
@@ -187,7 +184,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void migrateChildDecisionInstanceWhenParentInstanceTriggeredFromBusinessTask() {
+  public void shouldMigrateChildDecisionInstanceWhenParentInstanceTriggeredFromBusinessTask() {
     // given
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
     deployer.deployCamunda7Process("businessRuleForDmnWithReqs.bpmn");
@@ -205,18 +202,18 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void doNotMigrateDecisionInstanceWhenNotOriginatingFromProcessDefinition() {
+  public void shouldNotMigrateDecisionInstanceWhenNotOriginatingFromProcessDefinition() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     Map<String, Object> variables = Variables.createVariables().putValue("inputA", stringValue("A"));
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", variables);
-    String decisionInstanceId = c7Client.getHistoricDecisionInstanceByDefinitionKey("simpleDecisionId").getId();
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey("simpleDecisionId").singleResult().getId();
 
     // when
     historyMigrator.migrate();
 
     // then
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
-    logs.assertContains(NOT_MIGRATING_DECISION_INSTANCE.replace("{}", decisionInstanceId));
+    logs.assertContains(formatMessage(NOT_MIGRATING_DECISION_INSTANCE, decisionInstanceId));
   }
 }
