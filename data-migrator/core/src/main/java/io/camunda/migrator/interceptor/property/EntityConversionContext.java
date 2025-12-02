@@ -36,10 +36,11 @@ public class EntityConversionContext<C7, C8> {
   }
 
   /**
-   * Creates a new context with a C7 entity and entity type.
+   * Creates a new context with a C7 entity, entity type, and process engine.
    *
    * @param c7Entity the Camunda 7 entity
    * @param entityType the entity type class
+   * @param processEngine the Camunda 7 process engine
    * @throws IllegalArgumentException if c7Entity is null
    */
   public EntityConversionContext(C7 c7Entity, Class<?> entityType, ProcessEngine processEngine) {
@@ -47,11 +48,12 @@ public class EntityConversionContext<C7, C8> {
   }
 
   /**
-   * Creates a new context with a C7 entity, entity type, and C8 database model builder.
+   * Creates a new context with a C7 entity, entity type, C8 database model builder, and process engine.
    *
    * @param c7Entity the Camunda 7 entity
    * @param entityType the entity type class
    * @param c8DbModelBuilder the Camunda 8 database model builder
+   * @param processEngine the Camunda 7 process engine
    * @throws IllegalArgumentException if c7Entity is null
    */
   public EntityConversionContext(C7 c7Entity, Class<?> entityType, C8 c8DbModelBuilder, ProcessEngine processEngine) {
