@@ -8,18 +8,27 @@
 package io.camunda.migrator.qa.identity;
 
 import io.camunda.client.api.search.request.TenantsSearchRequest;
+import io.camunda.migrator.IdentityMigrator;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.junit.jupiter.api.Test;
+
+import static io.camunda.migrator.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 
 import io.camunda.client.api.search.response.Tenant;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class TenantMigrationTest extends IdentityAbstractTest {
+
+  @RegisterExtension
+  protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
 
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
@@ -61,7 +70,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     assertThatTenantsMatch(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
-    // TODO check skipped via logs
+    verifySkippedViaLogs(tenant2.getId());
   }
 
   @Test
@@ -103,5 +112,10 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     tenant.setName(name);
     identityService.saveTenant(tenant);
     return tenant;
+  }
+
+  protected void verifySkippedViaLogs(String tenantId) {
+    // Verify skip occurred via logs using constant from RuntimeMigratorLogs
+    logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId));
   }
 }
