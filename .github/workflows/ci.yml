@@ -159,7 +159,7 @@ jobs:
 
       - name: Run tests with PostgreSQL
         working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration
+        run: mvn verify -Ppostgresql,integration -U
 
   it-h2:
     runs-on: ubuntu-latest
@@ -191,7 +191,7 @@ jobs:
 
       - name: Run tests with H2
         working-directory: data-migrator
-        run: mvn verify -Pintegration
+        run: mvn verify -Pintegration -U
 
   it-oracle:
     runs-on: ubuntu-latest
@@ -223,7 +223,7 @@ jobs:
 
       - name: Run tests with Oracle
         working-directory: data-migrator
-        run: mvn verify -Poracle,integration
+        run: mvn verify -Poracle,integration -U
 
   it-h2-windows:
     runs-on: windows-latest
@@ -259,7 +259,7 @@ jobs:
 
       - name: Build and run default tests
         working-directory: data-migrator
-        run: mvn clean install -P'windows,integration' --batch-mode
+        run: mvn clean install -P'windows,integration' --batch-mode -U
 
   e2e:
     runs-on: ubuntu-latest
