@@ -27,11 +27,11 @@ import org.slf4j.LoggerFactory;
  */
 public class MyCustomVariableInterceptor implements VariableInterceptor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MyCustomVariableInterceptor.class);
+    protected static final Logger LOGGER = LoggerFactory.getLogger(MyCustomVariableInterceptor.class);
 
     // Configurable properties that can be set via YAML
-    private boolean enableLogging = true;
-    private String prefix = "CUSTOM_";
+    protected boolean enableLogging = true;
+    protected String prefix = "CUSTOM_";
 
     @Override
     public void execute(VariableInvocation invocation) {

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 public class MessageEventMigrationTest extends AbstractElementMigrationTest {
 
   @Test
-  public void messageCatchEventMigration() {
+  public void shouldMigrateMessageCatchEvent() {
     // given
     deployer.deployProcessInC7AndC8("messageCatchEventProcess.bpmn");
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("messageCatchEventProcessId");

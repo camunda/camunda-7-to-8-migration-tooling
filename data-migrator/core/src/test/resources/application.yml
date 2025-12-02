@@ -1,1 +1,5 @@
 camunda.migrator.c7.data-source.auto-ddl: true
+
+logging:
+  file:
+    name: target/test-logs/core-test.log

@@ -23,7 +23,7 @@ class JobTypeConfigurationTest {
   class DefaultJobTypeWithoutConfigTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveDefaultJobTypeWhenNotConfigured() {
@@ -47,7 +47,7 @@ class JobTypeConfigurationTest {
   class CustomJobTypeTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveCustomJobType() {
@@ -70,7 +70,7 @@ class JobTypeConfigurationTest {
   class ValidationJobTypeOnlyTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveValidationJobTypeWithDefaultJobType() {
@@ -94,7 +94,7 @@ class JobTypeConfigurationTest {
   class SeparateJobTypesTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveSeparateJobTypes() {
@@ -118,7 +118,7 @@ class JobTypeConfigurationTest {
   class FeelExpressionValidationTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveFeelExpressionForValidation() {
@@ -142,7 +142,7 @@ class JobTypeConfigurationTest {
   class ComplexFeelExpressionTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHandleComplexFeelExpression() {
@@ -166,7 +166,7 @@ class JobTypeConfigurationTest {
   class SkipValidationTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldHaveSkipValidationSet() {
@@ -195,7 +195,7 @@ class JobTypeConfigurationTest {
   class ValidationNotDisabledTest {
 
     @Autowired
-    private MigratorProperties migratorProperties;
+    protected MigratorProperties migratorProperties;
 
     @Test
     public void shouldNotDetectValidationDisabled() {
