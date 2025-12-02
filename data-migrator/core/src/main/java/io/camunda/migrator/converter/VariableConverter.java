@@ -54,9 +54,17 @@ public class VariableConverter {
    * @param historicVariable the historic variable instance to convert
    * @return the converted value
    * @throws VariableInterceptorException if any interceptor fails
+   * @throws ClassCastException if historicVariable is not a VariableInstanceEntity
    */
   protected Object convertValue(HistoricVariableInstance historicVariable) {
-    // HistoricVariableInstance is implemented by VariableInstanceEntity in Camunda 7
+    // In Camunda 7, HistoricVariableInstance is implemented by HistoricVariableInstanceEntity
+    // which extends VariableInstanceEntity. This cast is safe for all Camunda 7.x versions.
+    // The cast allows us to reuse the VariableInvocation infrastructure that expects VariableInstanceEntity.
+    if (!(historicVariable instanceof VariableInstanceEntity)) {
+      throw new ClassCastException(
+          "Expected HistoricVariableInstance to be a VariableInstanceEntity, but got: " +
+          historicVariable.getClass().getName());
+    }
     VariableInstanceEntity variableEntity = (VariableInstanceEntity) historicVariable;
     
     // Use the same interceptor mechanism as runtime migration
@@ -70,6 +78,10 @@ public class VariableConverter {
    * Executes all configured variable interceptors on the given variable invocation.
    * Only interceptors that support the variable's type will be called.
    * This is the same logic used in VariableService for runtime migration.
+   * 
+   * Note: This method duplicates logic from VariableService.executeInterceptors() to avoid
+   * coupling between history and runtime migration components. Both serve different purposes
+   * (history vs runtime) and may diverge in future implementations.
    *
    * @param variableInvocation the variable invocation to process
    * @throws VariableInterceptorException if any interceptor fails
