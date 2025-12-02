@@ -77,21 +77,63 @@ public class RuntimeMigrator {
   }
 
   protected void migrate() {
-    fetchProcessInstancesToMigrate(c7ProcessInstance -> {
-      String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
-      Date createTime = c7ProcessInstance.getCreateTime();
+    try {
+      fetchProcessInstancesToMigrate(c7ProcessInstance -> {
+        String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
+        Date createTime = c7ProcessInstance.getCreateTime();
 
-      String skipReason = getSkipReason(c7ProcessInstanceId);
-      if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
-        startProcessInstance(c7ProcessInstanceId, createTime);
-      } else if (isUnknown(c7ProcessInstanceId)) {
-        dbClient.insert(c7ProcessInstanceId, null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
-      } else {
-        dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+        String skipReason = getSkipReason(c7ProcessInstanceId);
+        if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
+          startProcessInstance(c7ProcessInstanceId, createTime);
+        } else if (isUnknown(c7ProcessInstanceId)) {
+          dbClient.insert(c7ProcessInstanceId, null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+        } else {
+          dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+        }
+      });
+
+      // Flush any remaining records in the batch
+      flushBatchWithRollback();
+
+      activateMigratorJobs();
+    } finally {
+      // Ensure batch is flushed even if an exception occurs
+      flushBatchWithRollback();
+    }
+  }
+
+  /**
+   * Flushes the batch and handles rollback if it fails.
+   */
+  protected void flushBatchWithRollback() {
+    try {
+      dbClient.flushBatch();
+    } catch (RuntimeException e) {
+      // Batch insert failed - rollback any C8 process instances created
+      List<Long> keysToRollback = dbClient.getFailedBatchKeys();
+      rollbackProcessInstances(keysToRollback);
+      dbClient.clearFailedBatchKeys();
+      // Don't rethrow - allow migration to continue with next batch
+      RuntimeMigratorLogs.batchFlushFailed(e.getMessage());
+    }
+  }
+
+  /**
+   * Rolls back process instances in C8 when batch insert fails.
+   * Cancels the process instances to maintain consistency.
+   */
+  protected void rollbackProcessInstances(List<Long> processInstanceKeys) {
+    if (processInstanceKeys != null && !processInstanceKeys.isEmpty()) {
+      RuntimeMigratorLogs.rollingBackProcessInstances(processInstanceKeys.size());
+      for (Long processInstanceKey : processInstanceKeys) {
+        try {
+          c8Client.cancelProcessInstance(processInstanceKey);
+          RuntimeMigratorLogs.rolledBackProcessInstance(processInstanceKey);
+        } catch (Exception e) {
+          RuntimeMigratorLogs.failedToRollbackProcessInstance(processInstanceKey, e);
+        }
       }
-    });
-
-    activateMigratorJobs();
+    }
   }
 
   protected String getSkipReason(String c7ProcessInstanceId) {

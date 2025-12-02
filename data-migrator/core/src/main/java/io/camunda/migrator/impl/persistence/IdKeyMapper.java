@@ -71,6 +71,8 @@ public interface IdKeyMapper {
 
   void insert(IdKeyDbModel idKeyDbModel);
 
+  void insertBatch(List<IdKeyDbModel> idKeyDbModels);
+
   List<IdKeyDbModel> findSkippedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
