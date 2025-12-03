@@ -1,0 +1,47 @@
+name: Update Pattern Catalog
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "code-conversion/patterns/**"
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: code-conversion/patterns
+        run: npm install
+
+      - name: Run catalog generator
+        working-directory: code-conversion/patterns
+        run: node generate-catalog.js
+
+      - name: Run all-in-one generator
+        working-directory: code-conversion/patterns
+        run: node generate-all-in-one.js
+
+      - name: Check for changes
+        run: |
+          git add code-conversion/patterns/README.md code-conversion/patterns/ALL_IN_ONE.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            echo "Catalog updated. Committing changes..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Auto-update pattern catalog"
+            git push
+          fi

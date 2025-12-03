@@ -9,7 +9,7 @@ package io.camunda.migrator.constants;
 
 public final class MigratorConstants {
 
-  private MigratorConstants() {}
+  protected MigratorConstants() {}
 
   /**
    * Partition ID used for history data migration from Camunda 7 to Camunda 8.

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("programmatic")
 public class UniversalInterceptor implements VariableInterceptor {
-  private final AtomicInteger executionCount = new AtomicInteger(0);
+  protected final AtomicInteger executionCount = new AtomicInteger(0);
 
   @Override
   public Set<Class<?>> getTypes() {

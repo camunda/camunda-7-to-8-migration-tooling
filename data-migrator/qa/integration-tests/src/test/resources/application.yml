@@ -21,6 +21,8 @@ camunda:
 logging:
   level.io.camunda.migrator: INFO
   level.org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity: INFO
+  file:
+    name: target/test-logs/qa-test.log
 
 ---
 

@@ -17,6 +17,7 @@ import io.camunda.migrator.HistoryMigrator;
 import io.camunda.migrator.MigratorMode;
 import io.camunda.migrator.config.C8DataSourceConfigured;
 import io.camunda.migrator.config.MigratorAutoConfiguration;
+import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.qa.AbstractMigratorTest;
 import io.camunda.migrator.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migrator.qa.util.WithSpringProfile;
@@ -75,6 +76,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected HistoryService historyService;
+
+  @Autowired
+  protected DbClient dbClient;
 
   @AfterEach
   public void cleanup() {

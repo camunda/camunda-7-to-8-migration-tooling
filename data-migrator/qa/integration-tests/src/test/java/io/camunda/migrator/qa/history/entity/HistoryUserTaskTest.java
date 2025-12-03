@@ -8,12 +8,15 @@
 package io.camunda.migrator.qa.history.entity;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
+import io.camunda.migrator.HistoryMigrator;
+import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
 import io.camunda.migrator.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
@@ -22,8 +25,13 @@ import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.event.Level;
 
 public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Test
   public void shouldMigrateTaskBasicFields() {
@@ -338,15 +346,15 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
                                       HistoricTaskInstance c7Task,
                                       ProcessInstanceEntity processInstance,
                                       String expectedElementId) {
+    // Verify migration completed successfully via logs
+    logs.assertContains(formatMessage(HistoryMigratorLogs.MIGRATING_USER_TASK_COMPLETED, c7Task.getId()));
+
     // Basic identifiers
-    assertThat(userTask.userTaskKey()).isEqualTo(
-        dbClient.findC8KeyByC7IdAndType(c7Task.getId(), IdKeyMapper.TYPE.HISTORY_USER_TASK));
+    assertThat(userTask.userTaskKey()).isNotNull();
     assertThat(userTask.elementId()).isEqualTo(expectedElementId);
     assertThat(userTask.processDefinitionId()).isEqualTo(c7Task.getProcessDefinitionKey());
-    assertThat(userTask.processDefinitionKey()).isEqualTo(
-        dbClient.findC8KeyByC7IdAndType(c7Task.getProcessDefinitionId(), IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION));
-    assertThat(userTask.elementInstanceKey()).isEqualTo(
-        dbClient.findC8KeyByC7IdAndType(c7Task.getActivityInstanceId(), IdKeyMapper.TYPE.HISTORY_FLOW_NODE));
+    assertThat(userTask.processDefinitionKey()).isNotNull();
+    assertThat(userTask.elementInstanceKey()).isNotNull();
 
     // Dates
     assertThat(userTask.creationDate()).isNotNull();

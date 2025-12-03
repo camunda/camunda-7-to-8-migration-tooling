@@ -15,71 +15,6 @@ import org.junit.jupiter.api.Test;
 
 class EntityTypeDetectorTest {
 
-  // Test entity classes to simulate Camunda 7 historic entities
-  static class HistoricProcessInstance {}
-
-  static class HistoricActivityInstance {}
-
-  static class HistoricVariableInstance {}
-
-  static class HistoricTaskInstance {}
-
-  static class HistoricIncident {}
-
-  static class SpecializedProcessInstance extends HistoricProcessInstance {}
-
-  // Test interceptor implementations
-  static class UniversalInterceptor implements EntityInterceptor {
-    @Override
-    public void execute(EntityConversionContext<?, ?> context) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(); // Empty set = handle all types
-    }
-  }
-
-  static class ProcessInstanceInterceptor implements EntityInterceptor {
-    @Override
-    public void execute(EntityConversionContext<?, ?> context) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(HistoricProcessInstance.class);
-    }
-  }
-
-  static class MultiTypeInterceptor implements EntityInterceptor {
-    @Override
-    public void execute(EntityConversionContext<?, ?> context) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(
-          HistoricProcessInstance.class,
-          HistoricActivityInstance.class,
-          HistoricTaskInstance.class);
-    }
-  }
-
-  static class VariableInterceptor implements EntityInterceptor {
-    @Override
-    public void execute(EntityConversionContext<?, ?> context) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(HistoricVariableInstance.class);
-    }
-  }
-
   @Test
   void shouldSupportAllTypesWhenInterceptorReturnsEmptySet() {
     // Given
@@ -88,7 +23,7 @@ class EntityTypeDetectorTest {
         new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, context);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
 
     // Then
     assertThat(supports).isTrue();
@@ -103,7 +38,7 @@ class EntityTypeDetectorTest {
             new HistoricActivityInstance(), HistoricActivityInstance.class);
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, context);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
 
     // Then
     assertThat(supports).isTrue();
@@ -117,7 +52,7 @@ class EntityTypeDetectorTest {
         new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, context);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
 
     // Then
     assertThat(supports).isTrue();
@@ -132,7 +67,7 @@ class EntityTypeDetectorTest {
             new HistoricActivityInstance(), HistoricActivityInstance.class);
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, context);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
 
     // Then
     assertThat(supports).isFalse();
@@ -146,21 +81,21 @@ class EntityTypeDetectorTest {
     // When & Then
     EntityConversionContext<?, ?> processContext =
         new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
-    assertThat(EntityTypeDetector.supportsEntity(interceptor, processContext)).isTrue();
+    assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, processContext)).isTrue();
 
     EntityConversionContext<?, ?> activityContext =
         new EntityConversionContext<>(
             new HistoricActivityInstance(), HistoricActivityInstance.class);
-    assertThat(EntityTypeDetector.supportsEntity(interceptor, activityContext)).isTrue();
+    assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, activityContext)).isTrue();
 
     EntityConversionContext<?, ?> taskContext =
         new EntityConversionContext<>(new HistoricTaskInstance(), HistoricTaskInstance.class);
-    assertThat(EntityTypeDetector.supportsEntity(interceptor, taskContext)).isTrue();
+    assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, taskContext)).isTrue();
 
     EntityConversionContext<?, ?> variableContext =
         new EntityConversionContext<>(
             new HistoricVariableInstance(), HistoricVariableInstance.class);
-    assertThat(EntityTypeDetector.supportsEntity(interceptor, variableContext)).isFalse();
+    assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, variableContext)).isFalse();
   }
 
   @Test
@@ -172,7 +107,7 @@ class EntityTypeDetectorTest {
             new SpecializedProcessInstance(), SpecializedProcessInstance.class);
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, context);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
 
     // Then
     assertThat(supports)
@@ -212,7 +147,7 @@ class EntityTypeDetectorTest {
     Object entity = new HistoricProcessInstance();
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, entity);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, entity);
 
     // Then
     assertThat(supports).isTrue();
@@ -225,7 +160,7 @@ class EntityTypeDetectorTest {
     Object entity = new HistoricActivityInstance();
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, entity);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, entity);
 
     // Then
     assertThat(supports).isFalse();
@@ -237,7 +172,7 @@ class EntityTypeDetectorTest {
     EntityInterceptor interceptor = new ProcessInstanceInterceptor();
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, (Object) null);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, (Object) null);
 
     // Then
     assertThat(supports).isFalse();
@@ -250,7 +185,7 @@ class EntityTypeDetectorTest {
     Object entity = new SpecializedProcessInstance();
 
     // When
-    boolean supports = EntityTypeDetector.supportsEntity(interceptor, entity);
+    boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, entity);
 
     // Then
     assertThat(supports).isTrue();
@@ -277,7 +212,7 @@ class EntityTypeDetectorTest {
   @Test
   void shouldOnlySupportSpecifiedTypeWithSpecificInterceptor() {
     // Given
-    EntityInterceptor interceptor = new VariableInterceptor();
+    EntityInterceptor interceptor = new TestVariableInterceptor();
 
     // When & Then
     assertThat(EntityTypeDetector.supportsEntityType(interceptor, HistoricVariableInstance.class))
@@ -291,5 +226,61 @@ class EntityTypeDetectorTest {
     assertThat(EntityTypeDetector.supportsEntityType(interceptor, HistoricIncident.class))
         .isFalse();
   }
+
+  // Test entity classes to simulate Camunda 7 historic entities
+  static class HistoricProcessInstance {}
+
+  static class HistoricActivityInstance {}
+
+  static class HistoricVariableInstance {}
+
+  static class HistoricTaskInstance {}
+
+  static class HistoricIncident {}
+
+  static class SpecializedProcessInstance extends HistoricProcessInstance {}
+
+  // Test interceptor implementations
+  static abstract class NoOpInterceptor implements EntityInterceptor {
+    @Override
+    public void execute(EntityConversionContext<?, ?> context) {
+      // No-op for testing
+    }
+
+    // Force subclasses to declare their types explicitly
+    public abstract Set<Class<?>> getTypes();
+  }
+
+  static class UniversalInterceptor extends NoOpInterceptor {
+    @Override
+    public Set<Class<?>> getTypes() {
+      return Set.of(); // Empty set = handle all types
+    }
+  }
+
+  static class ProcessInstanceInterceptor extends NoOpInterceptor {
+    @Override
+    public Set<Class<?>> getTypes() {
+      return Set.of(HistoricProcessInstance.class);
+    }
+  }
+
+  static class MultiTypeInterceptor extends NoOpInterceptor {
+    @Override
+    public Set<Class<?>> getTypes() {
+      return Set.of(
+          HistoricProcessInstance.class,
+          HistoricActivityInstance.class,
+          HistoricTaskInstance.class);
+    }
+  }
+
+  static class TestVariableInterceptor extends NoOpInterceptor {
+    @Override
+    public Set<Class<?>> getTypes() {
+      return Set.of(HistoricVariableInstance.class);
+    }
+  }
+
 }
 
