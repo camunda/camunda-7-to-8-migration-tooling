@@ -22,7 +22,7 @@ import java.util.Set;
  *
  * @param <T> the type of invocation object that this interceptor handles
  */
-public interface GlobalInterceptor<T> {
+public interface BaseInterceptor<T> {
 
   /**
    * Executes the interceptor logic for an invocation.

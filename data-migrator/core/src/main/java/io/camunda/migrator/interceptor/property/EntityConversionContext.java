@@ -11,7 +11,7 @@ import org.camunda.bpm.engine.ProcessEngine;
 
 /**
  * Context for entity conversion from Camunda 7 to Camunda 8.
- * Stores the C7 entity, entity type, and C8 database model builder.
+ * Stores the C7 entity, entity type, C8 database model builder, and process engine.
  *
  * @param <C7> the Camunda 7 entity type
  * @param <C8> the Camunda 8 database model builder type
@@ -22,7 +22,6 @@ public class EntityConversionContext<C7, C8> {
   protected C8 c8DbModelBuilder;
   protected final Class<?> entityType;
   protected ProcessEngine processEngine;
-
 
   /**
    * Creates a new context with a C7 entity and entity type.

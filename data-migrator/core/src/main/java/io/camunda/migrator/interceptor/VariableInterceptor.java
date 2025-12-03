@@ -62,7 +62,7 @@ package io.camunda.migrator.interceptor;
  *       enabled: false
  * </pre>
  * <p>
- * The {@link #getTypes()} method inherited from {@link GlobalInterceptor} allows specifying
+ * The {@link #getTypes()} method inherited from {@link BaseInterceptor} allows specifying
  * variable value types like:
  * - {@code PrimitiveValue.class} for primitive variables
  * - {@code DateValue.class} for date variables
@@ -71,7 +71,7 @@ package io.camunda.migrator.interceptor;
  * - {@code SpinValue.class} for Spin variables
  * </p>
  */
-public interface VariableInterceptor extends GlobalInterceptor<VariableInvocation> {
+public interface VariableInterceptor extends BaseInterceptor<VariableInvocation> {
 
   /**
    * Executes the interceptor logic for a variable invocation.

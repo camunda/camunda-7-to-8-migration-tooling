@@ -64,7 +64,7 @@ import io.camunda.migrator.interceptor.property.EntityConversionContext;
  *       enabled: false
  * </pre>
  * <p>
- * The {@link #getTypes()} method inherited from {@link GlobalInterceptor} allows specifying
+ * The {@link #getTypes()} method inherited from {@link BaseInterceptor} allows specifying
  * entity types using Camunda 7 historic entity classes like:
  * - {@code HistoricProcessInstance.class} for process instances
  * - {@code HistoricActivityInstance.class} for flow nodes/activities
@@ -77,7 +77,7 @@ import io.camunda.migrator.interceptor.property.EntityConversionContext;
  * If the returned set is empty, this interceptor will be called for all entity types.
  * </p>
  */
-public interface EntityInterceptor extends GlobalInterceptor<EntityConversionContext<?, ?>> {
+public interface EntityInterceptor extends BaseInterceptor<EntityConversionContext<?, ?>> {
 
   /**
    * Executes the interceptor logic for an entity conversion.
