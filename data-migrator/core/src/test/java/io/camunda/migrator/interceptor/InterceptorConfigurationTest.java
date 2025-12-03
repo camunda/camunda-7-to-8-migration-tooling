@@ -94,31 +94,5 @@ public class InterceptorConfigurationTest {
     }
   }
 
-  // Spring-managed interceptors for testing
-  @Component
-  public static class SpringManagedVariableInterceptor implements VariableInterceptor {
-    @Override
-    public void execute(VariableInvocation invocation) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(); // Handle all types
-    }
-  }
-
-  @Component
-  public static class SpringManagedEntityInterceptor implements EntityInterceptor {
-    @Override
-    public void execute(EntityConversionContext<?, ?> context) {
-      // No-op for testing
-    }
-
-    @Override
-    public Set<Class<?>> getTypes() {
-      return Set.of(); // Handle all types
-    }
-  }
 }
 

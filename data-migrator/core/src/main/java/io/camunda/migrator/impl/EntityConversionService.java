@@ -74,7 +74,6 @@ public class EntityConversionService {
           .filter(interceptor -> EntityTypeDetector.supportsEntityType(interceptor, context.getEntityType()))
           .toList();
 
-
       for (EntityInterceptor interceptor : configuredEntityInterceptors) {
         // Only execute interceptors that support this entity type
         if (EntityTypeDetector.supportsEntity(interceptor, context)) {

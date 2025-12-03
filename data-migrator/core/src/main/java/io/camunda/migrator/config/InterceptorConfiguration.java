@@ -207,7 +207,7 @@ public class InterceptorConfiguration {
   /**
    * Creates an interceptor instance from the configuration.
    *
-   * @param interceptorProperty Interceptor configuration
+   * @param interceptorConfig Interceptor configuration
    * @param interceptorType The type of interceptor to create (VariableInterceptor.class or EntityInterceptor.class)
    * @param <T> The interceptor type that extends GlobalInterceptor
    * @return Interceptor instance
