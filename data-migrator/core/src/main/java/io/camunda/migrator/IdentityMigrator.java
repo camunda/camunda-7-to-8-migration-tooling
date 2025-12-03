@@ -34,11 +34,15 @@ public class IdentityMigrator {
   protected C8Client c8Client;
 
   public void migrate() {
-    ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
-    String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
-    List<Tenant> tenants = c7Client.fetchTenants(latestId);
-    for(Tenant tenant : tenants) {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
+      List<Tenant> tenants = c7Client.fetchTenants(latestId);
+      for (Tenant tenant : tenants) {
         migrateTenant(tenant);
+      }
+    } finally {
+      ExceptionUtils.clearContext();
     }
   }
 

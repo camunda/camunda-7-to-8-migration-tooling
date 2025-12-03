@@ -73,7 +73,7 @@ public class DbClient {
   }
 
   /**
-   * Finds the latest migrated ID time by type.
+   * Finds the most recently migrated ID for the given type.
    */
   public String findLatestIdByType(TYPE type) {
     String c7Id = callApi(() -> idKeyMapper.findLatestIdByType(type), FAILED_TO_FIND_LATEST_C7_ID + type);

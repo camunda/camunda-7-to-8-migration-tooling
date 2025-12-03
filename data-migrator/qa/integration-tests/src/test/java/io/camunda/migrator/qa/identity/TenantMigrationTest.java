@@ -48,7 +48,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 4);
     var tenants = request.execute().items();
-    assertThatTenantsMatch(expectedTenants, tenants);
+    assertThatTenantsContain(expectedTenants, tenants);
   }
 
   @Test
@@ -67,7 +67,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
-    assertThatTenantsMatch(expectedTenants, tenants);
+    assertThatTenantsContain(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
     verifySkippedViaLogs(tenant2.getId());
@@ -90,7 +90,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3);
     var tenants = request.execute().items();
-    assertThatTenantsMatch(expectedTenants, tenants);
+    assertThatTenantsContain(expectedTenants, tenants);
 
     // but not tenant1
     assertThat(camundaClient.newTenantsSearchRequest().filter(f -> f.tenantId(tenant1.getId())).execute().items()).hasSize(0);
@@ -99,9 +99,9 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   /**
    * Compares a list of {@link org.camunda.bpm.engine.identity.Tenant}
    * and a list of {@link io.camunda.client.api.search.response.Tenant}
-   * by checking that all elements have matching tenantId and name
+   * by checking that all elements are contained with matching tenantId and name
    */
-  private static void assertThatTenantsMatch(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<Tenant> tenants) {
+  private static void assertThatTenantsContain(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<Tenant> tenants) {
     assertThat(tenants)
         .extracting(Tenant::getTenantId, Tenant::getName)
         .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
@@ -115,7 +115,6 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   }
 
   protected void verifySkippedViaLogs(String tenantId) {
-    // Verify skip occurred via logs using constant from RuntimeMigratorLogs
     logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId));
   }
 }
