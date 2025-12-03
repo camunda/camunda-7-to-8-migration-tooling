@@ -52,7 +52,6 @@ import io.camunda.migrator.converter.DecisionInstanceConverter;
 import io.camunda.migrator.converter.DecisionRequirementsDefinitionConverter;
 import io.camunda.migrator.converter.FlowNodeConverter;
 import io.camunda.migrator.converter.IncidentConverter;
-import io.camunda.migrator.converter.ProcessInstanceConverter;
 import io.camunda.migrator.converter.UserTaskConverter;
 import io.camunda.migrator.converter.VariableConverter;
 import io.camunda.migrator.impl.EntityConversionService;
@@ -101,7 +100,7 @@ public class HistoryMigrator {
   // Converters
 
   @Autowired
-  private ProcessInstanceConverter processInstanceConverter;
+  private DecisionDefinitionConverter decisionDefinitionConverter;
 
   @Autowired
   private DecisionInstanceConverter decisionInstanceConverter;
@@ -117,9 +116,6 @@ public class HistoryMigrator {
 
   @Autowired
   private IncidentConverter incidentConverter;
-
-  @Autowired
-  private DecisionDefinitionConverter decisionDefinitionConverter;
 
   @Autowired
   private DecisionRequirementsDefinitionConverter decisionRequirementsConverter;
@@ -219,6 +215,12 @@ public class HistoryMigrator {
       Long processDefinitionKey = findProcessDefinitionKey(c7ProcessInstance.getProcessDefinitionId());
       String processDefinitionId = c7ProcessInstance.getProcessDefinitionId();
 
+      ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder = new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
+      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7ProcessInstance,
+          HistoricProcessInstance.class, processInstanceDbModelBuilder);
+
+      entityConversionService.prepareParentProperties(context);
+
       if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
         String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
         Long parentProcessInstanceKey = null;
@@ -229,19 +231,52 @@ public class HistoryMigrator {
           }
         }
         if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
-          ProcessInstanceDbModel dbModel = processInstanceConverter.apply(c7ProcessInstance, processDefinitionKey, parentProcessInstanceKey);
-          dbClient.insertProcessInstance(dbModel);
-          markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(), HISTORY_PROCESS_INSTANCE);
-          HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
+
+          processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey)
+              .parentProcessInstanceKey(parentProcessInstanceKey);
+          ProcessInstanceDbModel dbModel = convertProcessDefinition(context);
+
+          insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
         } else {
-          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+          handleSkippedProcessInstance(c7ProcessInstance, context, c7ProcessInstanceId);
         }
       } else {
-        markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(), SKIP_REASON_MISSING_PROCESS_DEFINITION);
-        HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
+        handleSkippedProcessInstance(c7ProcessInstance, context, c7ProcessInstanceId);
       }
     }
+  }
+
+  protected void handleSkippedProcessInstance(HistoricProcessInstance c7ProcessInstance,
+                                              EntityConversionContext<?, ?> context,
+                                              String c7ProcessInstanceId) {
+    ProcessInstanceDbModel dbModel = convertProcessDefinition(context);
+    if (dbModel.parentProcessInstanceKey() == null) {
+      markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+          SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+    } else if (dbModel.processDefinitionKey() == null) {
+      markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+          SKIP_REASON_MISSING_PROCESS_DEFINITION);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
+    } else {
+      System.out.println("insert ");
+      insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
+    }
+  }
+
+  protected ProcessInstanceDbModel convertProcessDefinition(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
+    ProcessInstanceDbModel dbModel = builder.build();
+    return dbModel;
+  }
+
+  protected void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
+                                       ProcessInstanceDbModel dbModel,
+                                       String c7ProcessInstanceId) {
+    dbClient.insertProcessInstance(dbModel);
+    markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(), HISTORY_PROCESS_INSTANCE);
+    HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
   }
 
   public void migrateDecisionRequirementsDefinitions() {

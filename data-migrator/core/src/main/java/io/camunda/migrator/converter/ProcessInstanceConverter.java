@@ -7,7 +7,6 @@
  */
 package io.camunda.migrator.converter;
 
-import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import static io.camunda.migrator.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migrator.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
@@ -15,23 +14,33 @@ import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceSt
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migrator.constants.MigratorConstants;
-import io.camunda.migrator.impl.clients.C7Client;
+import io.camunda.migrator.exception.EntityInterceptorException;
 import io.camunda.migrator.impl.util.ConverterUtil;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
+import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
-import org.springframework.beans.factory.annotation.Autowired;
 
-public class ProcessInstanceConverter {
+public class ProcessInstanceConverter implements EntityInterceptor {
 
-  @Autowired
-  protected C7Client c7Client;
 
-  public ProcessInstanceDbModel apply(HistoricProcessInstance processInstance,
-                                      Long processDefinitionKey,
-                                      Long parentProcessInstanceKey) {
-    return new ProcessInstanceDbModelBuilder()
-        .processInstanceKey(getNextKey())
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricProcessInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
+    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
+        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 ProcessInstanceDbModel.Builder is null in context");
+    }
+
+    builder.processInstanceKey(getNextKey())
         // Get key from runtime instance/model migration
-        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(processInstance.getProcessDefinitionKey())
         .startDate(convertDate(processInstance.getStartTime()))
         .endDate(convertDate(processInstance.getEndTime()))
@@ -39,7 +48,6 @@ public class ProcessInstanceConverter {
         .tenantId(getTenantId(processInstance))
         .version(processInstance.getProcessDefinitionVersion())
         // parent and super process instance are used synonym (process instance that contained the call activity)
-        .parentProcessInstanceKey(parentProcessInstanceKey)
         // TODO: Call activity instance id that created the process in C8. No yet migrated from C7.
         // https://github.com/camunda/camunda-bpm-platform/issues/5359
         //        .parentElementInstanceKey(null)
@@ -47,8 +55,7 @@ public class ProcessInstanceConverter {
         // TODO https://github.com/camunda/camunda-bpm-platform/issues/5400
 //        .numIncidents()
         .partitionId(C7_HISTORY_PARTITION_ID)
-        .historyCleanupDate(convertDate(processInstance.getRemovalTime()))
-        .build();
+        .historyCleanupDate(convertDate(processInstance.getRemovalTime()));
   }
 
   protected ProcessInstanceState convertState(String state) {
@@ -66,6 +73,5 @@ public class ProcessInstanceConverter {
         ? ConverterUtil.getTenantId(processInstance.getTenantId())
         : MigratorConstants.C8_DEFAULT_TENANT;
   }
-
 
 }

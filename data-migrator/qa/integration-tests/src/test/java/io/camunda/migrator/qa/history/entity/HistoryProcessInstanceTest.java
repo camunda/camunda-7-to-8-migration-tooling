@@ -146,6 +146,8 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
   }
 
+
+
   protected void verifyProcessInstanceFields(ProcessInstanceEntity processInstance,
                                              HistoricProcessInstance historicProcessInstance,
                                              String processDefinitionId,
