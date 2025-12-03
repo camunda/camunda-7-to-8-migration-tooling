@@ -5,17 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.config;
+package io.camunda.migrator.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migrator.interceptor.EntityInterceptor;
-import io.camunda.migrator.interceptor.VariableInterceptor;
 import io.camunda.migrator.interceptor.property.EntityConversionContext;
-import io.camunda.migrator.interceptor.VariableInvocation;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,12 +26,12 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[0].className=io.camunda.migrator.impl.interceptor.PrimitiveVariableTransformer",
     "camunda.migrator.interceptors[0].enabled=false",
     // Add a custom variable interceptor
-    "camunda.migrator.interceptors[1].className=io.camunda.migrator.config.UnifiedInterceptorConfigurationTest$CustomVariableInterceptor",
+    "camunda.migrator.interceptors[1].className=io.camunda.migrator.interceptor.InterceptorConfigurationTest$CustomVariableInterceptor",
     // Add a custom entity interceptor
-    "camunda.migrator.interceptors[2].className=io.camunda.migrator.config.UnifiedInterceptorConfigurationTest$CustomEntityInterceptor"
+    "camunda.migrator.interceptors[2].className=io.camunda.migrator.interceptor.InterceptorConfigurationTest$CustomEntityInterceptor"
 })
 @SpringBootTest
-public class UnifiedInterceptorConfigurationTest {
+public class InterceptorConfigurationTest {
 
   @Autowired(required = false)
   private List<VariableInterceptor> configuredVariableInterceptors;
