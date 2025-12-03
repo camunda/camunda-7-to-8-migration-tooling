@@ -52,15 +52,16 @@ import io.camunda.migrator.converter.DecisionInstanceConverter;
 import io.camunda.migrator.converter.DecisionRequirementsDefinitionConverter;
 import io.camunda.migrator.converter.FlowNodeConverter;
 import io.camunda.migrator.converter.IncidentConverter;
-import io.camunda.migrator.converter.ProcessDefinitionConverter;
 import io.camunda.migrator.converter.ProcessInstanceConverter;
 import io.camunda.migrator.converter.UserTaskConverter;
 import io.camunda.migrator.converter.VariableConverter;
+import io.camunda.migrator.impl.EntityConversionService;
 import io.camunda.migrator.impl.clients.C7Client;
 import io.camunda.migrator.impl.clients.DbClient;
 import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
 import io.camunda.migrator.impl.util.ExceptionUtils;
 import io.camunda.migrator.impl.util.PrintUtils;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
@@ -94,6 +95,9 @@ public class HistoryMigrator {
   @Autowired
   protected C7Client c7Client;
 
+  @Autowired
+  private EntityConversionService entityConversionService;
+
   // Converters
 
   @Autowired
@@ -113,9 +117,6 @@ public class HistoryMigrator {
 
   @Autowired
   private IncidentConverter incidentConverter;
-
-  @Autowired
-  private ProcessDefinitionConverter processDefinitionConverter;
 
   @Autowired
   private DecisionDefinitionConverter decisionDefinitionConverter;
@@ -181,12 +182,22 @@ public class HistoryMigrator {
     String c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {
       HistoryMigratorLogs.migratingProcessDefinition(c7Id);
-      ProcessDefinitionDbModel dbModel = processDefinitionConverter.apply(c7ProcessDefinition);
+
+      ProcessDefinitionDbModel dbModel = convertProcessDefinition(c7ProcessDefinition);
+
       dbClient.insertProcessDefinition(dbModel);
       Date deploymentTime = c7Client.getDefinitionDeploymentTime(c7ProcessDefinition.getDeploymentId());
       markMigrated(c7Id, dbModel.processDefinitionKey(), deploymentTime, HISTORY_PROCESS_DEFINITION);
       HistoryMigratorLogs.migratingProcessDefinitionCompleted(c7Id);
     }
+  }
+
+  protected ProcessDefinitionDbModel convertProcessDefinition(ProcessDefinition c7ProcessDefinition) {
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7ProcessDefinition, ProcessDefinition.class,
+        new ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder());
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder builder = (ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
   }
 
   private void migrateProcessInstances() {

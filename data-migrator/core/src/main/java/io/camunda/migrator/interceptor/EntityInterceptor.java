@@ -87,5 +87,8 @@ public interface EntityInterceptor extends GlobalInterceptor<EntityConversionCon
    */
   @Override
   void execute(EntityConversionContext<?, ?> context);
+
+  default void presetParentProperties(EntityConversionContext<?, ?> context) {
+  }
 }
 

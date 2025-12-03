@@ -116,6 +116,36 @@ public class EntityConversionService {
   }
 
   /**
+   * Prepares parent properties in the conversion context by invoking
+   * {@link EntityInterceptor#presetParentProperties(EntityConversionContext)}
+   * on all applicable interceptors.
+   *
+   * @param context the conversion context
+   */
+  public void prepareParentProperties(EntityConversionContext<?, ?> context) {
+    try {
+      if (hasInterceptors()) {
+        for (EntityInterceptor interceptor : configuredEntityInterceptors) {
+          if (EntityTypeDetector.supportsEntity(interceptor, context)) {
+            interceptor.presetParentProperties(context);
+          }
+        }
+      }
+    } catch (Exception ex) {
+      String interceptorName = ex.getClass().getSimpleName();
+      String entityType = context.getEntityType().getSimpleName();
+      EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
+
+      if (ex instanceof EntityInterceptorException) {
+        throw ex;
+      } else {
+        throw new EntityInterceptorException(
+            EntityConversionServiceLogs.formatInterceptorError(interceptorName, entityType), ex);
+      }
+    }
+  }
+
+  /**
    * Checks if there are any configured entity interceptors.
    *
    * @return true if interceptors are configured, false otherwise
