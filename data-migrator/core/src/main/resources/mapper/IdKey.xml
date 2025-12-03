@@ -108,4 +108,10 @@
     WHERE C7_ID = #{c7Id}
   </delete>
 
+  <select id="findLatestIdByType" parameterType="java.lang.String">
+    SELECT C7_ID FROM ${prefix}MIGRATION_MAPPING WHERE TYPE = '${type}' ORDER BY C7_ID DESC
+    <include refid="io.camunda.migrator.Commons.singleResultSql"/>
+  </select>
+
+
 </mapper>
