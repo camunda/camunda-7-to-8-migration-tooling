@@ -1,0 +1,13879 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+export const c8_8 = {
+	openapi: "3.0.3",
+	info: {
+		title: "Camunda 8 REST API",
+		version: "0.1",
+		description: "API for communicating with a Camunda 8 cluster.",
+		license: {
+			name: "Camunda License Version 1.0",
+			url: "https://github.com/camunda/camunda/blob/main/licenses/CAMUNDA-LICENSE-1.0.txt",
+		},
+	},
+	externalDocs: {
+		description: "Find out more",
+		url: "https://docs.camunda.io/docs/apis-tools/camunda-api-rest/camunda-api-rest-overview/",
+	},
+	servers: [
+		{
+			url: "{schema}://{host}:{port}/v2",
+			variables: {
+				host: {
+					default: "localhost",
+					description: "The hostname of the Camunda 8 REST Gateway.",
+				},
+				port: {
+					default: "8080",
+					description: "The port of the Camunda 8 REST API server.",
+				},
+				schema: {
+					default: "http",
+					description: "The schema of the Camunda 8 REST API server.",
+				},
+			},
+		},
+	],
+	tags: [
+		{
+			name: "Ad-hoc sub-process",
+		},
+		{
+			name: "Authentication",
+		},
+		{
+			name: "Authorization",
+		},
+		{
+			name: "Batch operation",
+		},
+		{
+			name: "Clock",
+		},
+		{
+			name: "Cluster",
+		},
+		{
+			name: "Decision definition",
+		},
+		{
+			name: "Decision instance",
+		},
+		{
+			name: "Decision requirements",
+		},
+		{
+			name: "Document",
+		},
+		{
+			name: "Element instance",
+		},
+		{
+			name: "Group",
+		},
+		{
+			name: "Incident",
+		},
+		{
+			name: "Job",
+		},
+		{
+			name: "License",
+		},
+		{
+			name: "Mapping rule",
+		},
+		{
+			name: "Message",
+		},
+		{
+			name: "Process definition",
+		},
+		{
+			name: "Process instance",
+		},
+		{
+			name: "Resource",
+		},
+		{
+			name: "Role",
+		},
+		{
+			name: "Signal",
+		},
+		{
+			name: "Tenant",
+		},
+		{
+			name: "User",
+		},
+		{
+			name: "Usage metrics",
+		},
+		{
+			name: "User task",
+		},
+		{
+			name: "Variable",
+		},
+	],
+	paths: {
+		"/topology": {
+			get: {
+				tags: ["Cluster"],
+				operationId: "getTopology",
+				summary: "Get cluster topology",
+				description:
+					"Obtains the current topology of the cluster the gateway is part of.",
+				responses: {
+					200: {
+						description:
+							"Obtains the current topology of the cluster the gateway is part of.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TopologyResponse",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/license": {
+			get: {
+				tags: ["License"],
+				operationId: "getLicense",
+				summary: "Get license status",
+				description:
+					"Obtains the status of the current Camunda license.",
+				responses: {
+					200: {
+						description:
+							"Obtains the current status of the Camunda license.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/LicenseResponse",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/authentication/me": {
+			get: {
+				tags: ["Authentication"],
+				operationId: "getAuthentication",
+				summary: "Get current user",
+				description: "Retrieves the current authenticated user.",
+				responses: {
+					200: {
+						description:
+							"The current user is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/CamundaUserResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/jobs/activation": {
+			post: {
+				tags: ["Job"],
+				operationId: "activateJobs",
+				summary: "Activate jobs",
+				description:
+					"Iterate through all known partitions and activate jobs up to the requested maximum.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobActivationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The list of activated jobs.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/JobActivationResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/jobs/{jobKey}/failure": {
+			post: {
+				tags: ["Job"],
+				operationId: "failJob",
+				summary: "Fail job",
+				description: "Mark the job as failed\n",
+				parameters: [
+					{
+						name: "jobKey",
+						in: "path",
+						required: true,
+						description: "The key of the job to fail.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobFailRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The job is failed.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The job with the given jobKey is not found.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The job with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/jobs/{jobKey}/error": {
+			post: {
+				tags: ["Job"],
+				operationId: "throwJobError",
+				summary: "Throw error for job",
+				description:
+					"Reports a business error (i.e. non-technical) that occurs while processing a job.\n",
+				parameters: [
+					{
+						name: "jobKey",
+						in: "path",
+						required: true,
+						description: "The key of the job.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobErrorRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "An error is thrown for the job.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The job with the given jobKey is not found.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The job with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/jobs/{jobKey}/completion": {
+			post: {
+				tags: ["Job"],
+				operationId: "completeJob",
+				summary: "Complete job",
+				description:
+					"Complete a job with the given payload, which allows completing the associated service task.\n",
+				parameters: [
+					{
+						name: "jobKey",
+						in: "path",
+						required: true,
+						description: "The key of the job to complete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobCompletionRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The job was completed successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The job with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The job with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/jobs/{jobKey}": {
+			patch: {
+				tags: ["Job"],
+				operationId: "updateJob",
+				summary: "Update job",
+				description: "Update a job with the given key.",
+				parameters: [
+					{
+						name: "jobKey",
+						in: "path",
+						required: true,
+						description: "The key of the job to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobUpdateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The job was updated successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The job with the jobKey is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The job with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/incidents/{incidentKey}/resolution": {
+			post: {
+				tags: ["Incident"],
+				operationId: "resolveIncident",
+				summary: "Resolve incident",
+				description:
+					"Marks the incident as resolved; most likely a call to Update job will be necessary to reset the job’s retries, followed by this call.\n",
+				parameters: [
+					{
+						name: "incidentKey",
+						in: "path",
+						required: true,
+						description: "Key of the incident to resolve.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description: "The incident is marked as resolved.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The incident with the incidentKey is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "createTenant",
+				summary: "Create tenant",
+				description: "Creates a new tenant.",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantCreateRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					201: {
+						description: "The tenant was created successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found. The resource was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}": {
+			get: {
+				tags: ["Tenant"],
+				operationId: "getTenant",
+				summary: "Get tenant",
+				description: "Retrieves a single tenant by tenant ID.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The tenant was retrieved successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Tenant not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			put: {
+				tags: ["Tenant"],
+				operationId: "updateTenant",
+				summary: "Update tenant",
+				description: "Updates an existing tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantUpdateRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					200: {
+						description: "The tenant was updated successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantUpdateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found. The tenant was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "deleteTenant",
+				summary: "Delete tenant",
+				description: "Deletes an existing tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description: "The tenant was deleted successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found. The tenant was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/users/{username}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignUserToTenant",
+				summary: "Assign a user to a tenant",
+				description: "Assign a single user to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The username of the user to assign.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The user was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or user was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeUserFromTenant",
+				summary: "Remove a user from a tenant",
+				description:
+					"Removes a single user from a specified tenant without deleting the user.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the user.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The user was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or user was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/users/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchUsersForTenant",
+				summary: "Search users for tenant",
+				description:
+					"Retrieves a filtered and sorted list of users for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantUserSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of users for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantUserSearchResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/clients/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchClientsForTenant",
+				summary: "Search clients for tenant",
+				description:
+					"Retrieves a filtered and sorted list of clients for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of users for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantClientSearchResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/groups/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchGroupsForTenant",
+				summary: "Search groups for tenant",
+				description:
+					"Retrieves a filtered and sorted list of groups for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of groups for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/roles/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchRolesForTenant",
+				summary: "Search roles for tenant",
+				description:
+					"Retrieves a filtered and sorted list of roles for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of roles for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/clients/{clientId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignClientToTenant",
+				summary: "Assign a client to a tenant",
+				description: "Assign a client to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The ID of the client to assign.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The client was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The tenant was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeClientFromTenant",
+				summary: "Remove a client from a tenant",
+				description: "Removes a single client from a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description:
+							"The unique identifier of the application.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The client was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The tenant does not exist or the client was not assigned to it.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/mappings/{mappingId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignMappingRuleToTenant",
+				summary: "Assign a mapping rule to a tenant",
+				description:
+					"Assign a single mapping rule to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description:
+							"The unique identifier of the mapping rule.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The mapping rule was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or mapping rule was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeMappingRuleFromTenant",
+				summary: "Remove a mapping rule from a tenant",
+				description:
+					"Removes a single mapping rule from a specified tenant without deleting the rule.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description:
+							"The unique identifier of the mapping rule.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The mapping rule was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or mapping rule was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/mappings/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchMappingsForTenant",
+				summary: "Search mappings for tenant",
+				description:
+					"Retrieves a filtered and sorted list of mappings for a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The search result of mappings for the tenant.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/groups/{groupId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignGroupToTenant",
+				summary: "Assign a group to a tenant",
+				description: "Assign a single group to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the group.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The group was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or group was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeGroupFromTenant",
+				summary: "Remove a group from a tenant",
+				description:
+					"Removes a single group from a specified tenant without deleting the group.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the group.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The group was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or group was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/{tenantId}/roles/{roleId}": {
+			put: {
+				tags: ["Tenant"],
+				operationId: "assignRoleToTenant",
+				summary: "Assign a role to a tenant",
+				description: "Assign a single role to a specified tenant.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the role.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The role was successfully assigned to the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or role was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Tenant"],
+				operationId: "removeRoleFromTenant",
+				summary: "Remove a role from a tenant",
+				description:
+					"Removes a single role from a specified tenant without deleting the role.",
+				parameters: [
+					{
+						name: "tenantId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the tenant.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The unique identifier of the role.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The role was successfully removed from the tenant.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The tenant or role was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/tenants/search": {
+			post: {
+				tags: ["Tenant"],
+				operationId: "searchTenants",
+				summary: "Search tenants",
+				description: "Retrieves a filtered and sorted list of tenants.",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/TenantSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The tenants search result",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/TenantSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}/completion": {
+			post: {
+				tags: ["User task"],
+				operationId: "completeUserTask",
+				summary: "Complete user task",
+				description: "Completes a user task with the given key.",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The key of the user task to complete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserTaskCompletionRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description:
+							"The user task was completed successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The user task with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user task with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}/assignment": {
+			post: {
+				tags: ["User task"],
+				operationId: "assignUserTask",
+				summary: "Assign user task",
+				description:
+					"Assigns a user task with the given key to the given assignee.",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The key of the user task to assign.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserTaskAssignmentRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The user task's assignment was adjusted.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The user task with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user task with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}": {
+			get: {
+				tags: ["User task"],
+				operationId: "getUserTask",
+				summary: "Get user task",
+				description: "Get the user task by the user task key.\n",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The user task key.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The user task is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserTaskResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The user task with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			patch: {
+				tags: ["User task"],
+				operationId: "updateUserTask",
+				summary: "Update user task",
+				description: "Update a user task with the given key.",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The key of the user task to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserTaskUpdateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The user task was updated successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The user task with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user task with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}/form": {
+			get: {
+				tags: ["User task"],
+				operationId: "getUserTaskForm",
+				summary: "Get user task form",
+				description:
+					"Get the form of a user task.\n\nNote that this endpoint will only return linked forms. This endpoint does not support embedded forms.\n",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The user task key.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The form is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/FormResult",
+								},
+							},
+						},
+					},
+					204: {
+						description:
+							"The user task was found, but no form is associated with it.\n",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}/assignee": {
+			delete: {
+				tags: ["User task"],
+				operationId: "unassignUserTask",
+				summary: "Unassign user task",
+				description:
+					"Removes the assignee of a task with the given key.",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The key of the user task.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The user task was unassigned successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description:
+							"The user task with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user task with the given key is in the wrong state currently. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/search": {
+			post: {
+				tags: ["User task"],
+				operationId: "searchUserTasks",
+				summary: "Search user tasks",
+				description: "Search for user tasks based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserTaskSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The user task search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserTaskSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/user-tasks/{userTaskKey}/variables/search": {
+			post: {
+				tags: ["User task"],
+				operationId: "searchUserTaskVariables",
+				summary: "Search user task variables",
+				description:
+					"Search for user task variables based on given criteria.\n",
+				parameters: [
+					{
+						name: "userTaskKey",
+						in: "path",
+						required: true,
+						description: "The key of the user task.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserTaskVariableSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The user task variables search response.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/VariableSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/variables/search": {
+			post: {
+				tags: ["Variable"],
+				operationId: "searchVariables",
+				summary: "Search variables",
+				description:
+					"Search for process and local variables based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/VariableSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The variable search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/VariableSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/variables/{variableKey}": {
+			get: {
+				tags: ["Variable"],
+				operationId: "getVariable",
+				summary: "Get variable",
+				description: "Get the variable by the variable key.\n",
+				parameters: [
+					{
+						name: "variableKey",
+						in: "path",
+						required: true,
+						description: "The variable key.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The variable is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/VariableResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/clock": {
+			put: {
+				tags: ["Clock"],
+				operationId: "pinClock",
+				summary: "Pin internal clock (alpha)",
+				description:
+					"Set a precise, static time for the Zeebe engine’s internal clock.\nWhen the clock is pinned, it remains at the specified time and does not advance.\nTo change the time, the clock must be pinned again with a new timestamp.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ClockPinRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description:
+							"The clock was successfully pinned to the specified time in epoch milliseconds.\n",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/clock/reset": {
+			post: {
+				tags: ["Clock"],
+				operationId: "resetClock",
+				summary: "Reset internal clock (alpha)",
+				description:
+					"Resets the Zeebe engine’s internal clock to the current system time, enabling it to tick in real-time.\nThis operation is useful for returning the clock to\nnormal behavior after it has been pinned to a specific time.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
+				responses: {
+					204: {
+						description:
+							"The clock was successfully reset to the system time.",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-definitions/search": {
+			post: {
+				tags: ["Process definition"],
+				operationId: "searchProcessDefinitions",
+				summary: "Search process definitions",
+				description:
+					"Search for process definitions based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessDefinitionSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The process definition search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessDefinitionSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-definitions/{processDefinitionKey}": {
+			get: {
+				tags: ["Process definition"],
+				operationId: "getProcessDefinition",
+				summary: "Get process definition",
+				description: "Returns process definition as JSON.\n",
+				parameters: [
+					{
+						name: "processDefinitionKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process definition, which acts as a unique identifier for this process definition.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The process definition is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessDefinitionResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The process definition with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-definitions/{processDefinitionKey}/xml": {
+			get: {
+				tags: ["Process definition"],
+				operationId: "getProcessDefinitionXML",
+				summary: "Get process definition XML",
+				description: "Returns process definition as XML.\n",
+				parameters: [
+					{
+						name: "processDefinitionKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process definition, which acts as a unique identifier for this process.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The XML of the process definition is successfully returned.\n",
+						content: {
+							"text/xml": {
+								schema: {
+									type: "string",
+								},
+							},
+						},
+					},
+					204: {
+						description:
+							"The process definition was found but does not have XML.\n",
+						content: {
+							"text/plain": {
+								schema: {
+									type: "string",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-definitions/{processDefinitionKey}/form": {
+			get: {
+				tags: ["Process definition"],
+				operationId: "getStartProcessForm",
+				summary: "Get process start form",
+				description:
+					"Get the start form of a process.\n\nNote that this endpoint will only return linked forms. This endpoint does not support embedded forms.\n",
+				parameters: [
+					{
+						name: "processDefinitionKey",
+						in: "path",
+						required: true,
+						description: "The process key.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The form is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/FormResult",
+								},
+							},
+						},
+					},
+					204: {
+						description:
+							"The process was found, but no form is associated with it.\n",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-definitions/{processDefinitionKey}/statistics/element-instances":
+			{
+				post: {
+					tags: ["Process definition"],
+					operationId: "getProcessDefinitionStatistics",
+					summary: "Get process definition statistics",
+					description:
+						"Get statistics about elements in currently running process instances by process definition key and search filter.\n",
+					parameters: [
+						{
+							name: "processDefinitionKey",
+							in: "path",
+							required: true,
+							description:
+								"The assigned key of the process definition, which acts as a unique identifier for this process definition.",
+							schema: {
+								type: "string",
+							},
+						},
+					],
+					requestBody: {
+						required: false,
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessDefinitionElementStatisticsQuery",
+								},
+							},
+						},
+					},
+					responses: {
+						200: {
+							description:
+								"The process definition statistics result.",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ProcessDefinitionElementStatisticsQueryResult",
+									},
+								},
+							},
+						},
+						400: {
+							$ref: "#/components/responses/InvalidData",
+						},
+						401: {
+							$ref: "#/components/responses/Unauthorized",
+						},
+						403: {
+							$ref: "#/components/responses/Forbidden",
+						},
+						500: {
+							$ref: "#/components/responses/InternalServerError",
+						},
+					},
+				},
+			},
+		"/process-instances": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "createProcessInstance",
+				summary: "Create process instance",
+				description:
+					"Creates and starts an instance of the specified process.\nThe process definition to use to create the instance can be specified either using its unique key\n(as returned by Deploy resources), or using the BPMN process ID and a version.\n\nWaits for the completion of the process instance before returning a result\nwhen awaitCompletion is enabled.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceCreationInstruction",
+							},
+							examples: {
+								"By process definition key": {
+									summary:
+										"Create a process instance by processDefinitionKey.",
+									value: {
+										processDefinitionKey: "12345",
+										variables: {},
+									},
+								},
+								"By process definition ID": {
+									summary:
+										"Create a process instance by processDefinitionId and version.",
+									value: {
+										processDefinitionId: "1234-5678",
+										version: 1,
+										variables: {},
+									},
+								},
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The process instance was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/CreateProcessInstanceResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+					504: {
+						description:
+							"The process instance creation request timed out in the gateway.\n\nThis can happen if the `awaitCompletion` request parameter is set to `true`\nand the created process instance did not complete within the defined request timeout.\nThis often happens when the created instance is not fully automated or contains wait states.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstance",
+				summary: "Get process instance",
+				description:
+					"Get the process instance by the process instance key.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description: "The process instance key.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The process instance is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessInstanceResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The process instance with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/sequence-flows": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstanceSequenceFlows",
+				summary: "Get process instance sequence flows",
+				description:
+					"Get sequence flows taken by the process instance.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The process instance sequence flows result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessInstanceSequenceFlowsQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/statistics/element-instances":
+			{
+				get: {
+					tags: ["Process instance"],
+					operationId: "getProcessInstanceStatistics",
+					summary: "Get process instance statistics",
+					description:
+						"Get statistics about elements by the process instance key.\n",
+					parameters: [
+						{
+							name: "processInstanceKey",
+							in: "path",
+							required: true,
+							description:
+								"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+							schema: {
+								type: "string",
+							},
+						},
+					],
+					responses: {
+						200: {
+							description:
+								"The process instance statistics result.",
+							content: {
+								"application/json": {
+									schema: {
+										$ref: "#/components/schemas/ProcessInstanceElementStatisticsQueryResult",
+									},
+								},
+							},
+						},
+						400: {
+							$ref: "#/components/responses/InvalidData",
+						},
+						401: {
+							$ref: "#/components/responses/Unauthorized",
+						},
+						403: {
+							$ref: "#/components/responses/Forbidden",
+						},
+						500: {
+							$ref: "#/components/responses/InternalServerError",
+						},
+					},
+				},
+			},
+		"/process-instances/search": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "searchProcessInstances",
+				summary: "Search process instances",
+				description:
+					"Search for process instances based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The process instance search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessInstanceSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/cancellation": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "cancelProcessInstance",
+				summary: "Cancel process instance",
+				description:
+					"Cancels a running process instance. As a cancelation includes more than just the removal of the process instance resource, the cancelation resource must be posted.",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the process instance to cancel.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/CancelProcessInstanceRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The process instance is canceled.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The process instance is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/cancellation": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "cancelProcessInstancesBatchOperation",
+				summary: "Create a batch operation to cancel process instances",
+				description:
+					"Cancels multiple running process instances.\nSince only ACTIVE root instances can be cancelled, any given filters for state and\nparentProcessInstanceKey are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceFilter",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/incident-resolution": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "resolveIncidentsBatchOperation",
+				summary:
+					"Create a batch operation to resolve incidents of process instances",
+				description:
+					"Resolves multiple instances of process instances.\nSince only process instances with ACTIVE state can have unresolved incidents, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceFilter",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/migration": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "migrateProcessInstancesBatchOperation",
+				summary:
+					"Create a batch operation to migrate process instances",
+				description:
+					"Migrate multiple instances of process instances.\nSince only process instances with ACTIVE state can be migrated, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceMigrationBatchOperationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/modification": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "modifyProcessInstancesBatchOperation",
+				summary: "Create a batch operation to modify process instances",
+				description:
+					"Modify multiple process instances.\nSince only process instances with ACTIVE state can be modified, any given\nfilters for state are ignored and overridden during this batch operation.\nIn contrast to single modification operation, it is not possible to add variable instructions or modify by element key.\nIt is only possible to use the element id of the source and target.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceModificationBatchOperationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation request was created.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationCreatedResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The process instance batch operation failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/migration": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "migrateProcessInstance",
+				summary: "Migrate process instance",
+				description:
+					"Migrates a process instance to a new process definition.\nThis request can contain multiple mapping instructions to define mapping between the active\nprocess instance's elements and target process definition elements.\n\nUse this to upgrade a process instance to a new version of a process or to\na different process definition, e.g. to keep your running instances up-to-date with the\nlatest process improvements.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the process instance that should be migrated.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceMigrationInstruction",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The process instance is migrated.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The process instance is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/modification": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "modifyProcessInstance",
+				summary: "Modify process instance",
+				description:
+					"Modifies a running process instance.\nThis request can contain multiple instructions to activate an element of the process or\nto terminate an active instance of an element.\n\nUse this to repair a process instance that is stuck on an element or took an unintended path.\nFor example, because an external system is not available or doesn't respond as expected.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the process instance that should be modified.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceModificationInstruction",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The process instance is modified.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The process instance is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/process-instances/{processInstanceKey}/call-hierarchy": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstanceCallHierarchy",
+				summary: "Get call hierarchy for process instance",
+				description:
+					"Returns the call hierarchy for a given process instance, showing its ancestry up to the root instance.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the process instance to fetch the hierarchy for.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The call hierarchy is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									type: "array",
+									items: {
+										$ref: "#/components/schemas/ProcessInstanceCallHierarchyEntry",
+									},
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The process instance is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/search": {
+			post: {
+				tags: ["Element instance"],
+				operationId: "searchElementInstances",
+				summary: "Search element instances",
+				description:
+					"Search for element instances based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ElementInstanceSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The element instance search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ElementInstanceSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/{elementInstanceKey}": {
+			get: {
+				tags: ["Element instance"],
+				operationId: "getElementInstance",
+				summary: "Get element instance",
+				description: "Returns element instance as JSON.\n",
+				parameters: [
+					{
+						name: "elementInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the element instance, which acts as a unique identifier for this element instance.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The element instance is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ElementInstanceResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The element instance with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-definitions/search": {
+			post: {
+				tags: ["Decision definition"],
+				operationId: "searchDecisionDefinitions",
+				summary: "Search decision definitions",
+				description:
+					"Search for decision definitions based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DecisionDefinitionSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The decision definition search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionDefinitionSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-definitions/{decisionDefinitionKey}": {
+			get: {
+				tags: ["Decision definition"],
+				operationId: "getDecisionDefinition",
+				summary: "Get decision definition",
+				description: "Returns a decision definition by key.\n",
+				parameters: [
+					{
+						name: "decisionDefinitionKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the decision definition, which acts as a unique identifier for this decision.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The decision definition is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionDefinitionResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-definitions/{decisionDefinitionKey}/xml": {
+			get: {
+				tags: ["Decision definition"],
+				operationId: "getDecisionDefinitionXML",
+				summary: "Get decision definition XML",
+				description: "Returns decision definition as XML.\n",
+				parameters: [
+					{
+						name: "decisionDefinitionKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the decision definition, which acts as a unique identifier for this decision.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The XML of the decision definition is successfully returned.\n",
+						content: {
+							"text/xml": {
+								schema: {
+									type: "string",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-requirements/search": {
+			post: {
+				tags: ["Decision requirements"],
+				operationId: "searchDecisionRequirements",
+				summary: "Search decision requirements",
+				description:
+					"Search for decision requirements based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DecisionRequirementsSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The decision requirements search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionRequirementsSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-requirements/{decisionRequirementsKey}": {
+			get: {
+				tags: ["Decision requirements"],
+				operationId: "getDecisionRequirements",
+				summary: "Get decision requirements",
+				description: "Returns Decision Requirements as JSON.\n",
+				parameters: [
+					{
+						name: "decisionRequirementsKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the decision requirements, which acts as a unique identifier for this decision requirements.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The decision requirements is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionRequirementsResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision requirements with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-requirements/{decisionRequirementsKey}/xml": {
+			get: {
+				tags: ["Decision requirements"],
+				operationId: "getDecisionRequirementsXML",
+				summary: "Get decision requirements XML",
+				description: "Returns decision requirements as XML.\n",
+				parameters: [
+					{
+						name: "decisionRequirementsKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the decision requirements, which acts as a unique identifier for this decision.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The XML of the decision requirements is successfully returned.\n",
+						content: {
+							"text/xml": {
+								schema: {
+									type: "string",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision requirements with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-instances/search": {
+			post: {
+				tags: ["Decision instance"],
+				operationId: "searchDecisionInstances",
+				summary: "Search decision instances",
+				description:
+					"Search for decision instances based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DecisionInstanceSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The decision instance search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionInstanceSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-instances/{decisionInstanceId}": {
+			get: {
+				tags: ["Decision instance"],
+				operationId: "getDecisionInstance",
+				summary: "Get decision instance",
+				description: "Returns a decision instance.\n",
+				parameters: [
+					{
+						name: "decisionInstanceId",
+						in: "path",
+						required: true,
+						description:
+							"The assigned ID of the decision instance, which acts as a unique identifier for this decision instance.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The decision instance is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DecisionInstanceGetQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The decision instance with the given ID was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/decision-definitions/evaluation": {
+			post: {
+				tags: ["Decision definition"],
+				operationId: "evaluateDecision",
+				summary: "Evaluate decision",
+				description:
+					"Evaluates a decision.\nYou specify the decision to evaluate either by using its unique key (as returned by\nDeployResource), or using the decision ID. When using the decision ID, the latest deployed\nversion of the decision is used.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DecisionEvaluationInstruction",
+							},
+							examples: {
+								"By decision definition key": {
+									summary:
+										"Evaluate the decision by decisionDefinitionKey.",
+									value: {
+										decisionDefinitionKey: "12345",
+										variables: {},
+									},
+								},
+								"By decision definition ID": {
+									summary:
+										"Evaluate the decision by decisionDefinitionId.",
+									value: {
+										decisionDefinitionId: "1234-5678",
+										variables: {},
+									},
+								},
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The decision was evaluated.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/EvaluateDecisionResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The decision is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/authorizations": {
+			post: {
+				tags: ["Authorization"],
+				operationId: "createAuthorization",
+				summary: "Create authorization",
+				description: "Create the authorization.",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/AuthorizationRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					201: {
+						description:
+							"The authorization was created successfully.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AuthorizationCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The owner was not found.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/authorizations/{authorizationKey}": {
+			put: {
+				tags: ["Authorization"],
+				operationId: "updateAuthorization",
+				summary: "Update authorization",
+				description: "Update the authorization with the given key.",
+				parameters: [
+					{
+						name: "authorizationKey",
+						in: "path",
+						required: true,
+						description: "The key of the authorization to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/AuthorizationRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					204: {
+						description:
+							"The authorization was updated successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The authorization with the authorizationKey was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			get: {
+				tags: ["Authorization"],
+				operationId: "getAuthorization",
+				summary: "Get authorization",
+				description: "Get authorization by the given key.",
+				parameters: [
+					{
+						name: "authorizationKey",
+						in: "path",
+						required: true,
+						description: "The key of the authorization to get.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The authorization was successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AuthorizationResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The authorization with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Authorization"],
+				operationId: "deleteAuthorization",
+				summary: "Delete authorization",
+				description: "Deletes the authorization with the given key.",
+				parameters: [
+					{
+						name: "authorizationKey",
+						in: "path",
+						required: true,
+						description: "The key of the authorization to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The authorization was deleted successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The authorization with the authorizationKey was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/authorizations/search": {
+			post: {
+				tags: ["Authorization"],
+				summary: "Search authorizations",
+				description:
+					"Search for authorizations based on given criteria.\n",
+				operationId: "searchAuthorizations",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/AuthorizationSearchQuery",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					200: {
+						description: "The authorization search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AuthorizationSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles": {
+			post: {
+				tags: ["Role"],
+				operationId: "createRole",
+				summary: "Create role",
+				description: "Create a new role.\n",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleCreateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description: "The role was created successfully.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}": {
+			get: {
+				tags: ["Role"],
+				operationId: "getRole",
+				summary: "Get role",
+				description: "Get a role by its ID.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The role is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			put: {
+				tags: ["Role"],
+				operationId: "updateRole",
+				summary: "Update role",
+				description: "Update a role with the given ID.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The ID of the role to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleUpdateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The role was updated successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleUpdateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description: "The role with the ID is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "deleteRole",
+				summary: "Delete role",
+				description: "Deletes the role with the given ID.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The ID of the role to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description: "The role was deleted successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description: "The role with the ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/users/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchUsersForRole",
+				summary: "Search role users",
+				description: "Search users assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleUserSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The users assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleUserSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/clients/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchClientsForRole",
+				summary: "Search role clients",
+				description: "Search clients assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The clients assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleClientSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/users/{username}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addUserToRole",
+				summary: "Assign a user to a role",
+				description: "Assigns a user to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or user with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeUserFromRole",
+				summary: "Unassign a user from a role",
+				description: "Unassigns a user from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or user with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/clients/{clientId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addClientToRole",
+				summary: "Assign a client to a role",
+				description: "Assigns a client to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The client with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeClientFromRole",
+				summary: "Unassign a client from a role",
+				description: "Unassigns a client from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or client with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchRoles",
+				summary: "Search roles",
+				description: "Search for roles based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The roles search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						description:
+							"An internal error occurred while processing the request.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/groups/{groupId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addGroupToRole",
+				summary: "Assign a group to a role",
+				description: "Assigns a group to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The group was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The group with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeGroupFromRole",
+				summary: "Unassign a group from a role",
+				description: "Unassigns a group from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The group was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/groups/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchGroupsForRole",
+				summary: "Search role groups",
+				description: "Search groups assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The groups assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/mappings/{mappingId}": {
+			put: {
+				tags: ["Role"],
+				operationId: "addMappingToRole",
+				summary: "Assign a mapping to a role",
+				description: "Assigns a mapping to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping was assigned successfully to the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or mapping with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The mapping with the given ID is already assigned to the role.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Role"],
+				operationId: "removeMappingFromRole",
+				summary: "Unassign a mapping from a role",
+				description: "Unassigns a mapping from a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping was unassigned successfully from the role.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role or mapping with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/roles/{roleId}/mapping-rules/search": {
+			post: {
+				tags: ["Role"],
+				operationId: "searchMappingRulesForRole",
+				summary: "Search role mapping rules",
+				description: "Search mapping rules assigned to a role.\n",
+				parameters: [
+					{
+						name: "roleId",
+						in: "path",
+						required: true,
+						description: "The role ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The mapping rules assigned to the role.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The role with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups": {
+			post: {
+				tags: ["Group"],
+				operationId: "createGroup",
+				summary: "Create group",
+				description: "Create a new group.\n",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupCreateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description: "The group was created successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}": {
+			get: {
+				tags: ["Group"],
+				operationId: "getGroup",
+				summary: "Get group",
+				description: "Get a group by its ID.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The group is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			put: {
+				tags: ["Group"],
+				operationId: "updateGroup",
+				summary: "Update group",
+				description: "Update a group with the given ID.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The ID of the group to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupUpdateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The group was updated successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupUpdateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "deleteGroup",
+				summary: "Delete group",
+				description: "Deletes the group with the given ID.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The ID of the group to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description: "The group was deleted successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/users/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchUsersForGroup",
+				summary: "Search group users",
+				description: "Search users assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupUserSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The users assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupUserSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/mapping-rules/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchMappingRulesForGroup",
+				summary: "Search group mapping rules",
+				description: "Search mapping rules to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The mapping rules assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/roles/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchRolesForGroup",
+				summary: "Search group roles",
+				description: "Search roles assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/RoleSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The roles assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/RoleSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/clients/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchClientsForGroup",
+				summary: "Search group clients",
+				description: "Search clients assigned to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupClientSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The clients assigned to the group.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupClientSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/users/{username}": {
+			put: {
+				tags: ["Group"],
+				operationId: "addUserToGroup",
+				summary: "Assign a user to a group",
+				description: "Assigns a user to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was assigned successfully to the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or user with the given ID or username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The user with the given ID is already assigned to the group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "unassignUserFromGroup",
+				summary: "Unassign a user from a group",
+				description: "Unassigns a user from a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The user username.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The user was unassigned successfully from the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or user with the given ID was not found, or the user is not assigned to this group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/clients/{clientId}": {
+			put: {
+				tags: ["Group"],
+				operationId: "addClientToGroup",
+				summary: "Assign a client to a group",
+				description: "Assigns a client to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was assigned successfully to the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The client with the given ID is already assigned to the group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "unassignClientFromGroup",
+				summary: "Unassign a client from a group",
+				description: "Unassigns a client from a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "clientId",
+						in: "path",
+						required: true,
+						description: "The client ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The client was unassigned successfully from the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group with the given ID was not found, or the client is not assigned to this group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/{groupId}/mapping-rules/{mappingId}": {
+			put: {
+				tags: ["Group"],
+				operationId: "assignMappingToGroup",
+				summary: "Assign a mapping rule to a group",
+				description: "Assigns a mapping rule to a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping rule ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping rule was assigned successfully to the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or mapping rule with the given ID was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					409: {
+						description:
+							"The mapping rule with the given ID is already assigned to the group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Group"],
+				operationId: "unassignMappingFromGroup",
+				summary: "Unassign a mapping rule from a group",
+				description: "Unassigns a mapping rule from a group.\n",
+				parameters: [
+					{
+						name: "groupId",
+						in: "path",
+						required: true,
+						description: "The group ID.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The mapping rule ID.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					202: {
+						description:
+							"The mapping rule was unassigned successfully from the group.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The group or mapping rule with the given ID was not found, or the mapping rule is not assigned to this group.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/groups/search": {
+			post: {
+				tags: ["Group"],
+				operationId: "searchGroups",
+				summary: "Search groups",
+				description: "Search for groups based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/GroupSearchQueryRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The groups search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/GroupSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						description:
+							"An internal error occurred while processing the request.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"/mapping-rules": {
+			post: {
+				tags: ["Mapping rule"],
+				operationId: "createMappingRule",
+				summary: "Create mapping rule",
+				description: "Create a new mapping rule\n",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingRuleCreateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description:
+							"The mapping rule was created successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingRuleCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						description:
+							"The request to create a mapping rule was denied.\nMore details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					404: {
+						description:
+							"The request to create a mapping rule was denied.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/mapping-rules/{mappingId}": {
+			put: {
+				tags: ["Mapping rule"],
+				operationId: "updateMappingRule",
+				summary: "Update mapping rule",
+				description: "Update a mapping rule.\n",
+				parameters: [
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The ID of the mapping rule to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingRuleUpdateRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The mapping rule was updated successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingRuleUpdateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						description:
+							"The request to update a mapping rule was denied.\nMore details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					404: {
+						description:
+							"The request to update a mapping rule was denied.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Mapping rule"],
+				operationId: "deleteMappingRule",
+				summary: "Delete a mapping rule",
+				description: "Deletes the mapping rule with the given ID.\n",
+				parameters: [
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The ID of the mapping rule to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description:
+							"The mapping rule was deleted successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The mapping rule with the mappingId was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			get: {
+				tags: ["Mapping rule"],
+				operationId: "getMappingRule",
+				summary: "Get a mapping rule",
+				description: "Gets the mapping rule with the given ID.\n",
+				parameters: [
+					{
+						name: "mappingId",
+						in: "path",
+						required: true,
+						description: "The ID of the mapping rule to get.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The mapping rule was returned successfully.",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					404: {
+						description:
+							"The mapping rule with the mappingId was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/mapping-rules/search": {
+			post: {
+				tags: ["Mapping rule"],
+				operationId: "searchMappings",
+				summary: "Search mappings",
+				description:
+					"Search for mapping rules based on given criteria.\n",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MappingSearchQueryRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					200: {
+						description: "The mapping rule search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/messages/publication": {
+			post: {
+				tags: ["Message"],
+				operationId: "publishMessage",
+				summary: "Publish message",
+				description:
+					"Publishes a single message.\nMessages are published to specific partitions computed from their correlation keys.\nMessages can be buffered.\nThe endpoint does not wait for a correlation result.\nUse the message correlation endpoint for such use cases.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MessagePublicationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The message was published.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MessagePublicationResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/messages/correlation": {
+			post: {
+				tags: ["Message"],
+				operationId: "correlateMessage",
+				summary: "Correlate message",
+				description:
+					"Publishes a message and correlates it to a subscription.\nIf correlation is successful it will return the first process instance key the message correlated with.\nThe message is not buffered.\nUse the publish message endpoint to send messages that can be buffered.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MessageCorrelationRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The message is correlated to one or more process instances",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MessageCorrelationResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "Not found",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/documents": {
+			post: {
+				tags: ["Document"],
+				operationId: "createDocument",
+				summary: "Upload document",
+				description:
+					"Upload a document to the Camunda 8 cluster.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n",
+				parameters: [
+					{
+						name: "storeId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document store to upload the documents to. Currently, only a single document store is supported per cluster. However, this attribute is included to allow for potential future support of multiple document stores.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "documentId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document to upload. If not provided, a new ID will be generated. Specifying an existing ID will result in an error if the document already exists.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"multipart/form-data": {
+							schema: {
+								type: "object",
+								properties: {
+									file: {
+										type: "string",
+										format: "binary",
+									},
+									metadata: {
+										$ref: "#/components/schemas/DocumentMetadata",
+									},
+								},
+								required: ["file"],
+							},
+							encoding: {
+								metadata: {
+									contentType: "application/json",
+								},
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description: "The document was uploaded successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DocumentReference",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+				},
+			},
+		},
+		"/documents/batch": {
+			post: {
+				tags: ["Document"],
+				operationId: "createDocuments",
+				summary: "Upload multiple documents",
+				description:
+					'Upload multiple documents to the Camunda 8 cluster.\n\nThe caller must provide a file name for each document, which will be used in case of a multi-status response\nto identify which documents failed to upload. The file name can be provided in the `Content-Disposition` header\nof the file part or in the `fileName` field of the metadata, which can be configured with\nthe `X-Document-Metadata` header for each file part. If both are provided, the `fileName` metadata field\ntakes precedence. For example, given the following headers for a file:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"fileName": "invoice.pdf", "size": 1234567}\n```\n\nThe filename will be `invoice.pdf`, but in the following example:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"size": 1234567}\n```\n\nit would be `bill.pdf`.\n\nIn case of a multi-status response, the response body will contain a list of `DocumentBatchProblemDetail` objects,\neach of which contains the file name of the document that failed to upload and the reason for the failure.\nThe client can choose to retry the whole batch or individual documents based on the response.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n',
+				parameters: [
+					{
+						name: "storeId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document store to upload the documents to. Currently, only a single document store is supported per cluster. However, this attribute is included to allow for potential future support of multiple document stores.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"multipart/form-data": {
+							schema: {
+								type: "object",
+								properties: {
+									files: {
+										type: "array",
+										description: "The documents to upload.",
+										items: {
+											type: "string",
+											format: "binary",
+										},
+									},
+								},
+								required: ["files"],
+							},
+							encoding: {
+								files: {
+									headers: {
+										"X-Document-Metadata": {
+											schema: {
+												$ref: "#/components/schemas/DocumentMetadata",
+											},
+										},
+										"X-Document-Id": {
+											schema: {
+												type: "string",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description:
+							"All documents were uploaded successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DocumentCreationBatchResponse",
+								},
+							},
+						},
+					},
+					207: {
+						description:
+							"Not all documents were uploaded successfully. More details are provided in the response body.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DocumentCreationBatchResponse",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+				},
+			},
+		},
+		"/documents/{documentId}": {
+			get: {
+				tags: ["Document"],
+				operationId: "getDocument",
+				summary: "Download document",
+				description:
+					"Download a document from the Camunda 8 cluster.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n",
+				parameters: [
+					{
+						name: "documentId",
+						in: "path",
+						required: true,
+						description: "The ID of the document to download.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "storeId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document store to download the document from.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "contentHash",
+						in: "query",
+						required: false,
+						schema: {
+							type: "string",
+						},
+						description:
+							"The hash of the document content that was computed by the document store during upload. The hash is part of the document reference that is returned when uploading a document. If the client fails to provide the correct hash, the request will be rejected.\n",
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The document was downloaded successfully.",
+						content: {
+							"application/octet-stream": {
+								schema: {
+									type: "string",
+									format: "binary",
+								},
+							},
+						},
+					},
+					404: {
+						description:
+							"The document with the given ID was not found.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["Document"],
+				operationId: "deleteDocument",
+				summary: "Delete document",
+				description:
+					"Delete a document from the Camunda 8 cluster.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n",
+				parameters: [
+					{
+						name: "documentId",
+						in: "path",
+						required: true,
+						description: "The ID of the document to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "storeId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document store to delete the document from.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The document was deleted successfully.",
+					},
+					404: {
+						description:
+							"The document with the given ID was not found.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/documents/{documentId}/links": {
+			post: {
+				tags: ["Document"],
+				operationId: "createDocumentLink",
+				summary: "Create document link",
+				description:
+					"Create a link to a document in the Camunda 8 cluster.\n\nNote that this is currently supported for document stores of type: AWS, GCP\n",
+				parameters: [
+					{
+						name: "documentId",
+						in: "path",
+						required: true,
+						description: "The ID of the document to link.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "storeId",
+						in: "query",
+						required: false,
+						description:
+							"The ID of the document store to link the document from.",
+						schema: {
+							type: "string",
+						},
+					},
+					{
+						name: "contentHash",
+						in: "query",
+						required: false,
+						schema: {
+							type: "string",
+						},
+						description:
+							"The hash of the document content that was computed by the document store during upload. The hash is part of the document reference that is returned when uploading a document. If the client fails to provide the correct hash, the request will be rejected.\n",
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DocumentLinkRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					201: {
+						description:
+							"The document link was created successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DocumentLink",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+				},
+			},
+		},
+		"/users": {
+			post: {
+				tags: ["User"],
+				operationId: "createUser",
+				summary: "Create user",
+				description: "Create a new user.",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					201: {
+						description: "The user was created successfully.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					409: {
+						description:
+							"A user with the given username already exists.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/users/search": {
+			post: {
+				tags: ["User"],
+				operationId: "searchUsers",
+				summary: "Search users",
+				description: "Search for users based on given criteria.\n",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserSearchQueryRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					200: {
+						description: "The user search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserSearchResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/users/{username}": {
+			get: {
+				tags: ["User"],
+				operationId: "getUser",
+				summary: "Get user",
+				description: "Get a user by its username.\n",
+				parameters: [
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The username of the user.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The user is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserResult",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The user with the given username was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			delete: {
+				tags: ["User"],
+				operationId: "deleteUser",
+				summary: "Delete user",
+				description: "Deletes a user.\n",
+				parameters: [
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The username of the user to delete.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					204: {
+						description: "The user was deleted successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The user is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+			patch: {
+				tags: ["User"],
+				operationId: "updateUser",
+				summary: "Update user",
+				description: "Updates a user.\n",
+				parameters: [
+					{
+						name: "username",
+						in: "path",
+						required: true,
+						description: "The username of the user to update.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserUpdateRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					204: {
+						description: "The user was updated successfully.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description: "The user was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/incidents/search": {
+			post: {
+				tags: ["Incident"],
+				operationId: "searchIncidents",
+				summary: "Search incidents",
+				description: "Search for incidents based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/IncidentSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The incident search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/IncidentSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/incidents/{incidentKey}": {
+			get: {
+				tags: ["Incident"],
+				operationId: "getIncident",
+				summary: "Get incident",
+				description: "Returns incident as JSON.\n",
+				parameters: [
+					{
+						name: "incidentKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the incident, which acts as a unique identifier for this incident.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The incident is successfully returned.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/IncidentResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The incident with the given key was not found. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/usage-metrics": {
+			get: {
+				tags: ["Usage metrics"],
+				operationId: "getUsageMetrics",
+				summary: "Get usage metrics",
+				description:
+					"Retrieve the usage metrics by given start and end date.",
+				parameters: [
+					{
+						name: "startTime",
+						in: "query",
+						required: true,
+						description:
+							"The start date for usage metrics, including this date.",
+						schema: {
+							type: "string",
+							format: "date-time",
+						},
+					},
+					{
+						name: "endTime",
+						in: "query",
+						required: true,
+						description:
+							"The end date for usage metrics, including this date.",
+						schema: {
+							type: "string",
+							format: "date-time",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The usage metrics search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UsageMetricsResponse",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/deployments": {
+			post: {
+				tags: ["Resource"],
+				operationId: "createDeployment",
+				summary: "Deploy resources",
+				description:
+					"Deploys one or more resources (e.g. processes, decision models, or forms).\nThis is an atomic call, i.e. either all resources are deployed or none of them are.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"multipart/form-data": {
+							schema: {
+								type: "object",
+								properties: {
+									resources: {
+										type: "array",
+										description:
+											"The binary data to create the deployment resources. It is possible to have more than one form part with different form part names for the binary data to create a deployment.\n",
+										items: {
+											type: "string",
+											format: "binary",
+										},
+									},
+									tenantId: {
+										type: "string",
+										description:
+											"The tenant to deploy the resources to.",
+									},
+								},
+								required: ["resources"],
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The resources are deployed.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/DeploymentResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+				},
+			},
+		},
+		"/resources/{resourceKey}/deletion": {
+			post: {
+				tags: ["Resource"],
+				operationId: "deleteResource",
+				summary: "Delete resource",
+				description:
+					"Deletes a deployed resource.\nThis can be a process definition, decision requirements definition, or form definition\ndeployed using the deploy resources endpoint. Specify the resource you want to delete in the `resourceKey` parameter.\n",
+				parameters: [
+					{
+						name: "resourceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the resource to delete.\nThis can be the key of a process definition, the key of a decision requirements\ndefinition or the key of a form definition\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/DeleteResourceRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The resource is deleted.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The resource is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/resources/{resourceKey}": {
+			get: {
+				tags: ["Resource"],
+				operationId: "getResource",
+				summary: "Get resource",
+				description:
+					"Returns a deployed resource.\n:::info\nCurrently, this endpoint only supports RPA resources.\n:::\n",
+				parameters: [
+					{
+						name: "resourceKey",
+						in: "path",
+						required: true,
+						description: "The unique key identifying the resource.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The resource is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ResourceResult",
+								},
+							},
+						},
+					},
+					404: {
+						description:
+							"A resource with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/resources/{resourceKey}/content": {
+			get: {
+				tags: ["Resource"],
+				operationId: "getResourceContent",
+				summary: "Get resource content",
+				description:
+					"Returns the content of a deployed resource.\n:::info\nCurrently, this endpoint only supports RPA resources.\n:::\n",
+				parameters: [
+					{
+						name: "resourceKey",
+						in: "path",
+						required: true,
+						description: "The unique key identifying the resource.",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description:
+							"The resource content is successfully returned.",
+						content: {
+							"application/json": {
+								schema: {
+									type: "string",
+								},
+							},
+						},
+					},
+					404: {
+						description:
+							"A resource with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/{elementInstanceKey}/variables": {
+			put: {
+				tags: ["Element instance"],
+				operationId: "createElementInstanceVariables",
+				summary: "Update element instance variables",
+				description:
+					"Updates all the variables of a particular scope (for example, process instance, element instance) with the given variable data.\nSpecify the element instance in the `elementInstanceKey` parameter.\n",
+				parameters: [
+					{
+						name: "elementInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The key of the element instance to update the variables for.\nThis can be the process instance key (as obtained during instance creation), or a given\nelement, such as a service task (see the `elementInstanceKey` on the job message).\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/SetVariableRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					204: {
+						description: "The variables were updated.",
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/ad-hoc-activities/search": {
+			post: {
+				tags: ["Ad-hoc sub-process"],
+				operationId: "searchAdHocSubProcessActivities",
+				summary: "Search activatable activities (alpha)",
+				description:
+					"Search for activatable activities within ad-hoc sub-processes based on given criteria.\n\nNote that this API currently requires filters for both process definition key and ad-hoc\nsub-process ID and does not support paging or sorting.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/AdHocSubProcessActivitySearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description:
+							"The ad-hoc sub-process activities search result.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AdHocSubProcessActivitySearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						description:
+							"The ad-hoc sub-process activities search query failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/element-instances/ad-hoc-activities/{adHocSubProcessInstanceKey}/activation":
+			{
+				post: {
+					tags: ["Ad-hoc sub-process"],
+					operationId: "activateAdHocSubProcessActivities",
+					summary: "Activate activities within an ad-hoc sub-process",
+					description:
+						"Activates selected activities within an ad-hoc sub-process identified by element ID.\nThe provided element IDs must exist within the ad-hoc sub-process instance identified by the\nprovided adHocSubProcessInstanceKey.\n",
+					parameters: [
+						{
+							name: "adHocSubProcessInstanceKey",
+							in: "path",
+							required: true,
+							description:
+								"The key of the ad-hoc sub-process instance that contains the activities.",
+							schema: {
+								type: "string",
+							},
+						},
+					],
+					requestBody: {
+						required: true,
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/AdHocSubProcessActivateActivitiesInstruction",
+								},
+							},
+						},
+					},
+					responses: {
+						204: {
+							description:
+								"The ad-hoc sub-process instance is modified.",
+						},
+						400: {
+							$ref: "#/components/responses/InvalidData",
+						},
+						401: {
+							$ref: "#/components/responses/Unauthorized",
+						},
+						403: {
+							$ref: "#/components/responses/Forbidden",
+						},
+						404: {
+							description:
+								"The ad-hoc sub-process instance is not found or the provided key does not identify an\nad-hoc sub-process.\n",
+							content: {
+								"application/problem+json": {
+									schema: {
+										$ref: "#/components/schemas/ProblemDetail",
+									},
+								},
+							},
+						},
+						500: {
+							$ref: "#/components/responses/InternalServerError",
+						},
+					},
+				},
+			},
+		"/signals/broadcast": {
+			post: {
+				tags: ["Signal"],
+				operationId: "broadcastSignal",
+				summary: "Broadcast signal",
+				description: "Broadcasts a signal.",
+				requestBody: {
+					required: true,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/SignalBroadcastRequest",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The signal was broadcast.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/SignalBroadcastResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					404: {
+						description: "The signal is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}": {
+			get: {
+				tags: ["Batch operation"],
+				operationId: "getBatchOperation",
+				summary: "Get batch operation",
+				description: "Get batch operation by key.",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				responses: {
+					200: {
+						description: "The batch operation was found.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationResponse",
+								},
+							},
+						},
+					},
+					400: {
+						description: "The provided data is not valid.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					404: {
+						description: "The batch operation is not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/search": {
+			post: {
+				tags: ["Batch operation"],
+				operationId: "searchBatchOperations",
+				summary: "Search batch operations",
+				description:
+					"Search for batch operations based on given criteria.",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/BatchOperationSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						description: "The provided data is not valid.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}/cancellation": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "cancelBatchOperation",
+				summary: "Cancel Batch operation",
+				description:
+					"Cancels a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation cancel request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The batch operation was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}/suspension": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "suspendBatchOperation",
+				summary: "Suspend Batch operation",
+				description:
+					"Suspends a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation pause request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The batch operation was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operations/{batchOperationId}/resumption": {
+			put: {
+				tags: ["Batch operation"],
+				operationId: "resumeBatchOperation",
+				summary: "Resume Batch operation",
+				description:
+					"Resumes a suspended batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+				parameters: [
+					{
+						name: "batchOperationId",
+						in: "path",
+						required: true,
+						description:
+							"The key (or operate legacy ID) of the batch operation.\n",
+						schema: {
+							type: "string",
+						},
+					},
+				],
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								type: "object",
+								nullable: true,
+							},
+						},
+					},
+					required: false,
+				},
+				responses: {
+					204: {
+						description:
+							"The batch operation resume request was created.",
+						content: {},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"Not found. The batch operation was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/batch-operation-items/search": {
+			post: {
+				tags: ["Batch operation"],
+				operationId: "searchBatchOperationItems",
+				summary: "Search batch operation items",
+				description:
+					"Search for batch operation items based on given criteria.",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/BatchOperationItemSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The batch operation search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/BatchOperationItemSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						description: "The provided data is not valid.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+	},
+	components: {
+		schemas: {
+			TenantCreateRequest: {
+				type: "object",
+				properties: {
+					tenantId: {
+						type: "string",
+						description: "The unique external tenant ID",
+					},
+					name: {
+						type: "string",
+						description: "The name of the tenant.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the tenant.",
+					},
+				},
+				required: ["tenantId", "name"],
+			},
+			TenantCreateResult: {
+				type: "object",
+				properties: {
+					tenantKey: {
+						description:
+							"The unique system-generated internal tenant ID.",
+						type: "string",
+					},
+					tenantId: {
+						type: "string",
+						description: "The unique external tenant ID",
+					},
+					name: {
+						type: "string",
+						description: "The name of the tenant.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the tenant.",
+					},
+				},
+			},
+			TenantUpdateRequest: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The new name of the tenant.",
+					},
+					description: {
+						type: "string",
+						description: "The new description of the tenant.",
+					},
+				},
+				required: ["name", "description"],
+			},
+			TenantUpdateResult: {
+				type: "object",
+				properties: {
+					tenantId: {
+						type: "string",
+						description: "The unique external tenant ID",
+					},
+					name: {
+						type: "string",
+						description: "The name of the tenant.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the tenant.",
+					},
+					tenantKey: {
+						type: "string",
+						description:
+							"The unique system-generated internal tenant ID.",
+					},
+				},
+			},
+			TenantResult: {
+				description: "Tenant search response item.",
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The tenant name.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The unique external tenant ID.",
+					},
+					description: {
+						type: "string",
+						description: "The tenant description.",
+					},
+					tenantKey: {
+						type: "string",
+						description:
+							"The unique system-generated internal tenant ID.",
+					},
+				},
+			},
+			TenantSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["key", "name", "tenantId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			TenantSearchQueryRequest: {
+				description: "Tenant search request",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The tenant search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			TenantFilterRequest: {
+				description: "Tenant filter request",
+				type: "object",
+				properties: {
+					tenantId: {
+						type: "string",
+						description: "The ID of the tenant.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the tenant.",
+					},
+				},
+			},
+			TenantSearchQueryResult: {
+				description: "Tenant search response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching tenants.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantResult",
+						},
+					},
+				},
+			},
+			UserTaskSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"creationDate",
+							"completionDate",
+							"followUpDate",
+							"dueDate",
+							"priority",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			UserTaskSearchQuery: {
+				description: "User task search query request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserTaskSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The user task search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskFilter",
+							},
+						],
+					},
+				},
+			},
+			UserTaskVariableSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"value",
+							"name",
+							"tenantId",
+							"variableKey",
+							"scopeKey",
+							"processInstanceKey",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			UserTaskVariableSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				description: "User task search query request.",
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserTaskVariableSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The user task variable search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskVariableFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			UserTaskSearchQueryResult: {
+				description: "User task search query response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching user tasks.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserTaskResult",
+						},
+					},
+				},
+			},
+			UserTaskFilter: {
+				description: "User task filter request.",
+				type: "object",
+				properties: {
+					state: {
+						type: "string",
+						description: "The state of the user task.",
+						enum: ["CREATED", "COMPLETED", "CANCELED", "FAILED"],
+					},
+					assignee: {
+						description: "The assignee of the user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					priority: {
+						description: "The priority of the user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IntegerFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						type: "string",
+						description: "The element ID of the user task.",
+					},
+					candidateGroup: {
+						description: "The candidate group for this user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					candidateUser: {
+						description: "The candidate user for this user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					tenantId: {
+						type: "string",
+						description: "Tenant ID of this user task.",
+					},
+					processDefinitionId: {
+						type: "string",
+						description: "The ID of the process definition.",
+					},
+					creationDate: {
+						description: "The user task creation date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					completionDate: {
+						description: "The user task completion date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					followUpDate: {
+						description: "The user task follow-up date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					dueDate: {
+						description: "The user task due date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					processInstanceVariables: {
+						type: "array",
+						description:
+							"Process instance variables associated with the user task.",
+						items: {
+							$ref: "#/components/schemas/VariableValueFilterRequest",
+						},
+					},
+					localVariables: {
+						type: "array",
+						description:
+							"Local variables associated with the user task.",
+						items: {
+							$ref: "#/components/schemas/VariableValueFilterRequest",
+						},
+					},
+					userTaskKey: {
+						type: "string",
+						description: "The key for this user task.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description: "The key of the element instance.",
+					},
+				},
+			},
+			VariableValueFilterRequest: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "Name of the variable.",
+					},
+					value: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+						description: "The value of the variable.",
+					},
+				},
+				required: ["name", "value"],
+			},
+			UserTaskVariableFilterRequest: {
+				description: "The user task variable search filters.",
+				type: "object",
+				properties: {
+					name: {
+						description: "Name of the variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			UserTaskResult: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The name for this user task.",
+					},
+					state: {
+						type: "string",
+						description: "The state of the user task.",
+						enum: ["CREATED", "COMPLETED", "CANCELED", "FAILED"],
+					},
+					assignee: {
+						description: "The assignee of the user task.",
+						type: "string",
+					},
+					elementId: {
+						type: "string",
+						description: "The element ID of the user task.",
+					},
+					candidateGroups: {
+						type: "array",
+						description: "The candidate groups for this user task.",
+						items: {
+							type: "string",
+						},
+					},
+					candidateUsers: {
+						type: "array",
+						description: "The candidate users for this user task.",
+						items: {
+							type: "string",
+						},
+					},
+					processDefinitionId: {
+						type: "string",
+						description: "The ID of the process definition.",
+					},
+					creationDate: {
+						type: "string",
+						description: "The creation date of a user task.",
+						format: "date-time",
+					},
+					completionDate: {
+						type: "string",
+						description: "The completion date of a user task.",
+						format: "date-time",
+					},
+					followUpDate: {
+						type: "string",
+						description: "The follow date of a user task.",
+						format: "date-time",
+					},
+					dueDate: {
+						type: "string",
+						description: "The due date of a user task.",
+						format: "date-time",
+					},
+					tenantId: {
+						type: "string",
+						description: "Tenant ID of this user task.",
+					},
+					externalFormReference: {
+						type: "string",
+						description: "The external form reference.",
+					},
+					processDefinitionVersion: {
+						type: "integer",
+						description: "The version of the process definition.",
+						format: "int32",
+					},
+					customHeaders: {
+						type: "object",
+						description: "Custom headers for the user task.",
+						additionalProperties: {
+							type: "string",
+						},
+					},
+					priority: {
+						type: "integer",
+						description:
+							"The priority of a user task. The higher the value the higher the priority.",
+						minimum: 0,
+						maximum: 100,
+						default: 50,
+					},
+					userTaskKey: {
+						description: "The key of the user task.",
+						type: "string",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description: "The key of the element instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					formKey: {
+						type: "string",
+						description: "The key of the form.",
+					},
+				},
+			},
+			VariableSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"value",
+							"name",
+							"tenantId",
+							"variableKey",
+							"scopeKey",
+							"processInstanceKey",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			VariableSearchQuery: {
+				description: "Variable search query request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/VariableSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The variable search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/VariableFilter",
+							},
+						],
+					},
+				},
+			},
+			VariableFilter: {
+				description: "Variable filter request.",
+				type: "object",
+				properties: {
+					name: {
+						description: "Name of the variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					value: {
+						description: "The value of the variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					tenantId: {
+						description: "Tenant ID of this variable.",
+						type: "string",
+					},
+					isTruncated: {
+						description: "Whether the value is truncated or not.",
+						type: "boolean",
+					},
+					variableKey: {
+						description: "The key for this variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					scopeKey: {
+						description: "The key of the scope of this variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					processInstanceKey: {
+						description:
+							"The key of the process instance of this variable.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			VariableSearchQueryResult: {
+				description: "Variable search query response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching variables.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/VariableSearchResult",
+						},
+					},
+				},
+			},
+			VariableSearchResult: {
+				description: "Variable search response item.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/VariableResultBase",
+					},
+				],
+				properties: {
+					value: {
+						description:
+							"Value of this variable. Can be truncated.",
+						type: "string",
+					},
+					isTruncated: {
+						description: "Whether the value is truncated or not.",
+						type: "boolean",
+					},
+				},
+			},
+			VariableResult: {
+				description: "Variable search response item.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/VariableResultBase",
+					},
+				],
+				properties: {
+					value: {
+						description: "Full value of this variable.",
+						type: "string",
+					},
+				},
+			},
+			VariableResultBase: {
+				description: "Variable response item.",
+				type: "object",
+				properties: {
+					name: {
+						description: "Name of this variable.",
+						type: "string",
+					},
+					tenantId: {
+						description: "Tenant ID of this variable.",
+						type: "string",
+					},
+					variableKey: {
+						description: "The key for this variable.",
+						type: "string",
+					},
+					scopeKey: {
+						description: "The key of the scope of this variable.",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"The key of the process instance of this variable.",
+						type: "string",
+					},
+				},
+			},
+			ProcessDefinitionSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"processDefinitionKey",
+							"name",
+							"resourceName",
+							"version",
+							"versionTag",
+							"processDefinitionId",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			ProcessDefinitionSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessDefinitionSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The process definition search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionFilter",
+							},
+						],
+					},
+				},
+			},
+			ProcessDefinitionFilter: {
+				description: "Process definition search filter.",
+				type: "object",
+				properties: {
+					name: {
+						description: "Name of this process definition.",
+						type: "string",
+					},
+					resourceName: {
+						description:
+							"Resource name of this process definition.",
+						type: "string",
+					},
+					version: {
+						description: "Version of this process definition.",
+						type: "integer",
+						format: "int32",
+					},
+					versionTag: {
+						description: "Version tag of this process definition.",
+						type: "string",
+					},
+					processDefinitionId: {
+						description:
+							"Process definition ID of this process definition.",
+						type: "string",
+					},
+					tenantId: {
+						description: "Tenant ID of this process definition.",
+						type: "string",
+					},
+					processDefinitionKey: {
+						description: "The key for this process definition.",
+						type: "string",
+					},
+				},
+			},
+			ProcessDefinitionSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching process definitions.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessDefinitionResult",
+						},
+					},
+				},
+			},
+			ProcessDefinitionResult: {
+				type: "object",
+				properties: {
+					name: {
+						description: "Name of this process definition.",
+						type: "string",
+					},
+					resourceName: {
+						description:
+							"Resource name for this process definition.",
+						type: "string",
+					},
+					version: {
+						description: "Version of this process definition.",
+						type: "integer",
+						format: "int32",
+					},
+					versionTag: {
+						description: "Version tag of this process definition.",
+						type: "string",
+					},
+					processDefinitionId: {
+						description:
+							"Process definition ID of this process definition.",
+						type: "string",
+					},
+					tenantId: {
+						description: "Tenant ID of this process definition.",
+						type: "string",
+					},
+					processDefinitionKey: {
+						description: "The key for this process definition.",
+						type: "string",
+					},
+				},
+			},
+			ProcessInstanceSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"processInstanceKey",
+							"processDefinitionId",
+							"processDefinitionName",
+							"processDefinitionVersion",
+							"processDefinitionVersionTag",
+							"processDefinitionKey",
+							"parentProcessInstanceKey",
+							"parentElementInstanceKey",
+							"startDate",
+							"endDate",
+							"state",
+							"hasIncident",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			ProcessInstanceSearchQuery: {
+				description: "Process instance search request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The process instance search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceFilter",
+							},
+						],
+					},
+				},
+			},
+			AdvancedIntegerFilter: {
+				title: "Advanced filter",
+				description: "Advanced integer (int32) filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$gt: {
+						description:
+							"Greater than comparison with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$gte: {
+						description:
+							"Greater than or equal comparison with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$lt: {
+						description:
+							"Lower than comparison with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$lte: {
+						description:
+							"Lower than or equal comparison with the provided value.",
+						type: "integer",
+						format: "int32",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							type: "integer",
+							format: "int32",
+						},
+					},
+				},
+			},
+			IntegerFilterProperty: {
+				description:
+					"Integer property with advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "integer",
+						format: "int32",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+					},
+					{
+						$ref: "#/components/schemas/AdvancedIntegerFilter",
+					},
+				],
+			},
+			BasicStringFilter: {
+				title: "Advanced filter",
+				description: "Basic advanced string filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						type: "string",
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						type: "string",
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+				},
+			},
+			AdvancedStringFilter: {
+				title: "Advanced filter",
+				description: "Advanced string filter.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/BasicStringFilter",
+					},
+					{
+						type: "object",
+						properties: {
+							$like: {
+								description:
+									"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
+								type: "string",
+							},
+						},
+					},
+				],
+			},
+			AdvancedProcessInstanceStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced ProcessInstanceStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceStateEnum",
+						},
+					},
+					$like: {
+						description:
+							"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
+						type: "string",
+					},
+				},
+			},
+			AdvancedElementInstanceStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced ElementInstanceStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceStateEnum",
+						},
+					},
+					$like: {
+						description:
+							"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
+						type: "string",
+					},
+				},
+			},
+			AdvancedDateTimeFilter: {
+				title: "Advanced filter",
+				description: "Advanced date-time filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description:
+							"Checks for equality with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$neq: {
+						description:
+							"Checks for inequality with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$gt: {
+						description:
+							"Greater than comparison with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$gte: {
+						description:
+							"Greater than or equal comparison with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$lt: {
+						description:
+							"Lower than comparison with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$lte: {
+						description:
+							"Lower than or equal comparison with the provided value.",
+						type: "string",
+						format: "date-time",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							type: "string",
+							format: "date-time",
+						},
+					},
+				},
+			},
+			BasicStringFilterProperty: {
+				description:
+					"String property with basic advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+					},
+					{
+						$ref: "#/components/schemas/BasicStringFilter",
+					},
+				],
+			},
+			StringFilterProperty: {
+				description:
+					"String property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+					},
+					{
+						$ref: "#/components/schemas/AdvancedStringFilter",
+					},
+				],
+			},
+			ProcessInstanceStateFilterProperty: {
+				description:
+					"ProcessInstanceStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedProcessInstanceStateFilter",
+					},
+				],
+			},
+			ElementInstanceStateFilterProperty: {
+				description:
+					"ElementInstanceStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedElementInstanceStateFilter",
+					},
+				],
+			},
+			DateTimeFilterProperty: {
+				description:
+					"Date-time property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						format: "date-time",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+					},
+					{
+						$ref: "#/components/schemas/AdvancedDateTimeFilter",
+					},
+				],
+			},
+			BaseProcessInstanceFilterFields: {
+				description: "Base process instance search filter.",
+				type: "object",
+				properties: {
+					startDate: {
+						description: "The start date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					endDate: {
+						description: "The end date.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					state: {
+						description: "The process instance state.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceStateFilterProperty",
+							},
+						],
+					},
+					hasIncident: {
+						type: "boolean",
+						description:
+							"Whether this process instance has a related incident or not.",
+					},
+					tenantId: {
+						description: "The tenant ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					variables: {
+						description: "The process instance variables.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/VariableValueFilterRequest",
+						},
+					},
+					processInstanceKey: {
+						description: "The key of this process instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					parentProcessInstanceKey: {
+						description: "The parent process instance key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					parentElementInstanceKey: {
+						description: "The parent element instance key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					batchOperationId: {
+						description: "The batch operation ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					errorMessage: {
+						description:
+							"The error message related to the process.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					hasRetriesLeft: {
+						description:
+							"Whether the process has failed jobs with retries left.",
+						type: "boolean",
+					},
+					elementInstanceState: {
+						description:
+							"The state of the element instances associated with the process instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						description:
+							"The element ID associated with the process instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					hasElementInstanceIncident: {
+						description:
+							"Whether the element instance has an incident or not.",
+						type: "boolean",
+					},
+					incidentErrorHashCode: {
+						description:
+							"The incident error hash code, associated with this process.",
+						type: "integer",
+						format: "int32",
+					},
+				},
+			},
+			ProcessDefinitionStatisticsFilter: {
+				description: "Process definition statistics search filter.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
+					},
+					{
+						type: "object",
+						properties: {
+							$or: {
+								description:
+									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processInstanceId": "process_v1" },\n    { "processInstanceId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
+								},
+							},
+						},
+					},
+				],
+			},
+			ProcessInstanceFilterFields: {
+				description: "Process instance search filter.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
+					},
+				],
+				properties: {
+					processDefinitionId: {
+						description: "The process definition ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processDefinitionName: {
+						description: "The process definition name.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processDefinitionVersion: {
+						description: "The process definition version.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IntegerFilterProperty",
+							},
+						],
+					},
+					processDefinitionVersionTag: {
+						description: "The process definition version tag.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processDefinitionKey: {
+						description: "The process definition key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			ProcessInstanceFilter: {
+				description: "Process instance search filter.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/ProcessInstanceFilterFields",
+					},
+					{
+						type: "object",
+						properties: {
+							$or: {
+								description:
+									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processDefinitionId": "process_v1" },\n    { "processDefinitionId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/ProcessInstanceFilterFields",
+								},
+							},
+						},
+					},
+				],
+			},
+			ProcessInstanceSearchQueryResult: {
+				description: "Process instance search response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching process instances.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceResult",
+						},
+					},
+				},
+			},
+			ProcessInstanceResult: {
+				description: "Process instance search response item.",
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						type: "string",
+						description: "The process definition ID.",
+					},
+					processDefinitionName: {
+						type: "string",
+						description: "The process definition name.",
+					},
+					processDefinitionVersion: {
+						type: "integer",
+						description: "The process definition version.",
+						format: "int32",
+					},
+					processDefinitionVersionTag: {
+						type: "string",
+						description: "The process definition version tag.",
+					},
+					startDate: {
+						type: "string",
+						description: "The start date.",
+						format: "date-time",
+					},
+					endDate: {
+						type: "string",
+						description: "The end date.",
+						format: "date-time",
+					},
+					state: {
+						$ref: "#/components/schemas/ProcessInstanceStateEnum",
+					},
+					hasIncident: {
+						type: "boolean",
+						description:
+							"Whether this process instance has a related incident or not.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of this process instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The process definition key.",
+					},
+					parentProcessInstanceKey: {
+						type: "string",
+						description: "The parent process instance key.",
+					},
+					parentElementInstanceKey: {
+						type: "string",
+						description: "The parent element instance key.",
+					},
+				},
+			},
+			ProcessInstanceStateEnum: {
+				description: "The state, one of ACTIVE, COMPLETED, TERMINATED.",
+				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
+			},
+			ElementInstanceStateEnum: {
+				description:
+					"Element states, one of ACTIVE, COMPLETED, TERMINATED.",
+				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
+			},
+			ProcessInstanceCallHierarchyEntry: {
+				type: "object",
+				required: [
+					"processInstanceKey",
+					"processDefinitionKey",
+					"processDefinitionName",
+				],
+				properties: {
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processDefinitionName: {
+						type: "string",
+						description:
+							"The name of the process definition (fall backs to the process definition ID if not available).",
+					},
+				},
+			},
+			ProcessInstanceSequenceFlowsQueryResult: {
+				description: "Process instance sequence flows query response.",
+				type: "object",
+				properties: {
+					items: {
+						description: "The sequence flows.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceSequenceFlowResult",
+						},
+					},
+				},
+			},
+			ProcessInstanceSequenceFlowResult: {
+				description: "Process instance sequence flow result.",
+				type: "object",
+				properties: {
+					sequenceFlowId: {
+						type: "string",
+						description: "The sequence flow ID.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of this process instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The process definition key.",
+					},
+					processDefinitionId: {
+						type: "string",
+						description: "The process definition ID.",
+					},
+					elementId: {
+						type: "string",
+						description:
+							"The element ID for this sequence flow, as provided in the BPMN process.",
+					},
+					tenantId: {
+						description: "The tenant ID for this sequence flow.",
+						type: "string",
+					},
+				},
+			},
+			ProcessDefinitionElementStatisticsQuery: {
+				description: "Process definition element statistics request.",
+				type: "object",
+				properties: {
+					filter: {
+						description:
+							"The process definition statistics search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionStatisticsFilter",
+							},
+						],
+					},
+				},
+			},
+			ProcessDefinitionElementStatisticsQueryResult: {
+				description:
+					"Process definition element statistics query response.",
+				type: "object",
+				properties: {
+					items: {
+						description: "The element statistics.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessElementStatisticsResult",
+						},
+					},
+				},
+			},
+			ProcessInstanceElementStatisticsQueryResult: {
+				description:
+					"Process instance element statistics query response.",
+				type: "object",
+				properties: {
+					items: {
+						description: "The element statistics.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessElementStatisticsResult",
+						},
+					},
+				},
+			},
+			ProcessElementStatisticsResult: {
+				description: "Process element statistics response.",
+				type: "object",
+				properties: {
+					elementId: {
+						description:
+							"The element ID for which the results are aggregated.",
+						type: "string",
+					},
+					active: {
+						description:
+							"The total number of active instances of the element.",
+						type: "integer",
+						format: "int64",
+					},
+					canceled: {
+						description:
+							"The total number of canceled instances of the element.",
+						type: "integer",
+						format: "int64",
+					},
+					incidents: {
+						description:
+							"The total number of incidents for the element.",
+						type: "integer",
+						format: "int64",
+					},
+					completed: {
+						description:
+							"The total number of completed instances of the element.",
+						type: "integer",
+						format: "int64",
+					},
+				},
+			},
+			CancelProcessInstanceRequest: {
+				type: "object",
+				nullable: true,
+				properties: {
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be > 0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+				},
+			},
+			ElementInstanceSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"elementInstanceKey",
+							"processInstanceKey",
+							"processDefinitionKey",
+							"processDefinitionId",
+							"startDate",
+							"endDate",
+							"elementId",
+							"type",
+							"state",
+							"incidentKey",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			ElementInstanceSearchQuery: {
+				description: "Element instance search request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The element instance search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceFilter",
+							},
+						],
+					},
+				},
+			},
+			ElementInstanceFilter: {
+				description: "Element instance filter.",
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						description:
+							"The process definition ID associated to this element instance.",
+						type: "string",
+					},
+					state: {
+						description:
+							"State of element instance as defined set of values.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateFilterProperty",
+							},
+						],
+					},
+					type: {
+						description:
+							"Type of element as defined set of values.",
+						type: "string",
+						enum: [
+							"UNSPECIFIED",
+							"PROCESS",
+							"SUB_PROCESS",
+							"EVENT_SUB_PROCESS",
+							"AD_HOC_SUB_PROCESS",
+							"START_EVENT",
+							"INTERMEDIATE_CATCH_EVENT",
+							"INTERMEDIATE_THROW_EVENT",
+							"BOUNDARY_EVENT",
+							"END_EVENT",
+							"SERVICE_TASK",
+							"RECEIVE_TASK",
+							"USER_TASK",
+							"MANUAL_TASK",
+							"TASK",
+							"EXCLUSIVE_GATEWAY",
+							"INCLUSIVE_GATEWAY",
+							"PARALLEL_GATEWAY",
+							"EVENT_BASED_GATEWAY",
+							"SEQUENCE_FLOW",
+							"MULTI_INSTANCE_BODY",
+							"CALL_ACTIVITY",
+							"BUSINESS_RULE_TASK",
+							"SCRIPT_TASK",
+							"SEND_TASK",
+							"UNKNOWN",
+						],
+					},
+					elementId: {
+						type: "string",
+						description:
+							"The element ID for this element instance.",
+					},
+					elementName: {
+						type: "string",
+						description: "The element name.",
+					},
+					hasIncident: {
+						type: "boolean",
+						description:
+							"Shows whether this element instance has an incident related to.",
+					},
+					tenantId: {
+						description: "The tenant ID.",
+						type: "string",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this element instance.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description:
+							"The process instance key associated to this element instance.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description:
+							"The process definition key associated to this element instance.",
+					},
+					incidentKey: {
+						type: "string",
+						description:
+							"The key of incident if field incident is true.",
+					},
+				},
+			},
+			ElementInstanceSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching element instances.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceResult",
+						},
+					},
+				},
+			},
+			ElementInstanceResult: {
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						description:
+							"The process definition ID associated to this element instance.",
+						type: "string",
+					},
+					startDate: {
+						description: "Date when element instance started.",
+						type: "string",
+						format: "date-time",
+					},
+					endDate: {
+						description: "Date when element instance finished.",
+						type: "string",
+						format: "date-time",
+					},
+					elementId: {
+						description:
+							"The element ID for this element instance.",
+						type: "string",
+					},
+					elementName: {
+						description:
+							"The element name for this element instance.",
+						type: "string",
+					},
+					type: {
+						description:
+							"Type of element as defined set of values.",
+						type: "string",
+						enum: [
+							"UNSPECIFIED",
+							"PROCESS",
+							"SUB_PROCESS",
+							"EVENT_SUB_PROCESS",
+							"AD_HOC_SUB_PROCESS",
+							"START_EVENT",
+							"INTERMEDIATE_CATCH_EVENT",
+							"INTERMEDIATE_THROW_EVENT",
+							"BOUNDARY_EVENT",
+							"END_EVENT",
+							"SERVICE_TASK",
+							"RECEIVE_TASK",
+							"USER_TASK",
+							"MANUAL_TASK",
+							"TASK",
+							"EXCLUSIVE_GATEWAY",
+							"INCLUSIVE_GATEWAY",
+							"PARALLEL_GATEWAY",
+							"EVENT_BASED_GATEWAY",
+							"SEQUENCE_FLOW",
+							"MULTI_INSTANCE_BODY",
+							"CALL_ACTIVITY",
+							"BUSINESS_RULE_TASK",
+							"SCRIPT_TASK",
+							"SEND_TASK",
+							"UNKNOWN",
+						],
+					},
+					state: {
+						description:
+							"State of element instance as defined set of values.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceStateEnum",
+							},
+						],
+					},
+					hasIncident: {
+						description:
+							"Shows whether this element instance has an incident. If true also an incidentKey is provided.",
+						type: "boolean",
+					},
+					tenantId: {
+						description: "The tenant ID of the incident.",
+						type: "string",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this element instance.",
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key associated to this element instance.",
+						type: "string",
+					},
+					processDefinitionKey: {
+						description:
+							"The process definition key associated to this element instance.",
+						type: "string",
+					},
+					incidentKey: {
+						description:
+							"Incident key associated with this element instance.",
+						type: "string",
+					},
+				},
+			},
+			AdHocSubProcessActivitySearchQuery: {
+				description: "Ad-hoc sub-process activities search request.",
+				type: "object",
+				required: ["filter"],
+				properties: {
+					filter: {
+						description:
+							"The ad-hoc sub-process activity search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/AdHocSubProcessActivityFilter",
+							},
+						],
+					},
+				},
+			},
+			AdHocSubProcessActivityFilter: {
+				description: "Element instance filter.",
+				type: "object",
+				required: ["processDefinitionKey", "adHocSubProcessId"],
+				properties: {
+					processDefinitionKey: {
+						description: "The process definition key.",
+						type: "string",
+					},
+					adHocSubProcessId: {
+						description: "The ad-hoc sub-process element ID.",
+						type: "string",
+					},
+				},
+			},
+			AdHocSubProcessActivitySearchQueryResult: {
+				type: "object",
+				properties: {
+					items: {
+						description:
+							"The matching ad-hoc sub-process activities.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/AdHocSubProcessActivityResult",
+						},
+					},
+				},
+			},
+			AdHocSubProcessActivityResult: {
+				type: "object",
+				properties: {
+					processDefinitionKey: {
+						description:
+							"The process definition key associated to this activity.",
+						type: "string",
+					},
+					processDefinitionId: {
+						description:
+							"The process definition ID associated to this activity.",
+						type: "string",
+					},
+					adHocSubProcessId: {
+						description: "The ad-hoc sub-process element ID.",
+						type: "string",
+					},
+					elementId: {
+						description: "The element ID for this activity.",
+						type: "string",
+					},
+					elementName: {
+						description: "The element name for this activity.",
+						type: "string",
+					},
+					type: {
+						description:
+							"Type of activity with a defined set of values.",
+						type: "string",
+						enum: [
+							"UNSPECIFIED",
+							"PROCESS",
+							"SUB_PROCESS",
+							"EVENT_SUB_PROCESS",
+							"INTERMEDIATE_CATCH_EVENT",
+							"INTERMEDIATE_THROW_EVENT",
+							"BOUNDARY_EVENT",
+							"SERVICE_TASK",
+							"RECEIVE_TASK",
+							"USER_TASK",
+							"MANUAL_TASK",
+							"TASK",
+							"MULTI_INSTANCE_BODY",
+							"CALL_ACTIVITY",
+							"BUSINESS_RULE_TASK",
+							"SCRIPT_TASK",
+							"SEND_TASK",
+							"UNKNOWN",
+						],
+					},
+					documentation: {
+						description: "The documentation for this activity.",
+						type: "string",
+					},
+					tenantId: {
+						description: "The tenant ID for this activity.",
+						type: "string",
+					},
+				},
+			},
+			AdHocSubProcessActivateActivitiesInstruction: {
+				type: "object",
+				properties: {
+					elements: {
+						description: "Activities to activate.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/AdHocSubProcessActivateActivityReference",
+						},
+					},
+				},
+				required: ["elements"],
+			},
+			AdHocSubProcessActivateActivityReference: {
+				type: "object",
+				properties: {
+					elementId: {
+						description:
+							"The ID of the element that should be activated.",
+						type: "string",
+					},
+				},
+				required: ["elementId"],
+			},
+			DecisionDefinitionSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"decisionDefinitionKey",
+							"decisionDefinitionId",
+							"name",
+							"version",
+							"decisionRequirementsId",
+							"decisionRequirementsKey",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			DecisionDefinitionSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionDefinitionSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The decision definition search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionFilter",
+							},
+						],
+					},
+				},
+			},
+			DecisionDefinitionFilter: {
+				description: "Decision definition search filter.",
+				type: "object",
+				properties: {
+					decisionDefinitionId: {
+						type: "string",
+						description: "The DMN ID of the decision definition.",
+					},
+					name: {
+						type: "string",
+						description: "The DMN name of the decision definition.",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The assigned version of the decision definition.",
+					},
+					decisionRequirementsId: {
+						type: "string",
+						description:
+							"the DMN ID of the decision requirements graph that the decision definition is part of.",
+					},
+					tenantId: {
+						type: "string",
+						description:
+							"The tenant ID of the decision definition.",
+					},
+					decisionDefinitionKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this decision definition.",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned key of the decision requirements graph that the decision definition is part of.",
+					},
+				},
+			},
+			IncidentSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"incidentKey",
+							"processDefinitionKey",
+							"processDefinitionId",
+							"processInstanceKey",
+							"errorType",
+							"errorMessage",
+							"elementId",
+							"elementInstanceKey",
+							"creationTime",
+							"state",
+							"jobKey",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			IncidentSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/IncidentSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The incident search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IncidentFilter",
+							},
+						],
+					},
+				},
+			},
+			IncidentFilter: {
+				description: "Incident search filter.",
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						type: "string",
+						description:
+							"The process definition ID associated to this incident.",
+					},
+					errorType: {
+						type: "string",
+						description:
+							"Incident error type with a defined set of values.",
+						enum: [
+							"UNSPECIFIED",
+							"UNKNOWN",
+							"IO_MAPPING_ERROR",
+							"JOB_NO_RETRIES",
+							"EXECUTION_LISTENER_NO_RETRIES",
+							"TASK_LISTENER_NO_RETRIES",
+							"CONDITION_ERROR",
+							"EXTRACT_VALUE_ERROR",
+							"CALLED_ELEMENT_ERROR",
+							"UNHANDLED_ERROR_EVENT",
+							"MESSAGE_SIZE_EXCEEDED",
+							"CALLED_DECISION_ERROR",
+							"DECISION_EVALUATION_ERROR",
+							"FORM_NOT_FOUND",
+							"RESOURCE_NOT_FOUND",
+						],
+					},
+					errorMessage: {
+						type: "string",
+						description:
+							"Error message which describes the error in more detail.",
+					},
+					elementId: {
+						type: "string",
+						description:
+							"The element ID associated to this incident.",
+					},
+					creationTime: {
+						type: "string",
+						description: "Date of incident creation.",
+						format: "date-time",
+					},
+					state: {
+						type: "string",
+						description:
+							"State of this incident with a defined set of values.",
+						enum: ["ACTIVE", "MIGRATED", "RESOLVED", "PENDING"],
+					},
+					tenantId: {
+						description: "The tenant ID of the incident.",
+						type: "string",
+					},
+					incidentKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this incident.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description:
+							"The process definition key associated to this incident.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description:
+							"The process instance key associated to this incident.",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description:
+							"The element instance key associated to this incident.",
+					},
+					jobKey: {
+						type: "string",
+						description:
+							"The job key, if exists, associated with this incident.",
+					},
+				},
+			},
+			IncidentSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching incidents.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/IncidentResult",
+						},
+					},
+				},
+			},
+			IncidentResult: {
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						type: "string",
+						description:
+							"The process definition ID associated to this incident.",
+					},
+					errorType: {
+						type: "string",
+						description:
+							"Incident error type with a defined set of values.",
+						enum: [
+							"UNSPECIFIED",
+							"UNKNOWN",
+							"IO_MAPPING_ERROR",
+							"JOB_NO_RETRIES",
+							"EXECUTION_LISTENER_NO_RETRIES",
+							"TASK_LISTENER_NO_RETRIES",
+							"CONDITION_ERROR",
+							"EXTRACT_VALUE_ERROR",
+							"CALLED_ELEMENT_ERROR",
+							"UNHANDLED_ERROR_EVENT",
+							"MESSAGE_SIZE_EXCEEDED",
+							"CALLED_DECISION_ERROR",
+							"DECISION_EVALUATION_ERROR",
+							"FORM_NOT_FOUND",
+							"RESOURCE_NOT_FOUND",
+						],
+					},
+					errorMessage: {
+						type: "string",
+						description:
+							"Error message which describes the error in more detail.",
+					},
+					elementId: {
+						type: "string",
+						description:
+							"The element ID associated to this incident.",
+					},
+					creationTime: {
+						type: "string",
+						description: "Date of incident creation.",
+						format: "date-time",
+					},
+					state: {
+						type: "string",
+						description:
+							"State of this incident with a defined set of values.",
+						enum: ["ACTIVE", "MIGRATED", "RESOLVED", "PENDING"],
+					},
+					tenantId: {
+						description: "The tenant ID of the incident.",
+						type: "string",
+					},
+					incidentKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this incident.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description:
+							"The process definition key associated to this incident.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description:
+							"The process instance key associated to this incident.",
+					},
+					elementInstanceKey: {
+						type: "string",
+						description:
+							"The element instance key associated to this incident.",
+					},
+					jobKey: {
+						type: "string",
+						description:
+							"The job key, if exists, associated with this incident.",
+					},
+				},
+			},
+			DecisionDefinitionSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching decision definitions.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionDefinitionResult",
+						},
+					},
+				},
+			},
+			DecisionDefinitionResult: {
+				type: "object",
+				properties: {
+					decisionDefinitionId: {
+						type: "string",
+						description: "The DMN ID of the decision definition.",
+					},
+					name: {
+						type: "string",
+						description: "The DMN name of the decision definition.",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The assigned version of the decision definition.",
+					},
+					decisionRequirementsId: {
+						type: "string",
+						description:
+							"the DMN ID of the decision requirements graph that the decision definition is part of.",
+					},
+					tenantId: {
+						type: "string",
+						description:
+							"The tenant ID of the decision definition.",
+					},
+					decisionDefinitionKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this decision definition.",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned key of the decision requirements graph that the decision definition is part of.",
+					},
+				},
+			},
+			UsageMetricsResponse: {
+				type: "object",
+				properties: {
+					assignees: {
+						description: "The amount of unique active users.",
+						type: "integer",
+						format: "int64",
+					},
+					processInstances: {
+						description:
+							"The amount of created root process instances.",
+						type: "integer",
+						format: "int64",
+					},
+					decisionInstances: {
+						description:
+							"The amount of executed decision instances.",
+						type: "integer",
+						format: "int64",
+					},
+				},
+			},
+			PermissionTypeEnum: {
+				description: "Specifies the type of permissions.",
+				enum: [
+					"ACCESS",
+					"CREATE",
+					"CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE",
+					"CREATE_BATCH_OPERATION_RESOLVE_INCIDENT",
+					"CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE",
+					"CREATE_BATCH_OPERATION_DELETE_DECISION_DEFINITION",
+					"CREATE_BATCH_OPERATION_DELETE_PROCESS_DEFINITION",
+					"CREATE_PROCESS_INSTANCE",
+					"CREATE_DECISION_INSTANCE",
+					"READ",
+					"READ_PROCESS_INSTANCE",
+					"READ_USER_TASK",
+					"READ_DECISION_INSTANCE",
+					"READ_PROCESS_DEFINITION",
+					"READ_DECISION_DEFINITION",
+					"UPDATE",
+					"UPDATE_PROCESS_INSTANCE",
+					"UPDATE_USER_TASK",
+					"DELETE",
+					"DELETE_PROCESS",
+					"DELETE_DRD",
+					"DELETE_FORM",
+					"DELETE_RESOURCE",
+					"DELETE_PROCESS_INSTANCE",
+					"DELETE_DECISION_INSTANCE",
+				],
+			},
+			ResourceTypeEnum: {
+				description:
+					"The type of resource to add/remove permissions to/from.",
+				enum: [
+					"AUTHORIZATION",
+					"MAPPING_RULE",
+					"MESSAGE",
+					"BATCH",
+					"BATCH_OPERATION",
+					"APPLICATION",
+					"SYSTEM",
+					"TENANT",
+					"RESOURCE",
+					"PROCESS_DEFINITION",
+					"DECISION_REQUIREMENTS_DEFINITION",
+					"DECISION_DEFINITION",
+					"GROUP",
+					"USER",
+					"ROLE",
+				],
+			},
+			OwnerTypeEnum: {
+				description: "The type of the owner of permissions.",
+				enum: [
+					"USER",
+					"CLIENT",
+					"ROLE",
+					"GROUP",
+					"MAPPING",
+					"UNSPECIFIED",
+				],
+			},
+			AuthorizationRequest: {
+				type: "object",
+				properties: {
+					ownerId: {
+						description: "The ID of the owner of the permissions.",
+						type: "string",
+					},
+					ownerType: {
+						description:
+							"The type of the owner of the permissions.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/OwnerTypeEnum",
+							},
+						],
+					},
+					resourceId: {
+						description:
+							"The ID of the resource to add permissions to.",
+						type: "string",
+					},
+					resourceType: {
+						description:
+							"The type of resource to add permissions to.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ResourceTypeEnum",
+							},
+						],
+					},
+					permissionTypes: {
+						type: "array",
+						description: "The permission types to add.",
+						items: {
+							type: "string",
+							allOf: [
+								{
+									$ref: "#/components/schemas/PermissionTypeEnum",
+								},
+							],
+						},
+					},
+				},
+				required: [
+					"ownerId",
+					"ownerType",
+					"resourceId",
+					"resourceType",
+					"permissionTypes",
+				],
+			},
+			AuthorizationCreateResult: {
+				type: "object",
+				properties: {
+					authorizationKey: {
+						description: "The key of the created authorization.",
+						type: "string",
+					},
+				},
+			},
+			AuthorizationSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"ownerId",
+							"ownerType",
+							"resourceId",
+							"resourceType",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			AuthorizationSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/AuthorizationSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The authorization search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/AuthorizationFilter",
+							},
+						],
+					},
+				},
+			},
+			AuthorizationFilter: {
+				description: "Authorization search filter.",
+				type: "object",
+				properties: {
+					ownerId: {
+						description: "The ID of the owner of permissions.",
+						type: "string",
+					},
+					ownerType: {
+						description: "The type of the owner of permissions.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/OwnerTypeEnum",
+							},
+						],
+					},
+					resourceIds: {
+						description:
+							"The IDs of the resource to search permissions for.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					resourceType: {
+						description:
+							"The type of resource to search permissions for.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ResourceTypeEnum",
+							},
+						],
+					},
+				},
+			},
+			AuthorizationResult: {
+				type: "object",
+				properties: {
+					ownerId: {
+						description: "The ID of the owner of permissions.",
+						type: "string",
+					},
+					ownerType: {
+						description: "The type of the owner of permissions.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/OwnerTypeEnum",
+							},
+						],
+					},
+					resourceType: {
+						description:
+							"The type of resource that owner have permissions.",
+						type: "object",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ResourceTypeEnum",
+							},
+						],
+					},
+					resourceId: {
+						description:
+							"ID of the resource the permission relates to.",
+						type: "string",
+					},
+					permissionTypes: {
+						description: "Specifies the types of the permissions.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/PermissionTypeEnum",
+						},
+					},
+					authorizationKey: {
+						description: "The key of the authorization.",
+						type: "string",
+					},
+				},
+			},
+			AuthorizationSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching authorizations.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/AuthorizationResult",
+						},
+					},
+				},
+			},
+			UserRequest: {
+				type: "object",
+				properties: {
+					password: {
+						description: "The password of the user.",
+						type: "string",
+					},
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+					name: {
+						description: "The name of the user.",
+						type: "string",
+					},
+					email: {
+						description: "The email of the user.",
+						type: "string",
+					},
+				},
+			},
+			UserCreateResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+					name: {
+						description: "The name of the user.",
+						type: "string",
+					},
+					email: {
+						description: "The email of the user.",
+						type: "string",
+					},
+					userKey: {
+						description: "The key of the created user",
+						type: "string",
+					},
+				},
+			},
+			UserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username", "name", "email"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			UserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The user search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			MappingSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["mappingId", "claimName", "claimValue", "name"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			MappingSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MappingSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The mapping search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MappingFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			UserFilterRequest: {
+				description: "User search filter.",
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					name: {
+						description: "The name of the user.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					email: {
+						description: "The email of the user.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			MappingFilterRequest: {
+				description: "Mapping search filter.",
+				type: "object",
+				properties: {
+					claimName: {
+						type: "string",
+						description: "The claim name to match against a token.",
+					},
+					claimValue: {
+						type: "string",
+						description: "The value of the claim to match.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the mapping.",
+					},
+					mappingId: {
+						type: "string",
+						description: "The ID of the mapping.",
+					},
+				},
+			},
+			CamundaUserResult: {
+				type: "object",
+				properties: {
+					userId: {
+						description: "The ID of the user.",
+						type: "string",
+					},
+					displayName: {
+						description: "The display name of the user.",
+						type: "string",
+					},
+					authorizedApplications: {
+						description:
+							"The applications the user is authorized to use.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					tenants: {
+						description: "The tenants the user is a member of.",
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								tenantId: {
+									type: "string",
+									description: "The ID of the tenant.",
+								},
+								name: {
+									type: "string",
+									description: "The name of the tenant.",
+								},
+							},
+						},
+					},
+					groups: {
+						description: "The groups assigned to the user.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					roles: {
+						description: "The roles assigned to the user.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					salesPlanType: {
+						description: "The plan of the user.",
+						type: "string",
+					},
+					c8Links: {
+						description:
+							"The links to the components in the C8 stack.",
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								name: {
+									type: "string",
+									description: "The name of the component.",
+								},
+								link: {
+									type: "string",
+									description: "A link to the component.",
+								},
+							},
+						},
+					},
+					canLogout: {
+						description:
+							"Flag for understanding if the user is able to perform logout.",
+						type: "boolean",
+					},
+					apiUser: {
+						description:
+							"Flag for understanding if the user is an API user.",
+						type: "boolean",
+					},
+					userKey: {
+						description: "The system generated key of the user.",
+						type: "string",
+					},
+				},
+			},
+			UserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+					name: {
+						description: "The name of the user.",
+						type: "string",
+					},
+					email: {
+						description: "The email of the user.",
+						type: "string",
+					},
+					userKey: {
+						description: "The key of the user.",
+						type: "string",
+					},
+				},
+			},
+			UserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching users.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserResult",
+						},
+					},
+				},
+			},
+			UserUpdateRequest: {
+				type: "object",
+				properties: {
+					password: {
+						description: "The password of the user.",
+						type: "string",
+					},
+					name: {
+						description: "The name of the user.",
+						type: "string",
+					},
+					email: {
+						description: "The email of the user.",
+						type: "string",
+					},
+				},
+			},
+			TenantClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			TenantClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching clients.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantClientResult",
+						},
+					},
+				},
+			},
+			TenantClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			TenantClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			TenantUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			TenantUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching users.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantUserResult",
+						},
+					},
+				},
+			},
+			TenantUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			TenantUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			RoleCreateRequest: {
+				type: "object",
+				properties: {
+					roleId: {
+						type: "string",
+						description: "The ID of the new role.",
+					},
+					name: {
+						type: "string",
+						description: "The display name of the new role.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the new role.",
+					},
+				},
+				required: ["roleId", "name"],
+			},
+			RoleCreateResult: {
+				type: "object",
+				properties: {
+					roleId: {
+						description: "The ID of the created role.",
+						type: "string",
+					},
+					name: {
+						description: "The display name of the created role.",
+						type: "string",
+					},
+					description: {
+						description: "The description of the created role.",
+						type: "string",
+					},
+				},
+			},
+			RoleUpdateRequest: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The display name of the new role.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the new role.",
+					},
+				},
+				required: ["name", "description"],
+			},
+			RoleUpdateResult: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The display name of the updated role.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the updated role.",
+					},
+					roleId: {
+						type: "string",
+						description: "The ID of the updated role.",
+					},
+				},
+			},
+			RoleResult: {
+				description: "Role search response item.",
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The role name.",
+					},
+					roleId: {
+						type: "string",
+						description: "The role id.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the role.",
+					},
+				},
+			},
+			RoleSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["name", "roleId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			RoleSearchQueryRequest: {
+				description: "Role search request.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The role search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/RoleFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			RoleFilterRequest: {
+				description: "Role filter request",
+				type: "object",
+				properties: {
+					roleId: {
+						description: "The role ID search filters.",
+						type: "string",
+					},
+					name: {
+						description: "The role name search filters.",
+						type: "string",
+					},
+				},
+			},
+			RoleSearchQueryResult: {
+				description: "Role search response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching roles.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleResult",
+						},
+					},
+				},
+			},
+			RoleUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			RoleUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching users.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleUserResult",
+						},
+					},
+				},
+			},
+			RoleUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			RoleUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			RoleClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			RoleClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching clients.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleClientResult",
+						},
+					},
+				},
+			},
+			RoleClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			RoleClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			GroupCreateRequest: {
+				type: "object",
+				properties: {
+					groupId: {
+						type: "string",
+						description: "The ID of the new group.",
+					},
+					name: {
+						type: "string",
+						description: "The display name of the new group.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the new group.",
+					},
+				},
+				required: ["groupId", "name"],
+			},
+			GroupCreateResult: {
+				type: "object",
+				properties: {
+					groupId: {
+						description: "The ID of the created group.",
+						type: "string",
+					},
+					name: {
+						description: "The display name of the created group.",
+						type: "string",
+					},
+					description: {
+						description: "The description of the created group.",
+						type: "string",
+					},
+				},
+			},
+			GroupUpdateRequest: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The new name of the group.",
+					},
+					description: {
+						type: "string",
+						description: "The new description of the group.",
+					},
+				},
+				required: ["name", "description"],
+			},
+			GroupUpdateResult: {
+				type: "object",
+				properties: {
+					groupId: {
+						type: "string",
+						description: "The unique external group ID.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the group.",
+					},
+					description: {
+						type: "string",
+						description: "The description of the group.",
+					},
+				},
+			},
+			GroupResult: {
+				description: "Group search response item.",
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+						description: "The group name.",
+					},
+					groupId: {
+						type: "string",
+						description: "The group ID.",
+					},
+					description: {
+						type: "string",
+						description: "The group description.",
+					},
+				},
+			},
+			GroupSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["name", "groupId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			GroupSearchQueryRequest: {
+				description: "Group search request.",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The group search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/GroupFilterRequest",
+							},
+						],
+					},
+				},
+			},
+			GroupFilterRequest: {
+				description: "Group filter request",
+				type: "object",
+				properties: {
+					groupId: {
+						description: "The group ID search filters.",
+						type: "string",
+					},
+					name: {
+						description: "The group name search filters.",
+						type: "string",
+					},
+				},
+			},
+			GroupSearchQueryResult: {
+				description: "Group search response.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching groups.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupResult",
+						},
+					},
+				},
+			},
+			GroupUserResult: {
+				type: "object",
+				properties: {
+					username: {
+						description: "The username of the user.",
+						type: "string",
+					},
+				},
+			},
+			GroupUserSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching members.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupUserResult",
+						},
+					},
+				},
+			},
+			GroupUserSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupUserSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			GroupUserSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["username"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			GroupClientResult: {
+				type: "object",
+				properties: {
+					clientId: {
+						description: "The ID of the client.",
+						type: "string",
+					},
+				},
+			},
+			GroupClientSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching client IDs.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupClientResult",
+						},
+					},
+				},
+			},
+			GroupClientSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/GroupClientSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			GroupClientSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["clientId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			MappingRuleCreateUpdateRequest: {
+				type: "object",
+				properties: {
+					claimName: {
+						type: "string",
+						description: "The name of the claim to map.",
+					},
+					claimValue: {
+						type: "string",
+						description: "The value of the claim to map.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the mapping.",
+					},
+				},
+				required: ["claimName", "claimValue", "name"],
+			},
+			MappingRuleCreateRequest: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/MappingRuleCreateUpdateRequest",
+					},
+				],
+				properties: {
+					mappingId: {
+						type: "string",
+						description: "The unique ID of the mapping.",
+					},
+				},
+				required: ["mappingId"],
+			},
+			MappingRuleUpdateRequest: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/MappingRuleCreateUpdateRequest",
+					},
+				],
+			},
+			MappingRuleCreateUpdateResult: {
+				type: "object",
+				properties: {
+					claimName: {
+						type: "string",
+						description: "The name of the claim to map.",
+					},
+					claimValue: {
+						type: "string",
+						description: "The value of the claim to map.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the mapping.",
+					},
+					mappingId: {
+						type: "string",
+						description: "The unique ID of the mapping.",
+					},
+				},
+			},
+			MappingRuleCreateResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/MappingRuleCreateUpdateResult",
+					},
+				],
+			},
+			MappingRuleUpdateResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/MappingRuleCreateUpdateResult",
+					},
+				],
+			},
+			MappingSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching mapping rules.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MappingResult",
+						},
+					},
+				},
+			},
+			MappingResult: {
+				type: "object",
+				properties: {
+					claimName: {
+						type: "string",
+						description: "The name of the claim to map.",
+					},
+					claimValue: {
+						type: "string",
+						description: "The value of the claim to map.",
+					},
+					name: {
+						type: "string",
+						description: "The name of the mapping.",
+					},
+					mappingId: {
+						type: "string",
+						description: "The ID of the mapping.",
+					},
+				},
+			},
+			TopologyResponse: {
+				description: "The response of a topology request.",
+				type: "object",
+				properties: {
+					brokers: {
+						description:
+							"A list of brokers that are part of this cluster.",
+						type: "array",
+						nullable: true,
+						items: {
+							$ref: "#/components/schemas/BrokerInfo",
+						},
+					},
+					clusterSize: {
+						description: "The number of brokers in the cluster.",
+						type: "integer",
+						format: "int32",
+						nullable: true,
+					},
+					partitionsCount: {
+						description:
+							"The number of partitions are spread across the cluster.",
+						type: "integer",
+						format: "int32",
+						nullable: true,
+					},
+					replicationFactor: {
+						description:
+							"The configured replication factor for this cluster.",
+						type: "integer",
+						format: "int32",
+						nullable: true,
+					},
+					gatewayVersion: {
+						description: "The version of the Zeebe Gateway.",
+						type: "string",
+						nullable: true,
+					},
+					lastCompletedChangeId: {
+						description: "ID of the last completed change",
+						type: "string",
+						nullable: true,
+					},
+				},
+			},
+			LicenseResponse: {
+				description: "The response of a license request.",
+				type: "object",
+				properties: {
+					validLicense: {
+						description:
+							"True if the Camunda license is valid, false if otherwise",
+						type: "boolean",
+						nullable: false,
+					},
+					licenseType: {
+						description:
+							"Will return the license type property of the Camunda license",
+						type: "string",
+					},
+					isCommercial: {
+						description:
+							"Will be false when a license contains a non-commerical=true property",
+						type: "boolean",
+					},
+					expiresAt: {
+						description:
+							"The date when the Camunda license expires",
+						type: "string",
+						format: "date-time",
+						nullable: true,
+					},
+				},
+			},
+			BrokerInfo: {
+				description: "Provides information on a broker node.",
+				type: "object",
+				properties: {
+					nodeId: {
+						description:
+							"The unique (within a cluster) node ID for the broker.",
+						type: "integer",
+						format: "int32",
+					},
+					host: {
+						description: "The hostname for reaching the broker.",
+						type: "string",
+					},
+					port: {
+						description: "The port for reaching the broker.",
+						type: "integer",
+						format: "int32",
+					},
+					partitions: {
+						description:
+							"A list of partitions managed or replicated on this broker.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/Partition",
+						},
+					},
+					version: {
+						description: "The broker version.",
+						type: "string",
+					},
+				},
+			},
+			Partition: {
+				description:
+					"Provides information on a partition within a broker node.",
+				type: "object",
+				properties: {
+					partitionId: {
+						description: "The unique ID of this partition.",
+						type: "integer",
+						format: "int32",
+					},
+					role: {
+						description:
+							"Describes the Raft role of the broker for a given partition.",
+						type: "string",
+						enum: ["leader", "follower", "inactive"],
+					},
+					health: {
+						description:
+							"Describes the current health of the partition.",
+						type: "string",
+						enum: ["healthy", "unhealthy", "dead"],
+					},
+				},
+			},
+			UserTaskCompletionRequest: {
+				type: "object",
+				properties: {
+					variables: {
+						additionalProperties: true,
+						description:
+							"The variables to complete the user task with.",
+						type: "object",
+						nullable: true,
+					},
+					action: {
+						description:
+							'A custom action value that will be accessible from user task events resulting from this endpoint invocation. If not provided, it will default to "complete".\n',
+						type: "string",
+						nullable: true,
+					},
+				},
+			},
+			UserTaskAssignmentRequest: {
+				type: "object",
+				properties: {
+					assignee: {
+						description:
+							"The assignee for the user task. The assignee must not be empty or `null`.",
+						type: "string",
+						nullable: false,
+					},
+					allowOverride: {
+						description:
+							"By default, the task is reassigned if it was already assigned. Set this to `false` to return an error in such cases. The task must then first be unassigned to be assigned again. Use this when you have users picking from group task queues to prevent race conditions.\n",
+						type: "boolean",
+						nullable: true,
+					},
+					action: {
+						description:
+							'A custom action value that will be accessible from user task events resulting from this endpoint invocation. If not provided, it will default to "assign".\n',
+						type: "string",
+						nullable: true,
+					},
+				},
+			},
+			UserTaskUpdateRequest: {
+				type: "object",
+				properties: {
+					changeset: {
+						$ref: "#/components/schemas/Changeset",
+					},
+					action: {
+						description:
+							'A custom action value that will be accessible from user task events resulting from this endpoint invocation. If not provided, it will default to "update".\n',
+						type: "string",
+						nullable: true,
+					},
+				},
+			},
+			Changeset: {
+				description:
+					"JSON object with changed task attribute values.\n\nThe following attributes can be adjusted with this endpoint, additional attributes\nwill be ignored:\n\n* `candidateGroups` - reset by providing an empty list\n* `candidateUsers` - reset by providing an empty list\n* `dueDate` - reset by providing an empty String\n* `followUpDate` - reset by providing an empty String\n* `priority` - minimum 0, maximum 100, default 50\n\nProviding any of those attributes with a `null` value or omitting it preserves\nthe persisted attribute's value.\n\nThe assignee cannot be adjusted with this endpoint, use the Assign task endpoint.\nThis ensures correct event emission for assignee changes.\n",
+				type: "object",
+				nullable: true,
+				additionalProperties: true,
+				properties: {
+					dueDate: {
+						type: "string",
+						format: "date-time",
+						description:
+							"The due date of the task. Reset by providing an empty String.",
+						nullable: true,
+					},
+					followUpDate: {
+						type: "string",
+						format: "date-time",
+						description:
+							"The follow-up date of the task. Reset by providing an empty String.",
+						nullable: true,
+					},
+					candidateUsers: {
+						type: "array",
+						description:
+							"The list of candidate users of the task. Reset by providing an empty list.",
+						items: {
+							type: "string",
+						},
+						nullable: true,
+					},
+					candidateGroups: {
+						type: "array",
+						description:
+							"The list of candidate groups of the task. Reset by providing an empty list.",
+						items: {
+							type: "string",
+						},
+						nullable: true,
+					},
+					priority: {
+						type: "integer",
+						format: "int32",
+						description: "The priority of the task.",
+						minimum: 0,
+						default: 50,
+						maximum: 100,
+						nullable: true,
+					},
+				},
+			},
+			ClockPinRequest: {
+				type: "object",
+				properties: {
+					timestamp: {
+						description:
+							"The exact time in epoch milliseconds to which the clock should be pinned.",
+						type: "integer",
+						format: "int64",
+					},
+				},
+				required: ["timestamp"],
+			},
+			JobActivationRequest: {
+				type: "object",
+				properties: {
+					type: {
+						description:
+							'The job type, as defined in the BPMN process (e.g. <zeebe:taskDefinition type="payment-service" />).\n',
+						type: "string",
+					},
+					worker: {
+						description:
+							"The name of the worker activating the jobs, mostly used for logging purposes.",
+						type: "string",
+						nullable: true,
+					},
+					timeout: {
+						description:
+							"A job returned after this call will not be activated by another call until the timeout (in ms) has been reached.\n",
+						type: "integer",
+						format: "int64",
+					},
+					maxJobsToActivate: {
+						description:
+							"The maximum jobs to activate by this request.",
+						type: "integer",
+						format: "int32",
+					},
+					fetchVariable: {
+						description:
+							"A list of variables to fetch as the job variables; if empty, all visible variables at the time of activation for the scope of the job will be returned.\n",
+						type: "array",
+						nullable: true,
+						items: {
+							type: "string",
+						},
+					},
+					requestTimeout: {
+						description:
+							"The request will be completed when at least one job is activated or after the requestTimeout (in ms). If the requestTimeout = 0, a default timeout is used. If the requestTimeout < 0, long polling is disabled and the request is completed immediately, even when no job is activated.\n",
+						type: "integer",
+						format: "int64",
+						default: 0,
+						nullable: true,
+					},
+					tenantIds: {
+						description:
+							"A list of IDs of tenants for which to activate jobs.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+						nullable: true,
+					},
+				},
+				required: ["type", "timeout", "maxJobsToActivate"],
+			},
+			JobActivationResult: {
+				description: "The list of activated jobs",
+				type: "object",
+				properties: {
+					jobs: {
+						description: "The activated jobs.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ActivatedJobResult",
+						},
+					},
+				},
+			},
+			ActivatedJobResult: {
+				type: "object",
+				properties: {
+					type: {
+						description:
+							"The type of the job (should match what was requested).",
+						type: "string",
+					},
+					processDefinitionId: {
+						description:
+							"The bpmn process ID of the job's process definition.",
+						type: "string",
+					},
+					processDefinitionVersion: {
+						description:
+							"The version of the job's process definition.",
+						type: "integer",
+						format: "int32",
+					},
+					elementId: {
+						description: "The associated task element ID.",
+						type: "string",
+					},
+					customHeaders: {
+						description:
+							"A set of custom headers defined during modelling; returned as a serialized JSON document.",
+						type: "object",
+						additionalProperties: true,
+					},
+					worker: {
+						description:
+							"The name of the worker which activated this job.",
+						type: "string",
+					},
+					retries: {
+						description:
+							"The amount of retries left to this job (should always be positive).",
+						type: "integer",
+						format: "int32",
+					},
+					deadline: {
+						description:
+							"When the job can be activated again, sent as a UNIX epoch timestamp.",
+						type: "integer",
+						format: "int64",
+					},
+					variables: {
+						description:
+							"All variables visible to the task scope, computed at activation time.",
+						type: "object",
+						additionalProperties: true,
+					},
+					tenantId: {
+						description: "The ID of the tenant that owns the job.",
+						type: "string",
+					},
+					jobKey: {
+						description:
+							"The key, a unique identifier for the job.",
+						type: "string",
+					},
+					processInstanceKey: {
+						description: "The job's process instance key.",
+						type: "string",
+					},
+					processDefinitionKey: {
+						description: "The key of the job's process definition.",
+						type: "string",
+					},
+					elementInstanceKey: {
+						description:
+							"The unique key identifying the associated task, unique within the scope of the process instance.\n",
+						type: "string",
+					},
+				},
+			},
+			JobFailRequest: {
+				type: "object",
+				properties: {
+					retries: {
+						description:
+							"The amount of retries the job should have left\n",
+						type: "integer",
+						format: "int32",
+						default: 0,
+					},
+					errorMessage: {
+						description:
+							"An optional message describing why the job failed. This is particularly useful if a job runs out of retries and an incident is raised, as this message can help explain why an incident was raised.\n",
+						type: "string",
+						nullable: true,
+					},
+					retryBackOff: {
+						description:
+							"The backoff timeout (in ms) for the next retry.\n",
+						type: "integer",
+						format: "int64",
+						default: 0,
+					},
+					variables: {
+						additionalProperties: true,
+						description:
+							"JSON object that will instantiate the variables at the local scope of the job's associated task.\n",
+						type: "object",
+						nullable: true,
+					},
+				},
+			},
+			JobErrorRequest: {
+				type: "object",
+				properties: {
+					errorCode: {
+						description:
+							"The error code that will be matched with an error catch event.\n",
+						type: "string",
+					},
+					errorMessage: {
+						description:
+							"An error message that provides additional context.\n",
+						type: "string",
+						nullable: true,
+					},
+					variables: {
+						additionalProperties: true,
+						description:
+							"JSON object that will instantiate the variables at the local scope of the error catch event that catches the thrown error.\n",
+						type: "object",
+						nullable: true,
+					},
+				},
+				required: ["errorCode"],
+			},
+			JobCompletionRequest: {
+				type: "object",
+				properties: {
+					variables: {
+						additionalProperties: true,
+						description: "The variables to complete the job with.",
+						type: "object",
+						nullable: true,
+					},
+					result: {
+						$ref: "#/components/schemas/JobResult",
+					},
+				},
+			},
+			JobResult: {
+				type: "object",
+				nullable: true,
+				description:
+					"The result of the completed job as determined by the worker. This functionality is currently supported only by user task listeners.\n",
+				properties: {
+					denied: {
+						type: "boolean",
+						description:
+							"Indicates whether the worker denies the work, i.e. explicitly doesn't approve it. For example, a user task listener can deny the completion of a task by setting this flag to true. In this example, the completion of a task is represented by a job that the worker can complete as denied. As a result, the completion request is rejected and the task remains active. Defaults to false.\n",
+						nullable: true,
+					},
+					deniedReason: {
+						type: "string",
+						description:
+							"The reason provided by the user task listener for denying the work.",
+						nullable: true,
+					},
+					corrections: {
+						$ref: "#/components/schemas/JobResultCorrections",
+					},
+				},
+			},
+			JobResultCorrections: {
+				type: "object",
+				description:
+					"JSON object with attributes that were corrected by the worker.\n\nThe following attributes can be corrected, additional attributes will be ignored:\n\n* `assignee` - clear by providing an empty String\n* `dueDate` - clear by providing an empty String\n* `followUpDate` - clear by providing an empty String\n* `candidateGroups` - clear by providing an empty list\n* `candidateUsers` - clear by providing an empty list\n* `priority` - minimum 0, maximum 100, default 50\n\nProviding any of those attributes with a `null` value or omitting it preserves\nthe persisted attribute's value.\n",
+				nullable: true,
+				properties: {
+					assignee: {
+						type: "string",
+						description: "Assignee of the task.",
+						nullable: true,
+					},
+					dueDate: {
+						type: "string",
+						format: "date-time",
+						description: "The due date of the task.",
+						nullable: true,
+					},
+					followUpDate: {
+						type: "string",
+						format: "date-time",
+						description: "The follow-up date of the task.",
+						nullable: true,
+					},
+					candidateUsers: {
+						type: "array",
+						description: "The list of candidate users of the task.",
+						items: {
+							type: "string",
+						},
+						nullable: true,
+					},
+					candidateGroups: {
+						type: "array",
+						description:
+							"The list of candidate groups of the task.",
+						items: {
+							type: "string",
+						},
+						nullable: true,
+					},
+					priority: {
+						type: "integer",
+						format: "int32",
+						description: "The priority of the task.",
+						minimum: 0,
+						maximum: 100,
+						nullable: true,
+					},
+				},
+			},
+			JobUpdateRequest: {
+				type: "object",
+				properties: {
+					changeset: {
+						$ref: "#/components/schemas/JobChangeset",
+					},
+				},
+				required: ["changeset"],
+			},
+			JobChangeset: {
+				description:
+					"JSON object with changed job attribute values.\n\nThe following attributes can be adjusted with this endpoint, additional attributes\nwill be ignored:\n\n* `retries` - The new amount of retries for the job; must be a positive number.\n* `timeout` - The duration of the new timeout in ms, starting from the current moment.\n\nProviding any of those attributes with a null value or omitting it preserves the persisted attribute’s value.\n\nThe job cannot be completed or failed with this endpoint, use the complete job or fail job endpoints instead.\n",
+				type: "object",
+				properties: {
+					retries: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The new amount of retries for the job; must be a positive number.",
+						nullable: true,
+					},
+					timeout: {
+						type: "integer",
+						format: "int64",
+						description:
+							"The duration of the new timeout in ms, starting from the current moment.",
+						nullable: true,
+					},
+				},
+			},
+			ProblemDetail: {
+				description:
+					"A Problem detail object as described in [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). There may be additional properties specific to the problem type.\n",
+				type: "object",
+				properties: {
+					type: {
+						type: "string",
+						format: "uri",
+						description: "A URI identifying the problem type.",
+						default: "about:blank",
+					},
+					title: {
+						type: "string",
+						description: "A summary of the problem type.",
+					},
+					status: {
+						type: "integer",
+						format: "int32",
+						description: "The HTTP status code for this problem.",
+						minimum: 400,
+						maximum: 600,
+					},
+					detail: {
+						type: "string",
+						description:
+							"An explanation of the problem in more detail.",
+					},
+					instance: {
+						type: "string",
+						format: "uri",
+						description:
+							"A URI identifying the origin of the problem.",
+					},
+				},
+			},
+			SearchQueryRequest: {
+				type: "object",
+				properties: {
+					page: {
+						description: "Pagination criteria.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/SearchQueryPageRequest",
+							},
+						],
+						type: "object",
+					},
+				},
+			},
+			SearchQueryPageRequest: {
+				type: "object",
+				properties: {
+					from: {
+						description:
+							"The index of items to start searching from.",
+						type: "integer",
+						format: "int32",
+					},
+					limit: {
+						description:
+							"The maximum number of items to return in one request.",
+						type: "integer",
+						format: "int32",
+						default: 100,
+					},
+					searchAfter: {
+						description:
+							"Items to search after. Correlates to the `lastSortValues` property of a previous search response.",
+						type: "array",
+						items: {
+							type: "object",
+						},
+					},
+					searchBefore: {
+						description:
+							"Items to search before. Correlates to the `firstSortValues` property of a previous search response.",
+						type: "array",
+						items: {
+							type: "object",
+						},
+					},
+				},
+			},
+			SearchQueryResponse: {
+				type: "object",
+				properties: {
+					page: {
+						description:
+							"Pagination information about the search results.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/SearchQueryPageResponse",
+							},
+						],
+					},
+				},
+			},
+			SearchQueryPageResponse: {
+				description: "Pagination information about the search results.",
+				type: "object",
+				properties: {
+					totalItems: {
+						description: "Total items matching the criteria.",
+						type: "integer",
+						format: "int64",
+					},
+					firstSortValues: {
+						description:
+							"The sort values of the first item in the result set. Use this in the `searchBefore` field of an ensuing request.",
+						type: "array",
+						items: {
+							type: "object",
+						},
+					},
+					lastSortValues: {
+						description:
+							"The sort values of the last item in the result set. Use this in the `searchAfter` field of an ensuing request.",
+						type: "array",
+						items: {
+							type: "object",
+						},
+					},
+				},
+			},
+			DecisionRequirementsSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"decisionRequirementsKey",
+							"decisionRequirementsName",
+							"version",
+							"decisionRequirementsId",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			DecisionRequirementsSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionRequirementsSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The decision definition search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsFilter",
+							},
+						],
+					},
+				},
+			},
+			DecisionRequirementsFilter: {
+				description: "Decision requirements search filter.",
+				type: "object",
+				properties: {
+					decisionRequirementsName: {
+						type: "string",
+						description:
+							"The DMN name of the decision requirements.",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The assigned version of the decision requirements.",
+					},
+					decisionRequirementsId: {
+						type: "string",
+						description: "the DMN ID of the decision requirements.",
+					},
+					tenantId: {
+						type: "string",
+						description:
+							"The tenant ID of the decision requirements.",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this decision requirements.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The name of the resource from which the decision requirements were parsed.",
+					},
+				},
+			},
+			DecisionRequirementsSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching decision requirements.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionRequirementsResult",
+						},
+					},
+				},
+			},
+			DecisionRequirementsResult: {
+				type: "object",
+				properties: {
+					decisionRequirementsName: {
+						type: "string",
+						description:
+							"The DMN name of the decision requirements.",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The assigned version of the decision requirements.",
+					},
+					decisionRequirementsId: {
+						type: "string",
+						description: "The DMN ID of the decision requirements.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The name of the resource from which this decision requirements was parsed.",
+					},
+					tenantId: {
+						type: "string",
+						description:
+							"The tenant ID of the decision requirements.",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this decision requirements.",
+					},
+				},
+			},
+			DecisionEvaluationInstruction: {
+				type: "object",
+				properties: {
+					decisionDefinitionId: {
+						description:
+							"The ID of the decision to be evaluated.\nCannot be used together with decisionDefinitionKey. When using the decision ID, the latest\ndeployed version of the decision is used.\n",
+						type: "string",
+					},
+					variables: {
+						description: "The message variables as JSON document.",
+						additionalProperties: true,
+						type: "object",
+					},
+					tenantId: {
+						description: "The tenant ID of the decision.",
+						type: "string",
+					},
+					decisionDefinitionKey: {
+						description:
+							"The unique key identifying the decision to be evaluated.\nCannot be used together with decisionDefinitionId.\n",
+						type: "string",
+					},
+				},
+			},
+			EvaluateDecisionResult: {
+				type: "object",
+				properties: {
+					decisionDefinitionId: {
+						description:
+							"The ID of the decision which was evaluated.",
+						type: "string",
+					},
+					decisionDefinitionName: {
+						description:
+							"The name of the decision which was evaluated.",
+						type: "string",
+					},
+					decisionDefinitionVersion: {
+						description:
+							"The version of the decision which was evaluated.",
+						type: "integer",
+						format: "int32",
+					},
+					decisionRequirementsId: {
+						description:
+							"The ID of the decision requirements graph that the decision which was evaluated is part of.",
+						type: "string",
+					},
+					output: {
+						description:
+							"JSON document that will instantiate the result of the decision which was evaluated.\n",
+						type: "string",
+					},
+					failedDecisionDefinitionId: {
+						description:
+							"The ID of the decision which failed during evaluation.",
+						type: "string",
+					},
+					failureMessage: {
+						description:
+							"Message describing why the decision which was evaluated failed.",
+						type: "string",
+					},
+					tenantId: {
+						description: "The tenant ID of the evaluated decision.",
+						type: "string",
+					},
+					decisionDefinitionKey: {
+						description:
+							"The unique key identifying the decision which was evaluated.",
+						type: "string",
+					},
+					decisionRequirementsKey: {
+						description:
+							"The unique key identifying the decision requirements graph that the decision which was evaluated is part of.",
+						type: "string",
+					},
+					decisionInstanceKey: {
+						description:
+							"The unique key identifying this decision evaluation.",
+						type: "string",
+					},
+					evaluatedDecisions: {
+						description:
+							"Decisions that were evaluated within the requested decision evaluation.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/EvaluatedDecisionResult",
+						},
+					},
+				},
+			},
+			EvaluatedDecisionResult: {
+				type: "object",
+				description: "A decision that was evaluated.",
+				properties: {
+					decisionDefinitionId: {
+						description:
+							"The ID of the decision which was evaluated.",
+						type: "string",
+					},
+					decisionDefinitionName: {
+						description:
+							"The name of the decision which was evaluated.",
+						type: "string",
+					},
+					decisionDefinitionVersion: {
+						description:
+							"The version of the decision which was evaluated.",
+						type: "integer",
+						format: "int32",
+					},
+					decisionDefinitionType: {
+						description:
+							"The type of the decision which was evaluated.",
+						type: "string",
+					},
+					output: {
+						description:
+							"JSON document that will instantiate the result of the decision which was evaluated.\n",
+						type: "string",
+					},
+					tenantId: {
+						description: "The tenant ID of the evaluated decision.",
+						type: "string",
+					},
+					matchedRules: {
+						description:
+							"The decision rules that matched within this decision evaluation.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MatchedDecisionRuleItem",
+						},
+					},
+					evaluatedInputs: {
+						description:
+							"The decision inputs that were evaluated within this decision evaluation.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/EvaluatedDecisionInputItem",
+						},
+					},
+					decisionDefinitionKey: {
+						description:
+							"The unique key identifying the decision which was evaluate.",
+						type: "string",
+					},
+				},
+			},
+			MatchedDecisionRuleItem: {
+				type: "object",
+				description:
+					"A decision rule that matched within this decision evaluation.",
+				properties: {
+					ruleId: {
+						description: "The ID of the matched rule.",
+						type: "string",
+					},
+					ruleIndex: {
+						description: "The index of the matched rule.",
+						type: "integer",
+						format: "int32",
+					},
+					evaluatedOutputs: {
+						description: "The evaluated decision outputs.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/EvaluatedDecisionOutputItem",
+						},
+					},
+				},
+			},
+			EvaluatedDecisionInputItem: {
+				type: "object",
+				description:
+					"A decision input that was evaluated within this decision evaluation.",
+				properties: {
+					inputId: {
+						description: "The ID of the evaluated decision input.",
+						type: "string",
+					},
+					inputName: {
+						description:
+							"The name of the evaluated decision input.",
+						type: "string",
+					},
+					inputValue: {
+						description:
+							"The value of the evaluated decision input.",
+						type: "string",
+					},
+				},
+			},
+			EvaluatedDecisionOutputItem: {
+				type: "object",
+				description: "The evaluated decision outputs.",
+				properties: {
+					outputId: {
+						description: "The ID of the evaluated decision output.",
+						type: "string",
+					},
+					outputName: {
+						description:
+							"The name of the evaluated decision output.",
+						type: "string",
+					},
+					outputValue: {
+						description:
+							"The value of the evaluated decision output.",
+						type: "string",
+					},
+				},
+			},
+			DecisionInstanceSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"decisionInstanceKey",
+							"decisionInstanceId",
+							"state",
+							"evaluationDate",
+							"evaluationFailure",
+							"processDefinitionKey",
+							"processInstanceKey",
+							"processInstanceId",
+							"decisionDefinitionKey",
+							"decisionDefinitionId",
+							"decisionDefinitionName",
+							"decisionDefinitionVersion",
+							"decisionDefinitionType",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			DecisionInstanceSearchQuery: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionInstanceSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The decision instance search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionInstanceFilter",
+							},
+						],
+					},
+				},
+			},
+			DecisionInstanceFilter: {
+				description: "Decision instance search filter.",
+				type: "object",
+				properties: {
+					decisionInstanceId: {
+						type: "string",
+						description: "The ID of the decision instance.",
+					},
+					state: {
+						$ref: "#/components/schemas/DecisionInstanceStateEnum",
+					},
+					evaluationFailure: {
+						type: "string",
+						description:
+							"The evaluation failure of the decision instance.",
+					},
+					evaluationDate: {
+						description:
+							"The evaluation date of the decision instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					decisionDefinitionId: {
+						type: "string",
+						description: "The ID of the DMN decision.",
+					},
+					decisionDefinitionName: {
+						type: "string",
+						description: "The name of the DMN decision.",
+					},
+					decisionDefinitionVersion: {
+						type: "integer",
+						format: "int32",
+						description: "The version of the decision.",
+					},
+					decisionDefinitionType: {
+						$ref: "#/components/schemas/DecisionDefinitionTypeEnum",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the decision instance.",
+					},
+					decisionInstanceKey: {
+						type: "string",
+						description:
+							"The key of the decision instance. Note that this is not the unique identifier of the entity itself; the `decisionInstanceId` serves as the primary identifier.\n",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					decisionDefinitionKey: {
+						description: "The key of the decision.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			DecisionInstanceSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching decision instances.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionInstanceResult",
+						},
+					},
+				},
+			},
+			DecisionInstanceResult: {
+				type: "object",
+				properties: {
+					decisionInstanceId: {
+						type: "string",
+						description: "The ID of the decision instance.",
+					},
+					state: {
+						$ref: "#/components/schemas/DecisionInstanceStateEnum",
+					},
+					evaluationDate: {
+						type: "string",
+						format: "date-time",
+						description:
+							"The evaluation date of the decision instance.",
+					},
+					evaluationFailure: {
+						type: "string",
+						description:
+							"The evaluation failure of the decision instance.",
+					},
+					decisionDefinitionId: {
+						type: "string",
+						description: "The ID of the DMN decision.",
+					},
+					decisionDefinitionName: {
+						type: "string",
+						description: "The name of the DMN decision.",
+					},
+					decisionDefinitionVersion: {
+						type: "integer",
+						format: "int32",
+						description: "The version of the decision.",
+					},
+					decisionDefinitionType: {
+						$ref: "#/components/schemas/DecisionDefinitionTypeEnum",
+					},
+					result: {
+						type: "string",
+						description: "The result of the decision instance.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the decision instance.",
+					},
+					decisionInstanceKey: {
+						type: "string",
+						description:
+							"The key of the decision instance. Note that this is not the unique identifier of the entity itself; the `decisionInstanceId` serves as the primary identifier.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description: "The key of the process definition.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description: "The key of the process instance.",
+					},
+					decisionDefinitionKey: {
+						type: "string",
+						description: "The key of the decision.",
+					},
+				},
+			},
+			DecisionInstanceGetQueryResult: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/DecisionInstanceResult",
+					},
+					{
+						type: "object",
+						properties: {
+							evaluatedInputs: {
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/EvaluatedDecisionInputItem",
+								},
+								description:
+									"The evaluated inputs of the decision instance.\n",
+							},
+							matchedRules: {
+								type: "array",
+								items: {
+									$ref: "#/components/schemas/MatchedDecisionRuleItem",
+								},
+								description:
+									"The matched rules of the decision instance.\n",
+							},
+						},
+					},
+				],
+			},
+			DecisionDefinitionTypeEnum: {
+				description: "The type of the decision.",
+				enum: [
+					"DECISION_TABLE",
+					"LITERAL_EXPRESSION",
+					"UNSPECIFIED",
+					"UNKNOWN",
+				],
+			},
+			DecisionInstanceStateEnum: {
+				description: "The state of the decision instance.",
+				enum: ["EVALUATED", "FAILED", "UNSPECIFIED", "UNKNOWN"],
+			},
+			SortOrderEnum: {
+				description: "The order in which to sort the related field.",
+				type: "string",
+				enum: ["ASC", "DESC"],
+				default: "ASC",
+			},
+			MessageCorrelationRequest: {
+				type: "object",
+				properties: {
+					name: {
+						description:
+							"The message name as defined in the BPMN process\n",
+						type: "string",
+					},
+					correlationKey: {
+						description: "The correlation key of the message",
+						type: "string",
+						default: "",
+					},
+					variables: {
+						description: "The message variables as JSON document",
+						additionalProperties: true,
+						type: "object",
+						nullable: true,
+					},
+					tenantId: {
+						description:
+							"the tenant for which the message is published",
+						type: "string",
+						nullable: true,
+					},
+				},
+			},
+			MessageCorrelationResult: {
+				description:
+					"The message key of the correlated message, as well as the first process instance key it\ncorrelated with.\n",
+				type: "object",
+				properties: {
+					tenantId: {
+						description: "The tenant ID of the correlated message",
+						type: "string",
+					},
+					messageKey: {
+						description: "The key of the correlated message",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"The key of the first process instance the message correlated with",
+						type: "string",
+					},
+				},
+			},
+			MessagePublicationRequest: {
+				type: "object",
+				properties: {
+					name: {
+						description: "The name of the message.",
+						type: "string",
+					},
+					correlationKey: {
+						description: "The correlation key of the message.",
+						type: "string",
+						default: "",
+					},
+					timeToLive: {
+						description:
+							"Timespan (in ms) to buffer the message on the broker.",
+						type: "integer",
+						format: "int64",
+						default: 0,
+					},
+					messageId: {
+						description:
+							"The unique ID of the message. Only useful to ensure only one message with the given ID\nwill ever be published (during its lifetime).\n",
+						type: "string",
+						nullable: true,
+					},
+					variables: {
+						description: "The message variables as JSON document.",
+						additionalProperties: true,
+						type: "object",
+						nullable: true,
+					},
+					tenantId: {
+						description: "The tenant of the message sender.",
+						type: "string",
+						nullable: true,
+					},
+				},
+				required: ["name", "correlationKey"],
+			},
+			MessagePublicationResult: {
+				description: "The message key of the published message.",
+				type: "object",
+				properties: {
+					tenantId: {
+						description: "The tenant ID of the message.",
+						type: "string",
+					},
+					messageKey: {
+						description: "The key of the message",
+						type: "string",
+					},
+				},
+			},
+			DocumentReference: {
+				type: "object",
+				properties: {
+					"camunda.document.type": {
+						type: "string",
+						description:
+							'Document discriminator. Always set to "camunda".',
+						enum: ["camunda"],
+					},
+					storeId: {
+						type: "string",
+						description: "The ID of the document store.",
+					},
+					documentId: {
+						type: "string",
+						description: "The ID of the document.",
+					},
+					contentHash: {
+						type: "string",
+						description: "The hash of the document.",
+					},
+					metadata: {
+						$ref: "#/components/schemas/DocumentMetadata",
+					},
+				},
+			},
+			DocumentCreationFailureDetail: {
+				type: "object",
+				properties: {
+					fileName: {
+						type: "string",
+						description: "The name of the file.",
+					},
+					detail: {
+						type: "string",
+						description: "The detail of the failure.",
+					},
+				},
+			},
+			DocumentCreationBatchResponse: {
+				allOf: [
+					{
+						type: "object",
+						properties: {
+							createdDocuments: {
+								type: "array",
+								description:
+									"Documents that were successfully created.",
+								items: {
+									$ref: "#/components/schemas/DocumentReference",
+								},
+							},
+							failedDocuments: {
+								type: "array",
+								description: "Documents that failed creation.",
+								items: {
+									$ref: "#/components/schemas/DocumentCreationFailureDetail",
+								},
+							},
+						},
+					},
+				],
+			},
+			DocumentMetadata: {
+				description: "Information about the document.",
+				type: "object",
+				properties: {
+					contentType: {
+						type: "string",
+						description: "The content type of the document.",
+					},
+					fileName: {
+						type: "string",
+						description: "The name of the file.",
+					},
+					expiresAt: {
+						type: "string",
+						format: "date-time",
+						description:
+							"The date and time when the document expires.",
+					},
+					size: {
+						type: "integer",
+						format: "int64",
+						description: "The size of the document in bytes.",
+					},
+					processDefinitionId: {
+						type: "string",
+						description:
+							"The ID of the process definition that created the document.",
+					},
+					processInstanceKey: {
+						type: "string",
+						description:
+							"The key of the process instance that created the document.",
+					},
+					customProperties: {
+						type: "object",
+						description: "Custom properties of the document.",
+						additionalProperties: true,
+					},
+				},
+			},
+			DocumentLinkRequest: {
+				type: "object",
+				properties: {
+					timeToLive: {
+						type: "integer",
+						format: "int64",
+						description:
+							"The time-to-live of the document link in ms.",
+						default: 3600000,
+					},
+				},
+			},
+			DocumentLink: {
+				type: "object",
+				properties: {
+					url: {
+						type: "string",
+						description: "The link to the document.",
+					},
+					expiresAt: {
+						type: "string",
+						format: "date-time",
+						description: "The date and time when the link expires.",
+					},
+				},
+			},
+			DeploymentResult: {
+				type: "object",
+				properties: {
+					tenantId: {
+						description:
+							"The tenant ID associated with the deployment.",
+						type: "string",
+					},
+					deploymentKey: {
+						type: "string",
+						description:
+							"The unique key identifying the deployment.",
+					},
+					deployments: {
+						description: "Items deployed by the request.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DeploymentMetadataResult",
+						},
+					},
+				},
+			},
+			DeploymentMetadataResult: {
+				type: "object",
+				properties: {
+					processDefinition: {
+						$ref: "#/components/schemas/DeploymentProcessResult",
+					},
+					decisionDefinition: {
+						$ref: "#/components/schemas/DeploymentDecisionResult",
+					},
+					decisionRequirements: {
+						$ref: "#/components/schemas/DeploymentDecisionRequirementsResult",
+					},
+					form: {
+						$ref: "#/components/schemas/DeploymentFormResult",
+					},
+					resource: {
+						$ref: "#/components/schemas/DeploymentResourceResult",
+					},
+				},
+			},
+			DeploymentProcessResult: {
+				description: "A deployed process.",
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						type: "string",
+						description:
+							"The bpmn process ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific process definition.\n",
+					},
+					processDefinitionVersion: {
+						type: "integer",
+						format: "int32",
+						description: "The assigned process version.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The resource name from which this process was parsed.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the deployed process.",
+					},
+					processDefinitionKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this process.",
+					},
+				},
+			},
+			DeploymentDecisionResult: {
+				description: "A deployed decision.",
+				type: "object",
+				properties: {
+					decisionDefinitionId: {
+						type: "string",
+						description:
+							"The dmn decision ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific decision.\n",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description: "The assigned decision version.",
+					},
+					name: {
+						type: "string",
+						description:
+							"The DMN name of the decision, as parsed during deployment.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the deployed decision.",
+					},
+					decisionRequirementsId: {
+						type: "string",
+						description:
+							"The dmn ID of the decision requirements graph that this decision is part of, as parsed during deployment.\n",
+					},
+					decisionDefinitionKey: {
+						type: "string",
+						description:
+							"The assigned decision key, which acts as a unique identifier for this decision.\n",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned key of the decision requirements graph that this decision is part of.\n",
+					},
+				},
+			},
+			DeploymentDecisionRequirementsResult: {
+				description: "Deployed decision requirements.",
+				type: "object",
+				properties: {
+					decisionRequirementsId: {
+						type: "string",
+						description:
+							"The dmn decision requirements ID, as parsed during deployment; together with the versions forms a unique identifier for a specific decision.\n",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description:
+							"The assigned decision requirements version.",
+					},
+					decisionRequirementsName: {
+						type: "string",
+						description:
+							"The DMN name of the decision requirements, as parsed during deployment.",
+					},
+					tenantId: {
+						type: "string",
+						description:
+							"The tenant ID of the deployed decision requirements.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The resource name from which this decision requirements was parsed.",
+					},
+					decisionRequirementsKey: {
+						type: "string",
+						description:
+							"The assigned decision requirements key, which acts as a unique identifier for this decision requirements.\n",
+					},
+				},
+			},
+			DeploymentFormResult: {
+				description: "A deployed form.",
+				type: "object",
+				properties: {
+					formId: {
+						type: "string",
+						description:
+							"The form ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific form.\n",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description: "The assigned form version.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The resource name from which this form was parsed.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the deployed form.",
+					},
+					formKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this form.",
+					},
+				},
+			},
+			DeploymentResourceResult: {
+				description: "A deployed Resource.",
+				type: "object",
+				properties: {
+					resourceId: {
+						type: "string",
+						description:
+							"The resource ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific form.\n",
+					},
+					version: {
+						type: "integer",
+						format: "int32",
+						description: "The assigned resource version.",
+					},
+					resourceName: {
+						type: "string",
+						description:
+							"The resource name from which this resource was parsed.",
+					},
+					tenantId: {
+						type: "string",
+						description: "The tenant ID of the deployed form.",
+					},
+					resourceKey: {
+						type: "string",
+						description:
+							"The assigned key, which acts as a unique identifier for this Resource.",
+					},
+				},
+			},
+			ProcessInstanceCreationInstruction: {
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						description:
+							"The BPMN process ID of the process definition to start an instance of.\nCannot be used together with processDefinitionKey.\n",
+						type: "string",
+					},
+					processDefinitionVersion: {
+						description:
+							"The version of the process. Only considered when a processDefinitionId is provided.\nBy default, the latest version of the process is used.\n",
+						type: "integer",
+						format: "int32",
+						default: -1,
+					},
+					variables: {
+						description:
+							"JSON object that will instantiate the variables for the root variable scope\nof the process instance.\n",
+						type: "object",
+						additionalProperties: true,
+					},
+					tenantId: {
+						description: "The tenant ID of the process definition.",
+						type: "string",
+					},
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be >0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+					startInstructions: {
+						description:
+							"List of start instructions. By default, the process instance will start at\nthe start event. If provided, the process instance will apply start instructions\nafter it has been created.\n",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceCreationStartInstruction",
+						},
+					},
+					awaitCompletion: {
+						description:
+							"Wait for the process instance to complete. If the process instance completion does\nnot occur within the requestTimeout, the request will be closed. This can lead to a 504\nresponse status. Disabled by default.\n",
+						type: "boolean",
+						default: false,
+					},
+					fetchVariables: {
+						description:
+							"List of variables by name to be included in the response when awaitCompletion is set to true.\nIf empty, all visible variables in the root scope will be returned.\n",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					requestTimeout: {
+						description:
+							"Timeout (in ms) the request waits for the process to complete. By default or\nwhen set to 0, the generic request timeout configured in the cluster is applied.\n",
+						type: "integer",
+						format: "int64",
+					},
+					processDefinitionKey: {
+						description:
+							"The unique key identifying the process definition, for example, returned for a process in the\ndeploy resources endpoint. Cannot be used together with processDefinitionId.\n",
+						type: "string",
+					},
+				},
+			},
+			ProcessInstanceCreationStartInstruction: {
+				type: "object",
+				properties: {
+					elementId: {
+						description:
+							'Future extensions might include:\n  - different types of start instructions\n  - ability to set local variables for different flow scopes\n\nFor now, however, the start instruction is implicitly a "startBeforeElement" instruction\n',
+						type: "string",
+					},
+				},
+			},
+			CreateProcessInstanceResult: {
+				type: "object",
+				properties: {
+					processDefinitionId: {
+						description:
+							"The BPMN process ID of the process definition which was used to create the process.\ninstance\n",
+						type: "string",
+					},
+					processDefinitionVersion: {
+						description:
+							"The version of the process definition which was used to create the process instance.\n",
+						type: "integer",
+						format: "int32",
+					},
+					tenantId: {
+						description:
+							"The tenant ID of the created process instance.",
+						type: "string",
+					},
+					variables: {
+						additionalProperties: true,
+						description:
+							"All the variables visible in the root scope.",
+						type: "object",
+					},
+					processDefinitionKey: {
+						description:
+							"The key of the process definition which was used to create the process instance.\n",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"The unique identifier of the created process instance; to be used wherever a request\nneeds a process instance key (e.g. CancelProcessInstanceRequest).\n",
+						type: "string",
+					},
+				},
+			},
+			ProcessInstanceMigrationBatchOperationRequest: {
+				type: "object",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+					migrationPlan: {
+						$ref: "#/components/schemas/ProcessInstanceMigrationBatchOperationPlan",
+					},
+				},
+				required: ["filter", "migrationPlan"],
+			},
+			ProcessInstanceMigrationBatchOperationPlan: {
+				type: "object",
+				description:
+					"The migration instructions describe how to migrate a process instance from one process definition to another.\n",
+				properties: {
+					mappingInstructions: {
+						description:
+							"Element mappings from the source process instance to the target process instance.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MigrateProcessInstanceMappingInstruction",
+						},
+					},
+					targetProcessDefinitionKey: {
+						description:
+							"The key of process definition to migrate the process instance to.",
+						type: "string",
+					},
+				},
+				required: ["targetProcessDefinitionKey", "mappingInstructions"],
+			},
+			ProcessInstanceMigrationInstruction: {
+				type: "object",
+				description:
+					"The migration instructions describe how to migrate a process instance from one process definition to another.\n",
+				properties: {
+					mappingInstructions: {
+						description:
+							"Element mappings from the source process instance to the target process instance.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MigrateProcessInstanceMappingInstruction",
+						},
+					},
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+					targetProcessDefinitionKey: {
+						description:
+							"The key of process definition to migrate the process instance to.",
+						type: "string",
+					},
+				},
+				required: ["targetProcessDefinitionKey", "mappingInstructions"],
+			},
+			MigrateProcessInstanceMappingInstruction: {
+				type: "object",
+				description:
+					"The mapping instructions describe how to map elements from the source process definition to the target process definition.\n",
+				properties: {
+					sourceElementId: {
+						description: "The element ID to migrate from.",
+						type: "string",
+					},
+					targetElementId: {
+						description: "The element ID to migrate into.",
+						type: "string",
+					},
+				},
+				required: ["sourceElementId", "targetElementId"],
+			},
+			ProcessInstanceModificationInstruction: {
+				type: "object",
+				properties: {
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+					activateInstructions: {
+						description:
+							"Instructions describing which elements should be activated in which scopes and which variables should be created.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceModificationActivateInstruction",
+						},
+					},
+					terminateInstructions: {
+						description:
+							"Instructions describing which elements should be terminated.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceModificationTerminateInstruction",
+						},
+					},
+				},
+			},
+			ProcessInstanceModificationActivateInstruction: {
+				description:
+					"Instructions describing an element that should be activated.",
+				type: "object",
+				properties: {
+					elementId: {
+						description:
+							"The ID of the element that should be activated.",
+						type: "string",
+					},
+					variableInstructions: {
+						description:
+							"Instructions describing which variables should be created.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ModifyProcessInstanceVariableInstruction",
+						},
+					},
+					ancestorElementInstanceKey: {
+						description:
+							"The key of the ancestor scope the element instance should be created in.\nSet to -1 to create the new element instance within an existing element instance of the\nflow scope.\n",
+						type: "string",
+						default: -1,
+					},
+				},
+				required: ["elementId"],
+			},
+			ModifyProcessInstanceVariableInstruction: {
+				type: "object",
+				description:
+					"Instructions describing which variables should be created.",
+				properties: {
+					variables: {
+						description:
+							"JSON document that will instantiate the variables for the root variable scope of the process instance.\nIt must be a JSON object, as variables will be mapped in a key-value fashion.\n",
+						additionalProperties: true,
+						type: "object",
+					},
+					scopeId: {
+						description:
+							"The ID of the element in which scope the variables should be created.\nLeave empty to create the variables in the global scope of the process instance\n",
+						type: "string",
+						default: "",
+					},
+				},
+				required: ["variables"],
+			},
+			ProcessInstanceModificationTerminateInstruction: {
+				type: "object",
+				description:
+					"Instructions describing which elements should be terminated.",
+				properties: {
+					elementInstanceKey: {
+						description:
+							"The ID of the element that should be terminated.",
+						type: "string",
+					},
+				},
+				required: ["elementInstanceKey"],
+			},
+			SetVariableRequest: {
+				type: "object",
+				properties: {
+					variables: {
+						description:
+							"JSON object representing the variables to set in the element’s scope.",
+						additionalProperties: true,
+						type: "object",
+					},
+					local: {
+						description:
+							"If set to true, the variables are merged strictly into the local scope (as specified by the `elementInstanceKey`).\nOtherwise, the variables are propagated to upper scopes and set at the outermost one.\n\nLet’s consider the following example:\n\nThere are two scopes '1' and '2'.\nScope '1' is the parent scope of '2'. The effective variables of the scopes are:\n1 => { \"foo\" : 2 }\n2 => { \"bar\" : 1 }\n\nAn update request with elementInstanceKey as '2', variables { \"foo\" : 5 }, and local set\nto true leaves scope '1' unchanged and adjusts scope '2' to { \"bar\" : 1, \"foo\" 5 }.\n\nBy default, with local set to false, scope '1' will be { \"foo\": 5 }\nand scope '2' will be { \"bar\" : 1 }.\n",
+						type: "boolean",
+						default: false,
+					},
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+				},
+				required: ["variables"],
+			},
+			DeleteResourceRequest: {
+				type: "object",
+				nullable: true,
+				properties: {
+					operationReference: {
+						description:
+							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be > 0 if provided.\n",
+						type: "integer",
+						format: "int64",
+						minimum: 1,
+					},
+				},
+			},
+			SignalBroadcastRequest: {
+				type: "object",
+				properties: {
+					signalName: {
+						description: "The name of the signal to broadcast.",
+						type: "string",
+					},
+					variables: {
+						additionalProperties: true,
+						description: "The signal variables as a JSON object.",
+						type: "object",
+					},
+					tenantId: {
+						description:
+							"The ID of the tenant that owns the signal.",
+						type: "string",
+					},
+				},
+				required: ["signalName"],
+			},
+			SignalBroadcastResult: {
+				type: "object",
+				properties: {
+					tenantId: {
+						description:
+							"The tenant ID of the signal that was broadcast.",
+						type: "string",
+					},
+					signalKey: {
+						description:
+							"The unique ID of the signal that was broadcast.",
+						type: "string",
+					},
+				},
+			},
+			FormResult: {
+				type: "object",
+				properties: {
+					tenantId: {
+						description: "The tenant ID of the form.",
+						type: "string",
+					},
+					formId: {
+						description:
+							"The user-provided identifier of the form.",
+						type: "string",
+					},
+					schema: {
+						description: "The form content.",
+						type: "object",
+					},
+					version: {
+						description: "The version of the the deployed form.",
+						type: "integer",
+						format: "int64",
+					},
+					formKey: {
+						description:
+							"The assigned key, which acts as a unique identifier for this form.",
+						type: "string",
+					},
+				},
+			},
+			ResourceResult: {
+				type: "object",
+				properties: {
+					resourceName: {
+						description:
+							"The resource name from which this resource was parsed.",
+						type: "string",
+					},
+					version: {
+						description: "The assigned resource version.",
+						type: "integer",
+						format: "int32",
+					},
+					versionTag: {
+						description: "The version tag of this resource.",
+						type: "string",
+					},
+					resourceId: {
+						description: "The resource ID of this resource.",
+						type: "string",
+					},
+					tenantId: {
+						description: "The tenant ID of this resource.",
+						type: "string",
+					},
+					resourceKey: {
+						description: "The unique key of this resource.",
+						type: "string",
+					},
+				},
+			},
+			BatchOperationTypeEnum: {
+				description: "The type of the batch operation.",
+				type: "string",
+				enum: [
+					"CANCEL_PROCESS_INSTANCE",
+					"RESOLVE_INCIDENT",
+					"MIGRATE_PROCESS_INSTANCE",
+					"MODIFY_PROCESS_INSTANCE",
+				],
+			},
+			BatchOperationCreatedResult: {
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description: "Id of the batch operation.",
+						type: "string",
+					},
+					batchOperationType: {
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
+					},
+				},
+			},
+			BatchOperationSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"batchOperationId",
+							"operationType",
+							"state",
+							"startDate",
+							"endDate",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			BatchOperationSearchQuery: {
+				description: "Batch operation search request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The batch operation search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationFilter",
+							},
+						],
+					},
+				},
+			},
+			BatchOperationFilter: {
+				description: "Batch operation filter request.",
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
+						type: "string",
+					},
+					operationType: {
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
+					},
+					state: {
+						type: "string",
+						description: "The state of the batch operation.",
+						enum: [
+							"CREATED",
+							"ACTIVE",
+							"SUSPENDED",
+							"COMPLETED",
+							"COMPLETED_WITH_ERRORS",
+							"CANCELED",
+							"INCOMPLETED",
+						],
+					},
+				},
+			},
+			BatchOperationItemSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"batchOperationId",
+							"itemKey",
+							"processInstanceKey",
+							"state",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			BatchOperationItemSearchQuery: {
+				description: "Batch operation item search request.",
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationItemSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The batch operation search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemFilter",
+							},
+						],
+					},
+				},
+			},
+			BatchOperationItemFilter: {
+				description: "Batch operation item filter request.",
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
+						type: "string",
+					},
+					itemKey: {
+						description:
+							"The key of the item, e.g. a process instance key.",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key of the processed item.",
+						type: "string",
+					},
+					state: {
+						type: "string",
+						description: "The state of the batch operation.",
+						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+					},
+				},
+			},
+			BatchOperationSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching batch operations.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationResponse",
+						},
+					},
+				},
+			},
+			BatchOperationResponse: {
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description:
+							"Key or (Operate Legacy ID = UUID) of the batch operation.",
+						type: "string",
+					},
+					state: {
+						description: "The state of the batch operation.",
+						type: "string",
+						enum: [
+							"CREATED",
+							"ACTIVE",
+							"SUSPENDED",
+							"COMPLETED",
+							"COMPLETED_WITH_ERRORS",
+							"CANCELED",
+							"INCOMPLETED",
+						],
+					},
+					batchOperationType: {
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
+					},
+					startDate: {
+						type: "string",
+						description: "The start date of the batch operation.",
+						format: "date-time",
+					},
+					endDate: {
+						type: "string",
+						description: "The end date of the batch operation.",
+						format: "date-time",
+					},
+					operationsTotalCount: {
+						type: "integer",
+						description:
+							"The total number of items contained in this stacking process.",
+						format: "int32",
+					},
+					operationsFailedCount: {
+						type: "integer",
+						description:
+							"The number of items which failed during execution of the batch operation. (e.g. because they are rejected by the machine)",
+						format: "int32",
+					},
+					operationsCompletedCount: {
+						type: "integer",
+						description:
+							"The number of successfully completed tasks.",
+						format: "int32",
+					},
+				},
+			},
+			BatchOperationItemSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching batch operations.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationItemResponse",
+						},
+					},
+				},
+			},
+			BatchOperationItemResponse: {
+				type: "object",
+				properties: {
+					batchOperationId: {
+						description:
+							"The key (or operate legacy ID) of the batch operation.",
+						type: "string",
+					},
+					itemKey: {
+						description:
+							"Key of the item, e.g. a process instance key.",
+						type: "string",
+					},
+					processInstanceKey: {
+						description:
+							"the process instance key of the processed item.",
+						type: "string",
+					},
+					state: {
+						description: "State of the item.",
+						type: "string",
+						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+					},
+					processedDate: {
+						description:
+							"the date this item was processed. This can be either completed, canceled or failed.",
+						type: "string",
+						format: "date-time",
+					},
+					errorMessage: {
+						description:
+							"the error message from the engine in case of a failed operation.",
+						type: "string",
+					},
+				},
+			},
+			ProcessInstanceModificationBatchOperationRequest: {
+				type: "object",
+				description:
+					"The process instance filter to define on which process instances tokens should be moved,\nas well as mapping instructions which active element instances should be terminated and which\nnew element instances should be activated\n",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+					moveInstructions: {
+						description:
+							"Instructions describing which elements should be activated in which scopes and which variables should be created.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceModificationMoveBatchOperationInstruction",
+						},
+					},
+				},
+				required: ["filter", "moveInstructions"],
+			},
+			ProcessInstanceModificationMoveBatchOperationInstruction: {
+				description:
+					"Instructions describing a move operation. This instruction will terminate all active elementInstance\nat sourceElementId and activate a new element instance for each terminated one at targetElementId.",
+				type: "object",
+				properties: {
+					sourceElementId: {
+						description:
+							"The ID of the element that should be terminated.",
+						type: "string",
+					},
+					targetElementId: {
+						description:
+							"The ID of the element that should be activated.",
+						type: "string",
+					},
+				},
+				required: ["sourceElementId", "targetElementId"],
+			},
+		},
+		responses: {
+			InternalServerError: {
+				description:
+					"An internal error occurred while processing the request.\n",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
+			Unauthorized: {
+				description:
+					"The request lacks valid authentication credentials.",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
+			Forbidden: {
+				description: "Forbidden. The request is not allowed.",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
+			InvalidData: {
+				description: "The provided data is not valid.",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
+		},
+		securitySchemes: {
+			bearerAuth: {
+				type: "http",
+				scheme: "bearer",
+				bearerFormat: "JWT",
+			},
+		},
+	},
+};

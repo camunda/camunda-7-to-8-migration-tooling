@@ -25,10 +25,10 @@ import org.springframework.test.context.TestPropertySource;
 class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
   @Autowired
-  private RuntimeService runtimeService;
+  protected RuntimeService runtimeService;
 
   @Autowired
-  private TaskService taskService;
+  protected TaskService taskService;
 
   @Test
   public void shouldMigrateSkippedProcessInstances() {

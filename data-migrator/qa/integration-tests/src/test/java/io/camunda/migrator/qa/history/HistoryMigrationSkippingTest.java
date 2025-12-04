@@ -7,12 +7,17 @@
  */
 package io.camunda.migrator.qa.history;
 
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_INCIDENT;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_DEFINITION;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIPPING_USER_TASK_MISSING_PROCESS;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migrator.HistoryMigrator;
-import io.camunda.migrator.impl.clients.DbClient;
+import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
+import io.camunda.migrator.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
@@ -34,14 +39,11 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
   protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Autowired
-  protected DbClient dbClient;
-
-  @Autowired
   protected HistoryService historyService;
 
   @Test
   public void shouldSkipElementsWhenProcessDefinitionIsSkipped() {
-    // given state in c7
+    // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
     for (int i = 0; i < 5; i++) {
@@ -51,97 +53,113 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
       taskService.complete(task.getId());
     }
 
-    // and the process definition is manually set as skipped
-    String c7Id = repositoryService.createProcessDefinitionQuery().singleResult().getId();
-    dbClient.insert(c7Id, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    // Capture IDs before migration
+    var processInstanceIds = historyService.createHistoricProcessInstanceQuery().list().stream()
+        .map(pi -> pi.getId())
+        .toList();
+    var userTaskIds = historyService.createHistoricTaskInstanceQuery().list().stream()
+        .map(task -> task.getId())
+        .toList();
 
-    // when history is migrated
-    historyMigrator.migrate();
+    assertThat(processInstanceIds).hasSize(5);
+    assertThat(userTaskIds).hasSize(5);
 
-    // then nothing was migrated
+    // when
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks();
+
+    // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
 
-    // and all elements for the definition were skipped
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(5);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_FLOW_NODE)).isEqualTo(15);
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(5);
+    // Verify all 5 specific process instances were skipped
+    for (String instanceId : processInstanceIds) {
+      logs.assertContains(formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", instanceId, "process"));
+    }
+
+    // Verify all 5 specific user tasks were skipped
+    for (String taskId : userTaskIds) {
+      logs.assertContains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, taskId));
+    }
   }
 
   @Test
   public void shouldNotMigrateAlreadySkippedProcessInstance() {
-    // given state in c7
+    // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    // Migrate instances without definition (real-world skip scenario)
+    historyMigrator.migrateProcessInstances();
+    
+    // Verify the instance was skipped
+    logs.assertContains(formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", processInstance.getId(), "process"));
 
-    // when history is migrated
-    historyMigrator.migrate();
+    // Now migrate with definition - already skipped instance should not be reprocessed
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
 
-    // then no process instances were migrated
+    // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
 
-    // verify the process instance was skipped exactly once
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE)).isEqualTo(1);
-
-    // and verify logs don't contain any additional skip operations for this process instance
-    logs.assertDoesNotContain(
-        "Migration of historic process instance with C7 ID [" + processInstance.getId() + "] skipped");
+    // Verify logs don't contain any additional skip operations for this process instance
+    assertThat(logs.getEvents()
+        .stream()
+        .filter(event -> event.getMessage()
+            .contains(
+                formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", processInstance.getId(), "process")))
+        .toList()
+        .size()).isEqualTo(1); // Only the first skip
   }
 
   @Test
   public void shouldSkipUserTasksWhenProcessInstanceIsSkipped() {
-    // given state in c7
+    // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
     var task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
 
-    // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    // when
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks();
 
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance and user task were skipped
+    // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(1);
-    logs.assertContains("Migration of historic user task with C7 ID [" + task.getId() + "] skipped");
+    logs.assertContains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, task.getId()));
   }
 
   @Test
   public void shouldNotMigrateAlreadySkippedUserTask() {
-    // given state in c7
+    // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
     var task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
 
-    // and the user task is manually set as skipped
-    String taskId = historyService.createHistoricTaskInstanceQuery().singleResult().getId();
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_USER_TASK);
+    // when
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateUserTasks();
 
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance was migrated but user task was not
+    // then
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(historicProcesses.size()).isEqualTo(1);
     var processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricUserTasks(processInstance.processInstanceKey())).isEmpty();
 
-    // verify the task was skipped exactly once
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_USER_TASK)).isEqualTo(1);
-
-    // and verify logs don't contain any additional skip operations for this task
-    logs.assertDoesNotContain("Migration of C7 user task with id [" + task.getId() + "] skipped");
-
+    // and verify logs don't contain any additional skip operations for this process instance
+    assertThat(logs.getEvents()
+        .stream()
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, task.getId())))
+        .toList()
+        .size()).isEqualTo(1); // Only the first skip from phase 1
   }
 
   @Test
   public void shouldSkipIncidentsWhenProcessInstanceIsSkipped() {
-    // given state in c7
+    // given: Process with failing service task in C7
     deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
 
@@ -161,21 +179,18 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .isEqualTo(1);
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
 
-    // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    // when: Migrate incidents WITHOUT process instances (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateIncidents(); // Skips due to missing process instance
 
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance and incidents were skipped
+    // then: Incidents are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("failingServiceTaskProcessId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_INCIDENT)).isEqualTo(1);
-    logs.assertContains("Migration of historic incident with C7 ID [" + incidentId + "] skipped");
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_INCIDENT, incidentId));
   }
 
   @Test
   public void shouldNotMigrateAlreadySkippedIncident() {
-    // given state in c7 with a failing service task
+    // given: Process with failing service task in C7
     deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
 
@@ -192,27 +207,32 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
       }
     }
 
-    // and manually mark the incident as skipped
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
-    dbClient.insert(incidentId, null, IdKeyMapper.TYPE.HISTORY_INCIDENT);
 
-    // when history is migrated
-    historyMigrator.migrate();
+    // First migration: Migrate incidents WITHOUT process instances (skipps with a real-world scenario)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateIncidents(); // Skips due to missing process instance
 
-    // then process instance was migrated but incident was not
+    // Second migration: Migrate process instances, but already-skipped incident should not be reprocessed
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateIncidents();
+
+    // then: Process instance was migrated but incident remains skipped
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
     assertThat(historicProcesses.size()).isEqualTo(1);
     ProcessInstanceEntity c8ProcessInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8ProcessInstance.processDefinitionId())).isEmpty();
 
-    // verify the incident was skipped exactly once
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_INCIDENT)).isEqualTo(1);
-
-    // and verify logs don't contain any additional skip operations for this incident
-    logs.assertDoesNotContain("Skipping historic incident " + incidentId);
+    // and verify logs don't contain any additional skip operations for this process instance
+    assertThat(logs.getEvents()
+        .stream()
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING_INCIDENT, incidentId)))
+        .toList()
+        .size()).isEqualTo(1); // Only the first skip from phase 1
   }
 
   @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
+  @WhiteBox
   @Test
   public void shouldNotMigrateIncidentsWhenJobIsSkipped() {
     // given state in c7 with a failing service task
@@ -248,56 +268,73 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldSkipVariablesWhenProcessInstanceIsSkipped() {
-    // given state in c7
+    // given: Process with variable in C7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId", Map.of("testVar", "testValue"));
     var task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
 
-    // and the process instance is manually set as skipped
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
+    // Capture variable IDs before migration
+    var variableIds = historyService.createHistoricVariableInstanceQuery().list().stream()
+        .map(v -> v.getId())
+        .toList();
+    assertThat(variableIds).isNotEmpty();
 
-    // when history is migrated
-    historyMigrator.migrate();
+    // when: Migrate variables WITHOUT process instances (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateVariables(); // Skips due to missing process instance
 
-    // then process instance and variables were skipped
+    // then: Variables are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_VARIABLE)).isEqualTo(1);
+
+    // Verify all variables were skipped
+    for (String variableId : variableIds) {
+      logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_PROCESS, variableId));
+    }
   }
 
   @Test
   public void shouldNotMigrateAlreadySkippedVariable() {
-    // given state in c7
+    // given: Process with multiple variables in C7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId",
         Map.of("testVar", "testValue", "anotherVar", "anotherValue"));
     var task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
 
-    // Find a variable to mark as skipped
-    var historicVariables = historyService.createHistoricVariableInstanceQuery().variableName("testVar").list();
-    assertThat(historicVariables).hasSize(1);
-    var variableToSkip = historicVariables.getFirst();
+    // Capture variable IDs before migration
+    var variableIds = historyService.createHistoricVariableInstanceQuery().list().stream()
+        .map(v -> v.getId())
+        .toList();
+    assertThat(variableIds).hasSize(2);
 
-    // and the variable is manually set as skipped
-    dbClient.insert(variableToSkip.getId(), null, IdKeyMapper.TYPE.HISTORY_VARIABLE);
+    // First migration: Migrate variables WITHOUT process instances (skipps with a real-world scenario)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateVariables(); // All variables skip due to missing process instance
 
-    // when history is migrated
-    historyMigrator.migrate();
+    // Verify all variables were skipped
+    for (String variableId : variableIds) {
+      logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_PROCESS, variableId));
+    }
 
-    // then process instance was migrated but the variable was not
+    // Second migration: Migrate process instances and variables again
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateVariables(); // Already skipped variables should not be reprocessed
+
+    // then: Process instance was migrated but variables remain skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(historicProcesses.size()).isEqualTo(1);
-    var variables = searchHistoricVariables("anotherVar");
-    assertThat(variables.size()).isEqualTo(1);
-
-    // verify the variable was skipped exactly once
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_VARIABLE)).isEqualTo(1);
+    
+    // No variables were migrated - both remain skipped
+    var variablesTestVar = searchHistoricVariables("testVar");
+    var variablesAnotherVar = searchHistoricVariables("anotherVar");
+    assertThat(variablesTestVar.size()).isEqualTo(0);
+    assertThat(variablesAnotherVar.size()).isEqualTo(0);
   }
 
   @Test
   public void shouldSkipTaskVariablesWhenTaskIsSkipped() {
-    // given state in c7
+    // given: Process with task-level variable in C7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
@@ -306,33 +343,26 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     taskService.setVariableLocal(task.getId(), "taskLocalVar", "taskValue");
     taskService.complete(task.getId());
 
-    // and the task is manually set as skipped
     String taskId = historyService.createHistoricTaskInstanceQuery().singleResult().getId();
-    dbClient.insert(taskId, null, IdKeyMapper.TYPE.HISTORY_USER_TASK);
-
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance was migrated but task and its variables were not
-    var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
-    var migratedProcessInstance = historicProcesses.getFirst();
-
-    // Verify task was skipped
-    assertThat(searchHistoricUserTasks(migratedProcessInstance.processInstanceKey())).isEmpty();
-
-    // Verify task variable was also skipped
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_VARIABLE)).isEqualTo(1);
-
-    // Find the variable that should have been skipped
     var taskVariable = historyService.createHistoricVariableInstanceQuery().taskIdIn(taskId).singleResult();
 
-    logs.assertContains("Migration of historic variable with C7 ID [" + taskVariable.getId() + "] skipped");
+    // when: Migrate user tasks and variables WITHOUT process instances (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks(); // Skips due to missing process instance
+    historyMigrator.migrateVariables(); // Also skips
+
+    // then: Process instance was not migrated, task and its variables were skipped
+    var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(historicProcesses.size()).isEqualTo(0);
+
+    // Verify task and variable were skipped
+    logs.assertContains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, taskId));
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_TASK, taskVariable.getId(), taskId));
   }
 
   @Test
   public void shouldSkipServiceTaskVariablesWhenServiceTaskIsSkipped() {
-    // given state in c7 with a service task using JUEL expression
+    // given: Process with service task using JUEL expression in C7
     deployer.deployCamunda7Process("serviceTaskWithInputMappingProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("serviceTaskWithInputMappingProcessId");
 
@@ -342,7 +372,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .activityId("serviceTaskId")
         .list();
 
-    assertThat(historicActivities).isNotEmpty().as("Expected service task to be in history");
+    assertThat(historicActivities).isNotEmpty();
 
     String serviceTaskActivityInstanceId = historicActivities.getFirst().getId();
 
@@ -353,70 +383,67 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .activityInstanceIdIn(serviceTaskActivityInstanceId)
         .singleResult();
 
-    assertThat(serviceTaskVariable).isNotNull().as("Expected to find local variable on service task");
+    assertThat(serviceTaskVariable).isNotNull();
 
-    // Mark the service task as skipped
-    dbClient.insert(serviceTaskActivityInstanceId, null, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
+    // when: Migrate flow nodes and variables WITHOUT process instances (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateFlowNodes(); // Skips due to missing process instance
+    historyMigrator.migrateVariables(); // Also skips
 
-    // when history is migrated
-    historyMigrator.migrate();
-
-    // then process instance was migrated but service task was skipped
+    // then: Process instance was not migrated, service task and variable were skipped
     var historicProcesses = searchHistoricProcessInstances("serviceTaskWithInputMappingProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
+    assertThat(historicProcesses.size()).isEqualTo(0);
 
-    // Verify service task variable was skipped
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_VARIABLE)).isEqualTo(1);
-
-    // Verify appropriate logging
-    logs.assertContains("Migration of historic variable with C7 ID [" + serviceTaskVariable.getId() + "] skipped");
+    // Verify variable was skipped
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_PROCESS, serviceTaskVariable.getId()));
   }
 
   @Test
   public void shouldSkipDecisionDefinitionWhenDecisionRequirementsIsSkipped() {
-    // given
+    // given: DMN with requirements deployed in C7
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
-    // and the decision requirements is manually set as skipped
-    String decisionRequirementsId = repositoryService.createDecisionRequirementsDefinitionQuery()
-        .decisionRequirementsDefinitionKey("simpleDmnWithReqsId")
-        .singleResult()
-        .getId();
-    dbClient.insert(decisionRequirementsId, null, IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
+    // Capture decision definition IDs
+    var decisionDefinitionIds = repositoryService.createDecisionDefinitionQuery().list().stream()
+        .map(dd -> dd.getId())
+        .toList();
+    assertThat(decisionDefinitionIds).hasSize(2);
 
-    // when
-    historyMigrator.migrate();
+    // when: Migrate decision definitions WITHOUT migrating requirements first
+    // This creates a real-world skip scenario - definitions can't migrate without their parent requirements
+    historyMigrator.migrateDecisionDefinitions();
 
-    // then
+    // then: Decision definitions are skipped with a real-world scenario due to missing requirements
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id")).isEmpty();
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION)).isEqualTo(2);
+
+    // Verify all 2 specific decision definitions were skipped
+    for (String definitionId : decisionDefinitionIds) {
+      logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_DECISION_DEFINITION, definitionId));
+    }
   }
 
   @Test
   public void shouldSkipDecisionInstanceWhenDecisionDefinitionIsSkipped() {
-    // given
+    // given: DMN and process with business rule task in C7
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     runtimeService.startProcessInstanceByKey("businessRuleProcessId",
         Variables.createVariables().putValue("inputA", stringValue("A")));
-    String decisionDefinitionId = repositoryService.createDecisionDefinitionQuery()
-        .decisionDefinitionKey("simpleDecisionId")
-        .singleResult()
-        .getId();
-    dbClient.insert(decisionDefinitionId, null, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
-    // when
-    historyMigrator.migrate();
+    // when: Migrate decision instances WITHOUT decision definitions (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing decision definition
 
-    // then
+    // then: Decision instances are skipped with a real-world scenario due to missing decision definition
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE)).isEqualTo(1);
+    logs.assertContains(formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "decision", decisionInstanceId, "decision"));
   }
 
   @Test
   public void shouldSkipDecisionInstanceWhenProcessDefinitionIsSkipped() {
-    // given
+    // given: DMN and process with business rule task in C7
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     runtimeService.startProcessInstanceByKey("businessRuleProcessId",
@@ -425,53 +452,60 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .processDefinitionKey("businessRuleProcessId")
         .singleResult()
         .getId();
-    dbClient.insert(processDefinitionId, null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
-    // when
-    historyMigrator.migrate();
+    // when: Migrate decision instances WITHOUT process definitions (creates real-world skip)
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing process definition
 
-    // then
+    // then: Decision instances are skipped with a real-world scenario due to missing process definition
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE)).isEqualTo(1);
+    logs.assertContains(formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "decision", decisionInstanceId, "process"));
   }
 
   @Test
   public void shouldSkipDecisionInstanceWhenProcessInstanceIsSkipped() {
-    // given
+    // given: DMN and process with business rule task in C7
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     var processInstance = runtimeService.startProcessInstanceByKey("businessRuleProcessId",
         Variables.createVariables().putValue("inputA", stringValue("A")));
-    dbClient.insert(processInstance.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE);
 
-    // when
-    historyMigrator.migrate();
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
-    // then
+    // when: Migrate decision instances WITHOUT process instances (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing process instance
+
+    // then: Decision instances are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE)).isEqualTo(1);
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE, decisionInstanceId));
   }
 
   @Test
   public void shouldSkipDecisionInstanceWhenFlowNodeIsSkipped() {
-    // given
+    // given: DMN and process with business rule task in C7
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     runtimeService.startProcessInstanceByKey("businessRuleProcessId",
         Variables.createVariables().putValue("inputA", stringValue("A")));
-    String c7FlowNodeId =
-        historyService.createHistoricActivityInstanceQuery().activityId("businessRuleTaskId").singleResult().getId();
-    dbClient.insert(c7FlowNodeId, null, IdKeyMapper.TYPE.HISTORY_FLOW_NODE);
 
-    // when
-    historyMigrator.migrate();
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
-    // then
+    // when: Migrate decision instances WITHOUT flow nodes (creates real-world skip)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing flow node
+
+    // then: Decision instances are skipped with a real-world scenario due to missing flow node
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
-    assertThat(dbClient.countSkippedByType(IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE)).isEqualTo(1);
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE, decisionInstanceId));
   }
 
   @Test
+  @WhiteBox
   public void shouldNotSkipTaskVariablesWhenEntityWithSameIdButDifferentTypeIsSkipped() {
     // given state in c7
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
@@ -500,4 +534,5 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(userTasks).as("User task should be migrated despite ID collision with HISTORY_INCIDENT").hasSize(1);
     assertThat(userTasks.getFirst().elementId()).as("User task should have correct id").isEqualTo("userTaskId");
   }
+
 }

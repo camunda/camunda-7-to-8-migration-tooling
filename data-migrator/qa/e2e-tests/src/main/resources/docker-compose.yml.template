@@ -2,6 +2,7 @@ services:
   # Camunda 7 with Cockpit plugin
   camunda7:
     image: registry.camunda.cloud/cambpm-ee/camunda-bpm-platform-ee:7.24.1
+    user: root
     ports:
       - "8090:8080"
     environment:
@@ -13,6 +14,19 @@ services:
     volumes:
       # Mount the plugin JAR to Camunda's plugin directory
       - ../../plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${project.version}.jar:/camunda/webapps/camunda/WEB-INF/lib/camunda-7-to-8-data-migrator-cockpit-plugin.jar:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        echo 'Installing JDK 21...'
+        apk add --no-cache openjdk21
+        export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+        export PATH=$JAVA_HOME/bin:$PATH
+        echo 'JDK 21 installed successfully'
+        java -version
+        echo 'Starting Camunda...'
+        exec /camunda/camunda.sh
     depends_on:
       postgres:
         condition: service_healthy

@@ -26,7 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class ProcessDefinitionConverter implements EntityInterceptor {
 
   @Autowired
-  private C7Client c7Client;
+  protected C7Client c7Client;
 
   @Override
   public Set<Class<?>> getTypes() {

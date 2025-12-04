@@ -8,26 +8,32 @@
 package io.camunda.migrator.qa.runtime;
 
 import static io.camunda.migrator.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.*;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOYMENT_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_EXECUTION_LISTENER_OF_TYPE_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.NO_NONE_START_EVENT_ERROR;
 import static io.camunda.migrator.impl.logging.VariableServiceLogs.BYTE_ARRAY_UNSUPPORTED_ERROR;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migrator.RuntimeMigrator;
 import io.camunda.migrator.config.property.MigratorProperties;
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
+import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
 
+  @RegisterExtension
+  protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
+
   @Autowired
-  private MigratorProperties migratorProperties;
+  protected MigratorProperties migratorProperties;
 
   @AfterEach
   void cleanUp() {
@@ -36,96 +42,86 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
 
   @Test
   public void shouldUpdateSkipReasonWhenFailingActivateJob() {
-    // given: enable skip reason saving
+    // given
     migratorProperties.setSaveSkipReason(true);
-
-    // given: deploy process without migrator listener
     deployer.deployProcessInC7AndC8("noMigratorListener.bpmn");
-    // and create a new process instance with an unsupported variable type
     Map<String, Object> variables = new HashMap<>();
     variables.put("unsupportedVar", "hello".getBytes());
     var process = runtimeService.startProcessInstanceByKey("noMigratorListener", variables);
 
-    // when: run initial migration
+    // when
     runtimeMigrator.start();
 
-    // then: process instance should be skipped with missing listener error
-    String originalSKipReason = String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR, "migrator", "Event_1px2j50", "noMigratorListener", 1, "migrator");
-    verifySkipped(process, originalSKipReason);
+    // then
+    String originalSkipReason = String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR, "migrator", "Event_1px2j50", "noMigratorListener", 1, "migrator");
+    verifySkippedViaLogs(process, originalSkipReason);
 
-    // given: fix the migrator listener issue by deploying correct C8 process
+    // given
     deployer.deployCamunda8Process("addedMigratorListenerProcess.bpmn");
 
-    // when: retry skipped process instances
+    // when
     runtimeMigrator.setMode(RETRY_SKIPPED);
     runtimeMigrator.start();
 
-    // then: process instance skipp reason is updated
-    verifySkipped(process, BYTE_ARRAY_UNSUPPORTED_ERROR);
+    // then
+    verifySkippedViaLogs(process, BYTE_ARRAY_UNSUPPORTED_ERROR);
   }
 
   @Test
   public void shouldUpdateSkipReasonWhenFailingBPMNValidation() {
-    // given: enable skip reason saving
+    // given
     migratorProperties.setSaveSkipReason(true);
-
-    // given: deploy process with message start event only in C7
     deployer.deployCamunda7Process("messageStartEventProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
-    // when: run initial migration
+    // when
     runtimeMigrator.start();
 
-    // then: process instance should be skipped with no C8 deployment error
+    // then
     String expectedSkipReason = String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId());
-    verifySkipped(process, expectedSkipReason);
+    verifySkippedViaLogs(process, expectedSkipReason);
 
-    // given: deploy missing C8 process but without a none start event
+    // given
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
-    // when: retry skipped process instances
+    // when
     runtimeMigrator.setMode(RETRY_SKIPPED);
     runtimeMigrator.start();
 
-    // then: process instance should still be skipped but with updated reason (missing none start event)
+    // then
     String updatedSkipReason = String.format(NO_NONE_START_EVENT_ERROR, "MessageStartEventProcessId", 1);
-    verifySkipped(process, updatedSkipReason);
+    verifySkippedViaLogs(process, updatedSkipReason);
   }
 
   @Test
   public void shouldNotSaveSkipReasonDuringRetry() {
-    // given: disabled skip reason saving
+    // given
     migratorProperties.setSaveSkipReason(false);
-
-    // given: deploy process with message start event only in C7
     deployer.deployCamunda7Process("messageStartEventProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
-    // when: run initial migration
+    // when
     runtimeMigrator.start();
 
-    // then: process instance should be skipped with null skip reason
-    verifySkipped(process, null);
+    // then
+    assertThatProcessInstanceCountIsEqualTo(0);
+    verifySkippedViaLogs(process, String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId()));
 
-    // given: deploy missing C8 process but without a none start event
+    // given
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
-    // when: retry skipped process instances
+    // when
     runtimeMigrator.setMode(RETRY_SKIPPED);
     runtimeMigrator.start();
 
-    // then: process instance should still be skipped with null skip reason
-    verifySkipped(process, null);
+    // then
+    verifySkippedViaLogs(process, String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId()));
   }
 
-  private void verifySkipped(ProcessInstance process, String expectedSkipReason) {
+  protected void verifySkippedViaLogs(ProcessInstance process, String expectedSkipReason) {
     assertThatProcessInstanceCountIsEqualTo(0);
-    List<IdKeyDbModel> skippedProcessInstanceIds = findSkippedRuntimeProcessInstances().stream().toList();
-    assertThat(skippedProcessInstanceIds.size()).isEqualTo(1);
-    assertThat(skippedProcessInstanceIds.getFirst().getC7Id()).isEqualTo(process.getId());
 
-    // verify initial skip reason contains no none start event error
-    String initialSkipReason = skippedProcessInstanceIds.getFirst().getSkipReason();
-    assertThat(initialSkipReason).isEqualTo(expectedSkipReason);
+    // Verify skip occurred via logs using constant from RuntimeMigratorLogs
+    logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, process.getId(), expectedSkipReason));
   }
 }

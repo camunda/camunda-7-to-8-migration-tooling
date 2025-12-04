@@ -22,7 +22,7 @@ public class UnsupportedStartEventMigrationTest extends RuntimeMigrationAbstract
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
 
   @Test
-  public void migrateProcessWithUnsupportedStartEvent() {
+  public void shouldMigrateProcessWithUnsupportedStartEvent() {
     // given
     deployer.deployProcessInC7AndC8("messageStartEventProcess.bpmn");
     runtimeService.correlateMessage("msgRef");

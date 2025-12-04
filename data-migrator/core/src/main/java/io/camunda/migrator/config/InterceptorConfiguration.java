@@ -21,8 +21,8 @@ import io.camunda.migrator.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migrator.impl.interceptor.SpinJsonVariableTransformer;
 import io.camunda.migrator.impl.interceptor.SpinXmlVariableTransformer;
 import io.camunda.migrator.impl.logging.ConfigurationLogs;
+import io.camunda.migrator.interceptor.BaseInterceptor;
 import io.camunda.migrator.interceptor.EntityInterceptor;
-import io.camunda.migrator.interceptor.GlobalInterceptor;
 import io.camunda.migrator.interceptor.VariableInterceptor;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,9 +110,9 @@ public class InterceptorConfiguration {
    * @param contextInterceptors List of interceptors discovered from Spring context
    * @param interceptorConfigs List of interceptor configurations from config files
    * @param interceptorType The type of interceptor to filter (VariableInterceptor.class or EntityInterceptor.class)
-   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @param <T> The interceptor type that extends BaseInterceptor
    */
-  protected <T extends GlobalInterceptor<?>> void processUnifiedInterceptorConfiguration(
+  protected <T extends BaseInterceptor<?>> void processUnifiedInterceptorConfiguration(
       List<T> contextInterceptors,
       List<InterceptorConfig> interceptorConfigs,
       Class<T> interceptorType) {
@@ -152,10 +152,10 @@ public class InterceptorConfiguration {
    *
    * @param contextInterceptors List of interceptors in context
    * @param className Class name to search for
-   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @param <T> The interceptor type that extends BaseInterceptor
    * @return The interceptor if found, null otherwise
    */
-  protected <T extends GlobalInterceptor<?>> T findExistingInterceptor(List<T> contextInterceptors, String className) {
+  protected <T extends BaseInterceptor<?>> T findExistingInterceptor(List<T> contextInterceptors, String className) {
     return contextInterceptors.stream()
         .filter(interceptor -> interceptor.getClass().getName().equals(className))
         .findFirst()
@@ -167,9 +167,9 @@ public class InterceptorConfiguration {
    *
    * @param contextInterceptors List of context interceptors to modify
    * @param interceptorConfig Configuration for the interceptor to disable
-   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @param <T> The interceptor type that extends BaseInterceptor
    */
-  protected <T extends GlobalInterceptor<?>> void handleInterceptorDisable(
+  protected <T extends BaseInterceptor<?>> void handleInterceptorDisable(
       List<T> contextInterceptors,
       InterceptorConfig interceptorConfig) {
     boolean removed = contextInterceptors.removeIf(interceptor ->
@@ -188,9 +188,9 @@ public class InterceptorConfiguration {
    * @param contextInterceptors List of interceptors to add to
    * @param interceptorConfig Configuration for the custom interceptor
    * @param interceptorType The type of interceptor to create
-   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @param <T> The interceptor type that extends BaseInterceptor
    */
-  protected <T extends GlobalInterceptor<?>> void registerCustomInterceptor(
+  protected <T extends BaseInterceptor<?>> void registerCustomInterceptor(
       List<T> contextInterceptors,
       InterceptorConfig interceptorConfig,
       Class<T> interceptorType) {
@@ -209,12 +209,12 @@ public class InterceptorConfiguration {
    *
    * @param interceptorConfig Interceptor configuration
    * @param interceptorType The type of interceptor to create (VariableInterceptor.class or EntityInterceptor.class)
-   * @param <T> The interceptor type that extends GlobalInterceptor
+   * @param <T> The interceptor type that extends BaseInterceptor
    * @return Interceptor instance
    * @throws Exception if instantiation fails
    */
   @SuppressWarnings("unchecked")
-  protected <T extends GlobalInterceptor<?>> T createInterceptorInstance(
+  protected <T extends BaseInterceptor<?>> T createInterceptorInstance(
       InterceptorConfig interceptorConfig,
       Class<T> interceptorType) throws Exception {
     String className = interceptorConfig.getClassName();

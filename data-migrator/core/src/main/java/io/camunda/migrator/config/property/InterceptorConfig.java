@@ -15,9 +15,9 @@ import java.util.Map;
  */
 public class InterceptorConfig {
 
-  private String className;
-  private Map<String, Object> properties;
-  private boolean enabled = true;
+  protected String className;
+  protected Map<String, Object> properties;
+  protected boolean enabled = true;
 
   public String getClassName() {
     return className;

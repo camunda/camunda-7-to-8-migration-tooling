@@ -81,11 +81,19 @@ class EntityConversionServiceTest {
   // Test interceptors
   static class ProcessInstanceInterceptor implements EntityInterceptor {
     private boolean executed = false;
+    private List<String> executionOrder;
+
+    public void setExecutionOrder(List<String> executionOrder) {
+      this.executionOrder = executionOrder;
+    }
 
     @Override
     @SuppressWarnings("unchecked")
     public void execute(EntityConversionContext<?, ?> context) {
       executed = true;
+      if (executionOrder != null) {
+        executionOrder.add("ProcessInstanceInterceptor");
+      }
       HistoricProcessInstance c7Entity = (HistoricProcessInstance) context.getC7Entity();
       ProcessInstanceDbModelBuilder c8Builder = new ProcessInstanceDbModelBuilder();
       c8Builder.processInstanceKey(12345L).bpmnProcessId(c7Entity.getBusinessKey());
@@ -107,10 +115,18 @@ class EntityConversionServiceTest {
 
   static class UniversalInterceptor implements EntityInterceptor {
     private boolean executed = false;
+    private List<String> executionOrder;
+
+    public void setExecutionOrder(List<String> executionOrder) {
+      this.executionOrder = executionOrder;
+    }
 
     @Override
     public void execute(EntityConversionContext<?, ?> context) {
       executed = true;
+      if (executionOrder != null) {
+        executionOrder.add("UniversalInterceptor");
+      }
     }
 
     @Override
@@ -233,6 +249,9 @@ class EntityConversionServiceTest {
     // Given
     ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
     UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    List<String> executionOrder = new ArrayList<>();
+    processInterceptor.setExecutionOrder(executionOrder);
+    universalInterceptor.setExecutionOrder(executionOrder);
     service.configuredEntityInterceptors = List.of(processInterceptor, universalInterceptor);
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
@@ -243,6 +262,7 @@ class EntityConversionServiceTest {
     assertThat(processInterceptor.wasExecuted()).isTrue();
     assertThat(universalInterceptor.wasExecuted()).isTrue();
     assertThat(result.getC8DbModelBuilder()).isNotNull();
+    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
   }
 
   @Test
@@ -251,6 +271,9 @@ class EntityConversionServiceTest {
     ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
     ActivityInterceptor activityInterceptor = new ActivityInterceptor();
     UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    List<String> executionOrder = new ArrayList<>();
+    processInterceptor.setExecutionOrder(executionOrder);
+    universalInterceptor.setExecutionOrder(executionOrder);
     service.configuredEntityInterceptors =
         List.of(processInterceptor, activityInterceptor, universalInterceptor);
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
@@ -262,6 +285,7 @@ class EntityConversionServiceTest {
     assertThat(processInterceptor.wasExecuted()).isTrue();
     assertThat(activityInterceptor.wasExecuted()).isFalse();
     assertThat(universalInterceptor.wasExecuted()).isTrue();
+    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
   }
 
   @Test

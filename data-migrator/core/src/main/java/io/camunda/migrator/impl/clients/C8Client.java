@@ -9,6 +9,7 @@ package io.camunda.migrator.impl.clients;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
+import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
 import static io.camunda.migrator.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migrator.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
@@ -19,19 +20,48 @@ import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PRO
 import static io.camunda.migrator.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.CreateTenantCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.response.ProcessDefinition;
 import io.camunda.client.api.search.response.SearchResponse;
+import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
+import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
+import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
+import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
+import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
+import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
+import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
+import io.camunda.db.rdbms.sql.IncidentMapper;
+import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
+import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
+import io.camunda.db.rdbms.sql.UserTaskMapper;
+import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
+import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
+import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migrator.config.property.MigratorProperties;
 import io.camunda.migrator.impl.model.FlowNodeActivation;
+import io.camunda.search.entities.DecisionDefinitionEntity;
+import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.search.entities.ProcessDefinitionEntity;
+import io.camunda.search.entities.ProcessInstanceEntity;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
+import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +77,35 @@ public class C8Client {
 
   @Autowired
   protected CamundaClient camundaClient;
+
+  // MyBatis mappers for history migration
+  // These are optional because they're only available when C8 data source is configured
+  @Autowired(required = false)
+  protected ProcessInstanceMapper processInstanceMapper;
+
+  @Autowired(required = false)
+  protected DecisionInstanceMapper decisionInstanceMapper;
+
+  @Autowired(required = false)
+  protected UserTaskMapper userTaskMapper;
+
+  @Autowired(required = false)
+  protected VariableMapper variableMapper;
+
+  @Autowired(required = false)
+  protected IncidentMapper incidentMapper;
+
+  @Autowired(required = false)
+  protected ProcessDefinitionMapper processDefinitionMapper;
+
+  @Autowired(required = false)
+  protected DecisionDefinitionMapper decisionDefinitionMapper;
+
+  @Autowired(required = false)
+  protected FlowNodeInstanceMapper flowNodeInstanceMapper;
+
+  @Autowired(required = false)
+  protected DecisionRequirementsMapper decisionRequirementsMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -145,6 +204,118 @@ public class C8Client {
     if (deployResourceCmd != null) {
       callApi(deployResourceCmd::execute, FAILED_TO_DEPLOY_C8_RESOURCES + models);
     }
+  }
+
+  // ========== MyBatis Mapper Wrapper Methods for History Migration ==========
+
+  /**
+   * Inserts a ProcessDefinition into the database.
+   */
+  public void insertProcessDefinition(ProcessDefinitionDbModel dbModel) {
+    callApi(() -> processDefinitionMapper.insert(dbModel), "Failed to insert process definition");
+  }
+
+  /**
+   * Inserts a ProcessInstance into the database.
+   */
+  public void insertProcessInstance(ProcessInstanceDbModel dbModel) {
+    callApi(() -> processInstanceMapper.insert(dbModel), "Failed to insert process instance");
+  }
+
+  /**
+   * Finds a ProcessInstance by key.
+   */
+  public ProcessInstanceEntity findProcessInstance(Long key) {
+    return callApi(() -> processInstanceMapper.findOne(key), "Failed to find process instance by key: " + key);
+  }
+
+  /**
+   * Searches for ProcessInstances matching the query.
+   */
+  public List<ProcessInstanceEntity> searchProcessInstances(ProcessInstanceDbQuery query) {
+    return callApi(() -> processInstanceMapper.search(query), "Failed to search process instances");
+  }
+
+  /**
+   * Inserts a DecisionRequirementsDefinition into the database.
+   */
+  public void insertDecisionRequirements(DecisionRequirementsDbModel dbModel) {
+    callApi(() -> decisionRequirementsMapper.insert(dbModel), "Failed to insert decision requirements");
+  }
+
+  /**
+   * Inserts a DecisionDefinition into the database.
+   */
+  public void insertDecisionDefinition(DecisionDefinitionDbModel dbModel) {
+    callApi(() -> decisionDefinitionMapper.insert(dbModel), "Failed to insert decision definition");
+  }
+
+  /**
+   * Searches for DecisionDefinitions matching the query.
+   */
+  public List<DecisionDefinitionEntity> searchDecisionDefinitions(DecisionDefinitionDbQuery query) {
+    return callApi(() -> decisionDefinitionMapper.search(query), "Failed to search decision definitions");
+  }
+
+  /**
+   * Inserts a DecisionInstance into the database.
+   */
+  public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
+    callApi(() -> decisionInstanceMapper.insert(dbModel), "Failed to insert decision instance");
+  }
+
+  /**
+   * Searches for DecisionInstances matching the query.
+   */
+  public List<DecisionInstanceEntity> searchDecisionInstances(DecisionInstanceDbQuery query) {
+    return callApi(() -> decisionInstanceMapper.search(query), "Failed to search decision instances");
+  }
+
+  /**
+   * Inserts an Incident into the database.
+   */
+  public void insertIncident(IncidentDbModel dbModel) {
+    callApi(() -> incidentMapper.insert(dbModel), "Failed to insert incident");
+  }
+
+  /**
+   * Inserts a Variable into the database.
+   */
+  public void insertVariable(VariableDbModel dbModel) {
+    callApi(() -> variableMapper.insert(dbModel), "Failed to insert variable");
+  }
+
+  /**
+   * Inserts a UserTask into the database.
+   */
+  public void insertUserTask(UserTaskDbModel dbModel) {
+    callApi(() -> userTaskMapper.insert(dbModel), "Failed to insert user task");
+  }
+
+  /**
+   * Inserts a FlowNodeInstance into the database.
+   */
+  public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
+    callApi(() -> flowNodeInstanceMapper.insert(dbModel), "Failed to insert flow node instance");
+  }
+
+  /**
+   * Searches for FlowNodeInstances matching the query.
+   */
+  public List<FlowNodeInstanceDbModel> searchFlowNodeInstances(FlowNodeInstanceDbQuery query) {
+    return callApi(() -> flowNodeInstanceMapper.search(query), "Failed to search flow node instances");
+  }
+
+  /**
+   * Searches for ProcessDefinitions matching the query.
+   */
+  public List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
+    return callApi(() -> processDefinitionMapper.search(query), "Failed to search process definitions");
+  }
+
+  public void createTenant(Tenant tenant) {
+    CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
+    callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
 
 }
