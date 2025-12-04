@@ -454,7 +454,18 @@ public class HistoryMigrator {
     }
   }
 
-  public void migrateVariables() {
+  public void migrateVariables() {/**
+   * Migrates a historic variable instance from Camunda 7 to Camunda 8.
+   *
+   * Variables can be scoped to either:
+   * - A user task (taskId != null)
+   * - A process instance with optional activity instance scope
+   *
+   * The method validates that all parent entities (process instance, task, activity instance)
+   * have been migrated before attempting to migrate the variable.
+   *
+   * @param c7Variable the historic variable instance from Camunda 7
+   */
     HistoryMigratorLogs.migratingHistoricVariables();
 
     if (RETRY_SKIPPED.equals(mode)) {
@@ -467,6 +478,18 @@ public class HistoryMigrator {
     }
   }
 
+  /**
+   * Migrates a historic variable instance from Camunda 7 to Camunda 8.
+   *
+   * Variables can be scoped to either:
+   * - A user task (taskId != null)
+   * - A process instance with optional activity instance scope
+   *
+   * The method validates that all parent entities (process instance, task, activity instance)
+   * have been migrated before attempting to migrate the variable.
+   *
+   * @param c7Variable the historic variable instance from Camunda 7
+   */
   protected void migrateVariable(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
@@ -477,74 +500,68 @@ public class HistoryMigrator {
           HistoricVariableInstance.class, variableDbModelBuilder, processEngine);
 
       entityConversionService.prepareParentProperties(context);
+
+      // Handle task-scoped variables
       String taskId = c7Variable.getTaskId();
-      if (taskId != null && !isMigrated(taskId, HISTORY_USER_TASK)) {
-        // Skip variable if it belongs to a skipped task
-        markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_BELONGS_TO_SKIPPED_TASK);
-        HistoryMigratorLogs.skippingHistoricVariableDueToMissingTask(c7VariableId, taskId);
-        return;
-      } else if (taskId != null) {
-        VariableDbModel dbModel = convertVariable(context);
-        if (dbModel.processInstanceKey() == null) {
-          markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
-        } else if (dbModel.scopeKey() == null) {
+      if (taskId != null) {
+        if (!isMigrated(taskId, HISTORY_USER_TASK)) {
           markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_BELONGS_TO_SKIPPED_TASK);
-          HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
-        } else {
-          insertVariable(c7Variable, dbModel, c7VariableId);
+          HistoryMigratorLogs.skippingHistoricVariableDueToMissingTask(c7VariableId, taskId);
+          return;
         }
+        processVariableConversion(c7Variable, context, c7VariableId);
+        return;
       }
 
+      // Handle process-scoped variables
       String c7ProcessInstanceId = c7Variable.getProcessInstanceId();
-      if (isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-        if (isMigrated(c7Variable.getActivityInstanceId(), HISTORY_FLOW_NODE) ||
-            isMigrated(c7Variable.getActivityInstanceId(), HISTORY_PROCESS_INSTANCE)) {
-          ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
-          Long processInstanceKey = processInstance.processInstanceKey();
-          Long scopeKey = findScopeKey(c7Variable.getActivityInstanceId());
-          variableDbModelBuilder
-              .processInstanceKey(processInstanceKey);
-          if (scopeKey != null) {
+      if (!isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        processVariableConversion(c7Variable, context, c7VariableId);
+        return;
+      }
 
-            variableDbModelBuilder
-                .scopeKey(scopeKey);
+      // Process instance exists, prepare keys
+      ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
+      Long processInstanceKey = processInstance.processInstanceKey();
+      variableDbModelBuilder.processInstanceKey(processInstanceKey);
 
-            VariableDbModel dbModel = convertVariable(context);
-            insertVariable(c7Variable, dbModel, c7VariableId);
-          } else {
-            VariableDbModel dbModel = convertVariable(context);
-            if (dbModel.scopeKey() == null) {
-              markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-              HistoryMigratorLogs.skippingHistoricVariableDueToMissingFlowNode(c7VariableId);
-            } else {
-              insertVariable(c7Variable, dbModel, c7VariableId);
-            }
-          }
-        } else {
-          VariableDbModel dbModel = convertVariable(context);
-          if (dbModel.scopeKey() == null) {
-            markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_FLOW_NODE);
-            HistoryMigratorLogs.skippingHistoricVariableDueToMissingFlowNode(c7VariableId);
-          } else {
-            insertVariable(c7Variable, dbModel, c7VariableId);
-          }
-        }
-      } else {
-        VariableDbModel dbModel = convertVariable(context);
-        if (dbModel.processInstanceKey() == null) {
-          markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
-        } else if (dbModel.scopeKey() == null) {
-          markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-          HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
-        } else {
-          insertVariable(c7Variable, dbModel, c7VariableId);
+      // Check if activity instance is migrated
+      String activityInstanceId = c7Variable.getActivityInstanceId();
+      if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) ||
+          isMigrated(activityInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        Long scopeKey = findScopeKey(activityInstanceId);
+        if (scopeKey != null) {
+          variableDbModelBuilder.scopeKey(scopeKey);
         }
       }
+
+      processVariableConversion(c7Variable, context, c7VariableId);
     }
   }
 
+  private void processVariableConversion(HistoricVariableInstance c7Variable,
+                                         EntityConversionContext<?, ?> context,
+                                         String c7VariableId) {
+    VariableDbModel dbModel = convertVariable(context);
+
+    if (dbModel.processInstanceKey() == null) {
+      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
+    } else if (dbModel.scopeKey() == null) {
+      String skipReason = c7Variable.getTaskId() != null
+          ? SKIP_REASON_BELONGS_TO_SKIPPED_TASK
+          : SKIP_REASON_MISSING_SCOPE_KEY;
+      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), skipReason);
+
+      if (c7Variable.getTaskId() != null) {
+        HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
+      } else {
+        HistoryMigratorLogs.skippingHistoricVariableDueToMissingFlowNode(c7VariableId);
+      }
+    } else {
+      insertVariable(c7Variable, dbModel, c7VariableId);
+    }
+  }
   protected void insertVariable(HistoricVariableInstance c7Variable, VariableDbModel dbModel, String c7VariableId) {
     c8Client.insertVariable(dbModel);
     markMigrated(c7VariableId, dbModel.variableKey(), c7Variable.getCreateTime(), HISTORY_VARIABLE);
