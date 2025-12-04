@@ -10,6 +10,17 @@ package io.camunda.migrator;
 import static io.camunda.migrator.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migrator.MigratorMode.MIGRATE;
 import static io.camunda.migrator.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
+import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
@@ -20,16 +31,6 @@ import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROC
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
-import static io.camunda.migrator.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
 import static io.camunda.migrator.impl.persistence.IdKeyMapper.getHistoryTypes;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
@@ -50,7 +51,6 @@ import io.camunda.migrator.config.C8DataSourceConfigured;
 import io.camunda.migrator.converter.DecisionDefinitionConverter;
 import io.camunda.migrator.converter.DecisionInstanceConverter;
 import io.camunda.migrator.converter.DecisionRequirementsDefinitionConverter;
-import io.camunda.migrator.converter.IncidentConverter;
 import io.camunda.migrator.impl.EntityConversionService;
 import io.camunda.migrator.impl.clients.C7Client;
 import io.camunda.migrator.impl.clients.C8Client;
@@ -107,8 +107,6 @@ public class HistoryMigrator {
   @Autowired
   protected DecisionInstanceConverter decisionInstanceConverter;
 
-  @Autowired
-  protected IncidentConverter incidentConverter;
 
   @Autowired
   protected DecisionDefinitionConverter decisionDefinitionConverter;
@@ -433,25 +431,71 @@ public class HistoryMigrator {
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       ProcessInstanceEntity c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
+      IncidentDbModel.Builder incidentDbModelBuilder = new IncidentDbModel.Builder();
+      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7Incident,
+          HistoricIncident.class, incidentDbModelBuilder, processEngine);
+
+      entityConversionService.prepareParentProperties(context);
       if (c7ProcessInstance != null) {
         Long processInstanceKey = c7ProcessInstance.processInstanceKey();
+        incidentDbModelBuilder
+            .processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
           Long flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           Long processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
           Long jobDefinitionKey = null; // TODO Job table doesn't exist yet.
-          IncidentDbModel dbModel = incidentConverter.apply(c7Incident, processDefinitionKey, processInstanceKey, jobDefinitionKey, flowNodeInstanceKey);
-          c8Client.insertIncident(dbModel);
-          markMigrated(c7IncidentId, dbModel.incidentKey(), c7Incident.getCreateTime(), HISTORY_INCIDENT);
-          HistoryMigratorLogs.migratingHistoricIncidentCompleted(c7IncidentId);
+
+
+          incidentDbModelBuilder
+              .processDefinitionKey(processDefinitionKey)
+              .jobKey(jobDefinitionKey)
+              .flowNodeInstanceKey(flowNodeInstanceKey);
+
+          IncidentDbModel dbModel = convertIncident(context);
+          insertIncident(c7Incident, dbModel, c7IncidentId);
         } else {
-          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
-          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          IncidentDbModel dbModel = convertIncident(context);
+          if (dbModel.processInstanceKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          } else if (dbModel.processDefinitionKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PROCESS_DEFINITION);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          } else if (dbModel.flowNodeInstanceKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          }else if (dbModel.jobKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          }
+          else {
+            insertIncident(c7Incident, dbModel, c7IncidentId);
+          }
         }
       } else {
-        markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-        HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        IncidentDbModel dbModel = convertIncident(context);
+        if (dbModel.processInstanceKey() == null) {
+          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        } else {
+          insertIncident(c7Incident, dbModel, c7IncidentId);
+        }
       }
     }
+  }
+
+    protected void insertIncident(HistoricIncident c7Incident,
+                                  IncidentDbModel dbModel,
+                                  String c7IncidentId) {
+      c8Client.insertIncident(dbModel);
+      markMigrated(c7IncidentId, dbModel.incidentKey(), c7Incident.getCreateTime(), HISTORY_INCIDENT);
+      HistoryMigratorLogs.migratingHistoricIncidentCompleted(c7IncidentId);
+    }
+
+  protected IncidentDbModel convertIncident(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    IncidentDbModel.Builder builder = (IncidentDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
   }
 
   public void migrateVariables() {/**

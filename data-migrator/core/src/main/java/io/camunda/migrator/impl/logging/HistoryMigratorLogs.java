@@ -31,6 +31,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE = "Missing parent decision instance";
+  public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
 
   // HistoryMigrator Messages
   public static final String MIGRATING_DEFINITIONS = "Migrating {} definitions";
