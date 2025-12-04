@@ -71,7 +71,7 @@ public class EntityConversionService {
     if (hasInterceptors()) {
       for (EntityInterceptor interceptor : configuredEntityInterceptors) {
         // Only execute interceptors that support this entity type
-        if (EntityTypeDetector.supportsEntity(interceptor, context)) {
+        if (EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context)) {
           executeInterceptor(interceptor, context);
         }
       }
