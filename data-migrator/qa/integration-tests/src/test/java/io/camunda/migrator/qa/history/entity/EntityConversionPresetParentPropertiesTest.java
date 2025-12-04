@@ -43,10 +43,10 @@ import org.springframework.test.context.TestPropertySource;
 public class EntityConversionPresetParentPropertiesTest {
 
   @Autowired
-  private EntityConversionService entityConversionService;
+  protected EntityConversionService entityConversionService;
 
   @Autowired
-  private List<EntityInterceptor> configuredEntityInterceptors;
+  protected List<EntityInterceptor> configuredEntityInterceptors;
 
   @Test
   void shouldHaveCustomInterceptorConfigured() {
@@ -69,7 +69,7 @@ public class EntityConversionPresetParentPropertiesTest {
         new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
 
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModel.ProcessInstanceDbModelBuilder> context =
-        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder);
+        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder, null);
 
     // when
     entityConversionService.prepareParentProperties(context);
@@ -96,7 +96,7 @@ public class EntityConversionPresetParentPropertiesTest {
         new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
 
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModel.ProcessInstanceDbModelBuilder> context =
-        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder);
+        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder, null);
 
     // when
     entityConversionService.prepareParentProperties(context);
@@ -124,7 +124,7 @@ public class EntityConversionPresetParentPropertiesTest {
         new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
 
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModel.ProcessInstanceDbModelBuilder> context =
-        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder);
+        new EntityConversionContext<>(mockProcessInstance, HistoricProcessInstance.class, builder, null);
 
     // when - prepareParentProperties is called first
     entityConversionService.prepareParentProperties(context);
@@ -158,9 +158,9 @@ public class EntityConversionPresetParentPropertiesTest {
    * Stub implementation of HistoricProcessInstance for testing.
    */
   static class StubHistoricProcessInstance implements HistoricProcessInstance {
-    private final String id;
-    private final String processDefinitionId;
-    private final String superProcessInstanceId;
+    protected final String id;
+    protected final String processDefinitionId;
+    protected final String superProcessInstanceId;
 
     StubHistoricProcessInstance(String id, String processDefinitionId, String superProcessInstanceId) {
       this.id = id;

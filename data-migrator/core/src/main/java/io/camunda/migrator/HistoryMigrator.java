@@ -202,7 +202,7 @@ public class HistoryMigrator {
     return builder.build();
   }
 
-  protected void migrateProcessInstances() {
+  public void migrateProcessInstances() {
     HistoryMigratorLogs.migratingProcessInstances();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_INSTANCE, idKeyDbModel -> {
@@ -273,8 +273,7 @@ public class HistoryMigrator {
   protected ProcessInstanceDbModel convertProcessDefinition(EntityConversionContext<?, ?> context) {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
-    ProcessInstanceDbModel dbModel = builder.build();
-    return dbModel;
+    return builder.build();
   }
 
   protected void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
