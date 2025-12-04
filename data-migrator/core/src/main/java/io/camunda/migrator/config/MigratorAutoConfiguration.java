@@ -13,6 +13,7 @@ import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
 import io.camunda.migrator.IdentityMigrator;
+import io.camunda.migrator.impl.EntityConversionService;
 import io.camunda.migrator.impl.SchemaShutdownCleaner;
 import io.camunda.migrator.impl.AutoDeployer;
 import com.zaxxer.hikari.HikariDataSource;
@@ -61,6 +62,7 @@ import org.springframework.transaction.PlatformTransactionManager;
     C8Client.class,
     DbClient.class,
     VariableService.class,
+    EntityConversionService.class,
     RuntimeValidator.class,
     HistoryMigrator.class,
     RuntimeMigrator.class,
