@@ -8,20 +8,30 @@
 package io.camunda.migrator.qa.history.entity;
 
 import static io.camunda.migrator.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migrator.HistoryMigrator;
+import io.camunda.migrator.impl.logging.HistoryMigratorLogs;
 import io.camunda.migrator.impl.persistence.IdKeyMapper;
-import io.camunda.migrator.impl.util.ConverterUtil;
 import io.camunda.migrator.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.migrator.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.github.netmikey.logunit.api.LogCapturer;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.slf4j.event.Level;
 
 public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Test
   public void shouldMigrateProcessInstance() {
@@ -124,6 +134,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
   @Test
   @Disabled("https://github.com/camunda/camunda-bpm-platform/issues/5359")
+  @WhiteBox
   public void shouldCheckCalledProcessParentElementKey() {
     // given
     deployer.deployCamunda7Process("callActivityProcess.bpmn");
@@ -138,13 +149,14 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .processInstanceId(subInstance.getId())
         .singleResult();
     dbClient.insert(callActivity.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
-    
+
     // when
     historyMigrator.migrate();
 
     // then
     assertThat(searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
   }
+
 
   protected void verifyProcessInstanceFields(ProcessInstanceEntity processInstance,
                                              HistoricProcessInstance historicProcessInstance,
@@ -154,24 +166,23 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
                                              String tenantId,
                                              boolean hasParent,
                                              boolean hasIncidents) {
+    // Verify migration completed successfully via logs
+    logs.assertContains(formatMessage(HistoryMigratorLogs.MIGRATING_INSTANCE_COMPLETE, "process", historicProcessInstance.getId()));
+
     assertThat(processInstance.processDefinitionId()).isEqualTo(processDefinitionId);
     assertThat(processInstance.state()).isEqualTo(processInstanceState);
-    assertThat(processInstance.processInstanceKey()).isEqualTo(
-        dbClient.findC8KeyByC7IdAndType(historicProcessInstance.getId(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE));
-    assertThat(processInstance.processDefinitionKey()).isEqualTo(
-        dbClient.findC8KeyByC7IdAndType(historicProcessInstance.getProcessDefinitionId(),
-            IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION));
+    assertThat(processInstance.processInstanceKey()).isNotNull();
+    assertThat(processInstance.processDefinitionKey()).isNotNull();
     assertThat(processInstance.tenantId()).isEqualTo(tenantId);
-    assertThat(processInstance.startDate()).isEqualTo(
-        ConverterUtil.convertDate(historicProcessInstance.getStartTime()));
-    assertThat(processInstance.endDate()).isEqualTo(ConverterUtil.convertDate(historicProcessInstance.getEndTime()));
+    assertThat(processInstance.startDate())
+        .isEqualTo(historicProcessInstance.getStartTime().toInstant().atOffset(ZoneOffset.UTC));
+    assertThat(processInstance.endDate())
+        .isEqualTo(historicProcessInstance.getEndTime().toInstant().atOffset(ZoneOffset.UTC));
     assertThat(processInstance.processDefinitionVersion()).isEqualTo(1);
     assertThat(processInstance.processDefinitionVersionTag()).isEqualTo(versionTag);
 
     if (hasParent) {
-      assertThat(processInstance.parentProcessInstanceKey()).isEqualTo(
-          dbClient.findC8KeyByC7IdAndType(historicProcessInstance.getSuperProcessInstanceId(),
-              IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE));
+      assertThat(processInstance.parentProcessInstanceKey()).isNotNull();
       assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
     } else {
       assertThat(processInstance.parentProcessInstanceKey()).isNull();

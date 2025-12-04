@@ -69,14 +69,9 @@ public class EntityConversionService {
   public <C7, C8> EntityConversionContext<C7, C8> convertWithContext(
       EntityConversionContext<C7, C8> context) {
     if (hasInterceptors()) {
-      // Filter interceptors by entity type
-      List<EntityInterceptor> applicableInterceptors = configuredEntityInterceptors.stream()
-          .filter(interceptor -> EntityTypeDetector.supportsEntityType(interceptor, context.getEntityType()))
-          .toList();
-
       for (EntityInterceptor interceptor : configuredEntityInterceptors) {
         // Only execute interceptors that support this entity type
-        if (EntityTypeDetector.supportsEntity(interceptor, context)) {
+        if (EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context)) {
           executeInterceptor(interceptor, context);
         }
       }
@@ -97,13 +92,12 @@ public class EntityConversionService {
    * @throws EntityInterceptorException if the interceptor execution fails
    */
   protected void executeInterceptor(EntityInterceptor interceptor, EntityConversionContext<?, ?> context) {
+    String interceptorName = interceptor.getClass().getSimpleName();
+    String entityType = context.getEntityType().getSimpleName();
     try {
-      EntityConversionServiceLogs.logExecutingInterceptor(interceptor.getClass().getSimpleName(),
-          context.getEntityType().getSimpleName());
+      EntityConversionServiceLogs.logExecutingInterceptor(interceptorName, entityType);
       interceptor.execute(context);
     } catch (Exception ex) {
-      String interceptorName = interceptor.getClass().getSimpleName();
-      String entityType = context.getEntityType().getSimpleName();
       EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
 
       if (ex instanceof EntityInterceptorException) {

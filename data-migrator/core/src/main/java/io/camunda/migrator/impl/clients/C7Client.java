@@ -12,6 +12,7 @@ import static io.camunda.migrator.impl.logging.C7ClientLogs.FAILED_TO_FETCH_BPMN
 import static io.camunda.migrator.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DEPLOYMENT_TIME;
 import static io.camunda.migrator.impl.logging.C7ClientLogs.FAILED_TO_FETCH_HISTORIC_ELEMENT;
 import static io.camunda.migrator.impl.logging.C7ClientLogs.FAILED_TO_FETCH_PROCESS_INSTANCE;
+import static io.camunda.migrator.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
 import static io.camunda.migrator.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
 
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.camunda.bpm.engine.HistoryService;
+import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
@@ -32,6 +34,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
@@ -39,6 +42,7 @@ import org.camunda.bpm.engine.impl.HistoricProcessInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
+import org.camunda.bpm.engine.impl.TenantQueryImpl;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -64,13 +68,16 @@ public class C7Client {
   protected HistoryService historyService;
 
   @Autowired
-  private RepositoryService repositoryService;
+  protected RepositoryService repositoryService;
 
   @Autowired
   protected MigratorProperties properties;
 
   @Autowired
   protected ApplicationContext context;
+
+  @Autowired
+  private IdentityService identityService;
 
   /**
    * Gets a single process instance by ID.
@@ -461,6 +468,19 @@ public class C7Client {
         .query(query)
         .maxCount(query::count)
         .callback(callback);
+  }
+
+  /**
+   * Fetches tenant entities
+   */
+  public List<Tenant> fetchTenants(String idAfter) {
+    return callApi(() -> (
+        (TenantQueryImpl) identityService.createTenantQuery())
+        .idAfter(idAfter)
+        .orderByTenantId()
+        .asc()
+        .list(),
+        FAILED_TO_FETCH_TENANTS);
   }
 
 }

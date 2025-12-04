@@ -30,9 +30,11 @@ public interface IdKeyMapper {
     HISTORY_DECISION_DEFINITION("Historic Decision Definition"),
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
 
-    RUNTIME_PROCESS_INSTANCE("Process Instance");
+    RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
-    private final String displayName;
+    TENANT("Tenant");
+
+    protected final String displayName;
 
     TYPE(String displayName) {
       this.displayName = displayName;
@@ -66,6 +68,8 @@ public interface IdKeyMapper {
   boolean checkHasC8KeyByC7IdAndType(@Param("type") TYPE type, @Param("c7Id") String c7Id);
 
   Date findLatestCreateTimeByType(TYPE type);
+
+  String findLatestIdByType(TYPE type);
 
   Long findC8KeyByC7IdAndType(@Param("c7Id") String id, @Param("type") TYPE type);
 

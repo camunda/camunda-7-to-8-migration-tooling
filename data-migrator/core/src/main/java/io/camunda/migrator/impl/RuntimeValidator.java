@@ -179,7 +179,7 @@ public class RuntimeValidator {
   /**
    * Parses BPMN model instance from XML string.
    */
-  private io.camunda.zeebe.model.bpmn.BpmnModelInstance parseBpmnModel(String xmlString) {
+  protected io.camunda.zeebe.model.bpmn.BpmnModelInstance parseBpmnModel(String xmlString) {
     return callApi(() -> readModelFromStream(new ByteArrayInputStream(xmlString.getBytes(StandardCharsets.UTF_8))),
         FAILED_TO_PARSE_BPMN_MODEL);
   }
@@ -187,7 +187,7 @@ public class RuntimeValidator {
   /**
    * Checks if an activity is a multi-instance activity either by its ID suffix or its characteristics
    */
-  private boolean isMultiInstanceActivity(String activityId, FlowElement element) {
+  protected boolean isMultiInstanceActivity(String activityId, FlowElement element) {
     boolean isMultiInstanceBody = activityId.endsWith(MULTI_INSTANCE_BODY_SUFFIX);
     if (isMultiInstanceBody) {
       return true;
@@ -245,7 +245,7 @@ public class RuntimeValidator {
   /**
    * Checks if a tenant ID is present and not empty.
    */
-  private boolean hasTenant(String tenantId) {
+  protected boolean hasTenant(String tenantId) {
     return !StringUtils.isEmpty(tenantId);
   }
 }

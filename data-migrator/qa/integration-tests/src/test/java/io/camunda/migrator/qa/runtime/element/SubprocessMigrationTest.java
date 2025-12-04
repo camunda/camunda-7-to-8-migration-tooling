@@ -9,6 +9,8 @@
 package io.camunda.migrator.qa.runtime.element;
 
 import static io.camunda.migrator.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
+import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
@@ -31,7 +33,7 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
 
   @Test
-  public void migrateCallActivityAndSubprocess() {
+  public void shouldMigrateCallActivityAndSubprocess() {
     // given
     deployer.deployProcessInC7AndC8("calledActivitySubprocess.bpmn");
     deployer.deployProcessInC7AndC8("callActivityProcess.bpmn");
@@ -75,8 +77,8 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     assertThatProcessInstanceCountIsEqualTo(0);
 
     // verify the correct error message was logged
-    logs.assertContains(String.format("Skipping process instance with C7 ID [%s]: " + CALL_ACTIVITY_LEGACY_ID_ERROR,
-                parentInstance.getId(), "callActivityId"));
+    logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR,
+        parentInstance.getId(), formatMessage(CALL_ACTIVITY_LEGACY_ID_ERROR, "callActivityId")));
   }
 
   @Test

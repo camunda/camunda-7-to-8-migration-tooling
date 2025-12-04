@@ -38,13 +38,13 @@ import org.springframework.test.context.TestPropertySource;
 public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest {
 
   @Autowired
-  private List<VariableInterceptor> configuredVariableInterceptors;
+  protected List<VariableInterceptor> configuredVariableInterceptors;
 
   @Autowired
-  private UniversalInterceptor universalInterceptor;
+  protected UniversalInterceptor universalInterceptor;
 
   @Autowired
-  private StringOnlyInterceptor stringOnlyInterceptor;
+  protected StringOnlyInterceptor stringOnlyInterceptor;
 
   @BeforeEach
   void setUp() {
@@ -159,20 +159,18 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
 
   @Test
   public void shouldInvokeTestInterceptor() {
-    // deploy processes
+    // given
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
     deployer.deployProcessInC7AndC8("userTaskProcess.bpmn");
-
-    // given processes state in c7
     var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.setVariable(simpleProcessInstance.getId(), "varIntercept", "value");
     simpleProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
     runtimeService.setVariable(simpleProcessInstance.getId(), "varIntercept", "value");
 
-    // when running runtime migration
+    // when
     runtimeMigrator.start();
 
-    // then two instances and two interceptor invocations
+    // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("varIntercept", "Hello");
     CamundaAssert.assertThat(byProcessId("userTaskProcessId"))
@@ -181,18 +179,15 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
 
   @Test
   public void shouldSkipProcessInstanceDueToExceptionFromInterceptor() {
-    // deploy processes
+    // given
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-
-    // given processes state in c7
     var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", true);
-
-    // run migration first time
     runtimeMigrator.start();
 
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
-    // when run runtime migration again with RETRY_SKIPPED mode
+
+    // when
     runtimeMigrator.setMode(RETRY_SKIPPED);
     runtimeMigrator.start();
 

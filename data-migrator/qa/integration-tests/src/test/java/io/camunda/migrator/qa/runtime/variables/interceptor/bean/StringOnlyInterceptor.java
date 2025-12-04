@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("programmatic")
 public class StringOnlyInterceptor implements VariableInterceptor {
-  private final AtomicInteger executionCount = new AtomicInteger(0);
+  protected final AtomicInteger executionCount = new AtomicInteger(0);
 
   @Override
   public Set<Class<?>> getTypes() {

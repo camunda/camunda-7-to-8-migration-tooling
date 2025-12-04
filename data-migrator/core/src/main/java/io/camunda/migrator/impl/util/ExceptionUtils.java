@@ -9,6 +9,7 @@ package io.camunda.migrator.impl.util;
 
 import io.camunda.client.api.command.ClientException;
 import io.camunda.migrator.exception.HistoryMigratorException;
+import io.camunda.migrator.exception.IdentityMigratorException;
 import io.camunda.migrator.exception.MigratorException;
 import io.camunda.migrator.exception.RuntimeMigratorException;
 import java.util.function.Supplier;
@@ -19,11 +20,12 @@ import org.slf4j.LoggerFactory;
 
 public class ExceptionUtils {
 
-  private static final ThreadLocal<ExceptionContext> EXCEPTION_CONTEXT = ThreadLocal.withInitial(() -> null);
+  protected static final ThreadLocal<ExceptionContext> EXCEPTION_CONTEXT = ThreadLocal.withInitial(() -> null);
 
   public enum ExceptionContext {
     RUNTIME,
-    HISTORY
+    HISTORY,
+    IDENTITY
   }
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ExceptionUtils.class);
@@ -72,6 +74,8 @@ public class ExceptionUtils {
 
     if (context == ExceptionContext.HISTORY) {
       exception = new HistoryMigratorException(message, e);
+    } else if (context == ExceptionContext.IDENTITY) {
+      exception = new IdentityMigratorException(message, e);
     } else {
       // Default to RuntimeMigratorException
       exception = new RuntimeMigratorException(message, e);

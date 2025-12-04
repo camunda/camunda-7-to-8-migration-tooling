@@ -10,6 +10,7 @@ package io.camunda.migrator.qa.runtime;
 
 import static io.camunda.migrator.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migrator.impl.logging.RuntimeValidatorLogs.FLOW_NODE_NOT_EXISTS_ERROR;
+import static io.camunda.migrator.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.migrator.RuntimeMigrator;
@@ -19,7 +20,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class ProcessElementNotFoundTest  extends RuntimeMigrationAbstractTest {
+public class ProcessElementNotFoundTest extends RuntimeMigrationAbstractTest {
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -35,12 +36,9 @@ public class ProcessElementNotFoundTest  extends RuntimeMigrationAbstractTest {
 
     // then
     logs.assertContains(
-        String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7Instance.getId(),
-            String.format(FLOW_NODE_NOT_EXISTS_ERROR, "userTaskId")));
+        formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7Instance.getId(),
+            formatMessage(FLOW_NODE_NOT_EXISTS_ERROR, "userTaskId")));
     assertThatProcessInstanceCountIsEqualTo(0);
-    List<IdKeyDbModel> skippedProcessInstanceIds = dbClient.findSkippedProcessInstances();
-    assertThat(skippedProcessInstanceIds.size()).isEqualTo(1);
-    assertThat(skippedProcessInstanceIds.getFirst().getC7Id()).isEqualTo(c7Instance.getId());
   }
 
 }

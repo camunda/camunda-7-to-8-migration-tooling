@@ -22,9 +22,10 @@ public class RuntimeMigratorLogs {
   // RuntimeMigrator Messages
   public static final String STARTING_NEW_C8_PROCESS_INSTANCE = "Starting new C8 process instance with C7 ID: [{}]";
   public static final String STARTED_C8_PROCESS_INSTANCE = "Started C8 process instance with processInstanceKey: [{}]";
-  public static final String SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR = "Skipping process instance with C7 ID: {}; due to: {} Enable DEBUG level to print the stacktrace.";
+public static final String ENABLE_DEBUG_LOGGING = "Enable DEBUG level to print the stacktrace.";
   public static final String STACKTRACE = "Stacktrace:";
   public static final String SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR = "Skipping process instance with C7 ID [{}]: {}";
+  public static final String SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR = SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR + " Enable DEBUG level to print the stacktrace.";
   public static final String FETCHING_PROCESS_INSTANCES = "Fetching process instances to migrate";
   public static final String FETCHING_LATEST_CREATE_TIME = "Fetching latest create time of process instances";
   public static final String LATEST_CREATE_TIME = "Latest create time: {}";

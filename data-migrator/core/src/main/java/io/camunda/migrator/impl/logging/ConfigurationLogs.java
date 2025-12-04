@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ConfigurationLogs {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationLogs.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationLogs.class);
 
   // Error Messages
   public static final String ERROR_CLASS_NAME_NULL_OR_EMPTY = "Variable interceptor class name cannot be null or empty";
