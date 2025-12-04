@@ -11,35 +11,51 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migrator.constants.MigratorConstants;
+import io.camunda.migrator.exception.EntityInterceptorException;
 import io.camunda.migrator.impl.logging.VariableConverterLogs;
 import io.camunda.migrator.impl.util.ConverterUtil;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.variable.impl.value.NullValueImpl;
 import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
 import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Set;
+
 import static io.camunda.migrator.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 
-public class VariableConverter {
+public class VariableConverter implements EntityInterceptor {
 
   @Autowired
   protected ObjectMapper objectMapper;
 
-  public VariableDbModel apply(HistoricVariableInstance historicVariable, Long processInstanceKey, Long scopeKey) {
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricVariableInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricVariableInstance historicVariable = (HistoricVariableInstance) context.getC7Entity();
+    VariableDbModel.VariableDbModelBuilder builder =
+        (VariableDbModel.VariableDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 VariableDbModel.VariableDbModelBuilder is null in context");
+    }
+
     // TODO currently the VariableDbModelBuilder maps all variables to String type
-    return new VariableDbModel.VariableDbModelBuilder()
-        .variableKey(getNextKey())
+    builder.variableKey(getNextKey())
         .name(historicVariable.getName())
         .value(convertValue(historicVariable)) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5329
-        .scopeKey(scopeKey)
-        .processInstanceKey(processInstanceKey)
         .processDefinitionId(historicVariable.getProcessDefinitionKey())
         .tenantId(ConverterUtil.getTenantId(historicVariable.getTenantId()))
         .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID)
-        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()))
-        .build();
+        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()));
+    // Note: processInstanceKey and scopeKey are set externally
   }
 
   protected String convertValue(HistoricVariableInstance variable) {
