@@ -78,4 +78,35 @@ public class RetrievePaymentAdapter {
 }
 """));
   }
+
+  @Test
+  void shouldHandleClassWithUnusedJavaDelegateImportButNoImplementsClause() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupDelegateRecipe()),
+        java(
+"""
+package org.camunda.conversion.java_delegates;
+
+import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.camunda.bpm.engine.delegate.JavaDelegate;
+import org.springframework.stereotype.Component;
+
+@Component("myDelegate")
+public class MyDelegate {
+    
+    public void execute(DelegateExecution execution) {
+        // noop
+    }
+}
+""",
+"""
+package org.camunda.conversion.java_delegates;
+
+import org.springframework.stereotype.Component;
+
+@Component("myDelegate")
+public class MyDelegate {
+}
+"""));
+  }
 }
