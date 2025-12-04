@@ -10,6 +10,7 @@ package io.camunda.migrator.config.mybatis;
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
+import io.camunda.db.rdbms.read.service.AuditLogDbReader;
 import io.camunda.db.rdbms.read.service.AuthorizationDbReader;
 import io.camunda.db.rdbms.read.service.BatchOperationDbReader;
 import io.camunda.db.rdbms.read.service.BatchOperationItemDbReader;
@@ -38,6 +39,7 @@ import io.camunda.db.rdbms.read.service.UserDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
 import io.camunda.db.rdbms.read.service.ClusterVariableDbReader;
+import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.AuthorizationMapper;
 import io.camunda.db.rdbms.sql.BatchOperationMapper;
 import io.camunda.db.rdbms.sql.CorrelatedMessageSubscriptionMapper;
@@ -140,6 +142,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public MapperFactoryBean<AuthorizationMapper> authorizationMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, AuthorizationMapper.class);
+  }
+
+  @Bean
+  public MapperFactoryBean<AuditLogMapper> auditLogMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, AuditLogMapper.class);
   }
 
   @Bean
@@ -288,6 +295,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public AuditLogDbReader auditLogReader(AuditLogMapper auditLogMapper) {
+    return new AuditLogDbReader(auditLogMapper);
+  }
+
+  @Bean
   public DecisionDefinitionDbReader decisionDefinitionReader(
       DecisionDefinitionMapper decisionDefinitionMapper) {
     return new DecisionDefinitionDbReader(decisionDefinitionMapper);
@@ -426,6 +438,7 @@ public class C8Configuration extends AbstractConfiguration {
       @Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory,
       ExporterPositionMapper exporterPositionMapper,
       VendorDatabaseProperties dbVendorProvider,
+      AuditLogMapper auditLogMapper,
       DecisionInstanceMapper decisionInstanceMapper,
       FlowNodeInstanceMapper flowNodeInstanceMapper,
       IncidentMapper incidentMapper,
@@ -447,6 +460,7 @@ public class C8Configuration extends AbstractConfiguration {
         c8SqlSessionFactory,
         exporterPositionMapper,
         dbVendorProvider,
+        auditLogMapper,
         decisionInstanceMapper,
         flowNodeInstanceMapper,
         incidentMapper,
@@ -469,7 +483,7 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public RdbmsService rdbmsService(
       RdbmsWriterFactory rdbmsWriterFactory,
-      VariableDbReader variableReader,
+      AuditLogDbReader auditLogReader,
       AuthorizationDbReader authorizationReader,
       DecisionDefinitionDbReader decisionDefinitionReader,
       DecisionInstanceDbReader decisionInstanceReader,
@@ -480,6 +494,8 @@ public class C8Configuration extends AbstractConfiguration {
       IncidentDbReader incidentReader,
       ProcessDefinitionDbReader processDefinitionReader,
       ProcessInstanceDbReader processInstanceReader,
+      VariableDbReader variableReader,
+      ClusterVariableDbReader clusterVariableReader,
       RoleDbReader roleReader,
       RoleMemberDbReader roleMemberReader,
       TenantDbReader tenantReader,
@@ -495,10 +511,10 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
-      ClusterVariableDbReader clusterVariableReader) {
+      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
+        auditLogReader,
         authorizationReader,
         decisionDefinitionReader,
         decisionInstanceReader,
