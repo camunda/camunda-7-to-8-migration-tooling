@@ -48,9 +48,6 @@ import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migrator.config.C8DataSourceConfigured;
-import io.camunda.migrator.converter.DecisionDefinitionConverter;
-import io.camunda.migrator.converter.DecisionInstanceConverter;
-import io.camunda.migrator.converter.DecisionRequirementsDefinitionConverter;
 import io.camunda.migrator.impl.EntityConversionService;
 import io.camunda.migrator.impl.clients.C7Client;
 import io.camunda.migrator.impl.clients.C8Client;
@@ -101,18 +98,6 @@ public class HistoryMigrator {
 
   @Autowired
   protected ProcessEngine processEngine;
-
-  // Converters
-
-  @Autowired
-  protected DecisionInstanceConverter decisionInstanceConverter;
-
-
-  @Autowired
-  protected DecisionDefinitionConverter decisionDefinitionConverter;
-
-  @Autowired
-  protected DecisionRequirementsDefinitionConverter decisionRequirementsConverter;
 
   protected MigratorMode mode = MIGRATE;
 
@@ -290,12 +275,25 @@ public class HistoryMigrator {
     String c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
       HistoryMigratorLogs.migratingDecisionRequirements(c7Id);
-      DecisionRequirementsDbModel dbModel = decisionRequirementsConverter.apply(c7DecisionRequirements);
+
+      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder =
+          new DecisionRequirementsDbModel.Builder();
+      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7DecisionRequirements,
+          DecisionRequirementsDefinition.class, decisionRequirementsDbModelBuilder, processEngine);
+
+      DecisionRequirementsDbModel dbModel = convertDecisionRequirements(context); // TODO try catch for skipping mechanism
       c8Client.insertDecisionRequirements(dbModel);
       Date deploymentTime = c7Client.getDefinitionDeploymentTime(c7DecisionRequirements.getDeploymentId());
       markMigrated(c7Id, dbModel.decisionRequirementsKey(), deploymentTime, HISTORY_DECISION_REQUIREMENT);
       HistoryMigratorLogs.migratingDecisionRequirementsCompleted(c7Id);
     }
+  }
+
+  protected DecisionRequirementsDbModel convertDecisionRequirements(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    DecisionRequirementsDbModel.Builder builder =
+        (DecisionRequirementsDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
   }
 
   public void migrateDecisionDefinitions() {
@@ -320,6 +318,13 @@ public class HistoryMigrator {
 
       Date deploymentTime = c7Client.getDefinitionDeploymentTime(c7DecisionDefinition.getDeploymentId());
 
+      DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder decisionDefinitionDbModelBuilder =
+          new DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder();
+      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7DecisionDefinition,
+          DecisionDefinition.class, decisionDefinitionDbModelBuilder, processEngine);
+
+      entityConversionService.prepareParentProperties(context);
+
       if (c7DecisionDefinition.getDecisionRequirementsDefinitionId() != null) {
         decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(c7DecisionDefinition.getDecisionRequirementsDefinitionId(),
             HISTORY_DECISION_REQUIREMENT);
@@ -328,14 +333,26 @@ public class HistoryMigrator {
           markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
           HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
           return;
+        } else {
+          // TODO
         }
+      } else {
+        // TODO
       }
+      decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
 
-      DecisionDefinitionDbModel dbModel = decisionDefinitionConverter.apply(c7DecisionDefinition, decisionRequirementsKey);
+      DecisionDefinitionDbModel dbModel = convertDecisionDefinition(context);
       c8Client.insertDecisionDefinition(dbModel);
       markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
       HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
     }
+  }
+
+  protected DecisionDefinitionDbModel convertDecisionDefinition(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder builder =
+        (DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
   }
 
   public void migrateDecisionInstances() {
@@ -351,7 +368,12 @@ public class HistoryMigrator {
     }
   }
 
-  protected void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) {
+  protected void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) { // TODO revise skipping reasons
+    DecisionInstanceDbModel.Builder decisionInstanceDbModelBuilder = new DecisionInstanceDbModel.Builder();
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7DecisionInstance,
+        HistoricDecisionInstance.class, decisionInstanceDbModelBuilder, processEngine);
+
+    entityConversionService.prepareParentProperties(context);
     if (c7DecisionInstance.getProcessDefinitionKey() == null) {
       // only migrate decision instances that were triggered by process definitions
       HistoryMigratorLogs.notMigratingDecisionInstancesNotOriginatingFromBusinessRuleTasks(c7DecisionInstance.getId());
@@ -404,14 +426,28 @@ public class HistoryMigrator {
           c7DecisionInstance.getProcessInstanceId()).processInstanceKey();
       FlowNodeInstanceDbModel flowNode = findFlowNodeInstance(c7DecisionInstance.getActivityInstanceId());
 
-      DecisionInstanceDbModel dbModel = decisionInstanceConverter.apply(c7DecisionInstance,
-          decisionDefinition.decisionDefinitionKey(), processDefinitionKey,
-          decisionDefinition.decisionRequirementsKey(), processInstanceKey, parentDecisionDefinitionKey,
-          flowNode.flowNodeInstanceKey(), flowNode.flowNodeId());
+
+
+      decisionInstanceDbModelBuilder.decisionDefinitionKey(decisionDefinition.decisionDefinitionKey())
+          .processDefinitionKey(processDefinitionKey)
+          .decisionRequirementsKey(decisionDefinition.decisionRequirementsKey())
+          .processInstanceKey(processInstanceKey)
+          .rootDecisionDefinitionKey(parentDecisionDefinitionKey)
+          .flowNodeInstanceKey(flowNode.flowNodeInstanceKey())
+          .flowNodeId(flowNode.flowNodeId());
+
+      DecisionInstanceDbModel dbModel = convertDecisionInstance(context);
       c8Client.insertDecisionInstance(dbModel);
       markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);
       HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
     }
+  }
+
+  protected DecisionInstanceDbModel convertDecisionInstance(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    DecisionInstanceDbModel.Builder builder =
+        (DecisionInstanceDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
   }
 
   public void migrateIncidents() {

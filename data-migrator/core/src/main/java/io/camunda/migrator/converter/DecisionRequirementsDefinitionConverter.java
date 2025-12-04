@@ -11,19 +11,36 @@ import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migrator.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
+import io.camunda.migrator.exception.EntityInterceptorException;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 
-public class DecisionRequirementsDefinitionConverter {
+import java.util.Set;
 
-  public DecisionRequirementsDbModel apply(DecisionRequirementsDefinition c7DecisionRequirements) {
-    return new DecisionRequirementsDbModel.Builder()
-        .decisionRequirementsKey(getNextKey())
+public class DecisionRequirementsDefinitionConverter implements EntityInterceptor {
+
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(DecisionRequirementsDefinition.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    DecisionRequirementsDefinition c7DecisionRequirements = (DecisionRequirementsDefinition) context.getC7Entity();
+    DecisionRequirementsDbModel.Builder builder =
+        (DecisionRequirementsDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 DecisionRequirementsDbModel.Builder is null in context");
+    }
+
+    builder.decisionRequirementsKey(getNextKey())
         .decisionRequirementsId(c7DecisionRequirements.getKey())
         .name(c7DecisionRequirements.getName())
         .resourceName(c7DecisionRequirements.getResourceName())
         .version(c7DecisionRequirements.getVersion())
         .xml(null) // TODO not stored in C7 DecisionRequirementsDefinition
-        .tenantId(getTenantId(c7DecisionRequirements.getTenantId()))
-        .build();
+        .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
   }
 }

@@ -14,25 +14,33 @@ import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migrator.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
-import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.migrator.exception.EntityInterceptorException;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
 import java.util.List;
+import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
 
-public class DecisionInstanceConverter {
+public class DecisionInstanceConverter implements EntityInterceptor {
 
-  public DecisionInstanceDbModel apply(HistoricDecisionInstance decisionInstance,
-                                       Long decisionDefinitionKey,
-                                       Long processDefinitionKey,
-                                       Long decisionRequirementsDefinitionKey,
-                                       Long processInstanceKey,
-                                       Long rootDecisionDefinitionKey,
-                                       Long flowNodeInstanceKey,
-                                       String flowNodeId) {
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricDecisionInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricDecisionInstance decisionInstance = (HistoricDecisionInstance) context.getC7Entity();
+    DecisionInstanceDbModel.Builder builder = (DecisionInstanceDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
+    }
+
     Long decisionInstanceKey = getNextKey();
-    return new DecisionInstanceDbModel.Builder()
-        .partitionId(C7_HISTORY_PARTITION_ID)
+    builder.partitionId(C7_HISTORY_PARTITION_ID)
         .decisionInstanceId(String.format("%d-%s", decisionInstanceKey, decisionInstance.getId()))
         .decisionInstanceKey(decisionInstanceKey)
         .state(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
@@ -40,22 +48,16 @@ public class DecisionInstanceConverter {
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
         .result(String.valueOf(decisionInstance.getCollectResultValue()))
-        .flowNodeInstanceKey(flowNodeInstanceKey)
-        .flowNodeId(flowNodeId)
-        .processInstanceKey(processInstanceKey)
-        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
-        .decisionDefinitionKey(decisionDefinitionKey)
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
-        .decisionRequirementsKey(decisionRequirementsDefinitionKey)
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
-        .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
         .decisionType(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
-        .build();
+        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
+    // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey,
+    // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
