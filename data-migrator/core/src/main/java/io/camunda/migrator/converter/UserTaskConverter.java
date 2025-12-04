@@ -8,39 +8,45 @@
 package io.camunda.migrator.converter;
 
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
-import io.camunda.migrator.constants.MigratorConstants;
-import io.camunda.migrator.impl.util.ConverterUtil;
-import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.migrator.exception.EntityInterceptorException;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
+
+import java.util.Set;
 
 import static io.camunda.migrator.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migrator.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migrator.impl.util.ConverterUtil.getTenantId;
 
-public class UserTaskConverter {
+public class UserTaskConverter implements EntityInterceptor {
 
-  public UserTaskDbModel apply(HistoricTaskInstance historicTask,
-                               Long processDefinitionKey,
-                               ProcessInstanceEntity processInstance,
-                               Long elementInstanceKey) {
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricTaskInstance.class);
+  }
 
-    return new UserTaskDbModel.Builder()
-        .userTaskKey(getNextKey())
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricTaskInstance historicTask = (HistoricTaskInstance) context.getC7Entity();
+    UserTaskDbModel.Builder builder = (UserTaskDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 UserTaskDbModel.Builder is null in context");
+    }
+
+    builder.userTaskKey(getNextKey())
         .elementId(historicTask.getTaskDefinitionKey())
         .processDefinitionId(historicTask.getProcessDefinitionKey())
         .creationDate(convertDate(historicTask.getStartTime()))
         .completionDate(convertDate(historicTask.getEndTime()))
         .assignee(historicTask.getAssignee())
         .state(convertState(historicTask.getTaskState()))
-        .processDefinitionKey(processDefinitionKey)
-        .processInstanceKey(processInstance.processInstanceKey())
         .tenantId(getTenantId(historicTask.getTenantId()))
-        .elementInstanceKey(elementInstanceKey)
         .dueDate(convertDate(historicTask.getDueDate()))
         .followUpDate(convertDate(historicTask.getFollowUpDate()))
         .priority(historicTask.getPriority())
-        .processDefinitionVersion(processInstance.processDefinitionVersion())
         .formKey(null) // TODO  https://github.com/camunda/camunda-bpm-platform/issues/5347
         .candidateGroups(null) //TODO ?
         .candidateUsers(null) //TODO ?
@@ -48,8 +54,8 @@ public class UserTaskConverter {
         .customHeaders(null) //TODO ?
         .historyCleanupDate(convertDate(historicTask.getRemovalTime()))
         .partitionId(C7_HISTORY_PARTITION_ID)
-        .name(historicTask.getName())
-        .build();
+        .name(historicTask.getName());
+    // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
   }
 
   // See TaskEntity.TaskState
