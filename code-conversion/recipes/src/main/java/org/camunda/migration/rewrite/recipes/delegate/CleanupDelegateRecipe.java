@@ -8,6 +8,7 @@
 package org.camunda.migration.rewrite.recipes.delegate;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
@@ -53,12 +54,14 @@ public class CleanupDelegateRecipe extends Recipe {
 
             // Filter out the interface to remove
             List<TypeTree> updatedImplements =
-                classDecl.getImplements().stream()
+                Optional.ofNullable(classDecl.getImplements())
+                    .orElse(List.of())
+                    .stream()
                     .filter(
                         id ->
                             !TypeUtils.isOfClassType(
                                 id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))
-                    .collect(Collectors.toList());
+                    .toList();
 
             List<Statement> filteredStatements =
                 classDecl.getBody().getStatements().stream()
