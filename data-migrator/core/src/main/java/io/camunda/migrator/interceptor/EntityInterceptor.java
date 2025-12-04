@@ -66,6 +66,7 @@ import io.camunda.migrator.interceptor.property.EntityConversionContext;
  * <p>
  * The {@link #getTypes()} method inherited from {@link BaseInterceptor} allows specifying
  * entity types using Camunda 7 historic entity classes like:
+ * - {@code ProcessDefinition.class} for process definitions
  * - {@code HistoricProcessInstance.class} for process instances
  * - {@code HistoricActivityInstance.class} for flow nodes/activities
  * - {@code HistoricVariableInstance.class} for variables
@@ -87,5 +88,8 @@ public interface EntityInterceptor extends BaseInterceptor<EntityConversionConte
    */
   @Override
   void execute(EntityConversionContext<?, ?> context);
+
+  default void presetParentProperties(EntityConversionContext<?, ?> context) {
+  }
 }
 
