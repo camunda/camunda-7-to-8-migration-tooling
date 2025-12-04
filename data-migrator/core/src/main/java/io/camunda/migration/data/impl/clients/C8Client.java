@@ -262,6 +262,13 @@ public class C8Client {
    */
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
     callApi(() -> decisionInstanceMapper.insert(dbModel), "Failed to insert decision instance");
+    if (!dbModel.evaluatedInputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertInput(dbModel), "Failed to insert decision instance");
+    }
+
+    if (!dbModel.evaluatedOutputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertOutput(dbModel), "Failed to insert decision instance");
+    }
   }
 
   /**

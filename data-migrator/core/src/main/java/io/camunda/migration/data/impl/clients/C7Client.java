@@ -19,7 +19,7 @@ import static java.lang.String.format;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
-import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
@@ -43,6 +43,7 @@ import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
+import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -78,6 +79,9 @@ public class C7Client {
 
   @Autowired
   protected IdentityService identityService;
+
+  @Autowired
+  protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   /**
    * Gets a single process instance by ID.
@@ -208,10 +212,13 @@ public class C7Client {
   }
 
   /**
-   * Gets a resource as steam by ID and name.
+   * Gets a resource as string by ID and name.
    */
-  public InputStream getResourceAsStream(String resourceId, String resourceName) {
-    return callApi(() -> repositoryService.getResourceAsStream(resourceId, resourceName));
+  public String getResourceAsString(String resourceId, String resourceName) {
+    return callApi(() -> new String(processEngineConfiguration.getCommandExecutorTxRequiresNew()
+        .execute(commandContext -> commandContext.getResourceManager()
+        .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
+        .getBytes()), Charset.defaultCharset()));
   }
 
   /**
@@ -299,6 +306,7 @@ public class C7Client {
         .includeInputs()
         .includeOutputs()
         .disableCustomObjectDeserialization()
+        .rootDecisionInstancesOnly()
         .orderByEvaluationTime()
         .asc()
         .orderByDecisionInstanceId()
@@ -485,6 +493,22 @@ public class C7Client {
         .asc()
         .list(),
         FAILED_TO_FETCH_TENANTS);
+  }
+
+  public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {
+    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
+        .rootDecisionInstanceId(rootDecisionInstanceId)
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .orderByEvaluationTime()
+        .asc()
+        .orderByDecisionInstanceId()
+        .asc();
+
+    return query.list().stream()
+        .filter(decisionInstance -> decisionInstance.getRootDecisionInstanceId() != null)
+        .collect(Collectors.toList());
   }
 
 }
