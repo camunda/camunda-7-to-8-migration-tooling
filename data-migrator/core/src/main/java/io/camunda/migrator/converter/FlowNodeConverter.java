@@ -7,24 +7,37 @@
  */
 package io.camunda.migrator.converter;
 
-import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import static io.camunda.migrator.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.migrator.exception.EntityInterceptorException;
+import io.camunda.migrator.interceptor.EntityInterceptor;
+import io.camunda.migrator.interceptor.property.EntityConversionContext;
+import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 
-public class FlowNodeConverter {
+public class FlowNodeConverter implements EntityInterceptor {
 
-  public FlowNodeInstanceDbModel apply(HistoricActivityInstance flowNode,
-                                       Long processDefinitionKey,
-                                       Long processInstanceKey) {
-    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(getNextKey())
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricActivityInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricActivityInstance flowNode = (HistoricActivityInstance) context.getC7Entity();
+    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
+        (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
+    }
+
+    builder.flowNodeInstanceKey(getNextKey())
         .flowNodeId(flowNode.getActivityId())
-        .processInstanceKey(processInstanceKey)
-        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(flowNode.getProcessDefinitionKey())
         .startDate(convertDate(flowNode.getStartTime()))
         .endDate(convertDate(flowNode.getEndTime()))
@@ -33,8 +46,7 @@ public class FlowNodeConverter {
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
         .treePath(null) // TODO: Doesn't exist in C7 activity instance. Not yet supported by C8 RDBMS
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
-        .numSubprocessIncidents(null) // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
-        .build();
+        .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
   }
 
   protected FlowNodeType convertType(String activityType) {
