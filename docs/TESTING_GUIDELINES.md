@@ -43,7 +43,7 @@ All tests in the `qa` module should follow a **black-box testing approach**. Thi
 
 ### TR-1: Black-Box Testing - No Access to Migrator Implementation
 
-**Rule:** Test classes in the `..qa..` package must not access classes in the `io.camunda.migrator.impl` package.
+**Rule:** Test classes in the `..qa..` package must not access classes in the `io.camunda.migration.data.impl` package.
 
 **Rationale:** Tests should verify behavior through observable outputs (logs, API responses) rather than internal implementation details. This ensures tests remain stable when refactoring internal implementations.
 
@@ -136,9 +136,9 @@ void migrateUserTask() { ... }
 **Rationale:** Extending abstract test classes ensures proper test setup, dependency injection, and access to required services.
 
 **Allowed Base Classes:**
-- `io.camunda.migrator.qa.AbstractMigratorTest`
-- `io.camunda.migrator.qa.history.HistoryMigrationAbstractTest`
-- `io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest`
+- `io.camunda.migration.data.AbstractMigratorTest`
+- `history.io.camunda.migration.data.HistoryMigrationAbstractTest`
+- `runtime.io.camunda.migration.data.RuntimeMigrationAbstractTest`
 - Any class ending with `AbstractTest`
 
 **Enforcement:** -

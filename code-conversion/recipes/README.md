@@ -22,7 +22,7 @@ The code transformation is performed in three phases: prepare, migrate, and clea
 
 ## Available Recipes
 
-The available recipes are structured by the type of code they transform and the phase of the three-step transformation (prepend org.camunda.migration.rewrite.recipes.):
+The available recipes are structured by the type of code they transform and the phase of the three-step transformation (prepend io.camunda.migration.code.recipes.):
 
 | Type of Change | Client Code      | Java Delegate | External Worker |
 |----------------|------------------| ------------- | --------------- |
@@ -37,9 +37,9 @@ To fully transform the code, apply the prepare, migrate, and cleanup recipes for
 
 To directly apply the combined recipes, you can run:
 
-* **org.camunda.migration.rewrite.recipes.AllClientRecipes**: Refactors [client code](/patterns/20-client-code).
-* **org.camunda.migration.rewrite.recipes.AllDelegateRecipes**: Refactors [Java Delegates (glue code)](/patterns/30-glue-code/10-java-spring-delegate)
-* **org.camunda.migration.rewrite.recipes.AllExternalWorkerRecipes**: Refactors [External Workers (glue code)](/patterns/30-glue-code/20-java-spring-external-task-worker)
+* **io.camunda.migration.code.recipes.AllClientRecipes**: Refactors [client code](/patterns/20-client-code).
+* **io.camunda.migration.code.recipes.AllDelegateRecipes**: Refactors [Java Delegates (glue code)](/patterns/30-glue-code/10-java-spring-delegate)
+* **io.camunda.migration.code.recipes.AllExternalWorkerRecipes**: Refactors [External Workers (glue code)](/patterns/30-glue-code/20-java-spring-external-task-worker)
 
 ## Recipe Completeness
 
@@ -70,8 +70,8 @@ We describe the process for Maven-based projects here, but you can check the  [Q
                 <version>6.0.5</version>
                 <configuration>
                     <activeRecipes>
-                        <recipe>org.camunda.migration.rewrite.recipes.AllClientRecipes</recipe>
-                        <recipe>org.camunda.migration.rewrite.recipes.AllDelegateRecipes</recipe>
+                        <recipe>io.camunda.migration.code.recipes.AllClientRecipes</recipe>
+                        <recipe>io.camunda.migration.code.recipes.AllDelegateRecipes</recipe>
                     </activeRecipes>
                     <skipMavenParsing>false</skipMavenParsing>
                 </configuration>
