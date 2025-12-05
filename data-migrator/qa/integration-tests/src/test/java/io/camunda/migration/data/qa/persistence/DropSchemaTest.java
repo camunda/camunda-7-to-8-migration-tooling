@@ -120,7 +120,7 @@ public class DropSchemaTest {
       var runtimeService = processEngine.getRuntimeService();
 
       repositoryService.createDeployment()
-          .addClasspathResource("io/camunda/migrator/bpmn/c7/simpleProcess.bpmn")
+          .addClasspathResource("io/camunda/migration/data/bpmn/c7/simpleProcess.bpmn")
           .deploy();
       runtimeService.startProcessInstanceByKey("simpleProcess");
 
@@ -157,7 +157,7 @@ public class DropSchemaTest {
       var runtimeService = processEngine.getRuntimeService();
 
       repositoryService.createDeployment()
-          .addClasspathResource("io/camunda/migrator/bpmn/c7/simpleProcess.bpmn")
+          .addClasspathResource("io/camunda/migration/data/bpmn/c7/simpleProcess.bpmn")
           .deploy();
       runtimeService.startProcessInstanceByKey("simpleProcess");
 

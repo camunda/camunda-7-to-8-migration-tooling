@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.runtime;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOYMENT_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_EXECUTION_LISTENER_OF_TYPE_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_NONE_START_EVENT_ERROR;

@@ -176,9 +176,9 @@
               <includes>
                 mapper/*.xml,
                 db/properties/*.properties,
-                io/camunda/migrator/impl/persistence/IdKeyDbModel.class,
-                io/camunda/migrator/impl/persistence/IdKeyMapper.class,
-                io/camunda/migrator/impl/persistence/IdKeyMapper$TYPE.class
+                io/camunda/migration/data/impl/persistence/IdKeyDbModel.class,
+                io/camunda/migration/data/impl/persistence/IdKeyMapper.class,
+                io/camunda/migration/data/impl/persistence/IdKeyMapper$TYPE.class
               </includes>
               <outputDirectory>${project.build.directory}/classes</outputDirectory>
             </configuration>

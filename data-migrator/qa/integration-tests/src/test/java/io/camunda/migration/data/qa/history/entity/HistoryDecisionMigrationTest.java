@@ -80,7 +80,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
       assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(decisionRequirements.xml()).isNull();
-      assertThat(decisionRequirements.resourceName()).isEqualTo("io/camunda/migrator/dmn/c7/simpleDmnWithReqs.dmn");
+      assertThat(decisionRequirements.resourceName()).isEqualTo("io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
     });
     Long decisionReqsKey = decisionReqs.get(0).decisionRequirementsKey();
 
