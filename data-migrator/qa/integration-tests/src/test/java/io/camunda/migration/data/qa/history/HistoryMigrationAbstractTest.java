@@ -20,7 +20,7 @@ import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
-import io.camunda.migration.data.util.WithSpringProfile;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;

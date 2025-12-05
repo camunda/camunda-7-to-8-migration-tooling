@@ -23,7 +23,7 @@ import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTes
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor;
-import io.camunda.migration.data.util.WithSpringProfile;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.Date;
 import java.util.List;

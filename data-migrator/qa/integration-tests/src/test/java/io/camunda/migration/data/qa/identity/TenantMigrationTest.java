@@ -16,7 +16,7 @@ import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
-import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;

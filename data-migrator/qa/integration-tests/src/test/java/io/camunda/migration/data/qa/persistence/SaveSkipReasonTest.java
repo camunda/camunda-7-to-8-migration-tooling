@@ -14,7 +14,7 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
-import io.camunda.migration.data.util.WhiteBox;
+import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;

@@ -12,7 +12,7 @@ import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.PROCESS_INSTANCE_NOT_EXISTS;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR;
-import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;

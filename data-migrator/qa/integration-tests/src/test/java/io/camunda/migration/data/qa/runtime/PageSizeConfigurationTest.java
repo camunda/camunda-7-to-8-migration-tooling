@@ -11,7 +11,7 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
-import io.camunda.migration.data.util.WithSpringProfile;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.List;
 import java.util.regex.Matcher;

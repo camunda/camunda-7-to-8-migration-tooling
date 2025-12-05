@@ -10,7 +10,7 @@ package io.camunda.migration.data.qa.runtime.element;
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.ACTIVE_JOINING_PARALLEL_GATEWAY_ERROR;
-import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;

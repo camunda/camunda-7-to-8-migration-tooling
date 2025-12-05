@@ -11,7 +11,7 @@ import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.BYTE_ARRAY_UNSUPPORTED_ERROR;
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.FILE_TYPE_UNSUPPORTED_ERROR;
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.JAVA_SERIALIZED_UNSUPPORTED_ERROR;
-import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;

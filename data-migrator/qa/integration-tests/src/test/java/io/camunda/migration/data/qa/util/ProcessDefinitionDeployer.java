@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.util;
+package io.camunda.migration.data.qa.util;
 
 import static io.camunda.zeebe.protocol.record.value.TenantOwned.DEFAULT_TENANT_IDENTIFIER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +40,7 @@ public class ProcessDefinitionDeployer {
   public void deployCamunda7Process(String fileName, String tenantId) {
     Deployment deployment = repositoryService.createDeployment()
         .tenantId(tenantId)
-        .addClasspathResource("io/camunda/migrator/bpmn/c7/" + fileName)
+        .addClasspathResource("io/camunda/migration/data/bpmn/c7/" + fileName)
         .deploy();
     if (deployment == null) {
       throw new IllegalStateException("Could not deploy process");
@@ -57,7 +57,7 @@ public class ProcessDefinitionDeployer {
     }
 
     DeploymentEvent deployment = camundaClient.newDeployResourceCommand()
-        .addResourceFromClasspath("io/camunda/migrator/bpmn/c8/" + fileName)
+        .addResourceFromClasspath("io/camunda/migration/data/bpmn/c8/" + fileName)
         .tenantId(tenantId)
         .execute();
 
@@ -65,7 +65,7 @@ public class ProcessDefinitionDeployer {
       throw new IllegalStateException("Could not deploy process");
     }
 
-    checkC8ProcessDefinitionAvailable("io/camunda/migrator/bpmn/c8/" + fileName, tenantId);
+    checkC8ProcessDefinitionAvailable("io/camunda/migration/data/bpmn/c8/" + fileName, tenantId);
   }
 
   public void deployCamunda7Decision(String fileName) {
@@ -75,7 +75,7 @@ public class ProcessDefinitionDeployer {
   public void deployCamunda7Decision(String fileName, String tenantId) {
     Deployment deployment = repositoryService.createDeployment()
         .tenantId(tenantId)
-        .addClasspathResource("io/camunda/migrator/dmn/c7/" + fileName)
+        .addClasspathResource("io/camunda/migration/data/dmn/c7/" + fileName)
         .deploy();
     if (deployment == null) {
       throw new IllegalStateException("Could not deploy decision");

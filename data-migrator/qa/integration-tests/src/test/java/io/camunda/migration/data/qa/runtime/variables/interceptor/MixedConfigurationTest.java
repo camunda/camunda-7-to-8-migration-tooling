@@ -11,7 +11,7 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
-import io.camunda.migration.data.util.WithSpringProfile;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

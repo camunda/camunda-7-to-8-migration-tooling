@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.util.SkippedEntitiesLogParserUtils;
+import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;

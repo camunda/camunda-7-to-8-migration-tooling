@@ -9,7 +9,7 @@ package io.camunda.migration.data.qa.runtime.tenant;
 
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_TENANT_DEPLOYMENT_ERROR;
-import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
