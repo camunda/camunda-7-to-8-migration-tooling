@@ -7,9 +7,8 @@
  */
 package io.camunda.migrator.example;
 
-import io.camunda.migrator.interceptor.VariableInterceptor;
-import io.camunda.migrator.interceptor.VariableInvocation;
-import java.util.Set;
+import io.camunda.migration.data.interceptor.VariableInterceptor;
+import io.camunda.migration.data.interceptor.VariableInvocation;
 import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.type.ValueType;
 import org.camunda.bpm.engine.variable.value.TypedValue;

@@ -136,9 +136,9 @@ void migrateUserTask() { ... }
 **Rationale:** Extending abstract test classes ensures proper test setup, dependency injection, and access to required services.
 
 **Allowed Base Classes:**
-- `io.camunda.migrator.qa.AbstractMigratorTest`
-- `io.camunda.migrator.qa.history.HistoryMigrationAbstractTest`
-- `io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest`
+- `io.camunda.migration.date.AbstractMigratorTest`
+- `history.io.camunda.migration.date.HistoryMigrationAbstractTest`
+- `runtime.io.camunda.migration.date.RuntimeMigrationAbstractTest`
 - Any class ending with `AbstractTest`
 
 **Enforcement:** -

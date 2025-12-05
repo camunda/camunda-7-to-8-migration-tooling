@@ -7,11 +7,11 @@
  */
 package io.camunda.migrator.plugin.cockpit.resources;
 
-import static io.camunda.migrator.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-import io.camunda.migrator.impl.persistence.IdKeyDbModel;
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Comparator;

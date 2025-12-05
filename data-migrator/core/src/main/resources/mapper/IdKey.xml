@@ -7,9 +7,9 @@
   ~ except in compliance with the Camunda License 1.0.
   -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="io.camunda.migrator.impl.persistence.IdKeyMapper">
+<mapper namespace="io.camunda.migration.data.impl.persistence.IdKeyMapper">
 
-  <resultMap id="idKeyResultMap" type="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <resultMap id="idKeyResultMap" type="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     <id property="c7Id" column="C7_ID" jdbcType="VARCHAR"/>
     <result property="c8Key" column="C8_KEY" jdbcType="BIGINT"/>
     <result property="createTime" column="CREATE_TIME" jdbcType="TIMESTAMP"/>
@@ -56,13 +56,13 @@
     FROM ${prefix}MIGRATION_MAPPING
   </select>
 
-  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
     SET C8_KEY = #{c8Key, jdbcType=BIGINT}
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
   </update>
 
-  <update id="updateSkipReason" parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <update id="updateSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
     SET SKIP_REASON = #{skipReason, jdbcType=VARCHAR}
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
@@ -97,7 +97,7 @@
 
   <insert
     id="insert"
-    parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel"
+    parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel"
     flushCache="true">
     INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON)
     VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=BIGINT}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})

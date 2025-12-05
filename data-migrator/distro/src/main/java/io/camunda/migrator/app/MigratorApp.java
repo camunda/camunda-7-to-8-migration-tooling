@@ -7,12 +7,12 @@
  */
 package io.camunda.migrator.app;
 
-import io.camunda.migrator.HistoryMigrator;
-import io.camunda.migrator.IdentityMigrator;
-import io.camunda.migrator.MigratorMode;
-import io.camunda.migrator.RuntimeMigrator;
-import io.camunda.migrator.impl.AutoDeployer;
-import io.camunda.migrator.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.impl.AutoDeployer;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
