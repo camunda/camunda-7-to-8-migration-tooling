@@ -23,7 +23,7 @@
             <dependency>
                 <groupId>org.openrewrite.recipe</groupId>
                 <artifactId>rewrite-recipe-bom</artifactId>
-                <version>3.1.0</version>
+                <version>3.19.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -87,6 +87,13 @@
         <dependency>
             <groupId>org.openrewrite</groupId>
             <artifactId>rewrite-java</artifactId>
+        </dependency>
+
+        <!-- Java 21 parser required for OpenRewrite tests -->
+        <dependency>
+            <groupId>org.openrewrite</groupId>
+            <artifactId>rewrite-java-21</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -160,20 +167,15 @@
             <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
             <version>${version.camunda-7}</version>
         </dependency>
-	    <dependency>
-	      <groupId>org.camunda.bpm.springboot</groupId>
-	      <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
-          <version>${version.camunda-7}</version>
-	    </dependency>
         <dependency>
             <groupId>org.camunda.bpm.springboot</groupId>
             <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
             <version>${version.camunda-7}</version>
         </dependency>
         <dependency>
-			  <groupId>io.camunda</groupId>
-			  <artifactId>zeebe-client-java</artifactId>
-			  <version>8.6.0</version>
+			<groupId>io.camunda</groupId>
+			<artifactId>zeebe-client-java</artifactId>
+			<version>8.8.6</version>
 		    <scope>provided</scope>
         </dependency>
 
@@ -191,7 +193,7 @@
         <dependency>
             <groupId>io.camunda</groupId>
             <artifactId>spring-boot-starter-camunda-sdk</artifactId>
-            <version>8.8.0-alpha6</version>
+            <version>8.8.6</version>
         </dependency>
 	    <dependency>
 	      <groupId>io.camunda</groupId>
@@ -203,7 +205,7 @@
         <dependency>
             <groupId>org.openrewrite.recipe</groupId>
             <artifactId>rewrite-static-analysis</artifactId>
-            <version>2.9.0</version>
+                        <version>2.22.0</version>
         </dependency>
         
     </dependencies>
