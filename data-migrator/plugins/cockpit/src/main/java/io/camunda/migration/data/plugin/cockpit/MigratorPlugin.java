@@ -5,14 +5,14 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.plugin.cockpit;
+package io.camunda.migration.data.plugin.cockpit;
 
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.camunda.migrator.plugin.cockpit.resources.PluginRootResource;
+import io.camunda.migration.data.plugin.cockpit.resources.PluginRootResource;
 import org.camunda.bpm.cockpit.plugin.spi.impl.AbstractCockpitPlugin;
 
 public class MigratorPlugin extends AbstractCockpitPlugin {

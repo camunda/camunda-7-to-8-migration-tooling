@@ -36,16 +36,16 @@ class ArchitectureTest {
   protected static final JavaClasses CLASSES = new ClassFileImporter()
       .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
       .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
-      .importPackages("io.camunda.migrator");
+      .importPackages("io.camunda.migration.data");
 
   @Test
   void shouldNotAccessImplClasses() {
     classes()
         .that().resideInAPackage("..qa..")
-        .and().areNotAnnotatedWith("io.camunda.migrator.qa.util.WhiteBox")
+        .and().areNotAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")
         .should(notAccessMigratorImplPackage())
         .allowEmptyShould(true)
-        .because("Tests should not access internal implementation details from io.camunda.migrator.impl package. " +
+        .because("Tests should not access internal implementation details from io.camunda.migration.data.impl package. " +
             "Use log assertions and C8 API queries instead. " +
             "Exceptions: (1) Constants (static final fields) and enums from impl classes are allowed, including their methods (e.g., enum.getDisplayName()), " +
             "(2) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
@@ -68,7 +68,7 @@ class ArchitectureTest {
   @Test
   void shouldNotHavePrivateMethods() {
     classes()
-        .that().resideInAPackage("io.camunda.migrator..")
+        .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
         .should(notHavePrivateMethods())
         .allowEmptyShould(true)
@@ -81,7 +81,7 @@ class ArchitectureTest {
   @Test
   void shouldNotHavePrivateFields() {
     classes()
-        .that().resideInAPackage("io.camunda.migrator..")
+        .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
         .should(notHavePrivateFields())
         .allowEmptyShould(true)
@@ -94,7 +94,7 @@ class ArchitectureTest {
   @Test
   void shouldNotHavePrivateConstructors() {
     classes()
-        .that().resideInAPackage("io.camunda.migrator..")
+        .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
         .should(notHavePrivateConstructors())
         .allowEmptyShould(true)
@@ -132,12 +132,12 @@ class ArchitectureTest {
     classes()
         .that().areAnnotatedWith("org.springframework.stereotype.Component")
         .or().areAnnotatedWith("org.springframework.stereotype.Service")
-        .and().resideInAPackage("io.camunda.migrator..")
+        .and().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackages("..qa..")
         .should(beInImplPackageOrTopLevel())
         .allowEmptyShould(true)
         .because("Components and services should reside in the 'impl' package (for internal implementations) " +
-            "or at the top level of io.camunda.migrator (for public APIs like HistoryMigrator, RuntimeMigrator).")
+            "or at the top level of io.camunda.migration.data (for public APIs like HistoryMigrator, RuntimeMigrator).")
         .check(CLASSES);
   }
 
@@ -180,7 +180,7 @@ class ArchitectureTest {
   @Test
   void shouldNotUseSystemOutOrPrintStackTrace() {
     noClasses()
-        .that().resideInAPackage("io.camunda.migrator..")
+        .that().resideInAPackage("io.camunda.migration.data..")
         .should().callMethod(System.class, "out")
         .orShould().callMethod("java.lang.Throwable", "printStackTrace")
         .allowEmptyShould(true)
@@ -207,7 +207,7 @@ class ArchitectureTest {
   // Custom ArchConditions
 
   protected static ArchCondition<JavaClass> notAccessMigratorImplPackage() {
-    return new ArchCondition<JavaClass>("not access io.camunda.migrator.impl package") {
+    return new ArchCondition<JavaClass>("not access io.camunda.migration.data.impl package") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         javaClass.getAccessesFromSelf().forEach(access -> {
@@ -215,8 +215,8 @@ class ArchitectureTest {
           String targetClassName = targetClass.getName();
           String targetPackage = targetClass.getPackageName();
 
-          // Only check for io.camunda.migrator.impl package (our implementation details)
-          if (targetPackage.startsWith("io.camunda.migrator.impl")) {
+          // Only check for io.camunda.migration.data.impl package (our implementation details)
+          if (targetPackage.startsWith("io.camunda.migration.data.impl")) {
             // Allow field accesses (constants, enums, static finals, log messages, etc.)
             if (access instanceof com.tngtech.archunit.core.domain.JavaFieldAccess) {
               return; // Field access is allowed
@@ -233,7 +233,7 @@ class ArchitectureTest {
             if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod) {
               boolean isWhiteBoxMethod = originMethod.getAnnotations().stream()
                   .anyMatch(annotation ->
-                      annotation.getRawType().getName().equals("io.camunda.migrator.qa.util.WhiteBox"));
+                      annotation.getRawType().getName().equals("io.camunda.migration.data.qa.util.WhiteBox"));
 
               if (isWhiteBoxMethod) {
                 return; // Access from @WhiteBox method is allowed
@@ -253,7 +253,7 @@ class ArchitectureTest {
               }
             }
 
-            // Violation: calling method or constructor from io.camunda.migrator.impl package
+            // Violation: calling method or constructor from io.camunda.migration.data.impl package
             String message = String.format(
                 "%s accesses %s in (%s.java:%s)",
                 access.getDescription(),
@@ -423,9 +423,9 @@ class ArchitectureTest {
 
         boolean extendsAbstractTest = javaClass.getAllRawSuperclasses().stream()
             .anyMatch(superClass ->
-                superClass.getName().equals("io.camunda.migrator.qa.AbstractMigratorTest") ||
-                superClass.getName().equals("io.camunda.migrator.qa.history.HistoryMigrationAbstractTest") ||
-                superClass.getName().equals("io.camunda.migrator.qa.runtime.RuntimeMigrationAbstractTest") ||
+                superClass.getName().equals("io.camunda.migration.data.qa.AbstractMigratorTest") ||
+                superClass.getName().equals("io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest") ||
+                superClass.getName().equals("io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest") ||
                 superClass.getSimpleName().endsWith("AbstractTest"));
 
         if (!extendsAbstractTest) {
@@ -444,16 +444,16 @@ class ArchitectureTest {
       public void check(JavaClass javaClass, ConditionEvents events) {
         String packageName = javaClass.getPackageName();
 
-        // Allow top-level io.camunda.migrator (HistoryMigrator, RuntimeMigrator)
-        if (packageName.equals("io.camunda.migrator")) {
+        // Allow top-level io.camunda.migration.data (HistoryMigrator, RuntimeMigrator)
+        if (packageName.equals("io.camunda.migration.data")) {
           return;
         }
 
         // Require impl package (either directly or in subpackages) for all other components
-        // This matches: io.camunda.migrator.impl, io.camunda.migrator.impl.clients, etc.
-        if (!packageName.startsWith("io.camunda.migrator.impl")) {
+        // This matches: io.camunda.migration.data.impl, io.camunda.migration.data.impl.clients, etc.
+        if (!packageName.startsWith("io.camunda.migration.data.impl")) {
           String message = String.format(
-              "Component <%s> should be in 'impl' package or top-level io.camunda.migrator",
+              "Component <%s> should be in 'impl' package or top-level io.camunda.migration.data",
               javaClass.getName());
           events.add(SimpleConditionEvent.violated(javaClass, message));
         }

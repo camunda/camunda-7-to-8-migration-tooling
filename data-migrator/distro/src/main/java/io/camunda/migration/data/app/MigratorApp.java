@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.app;
+package io.camunda.migration.data.app;
 
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.IdentityMigrator;

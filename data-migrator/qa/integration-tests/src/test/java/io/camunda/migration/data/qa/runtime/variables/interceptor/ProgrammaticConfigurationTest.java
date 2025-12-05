@@ -28,10 +28,10 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     // Disable built-in interceptor for controlled testing
-    "camunda.migrator.interceptors[0].className=io.camunda.migrator.impl.interceptor.PrimitiveVariableTransformer",
+    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer",
     "camunda.migrator.interceptors[0].enabled=false",
     // Register interceptor and disable it
-    "camunda.migrator.interceptors[1].className=io.camunda.migrator.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor",
+    "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor",
     "camunda.migrator.interceptors[1].enabled=false"
 })
 @ActiveProfiles("programmatic")

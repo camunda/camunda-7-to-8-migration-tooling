@@ -8,7 +8,7 @@
     <bpmn:endEvent id="endEventId" name="endEvent">
       <bpmn:incoming>Flow_1c3hc63</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:serviceTask id="incidentServiceTaskId" name="incidentServiceTask" camunda:asyncBefore="true" camunda:class="io.camunda.migrator.qa.util.Foo" camunda:failedJobRetryTimeCycle="R0/PT0S">
+    <bpmn:serviceTask id="incidentServiceTaskId" name="incidentServiceTask" camunda:asyncBefore="true" camunda:class="io.camunda.migration.data.qa.util.Foo" camunda:failedJobRetryTimeCycle="R0/PT0S">
       <bpmn:incoming>Flow_1neccaf</bpmn:incoming>
       <bpmn:outgoing>Flow_1c3hc63</bpmn:outgoing>
     </bpmn:serviceTask>

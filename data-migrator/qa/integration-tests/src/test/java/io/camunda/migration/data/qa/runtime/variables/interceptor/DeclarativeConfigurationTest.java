@@ -52,7 +52,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     assertThat(migratorProperties.getInterceptors()).hasSize(7);
 
     var interceptor = migratorProperties.getInterceptors().getLast();
-    assertThat(interceptor.getClassName()).isEqualTo("io.camunda.migrator.qa.runtime.variables.interceptor.pojo.ComplexInterceptor");
+    assertThat(interceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor");
     assertThat(interceptor.getProperties()).containsEntry("targetVariable", "var");
   }
 

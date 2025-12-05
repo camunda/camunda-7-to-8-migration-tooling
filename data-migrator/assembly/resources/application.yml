@@ -33,7 +33,7 @@ camunda:
     ## Variable interceptor plugins configuration
     ## These plugins can be packaged in JARs and dropped in the ./configuration/userlib/ folder
     #interceptors:
-    #  - class-name: io.camunda.migrator.impl.interceptor.ByteArrayVariableValidator
+    #  - class-name: io.camunda.migration.data.impl.interceptor.ByteArrayVariableValidator
     #    # Disable built-in interceptors by setting enabled to false
     #    enabled: false
     #  - class-name: com.example.MyCustomVariableInterceptor
@@ -99,13 +99,13 @@ logging:
   level:
     # Root logger level
     root: WARN
-    io.camunda.migrator: WARN
+    io.camunda.migration.data: WARN
     ### Enable debug migrator logging
-    ##io.camunda.migrator: DEBUG
+    ##io.camunda.migration.data: DEBUG
     ## Enable debug logging for runtime migration
-    #io.camunda.migrator.RuntimeMigrator: DEBUG
+    #io.camunda.migration.data.RuntimeMigrator: DEBUG
     ## Enable debug logging for ID mapping
-    #io.camunda.migrator.persistence.IdKeyMapper: DEBUG # persistence
+    #io.camunda.migration.data.persistence.IdKeyMapper: DEBUG # persistence
     ## Enable debug logging for C7
     #org.camunda.bpm: INFO  # C7
   file:

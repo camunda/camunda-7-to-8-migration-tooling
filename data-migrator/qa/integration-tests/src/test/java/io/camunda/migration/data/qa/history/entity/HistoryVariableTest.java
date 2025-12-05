@@ -131,7 +131,7 @@ public class HistoryVariableTest extends HistoryMigrationAbstractTest {
 
     ObjectValue objectValue = Variables.serializedObjectValue(xml)
         .serializationDataFormat(XML)
-        .objectTypeName("io.camunda.migrator.qa.runtime.variables.XmlSerializable")
+        .objectTypeName("io.camunda.migration.data.qa.runtime.variables.XmlSerializable")
         .create();
 
     runtimeService.setVariable(processInstance.getId(), "xmlVar", objectValue);
@@ -161,7 +161,7 @@ public class HistoryVariableTest extends HistoryMigrationAbstractTest {
     String json = "{\"stringProperty\":\"a String\",\"intProperty\":42,\"booleanProperty\":true}";
     ObjectValue objectValue = Variables.serializedObjectValue(json)
         .serializationDataFormat(JSON)
-        .objectTypeName("io.camunda.migrator.qa.runtime.variables.JsonSerializable")
+        .objectTypeName("io.camunda.migration.data.qa.runtime.variables.JsonSerializable")
         .create();
 
     runtimeService.setVariable(processInstance.getId(), "jsonVar", objectValue);

@@ -17,7 +17,7 @@ This document describes the architectural constraints automatically enforced by 
 
 ### VR-1: No Private Methods
 
-**Rule:** Classes in `io.camunda.migrator..` (excluding `..qa..`) must not have private methods.
+**Rule:** Classes in `io.camunda.migration.data..` (excluding `..qa..`) must not have private methods.
 
 **Rationale:** Private methods limit testability and extensibility. Use `protected` for methods that might be overridden.
 
@@ -41,7 +41,7 @@ private void migrateProcessInstances() { ... }
 
 ### VR-2: No Private Fields
 
-**Rule:** Classes in `io.camunda.migrator..` (excluding `..qa..`) must not have private fields.
+**Rule:** Classes in `io.camunda.migration.data..` (excluding `..qa..`) must not have private fields.
 
 **Rationale:** Use `protected` for fields that might be accessed by subclasses.
 
@@ -63,7 +63,7 @@ private String processInstanceId;
 
 ### VR-3: No Private Constructors
 
-**Rule:** Classes in `io.camunda.migrator..` (excluding `..qa..`) must not have private constructors.
+**Rule:** Classes in `io.camunda.migration.data..` (excluding `..qa..`) must not have private constructors.
 
 **Rationale:** Private constructors prevent subclassing. Use `protected` constructors.
 
@@ -89,7 +89,7 @@ private MyComponent() { ... }
 
 **Rule:** Classes annotated with `@Component` or `@Service` must either:
 - Reside in the `impl` package (for internal implementations), OR
-- Reside at top-level `io.camunda.migrator` (for public APIs)
+- Reside at top-level `io.camunda.migration.data` (for public APIs)
 
 **Rationale:** Clear separation between public API and internal implementation details.
 
@@ -102,17 +102,17 @@ private MyComponent() { ... }
 **Examples:**
 ```java
 // ✅ GOOD - Public API at top level
-package io.camunda.migrator;
+package io.camunda.migration.data;
 @Component
 public class HistoryMigrator { ... }
 
 // ✅ GOOD - Internal implementation in impl package
-package io.camunda.migrator.impl.clients;
+package io.camunda.migration.data.impl.clients;
 @Component
 public class C7Client { ... }
 
 // ❌ BAD - Component not in impl or top-level
-package io.camunda.migrator.clients;
+package io.camunda.migration.data.clients;
 @Component
 public class C7Client { ... }
 ```
@@ -121,7 +121,7 @@ public class C7Client { ... }
 
 ### PO-2: @Configuration Classes Must Reside in Config Package
 
-**Rule:** Classes annotated with `@Configuration` in `io.camunda.migrator..` (excluding `..qa..`) must reside in the `..config..` package.
+**Rule:** Classes annotated with `@Configuration` in `io.camunda.migration.data..` (excluding `..qa..`) must reside in the `..config..` package.
 
 **Rationale:** Centralizing configuration classes provides clear separation of concerns.
 

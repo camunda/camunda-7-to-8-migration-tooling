@@ -5,10 +5,10 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.plugin.cockpit.resources;
+package io.camunda.migration.data.plugin.cockpit.resources;
 
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
-import io.camunda.migrator.plugin.cockpit.MigratorQueryService;
+import io.camunda.migration.data.plugin.cockpit.MigratorQueryService;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -37,7 +37,7 @@ public class MigratorResource extends AbstractCockpitPluginResource {
     parameters.put("limit", limit);
     return getCommandExecutor().executeCommand(new MigratorQueryService<>(parameters,
         (params, commandContext) -> (List<IdKeyDbModel>) commandContext.getDbSqlSession()
-            .selectList("io.camunda.migrator.impl.persistence.IdKeyMapper.findSkippedByType", params)));
+            .selectList("io.camunda.migration.data.impl.persistence.IdKeyMapper.findSkippedByType", params)));
   }
 
   @GET
@@ -48,7 +48,7 @@ public class MigratorResource extends AbstractCockpitPluginResource {
     parameters.put("type", type);
     return getCommandExecutor().executeCommand(new MigratorQueryService<>(parameters,
         (params, commandContext) -> (Long) commandContext.getDbSqlSession()
-            .selectOne("io.camunda.migrator.impl.persistence.IdKeyMapper.countSkippedByType", parameters)));
+            .selectOne("io.camunda.migration.data.impl.persistence.IdKeyMapper.countSkippedByType", parameters)));
   }
 
   @GET
@@ -63,7 +63,7 @@ public class MigratorResource extends AbstractCockpitPluginResource {
     parameters.put("limit", limit);
     return getCommandExecutor().executeCommand(new MigratorQueryService<>(parameters,
         (params, commandContext) -> (List<IdKeyDbModel>) commandContext.getDbSqlSession()
-            .selectList("io.camunda.migrator.impl.persistence.IdKeyMapper.findMigratedByType", params)));
+            .selectList("io.camunda.migration.data.impl.persistence.IdKeyMapper.findMigratedByType", params)));
   }
 
   @GET
@@ -74,7 +74,7 @@ public class MigratorResource extends AbstractCockpitPluginResource {
     parameters.put("type", type);
     return getCommandExecutor().executeCommand(new MigratorQueryService<>(parameters,
         (params, commandContext) -> (Long) commandContext.getDbSqlSession()
-            .selectOne("io.camunda.migrator.impl.persistence.IdKeyMapper.countMigratedByType", parameters)));
+            .selectOne("io.camunda.migration.data.impl.persistence.IdKeyMapper.countMigratedByType", parameters)));
   }
 
 }

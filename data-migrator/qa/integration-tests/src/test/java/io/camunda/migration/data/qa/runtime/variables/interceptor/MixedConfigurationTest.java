@@ -22,13 +22,13 @@ import org.springframework.test.context.TestPropertySource;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
-    "camunda.migrator.interceptors[0].className=io.camunda.migrator.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor",
+    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor",
     "camunda.migrator.interceptors[0].enabled=false",
-    "camunda.migrator.interceptors[1].className=io.camunda.migrator.qa.runtime.variables.interceptor.bean.StringOnlyInterceptor",
+    "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.runtime.variables.interceptor.bean.StringOnlyInterceptor",
     "camunda.migrator.interceptors[1].enabled=false",
-    "camunda.migrator.interceptors[2].className=io.camunda.migrator.qa.runtime.variables.interceptor.bean.UniversalInterceptor",
+    "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.runtime.variables.interceptor.bean.UniversalInterceptor",
     "camunda.migrator.interceptors[2].enabled=false",
-    "camunda.migrator.interceptors[3].className=io.camunda.migrator.qa.runtime.variables.interceptor.pojo.ComplexInterceptor"
+    "camunda.migrator.interceptors[3].className=io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor"
 })
 @WithSpringProfile("interceptor")
 @ActiveProfiles("programmatic")

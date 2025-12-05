@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.plugin.cockpit.resources;
+package io.camunda.migration.data.plugin.cockpit.resources;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;

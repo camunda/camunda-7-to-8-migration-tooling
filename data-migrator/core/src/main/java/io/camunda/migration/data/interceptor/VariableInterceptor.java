@@ -59,7 +59,7 @@ import java.util.Set;
  * <pre>
  * migrator:
  *   interceptors:
- *     - className: "io.camunda.migrator.impl.interceptor.SpinJsonVariableTransformer"
+ *     - className: "io.camunda.migration.data.impl.interceptor.SpinJsonVariableTransformer"
  *       enabled: false
  * </pre>
  */

@@ -5,9 +5,9 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.plugin.cockpit.resources;
+package io.camunda.migration.data.plugin.cockpit.resources;
 
-import io.camunda.migrator.plugin.cockpit.MigratorPlugin;
+import io.camunda.migration.data.plugin.cockpit.MigratorPlugin;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 
