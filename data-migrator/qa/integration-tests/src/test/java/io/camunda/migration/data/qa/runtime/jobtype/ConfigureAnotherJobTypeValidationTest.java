@@ -6,14 +6,14 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.runtime.jobtype;
+package io.camunda.migration.data.qa.runtime.jobtype;
 
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_EXECUTION_LISTENER_OF_TYPE_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;

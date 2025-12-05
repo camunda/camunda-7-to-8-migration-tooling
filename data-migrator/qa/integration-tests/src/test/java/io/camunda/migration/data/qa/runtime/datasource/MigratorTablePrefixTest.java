@@ -6,12 +6,12 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.runtime.datasource;
+package io.camunda.migration.data.qa.runtime.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;

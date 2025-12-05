@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.runtime.variables.interceptor;
+package io.camunda.migration.data.qa.runtime.variables.interceptor;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
@@ -18,11 +18,11 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.interceptor.DateVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
-import io.camunda.migration.data.runtime.variables.interceptor.pojo.CustomTestInterceptor;
-import io.camunda.migration.data.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
-import io.camunda.migration.data.runtime.variables.interceptor.pojo.UniversalTestInterceptor;
-import io.camunda.migration.data.runtime.variables.interceptor.pojo.ComplexInterceptor;
+import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor;
+import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
+import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor;
+import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor;
 import io.camunda.migration.data.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.Date;

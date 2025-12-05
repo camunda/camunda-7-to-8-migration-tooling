@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.runtime.element;
+package io.camunda.migration.data.qa.runtime.element;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.params.provider.Arguments;

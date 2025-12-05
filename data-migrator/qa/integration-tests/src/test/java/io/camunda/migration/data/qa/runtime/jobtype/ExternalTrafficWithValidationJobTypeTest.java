@@ -6,13 +6,13 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.runtime.jobtype;
+package io.camunda.migration.data.qa.runtime.jobtype;
 
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElementId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.response.ActivateJobsResponse;
-import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
