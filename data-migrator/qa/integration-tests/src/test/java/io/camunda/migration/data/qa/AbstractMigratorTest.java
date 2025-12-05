@@ -8,9 +8,9 @@
 
 package io.camunda.migration.data.qa;
 
-import io.camunda.migration.date.util.ProcessDefinitionDeployer;
-import io.camunda.migration.date.util.WithMultiDb;
-import io.camunda.migration.date.util.WithSpringProfile;
+import io.camunda.migration.data.util.ProcessDefinitionDeployer;
+import io.camunda.migration.data.util.WithMultiDb;
+import io.camunda.migration.data.util.WithSpringProfile;
 import org.camunda.bpm.engine.ManagementService;
 import org.camunda.bpm.engine.DecisionService;
 import org.camunda.bpm.engine.RepositoryService;

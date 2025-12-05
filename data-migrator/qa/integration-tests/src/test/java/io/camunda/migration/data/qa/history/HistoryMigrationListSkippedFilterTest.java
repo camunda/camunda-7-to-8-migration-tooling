@@ -12,7 +12,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.date.util.SkippedEntitiesLogParserUtils;
+import io.camunda.migration.data.util.SkippedEntitiesLogParserUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

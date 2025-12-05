@@ -10,7 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
-import static io.camunda.migration.date.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;

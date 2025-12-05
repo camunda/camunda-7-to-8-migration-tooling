@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.runtime.tenant;
+package io.camunda.migration.data.runtime.tenant;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.date.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.BeforeEach;

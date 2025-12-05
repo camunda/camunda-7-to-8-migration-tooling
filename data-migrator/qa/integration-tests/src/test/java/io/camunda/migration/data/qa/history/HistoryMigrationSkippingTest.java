@@ -10,14 +10,14 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INCIDENT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_USER_TASK_MISSING_PROCESS;
-import static io.camunda.migration.date.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.date.util.WhiteBox;
+import io.camunda.migration.data.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;

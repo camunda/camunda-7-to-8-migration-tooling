@@ -5,13 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.runtime;
+package io.camunda.migration.data.runtime;
 
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
-import io.camunda.migration.date.util.WithSpringProfile;
+import io.camunda.migration.data.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.List;
 import java.util.regex.Matcher;

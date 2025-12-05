@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.MigrationTestApplication;
-import io.camunda.migration.date.util.WithMultiDb;
+import io.camunda.migration.data.util.WithMultiDb;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;

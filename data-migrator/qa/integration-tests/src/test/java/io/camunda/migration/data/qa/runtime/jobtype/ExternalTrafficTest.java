@@ -6,13 +6,13 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.date.runtime.jobtype;
+package io.camunda.migration.data.runtime.jobtype;
 
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.EXTERNALLY_STARTED_PROCESS_INSTANCE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.date.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;

@@ -5,14 +5,14 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.runtime;
+package io.camunda.migration.data.runtime;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOYMENT_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_EXECUTION_LISTENER_OF_TYPE_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_NONE_START_EVENT_ERROR;
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.BYTE_ARRAY_UNSUPPORTED_ERROR;
-import static io.camunda.migration.date.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;

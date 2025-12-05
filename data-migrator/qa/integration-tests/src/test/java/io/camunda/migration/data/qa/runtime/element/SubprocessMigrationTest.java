@@ -6,11 +6,11 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.date.runtime.element;
+package io.camunda.migration.data.runtime.element;
 
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
-import static io.camunda.migration.date.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
@@ -18,7 +18,7 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskNam
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.date.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.client.api.search.response.Variable;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Optional;

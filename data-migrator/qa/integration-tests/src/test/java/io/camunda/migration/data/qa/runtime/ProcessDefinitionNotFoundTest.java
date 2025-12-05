@@ -5,11 +5,11 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.runtime;
+package io.camunda.migration.data.runtime;
 
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_C8_DEPLOYMENT_ERROR;
-import static io.camunda.migration.date.util.LogMessageFormatter.formatMessage;
+import static io.camunda.migration.data.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;

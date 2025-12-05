@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.runtime.variables.interceptor;
+package io.camunda.migration.data.runtime.variables.interceptor;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
@@ -14,10 +14,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.date.runtime.RuntimeMigrationAbstractTest;
-import io.camunda.migration.date.runtime.variables.interceptor.bean.DisabledCustomInterceptor;
-import io.camunda.migration.date.runtime.variables.interceptor.bean.StringOnlyInterceptor;
-import io.camunda.migration.date.runtime.variables.interceptor.bean.UniversalInterceptor;
+import io.camunda.migration.data.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.runtime.variables.interceptor.bean.DisabledCustomInterceptor;
+import io.camunda.migration.data.runtime.variables.interceptor.bean.StringOnlyInterceptor;
+import io.camunda.migration.data.runtime.variables.interceptor.bean.UniversalInterceptor;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

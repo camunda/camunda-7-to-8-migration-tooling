@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.date.util;
+package io.camunda.migration.data.util;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import java.util.HashMap;
