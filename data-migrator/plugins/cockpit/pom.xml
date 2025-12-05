@@ -23,7 +23,6 @@
     <junit.version>4.13.2</junit.version>
     <h2.version>2.4.240</h2.version>
     <slf4j.version>2.0.17</slf4j.version>
-    <assertj.version>3.27.6</assertj.version>
     <liquibase.version>5.0.1</liquibase.version>
 
     <frontend.working.directory>frontend/</frontend.working.directory>
@@ -75,7 +74,7 @@
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
-      <version>${assertj.version}</version>
+      <version>${version.assertj}</version>
       <scope>test</scope>
     </dependency>
     <!-- Add JUnit 4 for compatibility with AbstractCockpitPluginTest -->
