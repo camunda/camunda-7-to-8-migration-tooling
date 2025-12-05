@@ -1,5 +1,5 @@
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllExternalWorkerPrepareRecipes
+name: io.camunda.migration.code.recipes.AllExternalWorkerPrepareRecipes
 displayName: Runs all external worker prepare recipes
 description: Injects job worker and migrate typed value API.
 recipeList:
@@ -7,29 +7,29 @@ recipeList:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
       version: 8.8.0-alpha4.1
-  - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
-  - org.camunda.migration.rewrite.recipes.external.PrepareJobWorkerBeneathExternalWorkerRecipe
+  - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
+  - io.camunda.migration.code.recipes.external.PrepareJobWorkerBeneathExternalWorkerRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllExternalWorkerMigrateRecipes
+name: io.camunda.migration.code.recipes.AllExternalWorkerMigrateRecipes
 displayName: Runs all external worker migration recipes
 description: Migrates external worker methods to job worker methods.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.external.MigrateExternalWorkerRecipe
+  - io.camunda.migration.code.recipes.external.MigrateExternalWorkerRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllExternalWorkerCleanupRecipes
+name: io.camunda.migration.code.recipes.AllExternalWorkerCleanupRecipes
 displayName: Runs all external worker cleanup recipes
 description: Removes external worker code and unused imports.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.external.CleanupExternalWorkerRecipe
+  - io.camunda.migration.code.recipes.external.CleanupExternalWorkerRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllExternalWorkerRecipes
+name: io.camunda.migration.code.recipes.AllExternalWorkerRecipes
 displayName: Runs all external worker recipes in order
 description: Migrates external worker to job worker.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.AllExternalWorkerPrepareRecipes
-  - org.camunda.migration.rewrite.recipes.AllExternalWorkerMigrateRecipes
-  - org.camunda.migration.rewrite.recipes.AllExternalWorkerCleanupRecipes
+  - io.camunda.migration.code.recipes.AllExternalWorkerPrepareRecipes
+  - io.camunda.migration.code.recipes.AllExternalWorkerMigrateRecipes
+  - io.camunda.migration.code.recipes.AllExternalWorkerCleanupRecipes
