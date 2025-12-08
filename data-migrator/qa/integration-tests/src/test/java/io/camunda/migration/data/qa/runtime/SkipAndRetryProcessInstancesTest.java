@@ -16,13 +16,21 @@ import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessag
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.db.rdbms.RdbmsService;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.search.query.ProcessInstanceQuery;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +51,9 @@ import org.springframework.test.context.TestPropertySource;
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(locations = "classpath:application-warn.properties")
 class SkipAndRetryProcessInstancesTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);

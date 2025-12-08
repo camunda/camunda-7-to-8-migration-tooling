@@ -13,13 +13,18 @@ import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessag
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 class ProcessDefinitionNotFoundTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
