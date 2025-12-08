@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.runtime;
 
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.client.api.search.response.SearchResponsePage;

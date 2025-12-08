@@ -7,6 +7,9 @@
  */
 package io.camunda.migration.data.qa.history;
 
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
