@@ -44,7 +44,7 @@
     <plugin.version.surefire>3.5.4</plugin.version.surefire>
     <plugin.version.failsafe>3.5.4</plugin.version.failsafe>
     <plugin.version.resources>3.4.0</plugin.version.resources>
-    <plugin.version.dependency>3.7.0</plugin.version.dependency>
+    <plugin.version.dependency>3.9.0</plugin.version.dependency>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
