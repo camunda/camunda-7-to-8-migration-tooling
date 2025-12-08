@@ -46,7 +46,7 @@ public class IdentityMigrator {
     }
   }
 
-  private void migrateTenant(Tenant tenant) {
+  protected void migrateTenant(Tenant tenant) {
     try {
       IdentityMigratorLogs.logMigratingTenant(tenant.getId());
       c8Client.createTenant(tenant);
@@ -58,7 +58,7 @@ public class IdentityMigrator {
     }
   }
 
-  private void saveRecord(String c7Id, Long c8Key) {
+  protected void saveRecord(String c7Id, Long c8Key) {
     dbClient.insert(c7Id, c8Key, IdKeyMapper.TYPE.TENANT);
   }
 }

@@ -53,7 +53,7 @@ public class MigratorApp {
   );
 
   protected static final Set<String> VALID_ENTITY_TYPES = IdKeyMapper.getHistoryTypeNames();
-  private static List<String> argsList;
+  protected static List<String> argsList;
 
   public static void main(String[] args) {
     // Handle --help early to avoid loading Spring Boot (only when used alone)
