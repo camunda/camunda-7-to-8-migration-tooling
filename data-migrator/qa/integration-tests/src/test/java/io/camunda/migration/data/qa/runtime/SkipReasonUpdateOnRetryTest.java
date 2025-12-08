@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +28,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class SkipReasonUpdateOnRetryTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -50,7 +55,7 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("noMigratorListener", variables);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     String originalSkipReason = String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR, "migrator", "Event_1px2j50", "noMigratorListener", 1, "migrator");
@@ -60,8 +65,8 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("addedMigratorListenerProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     verifySkippedViaLogs(process, BYTE_ARRAY_UNSUPPORTED_ERROR);
@@ -75,7 +80,7 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     String expectedSkipReason = String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId());
@@ -85,8 +90,8 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     String updatedSkipReason = String.format(NO_NONE_START_EVENT_ERROR, "MessageStartEventProcessId", 1);
@@ -101,25 +106,25 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
     verifySkippedViaLogs(process, String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId()));
 
     // given
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     verifySkippedViaLogs(process, String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId()));
   }
 
   protected void verifySkippedViaLogs(ProcessInstance process, String expectedSkipReason) {
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     // Verify skip occurred via logs using constant from RuntimeMigratorLogs
     logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, process.getId(), expectedSkipReason));

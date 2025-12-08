@@ -18,15 +18,21 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskNam
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.client.api.search.response.Variable;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Optional;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class SubprocessMigrationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -42,16 +48,16 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     io.camunda.client.api.search.response.ProcessInstance c8ParentInstance =
-        camundaClient.newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
+        runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
           processInstanceFilter.processDefinitionId("callingProcessId");
         }).execute().items().getFirst();
 
     Long c8ParentInstanceKey = c8ParentInstance.getProcessInstanceKey();
-    Optional<Variable> variable = getVariableByScope(c8ParentInstanceKey, c8ParentInstanceKey, LEGACY_ID_VAR_NAME);
+    Optional<Variable> variable = runtimeMigration.getVariableByScope(c8ParentInstanceKey, c8ParentInstanceKey, LEGACY_ID_VAR_NAME);
     assert variable.isPresent();
     assert variable.get().getValue().equals("\""+parentInstance.getProcessInstanceId()+"\"");
 
@@ -69,11 +75,11 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessIdNoPropagation");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     // verify no C8 instance was created
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     // verify the correct error message was logged
     logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR,
@@ -92,7 +98,7 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
         .singleResult();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId("callingProcessIdNoPropagationWithMapping")).isActive()

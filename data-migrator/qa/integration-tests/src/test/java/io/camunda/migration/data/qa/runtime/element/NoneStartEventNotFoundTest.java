@@ -11,12 +11,18 @@ package io.camunda.migration.data.qa.runtime.element;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class NoneStartEventNotFoundTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -34,10 +40,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -47,10 +53,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
      runtimeService.correlateMessage("msgRef");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()
@@ -71,10 +77,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -90,10 +96,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()

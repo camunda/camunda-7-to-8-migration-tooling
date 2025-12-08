@@ -10,12 +10,14 @@ package io.camunda.migration.data.qa.runtime;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import io.camunda.client.api.search.response.SearchResponsePage;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.Date;
 import java.util.function.Supplier;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
+class MigrationOrderedByCreateTimeTest extends AbstractMigratorTest {
 
   @Test
   public void shouldMigrateStartedBetweenRuns() {
@@ -25,9 +27,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -37,7 +39,7 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(5);
@@ -59,9 +61,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(5);
@@ -77,9 +79,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     ClockUtil.offset(1_000 * 4L);
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -87,7 +89,7 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("simpleProcessWithoutListener.bpmn");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -104,9 +106,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     ClockUtil.offset(1_000 * 4L);
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(0);
@@ -114,7 +116,7 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("simpleProcessMissingTask.bpmn");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(0);
@@ -129,9 +131,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -139,7 +141,7 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("simpleProcessWithoutListener.bpmn");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(2);
@@ -155,9 +157,9 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.startProcessInstanceByKey("simpleProcess");
 
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(0);
@@ -165,7 +167,7 @@ class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("simpleProcessMissingTask.bpmn");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(0);

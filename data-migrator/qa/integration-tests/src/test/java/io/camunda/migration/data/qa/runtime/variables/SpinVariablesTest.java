@@ -12,17 +12,24 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import org.camunda.spin.json.SpinJsonNode;
 import org.camunda.spin.plugin.variable.SpinValues;
 import org.camunda.spin.plugin.variable.value.JsonValue;
 import org.camunda.spin.plugin.variable.value.XmlValue;
 import org.camunda.spin.xml.SpinXmlElement;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class SpinVariablesTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected ObjectMapper objectMapper;
@@ -47,7 +54,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinJsonNode c7value = (SpinJsonNode) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -76,7 +83,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinXmlElement c7value = (SpinXmlElement) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("var", c7value.toString());

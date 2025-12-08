@@ -18,26 +18,33 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.interceptor.DateVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
 @WithSpringProfile("interceptor")
-public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class DeclarativeConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected MigratorProperties migratorProperties;
@@ -78,7 +85,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "testString", "hello");
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Since built-in transformers are disabled, our custom interceptor should process variables
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -100,7 +107,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify custom interceptor processed the variable
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -122,7 +129,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify disabled interceptor did not process the variable
     // Variable should be processed by enabled custom interceptor instead
@@ -141,7 +148,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "intVar", 42);
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // CustomTestInterceptor only handles StringValue types (as defined in getTypes)
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -162,7 +169,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "intVar", 123);
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("stringVar", "CUSTOM_hello") // Processed by CustomTestInterceptor
@@ -182,7 +189,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "boolVar", true);
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // UniversalTestInterceptor should process all types since getTypes() returns empty set
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -203,7 +210,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "dateVar", now);
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Since built-in transformers are disabled, variables should be processed by custom interceptors instead
     // UniversalTestInterceptor should handle these since built-in ones are disabled
@@ -235,7 +242,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Should be processed by enabled interceptors, not disabled one
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -279,7 +286,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(userTaskProcessInstance.getId(), "var", "anotherValue");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then verify that variables were transformed by the configured interceptor
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -307,7 +314,7 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", true);
 
     // run migration first time
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     assertThat(output.getOut()).contains(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace(" [{}]: {}", ""));
     assertThat(output.getOut()).contains(String.format(VARIABLE_INTERCEPTOR_FAILED_MSG, ComplexInterceptor.class.getSimpleName(), "exFlag"));
@@ -316,8 +323,8 @@ public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
     // when run runtime migration again with RETRY_SKIPPED mode
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

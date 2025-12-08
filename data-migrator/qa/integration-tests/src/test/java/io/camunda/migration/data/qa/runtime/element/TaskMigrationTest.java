@@ -13,6 +13,10 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.List;
 import java.util.stream.Stream;
 import org.assertj.core.api.Assertions;
@@ -21,13 +25,8 @@ import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-import io.camunda.client.CamundaClient;
-import io.camunda.client.api.search.response.ProcessInstance;
-import io.camunda.process.test.api.CamundaAssert;
-
-@SpringBootTest
+@CamundaSpringProcessTest
 public class TaskMigrationTest extends AbstractElementMigrationTest {
 
   @Autowired
@@ -43,7 +42,7 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byTaskName("UserTaskName")).isCreated().hasElementId("userTaskId");
@@ -65,10 +64,10 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
         .isEqualToIgnoringCase("created");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances = runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertEquals(1, processInstances.size());
     ProcessInstance processInstance = processInstances.getFirst();
     assertEquals(simpleProcess.getProcessDefinitionKey(), processInstance.getProcessDefinitionId());

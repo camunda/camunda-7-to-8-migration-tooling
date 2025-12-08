@@ -37,7 +37,10 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(locations = "classpath:application-warn.properties")
 @ExtendWith({OutputCaptureExtension.class})
-public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTest {
+public class HistoryMigrationListSkippedTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
     @RegisterExtension
     protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -71,18 +74,18 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .collect(Collectors.toList());
 
         // Create real-world skip scenario by migrating instances without definition
-        historyMigrator.migrateProcessInstances();
-        historyMigrator.migrateFlowNodes();
-        historyMigrator.migrateUserTasks();
-        historyMigrator.migrateVariables();
-        historyMigrator.migrateIncidents();
+        historyMigration.getMigrator().migrateProcessInstances();
+        historyMigration.getMigrator().migrateFlowNodes();
+        historyMigration.getMigrator().migrateUserTasks();
+        historyMigration.getMigrator().migrateVariables();
+        historyMigration.getMigrator().migrateIncidents();
 
         // Verify all entities were marked as skipped with specific IDs
         verifyEntitiesMarkedAsSkipped(processInstanceIds, userTaskIds, incidentIds, variableIds, flowNodeIds);
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.start();
+        historyMigration.getMigrator().setMode(LIST_SKIPPED);
+        historyMigration.getMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
