@@ -11,14 +11,25 @@ import static org.openrewrite.java.Assertions.java;
 
 import org.camunda.migration.rewrite.recipes.client.MigrateUserTaskMethodsRecipe;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
+import org.openrewrite.test.TypeValidation;
 
 class ReplaceUserTaskMethodsTest implements RewriteTest {
+
+  @Override
+  public void defaults(RecipeSpec spec) {
+    spec.recipe(new MigrateUserTaskMethodsRecipe())
+        .parser(JavaParser.fromJavaVersion()
+            .classpath(JavaParser.runtimeClasspath())
+            .logCompilationWarningsAndErrors(false))
+        .typeValidationOptions(TypeValidation.none());
+  }
 
   @Test
   void replaceUserTaskMethodsTest() {  // new line after packages vanishes...
     rewriteRun(
-        spec -> spec.recipe(new MigrateUserTaskMethodsRecipe()),
         // language=java
         java(
 """

@@ -11,14 +11,32 @@ import static org.openrewrite.java.Assertions.java;
 
 import org.camunda.migration.rewrite.recipes.external.CleanupExternalWorkerRecipe;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 class RemoveExternalWorkerTest implements RewriteTest {
 
+  @Override
+  public void defaults(RecipeSpec spec) {
+    spec.recipe(new CleanupExternalWorkerRecipe())
+        .parser(JavaParser.fromJavaVersion()
+            .classpath(JavaParser.runtimeClasspath())
+            .dependsOn("""
+                package io.camunda.spring.client.annotation;
+                import java.lang.annotation.*;
+                @Target({ElementType.METHOD})
+                @Retention(RetentionPolicy.RUNTIME)
+                public @interface JobWorker {
+                    String type();
+                    boolean autoComplete() default false;
+                }
+                """));
+  }
+
   @Test
   void RemoveExternalWorkerTest() {
     rewriteRun(
-        spec -> spec.recipe(new CleanupExternalWorkerRecipe()),
         java(
 """
 package org.camunda.community.migration.example;

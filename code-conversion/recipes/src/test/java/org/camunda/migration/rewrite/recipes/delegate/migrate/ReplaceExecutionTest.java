@@ -20,7 +20,18 @@ class ReplaceExecutionTest implements RewriteTest {
   @Override
   public void defaults(RecipeSpec spec) {
     spec.recipes(new MigrateExecutionRecipe())
-        .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+        .parser(JavaParser.fromJavaVersion()
+            .classpath(JavaParser.runtimeClasspath())
+            .dependsOn("""
+                package io.camunda.spring.client.annotation;
+                import java.lang.annotation.*;
+                @Target({ElementType.METHOD})
+                @Retention(RetentionPolicy.RUNTIME)
+                public @interface JobWorker {
+                    String type();
+                    boolean autoComplete() default false;
+                }
+                """));
   }
 
   @Test

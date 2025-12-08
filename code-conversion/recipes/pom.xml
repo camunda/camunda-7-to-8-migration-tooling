@@ -15,15 +15,15 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <version.rewrite-recipe-bom>3.1.0</version.rewrite-recipe-bom>
+    <version.rewrite-recipe-bom>3.19.0</version.rewrite-recipe-bom>
     <version.lombok>1.18.42</version.lombok>
     <version.javax-annotation>1.3.2</version.javax-annotation>
     <version.errorprone>2.45.0</version.errorprone>
     <version.guava>33.5.0-jre</version.guava>
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <!-- TODO consolidate Camunda 8 versions camunda/camunda-7-to-8-migration-tooling/issues/528 -->
-    <version.zeebe-client-java>8.6.0</version.zeebe-client-java>
-    <version.camunda8-spring-boot-sdk>8.8.0-alpha6</version.camunda8-spring-boot-sdk>
+    <version.zeebe-client-java>8.8.6</version.zeebe-client-java>
+    <version.camunda8-spring-boot-sdk>8.8.6</version.camunda8-spring-boot-sdk>
     <version.camunda8-process-test-spring>8.8.6</version.camunda8-process-test-spring>
   </properties>
 
@@ -104,6 +104,12 @@
     <dependency>
       <groupId>org.openrewrite</groupId>
       <artifactId>rewrite-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.openrewrite</groupId>
+      <artifactId>rewrite-java-21</artifactId>
       <scope>test</scope>
     </dependency>
 
