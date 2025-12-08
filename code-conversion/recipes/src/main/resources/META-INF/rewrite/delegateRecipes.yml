@@ -6,7 +6,7 @@ recipeList:
   - org.openrewrite.java.dependencies.AddDependency:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
-      version: 8.8.0-alpha4.1
+      version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
 ---

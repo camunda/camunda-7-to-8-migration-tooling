@@ -21,10 +21,7 @@
     <version.errorprone>2.45.0</version.errorprone>
     <version.guava>33.5.0-jre</version.guava>
     <version.commons-lang3>3.20.0</version.commons-lang3>
-    <!-- TODO consolidate Camunda 8 versions camunda/camunda-7-to-8-migration-tooling/issues/528 -->
-    <version.zeebe-client-java>8.6.0</version.zeebe-client-java>
-    <version.camunda8-spring-boot-sdk>8.8.0-alpha6</version.camunda8-spring-boot-sdk>
-    <version.camunda8-process-test-spring>8.8.6</version.camunda8-process-test-spring>
+    <version.camunda-8>8.8.0-alpha6</version.camunda-8>
   </properties>
 
   <dependencyManagement>
@@ -169,7 +166,7 @@
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>zeebe-client-java</artifactId>
-      <version>${version.zeebe-client-java}</version>
+      <version>${version.camunda-8}</version>
       <scope>provided</scope>
     </dependency>
 
@@ -187,12 +184,12 @@
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>spring-boot-starter-camunda-sdk</artifactId>
-      <version>${version.camunda8-spring-boot-sdk}</version>
+      <version>${version.camunda-8}</version>
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-process-test-spring</artifactId>
-      <version>${version.camunda8-process-test-spring}</version>
+      <version>${version.camunda-8}</version>
     </dependency>
 
 
@@ -203,6 +200,23 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>**/*.yml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>**/*.yml</exclude>
+        </excludes>
+      </resource>
+    </resources>
+
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
