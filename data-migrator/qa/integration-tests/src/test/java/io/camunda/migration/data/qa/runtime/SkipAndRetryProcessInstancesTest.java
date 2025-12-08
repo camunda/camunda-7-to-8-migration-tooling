@@ -43,6 +43,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(locations = "classpath:application-warn.properties")
+@CamundaSpringProcessTest
 class SkipAndRetryProcessInstancesTest extends AbstractMigratorTest {
 
   @RegisterExtension

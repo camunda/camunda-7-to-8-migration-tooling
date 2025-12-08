@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaAssert;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.List;
@@ -29,7 +30,11 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     "camunda.migrator.page-size=2"
 })
+@CamundaSpringProcessTest
 class PageSizeConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   public static final String MIGRATOR_JOBS_FOUND = "Migrator jobs found: ";
 
