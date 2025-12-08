@@ -9,7 +9,7 @@ package io.camunda.conversion.job_worker.handling_a_failure;
 
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.worker.JobClient;
-import io.camunda.spring.client.annotation.JobWorker;
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.spring.client.exception.CamundaError;
 
 import java.time.Duration;

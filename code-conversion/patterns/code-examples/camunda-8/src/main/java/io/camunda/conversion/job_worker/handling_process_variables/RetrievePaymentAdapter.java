@@ -7,7 +7,6 @@
  */
 package io.camunda.conversion.job_worker.handling_process_variables;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

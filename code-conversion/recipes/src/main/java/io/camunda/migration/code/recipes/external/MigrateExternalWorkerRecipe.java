@@ -64,7 +64,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
 
       return Preconditions.check(
@@ -139,7 +139,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
     @Override
     protected TreeVisitor<?, ExecutionContext> preconditions() {
       return Preconditions.and(
-          new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+          new UsesType<>("io.camunda.client.annotation.JobWorker", true),
           new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
     }
 
@@ -460,7 +460,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
 
       return Preconditions.check(

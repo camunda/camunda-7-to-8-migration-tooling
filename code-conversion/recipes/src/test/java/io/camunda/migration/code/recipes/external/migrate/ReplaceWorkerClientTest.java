@@ -30,8 +30,8 @@ class ReplaceWorkerClientTest implements RewriteTest {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription;
 import org.camunda.bpm.client.task.ExternalTask;
 import org.camunda.bpm.client.task.ExternalTaskHandler;
@@ -66,8 +66,8 @@ public class RetrievePaymentAdapter implements ExternalTaskHandler {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription;
 import org.camunda.bpm.client.task.ExternalTask;
 import org.camunda.bpm.client.task.ExternalTaskHandler;
@@ -116,7 +116,7 @@ public class RetrievePaymentAdapter implements ExternalTaskHandler {
                     package org.camunda.community.migration.example;
 
                     import io.camunda.client.api.response.ActivatedJob;
-                    import io.camunda.spring.client.annotation.JobWorker;
+                    import io.camunda.client.annotation.JobWorker;
                     import org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription;
                     import org.camunda.bpm.client.task.ExternalTask;
                     import org.camunda.bpm.client.task.ExternalTaskHandler;
@@ -164,7 +164,7 @@ public class RetrievePaymentAdapter implements ExternalTaskHandler {
                     package org.camunda.community.migration.example;
 
                     import io.camunda.client.api.response.ActivatedJob;
-                    import io.camunda.spring.client.annotation.JobWorker;
+                    import io.camunda.client.annotation.JobWorker;
                     import io.camunda.spring.client.exception.CamundaError;
                     import org.camunda.bpm.client.spring.annotation.ExternalTaskSubscription;
                     import org.camunda.bpm.client.task.ExternalTask;

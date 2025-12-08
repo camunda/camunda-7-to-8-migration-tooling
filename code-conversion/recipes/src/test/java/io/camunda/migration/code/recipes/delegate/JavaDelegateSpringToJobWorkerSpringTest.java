@@ -46,8 +46,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -93,7 +93,7 @@ public class RetrievePaymentAdapter {
         package org.camunda.community.migration.example;
 
         import io.camunda.client.api.response.ActivatedJob;
-        import io.camunda.spring.client.annotation.JobWorker;
+        import io.camunda.client.annotation.JobWorker;
         import org.springframework.stereotype.Component;
 
         import java.util.HashMap;
@@ -144,8 +144,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -236,8 +236,8 @@ public class TestDelegate implements JavaDelegate {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
