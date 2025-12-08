@@ -52,6 +52,9 @@ public class MultiTenancyTest {
   abstract static class MultiTenancyTestBase extends AbstractMigratorTest {
 
     @RegisterExtension
+    protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
+
+    @RegisterExtension
     protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
 
     @Autowired
@@ -236,6 +239,7 @@ public class MultiTenancyTest {
    * Configuration: "camunda.migrator.tenant-ids=tenant-1,tenant-2"
    */
   @Nested
+  @CamundaSpringProcessTest
   @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
       "camunda.migrator.tenant-ids=tenant-1,tenant-2" })
   class WithoutDefaultTenantConfiguration extends MultiTenancyTestBase {
@@ -247,6 +251,7 @@ public class MultiTenancyTest {
    * Configuration: "camunda.migrator.tenant-ids=tenant-1,tenant-2,&lt;default&gt;"
    */
   @Nested
+  @CamundaSpringProcessTest
   @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
       "camunda.migrator.tenant-ids=tenant-1,tenant-2,<default>" })
   class WithDefaultTenantConfiguration extends MultiTenancyTestBase {

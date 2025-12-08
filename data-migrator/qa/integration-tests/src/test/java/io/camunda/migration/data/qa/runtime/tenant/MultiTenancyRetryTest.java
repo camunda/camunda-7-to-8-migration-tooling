@@ -29,7 +29,11 @@ import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
     "camunda.migrator.tenant-ids=tenant-1,tenant-2" })
+@CamundaSpringProcessTest
 class MultiTenancyRetryTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
