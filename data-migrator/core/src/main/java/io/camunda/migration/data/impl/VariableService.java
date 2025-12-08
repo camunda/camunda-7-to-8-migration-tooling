@@ -15,13 +15,14 @@ import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.model.ActivityVariables;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import io.camunda.migration.data.interceptor.VariableTypeDetector;
 import io.camunda.migration.data.impl.logging.VariableServiceLogs;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
+import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 import org.camunda.bpm.engine.runtime.VariableInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -120,12 +121,12 @@ public class VariableService {
     Map<String, Map<String, Object>> result = new HashMap<>();
 
     for (VariableInstance variable : variables) {
-      VariableInvocation variableInvocation = new VariableInvocation((VariableInstanceEntity) variable);
-      executeInterceptors(variableInvocation);
+      var variableContext = new VariableContext((VariableInstanceEntity) variable);
+      executeInterceptors(variableContext);
 
       String activityInstanceId = variable.getActivityInstanceId();
       Map<String, Object> variableMap = result.computeIfAbsent(activityInstanceId, k -> new HashMap<>());
-      variableMap.put(variableInvocation.getMigrationVariable().getName(), variableInvocation.getMigrationVariable().getValue());
+      variableMap.put(variableContext.getName(), variableContext.getC8Value());
     }
 
     return new ActivityVariables(result);
@@ -142,33 +143,37 @@ public class VariableService {
     Map<String, Object> variableResult = new HashMap<>();
 
     for (VariableInstance variable : variables) {
-      VariableInvocation variableInvocation = new VariableInvocation((VariableInstanceEntity) variable);
-      executeInterceptors(variableInvocation);
+      var variableContext = new VariableContext((VariableInstanceEntity) variable);
+      executeInterceptors(variableContext);
 
-      variableResult.put(variableInvocation.getMigrationVariable().getName(),
-          variableInvocation.getMigrationVariable().getValue());
+      variableResult.put(variableContext.getName(), variableContext.getC8Value());
     }
 
     return variableResult;
   }
 
   /**
-   * Executes all configured variable interceptors on the given variable invocation.
-   * Only interceptors that support the variable's type will be called.
+   * Executes all configured variable interceptors on the given variable context.
+   * Only interceptors that support the variable's type and entity type will be called.
    *
-   * @param variableInvocation the variable invocation to process
+   * @param variableContext the variable context to process
    * @throws VariableInterceptorException if any interceptor fails
    */
-  protected void executeInterceptors(VariableInvocation variableInvocation) {
+  public void executeInterceptors(VariableContext variableContext) {
     if (hasInterceptors()) {
       for (VariableInterceptor interceptor : configuredVariableInterceptors) {
+        // Filter by entity type if the interceptor specifies supported entity types
+        if (!supportsEntityType(interceptor, variableContext.getEntity().getClass())) {
+          continue;
+        }
+
         // Only execute interceptors that support this variable type using Camunda's native types
-        if (VariableTypeDetector.supportsVariable(interceptor, variableInvocation)) {
+        if (VariableTypeDetector.supportsVariable(interceptor, variableContext)) {
           try {
-            interceptor.execute(variableInvocation);
+            interceptor.execute(variableContext);
           } catch (Exception ex) {
             String interceptorName = interceptor.getClass().getSimpleName();
-            String variableName = variableInvocation.getC7Variable().getName();
+            String variableName = variableContext.getName();
             VariableServiceLogs.logInterceptorWarn(interceptorName, variableName);
 
             if (ex instanceof VariableInterceptorException) {
@@ -180,6 +185,44 @@ public class VariableService {
         }
       }
     }
+  }
+
+  /**
+   * Checks if an interceptor supports a specific entity type.
+   *
+   * @param interceptor the interceptor to check
+   * @param entityType the entity type to check
+   * @return true if the interceptor supports the entity type
+   */
+  protected boolean supportsEntityType(VariableInterceptor interceptor, Class<? extends ValueFields> entityType) {
+    var supportedEntityTypes = interceptor.getEntityTypes();
+    // Empty set means handle all entity types
+    if (supportedEntityTypes.isEmpty()) {
+      return true;
+    }
+    // Check if the entity type matches any supported entity type
+    return supportedEntityTypes.stream().anyMatch(supportedType -> supportedType.isAssignableFrom(entityType));
+  }
+
+  /**
+   * Converts a historic variable value using interceptors.
+   * Note: HistoricVariableInstance and VariableInstanceEntity are separate class hierarchies
+   * in Camunda 7. For historic variables, we create a VariableContext using the
+   * HistoricVariableInstance constructor and execute interceptors to ensure consistent
+   * transformation between runtime and history migration.
+   *
+   * @param valueFields the historic variable instance to convert
+   * @return the converted value after applying all interceptors
+   */
+  public String convertValue(ValueFields valueFields) {
+    // Create a VariableContext directly from the historic variable
+    var variableContext = new VariableContext(valueFields);
+
+    // Execute interceptors to transform the value (delegated to VariableService)
+    executeInterceptors(variableContext);
+
+    // C8 stores primitive variable values as strings wrapped in double-quotes
+    return String.format("\"%s\"", variableContext.getC8Value());
   }
 
 }

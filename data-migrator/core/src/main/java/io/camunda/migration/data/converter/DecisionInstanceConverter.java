@@ -14,12 +14,18 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.migration.data.impl.VariableService;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class DecisionInstanceConverter {
+
+  @Autowired
+  protected VariableService variableService;
 
   public DecisionInstanceDbModel apply(HistoricDecisionInstance decisionInstance,
                                        Long decisionDefinitionKey,
@@ -62,7 +68,7 @@ public class DecisionInstanceConverter {
     return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
         input.getId(),
         input.getClauseName(),
-        String.valueOf(input.getValue())
+        variableService.convertValue((ValueFields) input)
     )).toList();
   }
 
@@ -71,7 +77,7 @@ public class DecisionInstanceConverter {
     return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
         output.getId(),
         output.getClauseName(),
-        String.valueOf(output.getValue()),
+        variableService.convertValue((ValueFields) output),
         output.getRuleId(),
         output.getRuleOrder())).toList();
   }

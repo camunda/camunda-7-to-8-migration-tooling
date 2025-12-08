@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.qa.history;
 
-import static io.camunda.migration.data.constants.MigratorConstants.USER_TASK_ID;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
