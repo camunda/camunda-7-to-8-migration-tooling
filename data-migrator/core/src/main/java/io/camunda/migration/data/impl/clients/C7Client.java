@@ -77,7 +77,7 @@ public class C7Client {
   protected ApplicationContext context;
 
   @Autowired
-  private IdentityService identityService;
+  protected IdentityService identityService;
 
   /**
    * Gets a single process instance by ID.
