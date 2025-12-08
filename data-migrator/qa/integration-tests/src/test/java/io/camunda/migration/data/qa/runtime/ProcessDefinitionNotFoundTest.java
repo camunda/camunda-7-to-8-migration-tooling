@@ -15,7 +15,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
