@@ -11,9 +11,8 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logEndE
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStartExecution;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.PrimitiveValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -34,11 +33,11 @@ public class PrimitiveVariableTransformer implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
+  public void execute(VariableContext context) {
+    logStartExecution(this.getClass(), context.getName());
 
-    logStartExecution(this.getClass(), variable.getName());
-    invocation.setVariableValue(variable.getValue());
-    logEndExecution(this.getClass(), variable.getName());
+    Object primitiveValue = context.getC7Value();
+    context.setC8Value(primitiveValue);
+    logEndExecution(this.getClass(), context.getName());
   }
 }

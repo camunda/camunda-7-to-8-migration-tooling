@@ -8,9 +8,10 @@
 package io.camunda.migration.data.interceptor;
 
 import java.util.Set;
+import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 
 /**
- * Interceptor interface for handling variable invocations with type-specific filtering.
+ * Interceptor interface for handling variable contexts with type-specific filtering.
  * <p>
  * Implement this interface to define custom logic that should be executed
  * when a variable is accessed or modified during migration. Interceptors can specify
@@ -30,10 +31,47 @@ import java.util.Set;
  *   }
  *
  *   &#64;Override
- *   public void execute(VariableInvocation invocation) {
+ *   public void execute(VariableContext context) {
  *     // This will only be called for ObjectValue variables
- *     ObjectValue objectValue = (ObjectValue) invocation.getC7Variable().getTypedValue();
+ *     ObjectValue objectValue = (ObjectValue) context.getC7TypedValue();
  *     // Process based on serialization format
+ *   }
+ * }
+ * </pre>
+ *
+ * <h3>Entity type-specific interceptor (process variables only):</h3>
+ * <pre>
+ * &#64;Component
+ * public class ProcessVariableInterceptor implements VariableInterceptor {
+ *   &#64;Override
+ *   public Set&lt;Class&lt;? extends ValueFields&gt;&gt; getEntityTypes() {
+ *     // Only handle historic process variables, not decision inputs/outputs
+ *     return Set.of(HistoricVariableInstanceEntity.class, VariableInstanceEntity.class);
+ *   }
+ *
+ *   &#64;Override
+ *   public void execute(VariableContext context) {
+ *     // This will only be called for process variables
+ *     processVariable(context);
+ *   }
+ * }
+ * </pre>
+ *
+ * <h3>Decision-specific interceptor:</h3>
+ * <pre>
+ * &#64;Component
+ * public class DecisionVariableInterceptor implements VariableInterceptor {
+ *   &#64;Override
+ *   public Set&lt;Class&lt;? extends ValueFields&gt;&gt; getEntityTypes() {
+ *     // Only handle decision inputs and outputs
+ *     return Set.of(HistoricDecisionInputInstanceEntity.class,
+ *                   HistoricDecisionOutputInstanceEntity.class);
+ *   }
+ *
+ *   &#64;Override
+ *   public void execute(VariableContext context) {
+ *     // This will only be called for decision variables
+ *     processDecisionVariable(context);
  *   }
  * }
  * </pre>
@@ -48,9 +86,9 @@ import java.util.Set;
  *   }
  *
  *   &#64;Override
- *   public void execute(VariableInvocation invocation) {
+ *   public void execute(VariableContext context) {
  *     // This will be called for all variable types
- *     logVariableAccess(invocation.getC7Variable());
+ *     logVariableAccess(context.getName());
  *   }
  * }
  * </pre>
@@ -66,12 +104,12 @@ import java.util.Set;
 public interface VariableInterceptor {
 
   /**
-   * Executes the interceptor logic for a variable invocation.
+   * Executes the interceptor logic for a variable context.
    * This method will only be called if the variable type matches one of the supported types.
    *
-   * @param invocation the variable invocation containing C7 variable data and methods to modify it
+   * @param context the variable context containing C7 variable data and methods to modify it
    */
-  void execute(VariableInvocation invocation);
+  void execute(VariableContext context);
 
   /**
    * Returns the set of variable value types that this interceptor can handle.
@@ -87,7 +125,7 @@ public interface VariableInterceptor {
    * If the returned set is empty, this interceptor will be called for all variable types.
    * </p>
    * <p>
-   * Default implementation returns an empty set (handle all types) for backward compatibility.
+   * Default implementation returns an empty set (handle all types).
    * </p>
    *
    * @return set of supported variable value types, or empty set to handle all types
@@ -95,4 +133,31 @@ public interface VariableInterceptor {
   default Set<Class<?>> getTypes() {
     return Set.of(); // Empty set = handle all types for backward compatibility
   }
+
+  /**
+   * Returns the set of entity types that this interceptor can handle.
+   * <p>
+   * Use Camunda's entity classes like:
+   * - {@code HistoricVariableInstanceEntity.class} for historic process variables
+   * - {@code VariableInstanceEntity.class} for runtime process variables
+   * - {@code HistoricDecisionInputInstanceEntity.class} for decision input variables
+   * - {@code HistoricDecisionOutputInstanceEntity.class} for decision output variables
+   * </p>
+   * <p>
+   * If the returned set is empty, this interceptor will be called for all entity types.
+   * </p>
+   * <p>
+   * This allows interceptors to filter by the source entity type,providing fine-grained
+   * control over when an interceptor is executed.
+   * </p>
+   * <p>
+   * Default implementation returns an empty set (handle all entity types).
+   * </p>
+   *
+   * @return set of supported entity types, or empty set to handle all entity types
+   */
+  default Set<Class<? extends ValueFields>> getEntityTypes() {
+    return Set.of();
+  }
+
 }

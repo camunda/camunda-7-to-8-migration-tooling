@@ -8,7 +8,7 @@
 package io.camunda.migration.data.qa.runtime.variables.interceptor.bean;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.camunda.bpm.engine.variable.value.StringValue;
@@ -28,9 +28,9 @@ public class StringOnlyInterceptor implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
+  public void execute(VariableContext context) {
     executionCount.incrementAndGet();
-    invocation.setVariableValue("STRING_" + invocation.getC7Variable().getValue());
+    context.setC8Value("STRING_" + context.getC7Value());
   }
 
   public int getExecutionCount() {

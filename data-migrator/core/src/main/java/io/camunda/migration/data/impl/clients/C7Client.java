@@ -77,7 +77,7 @@ public class C7Client {
   protected ApplicationContext context;
 
   @Autowired
-  private IdentityService identityService;
+  protected IdentityService identityService;
 
   /**
    * Gets a single process instance by ID.
@@ -157,7 +157,9 @@ public class C7Client {
    * Gets a single historic variable instance by ID.
    */
   public HistoricVariableInstance getHistoricVariableInstance(String c7Id) {
-    var query = historyService.createHistoricVariableInstanceQuery().variableId(c7Id);
+    var query = historyService.createHistoricVariableInstanceQuery()
+        .disableCustomObjectDeserialization()
+        .variableId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricVariableInstance", c7Id));
   }
 
@@ -296,6 +298,7 @@ public class C7Client {
     HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
         .includeInputs()
         .includeOutputs()
+        .disableCustomObjectDeserialization()
         .orderByEvaluationTime()
         .asc()
         .orderByDecisionInstanceId()
@@ -412,6 +415,7 @@ public class C7Client {
    */
   public void fetchAndHandleHistoricVariables(Consumer<HistoricVariableInstance> callback, Date createdAfter) {
     HistoricVariableInstanceQueryImpl query = (HistoricVariableInstanceQueryImpl) historyService.createHistoricVariableInstanceQuery()
+        .disableCustomObjectDeserialization()
         .orderByCreationTime()
         .asc()
         .orderByVariableId()

@@ -7,16 +7,11 @@
  */
 package io.camunda.migration.data.converter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.constants.MigratorConstants;
-import io.camunda.migration.data.impl.logging.VariableConverterLogs;
+import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.util.ConverterUtil;
-import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.camunda.bpm.engine.variable.impl.value.NullValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
@@ -25,14 +20,13 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 public class VariableConverter {
 
   @Autowired
-  protected ObjectMapper objectMapper;
+  protected VariableService variableService;
 
-  public VariableDbModel apply(HistoricVariableInstance historicVariable, Long processInstanceKey, Long scopeKey) {
-    // TODO currently the VariableDbModelBuilder maps all variables to String type
+  public VariableDbModel apply(HistoricVariableInstanceEntity historicVariable, Long processInstanceKey, Long scopeKey) {
     return new VariableDbModel.VariableDbModelBuilder()
         .variableKey(getNextKey())
         .name(historicVariable.getName())
-        .value(convertValue(historicVariable)) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5329
+        .value(variableService.convertValue(historicVariable))
         .scopeKey(scopeKey)
         .processInstanceKey(processInstanceKey)
         .processDefinitionId(historicVariable.getProcessDefinitionKey())
@@ -41,54 +35,5 @@ public class VariableConverter {
         .historyCleanupDate(convertDate(historicVariable.getRemovalTime()))
         .build();
   }
-
-  protected String convertValue(HistoricVariableInstance variable) {
-    var variableId = variable.getId();
-
-    if (isNullValueType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "NullValue");
-      return null;
-    }
-
-    if (isPrimitiveType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "Primitive");
-      var typedValue = variable.getTypedValue().getValue();
-
-      return typedValue != null ? typedValue.toString() : null;
-    }
-
-    if (isObjectType(variable)) {
-      ObjectValueImpl typedValue = (ObjectValueImpl) (variable.getTypedValue());
-      Class<?> objectType = typedValue.getObjectType();
-      VariableConverterLogs.convertingOfType(variableId, objectType.getSimpleName());
-
-      return getJsonValue(typedValue);
-    }
-
-    VariableConverterLogs.warnNoHandlingAvailable(variableId, "unknown"/*variable.getTypeName()*/);
-    return null;
-  }
-
-  protected boolean isNullValueType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof NullValueImpl;
-  }
-
-  protected boolean isObjectType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof ObjectValueImpl;
-  }
-
-  protected boolean isPrimitiveType(HistoricVariableInstance variable) {
-    return variable.getTypedValue() instanceof PrimitiveTypeValueImpl;
-  }
-
-  protected String getJsonValue(ObjectValueImpl typedValue) {
-    try {
-      return objectMapper.writeValueAsString(typedValue.getValue());
-    } catch (JsonProcessingException e) {
-      VariableConverterLogs.failedConvertingJson(typedValue, e.getMessage());
-      return null;
-    }
-  }
-
 
 }

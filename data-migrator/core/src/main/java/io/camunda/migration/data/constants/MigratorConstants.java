@@ -19,6 +19,5 @@ public final class MigratorConstants {
   public static int C7_HISTORY_PARTITION_ID = 4095;
 
   public static final String LEGACY_ID_VAR_NAME = "legacyId";
-  public static final String USER_TASK_ID = "userTaskId";
   public static final String C8_DEFAULT_TENANT = "<default>";
 }

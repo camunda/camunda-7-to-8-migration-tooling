@@ -8,7 +8,7 @@
 package io.camunda.migration.data.qa.runtime.variables.interceptor.bean;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -29,22 +29,20 @@ public class ComplexInterceptor implements VariableInterceptor {
   protected static final String EXPECTED_EXCEPTION_MESSAGE = "Expected exception from Interceptor";
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    LOGGER.debug(INTERCEPTOR_START_MESSAGE, ComplexInterceptor.class,
-        invocation.getC7Variable().getName());
-    if (invocation.getC7Variable().getName().equals("varIntercept")) {
+  public void execute(VariableContext context) {
+    LOGGER.debug(INTERCEPTOR_START_MESSAGE, ComplexInterceptor.class, context.getName());
+    if (context.getName().equals("varIntercept")) {
       LOGGER.info(HELLO_FROM_INTERCEPTOR_MESSAGE);
-      invocation.setVariableValue("Hello");
+      context.setC8Value("Hello");
     }
 
-    if (invocation.getC7Variable().getName().equals("exFlag")) {
-      if (Boolean.parseBoolean(invocation.getC7Variable().getValue().toString())) {
+    if (context.getName().equals("exFlag")) {
+      if ((boolean) context.getC7Value()) {
         throw new RuntimeException(EXPECTED_EXCEPTION_MESSAGE);
       } else {
         LOGGER.info(BYE_FROM_INTERCEPTOR_MESSAGE);
       }
     }
-    LOGGER.debug(INTERCEPTOR_END_MESSAGE, ComplexInterceptor.class,
-        invocation.getC7Variable().getName());
+    LOGGER.debug(INTERCEPTOR_END_MESSAGE, ComplexInterceptor.class, context.getName());
   }
 }

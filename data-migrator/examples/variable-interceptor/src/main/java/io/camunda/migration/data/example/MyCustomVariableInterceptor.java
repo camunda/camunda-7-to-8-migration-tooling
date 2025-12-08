@@ -8,8 +8,7 @@
 package io.camunda.migration.data.example;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
+import io.camunda.migration.data.interceptor.VariableContext;
 import org.camunda.bpm.engine.variable.type.ValueType;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.slf4j.Logger;
@@ -33,32 +32,31 @@ public class MyCustomVariableInterceptor implements VariableInterceptor {
     protected String prefix = "CUSTOM_";
 
     @Override
-    public void execute(VariableInvocation invocation) {
-        VariableInstanceEntity variable = invocation.getC7Variable();
-      TypedValue typedValue = variable.getTypedValue(false);
+    public void execute(VariableContext context) {
+      TypedValue typedValue = context.getC7TypedValue();
       if (enableLogging) {
             LOGGER.info("Processing variable: {} with value: {}",
-                variable.getName(),
+                context.getName(),
                 typedValue.getValue());
         }
 
         if (ValueType.STRING.getName().equals(typedValue.getType().getName())) {
-            Object originalValue = invocation.getMigrationVariable().getValue();
+            Object originalValue = typedValue.getValue();
             if (originalValue != null) {
                 String stringValue = originalValue.toString();
-                invocation.setVariableValue(prefix + stringValue);
+                context.setC8Value(prefix + stringValue);
 
                 if (enableLogging) {
                     LOGGER.info("Converted variable {} from {} to String: {}",
-                        variable.getName(), variable.getValue(), stringValue);
+                        context.getName(), originalValue, stringValue);
                 }
             }
         }
 
         if (enableLogging) {
             LOGGER.info("Finished processing variable: {} with transformed value: {}",
-                invocation.getMigrationVariable().getName(),
-                invocation.getMigrationVariable().getValue());
+                context.getName(),
+                typedValue.getValue());
         }
     }
 

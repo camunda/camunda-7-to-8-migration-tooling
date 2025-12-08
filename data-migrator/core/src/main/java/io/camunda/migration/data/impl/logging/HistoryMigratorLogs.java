@@ -20,6 +20,8 @@ public class HistoryMigratorLogs {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(HistoryMigrator.class);
 
+  public static final String STACKTRACE = "Stack trace:";
+
   // Skip reason constants
   public static final String SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE = "Missing parent process instance";
   public static final String SKIP_REASON_MISSING_PROCESS_DEFINITION = "Missing process definition";
@@ -45,9 +47,10 @@ public class HistoryMigratorLogs {
       "Migration of historic {} instance with C7 ID " + "[{}] completed";
   public static final String SKIPPING_INSTANCE_MISSING_PARENT = "Migration of historic {} instance with C7 ID [{}] skipped. Parent instance not yet available.";
   public static final String SKIPPING_INSTANCE_MISSING_DEFINITION = "Migration of historic {} instance with C7 ID [{}] skipped. {} definition not yet available.";
-  public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. Process instance not yet available.";
-  public static final String SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE = "Migration of historic decision "
-      + "instance with C7 ID [{}] skipped. Flow node instance not yet available.";
+  public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
+  public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = SKIPPING_DECISION_INSTANCE + "Process instance not yet available.";
+  public static final String SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE = SKIPPING_DECISION_INSTANCE + "Flow node instance not yet available.";
+  public static final String SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR = SKIPPING_DECISION_INSTANCE + "Variable interceptor error: {}";
   public static final String NOT_MIGRATING_DECISION_INSTANCE = "Not migrating historic decision instance with "
       + "C7 ID: [{}] because it does not originate from a business rule task.";
 
@@ -65,6 +68,8 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
+  public static final String SKIPPING_VARIABLE_INTERCEPTOR_ERROR = SKIPPING_VARIABLE + " Variable interceptor error: {}";
+
 
   public static final String MIGRATING_USER_TASKS = "Migrating historic user tasks";
   public static final String MIGRATING_USER_TASK = "Migrating historic user task with C7 ID: [{}]";
@@ -165,6 +170,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE, c7DecisionInstanceId);
   }
 
+  public static void skippingDecisionInstanceDueToInterceptorError(String c7DecisionInstanceId, String message) {
+    LOGGER.warn(SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR, c7DecisionInstanceId, message);
+  }
+
   public static void migratingHistoricIncidents() {
     LOGGER.info(MIGRATING_INCIDENTS);
   }
@@ -207,6 +216,14 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricVariableDueToMissingScopeKey(String c7VariableId) {
     LOGGER.debug(SKIPPING_VARIABLE_MISSING_SCOPE, c7VariableId);
+  }
+
+  public static void skippingHistoricVariableDueToInterceptorError(String c7VariableId, String message) {
+    LOGGER.warn(SKIPPING_VARIABLE_INTERCEPTOR_ERROR, c7VariableId, message);
+  }
+
+  public static void stacktrace(Exception e) {
+    LOGGER.debug(STACKTRACE, e);
   }
 
   public static void migratingHistoricUserTasks() {

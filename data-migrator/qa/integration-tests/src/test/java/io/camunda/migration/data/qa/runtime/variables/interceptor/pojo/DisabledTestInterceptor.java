@@ -8,7 +8,7 @@
 package io.camunda.migration.data.qa.runtime.variables.interceptor.pojo;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
 
 public class DisabledTestInterceptor implements VariableInterceptor {
@@ -18,7 +18,7 @@ public class DisabledTestInterceptor implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    invocation.setVariableValue("DISABLED_" + invocation.getC7Variable().getValue());
+  public void execute(VariableContext context) {
+    context.setC8Value("DISABLED_" + context.getC7Value());
   }
 }

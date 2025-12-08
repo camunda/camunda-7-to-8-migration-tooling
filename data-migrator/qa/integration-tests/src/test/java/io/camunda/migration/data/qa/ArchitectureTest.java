@@ -253,6 +253,17 @@ class ArchitectureTest {
               }
             }
 
+            // Allow accesses from JUnit Extension classes (test infrastructure)
+            // Check both the class being analyzed and the declaring class of the origin method
+            if (javaClass.getName().endsWith("Extension")) {
+              return; // Access from Extension classes is allowed for test infrastructure
+            }
+            if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod) {
+              if (originMethod.getOwner().getName().endsWith("Extension")) {
+                return; // Access from methods in Extension classes is allowed
+              }
+            }
+
             // Violation: calling method or constructor from io.camunda.migration.data.impl package
             String message = String.format(
                 "%s accesses %s in (%s.java:%s)",
@@ -281,6 +292,19 @@ class ArchitectureTest {
             // Allow ClockUtil - it's a legitimate test utility
             if (targetClassName.equals("org.camunda.bpm.engine.impl.util.ClockUtil")) {
               return; // ClockUtil is allowed
+            }
+
+            // Allow ProcessEngineConfigurationImpl from @BeforeEach/@AfterEach/@Test methods
+            if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod) {
+              boolean isTestMethod = originMethod.getAnnotations().stream()
+                  .anyMatch(annotation ->
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeEach") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterEach") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.Test"));
+
+              if (isTestMethod && targetClassName.equals("org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl")) {
+                return; // ProcessEngineConfigurationImpl access from test methods is allowed
+              }
             }
 
             // Violation: accessing org.camunda.bpm.engine.impl class other than ClockUtil

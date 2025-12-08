@@ -16,10 +16,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Map;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.camunda.spin.plugin.variable.type.SpinValueType;
 import org.camunda.spin.plugin.variable.value.SpinValue;
@@ -46,20 +45,29 @@ public class SpinJsonVariableTransformer implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    TypedValue typedValue = variable.getTypedValue(false);
+  public void execute(VariableContext context) {
+    TypedValue typedValue = context.getC7TypedValue();
 
     if (SpinValueType.JSON.equals(typedValue.getType())) {
-      logStartExecution(this.getClass(), variable.getName());
-      setJsonVariable(invocation, typedValue.getValue().toString());
-      logEndExecution(this.getClass(), variable.getName());
+      logStartExecution(this.getClass(), context.getName());
+
+      String jsonValue = typedValue.getValue().toString();
+
+      if (context.isHistory()) {
+        context.setC8Value(jsonValue);
+
+      } else if (context.isRuntime()) {
+        setJsonVariable(context, jsonValue);
+
+      }
+
+      logEndExecution(this.getClass(), context.getName());
     }
   }
 
-  protected void setJsonVariable(VariableInvocation invocation, String jsonString) {
+  protected void setJsonVariable(VariableContext context, String jsonString) {
     try {
-      invocation.setVariableValue(objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {}));
+      context.setC8Value(objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {}));
     } catch (JsonProcessingException e) {
       throw new VariableInterceptorException(JSON_DESERIALIZATION_ERROR, e);
     }

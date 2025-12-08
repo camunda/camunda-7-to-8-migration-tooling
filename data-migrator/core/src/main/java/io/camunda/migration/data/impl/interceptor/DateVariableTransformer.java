@@ -12,10 +12,9 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logConv
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logConvertingDate;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.text.SimpleDateFormat;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.DateValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -37,13 +36,12 @@ public class DateVariableTransformer implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    DateValue dateValue = (DateValue) variable.getTypedValue(false);
+  public void execute(VariableContext context) {
+    DateValue dateValue = (DateValue) context.getC7TypedValue();
 
-    logConvertingDate(variable.getName());
+    logConvertingDate(context.getName());
     String formattedDate = new SimpleDateFormat(DATE_FORMAT_PATTERN).format(dateValue.getValue());
-    logConvertedDate(variable.getName(), dateValue.getValue(), formattedDate);
-    invocation.setVariableValue(formattedDate);
+    logConvertedDate(context.getName(), dateValue.getValue(), formattedDate);
+    context.setC8Value(formattedDate);
   }
 }

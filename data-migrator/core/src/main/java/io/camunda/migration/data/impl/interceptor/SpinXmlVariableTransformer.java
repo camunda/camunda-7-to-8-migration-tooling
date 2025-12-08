@@ -11,9 +11,8 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logEndE
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStartExecution;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.camunda.spin.plugin.variable.type.SpinValueType;
 import org.camunda.spin.plugin.variable.value.SpinValue;
@@ -36,14 +35,15 @@ public class SpinXmlVariableTransformer implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    TypedValue typedValue = variable.getTypedValue(false);
+  public void execute(VariableContext context) {
+    TypedValue typedValue = context.getC7TypedValue();
 
     if (SpinValueType.XML.equals(typedValue.getType())) {
-      logStartExecution(this.getClass(), variable.getName());
-      invocation.setVariableValue(typedValue.getValue().toString());
-      logEndExecution(this.getClass(), variable.getName());
+      logStartExecution(this.getClass(), context.getName());
+
+      String xmlValue = typedValue.getValue().toString();
+      context.setC8Value(xmlValue);
+      logEndExecution(this.getClass(), context.getName());
     }
   }
 }
