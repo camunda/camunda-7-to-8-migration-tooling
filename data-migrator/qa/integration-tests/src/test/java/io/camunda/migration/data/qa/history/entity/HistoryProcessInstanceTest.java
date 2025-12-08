@@ -14,7 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -28,7 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 
-public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
+public class HistoryProcessInstanceTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -38,16 +42,16 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance c7Process = runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
         .processInstanceId(c7Process.getId())
         .singleResult();
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
         ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", C8_DEFAULT_TENANT, false, false);
@@ -58,16 +62,16 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant1");
     ProcessInstance c7Process = runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
         .processInstanceId(c7Process.getId())
         .singleResult();
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances.size()).isEqualTo(1);
     verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
         ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", "my-tenant1", false, false);
@@ -82,7 +86,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
         .processInstanceId(parentInstance.getId())
         .singleResult();
@@ -91,11 +95,11 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .singleResult();
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> parentProcessInstance = searchHistoricProcessInstances("callingProcessId");
-    List<ProcessInstanceEntity> subProcessInstance = searchHistoricProcessInstances("calledProcessInstanceId");
+    List<ProcessInstanceEntity> parentProcessInstance = historyMigration.searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> subProcessInstance = historyMigration.searchHistoricProcessInstances("calledProcessInstanceId");
     assertThat(parentProcessInstance).hasSize(1);
     assertThat(subProcessInstance).hasSize(1);
 
@@ -121,10 +125,10 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .singleResult();
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("incidentProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("incidentProcessId");
     assertThat(processInstances).hasSize(1);
     var processInstance = processInstances.getFirst();
 
@@ -143,18 +147,18 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     HistoricActivityInstance callActivity = historyService.createHistoricActivityInstanceQuery()
         .activityId("callActivityId")
         .processInstanceId(subInstance.getId())
         .singleResult();
-    dbClient.insert(callActivity.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    historyMigration.getDbClient().insert(callActivity.getId(), null, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
+    assertThat(historyMigration.searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
   }
 
 

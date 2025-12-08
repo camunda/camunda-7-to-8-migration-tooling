@@ -11,7 +11,9 @@ package io.camunda.migration.data.qa.runtime.datasource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -22,7 +24,11 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.table-prefix=MY_PREFIX_",
     "logging.level.io.camunda.migration.data.impl.persistence.IdKeyMapper=DEBUG"
 })
-public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class MigratorTablePrefixTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   protected static final String TABLE_PREFIX_INSERT_PATTERN = ".*INSERT INTO MY_PREFIX_MIGRATION_MAPPING.*";
 
@@ -36,10 +42,10 @@ public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
     runtimeService.correlateMessage("msgRef");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()

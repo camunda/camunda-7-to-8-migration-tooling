@@ -12,12 +12,18 @@ import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.EXTERNA
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ExternalTrafficTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -32,13 +38,13 @@ public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    camundaClient.newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
+    runtimeMigration.getCamundaClient().newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(2);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(2);
 
     var events = logs.getEvents();
     assertThat(events.stream()

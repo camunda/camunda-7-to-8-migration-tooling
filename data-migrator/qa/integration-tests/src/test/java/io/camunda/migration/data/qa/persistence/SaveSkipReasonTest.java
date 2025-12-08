@@ -14,14 +14,21 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.migration.data.qa.util.WhiteBox;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class SaveSkipReasonTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected IdKeyMapper idKeyMapper;
@@ -45,7 +52,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
@@ -67,7 +74,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);

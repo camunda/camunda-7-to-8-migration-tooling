@@ -21,7 +21,10 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith({ OutputCaptureExtension.class })
-public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
+public class HistoryMigrationRetryTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -32,17 +35,17 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
     // First migration skipps with a real-world scenario due to missing process definition migration
-    historyMigrator.migrateProcessInstances(); // Skips because definition not migrated
+    historyMigration.getMigrator().migrateProcessInstances(); // Skips because definition not migrated
 
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
+    assertThat(historyMigration.searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
 
     // when: Now migrate definitions and retry skipped instances
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrateProcessDefinitions();
+    historyMigration.getMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigration.getMigrator().migrate();
 
     // then: Process definition is migrated
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
   }
 
   @Test
@@ -51,18 +54,18 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // Migrate decision definitions
-    historyMigrator.migrateDecisionDefinitions();
-    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(0);
+    historyMigration.getMigrator().migrateDecisionDefinitions();
+    assertThat(historyMigration.searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(0);
 
     // Migrate dependency
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigration.getMigrator().migrateDecisionRequirementsDefinitions();
 
     // when: Retry migration (should not duplicate)
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigration.getMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigration.getMigrator().migrate();
 
     // then: Decision requirements definition exists
-    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(1);
   }
 
   @Test
@@ -70,41 +73,41 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("includeAllSupportedElementsProcess.bpmn");
     runtimeService.startProcessInstanceByKey("allElementsProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     executeAllJobsWithRetry();
 
     // Create real-world skip scenario
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
-    historyMigrator.migrateVariables();
-    historyMigrator.migrateIncidents();
+    historyMigration.getMigrator().migrateProcessInstances();
+    historyMigration.getMigrator().migrateFlowNodes();
+    historyMigration.getMigrator().migrateUserTasks();
+    historyMigration.getMigrator().migrateVariables();
+    historyMigration.getMigrator().migrateIncidents();
 
-    assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(0);
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("allElementsProcessId");
+    assertThat(historyMigration.searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(0);
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("allElementsProcessId");
     assertThat(processInstances).hasSize(0);
-    assertThat(searchHistoricIncidents("allElementsProcessId")).hasSize(0);
-    assertThat(searchHistoricVariables("userTaskVar")).hasSize(0);
+    assertThat(historyMigration.searchHistoricIncidents("allElementsProcessId")).hasSize(0);
+    assertThat(historyMigration.searchHistoricVariables("userTaskVar")).hasSize(0);
 
     // Create more instances that will be skipped
     for (int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("allElementsProcessId");
     }
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     executeAllJobsWithRetry();
 
     // when: Retry skipped entities
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrateProcessDefinitions();
+    historyMigration.getMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigration.getMigrator().migrate();
 
     // then only previously skipped entities are migrated
-    assertThat(searchHistoricProcessDefinitions("allElementsProcessId").size()).isEqualTo(1);
-    processInstances = searchHistoricProcessInstances("allElementsProcessId");
+    assertThat(historyMigration.searchHistoricProcessDefinitions("allElementsProcessId").size()).isEqualTo(1);
+    processInstances = historyMigration.searchHistoricProcessInstances("allElementsProcessId");
     assertThat(processInstances.size()).isEqualTo(1);
-    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey()).size()).isEqualTo(1);
-    assertThat(searchHistoricIncidents("allElementsProcessId").size()).isEqualTo(1);
-    assertThat(searchHistoricVariables("userTaskVar").size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricUserTasks(processInstances.getFirst().processInstanceKey()).size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricIncidents("allElementsProcessId").size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricVariables("userTaskVar").size()).isEqualTo(1);
   }
 
   @Test
@@ -113,29 +116,29 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     // Start one process instance
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // Try to migrate without process definition
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
+    historyMigration.getMigrator().migrateProcessInstances();
+    historyMigration.getMigrator().migrateFlowNodes();
+    historyMigration.getMigrator().migrateUserTasks();
 
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
-    assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(0);
+    assertThat(historyMigration.searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
+    assertThat(historyMigration.searchHistoricProcessInstances("userTaskProcessId")).hasSize(0);
 
     // Start 4 more process instances
     for (int i = 0; i < 4; i++) {
       runtimeService.startProcessInstanceByKey("userTaskProcessId");
     }
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate normally
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then only non skipped entities are migrated
     // Assert that 4 process instances were migrated, not 5
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
-    assertThat(searchHistoricProcessInstances("userTaskProcessId").size()).isEqualTo(4);
+    assertThat(historyMigration.searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
+    assertThat(historyMigration.searchHistoricProcessInstances("userTaskProcessId").size()).isEqualTo(4);
   }
 
 }

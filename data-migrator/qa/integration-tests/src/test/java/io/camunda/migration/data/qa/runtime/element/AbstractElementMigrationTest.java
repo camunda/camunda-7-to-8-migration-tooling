@@ -13,17 +13,24 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.stream.Stream;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.EnabledIf;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public abstract class AbstractElementMigrationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @EnabledIf("hasScenarios_activeElementPostMigration")
   @MethodSource("elementScenarios_activeElementPostMigration")
@@ -36,7 +43,7 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId(processId)).isActive()
@@ -55,7 +62,7 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId(processId)).hasCompletedElement(elementId, 1)

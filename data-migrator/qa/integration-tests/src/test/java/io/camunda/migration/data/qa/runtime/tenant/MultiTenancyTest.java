@@ -18,7 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +49,10 @@ public class MultiTenancyTest {
   /**
    * Base class for shared test logic between tenant configuration scenarios
    */
-  abstract static class MultiTenancyTestBase extends RuntimeMigrationAbstractTest {
+  abstract static class MultiTenancyTestBase extends AbstractMigratorTest {
+
+    @RegisterExtension
+    protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
     @RegisterExtension
     protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -74,10 +79,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(1);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
       var c8ProcessInstanceTenant = client.newProcessInstanceSearchRequest()
           .filter(f -> f.processDefinitionId(SIMPLE_PROCESS_ID))
           .send()
@@ -108,10 +113,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(1);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
 
       assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
       var c8VariableTenant = client.newVariableSearchRequest()
@@ -151,10 +156,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 10)).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(3);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(3);
       assertProcessInstanceState(TENANT_ID_1, c7WithT1, 1);
       assertProcessInstanceState(TENANT_ID_2, c7WithT2, 2);
       assertProcessInstanceState(C8_DEFAULT_TENANT, c7instance, 10);
@@ -169,10 +174,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7ProcessInstanceId)));
@@ -187,10 +192,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7ProcessInstanceId)));
@@ -205,10 +210,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(TENANT_ID_ERROR, TENANT_ID_3)));
@@ -234,6 +239,7 @@ public class MultiTenancyTest {
    * Configuration: "camunda.migrator.tenant-ids=tenant-1,tenant-2"
    */
   @Nested
+  @CamundaSpringProcessTest
   @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
       "camunda.migrator.tenant-ids=tenant-1,tenant-2" })
   class WithoutDefaultTenantConfiguration extends MultiTenancyTestBase {
@@ -245,6 +251,7 @@ public class MultiTenancyTest {
    * Configuration: "camunda.migrator.tenant-ids=tenant-1,tenant-2,&lt;default&gt;"
    */
   @Nested
+  @CamundaSpringProcessTest
   @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
       "camunda.migrator.tenant-ids=tenant-1,tenant-2,<default>" })
   class WithDefaultTenantConfiguration extends MultiTenancyTestBase {

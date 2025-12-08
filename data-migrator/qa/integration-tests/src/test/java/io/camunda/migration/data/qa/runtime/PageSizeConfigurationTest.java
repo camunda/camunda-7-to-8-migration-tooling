@@ -12,12 +12,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
@@ -27,7 +30,11 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     "camunda.migrator.page-size=2"
 })
-class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+class PageSizeConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   public static final String MIGRATOR_JOBS_FOUND = "Migrator jobs found: ";
 
@@ -42,10 +49,10 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     assertThat(runtimeService.createProcessInstanceQuery().list().size()).isEqualTo(5);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances = runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertThat(processInstances.size()).isEqualTo(5);
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 0, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 2, page size: 2");
@@ -65,10 +72,10 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     }
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5);
+    assertThat(runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().items()).hasSize(5);
 
     Matcher matcher = Pattern.compile(MIGRATOR_JOBS_FOUND + "2").matcher(output.getOut());
     assertThat(matcher.results().count()).isEqualTo(2);
@@ -88,7 +95,7 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("root");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     List<String> processIds = List.of(rootId, level1Id, level2Id);

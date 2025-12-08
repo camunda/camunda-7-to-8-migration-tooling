@@ -12,15 +12,22 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElement
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.response.ActivateJobsResponse;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
-public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ExternalTrafficWithValidationJobTypeTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Test
   public void shouldHandleExternallyStartedMigratorJobsGracefully() {
@@ -32,15 +39,15 @@ public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAb
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    camundaClient.newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
+    runtimeMigration.getCamundaClient().newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(2);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(2);
 
-    ActivateJobsResponse response = camundaClient.newActivateJobsCommand()
+    ActivateJobsResponse response = runtimeMigration.getCamundaClient().newActivateJobsCommand()
         .jobType("noop")
         .maxJobsToActivate(5)
         .execute();
