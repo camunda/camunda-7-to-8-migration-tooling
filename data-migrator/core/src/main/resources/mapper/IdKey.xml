@@ -7,9 +7,9 @@
   ~ except in compliance with the Camunda License 1.0.
   -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="io.camunda.migrator.impl.persistence.IdKeyMapper">
+<mapper namespace="io.camunda.migration.data.impl.persistence.IdKeyMapper">
 
-  <resultMap id="idKeyResultMap" type="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <resultMap id="idKeyResultMap" type="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     <id property="c7Id" column="C7_ID" jdbcType="VARCHAR"/>
     <result property="c8Key" column="C8_KEY" jdbcType="BIGINT"/>
     <result property="createTime" column="CREATE_TIME" jdbcType="TIMESTAMP"/>
@@ -42,13 +42,13 @@
   <select id="findMigratedByType" resultMap="idKeyResultMap">
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NOT NULL
-    <include refid="io.camunda.migrator.Commons.pageSql"/>
+    <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </select>
 
   <sql id="findSkippedByQueryCriteriaSql">
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NULL
-    <include refid="io.camunda.migrator.Commons.pageSql"/>
+    <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </sql>
 
   <select id="findAllC7Ids">
@@ -56,13 +56,13 @@
     FROM ${prefix}MIGRATION_MAPPING
   </select>
 
-  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
     SET C8_KEY = #{c8Key, jdbcType=BIGINT}
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
   </update>
 
-  <update id="updateSkipReason" parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel">
+  <update id="updateSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
     SET SKIP_REASON = #{skipReason, jdbcType=VARCHAR}
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
@@ -86,18 +86,18 @@
   <select id="findLatestCreateTimeByType" parameterType="java.lang.String">
     <!-- No need to order with two criteria since we limit result to return exactly one create time -->
     SELECT CREATE_TIME FROM ${prefix}MIGRATION_MAPPING WHERE TYPE = '${type}' ORDER BY CREATE_TIME DESC
-    <include refid="io.camunda.migrator.Commons.singleResultSql"/>
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
   <select id="findC8KeyByC7IdAndType" resultType="java.lang.Long">
     SELECT C8_KEY FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
-    <include refid="io.camunda.migrator.Commons.singleResultSql"/>
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
   <insert
     id="insert"
-    parameterType="io.camunda.migrator.impl.persistence.IdKeyDbModel"
+    parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel"
     flushCache="true">
     INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON)
     VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=BIGINT}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})
@@ -110,7 +110,7 @@
 
   <select id="findLatestIdByType" parameterType="java.lang.String">
     SELECT C7_ID FROM ${prefix}MIGRATION_MAPPING WHERE TYPE = '${type}' ORDER BY C7_ID DESC
-    <include refid="io.camunda.migrator.Commons.singleResultSql"/>
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
 

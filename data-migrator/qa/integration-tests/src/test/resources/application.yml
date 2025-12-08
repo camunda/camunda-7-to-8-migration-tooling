@@ -19,7 +19,7 @@ camunda:
   #  camunda-docker-image-version: 8.9-SNAPSHOT
 
 logging:
-  level.io.camunda.migrator: INFO
+  level.io.camunda.migration.data: INFO
   level.org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity: INFO
   file:
     name: target/test-logs/qa-test.log
