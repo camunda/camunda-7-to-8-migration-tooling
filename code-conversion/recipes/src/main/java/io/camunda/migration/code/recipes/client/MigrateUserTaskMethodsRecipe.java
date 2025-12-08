@@ -223,7 +223,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
         new ReplacementUtils.ReturnReplacementSpec(
             new MethodMatcher("org.camunda.bpm.engine.task.Task getDueDate()"),
             RecipeUtils.createSimpleJavaTemplate(
-                "Date.from(Instant.parse((#{any()}.getDueDate()))",
+                "Date.from(Instant.parse(#{any()}.getDueDate()))",
                 "java.util.Date",
                 "java.time.Instant"),
             Collections.emptyList(),

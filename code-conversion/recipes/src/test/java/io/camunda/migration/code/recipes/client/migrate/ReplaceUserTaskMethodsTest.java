@@ -11,14 +11,21 @@ import static org.openrewrite.java.Assertions.java;
 
 import io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.java.JavaParser;
+import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 class ReplaceUserTaskMethodsTest implements RewriteTest {
 
+  @Override
+  public void defaults(RecipeSpec spec) {
+    spec.recipe(new MigrateUserTaskMethodsRecipe())
+        .parser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()));
+  }
+
   @Test
   void replaceUserTaskMethodsTest() {  // new line after packages vanishes...
     rewriteRun(
-        spec -> spec.recipe(new MigrateUserTaskMethodsRecipe()),
         // language=java
         java(
 """
@@ -96,7 +103,7 @@ public class HandleUserTasksTestClass {
         String tenantId = firstTask.getTenantId();
         String taskId = String.valueOf(firstTask.getUserTaskKey());
         String assignee = firstTask.getAssignee();
-        Date dueDate = Date.from(Instant.parse((firstTask.getDueDate())));
+        Date dueDate = Date.from(Instant.parse(firstTask.getDueDate()));
     }
 }
 """));

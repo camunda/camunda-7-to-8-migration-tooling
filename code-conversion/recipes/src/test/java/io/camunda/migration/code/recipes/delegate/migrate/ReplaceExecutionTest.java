@@ -157,8 +157,8 @@ public class RetrievePaymentAdapter implements JavaDelegate {
                     package org.camunda.conversion.java_delegates.handling_process_variables;
 
                     import io.camunda.client.api.response.ActivatedJob;
-                    import io.camunda.client.annotation.JobWorker;
                     import io.camunda.spring.client.exception.CamundaError;
+                    import io.camunda.client.annotation.JobWorker;
                     import org.camunda.bpm.engine.delegate.DelegateExecution;
                     import org.camunda.bpm.engine.delegate.JavaDelegate;
                     import org.camunda.bpm.engine.delegate.BpmnError;
