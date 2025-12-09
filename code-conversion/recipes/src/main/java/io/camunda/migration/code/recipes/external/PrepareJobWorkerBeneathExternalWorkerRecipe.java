@@ -99,7 +99,7 @@ public class PrepareJobWorkerBeneathExternalWorkerRecipe extends Recipe {
                     Character.toLowerCase(classDeclaration.getSimpleName().charAt(0))
                         + classDeclaration.getSimpleName().substring(1);
 
-                maybeAddImport("io.camunda.spring.client.annotation.JobWorker");
+                maybeAddImport("io.camunda.client.annotation.JobWorker");
                 maybeAddImport("io.camunda.client.api.response.ActivatedJob");
 
                 // Insert the new field at the bottom of the class body
@@ -111,7 +111,7 @@ public class PrepareJobWorkerBeneathExternalWorkerRecipe extends Recipe {
                           return resultMap;
                       }
                       """,
-                        "io.camunda.spring.client.annotation.JobWorker",
+                        "io.camunda.client.annotation.JobWorker",
                         "io.camunda.client.api.response.ActivatedJob",
                         "java.util.Map",
                         "java.util.HashMap")
