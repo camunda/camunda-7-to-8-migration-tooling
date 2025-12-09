@@ -129,6 +129,55 @@ jobs:
           path: ${{ steps.code-conversion-artifacts.outputs.dir }}
           retention-days: 7
 
+  model-converter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Build and test model-converter module
+        working-directory: model-converter
+        run: mvn verify -PcheckFormat --batch-mode
+
+      - name: Collect model-converter artifacts
+        id: model-converter-artifacts
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ARTIFACT_DIR=$(mktemp -d)
+          cp model-converter/webapp/target/camunda-7-to-8-migration-analyzer-webapp.jar "${ARTIFACT_DIR}/"
+          cp model-converter/cli/target/camunda-7-to-8-migration-analyzer-cli.jar "${ARTIFACT_DIR}/"
+          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Upload model-converter artifacts
+        uses: actions/upload-artifact@v5
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: model-converter
+          path: ${{ steps.model-converter-artifacts.outputs.dir }}
+          retention-days: 7
+
   it-postgresql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -324,6 +373,8 @@ jobs:
   rerun-failed-jobs:
     needs:
       - distro
+      - code-conversion
+      - model-converter
       - it-postgresql
       - it-oracle
       - it-h2
