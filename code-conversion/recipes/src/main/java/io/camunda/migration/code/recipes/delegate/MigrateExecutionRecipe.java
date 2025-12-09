@@ -64,7 +64,7 @@ public class MigrateExecutionRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
 
       return Preconditions.check(
@@ -144,7 +144,7 @@ public class MigrateExecutionRecipe extends Recipe {
     @Override
     protected TreeVisitor<?, ExecutionContext> preconditions() {
       return Preconditions.and(
-          new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+          new UsesType<>("io.camunda.client.annotation.JobWorker", true),
           new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
     }
 
@@ -302,10 +302,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\")",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\")",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -316,10 +316,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)})",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)})",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -333,11 +333,11 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.String, java.lang.Throwable)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, Collections.emptyMap(), #{any(java.lang.Throwable)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, Collections.emptyMap(), #{any(java.lang.Throwable)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -351,11 +351,11 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.BpmnError <constructor>(java.lang.String, java.lang.Throwable)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\", Collections.emptyMap(), #{any(java.lang.Throwable)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\", Collections.emptyMap(), #{any(java.lang.Throwable)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -366,10 +366,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 // ProcessEngineException()
                 new MethodMatcher("org.camunda.bpm.engine.ProcessEngineException <constructor>()"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\")",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(\"Add an error message here\")",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 Collections.emptyList(),
@@ -379,10 +379,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)})",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)})",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -393,12 +393,12 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String, java.lang.Throwable)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(String)}, Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(String)}, Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections",
                     "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -410,10 +410,10 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.String, int)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(String)})",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(String)})",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -424,12 +424,12 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.ProcessEngineException <constructor>(java.lang.Throwable)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 3, Duration.ofSeconds(30), #{any(java.lang.Throwable)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections",
                     "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -443,11 +443,11 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.DelegateExecution createIncident(java.lang.String, java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 0)",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(\"Add an error message here\", Collections.emptyMap(), 0)",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 Collections.emptyList(),
@@ -461,11 +461,11 @@ public class MigrateExecutionRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.engine.delegate.DelegateExecution createIncident(java.lang.String, java.lang.String, java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), 0)",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), 0)",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Collections"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -488,7 +488,7 @@ public class MigrateExecutionRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
 
       return Preconditions.check(
@@ -507,7 +507,7 @@ public class MigrateExecutionRecipe extends Recipe {
                 for (ReplacementUtils.SimpleReplacementSpec spec : errorSpecs) {
                   if (spec.matcher().matches(newClass)) {
 
-                    maybeAddImport("io.camunda.spring.client.exception.CamundaError");
+                    maybeAddImport("io.camunda.client.exception.CamundaError");
 
                     return maybeAutoFormat(
                         throwStmt,
@@ -606,7 +606,7 @@ public class MigrateExecutionRecipe extends Recipe {
                                   specs.baseIdentifier(),
                                   specs.argumentIndexes()));
 
-                  maybeAddImport("io.camunda.spring.client.exception.CamundaError");
+                  maybeAddImport("io.camunda.client.exception.CamundaError");
 
                   return maybeAutoFormat(methodInvocation, statement, ctx);
                 }
