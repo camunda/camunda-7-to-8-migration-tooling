@@ -68,7 +68,6 @@ import io.camunda.client.CamundaClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.List;
@@ -96,7 +95,7 @@ public class HandleUserTasksTestClass {
         String tenantId = firstTask.getTenantId();
         String taskId = String.valueOf(firstTask.getUserTaskKey());
         String assignee = firstTask.getAssignee();
-        Date dueDate = Date.from(Instant.parse((firstTask.getDueDate())));
+        Date dueDate = Date.from(firstTask.getDueDate().toInstant());
     }
 }
 """));
