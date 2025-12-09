@@ -19,7 +19,7 @@ Transformation examples can be found in the [code conversion patterns](../patter
 
 ## Extending recipes
 
-For many scenarios you might want to extend the recipes. For example, your Java Delegates might not implement ` org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes.
+For many scenarios you might want to extend the recipes. For example, your Java Delegates might not implement `org.camunda.bpm.engine.delegate.JavaDelegate` but extend your own superclass `org.acme.MyJavaDelegate`. This would not be picked up by the out-of-the-box recipes.
 
 Please read:
 - [Developer Guide](developer_guide.md)
