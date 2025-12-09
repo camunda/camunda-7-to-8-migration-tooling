@@ -23,6 +23,7 @@ import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.camunda.spin.plugin.variable.type.SpinValueType;
 import org.camunda.spin.plugin.variable.value.SpinValue;
+import org.camunda.spin.plugin.variable.value.impl.JsonValueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -52,7 +53,8 @@ public class SpinJsonVariableTransformer implements VariableInterceptor {
 
     if (SpinValueType.JSON.equals(typedValue.getType())) {
       logStartExecution(this.getClass(), variable.getName());
-      setJsonVariable(invocation, typedValue.getValue().toString());
+      String valueSerialized = ((JsonValueImpl) typedValue).getValueSerialized();
+      setJsonVariable(invocation, valueSerialized);
       logEndExecution(this.getClass(), variable.getName());
     }
   }

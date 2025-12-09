@@ -17,6 +17,7 @@ import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 import org.camunda.spin.plugin.variable.type.SpinValueType;
 import org.camunda.spin.plugin.variable.value.SpinValue;
+import org.camunda.spin.plugin.variable.value.impl.XmlValueImpl;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +43,7 @@ public class SpinXmlVariableTransformer implements VariableInterceptor {
 
     if (SpinValueType.XML.equals(typedValue.getType())) {
       logStartExecution(this.getClass(), variable.getName());
-      invocation.setVariableValue(typedValue.getValue().toString());
+      invocation.setVariableValue(((XmlValueImpl) typedValue).getValueSerialized());
       logEndExecution(this.getClass(), variable.getName());
     }
   }
