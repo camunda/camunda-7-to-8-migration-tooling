@@ -9,7 +9,7 @@
         <relativePath>../</relativePath>
     </parent>
 
-    <artifactId>my-variable-interceptor</artifactId>
+    <artifactId>fixed-json-variable-transformer</artifactId>
     <packaging>jar</packaging>
 
     <name>Camunda 7 to 8 Data Migrator - Examples - Variable Interceptor</name>

@@ -32,7 +32,7 @@ Add the following to your `application.yml`:
 camunda:
   migrator:
     interceptors:
-      - class-name: io.camunda.migrator.example.MyCustomVariableInterceptor
+      - class-name: io.camunda.migrator.example.FixedJsonVariableMigration
         properties:
           prefix: "CUSTOM_"
           enableLogging: true
