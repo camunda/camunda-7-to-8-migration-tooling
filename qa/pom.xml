@@ -28,18 +28,6 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.camunda.spin</groupId>
-      <artifactId>camunda-spin-dataformat-all</artifactId>
-      <version>${version.camunda-7}</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-api</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-7-to-8-data-migrator</artifactId>
       <version>${project.version}</version>

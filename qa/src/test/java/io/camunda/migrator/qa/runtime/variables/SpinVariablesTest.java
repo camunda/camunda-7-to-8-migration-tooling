@@ -55,7 +55,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
   }
 
   @Test
-  public void shouldSetXmlVariable() {
+  public void shouldSetSpinXmlVariable() {
     // deploy processes
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
 
@@ -73,12 +73,11 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
         + "</customer>";
     XmlValue xmlValue = SpinValues.xmlValue(xml).create();
     runtimeService.setVariable(simpleProcessInstance.getId(), "var", xmlValue);
-    SpinXmlElement c7value = (SpinXmlElement) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
     runtimeMigrator.start();
 
     // then
-    CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("var", c7value.toString());
+    CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("var", xml);
   }
 }
