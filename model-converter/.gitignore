@@ -1,0 +1,14 @@
+node
+node_modules
+.project
+.idea
+.settings
+target
+.classpath
+.vscode
+*.db
+*.iml
+*.factorypath
+.DS_Store
+dist
+/cawemo-to-web-modeler-migration/cawemo-to-web-modeler-migration
