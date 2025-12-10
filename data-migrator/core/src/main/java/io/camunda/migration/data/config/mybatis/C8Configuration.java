@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
+import io.camunda.client.api.search.response.MessageSubscription;
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -27,6 +28,7 @@ import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionMessageSubscriptionStatisticsDbReader;
 import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.RoleDbReader;
 import io.camunda.db.rdbms.read.service.RoleMemberDbReader;
@@ -265,6 +267,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  MapperFactoryBean<MessageSubscriptionMapperq> processDefinitionMessageSubscriptionStatisticsMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, MessageSubscriptionMapper.class);
+  }
+
+  @Bean
   MapperFactoryBean<CorrelatedMessageSubscriptionMapper> correlatedMessageMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, CorrelatedMessageSubscriptionMapper.class);
   }
@@ -413,6 +420,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader( MessageSubscriptionMapper messageSubscriptionMapper) {
+    return new ProcessDefinitionMessageSubscriptionStatisticsDbReader(messageSubscriptionMapper);
+  }
+
+  @Bean
   public CorrelatedMessageSubscriptionDbReader correlatedMessageReader(CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
     return new CorrelatedMessageSubscriptionDbReader(correlatedMessageMapper);
   }
@@ -511,6 +523,7 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
+      ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
       CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
@@ -542,6 +555,7 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricsReader,
         usageMetricTUDbReader,
         messageSubscriptionDbReader,
+        processDefinitionMessageSubscriptionStatisticsDbReader,
         correlatedMessageDbReader);
   }
 
