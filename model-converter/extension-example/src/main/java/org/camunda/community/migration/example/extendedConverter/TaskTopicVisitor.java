@@ -25,12 +25,12 @@ public class TaskTopicVisitor extends AbstractSupportedAttributeVisitor {
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
     context.addConversion(
         ServiceTaskConvertible.class,
-        serviceTaskConversion -> serviceTaskConversion.addZeebeTaskHeader(attributeLocalName(), attribute));
+        serviceTaskConversion ->
+            serviceTaskConversion.addZeebeTaskHeader(attributeLocalName(), attribute));
     context.addConversion(
         ServiceTaskConvertible.class,
-        serviceTaskConversion -> serviceTaskConversion
-            .getZeebeTaskDefinition()
-            .setType("GenericWorker"));
+        serviceTaskConversion ->
+            serviceTaskConversion.getZeebeTaskDefinition().setType("GenericWorker"));
     ComposedMessage composedMessage = new ComposedMessage();
     composedMessage.setMessage("Tasktopic has been transformed: " + attribute);
     composedMessage.setSeverity(Severity.INFO);
