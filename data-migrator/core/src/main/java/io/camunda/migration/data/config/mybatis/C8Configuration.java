@@ -265,7 +265,6 @@ public class C8Configuration extends AbstractConfiguration {
     return createMapperFactoryBean(c8SqlSessionFactory, MessageSubscriptionMapper.class);
   }
 
-
   @Bean
   MapperFactoryBean<CorrelatedMessageSubscriptionMapper> correlatedMessageMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, CorrelatedMessageSubscriptionMapper.class);
