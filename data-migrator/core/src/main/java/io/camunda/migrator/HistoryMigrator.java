@@ -383,9 +383,15 @@ public class HistoryMigrator {
 
     entityConversionService.prepareParentProperties(context);
     if (c7DecisionInstance.getProcessDefinitionKey() == null) {
-      // only migrate decision instances that were triggered by process definitions
-      HistoryMigratorLogs.notMigratingDecisionInstancesNotOriginatingFromBusinessRuleTasks(c7DecisionInstance.getId());
-      return;
+      DecisionInstanceDbModel dbModel = convertDecisionInstance(context);
+      if (dbModel.processDefinitionKey() != null) {
+
+      } else {
+        // only migrate decision instances that were triggered by process definitions
+        HistoryMigratorLogs.notMigratingDecisionInstancesNotOriginatingFromBusinessRuleTasks(
+            c7DecisionInstance.getId());
+        return;
+      }
     }
 
     String c7DecisionInstanceId = c7DecisionInstance.getId();
@@ -443,12 +449,18 @@ public class HistoryMigrator {
           .rootDecisionDefinitionKey(parentDecisionDefinitionKey)
           .flowNodeInstanceKey(flowNode.flowNodeInstanceKey())
           .flowNodeId(flowNode.flowNodeId());
-
       DecisionInstanceDbModel dbModel = convertDecisionInstance(context);
-      c8Client.insertDecisionInstance(dbModel);
-      markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);
-      HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
+      insertDecisionInstance(c7DecisionInstance, context, c7DecisionInstanceId, dbModel);
     }
+  }
+
+  protected void insertDecisionInstance(HistoricDecisionInstance c7DecisionInstance,
+                                        EntityConversionContext<?, ?> context,
+                                        String c7DecisionInstanceId,
+                                        DecisionInstanceDbModel dbModel) {
+    c8Client.insertDecisionInstance(dbModel);
+    markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);
+    HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
   }
 
   protected DecisionInstanceDbModel convertDecisionInstance(EntityConversionContext<?, ?> context) {
