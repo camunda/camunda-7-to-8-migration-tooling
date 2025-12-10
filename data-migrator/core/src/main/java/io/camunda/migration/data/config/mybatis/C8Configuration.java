@@ -267,7 +267,7 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  MapperFactoryBean<MessageSubscriptionMapperq> processDefinitionMessageSubscriptionStatisticsMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+  MapperFactoryBean<MessageSubscriptionMapper> processDefinitionMessageSubscriptionStatisticsMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, MessageSubscriptionMapper.class);
   }
 
