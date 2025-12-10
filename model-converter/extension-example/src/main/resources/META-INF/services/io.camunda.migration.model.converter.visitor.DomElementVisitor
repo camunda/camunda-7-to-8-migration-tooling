@@ -1,2 +1,2 @@
-org.camunda.community.migration.example.extendedConverter.CustomDomElementVisitor
-org.camunda.community.migration.example.extendedConverter.TaskTopicVisitor
+io.camunda.migration.model.converter.example.extendedConverter.CustomDomElementVisitor
+io.camunda.migration.model.converter.example.extendedConverter.TaskTopicVisitor

@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package org.camunda.community.migration.example.extendedConverter;
+package io.camunda.migration.model.converter.example.extendedConverter;
 
 import static io.camunda.migration.model.converter.NamespaceUri.*;
 
