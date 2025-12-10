@@ -324,27 +324,35 @@ public class HistoryMigrator {
           DecisionDefinition.class, decisionDefinitionDbModelBuilder, processEngine);
 
       entityConversionService.prepareParentProperties(context);
+      decisionDefinitionDbModelBuilder.decisionRequirementsId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey());
 
       if (c7DecisionDefinition.getDecisionRequirementsDefinitionId() != null) {
         decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(c7DecisionDefinition.getDecisionRequirementsDefinitionId(),
             HISTORY_DECISION_REQUIREMENT);
 
         if (decisionRequirementsKey == null) {
-          markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
-          HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
-          return;
+          DecisionDefinitionDbModel dbModel = convertDecisionDefinition(context);
+
+          if (dbModel.decisionRequirementsKey() != null) {
+            c8Client.insertDecisionDefinition(dbModel);
+            markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
+            HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
+            return;
+          } else {
+            markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
+            HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
+            return;
+          }
         } else {
-          // TODO
+          decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
         }
-      } else {
-        // TODO
       }
-      decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
 
       DecisionDefinitionDbModel dbModel = convertDecisionDefinition(context);
       c8Client.insertDecisionDefinition(dbModel);
       markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
       HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
+
     }
   }
 
