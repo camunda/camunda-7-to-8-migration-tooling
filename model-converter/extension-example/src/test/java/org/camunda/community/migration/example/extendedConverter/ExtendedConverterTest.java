@@ -7,19 +7,19 @@
  */
 package org.camunda.community.migration.example.extendedConverter;
 
+import static io.camunda.migration.model.converter.NamespaceUri.*;
 import static org.assertj.core.api.Assertions.*;
-import static org.camunda.community.migration.converter.NamespaceUri.*;
 
+import io.camunda.migration.model.converter.ConverterPropertiesFactory;
+import io.camunda.migration.model.converter.DiagramConverter;
+import io.camunda.migration.model.converter.DiagramConverterFactory;
+import io.camunda.migration.model.converter.DomElementVisitorFactory;
+import io.camunda.migration.model.converter.visitor.DomElementVisitor;
 import java.io.StringWriter;
 import java.util.List;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.xml.instance.DomElement;
-import org.camunda.community.migration.converter.ConverterPropertiesFactory;
-import org.camunda.community.migration.converter.DiagramConverter;
-import org.camunda.community.migration.converter.DiagramConverterFactory;
-import org.camunda.community.migration.converter.DomElementVisitorFactory;
-import org.camunda.community.migration.converter.visitor.DomElementVisitor;
 import org.junit.jupiter.api.Test;
 
 public class ExtendedConverterTest {

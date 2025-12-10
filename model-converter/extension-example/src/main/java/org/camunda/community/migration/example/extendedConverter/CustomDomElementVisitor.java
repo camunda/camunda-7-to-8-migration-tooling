@@ -7,17 +7,17 @@
  */
 package org.camunda.community.migration.example.extendedConverter;
 
-import static org.camunda.community.migration.converter.NamespaceUri.*;
+import static io.camunda.migration.model.converter.NamespaceUri.*;
 
+import io.camunda.migration.model.converter.DiagramCheckResult.Severity;
+import io.camunda.migration.model.converter.DomElementVisitorContext;
+import io.camunda.migration.model.converter.convertible.ExclusiveGatewayConvertible;
+import io.camunda.migration.model.converter.message.ComposedMessage;
+import io.camunda.migration.model.converter.visitor.DomElementVisitor;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.camunda.bpm.model.xml.instance.DomElement;
-import org.camunda.community.migration.converter.DiagramCheckResult.Severity;
-import org.camunda.community.migration.converter.DomElementVisitorContext;
-import org.camunda.community.migration.converter.convertible.ExclusiveGatewayConvertible;
-import org.camunda.community.migration.converter.message.ComposedMessage;
-import org.camunda.community.migration.converter.visitor.DomElementVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

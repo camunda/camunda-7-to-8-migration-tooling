@@ -7,12 +7,12 @@
  */
 package org.camunda.community.migration.example.extendedConverter;
 
-import org.camunda.community.migration.converter.DiagramCheckResult.Severity;
-import org.camunda.community.migration.converter.DomElementVisitorContext;
-import org.camunda.community.migration.converter.convertible.ServiceTaskConvertible;
-import org.camunda.community.migration.converter.message.ComposedMessage;
-import org.camunda.community.migration.converter.message.Message;
-import org.camunda.community.migration.converter.visitor.AbstractSupportedAttributeVisitor;
+import io.camunda.migration.model.converter.DiagramCheckResult.Severity;
+import io.camunda.migration.model.converter.DomElementVisitorContext;
+import io.camunda.migration.model.converter.convertible.ServiceTaskConvertible;
+import io.camunda.migration.model.converter.message.ComposedMessage;
+import io.camunda.migration.model.converter.message.Message;
+import io.camunda.migration.model.converter.visitor.AbstractSupportedAttributeVisitor;
 
 public class TaskTopicVisitor extends AbstractSupportedAttributeVisitor {
 
