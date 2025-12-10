@@ -18,7 +18,7 @@ Changes to migrate BPMN models from Camunda 7 to Camunda 8:
 Web Modeler will automatically update `modeler:executionPlatform` and `modeler:executionPlatformVersion` to the correct values when you upload a BPMN file.
 :::
 
-The following sections describe the capabilities of the existing [diagram converter](https://github.com/camunda-community-hub/camunda-7-to-8-migration/tree/main/backend-diagram-converter) for relevant BPMN symbols, including unsupported element attributes that cannot be migrated.
+The following sections describe the capabilities of the existing [diagram converter](https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/model-converter) for relevant BPMN symbols, including unsupported element attributes that cannot be migrated.
 
 ### General considerations
 

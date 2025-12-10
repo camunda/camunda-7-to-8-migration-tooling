@@ -1,4 +1,4 @@
-# Migration Analyzer & Diagram Converter Webapp
+# Model Converter Webapp
 
 ## Rest API
 
@@ -50,12 +50,6 @@ notification:
     enabled: true
     token: <YOUR_BOT_TOKEN>
     channel-name: <NAME_OR_ID_OF_THE_CHANNEL>
-```
-
-You can also pass this as environment variables to the Docker run command:
-
-```shell
-docker run --name migration-analyzer -p 8080:8080 -e NOTIFICATION_SLACK_ENABLED=true -e NOTIFICATION_SLACK_CHANNEL-NAME=<NAME_OR_ID_OF_THE_CHANNEL> -e NOTIFICATION_SLACK_TOKEN=<YOUR_BOT_TOKEN>  ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:latest
 ```
 
 In order to function, the slack app this notification service will be connected

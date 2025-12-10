@@ -1,6 +1,6 @@
 # Extension Example
 
-This module shows how to build a **custom extension** for the [Camunda 7 to 8 Migration Analyzer](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer).
+This module shows how to build a **custom extension** for the [Camunda 7 to 8 Model Converter](https://github.com/camunda/camunda-7-to-8-migration-tooling).
 
 It shows how to **inspect BPMN DOM elements**, **enqueue targeted conversions**, and **emit analysis messages**.
 
