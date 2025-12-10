@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -191,7 +191,7 @@
     <dependency>
       <groupId>org.mybatis</groupId>
       <artifactId>mybatis-spring</artifactId>
-      <version>3.0.5</version>
+      <version>${version.mybatis}</version>
     </dependency>
 
     <!-- Ensures Java Util logging is redirected to SLF4J (e.g., liquibase) -->
