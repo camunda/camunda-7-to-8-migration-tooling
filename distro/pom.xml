@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -14,6 +14,26 @@
   <packaging>jar</packaging>
 
   <name>Camunda 7 to 8 Data Migrator - Distro</name>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${version.spring-boot}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Use dependency management from C8 Mono Repo -->
+      <dependency>
+        <groupId>io.camunda</groupId>
+        <artifactId>zeebe-parent</artifactId>
+        <version>${version.camunda-8}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>

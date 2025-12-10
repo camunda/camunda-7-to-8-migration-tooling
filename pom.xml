@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -28,9 +28,10 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
 
-    <version.camunda-7>7.24.0</version.camunda-7>
-    <version.camunda-8>8.8.0</version.camunda-8>
-    <version.spring-boot>3.5.6</version.spring-boot>
+    <version.camunda-7>7.24.2-ee</version.camunda-7>
+    <version.camunda-8>8.8.7</version.camunda-8>
+    <version.spring-boot>3.5.8</version.spring-boot>
+    <version.mybatis>3.0.5</version.mybatis>
     <version.junit.jupiter>6.0.0</version.junit.jupiter>
     <version.java>21</version.java>
     <version.h2>2.4.240</version.h2>
