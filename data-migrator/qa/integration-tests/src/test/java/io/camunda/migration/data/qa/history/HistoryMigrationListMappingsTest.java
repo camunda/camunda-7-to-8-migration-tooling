@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,7 @@ public class HistoryMigrationListMappingsTest extends HistoryMigrationAbstractTe
       Matcher headerMatcher = headerPattern.matcher(line);
       if (headerMatcher.find()) {
         currentSection = headerMatcher.group(1);
-        result.put(currentSection, new java.util.ArrayList<>());
+        result.put(currentSection, new ArrayList<>());
       } else if (currentSection != null) {
         Matcher mappingMatcher = mappingPattern.matcher(line);
         if (mappingMatcher.find()) {
