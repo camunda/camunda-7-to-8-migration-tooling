@@ -5,13 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.impl;
+package io.camunda.migration.data.impl;
 
-import io.camunda.migrator.exception.EntityInterceptorException;
-import io.camunda.migrator.impl.logging.EntityConversionServiceLogs;
-import io.camunda.migrator.interceptor.EntityInterceptor;
-import io.camunda.migrator.interceptor.EntityTypeDetector;
-import io.camunda.migrator.interceptor.property.EntityConversionContext;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.logging.EntityConversionServiceLogs;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.EntityTypeDetector;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

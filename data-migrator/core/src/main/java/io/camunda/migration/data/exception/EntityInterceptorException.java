@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.exception;
+package io.camunda.migration.data.exception;
 
 /**
  * Exception thrown when an entity interceptor encounters an error during entity conversion.

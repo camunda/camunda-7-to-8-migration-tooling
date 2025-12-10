@@ -5,19 +5,20 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migrator.impl;
+package io.camunda.migration.data.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.camunda.migrator.exception.EntityInterceptorException;
-import io.camunda.migrator.interceptor.EntityInterceptor;
-import io.camunda.migrator.interceptor.property.EntityConversionContext;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.EntityConversionService;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class EntityConversionServiceTest {
 
@@ -190,7 +191,7 @@ class EntityConversionServiceTest {
   void shouldConvertEntityWithSpecificInterceptor() {
     // Given
     ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
-    service.configuredEntityInterceptors = List.of(interceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
@@ -210,7 +211,7 @@ class EntityConversionServiceTest {
   void shouldNotExecuteInterceptorForNonMatchingType() {
     // Given
     ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
-    service.configuredEntityInterceptors = List.of(processInterceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor));
     HistoricActivityInstance c7Entity = new HistoricActivityInstance("activity-123");
 
     // When
@@ -224,7 +225,7 @@ class EntityConversionServiceTest {
   void shouldExecuteUniversalInterceptorForAllTypes() {
     // Given
     UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    service.configuredEntityInterceptors = List.of(universalInterceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
 
     // When - Test with process instance
     service.convert(
@@ -235,7 +236,7 @@ class EntityConversionServiceTest {
 
     // Given - Reset
     universalInterceptor = new UniversalInterceptor();
-    service.configuredEntityInterceptors = List.of(universalInterceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
 
     // When - Test with activity instance
     service.convert(new HistoricActivityInstance("act-123"), HistoricActivityInstance.class);
@@ -252,7 +253,7 @@ class EntityConversionServiceTest {
     List<String> executionOrder = new ArrayList<>();
     processInterceptor.setExecutionOrder(executionOrder);
     universalInterceptor.setExecutionOrder(executionOrder);
-    service.configuredEntityInterceptors = List.of(processInterceptor, universalInterceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor, universalInterceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
@@ -274,8 +275,9 @@ class EntityConversionServiceTest {
     List<String> executionOrder = new ArrayList<>();
     processInterceptor.setExecutionOrder(executionOrder);
     universalInterceptor.setExecutionOrder(executionOrder);
-    service.configuredEntityInterceptors =
-        List.of(processInterceptor, activityInterceptor, universalInterceptor);
+    ReflectionTestUtils.setField(
+        service, "configuredEntityInterceptors",
+        List.of(processInterceptor, activityInterceptor, universalInterceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
@@ -292,7 +294,7 @@ class EntityConversionServiceTest {
   void shouldConvertWithExistingContext() {
     // Given
     ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
-    service.configuredEntityInterceptors = List.of(interceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context =
         new EntityConversionContext<>(c7Entity, HistoricProcessInstance.class);
@@ -310,7 +312,7 @@ class EntityConversionServiceTest {
   @Test
   void shouldHandleEmptyInterceptorList() {
     // Given
-    service.configuredEntityInterceptors = new ArrayList<>();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", new ArrayList<>());
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
@@ -325,7 +327,7 @@ class EntityConversionServiceTest {
   @Test
   void shouldHandleNullInterceptorList() {
     // Given
-    service.configuredEntityInterceptors = null;
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", null);
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
@@ -340,7 +342,7 @@ class EntityConversionServiceTest {
   @Test
   void shouldWrapRuntimeExceptionInEntityInterceptorException() {
     // Given
-    service.configuredEntityInterceptors = List.of(new FailingInterceptor());
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new FailingInterceptor()));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
@@ -354,7 +356,7 @@ class EntityConversionServiceTest {
   @Test
   void shouldNotWrapEntityInterceptorException() {
     // Given
-    service.configuredEntityInterceptors = List.of(new ExceptionThrowingInterceptor());
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new ExceptionThrowingInterceptor()));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
@@ -369,7 +371,7 @@ class EntityConversionServiceTest {
     // Given
     FailingInterceptor failingInterceptor = new FailingInterceptor();
     UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    service.configuredEntityInterceptors = List.of(failingInterceptor, universalInterceptor);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(failingInterceptor, universalInterceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
