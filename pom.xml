@@ -81,6 +81,9 @@
         <module>code-conversion</module>
         <module>data-migrator/core</module>
         <module>data-migrator/plugins/cockpit</module>
+        <module>model-converter/core</module>
+        <module>model-converter/webapp</module>
+        <module>model-converter/cli</module>
       </modules>
     </profile>
   </profiles>
