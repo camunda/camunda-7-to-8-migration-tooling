@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
-import io.camunda.client.api.search.response.MessageSubscription;
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -266,10 +265,6 @@ public class C8Configuration extends AbstractConfiguration {
     return createMapperFactoryBean(c8SqlSessionFactory, MessageSubscriptionMapper.class);
   }
 
-  @Bean
-  MapperFactoryBean<MessageSubscriptionMapper> processDefinitionMessageSubscriptionStatisticsMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
-    return createMapperFactoryBean(c8SqlSessionFactory, MessageSubscriptionMapper.class);
-  }
 
   @Bean
   MapperFactoryBean<CorrelatedMessageSubscriptionMapper> correlatedMessageMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
