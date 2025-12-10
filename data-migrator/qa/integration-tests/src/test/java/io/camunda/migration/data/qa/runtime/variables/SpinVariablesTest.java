@@ -55,7 +55,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
   }
 
   @Test
-  public void shouldSetXmlVariable() {
+  public void shouldSetSpinXmlVariable() {
     // deploy processes
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
 
