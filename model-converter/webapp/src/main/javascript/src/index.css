@@ -1,0 +1,315 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f4f4f4;
+}
+
+section {
+  margin: 18px 0;
+
+  h4 {
+    text-decoration: underline;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    margin-bottom: 10px;
+  }
+
+  p {
+    font-size: inherit;
+  }
+
+  button.cds--btn {
+    max-inline-size: initial;
+  }
+}
+
+.container {
+  display: flex;
+  margin: auto;
+  background-color: #f4f4f4;
+  width: 1184px;
+  flex-direction: column;
+  padding-top: 32px;
+}
+
+h1 {
+  margin: 50px;
+  font-size: 24px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.whiteBox {
+  padding: 16px 24px;
+  background-color: white;
+  margin-bottom: 20px;
+
+  h2 {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 400;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 400;
+    margin-bottom: 12px;
+  }
+}
+
+.whiteBox.centered {
+  padding: 24px 198px;
+}
+
+.fileUploadBox {
+  margin: 8px 0;
+}
+
+.individualDownload {
+  background-color: rgb(244, 244, 244);
+  height: 32px;
+  width: 320px;
+  padding-left: 16px;
+  padding-right: 8px;
+  margin-bottom: 8px;
+  line-height: 32px;
+
+  display: flex;
+  justify-content: space-between;
+
+  button {
+    border: none;
+    color: blue;
+    background: transparent;
+    cursor: pointer;
+  }
+}
+
+.progressindicators {
+  padding: 16px 0;
+  margin-bottom: 18px;
+}
+
+.analyzeButton {
+  margin-top: 40px;
+}
+
+.DropZone {
+  background-color: #fafafa;
+  border: 1px solid #d9d9d9;
+  height: 140px;
+  margin-bottom: 8px;
+
+  text-align: center;
+  padding: 16px;
+
+  cursor: pointer;
+
+  img {
+    margin-top: 6px;
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 22px;
+    color: rgba(0, 0, 0, 0.85);
+    margin-bottom: 4px;
+  }
+  p {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    color: rgba(0, 0, 0, 0.55);
+  }
+}
+
+.FileItem {
+  height: 22px;
+  background-color: #fafafa;
+  margin-bottom: 12px;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .left {
+    display: flex;
+    img {
+      margin-left: 4px;
+      margin-right: 8px;
+    }
+
+    span {
+      font-size: 14px;
+
+      &.downloadable {
+        color: #1890ff;
+        cursor: pointer;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+
+  .right {
+    margin-right: 10px;
+    display: flex;
+    gap: 3px;
+    button {
+      border: none;
+      background-color: transparent;
+      cursor: pointer;
+      display: flex;
+      margin-right: -6px;
+    }
+
+    button.download {
+      color: blue;
+    }
+  }
+}
+
+
+
+.withMarginBottom {
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 22px;
+  text-decoration: underline;
+}
+
+hr {
+  margin: 24px 0;
+}
+
+.cds--tooltip-content {
+  padding: 2px 16px;
+}
+
+.download-options {
+  display: grid;
+  row-gap: 1rem;
+}
+.download-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  column-gap: 1rem;
+  align-items: center;
+}
+.download-row button {
+  min-width: 180px;
+}
+.download-row p {
+  margin: 0;
+  color: #555;
+  font-size: 0.9rem;
+  
+}
+
+
+.diagram-container {
+  height:  400px;
+  width: 100%;
+  border: 1px solid #ccc; 
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal {
+  background: white;
+  padding: 2rem;
+  max-width: 95%;
+  width: 100%;
+  max-height: 95%;
+  overflow-y: auto;
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    .left {
+      display: flex;
+    }  
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+
+
+.highlight-info:not(.djs-connection) .djs-visual  > :nth-child(1) {
+  stroke: #078bffb0 !important; 
+}
+.highlight-task:not(.djs-connection) .djs-visual  > :nth-child(1) {
+  stroke: #ffc107 !important; 
+}
+
+.highlight-warning:not(.djs-connection) .djs-visual  > :nth-child(1) {  
+  stroke: #ffc107 !important; 
+}
+
+.highlight-review:not(.djs-connection) .djs-visual  > :nth-child(1) {
+  stroke: #0dcaf0 !important; 
+}
+
+.configBox {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f4f4f4; /* Carbon's Gray 10 */
+  border: 1px solid #e0e0e0; /* Carbon's Gray 20 */
+  border-radius: 4px;
+}
+.form-spacer {
+  margin-top: 2rem;
+}
