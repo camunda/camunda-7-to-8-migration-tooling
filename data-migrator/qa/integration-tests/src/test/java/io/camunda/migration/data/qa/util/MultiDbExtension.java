@@ -17,8 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.testcontainers.jdbc.JdbcDatabaseContainer;
-import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.oracle.OracleContainer;
 
 public class MultiDbExtension implements BeforeAllCallback {
