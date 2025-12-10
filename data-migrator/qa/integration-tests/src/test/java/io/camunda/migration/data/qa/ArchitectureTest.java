@@ -34,8 +34,6 @@ import org.junit.jupiter.api.Test;
 class ArchitectureTest {
 
   protected static final JavaClasses CLASSES = new ClassFileImporter()
-      .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_ARCHIVES)
-      .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_JARS)
       .importPackages("io.camunda.migration.data");
 
   @Test

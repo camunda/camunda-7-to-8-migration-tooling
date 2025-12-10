@@ -27,6 +27,7 @@ import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionMessageSubscriptionStatisticsDbReader;
 import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.RoleDbReader;
 import io.camunda.db.rdbms.read.service.RoleMemberDbReader;
@@ -413,6 +414,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader( MessageSubscriptionMapper messageSubscriptionMapper) {
+    return new ProcessDefinitionMessageSubscriptionStatisticsDbReader(messageSubscriptionMapper);
+  }
+
+  @Bean
   public CorrelatedMessageSubscriptionDbReader correlatedMessageReader(CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
     return new CorrelatedMessageSubscriptionDbReader(correlatedMessageMapper);
   }
@@ -511,6 +517,7 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
+      ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
       CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
@@ -542,6 +549,7 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricsReader,
         usageMetricTUDbReader,
         messageSubscriptionDbReader,
+        processDefinitionMessageSubscriptionStatisticsDbReader,
         correlatedMessageDbReader);
   }
 
