@@ -1,11 +1,10 @@
-# Migration Analyzer & Diagram Converter
+# Camunda 7 to 8 Model Converter
 
-The Migration Analyzer & Diagram Converter:
+A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 format. The Model Converter:
 
-- Analyzes Camunda 7 models (BPMN & DMN) to identify tasks required for migration to Camunda 8.
-- Converts those models.
-
-The conversion process can be extended to accommodate special requirements.
+- Analyzes Camunda 7 models to identify tasks required for migration to Camunda 8.
+- Converts those models to Camunda 8 format.
+- Can be extended to accommodate special requirements.
 
 See it in action in the **[Camunda 7 to 8 Migration Example](https://github.com/camunda-community-hub/camunda-7-to-8-migration-example)**.
 
@@ -33,67 +32,48 @@ To understand what conversions will be applied, have a look at the [BPMN Convers
 - [Installation](#installation)
   - [SaaS](#saas)
   - [Local Java Installation](#local-java-installation)
-  - [Docker](#docker)
   - [CLI](#cli-command-line-interface)
-  - [Building from Source](#building-from-source) or [Embedding into your own Java Application](#embedding-into-your-own-java-applications)
-  - [License](#license)
+  - [Building from Source](#building-from-source)
+  - [Embedding into your own Java Applications](#embedding-into-your-own-java-applications)
 - [How to Use](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer) (Refers to the [Camunda Migration Guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/))
 - [How to Extend](#how-to-extend-diagram-conversion)
+- [License](#license)
 
 ## Installation
 
-You can use the Migration Analyzer & Diagram Converter in the following ways:
+You can use the Model Converter in the following ways:
 
-- **Web Interface**: A locally installed web-based wizard for the Migration Analyzer & Diagram Converter, implemented as a Java Spring application. This can be installed
-  - locally as Java jar,
-  - using Docker, or
-  - consumed as SaaS from our free hosted version.
-- **CLI**: A Command-Line Interface for the Migration Analyzer & Diagram Converter, implemented as a Java application.
+- **Web Interface**: A locally installed web-based wizard for the Model Converter, implemented as a Java Spring application. This can be installed locally as Java jar, or consumed as SaaS from a hosted version.
+- **CLI**: A Command-Line Interface for the Model Converter, implemented as a Java application.
 
 ### SaaS
 
-A free hosted version of the Migration Analyzer & Diagram Converter is available at [https://migration-analyzer.consulting-sandbox.camunda.cloud/](https://migration-analyzer.consulting-sandbox.camunda.cloud/).
+A free hosted version of the Model Converter is available at [https://migration-analyzer.consulting-sandbox.camunda.cloud/](https://migration-analyzer.consulting-sandbox.camunda.cloud/).
 
-Note that your models are **not** stored on this platform, and given there is https on transit, your models are safe. However, we don't give any gurantees on this free SaaS version.
+Note that your models are **not** stored on this platform, and all processing happens in-memory. Your data is transmitted securely over HTTPS. However, we don't give any guarantees on this free SaaS version.
 
 ### Local Java Installation
 
 You can also install the web application locally.
 
 **Requirements**:
-- Java 17 or higher
+- Java 21 or higher
 
 **Steps**:
 
-1. Download the latest Migration Analyzer & Diagram Converter web application: [camunda-7-to-8-migration-analyzer-webapp.jar](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer/releases/latest/download/camunda-7-to-8-migration-analyzer-webapp.jar).
-2. Run the application. Navigate to the directory where the `.jar` file was downloaded and execute the following command:
+1. Download the latest Model Converter web application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
+2. Run the application. Navigate to the directory where the `camunda-7-to-8-migration-analyzer-webapp.jar` file was downloaded and execute the following command:
 
    ```shell
-   java -jar camunda-7-to-8-migration-analyzer-webapp.jar
+   java -jar camunda-7-to-8-model-converter-webapp.jar
    ```
 3. Access the web application at [http://localhost:8080/](http://localhost:8080/).
 
 To run the application on a different port, use the following command:
 
 ```shell
-java -Dserver.port=8090 -jar camunda-7-to-8-migration-analyzer-webapp.jar
+java -Dserver.port=8090 -jar camunda-7-to-8-model-converter-webapp.jar
 ```
-
-### Docker
-
-You can also run the Migration Analyzer & Diagram Converter using Docker.
-
-1. Pull the latest version of the Docker image:
-
-   ```shell
-   docker pull ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:latest
-   ```
-2. Run the Docker container and expose port 8080:
-
-   ```shell
-   docker run -p 8080:8080 ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:latest
-   ```
-3. Access the web application at [http://localhost:8080/](http://localhost:8080/).
 
 ### CLI (Command Line Interface)
 
@@ -101,30 +81,39 @@ The CLI is a standalone Java application.
 
 **Steps**:
 
-1. Download the latest Migration Analyzer & Diagram Converter CLI application: [camunda-7-to-8-migration-analyzer-cli.jar](https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer/releases/latest/download/camunda-7-to-8-migration-analyzer-cli.jar).
+1. Download the latest Model Converter CLI application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
 2. Run the CLI with the following command:
 
    ```shell
-   java -jar camunda-7-to-8-migration-analyzer-cli.jar --help
+   java -jar camunda-7-to-8-model-converter-cli.jar --help
    ```
 
 The typical way is to run it in `local` mode and reference your BPMN model file:
 
 ```shell
-java -jar camunda-7-to-8-migration-analyzer-cli.jar local myBpmnModel.bpmn
+java -jar camunda-7-to-8-model-converter-cli.jar local myBpmnModel.bpmn
 ```
 
 ### Building from Source
 
 You can build this project from source using Maven.
 
+**Requirements**:
+- Java 21 or higher
+- Maven 3.6+
+
 **Steps**:
 
-1. Clone the repository.
-2. Run the following command to build the project:
+1. Clone the repository:
 
    ```shell
-   mvn clean package
+   git clone https://github.com/camunda/camunda-7-to-8-migration-tooling.git
+   cd camunda-7-to-8-migration-tooling/model-converter
+   ```
+2. Build the project:
+
+   ```shell
+   mvn clean install
    ```
 
 ### Embedding into your own Java Applications
@@ -137,4 +126,5 @@ You can extend diagram conversion by leveraging the SPI. You can find an example
 
 ## License
 
-This project is licensed under the [Apache License, Version 2.0](LICENSE).
+The source files in this repository are made available under the [Camunda License Version 1.0](../CAMUNDA-LICENSE-1.0.txt).
+

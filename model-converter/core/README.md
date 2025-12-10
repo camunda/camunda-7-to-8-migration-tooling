@@ -1,6 +1,6 @@
-# Migration Analyzer Core
+# Model Converter Core
 
-This is the core module of the diagram converter, containing the `DiagramConverter` plus its factory, the `DiagramConverterFactory`.
+This is the core module of the Model Converter, containing the `DiagramConverter` plus its factory, the `DiagramConverterFactory`.
 
 ## How does it work?
 
