@@ -22,9 +22,9 @@
     <version.guava>33.5.0-jre</version.guava>
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <!-- TODO consolidate Camunda 8 versions camunda/camunda-7-to-8-migration-tooling/issues/528 -->
-    <version.zeebe-client-java>8.8.6</version.zeebe-client-java>
+    <version.zeebe-client-java>8.8.7</version.zeebe-client-java>
     <version.camunda8-spring-boot-sdk>8.8.0-alpha6</version.camunda8-spring-boot-sdk>
-    <version.camunda8-process-test-spring>8.8.6</version.camunda8-process-test-spring>
+    <version.camunda8-process-test-spring>8.8.7</version.camunda8-process-test-spring>
   </properties>
 
   <dependencyManagement>
@@ -278,7 +278,7 @@
       <plugin>
         <groupId>org.openrewrite.maven</groupId>
         <artifactId>rewrite-maven-plugin</artifactId>
-        <version>5.47.3</version>
+        <version>6.25.0</version>
         <configuration>
           <failOnDryRunResults>true</failOnDryRunResults>
         </configuration>
@@ -286,7 +286,7 @@
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
             <artifactId>rewrite-migrate-java</artifactId>
-            <version>2.31.1</version>
+            <version>3.23.0</version>
           </dependency>
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
