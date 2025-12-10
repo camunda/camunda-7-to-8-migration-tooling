@@ -81,6 +81,8 @@ public interface IdKeyMapper {
 
   long countSkippedByType(@Param("type") TYPE type);
 
+  long countMigratedByType(@Param("type") TYPE type);
+
   long countSkipped();
 
   List<String> findAllC7Ids();
