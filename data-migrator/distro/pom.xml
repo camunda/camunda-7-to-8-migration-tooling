@@ -61,7 +61,7 @@
         <version>${version.spring-boot}</version>
         <configuration>
           <layout>ZIP</layout>
-          <mainClass>io.camunda.migrator.app.MigratorApp</mainClass>
+          <mainClass>io.camunda.migration.data.app.MigratorApp</mainClass>
           <manifest>
             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
           </manifest>

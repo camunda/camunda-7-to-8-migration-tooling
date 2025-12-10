@@ -71,14 +71,14 @@ You might need to make additional changes, as your `execute` method might have b
 
 ## Understanding Existing Recipes
 
-In the [README](./README.md), the out-of-the-box recipes available to users are presented, such as `AllClientPrepareRecipes`. These recipes are composed of multiple recipes that make granular changes. You can find all custom recipes in the [source folder](./src/main/java/org/camunda/migration/rewrite/recipes), organized by code type and transformation phase (client, delegate, external, testing). These custom recipes are supplemented with existing OpenRewrite recipes and composed into the aforementioned declarative recipes. You can inspect their composition in the [META-INF/rewrite](./src/main/resources/META-INF/rewrite) folder. When adding a new custom or existing OpenRewrite recipe, ensure it is added to the correct composed recipe.
+In the [README](./README.md), the out-of-the-box recipes available to users are presented, such as `AllClientPrepareRecipes`. These recipes are composed of multiple recipes that make granular changes. You can find all custom recipes in the [source folder](src/main/java/io/camunda/migration/code/recipes), organized by code type and transformation phase (client, delegate, external, testing). These custom recipes are supplemented with existing OpenRewrite recipes and composed into the aforementioned declarative recipes. You can inspect their composition in the [META-INF/rewrite](./src/main/resources/META-INF/rewrite) folder. When adding a new custom or existing OpenRewrite recipe, ensure it is added to the correct composed recipe.
 
-The [sharedRecipes folder](./src/main/java/org/camunda/migration/rewrite/recipes/sharedRecipes) contains two important recipes:
+The [sharedRecipes folder](src/main/java/io/camunda/migration/code/recipes/sharedRecipes) contains two important recipes:
 
 -   `AbstractMigrationRecipe`: Extracted transformation logic for reusability purposes
 -   `ReplaceTypedValueAPIRecipe`: A combined recipe to transform TypedValueAPI types and method calls to JavaObjectAPI types and method calls
 
-The [utils folder](./src/main/java/org/camunda/migration/rewrite/recipes/utils) contains two utility classes:
+The [utils folder](src/main/java/io/camunda/migration/code/recipes/utils) contains two utility classes:
 
 -   `RecipeUtils`: A collection of helper functions to create, modify, or apply OpenRewrite objects
 -   `ReplacementUtils`: The specification of rules used for the AbstractMigrationRecipe
@@ -104,7 +104,7 @@ Apart from the `ReplaceTypedValueAPIRecipe`, these recipes are small and highly 
 
 ### Abstract Migration Recipe
 
-The [AbstractMigrationRecipe](./src/main/java/org/camunda/migration/rewrite/recipes/sharedRecipes/AbstractMigrationRecipe.java) can be used to transform various Java code patterns by providing transformation rules.
+The [AbstractMigrationRecipe](src/main/java/io/camunda/migration/code/recipes/sharedRecipes/AbstractMigrationRecipe.java) can be used to transform various Java code patterns by providing transformation rules.
 
 #### Variable Declarations, Assignments and Simple Method Invocations
 

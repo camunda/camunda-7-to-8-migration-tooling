@@ -1,5 +1,5 @@
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllDelegatePrepareRecipes
+name: io.camunda.migration.code.recipes.AllDelegatePrepareRecipes
 displayName: Runs all delegate prepare recipes
 description: Injects job worker and migrate typed value API.
 recipeList:
@@ -7,29 +7,29 @@ recipeList:
       groupId: io.camunda
       artifactId: spring-boot-starter-camunda-sdk
       version: 8.8.0-alpha4.1
-  - org.camunda.migration.rewrite.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
-  - org.camunda.migration.rewrite.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
+  - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
+  - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllDelegateMigrateRecipes
+name: io.camunda.migration.code.recipes.AllDelegateMigrateRecipes
 displayName: Runs all delegate migrate recipes
 description: Migrates delegate methods to job worker methods.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.delegate.MigrateExecutionRecipe
+  - io.camunda.migration.code.recipes.delegate.MigrateExecutionRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllDelegateCleanupRecipes
+name: io.camunda.migration.code.recipes.AllDelegateCleanupRecipes
 displayName: Runs all delegate cleanup recipes
 description: Removes delegate code and unused imports.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.delegate.CleanupDelegateRecipe
+  - io.camunda.migration.code.recipes.delegate.CleanupDelegateRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.camunda.migration.rewrite.recipes.AllDelegateRecipes
+name: io.camunda.migration.code.recipes.AllDelegateRecipes
 displayName: Runs all delegate recipes in order
 description: Migrates delegate to job worker.
 recipeList:
-  - org.camunda.migration.rewrite.recipes.AllDelegatePrepareRecipes
-  - org.camunda.migration.rewrite.recipes.AllDelegateMigrateRecipes
-  - org.camunda.migration.rewrite.recipes.AllDelegateCleanupRecipes
+  - io.camunda.migration.code.recipes.AllDelegatePrepareRecipes
+  - io.camunda.migration.code.recipes.AllDelegateMigrateRecipes
+  - io.camunda.migration.code.recipes.AllDelegateCleanupRecipes
