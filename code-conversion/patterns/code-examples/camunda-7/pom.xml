@@ -19,7 +19,7 @@
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
-        <version>3.4.4</version>
+        <version>3.5.8</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -27,7 +27,7 @@
       <dependency>
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-bom</artifactId>
-        <version>7.23.0</version>
+        <version>7.24.0</version>
         <scope>import</scope>
         <type>pom</type>
       </dependency>
@@ -68,7 +68,7 @@
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
       <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
-      <version>7.23.0</version>
+      <version>7.24.0</version>
     </dependency>
 
   </dependencies>
@@ -78,7 +78,7 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
-        <version>3.4.4</version>
+        <version>3.5.8</version>
       </plugin>
     </plugins>
   </build>
