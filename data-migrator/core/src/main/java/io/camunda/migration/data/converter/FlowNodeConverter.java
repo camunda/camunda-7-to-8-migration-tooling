@@ -21,7 +21,8 @@ public class FlowNodeConverter {
   public FlowNodeInstanceDbModel apply(HistoricActivityInstance flowNode,
                                        Long processDefinitionKey,
                                        Long processInstanceKey) {
-    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(getNextKey())
+    Long flowNodeInstanceKey = getNextKey();
+    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(flowNodeInstanceKey)
         .flowNodeId(flowNode.getActivityId())
         .processInstanceKey(processInstanceKey)
         .processDefinitionKey(processDefinitionKey)
@@ -31,7 +32,7 @@ public class FlowNodeConverter {
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
-        .treePath(null) // TODO: Doesn't exist in C7 activity instance. Not yet supported by C8 RDBMS
+        .treePath(processInstanceKey + "/" + flowNodeInstanceKey)
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null) // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
         .build();
