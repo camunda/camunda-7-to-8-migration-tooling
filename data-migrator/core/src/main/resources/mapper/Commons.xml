@@ -8,7 +8,7 @@
   -->
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="io.camunda.migrator.Commons">
+<mapper namespace="io.camunda.migration.data.Commons">
 
   <sql id="pageSql">
     <if test="limit != null &amp;&amp; offset != null">

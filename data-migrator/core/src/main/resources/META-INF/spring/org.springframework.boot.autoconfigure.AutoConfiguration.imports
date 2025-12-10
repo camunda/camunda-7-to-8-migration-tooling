@@ -1,1 +1,1 @@
-io.camunda.migrator.config.MigratorAutoConfiguration
+io.camunda.migration.data.config.MigratorAutoConfiguration

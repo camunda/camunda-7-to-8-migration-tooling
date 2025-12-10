@@ -1,1 +1,1 @@
-io.camunda.migrator.plugin.cockpit.MigratorPlugin
+io.camunda.migration.data.plugin.cockpit.MigratorPlugin

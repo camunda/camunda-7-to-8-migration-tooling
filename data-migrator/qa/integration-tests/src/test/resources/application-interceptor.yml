@@ -1,17 +1,17 @@
 camunda.migrator:
   interceptors:
-    - class-name: io.camunda.migrator.impl.interceptor.PrimitiveVariableTransformer
+    - class-name: io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer
       enabled: false
-    - class-name: io.camunda.migrator.impl.interceptor.DateVariableTransformer
+    - class-name: io.camunda.migration.data.impl.interceptor.DateVariableTransformer
       enabled: false
-    - class-name: io.camunda.migrator.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor
-    - class-name: io.camunda.migrator.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor
+    - class-name: io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor
+    - class-name: io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor
       properties:
         prefix: "CUSTOM_"
-    - class-name: io.camunda.migrator.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor
+    - class-name: io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor
       enabled: false
-    - class-name: io.camunda.migrator.qa.runtime.variables.interceptor.pojo.TypeSpecificInterceptor
-    - class-name: io.camunda.migrator.qa.runtime.variables.interceptor.pojo.ComplexInterceptor
+    - class-name: io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.TypeSpecificInterceptor
+    - class-name: io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor
       properties:
         logMessage: "Hello from interceptor configured via properties"
         enableTransformation: true
