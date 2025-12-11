@@ -40,6 +40,7 @@ import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
+import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
@@ -113,9 +114,10 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<DecisionRequirementsEntity> searchHistoricDecisionRequirementsDefinition(String decisionRequirementsId) {
     return rdbmsService.getDecisionRequirementsReader()
-        .search(DecisionRequirementsQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionRequirementsIds(decisionRequirementsId))))
+        .search(DecisionRequirementsQuery.of(queryBuilder -> queryBuilder.filter(
+                filterBuilder -> filterBuilder.decisionRequirementsIds(decisionRequirementsId))
+            .resultConfig(
+                DecisionRequirementsQueryResultConfig.of(builder -> builder.includeXml(true)))))
         .items();
   }
 
