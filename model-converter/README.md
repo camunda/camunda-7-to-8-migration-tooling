@@ -69,7 +69,7 @@ You can also install the web application locally.
    ```
 3. Access the web application at [http://localhost:8080/](http://localhost:8080/).
 
-To run the application on a different port, use the following command (replace `{version}` with the actual version number, e.g., `0.2.0`)::
+To run the application on a different port, use the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
 ```shell
 java -Dserver.port=8090 -jar camunda-7-to-8-model-converter-webapp-{version}.jar
@@ -82,7 +82,7 @@ The CLI is a standalone Java application.
 **Steps**:
 
 1. Download the latest Model Converter CLI application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
-2. Run the CLI with the following command (replace `{version}` with the actual version number, e.g., `0.2.0`)::
+2. Run the CLI with the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
    ```shell
    java -jar camunda-7-to-8-model-converter-cli-{version}.jar --help
