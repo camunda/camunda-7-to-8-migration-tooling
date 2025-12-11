@@ -23,7 +23,8 @@ public class FlowNodeConverter {
                                        Long processDefinitionKey,
                                        Long processInstanceKey) {
     Long flowNodeInstanceKey = getNextKey();
-    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(flowNodeInstanceKey)
+    return new FlowNodeInstanceDbModelBuilder()
+        .flowNodeInstanceKey(flowNodeInstanceKey)
         .flowNodeId(flowNode.getActivityId())
         .processInstanceKey(processInstanceKey)
         .processDefinitionKey(processDefinitionKey)
