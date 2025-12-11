@@ -104,32 +104,13 @@ import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 public interface VariableInterceptor extends BaseInterceptor<VariableContext> {
 
   /**
-   * Returns the set of variable value types that this interceptor can handle.
-   * <p>
-   * Use Camunda's existing type interfaces like:
-   * - {@code PrimitiveValue.class} for primitive variables
-   * - {@code DateValue.class} for date variables
-   * - {@code ObjectValue.class} for object variables (JSON, XML, Java serialized)
-   * - {@code FileValue.class} for file variables
-   * - {@code SpinValue.class} for Spin variables
-   * </p>
-   * <p>
-   * If the returned set is empty, this interceptor will be called for all variable types.
-   * </p>
-   * <p>
-   * Default implementation returns an empty set (handle all types).
-   * </p>
-   *
-   * @param context the variable invocation containing C7 variable data and methods to modify it
-   */
-  /**
    * Executes the interceptor logic for a variable invocation.
    * This method will only be called if the variable type matches one of the supported types.
    *
-   * @param invocation the variable invocation containing C7 variable data and methods to modify it
+   * @param context of the variable containing the C7 variable and methods to modify it
    */
   @Override
-  void execute(VariableContext invocation);
+  void execute(VariableContext context);
 
   /**
    * Returns the set of entity types that this interceptor can handle.

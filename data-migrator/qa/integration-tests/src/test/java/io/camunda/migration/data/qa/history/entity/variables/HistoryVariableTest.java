@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.JSON;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.XML;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import io.camunda.search.entities.VariableEntity;
@@ -45,9 +44,6 @@ public class HistoryVariableTest extends AbstractMigratorTest {
   HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
-  protected ObjectMapper objectMapper;
-
-  @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   @AfterEach
@@ -74,7 +70,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("myVariable");
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
-    assertVariableFields(variable, c7Variable, "\"null\"");
+    assertVariableFields(variable, c7Variable, null);
   }
 
   @Test
@@ -97,11 +93,11 @@ public class HistoryVariableTest extends AbstractMigratorTest {
 
     // then
     assertVariableExists("stringVar", "\"myStringVar\"");
-    assertVariableExists("booleanVar", "\"true\"");
-    assertVariableExists("integerVar", "\"1234\"");
-    assertVariableExists("doubleVar", "\"1.5\"");
-    assertVariableExists("shortVar", "\"1\"");
-    assertVariableExists("longVar", "\"2147483648\"");
+    assertVariableExists("booleanVar", "true");
+    assertVariableExists("integerVar", "1234");
+    assertVariableExists("doubleVar", "1.5");
+    assertVariableExists("shortVar", "1");
+    assertVariableExists("longVar", "2147483648");
   }
 
   @Test
