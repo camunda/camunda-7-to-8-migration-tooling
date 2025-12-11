@@ -26,10 +26,12 @@ replay_pid*
 
 # IDE
 **/.idea/
+*.iml
 .classpath
 .project
 .settings
 .vscode
+*.factorypath
 
 # Build outputs
 **/target/
