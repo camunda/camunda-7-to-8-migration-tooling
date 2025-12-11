@@ -73,8 +73,8 @@
       </modules>
     </profile>
     <profile>
-      <!-- central-release profile to publish only core module to Maven Central. -->
-      <!-- We don't want to publish complete distribution there. -->
+      <!-- central-release profile to publish migration tooling modules to Maven Central. -->
+      <!-- We don't want to publish complete distributions. -->
       <!-- Used in release workflow. -->
       <id>central-release</id>
       <modules>
