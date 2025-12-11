@@ -212,6 +212,7 @@
                 <include>IdKeyCreateTimeMappingTest.java</include>
                 <include>EntityConversionPresetParentPropertiesTest.java</include>
                 <include>History*.java</include>
+                <include>ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>
