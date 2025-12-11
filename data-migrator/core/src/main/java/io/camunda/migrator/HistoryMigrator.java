@@ -185,6 +185,15 @@ public class HistoryMigrator {
     }
   }
 
+  protected <T> EntityConversionContext<?, ?> createEntityConversionContext(T c7Entity,
+                                                                            Class<T> c7EntityClass,
+                                                                            Object dbModelBuilder) {
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7Entity,
+        c7EntityClass, dbModelBuilder, processEngine);
+    entityConversionService.prepareParentProperties(context);
+    return context;
+  }
+
   protected void migrateProcessInstance(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -193,7 +202,8 @@ public class HistoryMigrator {
       String processDefinitionId = c7ProcessInstance.getProcessDefinitionId();
 
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder = new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
-      EntityConversionContext<?, ?> context = createProcessInstanceContext(c7ProcessInstance, processInstanceDbModelBuilder);
+      EntityConversionContext<?, ?> context = createEntityConversionContext(c7ProcessInstance,
+          HistoricProcessInstance.class, processInstanceDbModelBuilder);
 
       if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
         String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
@@ -227,13 +237,6 @@ public class HistoryMigrator {
     }
   }
 
-  protected EntityConversionContext<?, ?> createProcessInstanceContext(HistoricProcessInstance c7ProcessInstance,
-                                                                       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder) {
-    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7ProcessInstance,
-        HistoricProcessInstance.class, processInstanceDbModelBuilder, processEngine);
-    entityConversionService.prepareParentProperties(context);
-    return context;
-  }
 
   protected ProcessInstanceDbModel convertProcessInstance(EntityConversionContext<?, ?> context) {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
@@ -312,10 +315,8 @@ public class HistoryMigrator {
 
       DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder decisionDefinitionDbModelBuilder =
           new DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder();
-      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7DecisionDefinition,
-          DecisionDefinition.class, decisionDefinitionDbModelBuilder, processEngine);
-
-      entityConversionService.prepareParentProperties(context);
+      EntityConversionContext<?, ?> context = createEntityConversionContext(c7DecisionDefinition,
+          DecisionDefinition.class, decisionDefinitionDbModelBuilder);
       decisionDefinitionDbModelBuilder.decisionRequirementsId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey());
 
       if (c7DecisionDefinition.getDecisionRequirementsDefinitionId() != null) {
@@ -326,9 +327,7 @@ public class HistoryMigrator {
           DecisionDefinitionDbModel dbModel = convertDecisionDefinition(context);
 
           if (dbModel.decisionRequirementsKey() != null) {
-            c8Client.insertDecisionDefinition(dbModel);
-            markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
-            HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
+            insertDecisionDefinition(dbModel, c7Id, deploymentTime);
             return;
           } else {
             markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
@@ -341,10 +340,7 @@ public class HistoryMigrator {
       }
 
       DecisionDefinitionDbModel dbModel = convertDecisionDefinition(context);
-      c8Client.insertDecisionDefinition(dbModel);
-      markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
-      HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
-
+      insertDecisionDefinition(dbModel, c7Id, deploymentTime);
     }
   }
 
@@ -353,6 +349,12 @@ public class HistoryMigrator {
     DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder builder =
         (DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
+  }
+
+  protected void insertDecisionDefinition(DecisionDefinitionDbModel dbModel, String c7Id, Date deploymentTime) {
+    c8Client.insertDecisionDefinition(dbModel);
+    markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
+    HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
   }
 
   public void migrateDecisionInstances() {
@@ -370,10 +372,9 @@ public class HistoryMigrator {
 
   protected void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) { // TODO  try catch for skipping mechanism
     DecisionInstanceDbModel.Builder decisionInstanceDbModelBuilder = new DecisionInstanceDbModel.Builder();
-    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7DecisionInstance,
-        HistoricDecisionInstance.class, decisionInstanceDbModelBuilder, processEngine);
+    EntityConversionContext<?, ?> context = createEntityConversionContext(c7DecisionInstance,
+        HistoricDecisionInstance.class, decisionInstanceDbModelBuilder);
 
-    entityConversionService.prepareParentProperties(context);
     DecisionInstanceDbModel dbModel = convertDecisionInstance(context);
     if (c7DecisionInstance.getProcessDefinitionKey() == null && dbModel.processDefinitionKey() == null) {
       // only migrate decision instances that were triggered by process definitions
@@ -503,11 +504,11 @@ public class HistoryMigrator {
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       ProcessInstanceEntity c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
-      IncidentDbModel.Builder incidentDbModelBuilder = new IncidentDbModel.Builder();
-      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7Incident,
-          HistoricIncident.class, incidentDbModelBuilder, processEngine);
 
-      entityConversionService.prepareParentProperties(context);
+      IncidentDbModel.Builder incidentDbModelBuilder = new IncidentDbModel.Builder();
+      EntityConversionContext<?, ?> context = createEntityConversionContext(c7Incident, HistoricIncident.class,
+          incidentDbModelBuilder);
+
       if (c7ProcessInstance != null) {
         Long processInstanceKey = c7ProcessInstance.processInstanceKey();
         incidentDbModelBuilder
@@ -610,12 +611,10 @@ public class HistoryMigrator {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
       HistoryMigratorLogs.migratingHistoricVariable(c7VariableId);
-      VariableDbModel.VariableDbModelBuilder variableDbModelBuilder =
-          new VariableDbModel.VariableDbModelBuilder();
-      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7Variable,
-          HistoricVariableInstance.class, variableDbModelBuilder, processEngine);
 
-      entityConversionService.prepareParentProperties(context);
+      VariableDbModel.VariableDbModelBuilder variableDbModelBuilder = new VariableDbModel.VariableDbModelBuilder();
+      EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class,
+          variableDbModelBuilder);
 
       // Handle task-scoped variables
       String taskId = c7Variable.getTaskId();
@@ -710,10 +709,9 @@ public class HistoryMigrator {
       HistoryMigratorLogs.migratingHistoricUserTask(c7UserTaskId);
 
       UserTaskDbModel.Builder userTaskDbModelBuilder = new UserTaskDbModel.Builder();
-      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7UserTask,
-          HistoricTaskInstance.class, userTaskDbModelBuilder, processEngine);
+      EntityConversionContext<?, ?> context = createEntityConversionContext(c7UserTask, HistoricTaskInstance.class,
+          userTaskDbModelBuilder);
 
-      entityConversionService.prepareParentProperties(context);
 
       if (isMigrated(c7UserTask.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
 
