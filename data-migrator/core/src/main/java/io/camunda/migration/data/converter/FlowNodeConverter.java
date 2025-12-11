@@ -39,6 +39,18 @@ public class FlowNodeConverter {
         .build();
   }
 
+  
+  /**
+   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
+   * 
+   * @param processInstanceKey the process instance key
+   * @param elementInstanceKey the element instance key (flow node)
+   * @return the tree path string
+   */
+  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
+    return processInstanceKey + "/" + elementInstanceKey;
+  }
+
   protected FlowNodeType convertType(String activityType) {
     return switch (activityType) {
       case ActivityTypes.START_EVENT, ActivityTypes.START_EVENT_TIMER, ActivityTypes.START_EVENT_MESSAGE -> FlowNodeType.START_EVENT;
