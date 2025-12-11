@@ -32,6 +32,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
@@ -80,6 +81,7 @@ import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -355,12 +357,13 @@ public class HistoryMigrator {
 
       try {
         Long decisionInstanceKey = getNextKey();
+        DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(c7DecisionInstance.getDecisionDefinitionId());
         DecisionInstanceDbModel dbModel = decisionInstanceConverter.apply(c7DecisionInstance,
             String.format("%s-%d", decisionInstanceKey, 1), decisionDefinition.decisionDefinitionKey(),
             processDefinitionKey, decisionDefinition.decisionRequirementsKey(), processInstanceKey,
-            parentDecisionDefinitionKey, flowNode.flowNodeInstanceKey(), flowNode.flowNodeId());
+            parentDecisionDefinitionKey, flowNode.flowNodeInstanceKey(), flowNode.flowNodeId(),dmnModelInstance);
         c8Client.insertDecisionInstance(dbModel);
-        migrateChildDecisionInstances(parentDecisionDefinitionKey, c7DecisionInstance, dbModel);
+        migrateChildDecisionInstances(parentDecisionDefinitionKey, c7DecisionInstance, dbModel, dmnModelInstance);
         markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(),
             c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);
         HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
@@ -371,8 +374,9 @@ public class HistoryMigrator {
   }
 
   public void migrateChildDecisionInstances(Long parentDecisionDefinitionKey,
-                                               HistoricDecisionInstance c7DecisionInstance,
-                                               DecisionInstanceDbModel c8ParentDecisionInstanceModel) {
+                                            HistoricDecisionInstance c7DecisionInstance,
+                                            DecisionInstanceDbModel c8ParentDecisionInstanceModel,
+                                            DmnModelInstance dmnModelInstance) {
     List<HistoricDecisionInstance> childDecisionInstances =
         c7Client.findChildDecisionInstances(c7DecisionInstance.getId());
     for (int i = 0; i < childDecisionInstances.size(); i++) {
@@ -387,7 +391,8 @@ public class HistoryMigrator {
             childDecisionInstanceId, decisionDefinition.decisionDefinitionKey(),
             c8ParentDecisionInstanceModel.processDefinitionKey(), decisionDefinition.decisionRequirementsKey(),
             c8ParentDecisionInstanceModel.processInstanceKey(), parentDecisionDefinitionKey,
-            c8ParentDecisionInstanceModel.flowNodeInstanceKey(), c8ParentDecisionInstanceModel.flowNodeId());
+            c8ParentDecisionInstanceModel.flowNodeInstanceKey(), c8ParentDecisionInstanceModel.flowNodeId(),
+            dmnModelInstance);
         c8Client.insertDecisionInstance(childDbModel);
       }
     }
