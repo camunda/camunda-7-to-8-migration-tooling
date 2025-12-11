@@ -60,6 +60,12 @@
       </exclusions>
     </dependency>
 
+    <dependency>
+      <groupId>org.camunda.bpm.model</groupId>
+      <artifactId>camunda-dmn-model</artifactId>
+      <version>${version.camunda-7}</version>
+    </dependency>
+
     <!-- C8 Dependencies -->
 
     <dependency>

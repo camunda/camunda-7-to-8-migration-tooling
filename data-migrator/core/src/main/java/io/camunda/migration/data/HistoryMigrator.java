@@ -32,6 +32,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
@@ -79,6 +80,7 @@ import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -296,6 +298,30 @@ public class HistoryMigrator {
           HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
           return;
         }
+      } else {
+        // For standalone decisions (no DRD), create a DecisionRequirementsDefinition to store the DMN XML
+        String standaloneDrd = "drd-" + c7DecisionDefinition.getId();
+        decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(standaloneDrd, HISTORY_DECISION_REQUIREMENT);
+
+        if (decisionRequirementsKey == null) {
+          String deploymentId = c7DecisionDefinition.getDeploymentId();
+          String resourceName = c7DecisionDefinition.getResourceName();
+          String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+
+          DecisionRequirementsDbModel drdModel = new DecisionRequirementsDbModel.Builder()
+              .decisionRequirementsKey(getNextKey())
+              .decisionRequirementsId(standaloneDrd)
+              .name(c7DecisionDefinition.getName())
+              .resourceName(resourceName)
+              .version(c7DecisionDefinition.getVersion())
+              .xml(dmnXml)
+              .tenantId(getTenantId(c7DecisionDefinition.getTenantId()))
+              .build();
+
+          c8Client.insertDecisionRequirements(drdModel);
+          markMigrated(standaloneDrd, drdModel.decisionRequirementsKey(), deploymentTime, HISTORY_DECISION_REQUIREMENT);
+          decisionRequirementsKey = drdModel.decisionRequirementsKey();
+        }
       }
 
       DecisionDefinitionDbModel dbModel = decisionDefinitionConverter.apply(c7DecisionDefinition, decisionRequirementsKey);
@@ -373,24 +399,27 @@ public class HistoryMigrator {
           c7DecisionInstance.getProcessInstanceId()).processInstanceKey();
       FlowNodeInstanceDbModel flowNode = findFlowNodeInstance(c7DecisionInstance.getActivityInstanceId());
 
+      // Fetch DMN model to determine decision type
+      DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(c7DecisionInstance.getDecisionDefinitionId());
 
       Long decisionInstanceKey = getNextKey();
       DecisionInstanceDbModel dbModel = decisionInstanceConverter.apply(c7DecisionInstance,
           String.format("%s-%d", decisionInstanceKey, 1),
           decisionDefinition.decisionDefinitionKey(), processDefinitionKey,
           decisionDefinition.decisionRequirementsKey(), processInstanceKey, parentDecisionDefinitionKey,
-          flowNode.flowNodeInstanceKey(), flowNode.flowNodeId());
+          flowNode.flowNodeInstanceKey(), flowNode.flowNodeId(), dmnModelInstance);
       c8Client.insertDecisionInstance(dbModel);
 
       List<HistoricDecisionInstance> childDecisionInstances = c7Client.findChildDecisionInstances(c7DecisionInstance.getId());
       for (int i = 0; i < childDecisionInstances.size(); i++) {
         HistoricDecisionInstance childDecisionInstance = childDecisionInstances.get(i);
         decisionDefinition = findDecisionDefinition(childDecisionInstance.getDecisionDefinitionId());
+        // Reuse the same DMN model instance for child decisions from the same DRD
         c8Client.insertDecisionInstance(
             decisionInstanceConverter.apply(childDecisionInstance,
                 String.format("%s-%d", decisionInstanceKey, i+2), decisionDefinition.decisionDefinitionKey(),
                 processDefinitionKey, decisionDefinition.decisionRequirementsKey(), processInstanceKey,
-                parentDecisionDefinitionKey, flowNode.flowNodeInstanceKey(), flowNode.flowNodeId()));
+                parentDecisionDefinitionKey, flowNode.flowNodeInstanceKey(), flowNode.flowNodeId(), dmnModelInstance));
       }
 
       markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);

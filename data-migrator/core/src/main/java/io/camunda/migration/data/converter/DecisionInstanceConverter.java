@@ -18,6 +18,11 @@ import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.camunda.bpm.model.dmn.instance.Decision;
+import org.camunda.bpm.model.dmn.instance.DecisionTable;
+import org.camunda.bpm.model.dmn.instance.Expression;
+import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 
 public class DecisionInstanceConverter {
 
@@ -29,9 +34,11 @@ public class DecisionInstanceConverter {
                                        Long processInstanceKey,
                                        Long rootDecisionDefinitionKey,
                                        Long flowNodeInstanceKey,
-                                       String flowNodeId) {
+                                       String flowNodeId,
+                                       DmnModelInstance dmnModelInstance) {
 
     long decisionInstanceKey = Long.parseLong(decisionInstanceId.split("-")[0]);
+    DecisionInstanceEntity.DecisionDefinitionType decisionType = determineDecisionType(dmnModelInstance, decisionInstance.getDecisionDefinitionKey());
 
     return new DecisionInstanceDbModel.Builder()
         .partitionId(C7_HISTORY_PARTITION_ID)
@@ -52,12 +59,26 @@ public class DecisionInstanceConverter {
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
         .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
         .result(null)
-        .decisionType(null) // LITERAL_EXPRESSION, DECISION_TABLE
+        .decisionType(decisionType)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .evaluatedInputs(mapInputs(decisionInstanceId, decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstanceId, decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .build();
+  }
+
+  protected DecisionInstanceEntity.DecisionDefinitionType determineDecisionType(DmnModelInstance dmnModelInstance,
+                                                                                String decisionDefinitionId) {
+    Decision decision = dmnModelInstance.getModelElementById(decisionDefinitionId);
+    if (decision == null) {
+      return null;
+    }
+
+    if (decision.getExpression() instanceof LiteralExpression) {
+      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
+    } else {
+      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
+    }
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
@@ -76,6 +97,6 @@ public class DecisionInstanceConverter {
         output.getClauseName(),
         String.valueOf(output.getValue()),
         output.getRuleId(),
-        output.getRuleOrder())).toList();
+        output.getRuleOrder() != null ? output.getRuleOrder() : 1)).toList();
   }
 }
