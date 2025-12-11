@@ -19,6 +19,17 @@
       "enabled": false
     },
     {
+      "description": "Pin internal model-converter modules to current version",
+      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-model-converter", "io.camunda:camunda-7-to-8-migration-analyzer"],
+      "enabled": false
+    },
+    {
+      "description": "Do not update npm packages in model-converter TODO: camunda/camunda-7-to-8-migration-tooling/issues/583",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["model-converter/**"],
+      "enabled": false
+    },
+    {
       "description": "Automerge all updates with green CI.",
       "matchPackageNames": [
         "*"

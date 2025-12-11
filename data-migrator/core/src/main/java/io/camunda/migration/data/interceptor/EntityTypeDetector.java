@@ -18,7 +18,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
  */
 public final class EntityTypeDetector {
 
-  private EntityTypeDetector() {
+  protected EntityTypeDetector() {
     // Utility class - prevent instantiation
   }
 

@@ -66,6 +66,7 @@
       <modules>
         <module>code-conversion</module>
         <module>data-migrator</module>
+        <module>model-converter</module>
       </modules>
     </profile>
     <profile>
