@@ -32,13 +32,13 @@ import org.springframework.test.context.TestPropertySource;
 public class InterceptorConfigurationTest {
 
   @Autowired(required = false)
-  private List<VariableInterceptor> configuredVariableInterceptors;
+  protected List<VariableInterceptor> configuredVariableInterceptors;
 
   @Autowired(required = false)
-  private List<EntityInterceptor> configuredEntityInterceptors;
+  protected List<EntityInterceptor> configuredEntityInterceptors;
 
   @Test
-  void shouldConfigureBothVariableAndEntityInterceptors() {
+  public void shouldConfigureBothVariableAndEntityInterceptors() {
     // Variable interceptors should be configured
     assertThat(configuredVariableInterceptors).isNotNull();
 
@@ -47,7 +47,7 @@ public class InterceptorConfigurationTest {
   }
 
   @Test
-  void shouldIncludeCustomVariableInterceptor() {
+  public void shouldIncludeCustomVariableInterceptor() {
     assertThat(configuredVariableInterceptors).isNotNull();
 
     boolean hasCustomVariableInterceptor = configuredVariableInterceptors.stream()
@@ -57,7 +57,7 @@ public class InterceptorConfigurationTest {
   }
 
   @Test
-  void shouldIncludeCustomEntityInterceptor() {
+  public void shouldIncludeCustomEntityInterceptor() {
     assertThat(configuredEntityInterceptors).isNotNull();
 
     boolean hasCustomEntityInterceptor = configuredEntityInterceptors.stream()
@@ -67,7 +67,7 @@ public class InterceptorConfigurationTest {
   }
 
   @Test
-  void shouldDisableBuiltInVariableInterceptor() {
+  public void shouldDisableBuiltInVariableInterceptor() {
     assertThat(configuredVariableInterceptors).isNotNull();
 
     boolean hasPrimitiveTransformer = configuredVariableInterceptors.stream()
