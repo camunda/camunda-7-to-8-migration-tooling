@@ -7,8 +7,8 @@
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>camunda-7-to-8-migration-analyzer-webapp</artifactId>
-  <name>camunda-7-to-8-migration-analyzer-webapp</name>
+  <artifactId>camunda-7-to-8-model-converter-webapp</artifactId>
+  <name>camunda-7-to-8-model-converter-webapp</name>
 
   <dependencies>
     <dependency>
@@ -21,7 +21,7 @@
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>camunda-7-to-8-migration-analyzer-core</artifactId>
+      <artifactId>camunda-7-to-8-model-converter-core</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

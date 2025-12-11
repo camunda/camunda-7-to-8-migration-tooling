@@ -142,8 +142,8 @@ jobs:
           cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip "${ARTIFACT_DIR}/"
           cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
           cp code-conversion/recipes/target/camunda-7-to-8-rewrite-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp model-converter/webapp/target/camunda-7-to-8-migration-analyzer-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp model-converter/cli/target/camunda-7-to-8-migration-analyzer-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp model-converter/webapp/target/camunda-7-to-8-model-converter-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp model-converter/cli/target/camunda-7-to-8-model-converter-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
@@ -230,8 +230,8 @@ jobs:
           cd docker-context
           tar -xzf ../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz
           cp ../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-migration-analyzer-webapp-${{ env.RELEASE_VERSION }}.jar ./
-          cp ../artifacts/camunda-7-to-8-migration-analyzer-cli-${{ env.RELEASE_VERSION }}.jar ./
+          cp ../artifacts/camunda-7-to-8-model-converter-webapp-${{ env.RELEASE_VERSION }}.jar ./
+          cp ../artifacts/camunda-7-to-8-model-converter-cli-${{ env.RELEASE_VERSION }}.jar ./
           
           # Create Dockerfile
           cat > Dockerfile << 'EOF'

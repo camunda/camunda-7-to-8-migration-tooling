@@ -62,7 +62,7 @@ You can also install the web application locally.
 **Steps**:
 
 1. Download the latest Model Converter web application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
-2. Run the application. Navigate to the directory where the `camunda-7-to-8-migration-analyzer-webapp.jar` file was downloaded and execute the following command:
+2. Run the application. Navigate to the directory where the `camunda-7-to-8-model-converter-webapp.jar` file was downloaded and execute the following command:
 
    ```shell
    java -jar camunda-7-to-8-model-converter-webapp.jar
