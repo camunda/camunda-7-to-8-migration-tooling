@@ -56,9 +56,40 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDecisionName");
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isNull();
+      assertThat(decision.decisionRequirementsKey()).isNotNull();
       assertThat(decision.decisionRequirementsId()).isNull();
     });
+
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("drd-simpleDecisionId");
+    assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
+      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("drd-simpleDecisionId");
+      assertThat(decisionRequirements.decisionRequirementsKey()).isNotNull();
+      assertThat(decisionRequirements.version()).isEqualTo(1);
+      assertThat(decisionRequirements.name()).isEqualTo("simpleDecisionName");
+      assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+      assertThat(decisionRequirements.xml()).isNotNull();
+      assertThat(decisionRequirements.resourceName()).isEqualTo("io/camunda/migration/data/dmn/c7/simpleDmn.dmn");
+    });
+  }
+
+  @Test
+  public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecisionOnlyOnce() {
+    // given
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    historyMigrator.migrate();
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    assertThat(migratedDecisions).hasSize(2).allSatisfy(decision -> {
+      assertThat(decision.decisionRequirementsKey()).isNotNull();
+      assertThat(decision.decisionRequirementsId()).isNull();
+    });
+
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition(
+        "drd-simpleDecisionId");
+    assertThat(decisionReqs).hasSize(1);
   }
 
   @Test
@@ -79,7 +110,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decisionRequirements.version()).isEqualTo(1);
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
       assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decisionRequirements.xml()).isNull();
+      assertThat(decisionRequirements.xml()).isNotNull();
       assertThat(decisionRequirements.resourceName()).isEqualTo(
           "io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
     });
