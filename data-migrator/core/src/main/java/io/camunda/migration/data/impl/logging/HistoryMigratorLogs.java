@@ -9,6 +9,7 @@
 package io.camunda.migration.data.impl.logging;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +82,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
+
+  public static final String SKIPPING_ENTITY_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
 
   public static void migratingDecisionDefinitions() {
     LOGGER.info(MIGRATING_DEFINITIONS, "decision");
@@ -256,5 +259,9 @@ public class HistoryMigratorLogs {
 
   public static void migratingDecisionRequirementsCompleted(String c7DecisionRequirementsId) {
     LOGGER.debug(MIGRATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionRequirementsId);
+  }
+
+  public static void skippingEntityDueToInterceptorError(IdKeyMapper.TYPE type, String c7DecisionInstanceId, String message) {
+    LOGGER.warn(SKIPPING_ENTITY_INTERCEPTOR_ERROR, type, c7DecisionInstanceId, message);
   }
 }
