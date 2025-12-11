@@ -23,7 +23,7 @@ public final class MigratorConstants {
   public static final String C8_DEFAULT_TENANT = "<default>";
 
   /**
-   * Generates a tree path for flow nodes and incidents in the format: processInstanceKey/elementInstanceKey
+   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
    * 
    * @param processInstanceKey the process instance key
    * @param elementInstanceKey the element instance key (flow node or incident)
