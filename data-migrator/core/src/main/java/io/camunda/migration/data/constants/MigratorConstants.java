@@ -26,7 +26,7 @@ public final class MigratorConstants {
    * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
    * 
    * @param processInstanceKey the process instance key
-   * @param elementInstanceKey the element instance key (flow node or incident)
+   * @param elementInstanceKey the element instance key (flow node)
    * @return the tree path string
    */
   public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
