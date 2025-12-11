@@ -227,6 +227,7 @@
             <configuration>
               <excludes>
                 <exclude>**/history/**</exclude>
+                <exclude>**/identity/**</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -243,6 +244,22 @@
             <configuration>
               <includes>
                 <include>**/history/**</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>identity-only</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/identity/**</include>
               </includes>
             </configuration>
           </plugin>
