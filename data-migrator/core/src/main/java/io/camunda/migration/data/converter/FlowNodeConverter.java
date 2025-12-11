@@ -8,7 +8,6 @@
 package io.camunda.migration.data.converter;
 
 import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
-import static io.camunda.migration.data.constants.MigratorConstants.generateTreePath;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
