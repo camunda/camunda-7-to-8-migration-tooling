@@ -193,10 +193,7 @@ public class HistoryMigrator {
       String processDefinitionId = c7ProcessInstance.getProcessDefinitionId();
 
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder = new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
-      EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7ProcessInstance,
-          HistoricProcessInstance.class, processInstanceDbModelBuilder, processEngine);
-
-      entityConversionService.prepareParentProperties(context);
+      EntityConversionContext<?, ?> context = createProcessInstanceContext(c7ProcessInstance, processInstanceDbModelBuilder);
 
       if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
         String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
@@ -207,40 +204,35 @@ public class HistoryMigrator {
             parentProcessInstanceKey = parentInstance.processInstanceKey();
           }
         }
-        processInstanceDbModelBuilder
-            .processDefinitionKey(processDefinitionKey);
         if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
-
-          processInstanceDbModelBuilder
-              .parentProcessInstanceKey(parentProcessInstanceKey);
+          processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey)
+              .processDefinitionKey(processDefinitionKey);
           ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-
           insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
         } else {
           ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-          if (dbModel.parentProcessInstanceKey() == null) {
+          if (dbModel.parentProcessInstanceKey() != null && c7SuperProcessInstanceId != null) {
+            insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
+          } else {
             markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
                 SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
             HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
-          } else {
-            insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
           }
         }
       } else {
-        ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-        if (dbModel.parentProcessInstanceKey() == null) {
-          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-              SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
-        } else if (dbModel.processDefinitionKey() == null) {
-          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-              SKIP_REASON_MISSING_PROCESS_DEFINITION);
-          HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
-        } else {
-          insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
-        }
+        markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+            SKIP_REASON_MISSING_PROCESS_DEFINITION);
+        HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
       }
     }
+  }
+
+  protected EntityConversionContext<?, ?> createProcessInstanceContext(HistoricProcessInstance c7ProcessInstance,
+                                                                       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder) {
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7ProcessInstance,
+        HistoricProcessInstance.class, processInstanceDbModelBuilder, processEngine);
+    entityConversionService.prepareParentProperties(context);
+    return context;
   }
 
   protected ProcessInstanceDbModel convertProcessInstance(EntityConversionContext<?, ?> context) {

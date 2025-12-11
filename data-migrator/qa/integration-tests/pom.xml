@@ -221,6 +221,7 @@
                 <include>DistributionSmokeTest.java</include>
                 <include>DropSchemaTest.java</include>
                 <include>IdKeyCreateTimeMappingTest.java</include>
+                <include>EntityConversionPresetParentPropertiesTest.java</include>
                 <include>History*.java</include>
               </includes>
             </configuration>
