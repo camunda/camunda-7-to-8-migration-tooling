@@ -19,7 +19,8 @@ import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 
-public class FlowNodeConverter implements EntityInterceptor {
+
+public class FlowNodeTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -75,5 +76,5 @@ public class FlowNodeConverter implements EntityInterceptor {
       default -> throw new IllegalArgumentException("Unknown type: " + activityType);
     };
   }
-
 }
+

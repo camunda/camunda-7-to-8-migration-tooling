@@ -14,48 +14,48 @@ import org.springframework.context.annotation.Configuration;
 public class ConverterConfiguration {
 
   @Bean
-  public DecisionDefinitionConverter decisionDefinitionConverter() {
-    return new DecisionDefinitionConverter();
+  public DecisionDefinitionTransformer decisionDefinitionTransformer() {
+    return new DecisionDefinitionTransformer();
   }
 
   @Bean
-  public DecisionRequirementsDefinitionConverter decisionRequirementsDefinitionConverter() {
-    return new DecisionRequirementsDefinitionConverter();
+  public DecisionRequirementsDefinitionTransformer decisionRequirementsDefinitionTransformer() {
+    return new DecisionRequirementsDefinitionTransformer();
   }
 
   @Bean
-  public DecisionInstanceConverter decisionInstanceConverter() {
-    return new DecisionInstanceConverter();
+  public DecisionInstanceTransformer decisionInstanceTransformer() {
+    return new DecisionInstanceTransformer();
   }
 
   @Bean
-  public FlowNodeConverter flowNodeConverter() {
-    return new FlowNodeConverter();
+  public FlowNodeTransformer flowNodeTransformer() {
+    return new FlowNodeTransformer();
   }
 
   @Bean
-  public IncidentConverter incidentConverter() {
-    return new IncidentConverter();
+  public IncidentTransformer incidentTransformer() {
+    return new IncidentTransformer();
   }
 
   @Bean
-  public ProcessDefinitionConverter processDefinitionConverter() {
-    return new ProcessDefinitionConverter();
+  public ProcessDefinitionTransformer processDefinitionTransformer() {
+    return new ProcessDefinitionTransformer();
   }
 
   @Bean
-  public ProcessInstanceConverter processInstanceConverter() {
-    return new ProcessInstanceConverter();
+  public ProcessInstanceTransformer processInstanceTransformer() {
+    return new ProcessInstanceTransformer();
   }
 
   @Bean
-  public UserTaskConverter userTaskConverter() {
-    return new UserTaskConverter();
+  public UserTaskTransformer userTaskTransformer() {
+    return new UserTaskTransformer();
   }
 
   @Bean
-  public VariableConverter variableConverter() {
-    return new VariableConverter();
+  public VariableTransformer variableTransformer() {
+    return new VariableTransformer();
   }
 
 }

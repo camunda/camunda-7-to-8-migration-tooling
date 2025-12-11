@@ -8,22 +8,22 @@
 
 package io.camunda.migration.data.impl.logging;
 
-import io.camunda.migration.data.converter.VariableConverter;
+import io.camunda.migration.data.converter.VariableTransformer;
 import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Centralized logging utility for VariableConverter.
- * Contains all log messages and string constants used in VariableConverter.
+ * Centralized logging utility for VariableTransformer.
+ * Contains all log messages and string constants used in VariableTransformer.
  */
-public class VariableConverterLogs {
-  protected static final Logger LOGGER = LoggerFactory.getLogger(VariableConverter.class);
+public class VariableTransformerLogs {
+  protected static final Logger LOGGER = LoggerFactory.getLogger(VariableTransformer.class);
 
-  // VariableConverter Messages
+  // VariableTransformer Messages
   public static final String CONVERTING_OF_TYPE = "Converting variable with C7 ID [{}] of type: {}";
 
-  // VariableConverter Error Messages
+  // VariableTransformer Error Messages
   public static final String WARN_NO_HANDLING_AVAILABLE = "No existing handling for variable with id= {}, type: {}, returning null.";
   public static final String ERROR_CONVERTING_JSON = "Error converting typed value to json: {}, exception: {}. Mapped to null";
 

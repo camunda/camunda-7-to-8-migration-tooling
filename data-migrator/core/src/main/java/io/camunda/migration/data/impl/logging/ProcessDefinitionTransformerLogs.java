@@ -8,19 +8,19 @@
 
 package io.camunda.migration.data.impl.logging;
 
-import io.camunda.migration.data.converter.ProcessDefinitionConverter;
+import io.camunda.migration.data.converter.ProcessDefinitionTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Centralized logging utility for ProcessDefinitionConverter.
- * Contains all log messages and string constants used in ProcessDefinitionConverter.
+ * Centralized logging utility for ProcessDefinitionTransformer.
+ * Contains all log messages and string constants used in ProcessDefinitionTransformer.
  */
-public class ProcessDefinitionConverterLogs {
+public class ProcessDefinitionTransformerLogs {
 
-  protected static final Logger LOGGER = LoggerFactory.getLogger(ProcessDefinitionConverter.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(ProcessDefinitionTransformer.class);
 
-  // ProcessDefinitionConverter Error Messages
+  // ProcessDefinitionTransformer Error Messages
   public static final String FAILED_FETCHING_RESOURCE_STREAM = "Error while fetching resource stream for process definition with C7 ID [{}] due to: {}";
 
   public static void failedFetchingResourceStream(String c7Id, String errorMessage) {

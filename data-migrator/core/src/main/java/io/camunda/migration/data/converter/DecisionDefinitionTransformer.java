@@ -14,11 +14,10 @@ import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import java.util.Set;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 
-import java.util.Set;
-
-public class DecisionDefinitionConverter implements EntityInterceptor {
+public class DecisionDefinitionTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -32,7 +31,7 @@ public class DecisionDefinitionConverter implements EntityInterceptor {
         (DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder) context.getC8DbModelBuilder();
 
     if (builder == null) {
-      throw new EntityInterceptorException("C8 DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder is null in context");
+      throw new EntityInterceptorException("C8 DecisionDefinitionDbModel.Builder is null in context");
     }
 
     builder.decisionDefinitionKey(getNextKey())
@@ -41,6 +40,6 @@ public class DecisionDefinitionConverter implements EntityInterceptor {
         .tenantId(getTenantId(c7DecisionDefinition.getTenantId()))
         .version(c7DecisionDefinition.getVersion())
         .decisionRequirementsId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey());
-    // Note: decisionRequirementsKey is set externally
   }
 }
+

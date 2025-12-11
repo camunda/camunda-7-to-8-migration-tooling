@@ -60,7 +60,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
  * <pre>
  * migrator:
  *   interceptors:
- *     - className: "io.camunda.migrator.impl.converter.ProcessInstanceConverter"
+ *     - className: "io.camunda.migration.data.converter.ProcessInstanceTransformer"
  *       enabled: false
  * </pre>
  * <p>

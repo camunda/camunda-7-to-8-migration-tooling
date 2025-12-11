@@ -12,7 +12,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
-import io.camunda.migration.data.impl.logging.ProcessDefinitionConverterLogs;
+import io.camunda.migration.data.impl.logging.ProcessDefinitionTransformerLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.io.ByteArrayOutputStream;
@@ -23,7 +23,7 @@ import java.util.Set;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class ProcessDefinitionConverter implements EntityInterceptor {
+public class ProcessDefinitionTransformer implements EntityInterceptor {
 
   @Autowired
   protected C7Client c7Client;
@@ -63,7 +63,7 @@ public class ProcessDefinitionConverter implements EntityInterceptor {
 
       return readInputStreamToString(resourceStream);
     } catch (IOException e) {
-      ProcessDefinitionConverterLogs.failedFetchingResourceStream(processDefinition.getId(), e.getMessage());
+      ProcessDefinitionTransformerLogs.failedFetchingResourceStream(processDefinition.getId(), e.getMessage());
       return null;
     }
   }

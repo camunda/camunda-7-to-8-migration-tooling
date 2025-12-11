@@ -18,7 +18,7 @@ import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 
 import java.util.Set;
 
-public class DecisionRequirementsDefinitionConverter implements EntityInterceptor {
+public class DecisionRequirementsDefinitionTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -44,3 +44,4 @@ public class DecisionRequirementsDefinitionConverter implements EntityIntercepto
         .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
   }
 }
+

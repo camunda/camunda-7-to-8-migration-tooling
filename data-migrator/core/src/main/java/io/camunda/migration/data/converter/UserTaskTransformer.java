@@ -20,7 +20,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
-public class UserTaskConverter implements EntityInterceptor {
+public class UserTaskTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -69,5 +69,5 @@ public class UserTaskConverter implements EntityInterceptor {
       default -> throw new IllegalArgumentException("Unknown state: " + state);
     };
   }
-
 }
+

@@ -18,8 +18,7 @@ import java.util.Set;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-
-public class IncidentConverter implements EntityInterceptor {
+public class IncidentTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -55,5 +54,5 @@ public class IncidentConverter implements EntityInterceptor {
       default -> throw new IllegalArgumentException("Unknown state: " + state);
     };
   }
-
 }
+
