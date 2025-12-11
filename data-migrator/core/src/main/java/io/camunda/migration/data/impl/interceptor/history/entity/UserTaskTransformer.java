@@ -14,12 +14,16 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
 import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
+@Order(4)
+@Component
 public class UserTaskTransformer implements EntityInterceptor {
 
   @Override

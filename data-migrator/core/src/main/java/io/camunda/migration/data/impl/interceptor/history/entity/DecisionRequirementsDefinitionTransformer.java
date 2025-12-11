@@ -17,7 +17,11 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 
 import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(9)
+@Component
 public class DecisionRequirementsDefinitionTransformer implements EntityInterceptor {
 
   @Override

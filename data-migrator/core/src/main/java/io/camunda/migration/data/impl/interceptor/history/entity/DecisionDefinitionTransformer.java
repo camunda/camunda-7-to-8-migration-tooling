@@ -16,7 +16,11 @@ import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(10)
+@Component
 public class DecisionDefinitionTransformer implements EntityInterceptor {
 
   @Override

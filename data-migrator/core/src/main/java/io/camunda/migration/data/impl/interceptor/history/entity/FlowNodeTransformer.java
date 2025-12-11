@@ -18,8 +18,11 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-
+@Order(3)
+@Component
 public class FlowNodeTransformer implements EntityInterceptor {
 
   @Override
