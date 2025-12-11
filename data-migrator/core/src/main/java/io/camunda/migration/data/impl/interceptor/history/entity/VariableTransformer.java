@@ -5,14 +5,14 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.constants.MigratorConstants;
 import io.camunda.migration.data.exception.EntityInterceptorException;
-import io.camunda.migration.data.impl.logging.VariableConverterLogs;
+import io.camunda.migration.data.impl.logging.VariableTransformerLogs;
 import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
@@ -20,14 +20,18 @@ import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.variable.impl.value.NullValueImpl;
 import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
 import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
-public class VariableConverter implements EntityInterceptor {
+@Order(5)
+@Component
+public class VariableTransformer implements EntityInterceptor {
 
   @Autowired
   protected ObjectMapper objectMapper;
@@ -62,12 +66,12 @@ public class VariableConverter implements EntityInterceptor {
     var variableId = variable.getId();
 
     if (isNullValueType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "NullValue");
+      VariableTransformerLogs.convertingOfType(variableId, "NullValue");
       return null;
     }
 
     if (isPrimitiveType(variable)) {
-      VariableConverterLogs.convertingOfType(variableId, "Primitive");
+      VariableTransformerLogs.convertingOfType(variableId, "Primitive");
       var typedValue = variable.getTypedValue().getValue();
 
       return typedValue != null ? typedValue.toString() : null;
@@ -76,12 +80,12 @@ public class VariableConverter implements EntityInterceptor {
     if (isObjectType(variable)) {
       ObjectValueImpl typedValue = (ObjectValueImpl) (variable.getTypedValue());
       Class<?> objectType = typedValue.getObjectType();
-      VariableConverterLogs.convertingOfType(variableId, objectType.getSimpleName());
+      VariableTransformerLogs.convertingOfType(variableId, objectType.getSimpleName());
 
       return getJsonValue(typedValue);
     }
 
-    VariableConverterLogs.warnNoHandlingAvailable(variableId, "unknown"/*variable.getTypeName()*/);
+    VariableTransformerLogs.warnNoHandlingAvailable(variableId, "unknown"/*variable.getTypeName()*/);
     return null;
   }
 
@@ -101,10 +105,11 @@ public class VariableConverter implements EntityInterceptor {
     try {
       return objectMapper.writeValueAsString(typedValue.getValue());
     } catch (JsonProcessingException e) {
-      VariableConverterLogs.failedConvertingJson(typedValue, e.getMessage());
+      VariableTransformerLogs.failedConvertingJson(typedValue, e.getMessage());
       return null;
     }
   }
 
 
 }
+

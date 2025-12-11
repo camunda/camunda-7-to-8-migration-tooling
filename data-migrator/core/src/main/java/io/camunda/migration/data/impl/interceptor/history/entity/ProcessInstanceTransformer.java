@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
@@ -20,9 +20,12 @@ import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class ProcessInstanceConverter implements EntityInterceptor {
-
+@Order(2)
+@Component
+public class ProcessInstanceTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -53,7 +56,7 @@ public class ProcessInstanceConverter implements EntityInterceptor {
         //        .parentElementInstanceKey(null)
         //        .treePath(null)
         // TODO https://github.com/camunda/camunda-bpm-platform/issues/5400
-//        .numIncidents()
+        //        .numIncidents()
         .partitionId(C7_HISTORY_PARTITION_ID)
         .historyCleanupDate(convertDate(processInstance.getRemovalTime()));
   }
@@ -75,3 +78,4 @@ public class ProcessInstanceConverter implements EntityInterceptor {
   }
 
 }
+

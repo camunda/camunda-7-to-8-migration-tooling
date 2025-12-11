@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
@@ -18,8 +18,12 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class FlowNodeConverter implements EntityInterceptor {
+@Order(3)
+@Component
+public class FlowNodeTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -75,5 +79,5 @@ public class FlowNodeConverter implements EntityInterceptor {
       default -> throw new IllegalArgumentException("Unknown type: " + activityType);
     };
   }
-
 }
+

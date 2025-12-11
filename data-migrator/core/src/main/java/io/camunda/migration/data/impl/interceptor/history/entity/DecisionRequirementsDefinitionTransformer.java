@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -17,8 +17,12 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 
 import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class DecisionRequirementsDefinitionConverter implements EntityInterceptor {
+@Order(9)
+@Component
+public class DecisionRequirementsDefinitionTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -44,3 +48,4 @@ public class DecisionRequirementsDefinitionConverter implements EntityIntercepto
         .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
   }
 }
+

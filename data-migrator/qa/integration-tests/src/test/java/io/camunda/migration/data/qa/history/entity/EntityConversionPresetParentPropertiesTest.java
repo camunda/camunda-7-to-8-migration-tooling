@@ -32,8 +32,8 @@ import org.springframework.test.context.TestPropertySource;
  * </p>
  */
 @TestPropertySource(properties = {
-    // Disable built-in converters to isolate our custom interceptor behavior
-    "camunda.migrator.interceptors[0].className=io.camunda.migrator.converter.ProcessInstanceConverter",
+    // Disable built-in transformers to isolate our custom interceptor behavior
+    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.converter.ProcessInstanceTransformer",
     "camunda.migrator.interceptors[0].enabled=false"
 })
 @SpringBootTest(classes = {

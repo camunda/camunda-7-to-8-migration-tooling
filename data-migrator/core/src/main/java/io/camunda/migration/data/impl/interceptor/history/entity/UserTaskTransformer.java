@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -14,13 +14,17 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
 import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
-public class UserTaskConverter implements EntityInterceptor {
+@Order(4)
+@Component
+public class UserTaskTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -69,5 +73,5 @@ public class UserTaskConverter implements EntityInterceptor {
       default -> throw new IllegalArgumentException("Unknown state: " + state);
     };
   }
-
 }
+

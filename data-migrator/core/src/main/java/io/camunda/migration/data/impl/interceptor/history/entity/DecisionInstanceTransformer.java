@@ -5,8 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
@@ -22,8 +21,12 @@ import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class DecisionInstanceConverter implements EntityInterceptor {
+@Order(11)
+@Component
+public class DecisionInstanceTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -61,7 +64,7 @@ public class DecisionInstanceConverter implements EntityInterceptor {
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
-                                                                 List<HistoricDecisionInputInstance> c7Inputs) {
+                                                                   List<HistoricDecisionInputInstance> c7Inputs) {
     return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
         input.getId(),
         input.getClauseName(),
@@ -70,7 +73,7 @@ public class DecisionInstanceConverter implements EntityInterceptor {
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedOutput> mapOutputs(String decisionInstanceId,
-                                                                   List<HistoricDecisionOutputInstance> c7Outputs) {
+                                                                     List<HistoricDecisionOutputInstance> c7Outputs) {
     return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
         output.getId(),
         output.getClauseName(),
@@ -79,3 +82,4 @@ public class DecisionInstanceConverter implements EntityInterceptor {
         output.getRuleOrder())).toList();
   }
 }
+
