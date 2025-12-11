@@ -21,15 +21,4 @@ public final class MigratorConstants {
   public static final String LEGACY_ID_VAR_NAME = "legacyId";
   public static final String USER_TASK_ID = "userTaskId";
   public static final String C8_DEFAULT_TENANT = "<default>";
-
-  /**
-   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
-   * 
-   * @param processInstanceKey the process instance key
-   * @param elementInstanceKey the element instance key (flow node)
-   * @return the tree path string
-   */
-  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
-    return processInstanceKey + "/" + elementInstanceKey;
-  }
 }
