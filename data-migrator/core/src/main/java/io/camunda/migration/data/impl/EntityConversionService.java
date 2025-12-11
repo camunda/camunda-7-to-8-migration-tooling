@@ -114,7 +114,7 @@ public class EntityConversionService {
    *
    * @return true if interceptors are configured, false otherwise
    */
-  private boolean hasInterceptors() {
+  protected boolean hasInterceptors() {
     return configuredEntityInterceptors != null && !configuredEntityInterceptors.isEmpty();
   }
 }

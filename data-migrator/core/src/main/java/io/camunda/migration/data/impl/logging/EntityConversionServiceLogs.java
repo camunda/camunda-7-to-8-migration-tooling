@@ -16,14 +16,14 @@ import org.slf4j.LoggerFactory;
  */
 public class EntityConversionServiceLogs {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(EntityConversionServiceLogs.class);
+  protected static final Logger LOGGER = LoggerFactory.getLogger(EntityConversionServiceLogs.class);
 
   // Log message templates
-  private static final String EXECUTING_INTERCEPTOR_LOG = "Executing interceptor {} for entity type: {}";
-  private static final String INTERCEPTOR_ERROR_LOG = "Interceptor {} failed for entity type: {}";
+  protected static final String EXECUTING_INTERCEPTOR_LOG = "Executing interceptor {} for entity type: {}";
+  protected static final String INTERCEPTOR_ERROR_LOG = "Interceptor {} failed for entity type: {}";
 
   // Error message templates
-  private static final String ENTITY_INTERCEPTOR_FAILED_MSG = "%s failed for entity type '%s'";
+  protected static final String ENTITY_INTERCEPTOR_FAILED_MSG = "%s failed for entity type '%s'";
 
   /**
    * Logs the execution of an interceptor for a specific entity type.
