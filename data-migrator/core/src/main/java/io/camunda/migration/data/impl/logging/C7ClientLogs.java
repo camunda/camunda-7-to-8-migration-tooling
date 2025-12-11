@@ -23,4 +23,5 @@ public class C7ClientLogs {
   public static final String FAILED_TO_FETCH_PROCESS_INSTANCE = "Process instance fetching failed for C7 ID: ";
   public static final String FAILED_TO_FETCH_HISTORIC_ELEMENT = "Failed to fetch %s for C7 ID: %s";
   public static final String FAILED_TO_FETCH_TENANTS = "Failed to fetch tenants";
+  public static final String FAILED_TO_FETCH_AUTHORIZATIONS = "Failed to fetch authorizations";
 }
