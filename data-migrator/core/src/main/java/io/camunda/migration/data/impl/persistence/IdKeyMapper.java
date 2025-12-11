@@ -30,7 +30,8 @@ public interface IdKeyMapper {
 
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
-    TENANT("Tenant");
+    TENANT("Tenant"),
+    AUTHORIZATION("Authorization");
 
     protected final String displayName;
 

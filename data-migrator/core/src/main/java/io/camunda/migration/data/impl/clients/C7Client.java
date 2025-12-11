@@ -25,10 +25,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
@@ -36,6 +38,7 @@ import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.identity.Tenant;
+import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
@@ -81,6 +84,9 @@ public class C7Client {
 
   @Autowired
   protected IdentityService identityService;
+
+  @Autowired
+  private AuthorizationService authorizationService;
 
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
@@ -507,6 +513,19 @@ public class C7Client {
         .orderByTenantId()
         .asc()
         .list(),
+        FAILED_TO_FETCH_TENANTS);
+  }
+
+  /**
+   * Fetches authorization entities
+   */
+  public List<Authorization> fetchAuthorizations(String idAfter) {
+    return callApi(() -> (
+            (AuthorizationQueryImpl) (((AuthorizationQueryImpl) authorizationService.createAuthorizationQuery()))
+            .idAfter(idAfter))
+            .orderByAuthorizationId()
+            .asc()
+            .list(),
         FAILED_TO_FETCH_TENANTS);
   }
 

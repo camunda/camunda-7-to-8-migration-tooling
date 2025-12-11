@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
@@ -36,13 +37,20 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
+import io.camunda.client.api.fetch.GroupGetRequest;
+import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
+import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.client.api.response.ProcessInstanceEvent;
+import io.camunda.client.api.search.enums.PermissionType;
+import io.camunda.client.api.search.response.Group;
 import io.camunda.client.api.search.response.ProcessDefinition;
 import io.camunda.client.api.search.response.SearchResponse;
+import io.camunda.client.api.search.response.User;
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
@@ -67,6 +75,7 @@ import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -340,5 +349,29 @@ public class C8Client {
     CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
     callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
+
+  public CreateAuthorizationResponse createAuthorization(String c7Id, C8Authorization c8Authorization) {
+    CreateAuthorizationCommandStep1.CreateAuthorizationCommandStep6 command = camundaClient
+        .newCreateAuthorizationCommand()
+        .ownerId(c8Authorization.ownerId())
+        .ownerType(c8Authorization.ownerType())
+        .resourceId(c8Authorization.resourceId())
+        .resourceType(c8Authorization.resourceType())
+        .permissionTypes(c8Authorization.permissions().toArray(new PermissionType[0]));
+
+    return callApi(command::execute, FAILED_TO_MIGRATE_AUTHORIZATION + c7Id);
+  }
+
+  public User getUser(String userId) {
+    UserGetRequest userGetRequest = camundaClient.newUserGetRequest(userId);
+    return callApi(userGetRequest::execute, "Failed to get user " + userId);
+  }
+
+  public Group getGroup(String groupId) {
+    GroupGetRequest groupGetRequest = camundaClient.newGroupGetRequest(groupId);
+    return callApi(groupGetRequest::execute, "Failed to get group" + groupId);
+  }
+
+
 
 }
