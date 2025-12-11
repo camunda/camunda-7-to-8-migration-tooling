@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.clients;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_ACTIVITY_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_BPMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DEPLOYMENT_TIME;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_HISTORIC_ELEMENT;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
@@ -56,6 +57,7 @@ import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
 import org.camunda.bpm.engine.runtime.VariableInstance;
 import org.camunda.bpm.engine.runtime.VariableInstanceQuery;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
@@ -227,6 +229,14 @@ public class C7Client {
   public BpmnModelInstance getBpmnModelInstance(String processDefinitionId) {
     return callApi(() -> repositoryService.getBpmnModelInstance(processDefinitionId),
         FAILED_TO_FETCH_BPMN_XML + processDefinitionId);
+  }
+
+  /**
+   * Gets the DMN model instance by decision definition ID.
+   */
+  public DmnModelInstance getDmnModelInstance(String decisionDefinitionId) {
+    return callApi(() -> repositoryService.getDmnModelInstance(decisionDefinitionId),
+        FAILED_TO_FETCH_DMN_XML + decisionDefinitionId);
   }
 
   /**
