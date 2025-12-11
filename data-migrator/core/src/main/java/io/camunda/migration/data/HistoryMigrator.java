@@ -31,6 +31,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;

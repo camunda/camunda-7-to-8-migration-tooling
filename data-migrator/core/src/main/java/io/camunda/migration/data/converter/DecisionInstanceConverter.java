@@ -10,17 +10,14 @@ package io.camunda.migration.data.converter;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
-import io.camunda.migrator.impl.VariableService;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
-import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 
 public class DecisionInstanceConverter {
 
