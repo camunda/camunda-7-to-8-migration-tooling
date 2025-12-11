@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-data-migrator-root</artifactId>
-  <version>0.1.1-SNAPSHOT</version>
+  <version>0.1.2-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -79,7 +79,7 @@
     <connection>scm:git:https://${env.GITHUB_TOKEN_USR}:${env.GITHUB_TOKEN_PSW}@github.com/camunda/camunda-7-to-8-data-migrator
       .git</connection>
     <developerConnection>scm:git:https://${env.GITHUB_TOKEN_USR}:${env.GITHUB_TOKEN_PSW}@github.com/camunda/camunda-7-to-8-data-migrator.git</developerConnection>
-    <tag>0.1.0</tag>
+    <tag>0.1.1</tag>
     <url>https://github.com/camunda/camunda-7-to-8-data-migrator</url>
   </scm>
 
