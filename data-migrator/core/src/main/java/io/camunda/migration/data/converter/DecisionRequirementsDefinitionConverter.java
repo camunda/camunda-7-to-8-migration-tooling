@@ -11,7 +11,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
-import io.camunda.migrator.impl.clients.C7Client;
+import io.camunda.migration.data.impl.clients.C7Client;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 
