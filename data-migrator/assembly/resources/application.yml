@@ -38,7 +38,7 @@ camunda:
     #    # Disable built-in interceptors by setting enabled to false
     #    enabled: false
     #  # Entity transformers
-    #  - class-name: io.camunda.migration.data.converter.ProcessInstanceTransformer
+    #  - class-name: io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer
     #    enabled: false
     #  # Custom interceptors
     #  - class-name: com.example.MyCustomVariableInterceptor

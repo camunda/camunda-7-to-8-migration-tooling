@@ -8,7 +8,7 @@
 
 package io.camunda.migration.data.impl.logging;
 
-import io.camunda.migration.data.converter.VariableTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.VariableTransformer;
 import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

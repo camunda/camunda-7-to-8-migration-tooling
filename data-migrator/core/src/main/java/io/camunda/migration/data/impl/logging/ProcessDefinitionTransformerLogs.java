@@ -8,7 +8,7 @@
 
 package io.camunda.migration.data.impl.logging;
 
-import io.camunda.migration.data.converter.ProcessDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessDefinitionTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
