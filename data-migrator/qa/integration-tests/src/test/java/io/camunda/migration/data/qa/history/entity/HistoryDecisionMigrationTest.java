@@ -57,7 +57,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDecisionName");
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isNull();
+      assertThat(decision.decisionRequirementsKey()).isNotNull();
       assertThat(decision.decisionRequirementsId()).isNull();
     });
   }
