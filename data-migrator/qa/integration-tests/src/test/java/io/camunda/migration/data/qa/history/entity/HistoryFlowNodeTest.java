@@ -41,19 +41,16 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     List<FlowNodeInstanceEntity> startEvents = searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
     assertThat(startEvents).hasSize(1);
     FlowNodeInstanceEntity startEvent = startEvents.getFirst();
-    assertThat(startEvent.treePath()).isNotNull();
-    assertThat(startEvent.treePath()).isEqualTo(processInstanceKey + "/" + startEvent.flowNodeInstanceKey());
+    assertThat(startEvent.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + startEvent.flowNodeInstanceKey());
     
     List<FlowNodeInstanceEntity> userTasks = searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
     assertThat(userTasks).hasSize(1);
     FlowNodeInstanceEntity userTask = userTasks.getFirst();
-    assertThat(userTask.treePath()).isNotNull();
-    assertThat(userTask.treePath()).isEqualTo(processInstanceKey + "/" + userTask.flowNodeInstanceKey());
+    assertThat(userTask.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + userTask.flowNodeInstanceKey());
     
     List<FlowNodeInstanceEntity> endEvents = searchHistoricFlowNodesForType(processInstanceKey, END_EVENT);
     assertThat(endEvents).hasSize(1);
     FlowNodeInstanceEntity endEvent = endEvents.getFirst();
-    assertThat(endEvent.treePath()).isNotNull();
-    assertThat(endEvent.treePath()).isEqualTo(processInstanceKey + "/" + endEvent.flowNodeInstanceKey());
+    assertThat(endEvent.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + endEvent.flowNodeInstanceKey());
   }
 }

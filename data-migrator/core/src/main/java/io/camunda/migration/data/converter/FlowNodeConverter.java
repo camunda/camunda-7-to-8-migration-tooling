@@ -8,6 +8,7 @@
 package io.camunda.migration.data.converter;
 
 import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
+import static io.camunda.migration.data.constants.MigratorConstants.generateTreePath;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
@@ -32,7 +33,7 @@ public class FlowNodeConverter {
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
-        .treePath(processInstanceKey + "/" + flowNodeInstanceKey)
+        .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null) // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
         .build();

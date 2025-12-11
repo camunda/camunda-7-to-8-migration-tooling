@@ -11,6 +11,7 @@ import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
+import static io.camunda.migration.data.constants.MigratorConstants.generateTreePath;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
@@ -21,8 +22,9 @@ public class IncidentConverter {
                                Long processInstanceKey,
                                Long jobDefinitionKey,
                                Long flowNodeInstanceKey) {
+    Long incidentKey = getNextKey();
     return new IncidentDbModel.Builder()
-        .incidentKey(getNextKey())
+        .incidentKey(incidentKey)
         .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(historicIncident.getProcessDefinitionKey())
         .processInstanceKey(processInstanceKey)
@@ -33,7 +35,7 @@ public class IncidentConverter {
         .errorMessage(historicIncident.getIncidentMessage())
         .creationDate(convertDate(historicIncident.getCreateTime()))
         .state(convertState(0)) //TODO: make HistoricIncidentEventEntity#getIncidentState() accessible
-        .treePath(null) //TODO ?
+        .treePath(generateTreePath(processInstanceKey, incidentKey))
         .tenantId(historicIncident.getTenantId())
         .build();
   }
