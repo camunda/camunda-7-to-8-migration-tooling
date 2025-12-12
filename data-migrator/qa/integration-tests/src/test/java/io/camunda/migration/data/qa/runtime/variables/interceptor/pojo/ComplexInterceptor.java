@@ -8,7 +8,7 @@
 package io.camunda.migration.data.qa.runtime.variables.interceptor.pojo;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,34 +22,31 @@ public class ComplexInterceptor implements VariableInterceptor {
   protected String targetVariable = "var";
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    LOGGER.debug("Start {} execution for variable: {}", ComplexInterceptor.class,
-        invocation.getC7Variable().getName());
+  public void execute(VariableContext context) {
+    LOGGER.debug("Start {} execution for variable: {}", ComplexInterceptor.class, context.getName());
 
-    String variableName = invocation.getC7Variable().getName();
-
+    String variableName = context.getName();
     if (targetVariable.equals(variableName)) {
       LOGGER.info(logMessage);
 
       if (enableTransformation) {
-        String originalValue = String.valueOf(invocation.getC7Variable().getValue());
+        String originalValue = String.valueOf(context.getC7Value());
         String transformedValue = "transformedValue";
-        invocation.setVariableValue(transformedValue);
+        context.setC8Value(transformedValue);
         LOGGER.info("Transformed variable {} from '{}' to '{}'", variableName, originalValue, transformedValue);
       }
     }
 
     // Handle exception testing scenario
     if ("exFlag".equals(variableName)) {
-      if (Boolean.parseBoolean(invocation.getC7Variable().getValue().toString())) {
+      if ((boolean) context.getC7Value()) {
         throw new RuntimeException("Expected exception from interceptor");
       } else {
         LOGGER.info("Success from interceptor");
       }
     }
 
-    LOGGER.debug("End {} execution for variable: {}", ComplexInterceptor.class,
-        invocation.getC7Variable().getName());
+    LOGGER.debug("End {} execution for variable: {}", ComplexInterceptor.class, context.getName());
   }
 
   // Setter methods for configuration

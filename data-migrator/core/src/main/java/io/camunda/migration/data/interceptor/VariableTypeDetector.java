@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.interceptor;
 
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.TypedValue;
 
 /**
@@ -17,52 +16,25 @@ import org.camunda.bpm.engine.variable.value.TypedValue;
  * providing better integration with the Camunda API.
  * </p>
  */
-public final class VariableTypeDetector {
+public class VariableTypeDetector {
 
-    protected VariableTypeDetector() {
-        // Utility class - prevent instantiation
+  /**
+   * Checks if an interceptor supports a specific variable based on its typed value.
+   *
+   * @param interceptor the interceptor to check
+   * @param context  the variable context
+   * @return true if the interceptor supports the variable type
+   */
+  public static boolean supportsVariable(VariableInterceptor interceptor, VariableContext context) {
+    var supportedTypes = interceptor.getTypes();
+    // Empty set means handle all types
+    if (supportedTypes.isEmpty()) {
+      return true;
     }
 
-    /**
-     * Checks if an interceptor supports a specific variable based on its typed value.
-     *
-     * @param interceptor the interceptor to check
-     * @param invocation the variable invocation
-     * @return true if the interceptor supports the variable type
-     */
-    public static boolean supportsVariable(VariableInterceptor interceptor, VariableInvocation invocation) {
-        return supportsVariable(interceptor, invocation.getC7Variable());
-    }
+    TypedValue typedValue = context.getC7TypedValue();
+    // Check if any supported type matches the actual value type
+    return supportedTypes.stream().anyMatch(supportedType -> supportedType.isInstance(typedValue));
+  }
 
-    /**
-     * Checks if an interceptor supports a specific variable based on its typed value.
-     *
-     * @param interceptor the interceptor to check
-     * @param variable the C7 variable instance
-     * @return true if the interceptor supports the variable type
-     */
-    public static boolean supportsVariable(VariableInterceptor interceptor, VariableInstanceEntity variable) {
-        TypedValue typedValue = variable.getTypedValue(false);
-        return supportsTypedValue(interceptor, typedValue);
-    }
-
-    /**
-     * Checks if an interceptor supports a specific typed value.
-     *
-     * @param interceptor the interceptor to check
-     * @param typedValue the typed value to check
-     * @return true if the interceptor supports the typed value
-     */
-    public static boolean supportsTypedValue(VariableInterceptor interceptor, TypedValue typedValue) {
-        var supportedTypes = interceptor.getTypes();
-
-        // Empty set means handle all types
-        if (supportedTypes.isEmpty()) {
-            return true;
-        }
-
-        // Check if any supported type matches the actual value type
-        return supportedTypes.stream()
-                .anyMatch(supportedType -> supportedType.isInstance(typedValue));
-    }
 }
