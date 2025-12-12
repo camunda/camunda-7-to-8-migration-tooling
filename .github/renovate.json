@@ -20,7 +20,7 @@
     },
     {
       "description": "Pin internal model-converter modules to current version",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-model-converter", "io.camunda:camunda-7-to-8-migration-analyzer"],
+      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-model-converter"],
       "enabled": false
     },
     {

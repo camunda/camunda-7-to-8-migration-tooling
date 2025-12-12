@@ -36,7 +36,10 @@ public class FlowNodeConverter implements EntityInterceptor {
       throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
     }
 
-    builder.flowNodeInstanceKey(getNextKey())
+    Long flowNodeInstanceKey = getNextKey();
+
+//    Long processInstanceKey =
+    builder.flowNodeInstanceKey(flowNodeInstanceKey)
         .flowNodeId(flowNode.getActivityId())
         .processDefinitionId(flowNode.getProcessDefinitionKey())
         .startDate(convertDate(flowNode.getStartTime()))
@@ -44,9 +47,21 @@ public class FlowNodeConverter implements EntityInterceptor {
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
-        .treePath(null) // TODO: Doesn't exist in C7 activity instance. Not yet supported by C8 RDBMS
+//        .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
+  }
+
+
+  /**
+   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
+   *
+   * @param processInstanceKey the process instance key
+   * @param elementInstanceKey the element instance key (flow node)
+   * @return the tree path string
+   */
+  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
+    return processInstanceKey + "/" + elementInstanceKey;
   }
 
   protected FlowNodeType convertType(String activityType) {

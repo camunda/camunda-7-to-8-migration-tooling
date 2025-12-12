@@ -15,7 +15,7 @@
   <description>Integration tests for the data migrator</description>
 
   <properties>
-    <version.testcontainers>1.21.3</version.testcontainers>
+    <version.testcontainers>2.0.2</version.testcontainers>
     <version.postgres>42.7.8</version.postgres>
     <version.oracle>23.26.0.0.0</version.oracle>
     <version.jakarta-xml-bind-api>4.0.4</version.jakarta-xml-bind-api>
@@ -105,7 +105,7 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <version>${version.testcontainers}</version>
       <scope>test</scope>
     </dependency>
@@ -125,7 +125,7 @@
     <!--PostgreSQL-->
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>postgresql</artifactId>
+      <artifactId>testcontainers-postgresql</artifactId>
       <version>${version.testcontainers}</version>
       <scope>test</scope>
     </dependency>
@@ -138,7 +138,7 @@
     <!--Oracle-->
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>oracle-free</artifactId>
+      <artifactId>testcontainers-oracle-free</artifactId>
       <version>${version.testcontainers}</version>
       <scope>test</scope>
     </dependency>
@@ -213,6 +213,55 @@
                 <include>EntityConversionPresetParentPropertiesTest.java</include>
                 <include>History*.java</include>
                 <include>ArchitectureTest.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-only</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludes>
+                <exclude>**/history/**</exclude>
+                <exclude>**/identity/**</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>history-only</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/history/**</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>identity-only</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/identity/**</include>
               </includes>
             </configuration>
           </plugin>

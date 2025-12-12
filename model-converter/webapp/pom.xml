@@ -7,8 +7,8 @@
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>camunda-7-to-8-migration-analyzer-webapp</artifactId>
-  <name>camunda-7-to-8-migration-analyzer-webapp</name>
+  <artifactId>camunda-7-to-8-model-converter-webapp</artifactId>
+  <name>camunda-7-to-8-model-converter-webapp</name>
 
   <dependencies>
     <dependency>
@@ -21,7 +21,7 @@
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>camunda-7-to-8-migration-analyzer-core</artifactId>
+      <artifactId>camunda-7-to-8-model-converter-core</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -41,7 +41,6 @@
   </dependencies>
 
   <build>
-    <finalName>${project.artifactId}</finalName>
     <plugins>
       <!-- Frontend Maven Plugin -->
       <plugin>
@@ -105,26 +104,6 @@
               <goal>build-info</goal>
               <goal>repackage</goal>
             </goals>
-          </execution>
-          <execution>
-            <id>ghcr-image-version</id>
-            <goals>
-              <goal>build-image-no-fork</goal>
-            </goals>
-            <phase>deploy</phase>
-            <configuration>
-              <image>
-                <tags>
-                  <!-- Building all tags here, and only pushing the right one via the Github Action -->
-                  <tag>ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:${project.version}</tag>
-                  <tag>ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:latest</tag>
-                  <tag>ghcr.io/camunda-community-hub/camunda-7-to-8-migration/migration-analyzer:SNAPSHOT</tag>
-                  <tag>camundacommunityhub/migration-analyzer:${project.version}</tag>
-                  <tag>camundacommunityhub/migration-analyzer:latest</tag>
-                  <tag>camundacommunityhub/migration-analyzer:SNAPSHOT</tag>
-                </tags>
-              </image>
-            </configuration>
           </execution>
         </executions>
       </plugin>

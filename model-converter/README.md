@@ -62,17 +62,17 @@ You can also install the web application locally.
 **Steps**:
 
 1. Download the latest Model Converter web application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
-2. Run the application. Navigate to the directory where the `camunda-7-to-8-migration-analyzer-webapp.jar` file was downloaded and execute the following command:
+2. Run the application. Navigate to the directory where the JAR file was downloaded and execute the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
    ```shell
-   java -jar camunda-7-to-8-model-converter-webapp.jar
+   java -jar camunda-7-to-8-model-converter-webapp-{version}.jar
    ```
 3. Access the web application at [http://localhost:8080/](http://localhost:8080/).
 
-To run the application on a different port, use the following command:
+To run the application on a different port, use the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
 ```shell
-java -Dserver.port=8090 -jar camunda-7-to-8-model-converter-webapp.jar
+java -Dserver.port=8090 -jar camunda-7-to-8-model-converter-webapp-{version}.jar
 ```
 
 ### CLI (Command Line Interface)
@@ -82,16 +82,16 @@ The CLI is a standalone Java application.
 **Steps**:
 
 1. Download the latest Model Converter CLI application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
-2. Run the CLI with the following command:
+2. Run the CLI with the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
    ```shell
-   java -jar camunda-7-to-8-model-converter-cli.jar --help
+   java -jar camunda-7-to-8-model-converter-cli-{version}.jar --help
    ```
 
 The typical way is to run it in `local` mode and reference your BPMN model file:
 
 ```shell
-java -jar camunda-7-to-8-model-converter-cli.jar local myBpmnModel.bpmn
+java -jar camunda-7-to-8-model-converter-cli-{version}.jar local myBpmnModel.bpmn
 ```
 
 ### Building from Source
