@@ -110,7 +110,12 @@ public class IdentityMigrator {
       return Optional.empty();
     }
 
-    return authorizationManager.mapAuthorization(authorization);
+    Optional<C8Authorization> c8Authorization = authorizationManager.mapAuthorization(authorization);
+    if(c8Authorization.isEmpty()) {
+      markAsSkipped(authorization, "Authorization mapping is not supported"); // TODO specify reason
+    }
+
+    return c8Authorization;
   }
 
 protected void markAsSkipped(Authorization authorization, String reason) {
@@ -135,7 +140,6 @@ protected boolean ownerExists(String userId, String groupId) {
       }
     }
   }
-
 
   protected void saveRecord(IdKeyMapper.TYPE type, String c7Id, Long c8Key) {
     dbClient.insert(c7Id, c8Key, type);
