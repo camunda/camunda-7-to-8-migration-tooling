@@ -7,14 +7,18 @@
  */
 package io.camunda.migration.data.impl.identity;
 
+import static java.lang.String.format;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
+import io.camunda.migration.data.exception.IdentityMigratorException;
+import io.camunda.migration.data.exception.MigratorException;
+import io.camunda.migration.data.impl.clients.C8Client;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.camunda.bpm.engine.authorization.Authorization;
@@ -32,11 +36,21 @@ public class AuthorizationManager {
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
-  public Optional<C8Authorization> mapAuthorization(Authorization authorization) {
+  @Autowired
+  protected C8Client c8Client;
+
+  public AuthorizationMappingResult mapAuthorization(Authorization authorization) {
+    if (authorization.getAuthorizationType() != Authorization.AUTH_TYPE_GRANT) {
+      return AuthorizationMappingResult.failure("GLOBAL and REVOKE authorization types are not supported");
+    }
+
+    if (!ownerExists(authorization.getUserId(), authorization.getGroupId())) {
+      return AuthorizationMappingResult.failure("User or group does not exist in C8");
+    }
+
     Resource c7ResourceType = ResourceTypeUtil.getResourceByType(authorization.getResourceType());
     if (!C7ToC8AuthorizationRegistry.isSupported(c7ResourceType)) {
-      // Unsupported resource type
-      return Optional.empty();
+      return AuthorizationMappingResult.failure(format("Resource type [%s] is not supported", c7ResourceType.resourceName()));
     }
 
     var mappingForResourceType = C7ToC8AuthorizationRegistry.getMappingForResourceType(c7ResourceType);
@@ -49,28 +63,25 @@ public class AuthorizationManager {
         Set<PermissionType> c8MappedPermissions = mappingForResourceType.getMappedPermissions(permission);
         c8Permissions.addAll(c8MappedPermissions);
       } else {
-        // Unsupported permission
-        return Optional.empty();
+        return AuthorizationMappingResult.failure(format("Permission type [%s] is not supported for resource type [%s]", permission.getName(), c7ResourceType.resourceName()));
       }
     }
     if (!isValidResourceId(mappingForResourceType, authorization.getResourceId())) {
-      // Unsupported resource ID
-      return Optional.empty();
+      return AuthorizationMappingResult.failure(format("Specific resource ID [%s] is not supported for resource type [%s]", authorization.getResourceId(), c7ResourceType.resourceName()));
     }
 
     String c8ResourceId = mapResourceId(mappingForResourceType, authorization.getResourceId());
     if (c8ResourceId == null) {
-      // Cannot map resource ID
-      return Optional.empty();
+      return AuthorizationMappingResult.failure(format("Resource ID [%s] is not supported for resource type [%s]", authorization.getResourceId(), c7ResourceType.resourceName()));
     }
 
     OwnerType ownerType = isNotBlank(authorization.getUserId()) ? OwnerType.USER : OwnerType.GROUP;
     String ownerId = isNotBlank(authorization.getUserId()) ? authorization.getUserId() : authorization.getGroupId();
 
-    return Optional.of(new C8Authorization(ownerType, ownerId, c8ResourceType, c8ResourceId, c8Permissions));
+    return AuthorizationMappingResult.success(new C8Authorization(ownerType, ownerId, c8ResourceType, c8ResourceId, c8Permissions));
   }
 
-  private String mapResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
+  protected String mapResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
     if (authMapping.needsResourceIdMapping()) {
       return authMapping.getMappedResourceId(resourceId);
     } else {
@@ -78,7 +89,7 @@ public class AuthorizationManager {
     }
   }
 
-  private boolean isValidResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
+  protected boolean isValidResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
     if (resourceId.equals("*")) {
       return true; // Available for all resource types
     } else
@@ -94,6 +105,24 @@ public class AuthorizationManager {
       return permissions.stream().filter(permission -> equals(permission, Permissions.ALL)).collect(Collectors.toSet()); // Return only ALL
     } else { // Else, remove NONE from the list and return singular permissions
       return permissions.stream().filter(permission -> !equals(permission, Permissions.NONE)).collect(Collectors.toSet());
+    }
+  }
+
+  protected boolean ownerExists(String userId, String groupId) {
+    Object userOrGroup = null;
+    try {
+      if (isNotBlank(userId)) {
+        userOrGroup = c8Client.getUser(userId);
+      } else if (isNotBlank(groupId)) {
+        userOrGroup = c8Client.getGroup(groupId);
+      }
+      return userOrGroup != null;
+    } catch (MigratorException e) {
+      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
+        return false;
+      } else {
+        throw new IdentityMigratorException("Cannot verify owner existence", e);
+      }
     }
   }
 
