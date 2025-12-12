@@ -6,8 +6,8 @@ This repository contains a collection of tools to help you migrate from Camunda 
 
 | Branch           | CI Status |
 |------------------|-----------|
-| **main**         | ![CI main](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml/badge.svg?branch=main) |
-| **maintenance/0.1** | ![CI maintenance/0.1](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml/badge.svg?branch=maintenance/0.1) |
+| **main**         | [![CI main](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml?query=branch%3Amain) |
+| **maintenance/0.1** | [![CI maintenance/0.1](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml/badge.svg?branch=maintenance/0.1)](https://github.com/camunda/camunda-7-to-8-migration-tooling/actions/workflows/ci.yml?query=branch%3Amaintenance%2F0.1) |
 
 ## Available Tools
 
