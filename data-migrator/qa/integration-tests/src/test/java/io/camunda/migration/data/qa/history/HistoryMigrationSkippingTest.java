@@ -357,7 +357,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Verify task and variable were skipped
     logs.assertContains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, taskId));
-    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_TASK, taskVariable.getId(), taskId));
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_PROCESS, taskVariable.getId(), taskId));
   }
 
   @Test

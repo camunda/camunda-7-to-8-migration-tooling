@@ -66,6 +66,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
  * <p>
  * The {@link #getTypes()} method inherited from {@link BaseInterceptor} allows specifying
  * entity types using Camunda 7 historic entity classes like:
+ * - {@code ProcessDefinition.class} for process definitions
  * - {@code HistoricProcessInstance.class} for process instances
  * - {@code HistoricActivityInstance.class} for flow nodes/activities
  * - {@code HistoricVariableInstance.class} for variables
@@ -87,5 +88,39 @@ public interface EntityInterceptor extends BaseInterceptor<EntityConversionConte
    */
   @Override
   void execute(EntityConversionContext<?, ?> context);
+
+  /**
+   * Presets parent-related properties on the C8 entity builder before the main conversion.
+   * <p>
+   * This method is called <b>before</b> {@link #execute(EntityConversionContext)} during the entity conversion lifecycle.
+   * It allows interceptors to set parent process or definition keys (such as {@code processDefinitionKey}, {@code parentProcessInstanceKey})
+   * or other hierarchical properties that must be available to the main conversion logic.
+   * </p>
+   *
+   * <h2>Lifecycle</h2>
+   * <ul>
+   *   <li>1. {@code presetParentProperties(context)} is called first for each entity.</li>
+   *   <li>2. {@code execute(context)} is called next to perform the main conversion.</li>
+   * </ul>
+   *
+   * <h2>Usage Example:</h2>
+   * <pre>
+   * &#64;Component
+   * public class ParentKeyInterceptor implements EntityInterceptor {
+   *   &#64;Override
+   *   public void presetParentProperties(EntityConversionContext&lt;?, ?&gt; context) {
+   *     HistoricProcessInstance c7Instance = (HistoricProcessInstance) context.getC7Entity();
+   *     ProcessInstanceDbModel.Builder c8Builder =
+   *       (ProcessInstanceDbModel.Builder) context.getC8DbModelBuilder();
+   *     c8Builder.parentProcessInstanceKey(c7Instance.getSuperProcessInstanceId());
+   *   }
+   *   // ... other overrides ...
+   * }
+   * </pre>
+   *
+   * @param context the entity conversion context containing C7 entity, C8 builder, entity type, and process engine
+   */
+  default void presetParentProperties(EntityConversionContext<?, ?> context) {
+  }
 }
 

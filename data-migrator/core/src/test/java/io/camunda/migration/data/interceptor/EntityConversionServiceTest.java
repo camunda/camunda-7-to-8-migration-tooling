@@ -20,14 +20,214 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-class EntityConversionServiceTest {
+public class EntityConversionServiceTest {
 
-  private EntityConversionService service;
+  protected EntityConversionService service;
+
+  @BeforeEach
+  public void setUp() {
+    service = new EntityConversionService();
+  }
+
+  @Test
+  public void shouldConvertEntityWithSpecificInterceptor() {
+    // Given
+    ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When
+    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
+        service.convert(c7Entity, HistoricProcessInstance.class);
+
+    // Then
+    assertThat(interceptor.wasExecuted()).isTrue();
+    assertThat(result).isNotNull();
+    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
+    assertThat(result.getC8DbModelBuilder()).isNotNull();
+    assertThat(result.getC8DbModelBuilder().getProcessInstanceKey()).isEqualTo(12345L);
+    assertThat(result.getC8DbModelBuilder().getBpmnProcessId()).isEqualTo("business-key");
+  }
+
+  @Test
+  public void shouldNotExecuteInterceptorForNonMatchingType() {
+    // Given
+    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor));
+    HistoricActivityInstance c7Entity = new HistoricActivityInstance("activity-123");
+
+    // When
+    service.convert(c7Entity, HistoricActivityInstance.class);
+
+    // Then
+    assertThat(processInterceptor.wasExecuted()).isFalse();
+  }
+
+  @Test
+  public void shouldExecuteUniversalInterceptorForAllTypes() {
+    // Given
+    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
+
+    // When - Test with process instance
+    service.convert(
+        new HistoricProcessInstance("proc-123", "key"), HistoricProcessInstance.class);
+
+    // Then
+    assertThat(universalInterceptor.wasExecuted()).isTrue();
+
+    // Given - Reset
+    universalInterceptor = new UniversalInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
+
+    // When - Test with activity instance
+    service.convert(new HistoricActivityInstance("act-123"), HistoricActivityInstance.class);
+
+    // Then
+    assertThat(universalInterceptor.wasExecuted()).isTrue();
+  }
+
+  @Test
+  public void shouldExecuteMultipleInterceptorsInOrder() {
+    // Given
+    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
+    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    List<String> executionOrder = new ArrayList<>();
+    processInterceptor.setExecutionOrder(executionOrder);
+    universalInterceptor.setExecutionOrder(executionOrder);
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor, universalInterceptor));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When
+    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+
+    // Then
+    assertThat(processInterceptor.wasExecuted()).isTrue();
+    assertThat(universalInterceptor.wasExecuted()).isTrue();
+    assertThat(result.getC8DbModelBuilder()).isNotNull();
+    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
+  }
+
+  @Test
+  public void shouldExecuteOnlyMatchingInterceptors() {
+    // Given
+    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
+    ActivityInterceptor activityInterceptor = new ActivityInterceptor();
+    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    List<String> executionOrder = new ArrayList<>();
+    processInterceptor.setExecutionOrder(executionOrder);
+    universalInterceptor.setExecutionOrder(executionOrder);
+    ReflectionTestUtils.setField(
+        service, "configuredEntityInterceptors",
+        List.of(processInterceptor, activityInterceptor, universalInterceptor));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When
+    service.convert(c7Entity, HistoricProcessInstance.class);
+
+    // Then
+    assertThat(processInterceptor.wasExecuted()).isTrue();
+    assertThat(activityInterceptor.wasExecuted()).isFalse();
+    assertThat(universalInterceptor.wasExecuted()).isTrue();
+    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
+  }
+
+  @Test
+  public void shouldConvertWithExistingContext() {
+    // Given
+    ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context =
+        new EntityConversionContext<>(c7Entity, HistoricProcessInstance.class);
+
+    // When
+    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
+        service.convertWithContext(context);
+
+    // Then
+    assertThat(interceptor.wasExecuted()).isTrue();
+    assertThat(result).isSameAs(context);
+    assertThat(result.getC8DbModelBuilder()).isNotNull();
+  }
+
+  @Test
+  public void shouldHandleEmptyInterceptorList() {
+    // Given
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", new ArrayList<>());
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When
+    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
+    assertThat(result.getC8DbModelBuilder()).isNull();
+  }
+
+  @Test
+  public void shouldHandleNullInterceptorList() {
+    // Given
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", null);
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When
+    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+
+    // Then
+    assertThat(result).isNotNull();
+    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
+    assertThat(result.getC8DbModelBuilder()).isNull();
+  }
+
+  @Test
+  public void shouldWrapRuntimeExceptionInEntityInterceptorException() {
+    // Given
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new FailingInterceptor()));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When & Then
+    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+        .isInstanceOf(EntityInterceptorException.class)
+        .hasMessageContaining("FailingInterceptor")
+        .hasMessageContaining("HistoricProcessInstance")
+        .hasCauseInstanceOf(RuntimeException.class);
+  }
+
+  @Test
+  public void shouldNotWrapEntityInterceptorException() {
+    // Given
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new ExceptionThrowingInterceptor()));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When & Then
+    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+        .isInstanceOf(EntityInterceptorException.class)
+        .hasMessage("Custom error message")
+        .hasNoCause();
+  }
+
+  @Test
+  public void shouldStopExecutionWhenInterceptorFails() {
+    // Given
+    FailingInterceptor failingInterceptor = new FailingInterceptor();
+    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
+    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(failingInterceptor, universalInterceptor));
+    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
+
+    // When & Then
+    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+        .isInstanceOf(EntityInterceptorException.class);
+
+    // The universal interceptor should not have been executed
+    assertThat(universalInterceptor.wasExecuted()).isFalse();
+  }
 
   // Test entity classes
-  static class HistoricProcessInstance {
-    private String processInstanceId;
-    private String businessKey;
+  public static class HistoricProcessInstance {
+    protected String processInstanceId;
+    protected String businessKey;
 
     public HistoricProcessInstance(String processInstanceId, String businessKey) {
       this.processInstanceId = processInstanceId;
@@ -43,8 +243,8 @@ class EntityConversionServiceTest {
     }
   }
 
-  static class HistoricActivityInstance {
-    private String activityId;
+  public static class HistoricActivityInstance {
+    protected String activityId;
 
     public HistoricActivityInstance(String activityId) {
       this.activityId = activityId;
@@ -56,9 +256,9 @@ class EntityConversionServiceTest {
   }
 
   // Test C8 DB Model Builder
-  static class ProcessInstanceDbModelBuilder {
-    private Long processInstanceKey;
-    private String bpmnProcessId;
+  public static class ProcessInstanceDbModelBuilder {
+    protected Long processInstanceKey;
+    protected String bpmnProcessId;
 
     public ProcessInstanceDbModelBuilder processInstanceKey(Long key) {
       this.processInstanceKey = key;
@@ -80,9 +280,9 @@ class EntityConversionServiceTest {
   }
 
   // Test interceptors
-  static class ProcessInstanceInterceptor implements EntityInterceptor {
-    private boolean executed = false;
-    private List<String> executionOrder;
+  public static class ProcessInstanceInterceptor implements EntityInterceptor {
+    protected boolean executed = false;
+    protected List<String> executionOrder;
 
     public void setExecutionOrder(List<String> executionOrder) {
       this.executionOrder = executionOrder;
@@ -114,9 +314,9 @@ class EntityConversionServiceTest {
     }
   }
 
-  static class UniversalInterceptor implements EntityInterceptor {
-    private boolean executed = false;
-    private List<String> executionOrder;
+  public static class UniversalInterceptor implements EntityInterceptor {
+    protected boolean executed = false;
+    protected List<String> executionOrder;
 
     public void setExecutionOrder(List<String> executionOrder) {
       this.executionOrder = executionOrder;
@@ -140,8 +340,8 @@ class EntityConversionServiceTest {
     }
   }
 
-  static class ActivityInterceptor implements EntityInterceptor {
-    private boolean executed = false;
+  public static class ActivityInterceptor implements EntityInterceptor {
+    protected boolean executed = false;
 
     @Override
     public void execute(EntityConversionContext<?, ?> context) {
@@ -158,7 +358,7 @@ class EntityConversionServiceTest {
     }
   }
 
-  static class FailingInterceptor implements EntityInterceptor {
+  public static class FailingInterceptor implements EntityInterceptor {
     @Override
     public void execute(EntityConversionContext<?, ?> context) {
       throw new RuntimeException("Interceptor failed");
@@ -170,7 +370,7 @@ class EntityConversionServiceTest {
     }
   }
 
-  static class ExceptionThrowingInterceptor implements EntityInterceptor {
+  public static class ExceptionThrowingInterceptor implements EntityInterceptor {
     @Override
     public void execute(EntityConversionContext<?, ?> context) {
       throw new EntityInterceptorException("Custom error message");
@@ -180,206 +380,6 @@ class EntityConversionServiceTest {
     public Set<Class<?>> getTypes() {
       return Set.of(HistoricProcessInstance.class);
     }
-  }
-
-  @BeforeEach
-  void setUp() {
-    service = new EntityConversionService();
-  }
-
-  @Test
-  void shouldConvertEntityWithSpecificInterceptor() {
-    // Given
-    ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When
-    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
-        service.convert(c7Entity, HistoricProcessInstance.class);
-
-    // Then
-    assertThat(interceptor.wasExecuted()).isTrue();
-    assertThat(result).isNotNull();
-    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
-    assertThat(result.getC8DbModelBuilder()).isNotNull();
-    assertThat(result.getC8DbModelBuilder().getProcessInstanceKey()).isEqualTo(12345L);
-    assertThat(result.getC8DbModelBuilder().getBpmnProcessId()).isEqualTo("business-key");
-  }
-
-  @Test
-  void shouldNotExecuteInterceptorForNonMatchingType() {
-    // Given
-    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor));
-    HistoricActivityInstance c7Entity = new HistoricActivityInstance("activity-123");
-
-    // When
-    service.convert(c7Entity, HistoricActivityInstance.class);
-
-    // Then
-    assertThat(processInterceptor.wasExecuted()).isFalse();
-  }
-
-  @Test
-  void shouldExecuteUniversalInterceptorForAllTypes() {
-    // Given
-    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
-
-    // When - Test with process instance
-    service.convert(
-        new HistoricProcessInstance("proc-123", "key"), HistoricProcessInstance.class);
-
-    // Then
-    assertThat(universalInterceptor.wasExecuted()).isTrue();
-
-    // Given - Reset
-    universalInterceptor = new UniversalInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
-
-    // When - Test with activity instance
-    service.convert(new HistoricActivityInstance("act-123"), HistoricActivityInstance.class);
-
-    // Then
-    assertThat(universalInterceptor.wasExecuted()).isTrue();
-  }
-
-  @Test
-  void shouldExecuteMultipleInterceptorsInOrder() {
-    // Given
-    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
-    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    List<String> executionOrder = new ArrayList<>();
-    processInterceptor.setExecutionOrder(executionOrder);
-    universalInterceptor.setExecutionOrder(executionOrder);
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(processInterceptor, universalInterceptor));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
-
-    // Then
-    assertThat(processInterceptor.wasExecuted()).isTrue();
-    assertThat(universalInterceptor.wasExecuted()).isTrue();
-    assertThat(result.getC8DbModelBuilder()).isNotNull();
-    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
-  }
-
-  @Test
-  void shouldExecuteOnlyMatchingInterceptors() {
-    // Given
-    ProcessInstanceInterceptor processInterceptor = new ProcessInstanceInterceptor();
-    ActivityInterceptor activityInterceptor = new ActivityInterceptor();
-    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    List<String> executionOrder = new ArrayList<>();
-    processInterceptor.setExecutionOrder(executionOrder);
-    universalInterceptor.setExecutionOrder(executionOrder);
-    ReflectionTestUtils.setField(
-        service, "configuredEntityInterceptors",
-        List.of(processInterceptor, activityInterceptor, universalInterceptor));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When
-    service.convert(c7Entity, HistoricProcessInstance.class);
-
-    // Then
-    assertThat(processInterceptor.wasExecuted()).isTrue();
-    assertThat(activityInterceptor.wasExecuted()).isFalse();
-    assertThat(universalInterceptor.wasExecuted()).isTrue();
-    assertThat(executionOrder).containsExactly("ProcessInstanceInterceptor", "UniversalInterceptor");
-  }
-
-  @Test
-  void shouldConvertWithExistingContext() {
-    // Given
-    ProcessInstanceInterceptor interceptor = new ProcessInstanceInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context =
-        new EntityConversionContext<>(c7Entity, HistoricProcessInstance.class);
-
-    // When
-    EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
-        service.convertWithContext(context);
-
-    // Then
-    assertThat(interceptor.wasExecuted()).isTrue();
-    assertThat(result).isSameAs(context);
-    assertThat(result.getC8DbModelBuilder()).isNotNull();
-  }
-
-  @Test
-  void shouldHandleEmptyInterceptorList() {
-    // Given
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", new ArrayList<>());
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
-
-    // Then
-    assertThat(result).isNotNull();
-    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
-    assertThat(result.getC8DbModelBuilder()).isNull();
-  }
-
-  @Test
-  void shouldHandleNullInterceptorList() {
-    // Given
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", null);
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
-
-    // Then
-    assertThat(result).isNotNull();
-    assertThat(result.getC7Entity()).isEqualTo(c7Entity);
-    assertThat(result.getC8DbModelBuilder()).isNull();
-  }
-
-  @Test
-  void shouldWrapRuntimeExceptionInEntityInterceptorException() {
-    // Given
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new FailingInterceptor()));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
-        .isInstanceOf(EntityInterceptorException.class)
-        .hasMessageContaining("FailingInterceptor")
-        .hasMessageContaining("HistoricProcessInstance")
-        .hasCauseInstanceOf(RuntimeException.class);
-  }
-
-  @Test
-  void shouldNotWrapEntityInterceptorException() {
-    // Given
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(new ExceptionThrowingInterceptor()));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
-        .isInstanceOf(EntityInterceptorException.class)
-        .hasMessage("Custom error message")
-        .hasNoCause();
-  }
-
-  @Test
-  void shouldStopExecutionWhenInterceptorFails() {
-    // Given
-    FailingInterceptor failingInterceptor = new FailingInterceptor();
-    UniversalInterceptor universalInterceptor = new UniversalInterceptor();
-    ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(failingInterceptor, universalInterceptor));
-    HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
-
-    // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
-        .isInstanceOf(EntityInterceptorException.class);
-
-    // The universal interceptor should not have been executed
-    assertThat(universalInterceptor.wasExecuted()).isFalse();
   }
 }
 
