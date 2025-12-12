@@ -1,0 +1,22 @@
+camunda.migrator:
+  interceptors:
+    - class-name: io.camunda.migration.data.converter.ProcessInstanceConverter
+      enabled: false
+    - class-name: io.camunda.migration.data.converter.FlowNodeConverter
+      enabled: false
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.UniversalEntityInterceptor
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.CustomProcessInstanceInterceptor
+      properties:
+        tenant-id-suffix: "-custom"
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.CustomActivityInstanceInterceptor
+      properties:
+        tenant-id-prefix: "PREFIX_"
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.DisabledEntityInterceptor
+      enabled: false
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.TypeSpecificEntityInterceptor
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.ComplexEntityInterceptor
+      properties:
+        log-message: "Processing entity with ComplexEntityInterceptor"
+        enable-transformation: true
+        target-tenant-id: "complex-tenant"
+
