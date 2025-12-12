@@ -19,4 +19,7 @@ camunda.migrator:
         log-message: "Processing entity with ComplexEntityInterceptor"
         enable-transformation: true
         target-tenant-id: "complex-tenant"
+    - class-name: io.camunda.migration.data.qa.history.entity.interceptor.pojo.ProcessEngineAwareInterceptor
+      properties:
+        deployment-id-prefix: "DEPLOYMENT_"
 

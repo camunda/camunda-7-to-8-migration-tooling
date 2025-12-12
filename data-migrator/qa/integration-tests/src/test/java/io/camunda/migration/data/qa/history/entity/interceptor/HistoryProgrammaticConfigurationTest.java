@@ -47,12 +47,16 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
   @Autowired
   protected ActivityInstanceInterceptor activityInstanceInterceptor;
 
+  @Autowired
+  protected io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessEngineAwareInterceptor processEngineAwareInterceptor;
+
   @BeforeEach
   void setUp() {
     // Reset counters before each test
     universalEntityInterceptor.resetCounter();
     processInstanceInterceptor.resetCounter();
     activityInstanceInterceptor.resetCounter();
+    processEngineAwareInterceptor.resetCounter();
   }
 
   @Test
@@ -74,6 +78,8 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
         .anyMatch(interceptor -> interceptor instanceof ProcessInstanceInterceptor);
     assertThat(configuredEntityInterceptors)
         .anyMatch(interceptor -> interceptor instanceof ActivityInstanceInterceptor);
+    assertThat(configuredEntityInterceptors)
+        .anyMatch(interceptor -> interceptor instanceof io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessEngineAwareInterceptor);
   }
 
   @Test
@@ -217,6 +223,47 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
         searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
 
     assertThat(migratedProcessInstances).isNotEmpty();
+  }
+
+  @Test
+  public void shouldUseProcessEngineToRetrieveC7Data() {
+    // Deploy and migrate a simple process
+    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
+
+    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
+
+    // Get deployment ID from C7 for verification
+    String deploymentId = repositoryService.createDeploymentQuery()
+        .singleResult()
+        .getId();
+    assertThat(deploymentId).isNotNull();
+
+    // Complete the process
+    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    if (task != null) {
+      taskService.complete(task.getId());
+    }
+
+    // Run history migration
+    historyMigrator.start();
+
+    // Verify ProcessEngineAwareInterceptor was executed
+    assertThat(processEngineAwareInterceptor.getExecutionCount()).isGreaterThan(0);
+
+    // Verify that the interceptor retrieved the deployment ID from C7
+    assertThat(processEngineAwareInterceptor.getLastDeploymentId()).isNotNull();
+    assertThat(processEngineAwareInterceptor.getLastDeploymentId()).isEqualTo(deploymentId);
+
+    // Verify process instance was migrated with deployment ID in tenant ID
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
+
+    assertThat(migratedProcessInstances).isNotEmpty();
+
+    ProcessInstanceEntity migratedInstance = migratedProcessInstances.getFirst();
+    // ProcessEngineAwareInterceptor should append "C7_DEPLOY_" + deployment ID to tenant ID
+    assertThat(migratedInstance.tenantId()).contains("C7_DEPLOY_" + deploymentId);
   }
 }
 

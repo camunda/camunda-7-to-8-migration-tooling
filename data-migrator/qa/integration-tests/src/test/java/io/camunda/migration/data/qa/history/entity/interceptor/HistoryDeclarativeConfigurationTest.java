@@ -34,11 +34,15 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   public void shouldLoadEntityInterceptorFromConfiguration() {
     // Verify that the configuration is loaded correctly
     assertThat(migratorProperties.getInterceptors()).isNotNull();
-    assertThat(migratorProperties.getInterceptors()).hasSize(8);
+    assertThat(migratorProperties.getInterceptors()).hasSize(9);
 
-    var interceptor = migratorProperties.getInterceptors().get(7); // Last one is ComplexEntityInterceptor
-    assertThat(interceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.history.entity.interceptor.pojo.ComplexEntityInterceptor");
-    assertThat(interceptor.getProperties()).containsEntry("targetTenantId", "complex-tenant");
+    var complexInterceptor = migratorProperties.getInterceptors().get(7);
+    assertThat(complexInterceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.history.entity.interceptor.pojo.ComplexEntityInterceptor");
+    assertThat(complexInterceptor.getProperties()).containsEntry("targetTenantId", "complex-tenant");
+
+    var processEngineInterceptor = migratorProperties.getInterceptors().get(8); // Last one is ProcessEngineAwareInterceptor
+    assertThat(processEngineInterceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.history.entity.interceptor.pojo.ProcessEngineAwareInterceptor");
+    assertThat(processEngineInterceptor.getProperties()).containsEntry("deploymentIdPrefix", "DEPLOYMENT_");
   }
 
   @Test
