@@ -10,10 +10,10 @@ package io.camunda.migration.data.converter;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.search.entities.DecisionInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
@@ -22,6 +22,7 @@ import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
 public class DecisionInstanceConverter {
 
   public DecisionInstanceDbModel apply(HistoricDecisionInstance decisionInstance,
+                                       String decisionInstanceId,
                                        Long decisionDefinitionKey,
                                        Long processDefinitionKey,
                                        Long decisionRequirementsDefinitionKey,
@@ -29,16 +30,17 @@ public class DecisionInstanceConverter {
                                        Long rootDecisionDefinitionKey,
                                        Long flowNodeInstanceKey,
                                        String flowNodeId) {
-    Long decisionInstanceKey = getNextKey();
+
+    long decisionInstanceKey = Long.parseLong(decisionInstanceId.split("-")[0]);
+
     return new DecisionInstanceDbModel.Builder()
         .partitionId(C7_HISTORY_PARTITION_ID)
-        .decisionInstanceId(String.format("%d-%s", decisionInstanceKey, decisionInstance.getId()))
+        .decisionInstanceId(decisionInstanceId)
         .decisionInstanceKey(decisionInstanceKey)
-        .state(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
-        .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .result(String.valueOf(decisionInstance.getCollectResultValue()))
+        .evaluationFailureMessage(null) // not stored in HistoricDecisionInstanc
         .flowNodeInstanceKey(flowNodeInstanceKey)
         .flowNodeId(flowNodeId)
         .processInstanceKey(processInstanceKey)
@@ -49,10 +51,11 @@ public class DecisionInstanceConverter {
         .decisionRequirementsKey(decisionRequirementsDefinitionKey)
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
         .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
-        .decisionType(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .result(null)
+        .decisionType(null) // LITERAL_EXPRESSION, DECISION_TABLE
         .tenantId(getTenantId(decisionInstance.getTenantId()))
-        .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
-        .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
+        .evaluatedInputs(mapInputs(decisionInstanceId, decisionInstance.getInputs()))
+        .evaluatedOutputs(mapOutputs(decisionInstanceId, decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .build();
   }
