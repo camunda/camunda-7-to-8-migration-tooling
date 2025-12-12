@@ -12,7 +12,6 @@ import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Set;
 import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.IdentityService;
-import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.authorization.Permission;
 import org.camunda.bpm.engine.authorization.Permissions;
@@ -29,9 +28,6 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
 
   @Autowired
-  protected ProcessEngineConfiguration processEngineConfiguration;
-
-  @Autowired
   protected AuthorizationService authorizationService;
 
   @Autowired
@@ -42,13 +38,25 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     createUser("user1", "User", "Name");
 
     Authorization auth1 = createAuthorization("user1", null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ACCESS));
-    Authorization auth2 = createAuthorization("user1", null, Resources.AUTHORIZATION, "cockpit", Set.of(Permissions.READ, Permissions.UPDATE));
+    Authorization auth2 = createAuthorization("user1", null, Resources.AUTHORIZATION, "authId", Set.of(Permissions.READ, Permissions.UPDATE));
     Authorization auth3 = createAuthorization("user1", null, Resources.FILTER, "*", Set.of(Permissions.READ));
 
     // when migrating
     identityMigrator.migrate();
 
   }
+
+  /*
+    * TODO cases to test:
+    * Happy path for all supported resource types (migrate)
+    * Proper mapping from C7 Permission.ALL to all C8 permissions (migrate)
+    * Global or Revoke auth (skip)
+    * User or group non existent in C8 (skip)
+    * Resource type not supported (skip)
+    * Resource type supported but at least one permission not supported (skip)
+    * Invalid resourceId for resource type (skip) - example: AUTHORIZATION with resourceId != *
+    * Invalid mapping for resourceId (skip) - example: APPLICATION with resourceId != cockpit, tasklist, admin
+   */
 
   private void createUser(String username, String firstName, String lastName) {
     // Create in C7
