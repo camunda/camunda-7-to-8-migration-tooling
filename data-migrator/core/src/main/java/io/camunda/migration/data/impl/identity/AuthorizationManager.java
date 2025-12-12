@@ -1,26 +1,19 @@
 package io.camunda.migration.data.impl.identity;
 
-import static io.camunda.client.api.search.enums.ResourceType.COMPONENT;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import static org.camunda.bpm.engine.authorization.Resources.APPLICATION;
-import static org.camunda.bpm.engine.authorization.Resources.AUTHORIZATION;
 
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
-import io.camunda.zeebe.protocol.record.value.AuthorizationResourceType;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.authorization.Permission;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resource;
-import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.util.ResourceTypeUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,67 +25,57 @@ public class AuthorizationManager {
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
-  public static final Map<Pair<Resources, Permissions>, Set<PermissionType>> PERMISSIONS_MAPPING_TABLE = new HashMap<>();
-  public static final Map<Resource, ResourceType> RESOURCE_TYPE_MAPPING_TABLE = new HashMap<>();
-  public static final Map<String, String> APP_MAPPING_TABLE = new HashMap<>();
-  static {
-    RESOURCE_TYPE_MAPPING_TABLE.put(APPLICATION, ResourceType.COMPONENT);
-    RESOURCE_TYPE_MAPPING_TABLE.put(AUTHORIZATION, ResourceType.AUTHORIZATION);
-  }
-
-  static {
-    // Application
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(APPLICATION, Permissions.ALL), getAllSupportedPerms(COMPONENT));
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(APPLICATION, Permissions.ACCESS), Set.of(PermissionType.ACCESS));
-
-    // Authorization
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(AUTHORIZATION, Permissions.ALL), getAllSupportedPerms(ResourceType.AUTHORIZATION));
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(AUTHORIZATION, Permissions.READ), Set.of(PermissionType.READ));
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(AUTHORIZATION, Permissions.UPDATE), Set.of(PermissionType.UPDATE));
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(AUTHORIZATION, Permissions.CREATE), Set.of(PermissionType.CREATE));
-    PERMISSIONS_MAPPING_TABLE.put(Pair.of(AUTHORIZATION, Permissions.DELETE), Set.of(PermissionType.DELETE));
-  }
-
-  static {
-    APP_MAPPING_TABLE.put("*", "*");
-    APP_MAPPING_TABLE.put("cockpit", "operate");
-    APP_MAPPING_TABLE.put("tasklist", "tasklist");
-    APP_MAPPING_TABLE.put("admin", "identity");
-  }
-
-  public C8Authorization mapAuthorization(Authorization authorization) {
+  public Optional<C8Authorization> mapAuthorization(Authorization authorization) {
     Resource c7ResourceType = ResourceTypeUtil.getResourceByType(authorization.getResourceType());
-    if (!RESOURCE_TYPE_MAPPING_TABLE.containsKey(c7ResourceType)) {
+    if (!C7ToC8AuthorizationRegistry.isSupported(c7ResourceType)) {
       // Unsupported resource type
-      return null;
+      return Optional.empty();
     }
 
-    ResourceType c8ResourceType = RESOURCE_TYPE_MAPPING_TABLE.get(c7ResourceType);
+    var mappingForResourceType = C7ToC8AuthorizationRegistry.getMappingForResourceType(c7ResourceType);
+    ResourceType c8ResourceType = mappingForResourceType.c8ResourceType();
     Set<Permission> c7Permissions = decodePermissions(authorization);
 
     Set<PermissionType> c8Permissions = new HashSet<>();
     for (Permission permission : c7Permissions) {
-      if (PERMISSIONS_MAPPING_TABLE.containsKey(Pair.of(c7ResourceType, permission))) {
-        Set<PermissionType> c8MappedPermissions = PERMISSIONS_MAPPING_TABLE.get(Pair.of(c7ResourceType, permission));
+      if (mappingForResourceType.isPermissionMappingSupported(permission)) {
+        Set<PermissionType> c8MappedPermissions = mappingForResourceType.getMappedPermissions(permission);
         c8Permissions.addAll(c8MappedPermissions);
       } else {
         // Unsupported permission
-        return null;
+        return Optional.empty();
       }
     }
+    if (!isValidResourceId(mappingForResourceType, authorization.getResourceId())) {
+      // Unsupported resource ID
+      return Optional.empty();
+    }
+
+    String c8ResourceId = mapResourceId(mappingForResourceType, authorization.getResourceId());
+    if (c8ResourceId == null) {
+      // Cannot map resource ID
+      return Optional.empty();
+    }
+
     OwnerType ownerType = isNotBlank(authorization.getUserId()) ? OwnerType.USER : OwnerType.GROUP;
     String ownerId = isNotBlank(authorization.getUserId()) ? authorization.getUserId() : authorization.getGroupId();
-    String c8ResourceId = APP_MAPPING_TABLE.get(authorization.getResourceId()); // TODO extend for other types
-    return new C8Authorization(ownerType, ownerId, c8ResourceType, c8ResourceId, c8Permissions);
+
+    return Optional.of(new C8Authorization(ownerType, ownerId, c8ResourceType, c8ResourceId, c8Permissions));
   }
 
-  protected static Set<PermissionType> getAllSupportedPerms(ResourceType resourceType) {
-    return AuthorizationResourceType
-        .valueOf(resourceType.name())
-        .getSupportedPermissionTypes()
-        .stream()
-        .map(permissionType -> PermissionType.valueOf(permissionType.name())) // Needed to convert from io.camunda.zeebe.protocol.record.value.PermissionType to io.camunda.client.api.search.enums.PermissionType
-        .collect(Collectors.toSet());
+  private String mapResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
+    if (authMapping.needsResourceIdMapping()) {
+      return authMapping.getMappedResourceId(resourceId);
+    } else {
+      return resourceId;
+    }
+  }
+
+  private boolean isValidResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
+    if (resourceId.equals("*")) {
+      return true; // Available for all resource types
+    } else
+      return authMapping.isSpecificResourceIdSupported(); // Specific resource IDs are supported
   }
 
   protected Set<Permission> decodePermissions(Authorization authorization) {

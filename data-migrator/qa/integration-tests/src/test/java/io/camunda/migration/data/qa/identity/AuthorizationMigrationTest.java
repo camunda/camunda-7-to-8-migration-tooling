@@ -43,6 +43,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
     Authorization auth1 = createAuthorization("user1", null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ACCESS));
     Authorization auth2 = createAuthorization("user1", null, Resources.AUTHORIZATION, "cockpit", Set.of(Permissions.READ, Permissions.UPDATE));
+    Authorization auth3 = createAuthorization("user1", null, Resources.FILTER, "*", Set.of(Permissions.READ));
 
     // when migrating
     identityMigrator.migrate();
