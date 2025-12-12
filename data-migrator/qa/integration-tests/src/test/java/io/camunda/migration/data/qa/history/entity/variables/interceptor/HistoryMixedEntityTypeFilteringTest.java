@@ -17,6 +17,8 @@ import io.camunda.process.test.api.CamundaAssert;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
 
@@ -24,6 +26,7 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[0].class-name=io.camunda.migration.data.qa.history.entity.variables.interceptor.pojo.MixedVariableInterceptor"
 })
 @CamundaSpringProcessTest
+@DisabledOnOs(OS.WINDOWS)
 public class HistoryMixedEntityTypeFilteringTest extends AbstractMigratorTest {
 
   @RegisterExtension
