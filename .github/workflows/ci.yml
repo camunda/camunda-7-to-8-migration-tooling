@@ -166,8 +166,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           ARTIFACT_DIR=$(mktemp -d)
-          cp model-converter/webapp/target/camunda-7-to-8-migration-analyzer-webapp.jar "${ARTIFACT_DIR}/"
-          cp model-converter/cli/target/camunda-7-to-8-migration-analyzer-cli.jar "${ARTIFACT_DIR}/"
+          cp model-converter/core/target/camunda-7-to-8-model-converter-core-*.jar "${ARTIFACT_DIR}/"
+          cp model-converter/webapp/target/camunda-7-to-8-model-converter-webapp-*.jar "${ARTIFACT_DIR}/"
+          cp model-converter/cli/target/camunda-7-to-8-model-converter-cli-*.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload model-converter artifacts
