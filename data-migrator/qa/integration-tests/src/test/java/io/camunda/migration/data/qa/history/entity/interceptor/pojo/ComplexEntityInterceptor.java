@@ -63,12 +63,25 @@ public class ComplexEntityInterceptor implements EntityInterceptor {
     this.logMessage = logMessage;
   }
 
+  public String getLogMessage() {
+    return logMessage;
+  }
+
   public void setEnableTransformation(boolean enableTransformation) {
     this.enableTransformation = enableTransformation;
+  }
+
+  public boolean isEnableTransformation() {
+    return enableTransformation;
   }
 
   public void setTargetTenantId(String targetTenantId) {
     this.targetTenantId = targetTenantId;
   }
+
+  public String getTargetTenantId() {
+    return targetTenantId;
+  }
+
 }
 
