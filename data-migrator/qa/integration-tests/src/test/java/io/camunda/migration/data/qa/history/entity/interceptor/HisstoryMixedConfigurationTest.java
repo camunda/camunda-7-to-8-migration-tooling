@@ -57,7 +57,7 @@ public class HisstoryMixedConfigurationTest extends HistoryMigrationAbstractTest
     }
 
     // Run history migration
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
