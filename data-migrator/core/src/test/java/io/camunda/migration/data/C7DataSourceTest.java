@@ -16,14 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:my-test;DB_CLOSE_DELAY=-1",
     "camunda.migrator.c7.data-source.username=abc",
     "camunda.migrator.c7.data-source.password=xyz",
-    "camunda.migrator.c7.data-source.driverClassName=org.springframework.jdbc.datasource.SimpleDriverDataSource",
+    "camunda.migrator.c7.data-source.driverClassName=org.h2.Driver",
 })
 @SpringBootTest
 public class C7DataSourceTest {
@@ -46,7 +45,7 @@ public class C7DataSourceTest {
     assertThat(c7DataSource).isEqualTo(migratorDataSource);
     assertThat(c7DataSource).isInstanceOf(HikariDataSource.class)
         .extracting("username", "password", "jdbcUrl", "driverClassName")
-        .containsExactly("abc", "xyz", "jdbc:h2:mem:my-test;DB_CLOSE_DELAY=-1", SimpleDriverDataSource.class.getName());
+        .containsExactly("abc", "xyz", "jdbc:h2:mem:my-test;DB_CLOSE_DELAY=-1", "org.h2.Driver");
   }
 
 }
