@@ -12,23 +12,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
-import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
     "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:c7;DB_CLOSE_DELAY=-1",
     "camunda.migrator.c7.data-source.username=c7-abc",
     "camunda.migrator.c7.data-source.password=c7-xyz",
-    "camunda.migrator.c7.data-source.driverClassName=org.springframework.jdbc.datasource.SimpleDriverDataSource",
+    "camunda.migrator.c7.data-source.driverClassName=org.h2.Driver",
     "camunda.migrator.c8.data-source.jdbc-url=jdbc:h2:mem:c8;DB_CLOSE_DELAY=-1",
     "camunda.migrator.c8.data-source.username=c8-abc",
     "camunda.migrator.c8.data-source.password=c8-xyz",
-    "camunda.migrator.c8.data-source.driverClassName=org.h2.jdbcx.JdbcDataSource",
+    "camunda.migrator.c8.data-source.driverClassName=org.h2.Driver",
 })
 @SpringBootTest
 public class C7AndC8DataSourceTest {
@@ -50,10 +48,10 @@ public class C7AndC8DataSourceTest {
     assertThat(c7DataSource).isEqualTo(migratorDataSource);
     assertThat(c7DataSource).isInstanceOf(HikariDataSource.class)
         .extracting("username", "password", "jdbcUrl", "driverClassName")
-        .containsExactly("c7-abc", "c7-xyz", "jdbc:h2:mem:c7;DB_CLOSE_DELAY=-1", SimpleDriverDataSource.class.getName());
+        .containsExactly("c7-abc", "c7-xyz", "jdbc:h2:mem:c7;DB_CLOSE_DELAY=-1", "org.h2.Driver");
     assertThat(c8DataSource).isInstanceOf(HikariDataSource.class)
         .extracting("username", "password", "jdbcUrl", "driverClassName")
-        .containsExactly("c8-abc", "c8-xyz", "jdbc:h2:mem:c8;DB_CLOSE_DELAY=-1", JdbcDataSource.class.getName());
+        .containsExactly("c8-abc", "c8-xyz", "jdbc:h2:mem:c8;DB_CLOSE_DELAY=-1", "org.h2.Driver");
   }
 
 }
