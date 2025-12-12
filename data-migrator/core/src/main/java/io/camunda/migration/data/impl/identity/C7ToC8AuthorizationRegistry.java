@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
@@ -64,48 +65,67 @@ public class C7ToC8AuthorizationRegistry {
         false,
         true,
         Map.of(
-            Permissions.ALL, Set.of(PermissionType.UPDATE),
-            Permissions.CREATE, Set.of(PermissionType.UPDATE),
-            Permissions.DELETE, Set.of(PermissionType.UPDATE)),
+            Permissions.ALL, Set.of(PermissionType.UPDATE)
+        ),
         null
     ));
 
     REGISTRY.put(Resources.SYSTEM, new AuthorizationMappingEntry(ResourceType.SYSTEM,
         false,
         false,
-        Map.of(Permissions.READ, Set.of(PermissionType.READ, PermissionType.READ_USAGE_METRIC)),
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.SYSTEM),
+            Permissions.READ, Set.of(PermissionType.READ, PermissionType.READ_USAGE_METRIC)),
         null
     ));
 
-    // TODO
     REGISTRY.put(Resources.BATCH, new AuthorizationMappingEntry(ResourceType.BATCH,
         false,
         false,
-        null,
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.BATCH),
+            Permissions.READ, Set.of(PermissionType.READ),
+            Permissions.UPDATE, Set.of(PermissionType.UPDATE),
+            Permissions.CREATE, Set.of(PermissionType.CREATE),
+            BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE),
+            BatchPermissions.CREATE_BATCH_MODIFY_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE),
+            BatchPermissions.CREATE_BATCH_DELETE_RUNNING_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE, PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE),
+            BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE),
+            BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE)
+        ),
         null
     ));
 
-    // TODO
     REGISTRY.put(Resources.TENANT, new AuthorizationMappingEntry(ResourceType.TENANT,
         false,
-        false,
-        null,
+        true,
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.TENANT),
+            Permissions.READ, Set.of(PermissionType.READ),
+            Permissions.UPDATE, Set.of(PermissionType.UPDATE),
+            Permissions.CREATE, Set.of(PermissionType.CREATE),
+            Permissions.DELETE, Set.of(PermissionType.DELETE)),
         null
     ));
 
-    // TODO
     REGISTRY.put(Resources.TENANT_MEMBERSHIP, new AuthorizationMappingEntry(ResourceType.TENANT,
         false,
-        false,
-        null,
-        null
+        true,
+        Map.of(
+            Permissions.ALL, Set.of(PermissionType.UPDATE)
+        ),
+    null
     ));
 
-    // TODO
     REGISTRY.put(Resources.USER, new AuthorizationMappingEntry(ResourceType.USER,
         false,
-        false,
-        null,
+        true,
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.USER),
+            Permissions.READ, Set.of(PermissionType.READ),
+            Permissions.UPDATE, Set.of(PermissionType.UPDATE),
+            Permissions.CREATE, Set.of(PermissionType.CREATE),
+            Permissions.DELETE, Set.of(PermissionType.DELETE)),
         null
     ));
   }

@@ -13,16 +13,12 @@ import java.util.Map;
 import java.util.Set;
 import org.camunda.bpm.engine.authorization.Permission;
 
-public record AuthorizationMappingEntry(
+public record AuthorizationMappingEntry (
     ResourceType c8ResourceType,
-    boolean needsResourceIdMapping, // whether resource ID mapping is needed for this resource type
-    boolean isSpecificResourceIdSupported, // if false, only wildcard resource IDs are supported
+    boolean needsToAdaptId,
+    boolean supportsExplicitId,
     Map<Permission, Set<PermissionType>> permissionMapping,
     Map<String, String> resourceIdMapping) {
-
-  public boolean needsResourceIdMapping() {
-    return needsResourceIdMapping;
-  }
 
   public String getMappedResourceId(String c7ResourceId) {
     return resourceIdMapping.getOrDefault(c7ResourceId, null);

@@ -82,7 +82,7 @@ public class AuthorizationManager {
   }
 
   protected String mapResourceId(AuthorizationMappingEntry authMapping, String resourceId) {
-    if (authMapping.needsResourceIdMapping()) {
+    if (authMapping.needsToAdaptId()) {
       return authMapping.getMappedResourceId(resourceId);
     } else {
       return resourceId;
@@ -93,7 +93,7 @@ public class AuthorizationManager {
     if (resourceId.equals("*")) {
       return true; // Available for all resource types
     } else
-      return authMapping.isSpecificResourceIdSupported(); // Specific resource IDs are supported
+      return authMapping.supportsExplicitId(); // Specific resource IDs are supported
   }
 
   protected Set<Permission> decodePermissions(Authorization authorization) {
