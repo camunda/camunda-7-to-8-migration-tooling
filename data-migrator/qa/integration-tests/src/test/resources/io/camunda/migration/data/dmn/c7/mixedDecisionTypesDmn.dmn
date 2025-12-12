@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:camunda="http://camunda.org/schema/1.0/dmn" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="mixedDecisionTypesDmnId" name="mixedDecisionTypesDmnName" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.24.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.21.0">
+  <decision id="literalExpressionInMixedId" name="Literal Expression in Mixed" camunda:historyTimeToLive="180">
+    <variable id="InformationItem_1" name="prefix" typeRef="string" />
+    <literalExpression id="LiteralExpression_1" expressionLanguage="juel">
+      <text>"Hello"</text>
+    </literalExpression>
+  </decision>
+  <decision id="decisionTableInMixedId" name="Decision Table in Mixed" camunda:historyTimeToLive="180">
+    <informationRequirement id="InformationRequirement_1">
+      <requiredDecision href="#literalExpressionInMixedId" />
+    </informationRequirement>
+    <decisionTable id="DecisionTable_1">
+      <input id="Input_1" label="inputA" camunda:inputVariable="inputA">
+        <inputExpression id="InputExpression_1" typeRef="string">
+          <text>inputA</text>
+        </inputExpression>
+        <inputValues id="UnaryTests_1">
+          <text>"A"</text>
+        </inputValues>
+      </input>
+      <output id="Output_1" label="outputB" name="outputB" typeRef="string">
+        <outputValues id="UnaryTests_2">
+          <text>"B"</text>
+        </outputValues>
+      </output>
+      <rule id="DecisionRule_1">
+        <inputEntry id="UnaryTests_3">
+          <text>"A"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_2">
+          <text>"B"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram>
+      <dmndi:DMNShape dmnElementRef="literalExpressionInMixedId">
+        <dc:Bounds height="80" width="180" x="160" y="100" />
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="DMNEdge_1" dmnElementRef="InformationRequirement_1">
+        <di:waypoint x="250" y="180" />
+        <di:waypoint x="250" y="240" />
+        <di:waypoint x="250" y="260" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNShape dmnElementRef="decisionTableInMixedId">
+        <dc:Bounds height="80" width="180" x="160" y="260" />
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>
