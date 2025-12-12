@@ -32,10 +32,12 @@
     <version.camunda-7>7.24.3-SNAPSHOT</version.camunda-7>
     <version.camunda-8>8.9.0-SNAPSHOT</version.camunda-8>
     <version.elasticsearch>8.19.6</version.elasticsearch>
-    <version.spring-boot>3.5.8</version.spring-boot>
+    <version.spring-boot>4.0.0</version.spring-boot>
     <version.assertj>3.27.6</version.assertj>
     <version.junit.jupiter>6.0.1</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
+    <version.guava>33.5.0-jre</version.guava>
+    <version.errorprone>2.45.0</version.errorprone>
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
     <plugin.version.compiler>3.14.1</plugin.version.compiler>
@@ -50,6 +52,7 @@
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.resourceEncoding>UTF-8</project.build.resourceEncoding>
 
     <nexus.snapshot.repository>https://artifacts.camunda.com/artifactory/zeebe-io-snapshots/</nexus.snapshot.repository>
     <nexus.release.repository>https://artifacts.camunda.com/artifactory/zeebe-io/</nexus.release.repository>
@@ -70,14 +73,17 @@
       </modules>
     </profile>
     <profile>
-      <!-- central-release profile to publish only core module to Maven Central. -->
-      <!-- We don't want to publish complete distribution there. -->
+      <!-- central-release profile to publish migration tooling modules to Maven Central. -->
+      <!-- We don't want to publish complete distributions. -->
       <!-- Used in release workflow. -->
       <id>central-release</id>
       <modules>
         <module>code-conversion</module>
         <module>data-migrator/core</module>
         <module>data-migrator/plugins/cockpit</module>
+        <module>model-converter/core</module>
+        <module>model-converter/webapp</module>
+        <module>model-converter/cli</module>
       </modules>
     </profile>
   </profiles>

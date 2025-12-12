@@ -21,7 +21,9 @@ public class FlowNodeConverter {
   public FlowNodeInstanceDbModel apply(HistoricActivityInstance flowNode,
                                        Long processDefinitionKey,
                                        Long processInstanceKey) {
-    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(getNextKey())
+    Long flowNodeInstanceKey = getNextKey();
+    return new FlowNodeInstanceDbModelBuilder()
+        .flowNodeInstanceKey(flowNodeInstanceKey)
         .flowNodeId(flowNode.getActivityId())
         .processInstanceKey(processInstanceKey)
         .processDefinitionKey(processDefinitionKey)
@@ -31,10 +33,22 @@ public class FlowNodeConverter {
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
-        .treePath(null) // TODO: Doesn't exist in C7 activity instance. Not yet supported by C8 RDBMS
+        .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null) // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
         .build();
+  }
+
+  
+  /**
+   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
+   * 
+   * @param processInstanceKey the process instance key
+   * @param elementInstanceKey the element instance key (flow node)
+   * @return the tree path string
+   */
+  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
+    return processInstanceKey + "/" + elementInstanceKey;
   }
 
   protected FlowNodeType convertType(String activityType) {

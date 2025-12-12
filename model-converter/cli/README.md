@@ -16,7 +16,7 @@ contains Umlaute, add the java option `-Dfile.encoding=UTF-8` between the java
 and -jar parameters:
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-version.jar
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar
 ```
 
 ## Commands
@@ -31,7 +31,7 @@ Converts the diagram from the given directory or file
 
 Execute as:
 
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli.jar local
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar local
 
 Parameter:
       <file>                 The file to convert or directory to search in
@@ -62,7 +62,7 @@ Options:
 **Example:**
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-v.v.v.jar local c:\myDirectory
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar local c:\myDirectory
 ```
 
 ### Convert diagrams from a running process engine
@@ -76,7 +76,7 @@ Description: Converts the diagrams from the given process engine
 
 Execute as:
 
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli.jar engine
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar engine
 
 Parameter:
       <url>               Fully qualified http(s) address to the process engine
@@ -114,6 +114,6 @@ Options:
 **Example:**
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-v.v.v.jar engine http://localhost:8080/engine-rest
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar engine http://localhost:8080/engine-rest
 ```
 
