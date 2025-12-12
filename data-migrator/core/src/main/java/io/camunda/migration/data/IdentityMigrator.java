@@ -110,7 +110,7 @@ public class IdentityMigrator {
       return Optional.empty();
     }
 
-    return Optional.of(authorizationManager.mapAuthorization(authorization));
+    return authorizationManager.mapAuthorization(authorization);
   }
 
 protected void markAsSkipped(Authorization authorization, String reason) {
