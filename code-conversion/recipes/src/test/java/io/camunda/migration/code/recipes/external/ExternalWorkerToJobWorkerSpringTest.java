@@ -58,8 +58,8 @@ public class RetrievePaymentAdapter implements ExternalTaskHandler {
 """
 package org.camunda.community.migration.example;
 
+import io.camunda.client.annotation.JobWorker;
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;

@@ -64,7 +64,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
 
       return Preconditions.check(
@@ -139,7 +139,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
     @Override
     protected TreeVisitor<?, ExecutionContext> preconditions() {
       return Preconditions.and(
-          new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+          new UsesType<>("io.camunda.client.annotation.JobWorker", true),
           new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
     }
 
@@ -257,10 +257,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleBpmnError(org.camunda.bpm.client.task.ExternalTask, java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\")",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, \"Add an error message here\")",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -271,10 +271,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleBpmnError(org.camunda.bpm.client.task.ExternalTask, java.lang.String, java.lang.String)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)})",
-                    "io.camunda.spring.client.exception.CamundaError"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)})",
+                    "io.camunda.client.exception.CamundaError"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -288,11 +288,11 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleBpmnError(org.camunda.bpm.client.task.ExternalTask, java.lang.String, java.lang.String, java.util.Map)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, #{any(java.util.Map)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, #{any(java.util.Map)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Map"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -308,11 +308,11 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleBpmnError(java.lang.String, java.lang.String, java.lang.String, java.util.Map)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, #{any(java.util.Map)})",
-                    "io.camunda.spring.client.exception.CamundaError",
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.bpmnError(#{any(java.lang.String)}, #{any(java.lang.String)}, #{any(java.util.Map)})",
+                    "io.camunda.client.exception.CamundaError",
                     "java.util.Map"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -328,10 +328,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleFailure(org.camunda.bpm.client.task.ExternalTask, java.lang.String, java.lang.String, int, long)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
-                    "io.camunda.spring.client.exception.CamundaError", "java.util.Collections", "java.time.Duration"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
+                    "io.camunda.client.exception.CamundaError", "java.util.Collections", "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -346,10 +346,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleFailure(java.lang.String, java.lang.String, java.lang.String, int, long)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
-                    "io.camunda.spring.client.exception.CamundaError", "java.util.Collections", "java.time.Duration"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, Collections.emptyMap(), Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
+                    "io.camunda.client.exception.CamundaError", "java.util.Collections", "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -365,10 +365,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleFailure(java.lang.String, java.lang.String, java.lang.String, int, long, java.util.Map, java.util.Map)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, #{any(java.util.Map)}, Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
-                    "io.camunda.spring.client.exception.CamundaError", "java.util.Map", "java.time.Duration"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, #{any(java.util.Map)}, Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
+                    "io.camunda.client.exception.CamundaError", "java.util.Map", "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -386,10 +386,10 @@ public class MigrateExternalWorkerRecipe extends Recipe {
                 new MethodMatcher(
                     "org.camunda.bpm.client.task.ExternalTaskService handleFailure(java.lang.String, java.lang.String, java.lang.String, int, long, java.util.Map, java.util.Map)"),
                 RecipeUtils.createSimpleJavaTemplate(
-                    "throw #{any(io.camunda.spring.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, #{any(java.util.Map)}, Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
-                    "io.camunda.spring.client.exception.CamundaError", "java.util.Map", "java.time.Duration"),
+                    "throw #{any(io.camunda.client.exception.CamundaError)}.jobError(#{any(java.lang.String)}, #{any(java.util.Map)}, Integer.valueOf(#{any()}), Duration.ofMillis(#{any()}))",
+                    "io.camunda.client.exception.CamundaError", "java.util.Map", "java.time.Duration"),
                 RecipeUtils.createSimpleIdentifier(
-                    "CamundaError", "io.camunda.spring.client.exception.CamundaError"),
+                    "CamundaError", "io.camunda.client.exception.CamundaError"),
                 null,
                 ReplacementUtils.ReturnTypeStrategy.VOID,
                 List.of(
@@ -460,7 +460,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
       // define preconditions
       TreeVisitor<?, ExecutionContext> check =
           Preconditions.and(
-              new UsesType<>("io.camunda.spring.client.annotation.JobWorker", true),
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
               new UsesType<>("org.camunda.bpm.client.task.ExternalTask", true));
 
       return Preconditions.check(
@@ -495,7 +495,7 @@ public class MigrateExternalWorkerRecipe extends Recipe {
 
               for (ReplacementUtils.SimpleReplacementSpec spec : errorSpecs) {
                 if (spec.matcher().matches(invocation)) {
-                  maybeAddImport("io.camunda.spring.client.exception.CamundaError");
+                  maybeAddImport("io.camunda.client.exception.CamundaError");
 
                   J.Throw throwStmt =
                       spec.template()

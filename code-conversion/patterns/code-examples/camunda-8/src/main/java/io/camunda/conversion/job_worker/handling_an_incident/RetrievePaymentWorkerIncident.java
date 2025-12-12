@@ -9,8 +9,8 @@ package io.camunda.conversion.job_worker.handling_an_incident;
 
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.worker.JobClient;
-import io.camunda.spring.client.annotation.JobWorker;
-import io.camunda.spring.client.exception.CamundaError;
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.exception.CamundaError;
 
 import java.time.Duration;
 import java.util.Map;
