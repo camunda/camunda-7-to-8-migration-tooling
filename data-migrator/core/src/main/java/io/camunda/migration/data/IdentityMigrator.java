@@ -96,10 +96,10 @@ public class IdentityMigrator {
     }
   }
 
-protected void markAsSkipped(Authorization authorization, String reason) {
-  IdentityMigratorLogs.logSkippedAuthorization(authorization.getId(), reason);
-  saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
-}
+  protected void markAsSkipped(Authorization authorization, String reason) {
+    IdentityMigratorLogs.logSkippedAuthorization(authorization.getId(), reason);
+    saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
+  }
 
   protected void saveRecord(IdKeyMapper.TYPE type, String c7Id, Long c8Key) {
     dbClient.insert(c7Id, c8Key, type);
