@@ -62,6 +62,7 @@ import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -953,7 +954,9 @@ public class HistoryMigrator {
       ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7FlowNode.getProcessInstanceId());
 
       try {
+        Long flowNodeInstanceKey = getNextKey();
         FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder flowNodeDbModelBuilder = new FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder();
+        flowNodeDbModelBuilder.flowNodeInstanceKey(flowNodeInstanceKey);
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7FlowNode, HistoricActivityInstance.class,
             flowNodeDbModelBuilder);
 
@@ -962,6 +965,7 @@ public class HistoryMigrator {
           Long processDefinitionKey = findProcessDefinitionKey(c7FlowNode.getProcessDefinitionId());
 
           flowNodeDbModelBuilder.processInstanceKey(processInstanceKey)
+              .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
               .processDefinitionKey(processDefinitionKey);
 
           FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
@@ -979,6 +983,17 @@ public class HistoryMigrator {
         handleEntityInterceptorException(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), e);
       }
     }
+  }
+
+  /**
+   * Generates a tree path for flow nodes in the format: processInstanceKey/elementInstanceKey
+   *
+   * @param processInstanceKey the process instance key
+   * @param elementInstanceKey the element instance key (flow node)
+   * @return the tree path string
+   */
+  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
+    return processInstanceKey + "/" + elementInstanceKey;
   }
 
   protected void insertFlowNodeInstance(HistoricActivityInstance c7FlowNode, FlowNodeInstanceDbModel dbModel,
