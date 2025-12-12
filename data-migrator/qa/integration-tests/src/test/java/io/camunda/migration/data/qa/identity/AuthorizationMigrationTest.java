@@ -24,6 +24,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
+  public static final String USER = "tom.smith";
+  public static final String USER_FIRST_NAME = "Tom";
+  public static final String USER_LAST_NAME = "Smith";
+  public static final String USER_PASSWORD = "password";
+
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
 
@@ -35,11 +40,12 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
   @Test
   public void shouldMigrateAuthorizations() {
-    createUser("user1", "User", "Name");
+    createUserInC7(USER, USER_FIRST_NAME, USER_LAST_NAME);
+    createUserInC8(USER, USER_FIRST_NAME, USER_LAST_NAME);
 
-    Authorization auth1 = createAuthorization("user1", null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ACCESS));
-    Authorization auth2 = createAuthorization("user1", null, Resources.AUTHORIZATION, "authId", Set.of(Permissions.READ, Permissions.UPDATE));
-    Authorization auth3 = createAuthorization("user1", null, Resources.FILTER, "*", Set.of(Permissions.READ));
+    Authorization auth1 = createAuthorizationInC7(USER, null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ACCESS));
+    Authorization auth2 = createAuthorizationInC7(USER, null, Resources.AUTHORIZATION, "authId", Set.of(Permissions.READ, Permissions.UPDATE));
+    Authorization auth3 = createAuthorizationInC7(USER, null, Resources.FILTER, "*", Set.of(Permissions.READ));
 
     // when migrating
     identityMigrator.migrate();
@@ -58,23 +64,23 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     * Invalid mapping for resourceId (skip) - example: APPLICATION with resourceId != cockpit, tasklist, admin
    */
 
-  private void createUser(String username, String firstName, String lastName) {
-    // Create in C7
+  private void createUserInC7(String username, String firstName, String lastName) {
     User user = identityService.newUser(username);
     user.setFirstName(firstName);
     user.setLastName(lastName);
-    user.setPassword("password");
+    user.setPassword(USER_PASSWORD);
     identityService.saveUser(user);
-
-    // Create in C8
-    camundaClient.newCreateUserCommand()
-        .username(username)
-        .name(firstName + " " + lastName)
-        .password("password")
-        .execute();
   }
 
-  private Authorization createAuthorization(String userId, String groupId, Resources resourceType, String resourceId, Set<Permission> permissions) {
+  private void createUserInC8(String username, String firstName, String lastName) {
+    camundaClient.newCreateUserCommand()
+      .username(username)
+      .name(firstName + " " + lastName)
+      .password(USER_PASSWORD)
+      .execute();
+  }
+
+  private Authorization createAuthorizationInC7(String userId, String groupId, Resources resourceType, String resourceId, Set<Permission> permissions) {
     Authorization newAuthorization = authorizationService.createNewAuthorization(Authorization.AUTH_TYPE_GRANT);
     if (StringUtils.isNotBlank(userId)) {
       newAuthorization.setUserId(userId);
