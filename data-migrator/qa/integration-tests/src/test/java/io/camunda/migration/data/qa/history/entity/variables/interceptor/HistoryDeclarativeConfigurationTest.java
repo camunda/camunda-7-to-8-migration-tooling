@@ -85,8 +85,8 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // Since built-in transformers are disabled, our custom interceptor should process variables
-    assertVariableExists("testString", "\"CUSTOM_hello\"");
-    assertVariableExists("testDate", "\"DATE_SPECIFIC_" + now + "\"");
+    historyMigration.assertVariableExists("testString", "\"CUSTOM_hello\"");
+    historyMigration.assertVariableExists("testDate", "\"DATE_SPECIFIC_" + now + "\"");
   }
 
   @Test
@@ -106,7 +106,7 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // Verify custom interceptor processed the variable
-    assertVariableExists("testVar", "\"CUSTOM_value\"");
+    historyMigration.assertVariableExists("testVar", "\"CUSTOM_value\"");
   }
 
   @Test
@@ -128,7 +128,7 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
 
     // Verify disabled interceptor did not process the variable
     // Variable should be processed by enabled custom interceptor instead
-    assertVariableExists("testVar", "\"CUSTOM_value\""); // Not "DISABLED_value"
+    historyMigration.assertVariableExists("testVar", "\"CUSTOM_value\""); // Not "DISABLED_value"
   }
 
   @Test
@@ -145,8 +145,8 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // CustomTestInterceptor only handles StringValue types (as defined in getTypes)
-    assertVariableExists("stringVar", "\"CUSTOM_test\"");
-    assertVariableExists("intVar", "\"UNIVERSAL_42\"");
+    historyMigration.assertVariableExists("stringVar", "\"CUSTOM_test\"");
+    historyMigration.assertVariableExists("intVar", "\"UNIVERSAL_42\"");
   }
 
   @Test
@@ -164,9 +164,9 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     // Run migration
     historyMigration.getMigrator().migrate();
 
-    assertVariableExists("stringVar", "\"CUSTOM_hello\""); // Processed by CustomTestInterceptor
-    assertVariableExists("dateVar", "\"DATE_SPECIFIC_" + now + "\""); // Processed by TypeSpecificInterceptor
-    assertVariableExists("intVar", "\"UNIVERSAL_123\""); // Processed by UniversalTestInterceptor
+    historyMigration.assertVariableExists("stringVar", "\"CUSTOM_hello\""); // Processed by CustomTestInterceptor
+    historyMigration.assertVariableExists("dateVar", "\"DATE_SPECIFIC_" + now + "\""); // Processed by TypeSpecificInterceptor
+    historyMigration.assertVariableExists("intVar", "\"UNIVERSAL_123\""); // Processed by UniversalTestInterceptor
   }
 
   @Test
@@ -184,9 +184,9 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // UniversalTestInterceptor should process all types since getTypes() returns empty set
-    assertVariableExists("stringVar", "\"CUSTOM_test\"");
-    assertVariableExists("intVar", "\"UNIVERSAL_999\"");
-    assertVariableExists("boolVar", "\"UNIVERSAL_true\"");
+    historyMigration.assertVariableExists("stringVar", "\"CUSTOM_test\"");
+    historyMigration.assertVariableExists("intVar", "\"UNIVERSAL_999\"");
+    historyMigration.assertVariableExists("boolVar", "\"UNIVERSAL_true\"");
   }
 
   @Test
@@ -205,8 +205,8 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
 
     // Since built-in transformers are disabled, variables should be processed by custom interceptors instead
     // UniversalTestInterceptor should handle these since built-in ones are disabled
-    assertVariableExists("primitiveVar", "\"CUSTOM_original\""); // Not transformed by built-in
-    assertVariableExists("dateVar", "\"DATE_SPECIFIC_" + now + "\""); // Not transformed by built-in
+    historyMigration.assertVariableExists("primitiveVar", "\"CUSTOM_original\""); // Not transformed by built-in
+    historyMigration.assertVariableExists("dateVar", "\"DATE_SPECIFIC_" + now + "\""); // Not transformed by built-in
   }
 
   @Test
@@ -235,7 +235,7 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // Should be processed by enabled interceptors, not disabled one
-    assertVariableExists("testVar", "\"CUSTOM_value\"");
+    historyMigration.assertVariableExists("testVar", "\"CUSTOM_value\"");
   }
 
   @Test
@@ -315,17 +315,10 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // then verify variable was migrated
-    assertVariableExists("exFlag", "\"UNIVERSAL_false\"");
+    historyMigration.assertVariableExists("exFlag", "\"UNIVERSAL_false\"");
 
     assertThat(output.getOut()).contains("Success from interceptor");
   }
 
-  protected void assertVariableExists(String varName, String expectedValue) {
-    List<VariableEntity> variables = historyMigration.searchHistoricVariables(varName);
-    assertThat(variables).hasSize(1);
-    VariableEntity variable = variables.getFirst();
-    assertThat(variable.name()).isEqualTo(varName);
-    assertThat(variable.value()).isEqualTo(expectedValue);
-  }
 }
 

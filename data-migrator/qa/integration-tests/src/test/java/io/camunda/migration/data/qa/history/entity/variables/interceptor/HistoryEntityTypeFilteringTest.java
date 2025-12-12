@@ -57,16 +57,9 @@ public class HistoryEntityTypeFilteringTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // then - all variables should be processed by the interceptors
-    assertVariableExists("var1", "\"HISTORIC_value1\"");
-    assertVariableExists("var2", "\"HISTORIC_value2\"");
-    assertVariableExists("var3", "\"HISTORIC_value3\"");
+    historyMigration.assertVariableExists("var1", "\"HISTORIC_value1\"");
+    historyMigration.assertVariableExists("var2", "\"HISTORIC_value2\"");
+    historyMigration.assertVariableExists("var3", "\"HISTORIC_value3\"");
   }
 
-  protected void assertVariableExists(String varName, String expectedValue) {
-    List<VariableEntity> variables = historyMigration.searchHistoricVariables(varName);
-    assertThat(variables).hasSize(1);
-    VariableEntity variable = variables.getFirst();
-    assertThat(variable.name()).isEqualTo(varName);
-    assertThat(variable.value()).isEqualTo(expectedValue);
-  }
 }

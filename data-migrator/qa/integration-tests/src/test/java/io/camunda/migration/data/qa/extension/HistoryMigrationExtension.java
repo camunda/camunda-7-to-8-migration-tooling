@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.extension;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
@@ -282,5 +284,14 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
       taskService.complete(task.getId());
     }
   }
+
+  public void assertVariableExists(String varName, String expectedValue) {
+    List<VariableEntity> variables = searchHistoricVariables(varName);
+    assertThat(variables).hasSize(1);
+    VariableEntity variable = variables.getFirst();
+    assertThat(variable.name()).isEqualTo(varName);
+    assertThat(variable.value()).isEqualTo(expectedValue);
+  }
+
 }
 
