@@ -248,7 +248,7 @@ public class HistoryMigrator {
             insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
           } else {
             ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-            if (dbModel.parentProcessInstanceKey() != null && c7SuperProcessInstanceId != null) {
+            if (dbModel.parentProcessInstanceKey() != null) {
               insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
             } else {
               markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
@@ -311,7 +311,7 @@ public class HistoryMigrator {
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
       HistoryMigratorLogs.migratingDecisionRequirements(c7Id);
 
-      DecisionRequirementsDbModel dbModel = null;
+      DecisionRequirementsDbModel dbModel;
       Date deploymentTime = c7Client.getDefinitionDeploymentTime(c7DecisionRequirements.getDeploymentId());
       try {
         DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = new DecisionRequirementsDbModel.Builder();
@@ -319,12 +319,12 @@ public class HistoryMigrator {
             DecisionRequirementsDefinition.class, decisionRequirementsDbModelBuilder);
 
         dbModel = convertDecisionRequirements(context);
+        c8Client.insertDecisionRequirements(dbModel);
+        markMigrated(c7Id, dbModel.decisionRequirementsKey(), deploymentTime, HISTORY_DECISION_REQUIREMENT);
+        HistoryMigratorLogs.migratingDecisionRequirementsCompleted(c7Id);
       } catch (EntityInterceptorException e) {
         handleEntityInterceptorException(c7Id, HISTORY_DECISION_REQUIREMENT, deploymentTime, e);
       }
-      c8Client.insertDecisionRequirements(dbModel);
-      markMigrated(c7Id, dbModel.decisionRequirementsKey(), deploymentTime, HISTORY_DECISION_REQUIREMENT);
-      HistoryMigratorLogs.migratingDecisionRequirementsCompleted(c7Id);
     }
   }
 
@@ -368,11 +368,11 @@ public class HistoryMigrator {
     String c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {
       HistoryMigratorLogs.migratingDecisionDefinition(c7Id);
-      Long decisionRequirementsKey = null;
+      Long decisionRequirementsKey;
 
       Date deploymentTime = c7Client.getDefinitionDeploymentTime(c7DecisionDefinition.getDeploymentId());
 
-      DecisionDefinitionDbModel dbModel = null;
+      DecisionDefinitionDbModel dbModel;
       try {
         DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder decisionDefinitionDbModelBuilder =
             new DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder();
@@ -401,10 +401,10 @@ public class HistoryMigrator {
         }
 
         dbModel = convertDecisionDefinition(context);
+        insertDecisionDefinition(dbModel, c7Id, deploymentTime);
       } catch (EntityInterceptorException e) {
         handleEntityInterceptorException(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, e);
       }
-      insertDecisionDefinition(dbModel, c7Id, deploymentTime);
     }
   }
 
@@ -507,7 +507,7 @@ public class HistoryMigrator {
           processDecisionInstanceConversion(c7DecisionInstance, context, c7DecisionInstanceId);
           return;
         }
-        Long parentDecisionDefinitionKey = null;
+        Long parentDecisionDefinitionKey;
         if (c7RootDecisionInstanceId != null) {
           parentDecisionDefinitionKey = findDecisionInstance(c7RootDecisionInstanceId).decisionDefinitionKey();
           decisionInstanceDbModelBuilder
@@ -650,7 +650,7 @@ public class HistoryMigrator {
             } else if (dbModel.flowNodeInstanceKey() == null) {
               markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
               HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            }else if (dbModel.jobKey() == null) {
+            } else if (dbModel.jobKey() == null) {
               markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
               HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
             }
@@ -963,8 +963,7 @@ public class HistoryMigrator {
           if (dbModel.processInstanceKey() == null) {
             markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
             HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
-          }
-          else {
+          } else {
             insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
           }
         }
