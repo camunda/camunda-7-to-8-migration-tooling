@@ -43,7 +43,7 @@ public class DecisionInstanceConverter {
         .partitionId(C7_HISTORY_PARTITION_ID)
         .decisionInstanceId(decisionInstanceId)
         .decisionInstanceKey(decisionInstanceKey)
-        .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstanc

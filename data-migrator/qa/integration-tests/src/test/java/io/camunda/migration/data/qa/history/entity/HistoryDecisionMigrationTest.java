@@ -148,6 +148,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(instance.decisionDefinitionType()).isNull();
       assertThat(instance.result()).isNull();
+      assertThat(instance.rootDecisionDefinitionKey()).isNull();
 
       // TODO find out how to get a result http://github.com/camunda/camunda-bpm-platform/issues/5365
       //      assertThat(instance.result()).isEqualTo("B");

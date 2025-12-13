@@ -25,8 +25,6 @@ public interface IdKeyMapper {
     HISTORY_USER_TASK("Historic User Task"),
     HISTORY_FLOW_NODE("Historic Flow Node"),
     HISTORY_DECISION_INSTANCE("Historic Decision Instance"),
-    HISTORY_DECISION_INSTANCE_INPUT("Historic Decision Input"),
-    HISTORY_DECISION_INSTANCE_OUTPUT("Historic Decision Output"),
     HISTORY_DECISION_DEFINITION("Historic Decision Definition"),
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
 
