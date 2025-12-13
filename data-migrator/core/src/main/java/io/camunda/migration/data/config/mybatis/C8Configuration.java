@@ -27,6 +27,8 @@ import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionInstanceStatisticsDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionInstanceVersionStatisticsDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionMessageSubscriptionStatisticsDbReader;
 import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.RoleDbReader;
@@ -424,6 +426,16 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
+    return new ProcessDefinitionInstanceStatisticsDbReader(processDefinitionMapper);
+  }
+
+  @Bean
+  public ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
+    return new ProcessDefinitionInstanceVersionStatisticsDbReader(processDefinitionMapper);
+  }
+
+  @Bean
   public GroupMemberDbReader groupMemberReader(GroupMapper groupMapper) {
     return new GroupMemberDbReader(groupMapper);
   }
@@ -518,7 +530,9 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
       ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
+      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
+      ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
+      ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         auditLogReader,
@@ -550,7 +564,9 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricTUDbReader,
         messageSubscriptionDbReader,
         processDefinitionMessageSubscriptionStatisticsDbReader,
-        correlatedMessageDbReader);
+        correlatedMessageDbReader,
+        processDefinitionInstanceStatisticsDbReader,
+        processDefinitionInstanceVersionStatisticsDbReader);
   }
 
 }

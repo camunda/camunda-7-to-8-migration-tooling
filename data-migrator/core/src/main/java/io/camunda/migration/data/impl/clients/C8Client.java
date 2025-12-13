@@ -9,7 +9,10 @@ package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
@@ -18,6 +21,19 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETC
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_VARIABLE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_REQUIREMENTS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE_INPUT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_INCIDENT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_FLOW_NODE_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
@@ -212,105 +228,112 @@ public class C8Client {
    * Inserts a ProcessDefinition into the database.
    */
   public void insertProcessDefinition(ProcessDefinitionDbModel dbModel) {
-    callApi(() -> processDefinitionMapper.insert(dbModel), "Failed to insert process definition");
+    callApi(() -> processDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_DEFINITION);
   }
 
   /**
    * Inserts a ProcessInstance into the database.
    */
   public void insertProcessInstance(ProcessInstanceDbModel dbModel) {
-    callApi(() -> processInstanceMapper.insert(dbModel), "Failed to insert process instance");
+    callApi(() -> processInstanceMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
   }
 
   /**
    * Finds a ProcessInstance by key.
    */
   public ProcessInstanceEntity findProcessInstance(Long key) {
-    return callApi(() -> processInstanceMapper.findOne(key), "Failed to find process instance by key: " + key);
+    return callApi(() -> processInstanceMapper.findOne(key), FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY + key);
   }
 
   /**
    * Searches for ProcessInstances matching the query.
    */
   public List<ProcessInstanceEntity> searchProcessInstances(ProcessInstanceDbQuery query) {
-    return callApi(() -> processInstanceMapper.search(query), "Failed to search process instances");
+    return callApi(() -> processInstanceMapper.search(query), FAILED_TO_SEARCH_PROCESS_INSTANCE);
   }
 
   /**
    * Inserts a DecisionRequirementsDefinition into the database.
    */
   public void insertDecisionRequirements(DecisionRequirementsDbModel dbModel) {
-    callApi(() -> decisionRequirementsMapper.insert(dbModel), "Failed to insert decision requirements");
+    callApi(() -> decisionRequirementsMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_REQUIREMENTS);
   }
 
   /**
    * Inserts a DecisionDefinition into the database.
    */
   public void insertDecisionDefinition(DecisionDefinitionDbModel dbModel) {
-    callApi(() -> decisionDefinitionMapper.insert(dbModel), "Failed to insert decision definition");
+    callApi(() -> decisionDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_DEFINITION);
   }
 
   /**
    * Searches for DecisionDefinitions matching the query.
    */
   public List<DecisionDefinitionEntity> searchDecisionDefinitions(DecisionDefinitionDbQuery query) {
-    return callApi(() -> decisionDefinitionMapper.search(query), "Failed to search decision definitions");
+    return callApi(() -> decisionDefinitionMapper.search(query), FAILED_TO_SEARCH_DECISION_DEFINITIONS);
   }
 
   /**
    * Inserts a DecisionInstance into the database.
    */
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
-    callApi(() -> decisionInstanceMapper.insert(dbModel), "Failed to insert decision instance");
+    callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
+    if (!dbModel.evaluatedInputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertInput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_INPUT);
+    }
+
+    if (!dbModel.evaluatedOutputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertOutput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT);
+    }
   }
 
   /**
    * Searches for DecisionInstances matching the query.
    */
   public List<DecisionInstanceEntity> searchDecisionInstances(DecisionInstanceDbQuery query) {
-    return callApi(() -> decisionInstanceMapper.search(query), "Failed to search decision instances");
+    return callApi(() -> decisionInstanceMapper.search(query), FAILED_TO_SEARCH_DECISION_INSTANCES);
   }
 
   /**
    * Inserts an Incident into the database.
    */
   public void insertIncident(IncidentDbModel dbModel) {
-    callApi(() -> incidentMapper.insert(dbModel), "Failed to insert incident");
+    callApi(() -> incidentMapper.insert(dbModel), FAILED_TO_INSERT_INCIDENT);
   }
 
   /**
    * Inserts a Variable into the database.
    */
   public void insertVariable(VariableDbModel dbModel) {
-    callApi(() -> variableMapper.insert(dbModel), "Failed to insert variable");
+    callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
    * Inserts a UserTask into the database.
    */
   public void insertUserTask(UserTaskDbModel dbModel) {
-    callApi(() -> userTaskMapper.insert(dbModel), "Failed to insert user task");
+    callApi(() -> userTaskMapper.insert(dbModel), FAILED_TO_INSERT_USER_TASK);
   }
 
   /**
    * Inserts a FlowNodeInstance into the database.
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
-    callApi(() -> flowNodeInstanceMapper.insert(dbModel), "Failed to insert flow node instance");
+    callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
   }
 
   /**
    * Searches for FlowNodeInstances matching the query.
    */
   public List<FlowNodeInstanceDbModel> searchFlowNodeInstances(FlowNodeInstanceDbQuery query) {
-    return callApi(() -> flowNodeInstanceMapper.search(query), "Failed to search flow node instances");
+    return callApi(() -> flowNodeInstanceMapper.search(query), FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
   }
 
   /**
    * Searches for ProcessDefinitions matching the query.
    */
   public List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
-    return callApi(() -> processDefinitionMapper.search(query), "Failed to search process definitions");
+    return callApi(() -> processDefinitionMapper.search(query), FAILED_TO_SEARCH_PROCESS_DEFINITIONS);
   }
 
   public void createTenant(Tenant tenant) {
