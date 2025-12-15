@@ -12,17 +12,23 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(9)
 @Component
 public class DecisionRequirementsDefinitionConverter implements EntityInterceptor {
+
+  @Autowired
+  protected C7Client c7Client;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -39,12 +45,17 @@ public class DecisionRequirementsDefinitionConverter implements EntityIntercepto
       throw new EntityInterceptorException("C8 DecisionRequirementsDbModel.Builder is null in context");
     }
 
+    String deploymentId = c7DecisionRequirements.getDeploymentId();
+    String resourceName = c7DecisionRequirements.getResourceName();
+    String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+
+
     builder.decisionRequirementsKey(getNextKey())
         .decisionRequirementsId(c7DecisionRequirements.getKey())
         .name(c7DecisionRequirements.getName())
-        .resourceName(c7DecisionRequirements.getResourceName())
+        .resourceName(resourceName)
         .version(c7DecisionRequirements.getVersion())
-        .xml(null) // TODO not stored in C7 DecisionRequirementsDefinition
+        .xml(dmnXml)
         .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
   }
 }

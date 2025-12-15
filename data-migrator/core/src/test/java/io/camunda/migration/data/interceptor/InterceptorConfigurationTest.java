@@ -80,7 +80,7 @@ public class InterceptorConfigurationTest {
   // Custom interceptor classes for testing
   public static class CustomVariableInterceptor implements VariableInterceptor {
     @Override
-    public void execute(VariableInvocation invocation) {
+    public void execute(VariableContext context) {
       // No-op for testing
     }
   }

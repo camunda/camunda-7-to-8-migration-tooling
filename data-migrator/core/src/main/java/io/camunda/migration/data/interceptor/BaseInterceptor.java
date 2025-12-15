@@ -10,7 +10,7 @@ package io.camunda.migration.data.interceptor;
 import java.util.Set;
 
 /**
- * Base interceptor interface for handling invocations during migration.
+ * Base interceptor interface for handling context during migration.
  * <p>
  * This interface serves as the parent interface for all interceptors in the migration system,
  * providing a common contract for intercepting and processing data during migration operations.
@@ -20,16 +20,16 @@ import java.util.Set;
  * like {@link VariableInterceptor} and {@link EntityInterceptor}.
  * </p>
  *
- * @param <T> the type of invocation object that this interceptor handles
+ * @param <T> the type of context object that this interceptor handles
  */
 public interface BaseInterceptor<T> {
 
   /**
-   * Executes the interceptor logic for an invocation.
+   * Executes the interceptor logic for a context.
    *
-   * @param invocation the invocation containing data and methods to process or modify it
+   * @param context containing data and methods to process or modify it
    */
-  void execute(T invocation);
+  void execute(T context);
 
   /**
    * Returns the set of types that this interceptor can handle.

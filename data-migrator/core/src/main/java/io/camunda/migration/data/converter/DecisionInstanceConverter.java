@@ -10,10 +10,11 @@ package io.camunda.migration.data.converter;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
@@ -22,12 +23,17 @@ import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(11)
 @Component
 public class DecisionInstanceConverter implements EntityInterceptor {
+
+  @Autowired
+  protected VariableService variableService;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -43,20 +49,23 @@ public class DecisionInstanceConverter implements EntityInterceptor {
       throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
     }
 
-    Long decisionInstanceKey = getNextKey();
+    long decisionInstanceKey = Long.parseLong(decisionInstance.getId().split("-")[0]);
+
     builder.partitionId(C7_HISTORY_PARTITION_ID)
         .decisionInstanceId(String.format("%d-%s", decisionInstanceKey, decisionInstance.getId()))
         .decisionInstanceKey(decisionInstanceKey)
-        .state(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .result(String.valueOf(decisionInstance.getCollectResultValue()))
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
         .decisionType(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .result(null)
+        .decisionType(null) // LITERAL_EXPRESSION, DECISION_TABLE
         .tenantId(getTenantId(decisionInstance.getTenantId()))
+        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
@@ -69,7 +78,7 @@ public class DecisionInstanceConverter implements EntityInterceptor {
     return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
         input.getId(),
         input.getClauseName(),
-        String.valueOf(input.getValue())
+        variableService.convertValue((ValueFields) input)
     )).toList();
   }
 
@@ -78,7 +87,7 @@ public class DecisionInstanceConverter implements EntityInterceptor {
     return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
         output.getId(),
         output.getClauseName(),
-        String.valueOf(output.getValue()),
+        variableService.convertValue((ValueFields) output),
         output.getRuleId(),
         output.getRuleOrder())).toList();
   }

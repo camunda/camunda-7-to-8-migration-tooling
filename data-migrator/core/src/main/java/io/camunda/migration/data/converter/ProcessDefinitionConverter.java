@@ -47,11 +47,15 @@ public class ProcessDefinitionConverter implements EntityInterceptor {
       throw new EntityInterceptorException("C8 ProcessDefinitionDbModel.Builder is null in context");
     }
 
-    String bpmnXml = getBpmnXmlAsString(c7ProcessDefinition);
+    String deploymentId = c7ProcessDefinition.getDeploymentId();
+    String resourceName = c7ProcessDefinition.getResourceName();
+
+    String bpmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+
 
     builder.processDefinitionKey(getNextKey())
         .processDefinitionId(c7ProcessDefinition.getKey())
-        .resourceName(c7ProcessDefinition.getResourceName())
+        .resourceName(resourceName)
         .name(c7ProcessDefinition.getName())
         .tenantId(c7ProcessDefinition.getTenantId())
         .versionTag(c7ProcessDefinition.getVersionTag())
@@ -60,26 +64,4 @@ public class ProcessDefinitionConverter implements EntityInterceptor {
         .formId(null); // TODO https://github.com/camunda/camunda-bpm-platform/issues/5347
   }
 
-  protected String getBpmnXmlAsString(ProcessDefinition processDefinition) {
-    try {
-      var resourceStream = c7Client.getResourceAsStream(processDefinition.getDeploymentId(),
-          processDefinition.getResourceName());
-
-      return readInputStreamToString(resourceStream);
-    } catch (IOException e) {
-      ProcessDefinitionConverterLogs.failedFetchingResourceStream(processDefinition.getId(), e.getMessage());
-      return null;
-    }
-  }
-
-  protected String readInputStreamToString(InputStream inputStream) throws IOException {
-    ByteArrayOutputStream result = new ByteArrayOutputStream();
-    byte[] buffer = new byte[1024];
-
-    for (int length; (length = inputStream.read(buffer)) != -1; ) {
-      result.write(buffer, 0, length);
-    }
-
-    return result.toString(StandardCharsets.UTF_8);
-  }
 }
