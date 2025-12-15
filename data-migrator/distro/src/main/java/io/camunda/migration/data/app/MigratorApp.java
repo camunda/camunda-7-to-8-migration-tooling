@@ -8,7 +8,6 @@
 package io.camunda.migration.data.app;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.AutoDeployer;
@@ -35,7 +34,6 @@ public class MigratorApp {
   protected static final String ARG_HELP = "help";
   protected static final String ARG_HISTORY_MIGRATION = "history";
   protected static final String ARG_RUNTIME_MIGRATION = "runtime";
-  protected static final String ARG_IDENTITY_MIGRATION = "identity";
   protected static final String ARG_RETRY_SKIPPED = "retry-skipped";
   protected static final String ARG_LIST_SKIPPED = "list-skipped";
   protected static final String ARG_DROP_SCHEMA = "drop-schema";
@@ -44,7 +42,6 @@ public class MigratorApp {
   protected static final Set<String> VALID_FLAGS = Set.of(
       "--" + ARG_RUNTIME_MIGRATION,
       "--" + ARG_HISTORY_MIGRATION,
-      "--" + ARG_IDENTITY_MIGRATION,
       "--" + ARG_LIST_SKIPPED,
       "--" + ARG_RETRY_SKIPPED,
       "--" + ARG_DROP_SCHEMA,
@@ -103,8 +100,8 @@ public class MigratorApp {
       }
     }
 
-    if (!hasArg(ARG_HISTORY_MIGRATION) && !hasArg(ARG_RUNTIME_MIGRATION) && !hasArg(ARG_IDENTITY_MIGRATION)) {
-      throw new IllegalArgumentException("Must specify at least one migration type: use --runtime, --history, --identity or a combination of them.");
+    if (!hasArg(ARG_HISTORY_MIGRATION) && !hasArg(ARG_RUNTIME_MIGRATION)) {
+      throw new IllegalArgumentException("Must specify at least one migration type: use --runtime, --history or a combination of them.");
     }
 
     boolean hasListSkipped = hasArg(ARG_LIST_SKIPPED);
@@ -149,13 +146,12 @@ public class MigratorApp {
 
   protected static void printUsage() {
     System.out.println();
-    System.out.println("Usage: start.sh/bat [--help] [--runtime] [--history] [--identity] [--list-skipped [ENTITY_TYPES...]|--retry-skipped] [--drop-schema|--drop-schema --force]");
+    System.out.println("Usage: start.sh/bat [--help] [--runtime] [--history] [--list-skipped [ENTITY_TYPES...]|--retry-skipped] [--drop-schema|--drop-schema --force]");
     System.out.println("Options:");
     System.out.println("  --help              - Show this help message");
     System.out.println("  --runtime           - Migrate runtime data only");
     System.out.println("  --history           - Migrate history data only. This option is still EXPERIMENTAL and not meant for production use.");
-    System.out.println("  --identity          - Migrate identity data only. This option is still EXPERIMENTAL and not meant for production use.");
-    System.out.println("  --runtime --history --identity - Migrate all data in the specified order");
+    System.out.println("  --runtime --history - Migrate all data in the specified order");
     System.out.println("  --list-skipped [ENTITY_TYPES...]");
     System.out.println("                    - List previously skipped migration data. For history data, optionally specify entity types to filter.");
     System.out.println("                      Filter only applicable with history migration. Available entity types:");
@@ -176,13 +172,12 @@ public class MigratorApp {
   }
 
   protected static boolean hasMigrationFlags(ApplicationArguments appArgs) {
-    return appArgs.containsOption(ARG_RUNTIME_MIGRATION) || appArgs.containsOption(ARG_HISTORY_MIGRATION) || appArgs.containsOption(ARG_IDENTITY_MIGRATION);
+    return appArgs.containsOption(ARG_RUNTIME_MIGRATION) || appArgs.containsOption(ARG_HISTORY_MIGRATION);
   }
 
   protected static void runMigratorsInOrder(ConfigurableApplicationContext context, ApplicationArguments appArgs, MigratorMode mode, String[] args) {
     boolean runtimeAlreadyProcessed = false;
     boolean historyAlreadyProcessed = false;
-    boolean identityAlreadyProcessed = false;
 
     // Run migrators in the order they appear in command line arguments
     for (String arg : args) {
@@ -192,9 +187,6 @@ public class MigratorApp {
       } else if (("--" + ARG_HISTORY_MIGRATION).equals(arg) && !historyAlreadyProcessed) {
         migrateHistory(context, appArgs, mode);
         historyAlreadyProcessed = true;
-      } else if (("--" + ARG_IDENTITY_MIGRATION).equals(arg) && !identityAlreadyProcessed) {
-        migrateIdentity(context, mode);
-        identityAlreadyProcessed = true;
       }
     }
   }
@@ -227,15 +219,6 @@ public class MigratorApp {
     }
 
     historyMigrator.start();
-  }
-
-  public static void migrateIdentity(ConfigurableApplicationContext context, MigratorMode mode) {
-    LOGGER.info("Migrating identity data...");
-    IdentityMigrator identityMigrator = context.getBean(IdentityMigrator.class);
-    if (mode != MigratorMode.MIGRATE) { // Retry covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/440
-      throw new UnsupportedOperationException("Only migrate mode is supported for identity data");
-    }
-    identityMigrator.migrate();
   }
 
   protected static List<IdKeyMapper.TYPE> extractEntityTypeFilters(ApplicationArguments appArgs) {

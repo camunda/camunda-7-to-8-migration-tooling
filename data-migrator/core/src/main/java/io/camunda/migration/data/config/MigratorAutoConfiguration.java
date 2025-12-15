@@ -66,7 +66,6 @@ import org.springframework.transaction.PlatformTransactionManager;
     RuntimeValidator.class,
     HistoryMigrator.class,
     RuntimeMigrator.class,
-    IdentityMigrator.class,
     SchemaShutdownCleaner.class
 })
 @Configuration

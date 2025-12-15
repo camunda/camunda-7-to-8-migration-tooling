@@ -7,8 +7,8 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
-import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.logging.ConfigurationLogs;
+import io.camunda.migration.data.config.property.MigratorProperties;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
@@ -65,16 +65,13 @@ public class AbstractConfiguration {
   }
 
   protected  <T> MapperFactoryBean<T> createMapperFactoryBean(final SqlSessionFactory sqlSessionFactory,
-                                                           final Class<T> clazz) {
+                                                              final Class<T> clazz) {
     final MapperFactoryBean<T> factoryBean = new MapperFactoryBean<>(clazz);
     factoryBean.setSqlSessionFactory(sqlSessionFactory);
     return factoryBean;
   }
 
-  protected MultiTenantSpringLiquibase createSchema(DataSource dataSource,
-                                                    String tablePrefix,
-                                                    String changeLogFile,
-                                                    String userCharColumnSize) {
+  protected MultiTenantSpringLiquibase createSchema(DataSource dataSource, String tablePrefix, String changeLogFile) {
     String prefix = StringUtils.trimToEmpty(tablePrefix);
     ConfigurationLogs.logCreatingTableSchema(changeLogFile, prefix);
 
@@ -82,11 +79,7 @@ public class AbstractConfiguration {
     moduleConfig.setDataSource(dataSource);
     moduleConfig.setDatabaseChangeLogTable(prefix + "DATABASECHANGELOG");
     moduleConfig.setDatabaseChangeLogLockTable(prefix + "DATABASECHANGELOGLOCK");
-    if (StringUtils.isEmpty(userCharColumnSize)) {
-      moduleConfig.setParameters(Map.of("prefix", prefix));
-    } else {
-      moduleConfig.setParameters(Map.of("prefix", prefix, "userCharColumnSize", userCharColumnSize));
-    }
+    moduleConfig.setParameters(Map.of("prefix", prefix));
     moduleConfig.setChangeLog(changeLogFile);
 
     return moduleConfig;

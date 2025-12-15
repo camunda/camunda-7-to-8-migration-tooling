@@ -10,7 +10,6 @@ package io.camunda.migration.data.config.mybatis;
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
-import io.camunda.db.rdbms.read.service.AuditLogDbReader;
 import io.camunda.db.rdbms.read.service.AuthorizationDbReader;
 import io.camunda.db.rdbms.read.service.BatchOperationDbReader;
 import io.camunda.db.rdbms.read.service.BatchOperationItemDbReader;
@@ -21,28 +20,20 @@ import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
 import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
 import io.camunda.db.rdbms.read.service.FormDbReader;
 import io.camunda.db.rdbms.read.service.GroupDbReader;
-import io.camunda.db.rdbms.read.service.GroupMemberDbReader;
 import io.camunda.db.rdbms.read.service.IncidentDbReader;
 import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
-import io.camunda.db.rdbms.read.service.ProcessDefinitionInstanceStatisticsDbReader;
-import io.camunda.db.rdbms.read.service.ProcessDefinitionInstanceVersionStatisticsDbReader;
-import io.camunda.db.rdbms.read.service.ProcessDefinitionMessageSubscriptionStatisticsDbReader;
 import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.RoleDbReader;
-import io.camunda.db.rdbms.read.service.RoleMemberDbReader;
 import io.camunda.db.rdbms.read.service.SequenceFlowDbReader;
 import io.camunda.db.rdbms.read.service.TenantDbReader;
-import io.camunda.db.rdbms.read.service.TenantMemberDbReader;
 import io.camunda.db.rdbms.read.service.UsageMetricTUDbReader;
 import io.camunda.db.rdbms.read.service.UsageMetricsDbReader;
 import io.camunda.db.rdbms.read.service.UserDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
-import io.camunda.db.rdbms.read.service.ClusterVariableDbReader;
-import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.AuthorizationMapper;
 import io.camunda.db.rdbms.sql.BatchOperationMapper;
 import io.camunda.db.rdbms.sql.CorrelatedMessageSubscriptionMapper;
@@ -68,13 +59,10 @@ import io.camunda.db.rdbms.sql.UsageMetricTUMapper;
 import io.camunda.db.rdbms.sql.UserMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
-import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
 import io.camunda.db.rdbms.write.RdbmsWriterMetrics;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.property.MigratorProperties;
-import io.camunda.migration.data.exception.MigratorException;
-import io.camunda.migration.data.impl.logging.ConfigurationLogs;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Properties;
@@ -98,17 +86,10 @@ public class C8Configuration extends AbstractConfiguration {
   protected DataSource dataSource;
 
   @Bean
-  @ConditionalOnProperty(prefix = MigratorProperties.PREFIX
-      + ".c8.data-source", name = "auto-ddl", havingValue = "true")
-  public MultiTenantSpringLiquibase createRdbmsExporterSchema(VendorDatabaseProperties vendorDatabaseProperties) {
-    String userCharColumnSize = "";
-    try {
-      userCharColumnSize = String.valueOf(vendorDatabaseProperties.userCharColumnSize());
-    } catch (Exception e) {
-      throw new MigratorException(ConfigurationLogs.getC8RdbmsUserCharColumnSizeError(), e);
-    }
+  @ConditionalOnProperty(prefix = MigratorProperties.PREFIX + ".c8.data-source", name = "auto-ddl", havingValue = "true")
+  public MultiTenantSpringLiquibase createRdbmsExporterSchema() {
     return createSchema(dataSource, configProperties.getC8().getDataSource().getTablePrefix(),
-        "db/changelog/rdbms-exporter/changelog-master.xml", userCharColumnSize);
+        "db/changelog/rdbms-exporter/changelog-master.xml");
   }
 
   @Bean
@@ -145,11 +126,6 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public MapperFactoryBean<AuthorizationMapper> authorizationMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, AuthorizationMapper.class);
-  }
-
-  @Bean
-  public MapperFactoryBean<AuditLogMapper> auditLogMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
-    return createMapperFactoryBean(c8SqlSessionFactory, AuditLogMapper.class);
   }
 
   @Bean
@@ -200,11 +176,6 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public MapperFactoryBean<VariableMapper> variableMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, VariableMapper.class);
-  }
-
-  @Bean
-  public MapperFactoryBean<ClusterVariableMapper> clusterVariableMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
-    return createMapperFactoryBean(c8SqlSessionFactory, ClusterVariableMapper.class);
   }
 
   @Bean
@@ -288,18 +259,8 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public ClusterVariableDbReader clusterVariableRdbmsReader(ClusterVariableMapper clusterVariableMapper) {
-    return new ClusterVariableDbReader(clusterVariableMapper);
-  }
-
-  @Bean
   public AuthorizationDbReader authorizationReader(AuthorizationMapper authorizationMapper) {
     return new AuthorizationDbReader(authorizationMapper);
-  }
-
-  @Bean
-  public AuditLogDbReader auditLogReader(AuditLogMapper auditLogMapper) {
-    return new AuditLogDbReader(auditLogMapper);
   }
 
   @Bean
@@ -416,47 +377,15 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader( MessageSubscriptionMapper messageSubscriptionMapper) {
-    return new ProcessDefinitionMessageSubscriptionStatisticsDbReader(messageSubscriptionMapper);
-  }
-
-  @Bean
   public CorrelatedMessageSubscriptionDbReader correlatedMessageReader(CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
     return new CorrelatedMessageSubscriptionDbReader(correlatedMessageMapper);
   }
-
-  @Bean
-  public ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
-    return new ProcessDefinitionInstanceStatisticsDbReader(processDefinitionMapper);
-  }
-
-  @Bean
-  public ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
-    return new ProcessDefinitionInstanceVersionStatisticsDbReader(processDefinitionMapper);
-  }
-
-  @Bean
-  public GroupMemberDbReader groupMemberReader(GroupMapper groupMapper) {
-    return new GroupMemberDbReader(groupMapper);
-  }
-
-  @Bean
-  public RoleMemberDbReader roleMemberReader(RoleMapper roleMapper) {
-    return new RoleMemberDbReader(roleMapper);
-  }
-
-  @Bean
-  public TenantMemberDbReader tenantMemberReader(TenantMapper tenantMapper) {
-    return new TenantMemberDbReader(tenantMapper);
-  }
-
 
   @Bean
   public RdbmsWriterFactory rdbmsWriterFactory(
       @Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory,
       ExporterPositionMapper exporterPositionMapper,
       VendorDatabaseProperties dbVendorProvider,
-      AuditLogMapper auditLogMapper,
       DecisionInstanceMapper decisionInstanceMapper,
       FlowNodeInstanceMapper flowNodeInstanceMapper,
       IncidentMapper incidentMapper,
@@ -472,13 +401,11 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricTUMapper usageMetricTUMapper,
       BatchOperationMapper batchOperationMapper,
       MessageSubscriptionMapper messageSubscriptionMapper,
-      CorrelatedMessageSubscriptionMapper correlatedMessageMapper,
-      ClusterVariableMapper clusterVariableMapper) {
+      CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
     return new RdbmsWriterFactory(
         c8SqlSessionFactory,
         exporterPositionMapper,
         dbVendorProvider,
-        auditLogMapper,
         decisionInstanceMapper,
         flowNodeInstanceMapper,
         incidentMapper,
@@ -494,30 +421,24 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricTUMapper,
         batchOperationMapper,
         messageSubscriptionMapper,
-        correlatedMessageMapper,
-        clusterVariableMapper);
+        correlatedMessageMapper);
   }
 
   @Bean
   public RdbmsService rdbmsService(
       RdbmsWriterFactory rdbmsWriterFactory,
-      AuditLogDbReader auditLogReader,
+      VariableDbReader variableReader,
       AuthorizationDbReader authorizationReader,
       DecisionDefinitionDbReader decisionDefinitionReader,
       DecisionInstanceDbReader decisionInstanceReader,
       DecisionRequirementsDbReader decisionRequirementsReader,
       FlowNodeInstanceDbReader flowNodeInstanceReader,
       GroupDbReader groupReader,
-      GroupMemberDbReader groupMemberReader,
       IncidentDbReader incidentReader,
       ProcessDefinitionDbReader processDefinitionReader,
       ProcessInstanceDbReader processInstanceReader,
-      VariableDbReader variableReader,
-      ClusterVariableDbReader clusterVariableReader,
       RoleDbReader roleReader,
-      RoleMemberDbReader roleMemberReader,
       TenantDbReader tenantReader,
-      TenantMemberDbReader tenantMemberReader,
       UserDbReader userReader,
       UserTaskDbReader userTaskReader,
       FormDbReader formReader,
@@ -529,29 +450,21 @@ public class C8Configuration extends AbstractConfiguration {
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
-      ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
-      ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
-      ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader) {
+      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
-        auditLogReader,
         authorizationReader,
         decisionDefinitionReader,
         decisionInstanceReader,
         decisionRequirementsReader,
         flowNodeInstanceReader,
         groupReader,
-        groupMemberReader,
         incidentReader,
         processDefinitionReader,
         processInstanceReader,
         variableReader,
-        clusterVariableReader,
         roleReader,
-        roleMemberReader,
         tenantReader,
-        tenantMemberReader,
         userReader,
         userTaskReader,
         formReader,
@@ -563,10 +476,7 @@ public class C8Configuration extends AbstractConfiguration {
         usageMetricsReader,
         usageMetricTUDbReader,
         messageSubscriptionDbReader,
-        processDefinitionMessageSubscriptionStatisticsDbReader,
-        correlatedMessageDbReader,
-        processDefinitionInstanceStatisticsDbReader,
-        processDefinitionInstanceVersionStatisticsDbReader);
+        correlatedMessageDbReader);
   }
 
 }
