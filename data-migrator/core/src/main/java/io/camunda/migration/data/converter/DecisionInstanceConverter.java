@@ -21,6 +21,9 @@ import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
 import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.camunda.bpm.model.dmn.instance.Decision;
+import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 
 public class DecisionInstanceConverter {
 
@@ -35,7 +38,8 @@ public class DecisionInstanceConverter {
                                        Long processInstanceKey,
                                        Long rootDecisionDefinitionKey,
                                        Long flowNodeInstanceKey,
-                                       String flowNodeId) {
+                                       String flowNodeId,
+                                       DmnModelInstance dmnModelInstance) {
 
     long decisionInstanceKey = Long.parseLong(decisionInstanceId.split("-")[0]);
 
@@ -58,12 +62,26 @@ public class DecisionInstanceConverter {
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
         .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
         .result(null)
-        .decisionType(null) // LITERAL_EXPRESSION, DECISION_TABLE
+        .decisionType(determineDecisionType(dmnModelInstance, decisionInstance.getDecisionDefinitionKey()))
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .evaluatedInputs(mapInputs(decisionInstanceId, decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstanceId, decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .build();
+  }
+
+  protected DecisionInstanceEntity.DecisionDefinitionType determineDecisionType(DmnModelInstance dmnModelInstance,
+                                                                                String decisionDefinitionId) {
+    Decision decision = dmnModelInstance.getModelElementById(decisionDefinitionId);
+    if (decision == null) {
+      return null;
+    }
+
+    if (decision.getExpression() instanceof LiteralExpression) {
+      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
+    } else {
+      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
+    }
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
@@ -82,6 +100,6 @@ public class DecisionInstanceConverter {
         output.getClauseName(),
         variableService.convertValue((ValueFields) output),
         output.getRuleId(),
-        output.getRuleOrder())).toList();
+        output.getRuleOrder() != null ? output.getRuleOrder() : 1)).toList();
   }
 }

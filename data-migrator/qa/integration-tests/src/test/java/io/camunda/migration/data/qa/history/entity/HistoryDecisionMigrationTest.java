@@ -146,7 +146,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions.getFirst().decisionDefinitionKey());
       assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDecisionId");
       assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(instance.decisionDefinitionType()).isNull();
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
       assertThat(instance.result()).isNull();
       assertThat(instance.rootDecisionDefinitionKey()).isNull();
 
@@ -201,6 +201,46 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     List<DecisionInstanceEntity> instances2 = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
     assertThat(instances1).singleElement();
     assertThat(instances2).singleElement();
+  }
+
+  @Test
+  public void shouldMigrateHistoricDecisionInstanceWithLiteralExpression() {
+    // given
+    deployer.deployCamunda7Decision("literalExpressionDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleLiteralExpressionProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("businessRuleLiteralExpressionProcessId");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("literalExpressionDecisionId");
+    assertThat(migratedInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
+    });
+  }
+
+  @Test
+  public void shouldMigrateHistoricDecisionInstancesWithMixedDecisionTypes() {
+    // given
+    deployer.deployCamunda7Decision("mixedDecisionTypesDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleMixedTypesProcess.bpmn");
+    Map<String, Object> variables = Variables.createVariables().putValue("inputA", stringValue("A"));
+    runtimeService.startProcessInstanceByKey("businessRuleMixedTypesProcessId", variables);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> decisionTableInstances = searchHistoricDecisionInstances("decisionTableInMixedId");
+    assertThat(decisionTableInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
+    });
+
+    List<DecisionInstanceEntity> literalExpressionInstances = searchHistoricDecisionInstances("literalExpressionInMixedId");
+    assertThat(literalExpressionInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
+    });
   }
 
   @Test
