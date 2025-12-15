@@ -23,4 +23,5 @@ public class C8ClientLogs {
   public static final String FAILED_TO_MODIFY_PROCESS_INSTANCE = "Failed to modify process instance with activation for key: ";
   public static final String FAILED_TO_SEARCH_PROCESS_DEFINITIONS = "Process definition search failed for processDefinitionId: ";
   public static final String FAILED_TO_MIGRATE_TENANT = "Failed to migrate tenant with ID: ";
+  public static final String FAILED_TO_MIGRATE_AUTHORIZATION = "Failed to migrate authorization with legacy ID: ";
 }
