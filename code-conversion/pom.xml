@@ -9,7 +9,7 @@
     </parent>
 
     <groupId>io.camunda</groupId>
-    <artifactId>camunda-7-to-8-rewrite-recipes-root</artifactId>
+    <artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
     <packaging>pom</packaging>
 
     <modules>
