@@ -58,15 +58,13 @@ public class DecisionInstanceConverter implements EntityInterceptor {
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
-        .decisionType(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
         .result(null)
-        .decisionType(null) // LITERAL_EXPRESSION, DECISION_TABLE
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
-    // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey,
+    // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey, decisionType
     // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
   }
 
