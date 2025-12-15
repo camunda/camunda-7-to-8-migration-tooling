@@ -492,19 +492,6 @@ public class C7Client {
         .callback(callback);
   }
 
-  /**
-   * Fetches tenant entities
-   */
-  public List<Tenant> fetchTenants(String idAfter) {
-    return callApi(() -> (
-        (TenantQueryImpl) identityService.createTenantQuery())
-        .idAfter(idAfter)
-        .orderByTenantId()
-        .asc()
-        .list(),
-        FAILED_TO_FETCH_TENANTS);
-  }
-
   public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {
     HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
         .rootDecisionInstanceId(rootDecisionInstanceId)

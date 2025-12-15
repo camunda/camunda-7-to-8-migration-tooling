@@ -12,7 +12,6 @@ import static io.camunda.migration.data.config.property.MigratorProperties.DataS
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
-import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.EntityConversionService;
 import io.camunda.migration.data.impl.SchemaShutdownCleaner;
 import io.camunda.migration.data.impl.AutoDeployer;
