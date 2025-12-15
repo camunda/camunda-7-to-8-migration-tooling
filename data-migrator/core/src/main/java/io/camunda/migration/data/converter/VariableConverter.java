@@ -7,32 +7,22 @@
  */
 package io.camunda.migration.data.converter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.constants.MigratorConstants;
 import io.camunda.migration.data.exception.EntityInterceptorException;
-import io.camunda.migration.data.impl.logging.VariableConverterLogs;
-import io.camunda.migration.data.impl.util.ConverterUtil;
-
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.util.ConverterUtil;
-import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
-
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.camunda.bpm.engine.variable.impl.value.NullValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.ObjectValueImpl;
-import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.Set;
+import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 @Order(5)
 @Component
@@ -48,7 +38,7 @@ public class VariableConverter implements EntityInterceptor {
 
   @Override
   public void execute(EntityConversionContext<?, ?> context) {
-    HistoricVariableInstance historicVariable = (HistoricVariableInstance) context.getC7Entity();
+    HistoricVariableInstanceEntity historicVariable = (HistoricVariableInstanceEntity) context.getC7Entity();
     VariableDbModel.VariableDbModelBuilder builder =
         (VariableDbModel.VariableDbModelBuilder) context.getC8DbModelBuilder();
 
@@ -56,7 +46,6 @@ public class VariableConverter implements EntityInterceptor {
       throw new EntityInterceptorException("C8 VariableDbModel.VariableDbModelBuilder is null in context");
     }
 
-    // TODO currently the VariableDbModelBuilder maps all variables to String type
     builder.variableKey(getNextKey())
         .name(historicVariable.getName())
         .value(variableService.convertValue(historicVariable))

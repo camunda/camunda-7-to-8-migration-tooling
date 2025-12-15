@@ -49,11 +49,8 @@ public class DecisionInstanceConverter implements EntityInterceptor {
       throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
     }
 
-    long decisionInstanceKey = Long.parseLong(decisionInstance.getId().split("-")[0]);
 
     builder.partitionId(C7_HISTORY_PARTITION_ID)
-        .decisionInstanceId(String.format("%d-%s", decisionInstanceKey, decisionInstance.getId()))
-        .decisionInstanceKey(decisionInstanceKey)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
