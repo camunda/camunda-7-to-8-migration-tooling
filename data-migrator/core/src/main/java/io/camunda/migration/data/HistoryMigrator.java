@@ -321,7 +321,8 @@ public class HistoryMigrator {
 
   protected void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) {
     if (c7DecisionInstance.getProcessDefinitionKey() == null) {
-      // only migrate decision instances that were triggered by process definitions. To be addressed with #634
+      // only migrate decision instances that were triggered by process definitions.
+      // TODO To be addressed with #634
       HistoryMigratorLogs.notMigratingDecisionInstancesNotOriginatingFromBusinessRuleTasks(c7DecisionInstance.getId());
       return;
     }
@@ -376,17 +377,19 @@ public class HistoryMigrator {
         c7Client.findChildDecisionInstances(c7DecisionInstance.getId());
     for (int i = 0; i < childDecisionInstances.size(); i++) {
       HistoricDecisionInstance childDecisionInstance = childDecisionInstances.get(i);
-      DecisionDefinitionEntity decisionDefinition =
-          findDecisionDefinition(childDecisionInstance.getDecisionDefinitionId());
-      String childDecisionInstanceId =
-          // +2 because +1 is used for the parent decision instance
-          String.format("%s-%d", c8ParentDecisionInstanceModel.decisionInstanceKey(), i + 2);
-      DecisionInstanceDbModel childDbModel = decisionInstanceConverter.apply(childDecisionInstance,
-          childDecisionInstanceId, decisionDefinition.decisionDefinitionKey(),
-          c8ParentDecisionInstanceModel.processDefinitionKey(), decisionDefinition.decisionRequirementsKey(),
-          c8ParentDecisionInstanceModel.processInstanceKey(), parentDecisionDefinitionKey,
-          c8ParentDecisionInstanceModel.flowNodeInstanceKey(), c8ParentDecisionInstanceModel.flowNodeId());
-      c8Client.insertDecisionInstance(childDbModel);
+      if (shouldMigrate(childDecisionInstance.getId(), TYPE.HISTORY_DECISION_INSTANCE)) {
+        DecisionDefinitionEntity decisionDefinition = findDecisionDefinition(
+            childDecisionInstance.getDecisionDefinitionId());
+        String childDecisionInstanceId =
+            // +2 because +1 is used for the parent decision instance
+            String.format("%s-%d", c8ParentDecisionInstanceModel.decisionInstanceKey(), i + 2);
+        DecisionInstanceDbModel childDbModel = decisionInstanceConverter.apply(childDecisionInstance,
+            childDecisionInstanceId, decisionDefinition.decisionDefinitionKey(),
+            c8ParentDecisionInstanceModel.processDefinitionKey(), decisionDefinition.decisionRequirementsKey(),
+            c8ParentDecisionInstanceModel.processInstanceKey(), parentDecisionDefinitionKey,
+            c8ParentDecisionInstanceModel.flowNodeInstanceKey(), c8ParentDecisionInstanceModel.flowNodeId());
+        c8Client.insertDecisionInstance(childDbModel);
+      }
     }
   }
 
