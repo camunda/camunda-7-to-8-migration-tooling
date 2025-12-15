@@ -78,6 +78,9 @@ import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.camunda.bpm.model.dmn.instance.Decision;
+import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
@@ -244,8 +247,7 @@ public class HistoryMigrator {
               parentProcessInstanceKey = parentInstance.processInstanceKey();
             }
           }
-          processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey)
-              .processDefinitionId(c7ProcessInstance.getProcessDefinitionKey());
+          processInstanceDbModelBuilder.processDefinitionId(c7ProcessInstance.getProcessDefinitionKey());
           if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
             processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
             ProcessInstanceDbModel dbModel = convertProcessInstance(context);
@@ -265,7 +267,7 @@ public class HistoryMigrator {
               SKIP_REASON_MISSING_PROCESS_DEFINITION);
           HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
         }
-      } catch (EntityInterceptorException e) {
+      } catch (EntityInterceptorException | VariableInterceptorException e) {
         handleInterceptorException(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE,
             c7ProcessInstance.getStartTime(), e);
       }
@@ -1266,4 +1268,19 @@ public class HistoryMigrator {
     HistoryMigratorLogs.stacktrace(e);
     markSkipped(c7Id, type, time, e.getMessage());
   }
+
+  protected DecisionInstanceEntity.DecisionDefinitionType determineDecisionType(DmnModelInstance dmnModelInstance,
+                                                                                String decisionDefinitionId) {
+    Decision decision = dmnModelInstance.getModelElementById(decisionDefinitionId);
+    if (decision == null) {
+      return null;
+    }
+
+    if (decision.getExpression() instanceof LiteralExpression) {
+      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
+    } else {
+      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
+    }
+  }
+
 }
