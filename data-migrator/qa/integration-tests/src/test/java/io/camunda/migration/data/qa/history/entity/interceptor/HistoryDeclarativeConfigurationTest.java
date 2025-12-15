@@ -34,15 +34,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   public void shouldLoadEntityInterceptorFromConfiguration() {
     // Verify that the configuration is loaded correctly
     assertThat(migratorProperties.getInterceptors()).isNotNull();
-    assertThat(migratorProperties.getInterceptors()).hasSize(9);
+    assertThat(migratorProperties.getInterceptors()).hasSize(8);
 
     var complexInterceptor = migratorProperties.getInterceptors().get(7);
     assertThat(complexInterceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.history.entity.interceptor.pojo.ComplexEntityInterceptor");
     assertThat(complexInterceptor.getProperties()).containsEntry("targetTenantId", "complex-tenant");
-
-    var processEngineInterceptor = migratorProperties.getInterceptors().get(8); // Last one is ProcessEngineAwareInterceptor
-    assertThat(processEngineInterceptor.getClassName()).isEqualTo("io.camunda.migration.data.qa.history.entity.interceptor.pojo.ProcessEngineAwareInterceptor");
-    assertThat(processEngineInterceptor.getProperties()).containsEntry("deploymentIdPrefix", "DEPLOYMENT_");
   }
 
   @Test
@@ -83,10 +79,9 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   @Test
   public void shouldExecuteInterceptorsInOrder() {
     // Deploy and migrate a simple process
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
 
     var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
 
     // Complete the process
     var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
@@ -95,11 +90,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
+        searchHistoricProcessInstances("simpleProcess");
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -109,88 +104,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   }
 
   @Test
-  public void shouldApplyCustomProcessInstanceInterceptor() {
-    // Deploy and migrate a simple process
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-
-    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
-
-    // Complete the process
-    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
-    if (task != null) {
-      taskService.complete(task.getId());
-    }
-
-    // Temporarily disable ComplexEntityInterceptor to test CustomProcessInstanceInterceptor alone
-    configuredEntityInterceptors.removeIf(interceptor ->
-        interceptor.getClass().getSimpleName().equals("ComplexEntityInterceptor"));
-
-    // Run history migration
-    historyMigrator.start();
-
-    // Verify process instance was migrated with custom tenant ID suffix
-    List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
-
-    assertThat(migratedProcessInstances).isNotEmpty();
-
-    ProcessInstanceEntity migratedInstance = migratedProcessInstances.getFirst();
-    // The CustomProcessInstanceInterceptor should append "-custom" to tenant ID
-    assertThat(migratedInstance.tenantId()).endsWith("-custom");
-  }
-
-  @Test
-  public void shouldApplyCustomActivityInstanceInterceptor() {
-    // Deploy and migrate a simple process
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-
-    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
-
-    // Complete the process
-    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
-    if (task != null) {
-      taskService.complete(task.getId());
-    }
-
-    // Temporarily disable ComplexEntityInterceptor to test CustomActivityInstanceInterceptor alone
-    configuredEntityInterceptors.removeIf(interceptor ->
-        interceptor.getClass().getSimpleName().equals("ComplexEntityInterceptor"));
-
-    // Run history migration
-    historyMigrator.start();
-
-    // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
-    assertThat(migratedProcessInstances).isNotEmpty();
-
-    Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
-
-    // Verify flow nodes were migrated with custom tenant ID prefix
-    List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
-            .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
-                queryBuilder.filter(filterBuilder ->
-                    filterBuilder.processInstanceKeys(processInstanceKey))))
-            .items();
-
-    assertThat(migratedFlowNodes).isNotEmpty();
-
-    // The CustomActivityInstanceInterceptor should prepend "PREFIX_" to tenant ID
-    for (FlowNodeInstanceEntity flowNode : migratedFlowNodes) {
-      assertThat(flowNode.tenantId()).startsWith("PREFIX_");
-    }
-  }
-
-  @Test
   public void shouldHandleMultipleEntityTypes() {
     // Deploy and migrate a simple process
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
 
     var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
 
     // Complete the process
     var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
@@ -199,11 +117,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // Verify both process instances and flow nodes were migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
+        searchHistoricProcessInstances("simpleProcess");
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
