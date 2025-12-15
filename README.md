@@ -80,6 +80,28 @@ Every source file must contain the license header. See [license header template]
 5. Update documentation if needed
 6. Submit a pull request with a clear description
 
+### CI Labels for Pull Requests
+
+The CI workflow can be controlled using labels on pull requests to run tests only for specific tooling components:
+
+- **No labels** (default): Runs data-migrator CI (distro, e2e, and all integration tests)
+- **`ci:data-migrator`**: Explicitly runs data-migrator CI (same as default)
+- **`ci:model-converter`**: Runs only model-converter tests
+- **`ci:code-conversion`**: Runs only code-conversion tests
+
+You can combine multiple tooling labels to run tests for multiple components.
+
+#### Data Migrator Test Scope Labels
+
+When data-migrator tests are running, you can further control which integration tests run:
+
+- **No scope labels** (default): Runs all integration tests (runtime, history, and identity)
+- **`ci:runtime`**: Runs only runtime integration tests
+- **`ci:history`**: Runs only history integration tests
+- **`ci:identity`**: Runs only identity integration tests
+
+**Note**: On `push` to `main`, scheduled runs, or manual workflow dispatch, all jobs run regardless of labels.
+
 ## License
 
 The source files in this repository are made available under the [Camunda License Version 1.0](./CAMUNDA-LICENSE-1.0.txt).
