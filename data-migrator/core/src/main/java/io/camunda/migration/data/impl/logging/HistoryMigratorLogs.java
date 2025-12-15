@@ -52,7 +52,6 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = SKIPPING_DECISION_INSTANCE + "Process instance not yet available.";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE = SKIPPING_DECISION_INSTANCE + "Flow node instance not yet available.";
-  public static final String SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR = SKIPPING_DECISION_INSTANCE + "Variable interceptor error: {}";
   public static final String NOT_MIGRATING_DECISION_INSTANCE = "Not migrating historic decision instance with "
       + "C7 ID: [{}] because it does not originate from a business rule task.";
 
@@ -88,7 +87,7 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
 
-  public static final String SKIPPING_ENTITY_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
+  public static final String SKIPPING_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
 
   public static void migratingDecisionDefinitions() {
     LOGGER.info(MIGRATING_DEFINITIONS, "decision");
@@ -172,10 +171,6 @@ public class HistoryMigratorLogs {
 
   public static void skippingDecisionInstanceDueToMissingFlowNodeInstanceInstance(String c7DecisionInstanceId) {
     LOGGER.debug(SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE, c7DecisionInstanceId);
-  }
-
-  public static void skippingDecisionInstanceDueToInterceptorError(String c7DecisionInstanceId, String message) {
-    LOGGER.warn(SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR, c7DecisionInstanceId, message);
   }
 
   public static void migratingHistoricIncidents() {
@@ -279,6 +274,6 @@ public class HistoryMigratorLogs {
   }
 
   public static void skippingEntityDueToInterceptorError(IdKeyMapper.TYPE type, String c7DecisionInstanceId, String message) {
-    LOGGER.warn(SKIPPING_ENTITY_INTERCEPTOR_ERROR, type, c7DecisionInstanceId, message);
+    LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, type, c7DecisionInstanceId, message);
   }
 }
