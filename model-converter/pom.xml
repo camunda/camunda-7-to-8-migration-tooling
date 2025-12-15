@@ -27,7 +27,7 @@
     <version.slack-api-client>1.46.0</version.slack-api-client>
     <version.opencsv>5.12.0</version.opencsv>
     <version.grpc>1.77.0</version.grpc>
-    <version.protobuf>3.25.8</version.protobuf>
+    <version.protobuf>4.33.2</version.protobuf>
     <version.java-jwt>4.5.0</version.java-jwt>
     <version.archunit>1.4.1</version.archunit>
     <version.apache-poi>5.5.1</version.apache-poi>
