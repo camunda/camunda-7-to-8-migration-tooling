@@ -217,10 +217,6 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_VARIABLE_MISSING_SCOPE, c7VariableId);
   }
 
-  public static void skippingHistoricVariableDueToInterceptorError(String c7VariableId, String message) {
-    LOGGER.warn(SKIPPING_VARIABLE_INTERCEPTOR_ERROR, c7VariableId, message);
-  }
-
   public static void stacktrace(Exception e) {
     LOGGER.debug(STACKTRACE, e);
   }
