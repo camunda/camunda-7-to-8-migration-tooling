@@ -22,7 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(1)
+@Component
 public class ProcessDefinitionConverter implements EntityInterceptor {
 
   @Autowired

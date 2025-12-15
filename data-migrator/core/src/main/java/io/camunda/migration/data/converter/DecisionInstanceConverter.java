@@ -22,7 +22,11 @@ import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(11)
+@Component
 public class DecisionInstanceConverter implements EntityInterceptor {
 
   @Override

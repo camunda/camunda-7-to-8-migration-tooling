@@ -13,6 +13,9 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 public class ProcessEngineAwareInterceptor implements EntityInterceptor {
   protected String deploymentIdPrefix = "DEPLOYMENT_";

@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -22,33 +23,30 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     // Add a POJO interceptor via configuration
     "camunda.migrator.interceptors[0].className=io.camunda.migration.data.qa.history.entity.interceptor.pojo.CustomProcessInstanceInterceptor",
-    "camunda.migrator.interceptors[0].properties.tenantIdSuffix=-mixed"
-})
+    "camunda.migrator.interceptors[0].properties.tenantIdSuffix=-mixed",
+    "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.DisabledCustomInterceptor",
+    "camunda.migrator.interceptors[1].enabled=false", })
+@WithSpringProfile("entity-interceptor")
 @ActiveProfiles("entity-programmatic")
-public class HisstoryMixedConfigurationTest extends HistoryMigrationAbstractTest {
+public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
 
-  @Autowired
-  protected ProcessInstanceInterceptor processInstanceInterceptor;
-
   @Test
   public void shouldCombineBeanAndPojoInterceptors() {
     // Verify that both bean and POJO interceptors are present
-    assertThat(configuredEntityInterceptors)
-        .anyMatch(interceptor -> interceptor instanceof ProcessInstanceInterceptor);
-    assertThat(configuredEntityInterceptors)
-        .anyMatch(interceptor -> interceptor.getClass().getSimpleName().equals("CustomProcessInstanceInterceptor"));
+    assertThat(configuredEntityInterceptors).anyMatch(interceptor -> interceptor instanceof ProcessInstanceInterceptor);
+    assertThat(configuredEntityInterceptors).anyMatch(
+        interceptor -> interceptor.getClass().getSimpleName().equals("CustomProcessInstanceInterceptor"));
   }
 
   @Test
   public void shouldExecuteBothInterceptorTypes() {
     // Deploy and migrate a simple process
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
 
     var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    repositoryService.activateProcessDefinitionByKey("simpleProcess", false, null);
 
     // Complete the process
     var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
@@ -60,8 +58,7 @@ public class HisstoryMixedConfigurationTest extends HistoryMigrationAbstractTest
     historyMigrator.migrate();
 
     // Verify process instance was migrated
-    List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances(processInstance.getProcessDefinitionId());
+    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess");
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

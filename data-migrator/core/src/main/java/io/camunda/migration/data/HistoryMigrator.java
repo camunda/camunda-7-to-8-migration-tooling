@@ -242,9 +242,10 @@ public class HistoryMigrator {
               parentProcessInstanceKey = parentInstance.processInstanceKey();
             }
           }
+          processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey)
+              .processDefinitionId(c7ProcessInstance.getProcessDefinitionKey());
           if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
-            processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey)
-                .processDefinitionKey(processDefinitionKey);
+            processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
             ProcessInstanceDbModel dbModel = convertProcessInstance(context);
             insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
           } else {

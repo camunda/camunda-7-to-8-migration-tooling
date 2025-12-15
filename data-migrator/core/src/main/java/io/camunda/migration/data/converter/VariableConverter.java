@@ -23,10 +23,14 @@ import org.camunda.bpm.engine.variable.impl.value.PrimitiveTypeValueImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
+@Order(5)
+@Component
 public class VariableConverter implements EntityInterceptor {
 
   @Autowired

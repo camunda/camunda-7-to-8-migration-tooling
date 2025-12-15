@@ -20,9 +20,12 @@ import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(2)
+@Component
 public class ProcessInstanceConverter implements EntityInterceptor {
-
 
   @Override
   public Set<Class<?>> getTypes() {

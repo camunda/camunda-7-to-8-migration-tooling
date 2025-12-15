@@ -14,10 +14,13 @@ import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import org.camunda.bpm.engine.repository.DecisionDefinition;
-
 import java.util.Set;
+import org.camunda.bpm.engine.repository.DecisionDefinition;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
+@Order(10)
+@Component
 public class DecisionDefinitionConverter implements EntityInterceptor {
 
   @Override
