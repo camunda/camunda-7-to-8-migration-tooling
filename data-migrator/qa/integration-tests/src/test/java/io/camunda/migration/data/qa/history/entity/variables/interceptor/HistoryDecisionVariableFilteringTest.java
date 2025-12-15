@@ -25,9 +25,8 @@ import org.springframework.test.context.TestPropertySource;
 
 
 @TestPropertySource(properties = {
-    "camunda.migrator.interceptors[0].class-name=io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DecisionVariableOnlyInterceptor"
+    "camunda.migrator.interceptors[0].class-name=io.camunda.migration.data.qa.history.entity.variables.interceptor.pojo.DecisionVariableOnlyInterceptor"
 })
-@Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/523")
 public class HistoryDecisionVariableFilteringTest extends AbstractMigratorTest {
 
   @RegisterExtension
