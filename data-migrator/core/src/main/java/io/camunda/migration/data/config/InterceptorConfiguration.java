@@ -220,10 +220,10 @@ public class InterceptorConfiguration {
       Class<T> interceptorType) throws Exception {
     String className = interceptorConfig.getClassName();
     if (className == null || className.trim().isEmpty()) {
-      throw new IllegalArgumentException(ConfigurationLogs.getClassNameNullOrEmptyError() );
+      throw new IllegalArgumentException(ConfigurationLogs.getClassNameNullOrEmptyError());
     }
 
-    ConfigurationLogs.logCreatingInstance(className);
+    ConfigurationLogs.logCreatingInstance(interceptorType.getSimpleName(), className);
 
     Class<?> clazz = Class.forName(className);
     if (!interceptorType.isAssignableFrom(clazz)) {
@@ -236,7 +236,7 @@ public class InterceptorConfiguration {
     // Set properties if provided
     Map<String, Object> properties = interceptorConfig.getProperties();
     if (properties != null && !properties.isEmpty()) {
-      ConfigurationLogs.logSettingProperties(className);
+      ConfigurationLogs.logSettingProperties(interceptorType.getSimpleName(), className);
       applyProperties(interceptor, properties, false);
     }
 

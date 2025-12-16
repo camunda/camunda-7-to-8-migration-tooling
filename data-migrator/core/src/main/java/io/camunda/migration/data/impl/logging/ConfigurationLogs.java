@@ -33,7 +33,7 @@ public class ConfigurationLogs {
 
   // Debug Messages
   public static final String DEBUG_NO_INTERCEPTORS = "No interceptors configured in configuration file";
-  public static final String DEBUG_CREATING_INSTANCE = "Creating {} interceptor instance for class: {}";
+  public static final String DEBUG_CREATING_INSTANCE = "Creating {} instance for class: {}";
   public static final String DEBUG_SETTING_PROPERTIES = "Setting properties for {} interceptor: {}";
 
   /**
@@ -81,19 +81,21 @@ public class ConfigurationLogs {
   /**
    * Logs the creation of an interceptor instance.
    *
+   * @param type      the type of the interceptor being created
    * @param className the class name of the interceptor being created
    */
-  public static void logCreatingInstance(String className) {
-    LOGGER.debug(DEBUG_CREATING_INSTANCE, className);
+  public static void logCreatingInstance(String type, String className) {
+    LOGGER.debug(DEBUG_CREATING_INSTANCE, type, className);
   }
 
   /**
    * Logs when setting properties for an interceptor.
    *
+   * @param type      the type of the interceptor being created
    * @param className the class name of the interceptor
    */
-  public static void logSettingProperties(String className) {
-    LOGGER.debug(DEBUG_SETTING_PROPERTIES, className);
+  public static void logSettingProperties(String type, String className) {
+    LOGGER.debug(DEBUG_SETTING_PROPERTIES, type, className);
   }
 
   /**
@@ -159,7 +161,7 @@ public class ConfigurationLogs {
    * @return the formatted error message
    */
   public static String getFailedToRegisterError(String className) {
-    return String.format(ERROR_FAILED_TO_REGISTER + className);
+    return ERROR_FAILED_TO_REGISTER + className;
   }
 
   /**
