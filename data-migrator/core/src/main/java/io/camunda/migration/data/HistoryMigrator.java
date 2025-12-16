@@ -542,10 +542,11 @@ public class HistoryMigrator {
 
         // Generate decision instance key and finalize model
         Long decisionInstanceKey = getNextKey();
+        String decisionInstanceId = String.format("%s-%d", decisionInstanceKey, 1);
         DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(c7DecisionInstance.getDecisionDefinitionId());
 
-        decisionInstanceDbModelBuilder.decisionInstanceKey(Long.valueOf(String.format("%s-%d", decisionInstanceKey, 1)))
-            .decisionInstanceKey(Long.valueOf(String.format("%s-%d", decisionInstanceKey, 1)))
+        decisionInstanceDbModelBuilder.decisionInstanceId(decisionInstanceId)
+            .decisionInstanceKey(Long.parseLong(decisionInstanceId.split("-")[0]))
             .decisionType(determineDecisionType(dmnModelInstance, c7DecisionInstance.getDecisionDefinitionKey()));
 
 
