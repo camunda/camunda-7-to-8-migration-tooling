@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -23,7 +23,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 @Order(7)
 @Component
-public class IncidentConverter implements EntityInterceptor {
+public class IncidentTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {

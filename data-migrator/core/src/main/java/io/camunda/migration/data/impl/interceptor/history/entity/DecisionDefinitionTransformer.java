@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 @Order(10)
 @Component
-public class DecisionDefinitionConverter implements EntityInterceptor {
+public class DecisionDefinitionTransformer implements EntityInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {

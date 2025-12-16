@@ -5,20 +5,15 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
-import io.camunda.migration.data.impl.logging.ProcessDefinitionConverterLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +22,7 @@ import org.springframework.stereotype.Component;
 
 @Order(1)
 @Component
-public class ProcessDefinitionConverter implements EntityInterceptor {
+public class ProcessDefinitionTransformer implements EntityInterceptor {
 
   @Autowired
   protected C7Client c7Client;

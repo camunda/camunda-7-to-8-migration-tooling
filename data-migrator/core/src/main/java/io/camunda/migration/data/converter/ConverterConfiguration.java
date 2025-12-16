@@ -7,6 +7,15 @@
  */
 package io.camunda.migration.data.converter;
 
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionRequirementsDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.IncidentTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.UserTaskTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.VariableTransformer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,48 +23,48 @@ import org.springframework.context.annotation.Configuration;
 public class ConverterConfiguration {
 
   @Bean
-  public DecisionDefinitionConverter decisionDefinitionConverter() {
-    return new DecisionDefinitionConverter();
+  public DecisionDefinitionTransformer decisionDefinitionConverter() {
+    return new DecisionDefinitionTransformer();
   }
 
   @Bean
-  public DecisionRequirementsDefinitionConverter decisionRequirementsDefinitionConverter() {
-    return new DecisionRequirementsDefinitionConverter();
+  public DecisionRequirementsDefinitionTransformer decisionRequirementsDefinitionConverter() {
+    return new DecisionRequirementsDefinitionTransformer();
   }
 
   @Bean
-  public DecisionInstanceConverter decisionInstanceConverter() {
-    return new DecisionInstanceConverter();
+  public DecisionInstanceTransformer decisionInstanceConverter() {
+    return new DecisionInstanceTransformer();
   }
 
   @Bean
-  public FlowNodeConverter flowNodeConverter() {
-    return new FlowNodeConverter();
+  public FlowNodeTransformer flowNodeConverter() {
+    return new FlowNodeTransformer();
   }
 
   @Bean
-  public IncidentConverter incidentConverter() {
-    return new IncidentConverter();
+  public IncidentTransformer incidentConverter() {
+    return new IncidentTransformer();
   }
 
   @Bean
-  public ProcessDefinitionConverter processDefinitionConverter() {
-    return new ProcessDefinitionConverter();
+  public ProcessDefinitionTransformer processDefinitionConverter() {
+    return new ProcessDefinitionTransformer();
   }
 
   @Bean
-  public ProcessInstanceConverter processInstanceConverter() {
-    return new ProcessInstanceConverter();
+  public ProcessInstanceTransformer processInstanceConverter() {
+    return new ProcessInstanceTransformer();
   }
 
   @Bean
-  public UserTaskConverter userTaskConverter() {
-    return new UserTaskConverter();
+  public UserTaskTransformer userTaskConverter() {
+    return new UserTaskTransformer();
   }
 
   @Bean
-  public VariableConverter variableConverter() {
-    return new VariableConverter();
+  public VariableTransformer variableConverter() {
+    return new VariableTransformer();
   }
 
 }

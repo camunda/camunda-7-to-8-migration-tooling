@@ -9,13 +9,12 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.converter.ProcessInstanceConverter;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ActivityInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.UniversalEntityInterceptor;
-import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +62,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
   public void shouldDisableBuiltInConverter() {
     // Verify built-in ProcessInstanceConverter is disabled
     long disabledConverters = configuredEntityInterceptors.stream()
-        .filter(interceptor -> interceptor instanceof ProcessInstanceConverter)
+        .filter(interceptor -> interceptor instanceof ProcessInstanceTransformer)
         .count();
 
     assertThat(disabledConverters).isEqualTo(0); // Should be removed from context when disabled

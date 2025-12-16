@@ -10,8 +10,8 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
-import io.camunda.migration.data.converter.FlowNodeConverter;
-import io.camunda.migration.data.converter.ProcessInstanceConverter;
+import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
@@ -45,11 +45,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   public void shouldDisableBuiltInInterceptorsViaConfig() {
     // Verify that built-in interceptors specified as disabled are not in the context
     long disabledProcessInstanceConverters = configuredEntityInterceptors.stream()
-        .filter(interceptor -> interceptor instanceof ProcessInstanceConverter)
+        .filter(interceptor -> interceptor instanceof ProcessInstanceTransformer)
         .count();
 
     long disabledFlowNodeConverters = configuredEntityInterceptors.stream()
-        .filter(interceptor -> interceptor instanceof FlowNodeConverter)
+        .filter(interceptor -> interceptor instanceof FlowNodeTransformer)
         .count();
 
     assertThat(disabledProcessInstanceConverters).isEqualTo(0);

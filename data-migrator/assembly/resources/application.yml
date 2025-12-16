@@ -30,17 +30,22 @@ camunda:
     ## Optional property to configure if the migrator schema is created on `C7` or `C8`. Default is 'C7'.
     #data-source: C7
     #
-    ## Variable interceptor plugins configuration
+    ## Interceptor plugins configuration (variable and entity interceptors)
     ## These plugins can be packaged in JARs and dropped in the ./configuration/userlib/ folder
     #interceptors:
+    #  # Variable interceptors
     #  - class-name: io.camunda.migration.data.impl.interceptor.ByteArrayVariableValidator
     #    # Disable built-in interceptors by setting enabled to false
     #    enabled: false
+    #  # Entity transformers
+    #  - class-name: io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer
+    #    enabled: false
+    #  # Custom interceptors
     #  - class-name: com.example.MyCustomVariableInterceptor
     #    properties:
     #      someProperty: someValue
     #      anotherProperty: anotherValue
-    #  - class-name: com.example.AnotherVariableInterceptor
+    #  - class-name: com.example.AnotherInterceptor
     #
     ## Job type for actual job activation (used for validation and activation unless validation-job-type is defined)
     #job-type: migrator

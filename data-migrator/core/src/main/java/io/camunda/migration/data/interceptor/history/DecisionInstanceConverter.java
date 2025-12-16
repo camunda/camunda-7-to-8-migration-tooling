@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.interceptor.history;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
@@ -15,57 +15,73 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.migration.data.impl.VariableService;
-import io.camunda.migration.data.exception.EntityInterceptorException;
-import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.List;
-import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
 import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.camunda.bpm.model.dmn.instance.Decision;
+import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 
-@Order(11)
-@Component
-public class DecisionInstanceConverter implements EntityInterceptor {
+public class DecisionInstanceConverter {
 
   @Autowired
   protected VariableService variableService;
 
-  @Override
-  public Set<Class<?>> getTypes() {
-    return Set.of(HistoricDecisionInstance.class);
-  }
+  public DecisionInstanceDbModel apply(HistoricDecisionInstance decisionInstance,
+                                       String decisionInstanceId,
+                                       Long decisionDefinitionKey,
+                                       Long processDefinitionKey,
+                                       Long decisionRequirementsDefinitionKey,
+                                       Long processInstanceKey,
+                                       Long rootDecisionDefinitionKey,
+                                       Long flowNodeInstanceKey,
+                                       String flowNodeId,
+                                       DmnModelInstance dmnModelInstance) {
 
-  @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricDecisionInstance decisionInstance = (HistoricDecisionInstance) context.getC7Entity();
-    DecisionInstanceDbModel.Builder builder = (DecisionInstanceDbModel.Builder) context.getC8DbModelBuilder();
+    long decisionInstanceKey = Long.parseLong(decisionInstanceId.split("-")[0]);
 
-    if (builder == null) {
-      throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
-    }
-
-
-    builder.partitionId(C7_HISTORY_PARTITION_ID)
+    return new DecisionInstanceDbModel.Builder()
+        .partitionId(C7_HISTORY_PARTITION_ID)
+        .decisionInstanceId(decisionInstanceId)
+        .decisionInstanceKey(decisionInstanceKey)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
-        .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
+        .evaluationFailureMessage(null) // not stored in HistoricDecisionInstanc
+        .flowNodeInstanceKey(flowNodeInstanceKey)
+        .flowNodeId(flowNodeId)
+        .processInstanceKey(processInstanceKey)
+        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
+        .decisionDefinitionKey(decisionDefinitionKey)
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
+        .decisionRequirementsKey(decisionRequirementsDefinitionKey)
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
+        .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
         .result(null)
+        .decisionType(determineDecisionType(dmnModelInstance, decisionInstance.getDecisionDefinitionKey()))
         .tenantId(getTenantId(decisionInstance.getTenantId()))
+        .evaluatedInputs(mapInputs(decisionInstanceId, decisionInstance.getInputs()))
+        .evaluatedOutputs(mapOutputs(decisionInstanceId, decisionInstance.getOutputs()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
-        .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
-        .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
-    // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey, decisionType
-    // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
+        .build();
+  }
+
+  protected DecisionInstanceEntity.DecisionDefinitionType determineDecisionType(DmnModelInstance dmnModelInstance,
+                                                                                String decisionDefinitionId) {
+    Decision decision = dmnModelInstance.getModelElementById(decisionDefinitionId);
+    if (decision == null) {
+      return null;
+    }
+
+    if (decision.getExpression() instanceof LiteralExpression) {
+      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
+    } else {
+      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
+    }
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
