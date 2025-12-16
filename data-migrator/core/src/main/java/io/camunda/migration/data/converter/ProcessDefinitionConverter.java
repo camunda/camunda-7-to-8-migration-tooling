@@ -7,32 +7,53 @@
  */
 package io.camunda.migration.data.converter;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
+import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.logging.ProcessDefinitionConverterLogs;
-import org.camunda.bpm.engine.repository.ProcessDefinition;
-import org.springframework.beans.factory.annotation.Autowired;
-
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import org.camunda.bpm.engine.repository.ProcessDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-
-public class ProcessDefinitionConverter {
+@Order(1)
+@Component
+public class ProcessDefinitionConverter implements EntityInterceptor {
 
   @Autowired
   protected C7Client c7Client;
 
-  public ProcessDefinitionDbModel apply(ProcessDefinition c7ProcessDefinition) {
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(ProcessDefinition.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    ProcessDefinition c7ProcessDefinition = (ProcessDefinition) context.getC7Entity();
+    ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder builder =
+        (ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 ProcessDefinitionDbModel.Builder is null in context");
+    }
 
     String deploymentId = c7ProcessDefinition.getDeploymentId();
     String resourceName = c7ProcessDefinition.getResourceName();
 
     String bpmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
-    return new ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder().processDefinitionKey(getNextKey())
+
+    builder.processDefinitionKey(getNextKey())
         .processDefinitionId(c7ProcessDefinition.getKey())
         .resourceName(resourceName)
         .name(c7ProcessDefinition.getName())
@@ -40,8 +61,7 @@ public class ProcessDefinitionConverter {
         .versionTag(c7ProcessDefinition.getVersionTag())
         .version(c7ProcessDefinition.getVersion())
         .bpmnXml(bpmnXml)
-        .formId(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5347
-        .build();
+        .formId(null); // TODO https://github.com/camunda/camunda-bpm-platform/issues/5347
   }
 
 }

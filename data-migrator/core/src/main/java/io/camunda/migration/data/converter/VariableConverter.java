@@ -7,33 +7,53 @@
  */
 package io.camunda.migration.data.converter;
 
-import io.camunda.db.rdbms.write.domain.VariableDbModel;
-import io.camunda.migration.data.constants.MigratorConstants;
-import io.camunda.migration.data.impl.VariableService;
-import io.camunda.migration.data.impl.util.ConverterUtil;
-import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
-public class VariableConverter {
+import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.migration.data.constants.MigratorConstants;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.VariableService;
+import io.camunda.migration.data.impl.util.ConverterUtil;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import java.util.Set;
+import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
+@Order(5)
+@Component
+public class VariableConverter implements EntityInterceptor {
 
   @Autowired
   protected VariableService variableService;
 
-  public VariableDbModel apply(HistoricVariableInstanceEntity historicVariable, Long processInstanceKey, Long scopeKey) {
-    return new VariableDbModel.VariableDbModelBuilder()
-        .variableKey(getNextKey())
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricVariableInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricVariableInstanceEntity historicVariable = (HistoricVariableInstanceEntity) context.getC7Entity();
+    VariableDbModel.VariableDbModelBuilder builder =
+        (VariableDbModel.VariableDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 VariableDbModel.VariableDbModelBuilder is null in context");
+    }
+
+    builder.variableKey(getNextKey())
         .name(historicVariable.getName())
         .value(variableService.convertValue(historicVariable))
-        .scopeKey(scopeKey)
-        .processInstanceKey(processInstanceKey)
         .processDefinitionId(historicVariable.getProcessDefinitionKey())
         .tenantId(ConverterUtil.getTenantId(historicVariable.getTenantId()))
         .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID)
-        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()))
-        .build();
+        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()));
+    // Note: processInstanceKey and scopeKey are set externally
   }
 
 }

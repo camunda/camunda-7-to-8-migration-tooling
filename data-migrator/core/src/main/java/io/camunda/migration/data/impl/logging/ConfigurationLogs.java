@@ -19,28 +19,28 @@ public class ConfigurationLogs {
   protected static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationLogs.class);
 
   // Error Messages
-  public static final String ERROR_CLASS_NAME_NULL_OR_EMPTY = "Variable interceptor class name cannot be null or empty";
-  public static final String ERROR_CLASS_NOT_IMPLEMENT_INTERFACE = "Class %s does not implement VariableInterceptor interface";
-  public static final String ERROR_FAILED_TO_REGISTER = "Failed to register variable interceptor: ";
+  public static final String ERROR_CLASS_NAME_NULL_OR_EMPTY = "Interceptor class name cannot be null or empty";
+  public static final String ERROR_CLASS_NOT_IMPLEMENT_INTERFACE = "Class %s does not implement %s interface";
+  public static final String ERROR_FAILED_TO_REGISTER = "Failed to register interceptor: ";
   public static final String ERROR_PARSING_CONFIGURATION = "An exception occurred while parsing interceptor configuration.";
   public static final String ERROR_C8_RDBMS_USER_CHAR_COLUMN_SIZE = "Could not determine userCharColumnSize for C8 database schema creation.";
 
   // Info Messages
-  public static final String INFO_CONFIGURING_INTERCEPTORS = "Configuring variable interceptors";
-  public static final String INFO_TOTAL_INTERCEPTORS_CONFIGURED = "In total {} variable interceptors configured";
-  public static final String INFO_SUCCESSFULLY_REGISTERED = "Successfully registered variable interceptor: {}";
+  public static final String INFO_CONFIGURING_INTERCEPTORS = "Configuring {} interceptors";
+  public static final String INFO_TOTAL_INTERCEPTORS_CONFIGURED = "In total {} {} interceptors configured";
+  public static final String INFO_SUCCESSFULLY_REGISTERED = "Successfully registered interceptor: {}";
   public static final String INFO_LIQUIBASE_CREATING_TABLE_SCHEMA = "Creating table schema with Liquibase change log file '{}' with table prefix '{}'.";
 
   // Debug Messages
-  public static final String DEBUG_NO_INTERCEPTORS = "No variable interceptors configured in configuration file";
-  public static final String DEBUG_CREATING_INSTANCE = "Creating variable interceptor instance for class: {}";
-  public static final String DEBUG_SETTING_PROPERTIES = "Setting properties for variable interceptor: {}";
+  public static final String DEBUG_NO_INTERCEPTORS = "No interceptors configured in configuration file";
+  public static final String DEBUG_CREATING_INSTANCE = "Creating {} interceptor instance for class: {}";
+  public static final String DEBUG_SETTING_PROPERTIES = "Setting properties for {} interceptor: {}";
 
   /**
    * Logs the start of interceptor configuration process.
    */
-  public static void logConfiguringInterceptors() {
-    LOGGER.info(INFO_CONFIGURING_INTERCEPTORS);
+  public static void logConfiguringInterceptors(String type) {
+    LOGGER.info(INFO_CONFIGURING_INTERCEPTORS, type);
   }
 
   /**
@@ -48,8 +48,8 @@ public class ConfigurationLogs {
    *
    * @param count the number of configured interceptors
    */
-  public static void logTotalInterceptorsConfigured(int count) {
-    LOGGER.info(INFO_TOTAL_INTERCEPTORS_CONFIGURED, count);
+  public static void logTotalInterceptorsConfigured(int count, String type) {
+    LOGGER.info(INFO_TOTAL_INTERCEPTORS_CONFIGURED, count, type);
   }
 
   /**
@@ -119,8 +119,8 @@ public class ConfigurationLogs {
    *
    * @param className the class name of the interceptor not found
    */
-  public static void logInterceptorNotFoundForDisabling(String className) {
-    LOGGER.warn("Interceptor specified for disabling not found in context: {}", className);
+  public static void logInterceptorNotFoundForDisabling(String type, String className) {
+    LOGGER.warn("Interceptor specified for disabling not found in {}s: {}", type, className);
   }
 
   /**
@@ -148,8 +148,8 @@ public class ConfigurationLogs {
    * @param className the class name
    * @return the formatted error message
    */
-  public static String getClassNotImplementInterfaceError(String className) {
-    return String.format(ERROR_CLASS_NOT_IMPLEMENT_INTERFACE, className);
+  public static String getClassNotImplementInterfaceError(String className, String type) {
+    return String.format(ERROR_CLASS_NOT_IMPLEMENT_INTERFACE, className, type);
   }
 
   /**
@@ -159,7 +159,7 @@ public class ConfigurationLogs {
    * @return the formatted error message
    */
   public static String getFailedToRegisterError(String className) {
-    return ERROR_FAILED_TO_REGISTER + className;
+    return String.format(ERROR_FAILED_TO_REGISTER + className);
   }
 
   /**
