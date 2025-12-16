@@ -546,7 +546,7 @@ public class HistoryMigrator {
         DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(c7DecisionInstance.getDecisionDefinitionId());
 
         decisionInstanceDbModelBuilder.decisionInstanceId(decisionInstanceId)
-            .decisionInstanceKey(Long.parseLong(decisionInstanceId.split("-")[0]))
+            .decisionInstanceKey(decisionInstanceKey)
             .decisionType(determineDecisionType(dmnModelInstance, c7DecisionInstance.getDecisionDefinitionKey()));
 
 
