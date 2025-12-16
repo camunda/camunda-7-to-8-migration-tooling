@@ -43,10 +43,6 @@ public class ActivityVariables {
     return getVariablesForActivity(processInstanceId);
   }
 
-  public Map<String, Map<String, Object>> variablesByActivity() {
-    return variablesByActivity;
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj == this)

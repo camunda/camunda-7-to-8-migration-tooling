@@ -11,19 +11,51 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.clients.C7Client;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
 
-public class DecisionRequirementsDefinitionConverter {
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-  public DecisionRequirementsDbModel apply(DecisionRequirementsDefinition c7DecisionRequirements) {
-    return new DecisionRequirementsDbModel.Builder()
-        .decisionRequirementsKey(getNextKey())
+@Order(9)
+@Component
+public class DecisionRequirementsDefinitionConverter implements EntityInterceptor {
+
+  @Autowired
+  protected C7Client c7Client;
+
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(DecisionRequirementsDefinition.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    DecisionRequirementsDefinition c7DecisionRequirements = (DecisionRequirementsDefinition) context.getC7Entity();
+    DecisionRequirementsDbModel.Builder builder =
+        (DecisionRequirementsDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 DecisionRequirementsDbModel.Builder is null in context");
+    }
+
+    String deploymentId = c7DecisionRequirements.getDeploymentId();
+    String resourceName = c7DecisionRequirements.getResourceName();
+    String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+
+
+    builder.decisionRequirementsKey(getNextKey())
         .decisionRequirementsId(c7DecisionRequirements.getKey())
         .name(c7DecisionRequirements.getName())
-        .resourceName(c7DecisionRequirements.getResourceName())
+        .resourceName(resourceName)
         .version(c7DecisionRequirements.getVersion())
-        .xml(null) // TODO not stored in C7 DecisionRequirementsDefinition
-        .tenantId(getTenantId(c7DecisionRequirements.getTenantId()))
-        .build();
+        .xml(dmnXml)
+        .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
   }
 }

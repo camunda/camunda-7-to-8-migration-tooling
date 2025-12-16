@@ -8,7 +8,7 @@
 package io.camunda.migration.data.qa.runtime.variables.interceptor.pojo;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
 
 // Additional test interceptor to verify getTypes() with empty set (universal)
@@ -19,7 +19,7 @@ public class UniversalTestInterceptor implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    invocation.setVariableValue("UNIVERSAL_" + invocation.getC7Variable().getValue());
+  public void execute(VariableContext context) {
+    context.setC8Value("UNIVERSAL_" + context.getC7Value());
   }
 }

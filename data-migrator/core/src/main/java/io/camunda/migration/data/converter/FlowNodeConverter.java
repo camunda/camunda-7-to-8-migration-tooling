@@ -7,34 +7,51 @@
  */
 package io.camunda.migration.data.converter;
 
-import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class FlowNodeConverter {
+@Order(3)
+@Component
+public class FlowNodeConverter implements EntityInterceptor {
 
-  public FlowNodeInstanceDbModel apply(HistoricActivityInstance flowNode,
-                                       Long processDefinitionKey,
-                                       Long processInstanceKey) {
-    return new FlowNodeInstanceDbModelBuilder().flowNodeInstanceKey(getNextKey())
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricActivityInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricActivityInstance flowNode = (HistoricActivityInstance) context.getC7Entity();
+    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
+        (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
+    }
+
+
+    builder
         .flowNodeId(flowNode.getActivityId())
-        .processInstanceKey(processInstanceKey)
-        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(flowNode.getProcessDefinitionKey())
         .startDate(convertDate(flowNode.getStartTime()))
         .endDate(convertDate(flowNode.getEndTime()))
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
-        .treePath(null) // TODO: Doesn't exist in C7 activity instance. Not yet supported by C8 RDBMS
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
-        .numSubprocessIncidents(null) // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
-        .build();
+        .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
+
+    // treePath, processInstanceKey, processDefinitionKey are set in io.camunda.migration.data.HistoryMigrator.migrateFlowNode
   }
 
   protected FlowNodeType convertType(String activityType) {

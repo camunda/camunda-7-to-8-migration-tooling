@@ -12,9 +12,8 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStar
 
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.BytesValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -36,10 +35,9 @@ public class ByteArrayVariableValidator implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
+  public void execute(VariableContext context) {
     // No type checking needed - we're only called for BytesValue types
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    logStartExecution(this.getClass(), variable.getName());
+    logStartExecution(this.getClass(), context.getName());
     throw new VariableInterceptorException(BYTE_ARRAY_UNSUPPORTED_ERROR);
   }
 }

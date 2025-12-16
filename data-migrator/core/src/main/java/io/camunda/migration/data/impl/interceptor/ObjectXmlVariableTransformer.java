@@ -12,9 +12,8 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStar
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.XML;
 
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.ObjectValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -35,15 +34,15 @@ public class ObjectXmlVariableTransformer implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    ObjectValue objectValue = (ObjectValue) variable.getTypedValue(false);
+  public void execute(VariableContext context) {
+    ObjectValue objectValue = (ObjectValue) context.getC7TypedValue();
 
     if (XML.getName().equals(objectValue.getSerializationDataFormat())) {
+      logStartExecution(this.getClass(), context.getName());
 
-      logStartExecution(this.getClass(), variable.getName());
-      invocation.setVariableValue(objectValue.getValueSerialized());
-      logEndExecution(this.getClass(), variable.getName());
+      String xmlValue = objectValue.getValueSerialized();
+      context.setC8Value(xmlValue);
+      logEndExecution(this.getClass(), context.getName());
     }
   }
 }

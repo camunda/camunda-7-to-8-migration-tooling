@@ -14,7 +14,6 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.JAVA_SE
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.JSON;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.XML;
 
@@ -22,8 +21,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.text.SimpleDateFormat;
@@ -43,10 +44,15 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class VariablesTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class VariablesTest extends AbstractMigratorTest {
 
   @RegisterExtension
-  protected final LogCapturer LOGS = LogCapturer.create().captureForType(RuntimeMigrator.class);
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
+
+  @RegisterExtension
+  protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
+
 
   public static final String SUB_PROCESS = "subProcess";
   public static final String PARALLEL = "parallel";
@@ -63,7 +69,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "myVariable", null);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -87,7 +93,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("stringVar", "myStringVar")
@@ -110,13 +116,13 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     String piIdMap = runtimeService.startProcessInstanceByKey("simpleProcess", Collections.singletonMap("map", Collections.singletonMap(1, "one"))).getId();
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     Arrays.asList(piIdFloat, piIdByte, piIdChar, piIdList, piIdMap)
-        .forEach(piId -> LOGS.assertContains(
+        .forEach(piId -> logs.assertContains(
             formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, piId,
                 JAVA_SERIALIZED_UNSUPPORTED_ERROR)));
   }
@@ -129,11 +135,11 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     String c7Id = runtimeService.startProcessInstanceByKey("simpleProcess", Collections.singletonMap("bytesVar", "foo".getBytes())).getId();
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
-    LOGS.assertContains(
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
+    logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
             BYTE_ARRAY_UNSUPPORTED_ERROR));
   }
@@ -151,10 +157,10 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     variables.putValue("st-C", "value");
     variables.putValue("null", "value");
 
-    var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess", variables);
+    runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("1stC", "value")
@@ -175,7 +181,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "dateVar", date);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("dateVar", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(date));
@@ -204,7 +210,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "var", objectValue);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -228,7 +234,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "var", objectValue);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("var", objectMapper.readValue(json, JsonNode.class));
@@ -251,11 +257,11 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(c7Id, "var", objectValue);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
-    LOGS.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
+    logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
         "Error while deserializing JSON into Map type."));
   }
 
@@ -277,7 +283,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(activityInstanceId, "var", objectValue);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .hasVariable("var", objectMapper.readValue(json, JsonNode.class));
@@ -303,11 +309,11 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     String c7Id = runtimeService.startProcessInstanceByKey("simpleProcess", fileVar).getId();
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
-    LOGS.assertContains(
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
+    logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VARIABLE_ERROR, c7Id,
             FILE_TYPE_UNSUPPORTED_ERROR));
   }
@@ -326,7 +332,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(currentTask.getExecutionId(), "variable3", "value3");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId(SUB_PROCESS))
@@ -346,7 +352,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariableLocal(currentTask.getExecutionId(), "localVariable", "local value");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId(PARALLEL)).hasVariable("variable1", "value1");
@@ -366,7 +372,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     taskService.setVariableLocal(currentTask.getId(), "localVariable", "local value");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId(PARALLEL)).hasVariable("variable1", "value1");
@@ -388,7 +394,7 @@ public class VariablesTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariableLocal(currentTask.getExecutionId(), "localVariable", "local value");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId(SUB_PROCESS)).hasVariableNames("variable1", "variable2");

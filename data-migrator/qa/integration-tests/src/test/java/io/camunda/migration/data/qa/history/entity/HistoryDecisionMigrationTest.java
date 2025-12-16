@@ -11,6 +11,7 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
+import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -132,10 +133,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .singleResult();
 
     assertThat(migratedInstances).singleElement().satisfies(instance -> {
-      assertThat(instance.decisionInstanceId()).isEqualTo(
-          instance.decisionInstanceKey() + "-" + c7Instance.getId());
+      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-1");
       assertThat(instance.decisionInstanceKey()).isNotNull();
-      assertThat(instance.state()).isNull();
+      assertThat(instance.state()).isEqualTo(EVALUATED);
       assertThat(instance.evaluationDate()).isEqualTo(
           OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
       assertThat(instance.evaluationFailure()).isNull();
@@ -146,7 +146,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions.getFirst().decisionDefinitionKey());
       assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDecisionId");
       assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(instance.decisionDefinitionType()).isNull();
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
+      assertThat(instance.result()).isNull();
+      assertThat(instance.rootDecisionDefinitionKey()).isNull();
 
       // TODO find out how to get a result http://github.com/camunda/camunda-bpm-platform/issues/5365
       //      assertThat(instance.result()).isEqualTo("B");
@@ -199,6 +201,46 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     List<DecisionInstanceEntity> instances2 = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
     assertThat(instances1).singleElement();
     assertThat(instances2).singleElement();
+  }
+
+  @Test
+  public void shouldMigrateHistoricDecisionInstanceWithLiteralExpression() {
+    // given
+    deployer.deployCamunda7Decision("literalExpressionDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleLiteralExpressionProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("businessRuleLiteralExpressionProcessId");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("literalExpressionDecisionId");
+    assertThat(migratedInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
+    });
+  }
+
+  @Test
+  public void shouldMigrateHistoricDecisionInstancesWithMixedDecisionTypes() {
+    // given
+    deployer.deployCamunda7Decision("mixedDecisionTypesDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleMixedTypesProcess.bpmn");
+    Map<String, Object> variables = Variables.createVariables().putValue("inputA", stringValue("A"));
+    runtimeService.startProcessInstanceByKey("businessRuleMixedTypesProcessId", variables);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> decisionTableInstances = searchHistoricDecisionInstances("decisionTableInMixedId");
+    assertThat(decisionTableInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
+    });
+
+    List<DecisionInstanceEntity> literalExpressionInstances = searchHistoricDecisionInstances("literalExpressionInMixedId");
+    assertThat(literalExpressionInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
+    });
   }
 
   @Test

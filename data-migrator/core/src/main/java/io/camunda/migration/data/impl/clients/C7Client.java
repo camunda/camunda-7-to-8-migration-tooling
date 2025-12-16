@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.clients;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_ACTIVITY_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_BPMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DEPLOYMENT_TIME;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_HISTORIC_ELEMENT;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
@@ -19,7 +20,7 @@ import static java.lang.String.format;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
-import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
@@ -43,6 +44,7 @@ import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
+import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -54,6 +56,7 @@ import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
 import org.camunda.bpm.engine.runtime.VariableInstance;
 import org.camunda.bpm.engine.runtime.VariableInstanceQuery;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
@@ -78,6 +81,9 @@ public class C7Client {
 
   @Autowired
   protected IdentityService identityService;
+
+  @Autowired
+  protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   /**
    * Gets a single process instance by ID.
@@ -157,7 +163,9 @@ public class C7Client {
    * Gets a single historic variable instance by ID.
    */
   public HistoricVariableInstance getHistoricVariableInstance(String c7Id) {
-    var query = historyService.createHistoricVariableInstanceQuery().variableId(c7Id);
+    var query = historyService.createHistoricVariableInstanceQuery()
+        .disableCustomObjectDeserialization()
+        .variableId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricVariableInstance", c7Id));
   }
 
@@ -206,10 +214,13 @@ public class C7Client {
   }
 
   /**
-   * Gets a resource as steam by ID and name.
+   * Gets a resource as string by ID and name.
    */
-  public InputStream getResourceAsStream(String resourceId, String resourceName) {
-    return callApi(() -> repositoryService.getResourceAsStream(resourceId, resourceName));
+  public String getResourceAsString(String resourceId, String resourceName) {
+    return callApi(() -> new String(processEngineConfiguration.getCommandExecutorTxRequiresNew()
+        .execute(commandContext -> commandContext.getResourceManager()
+        .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
+        .getBytes()), Charset.defaultCharset()));
   }
 
   /**
@@ -218,6 +229,14 @@ public class C7Client {
   public BpmnModelInstance getBpmnModelInstance(String processDefinitionId) {
     return callApi(() -> repositoryService.getBpmnModelInstance(processDefinitionId),
         FAILED_TO_FETCH_BPMN_XML + processDefinitionId);
+  }
+
+  /**
+   * Gets the DMN model instance by decision definition ID.
+   */
+  public DmnModelInstance getDmnModelInstance(String decisionDefinitionId) {
+    return callApi(() -> repositoryService.getDmnModelInstance(decisionDefinitionId),
+        FAILED_TO_FETCH_DMN_XML + decisionDefinitionId);
   }
 
   /**
@@ -296,6 +315,8 @@ public class C7Client {
     HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
         .includeInputs()
         .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .rootDecisionInstancesOnly()
         .orderByEvaluationTime()
         .asc()
         .orderByDecisionInstanceId()
@@ -412,6 +433,7 @@ public class C7Client {
    */
   public void fetchAndHandleHistoricVariables(Consumer<HistoricVariableInstance> callback, Date createdAfter) {
     HistoricVariableInstanceQueryImpl query = (HistoricVariableInstanceQueryImpl) historyService.createHistoricVariableInstanceQuery()
+        .disableCustomObjectDeserialization()
         .orderByCreationTime()
         .asc()
         .orderByVariableId()
@@ -481,6 +503,22 @@ public class C7Client {
         .asc()
         .list(),
         FAILED_TO_FETCH_TENANTS);
+  }
+
+  public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {
+    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
+        .rootDecisionInstanceId(rootDecisionInstanceId)
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .orderByEvaluationTime()
+        .asc()
+        .orderByDecisionInstanceId()
+        .asc();
+
+    return query.list().stream()
+        .filter(decisionInstance -> decisionInstance.getRootDecisionInstanceId() != null)
+        .collect(Collectors.toList());
   }
 
 }

@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl;
 
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.logging.EntityConversionServiceLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.EntityTypeDetector;
@@ -97,7 +98,40 @@ public class EntityConversionService {
     try {
       EntityConversionServiceLogs.logExecutingInterceptor(interceptorName, entityType);
       interceptor.execute(context);
+    } catch (VariableInterceptorException vex) {
+      // will be handled in variable interceptor
+      throw vex;
     } catch (Exception ex) {
+      EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
+
+      if (ex instanceof EntityInterceptorException) {
+        throw ex;
+      } else {
+        throw new EntityInterceptorException(
+            EntityConversionServiceLogs.formatInterceptorError(interceptorName, entityType), ex);
+      }
+    }
+  }
+
+  /**
+   * Prepares parent properties in the conversion context by invoking
+   * {@link EntityInterceptor#presetParentProperties(EntityConversionContext)}
+   * on all applicable interceptors.
+   *
+   * @param context the conversion context
+   */
+  public void prepareParentProperties(EntityConversionContext<?, ?> context) {
+    try {
+      if (hasInterceptors()) {
+        for (EntityInterceptor interceptor : configuredEntityInterceptors) {
+          if (EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context)) {
+            interceptor.presetParentProperties(context);
+          }
+        }
+      }
+    } catch (Exception ex) {
+      String interceptorName = ex.getClass().getSimpleName();
+      String entityType = context.getEntityType().getSimpleName();
       EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
 
       if (ex instanceof EntityInterceptorException) {

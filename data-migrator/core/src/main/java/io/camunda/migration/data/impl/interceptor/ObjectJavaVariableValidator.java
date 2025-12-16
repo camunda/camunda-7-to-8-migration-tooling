@@ -13,9 +13,8 @@ import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats
 
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.interceptor.VariableInvocation;
+import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.impl.persistence.entity.VariableInstanceEntity;
 import org.camunda.bpm.engine.variable.value.ObjectValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -36,13 +35,12 @@ public class ObjectJavaVariableValidator implements VariableInterceptor {
   }
 
   @Override
-  public void execute(VariableInvocation invocation) {
-    VariableInstanceEntity variable = invocation.getC7Variable();
-    ObjectValue objectValue = (ObjectValue) variable.getTypedValue(false);
+  public void execute(VariableContext context) {
+    ObjectValue objectValue = (ObjectValue) context.getC7TypedValue();
 
     // Check if this is a Java serialized object
     if (JAVA.getName().equals(objectValue.getSerializationDataFormat())) {
-      logStartExecution(this.getClass(), variable.getName());
+      logStartExecution(this.getClass(), context.getName());
       throw new VariableInterceptorException(JAVA_SERIALIZED_UNSUPPORTED_ERROR);
     }
   }

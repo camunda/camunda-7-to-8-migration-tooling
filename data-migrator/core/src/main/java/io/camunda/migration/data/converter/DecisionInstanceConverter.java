@@ -10,51 +10,62 @@ package io.camunda.migration.data.converter;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.migration.data.impl.VariableService;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.List;
+import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionOutputInstance;
+import org.camunda.bpm.engine.impl.variable.serializer.ValueFields;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
-public class DecisionInstanceConverter {
+@Order(11)
+@Component
+public class DecisionInstanceConverter implements EntityInterceptor {
 
-  public DecisionInstanceDbModel apply(HistoricDecisionInstance decisionInstance,
-                                       Long decisionDefinitionKey,
-                                       Long processDefinitionKey,
-                                       Long decisionRequirementsDefinitionKey,
-                                       Long processInstanceKey,
-                                       Long rootDecisionDefinitionKey,
-                                       Long flowNodeInstanceKey,
-                                       String flowNodeId) {
-    Long decisionInstanceKey = getNextKey();
-    return new DecisionInstanceDbModel.Builder()
-        .partitionId(C7_HISTORY_PARTITION_ID)
-        .decisionInstanceId(String.format("%d-%s", decisionInstanceKey, decisionInstance.getId()))
-        .decisionInstanceKey(decisionInstanceKey)
-        .state(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+  @Autowired
+  protected VariableService variableService;
+
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricDecisionInstance.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricDecisionInstance decisionInstance = (HistoricDecisionInstance) context.getC7Entity();
+    DecisionInstanceDbModel.Builder builder = (DecisionInstanceDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
+    }
+
+
+    builder.partitionId(C7_HISTORY_PARTITION_ID)
+        .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .result(String.valueOf(decisionInstance.getCollectResultValue()))
-        .flowNodeInstanceKey(flowNodeInstanceKey)
-        .flowNodeId(flowNodeId)
-        .processInstanceKey(processInstanceKey)
-        .processDefinitionKey(processDefinitionKey)
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
-        .decisionDefinitionKey(decisionDefinitionKey)
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
-        .decisionRequirementsKey(decisionRequirementsDefinitionKey)
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
-        .rootDecisionDefinitionKey(rootDecisionDefinitionKey)
-        .decisionType(null) // TODO https://github.com/camunda/camunda-bpm-platform/issues/5370
+        .result(null)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
+        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
         .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
-        .build();
+        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
+    // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey, decisionType
+    // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
   }
 
   protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
@@ -62,7 +73,7 @@ public class DecisionInstanceConverter {
     return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
         input.getId(),
         input.getClauseName(),
-        String.valueOf(input.getValue())
+        variableService.convertValue((ValueFields) input)
     )).toList();
   }
 
@@ -71,8 +82,8 @@ public class DecisionInstanceConverter {
     return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
         output.getId(),
         output.getClauseName(),
-        String.valueOf(output.getValue()),
+        variableService.convertValue((ValueFields) output),
         output.getRuleId(),
-        output.getRuleOrder())).toList();
+        output.getRuleOrder() != null ? output.getRuleOrder() : 1)).toList();
   }
 }
