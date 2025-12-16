@@ -305,11 +305,18 @@ function App() {
             <p>
             Understand your BPMN models before migrating. Identify gaps, assess effort, and convert compatible elements.
             </p>
+            <p>
+              For more information visit the 
+              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/model-converter/"
+                rel="noopener noreferrer" target="_blank">
+                model converter guide
+              </a>.
+            </p>
             {!isSaaS && (
               <div>
                 <p>
                   If you prefer an online version of this tool{" "}
-                  <a href="https://migration-analyzer.consulting-sandbox.camunda.cloud/">
+                  <a href="https://diagram-converter.camunda.io">
                     access it here
                   </a>
                   .
@@ -320,7 +327,7 @@ function App() {
               <div>
                 <p>
                   If you prefer a local version of this tool{" "}
-                  <a href="https://github.com/camunda-community-hub/camunda-7-to-8-migration-analyzer?tab=readme-ov-file#installation">
+                  <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases">
                     download it here
                   </a>
                   .
