@@ -268,7 +268,7 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionRequirementsId);
   }
 
-  public static void skippingEntityDueToInterceptorError(IdKeyMapper.TYPE type, String c7DecisionInstanceId, String message) {
-    LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, type, c7DecisionInstanceId, message);
+  public static void skippingEntityDueToInterceptorError(IdKeyMapper.TYPE type, String c7EntityId, String message) {
+    LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, type, c7EntityId, message);
   }
 }

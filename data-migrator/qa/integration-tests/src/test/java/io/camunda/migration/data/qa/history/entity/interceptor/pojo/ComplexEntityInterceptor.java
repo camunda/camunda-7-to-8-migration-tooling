@@ -13,12 +13,14 @@ import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@WhiteBox
 public class ComplexEntityInterceptor implements EntityInterceptor {
   private static final Logger LOG = LoggerFactory.getLogger(ComplexEntityInterceptor.class);
 

@@ -21,8 +21,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
-    // Disable built-in converter for controlled testing
-    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.converter.ProcessInstanceConverter",
+    // Disable built-in trasformer for controlled testing
+    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer",
     "camunda.migrator.interceptors[0].enabled=false",
     // Register interceptor and disable it
     "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.DisabledCustomInterceptor",
@@ -81,7 +81,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     assertThat(migratedFlowNodes).isNotEmpty();
 
-    // ActivityInstanceInterceptor adds "_ACTIVITY" suffix
+    // ActivityInstanceInterceptor adds "_DEFAULT" suffix
     for (FlowNodeInstanceEntity flowNode : migratedFlowNodes) {
       assertThat(flowNode.tenantId()).contains("BEAN_DEFAULT");
     }

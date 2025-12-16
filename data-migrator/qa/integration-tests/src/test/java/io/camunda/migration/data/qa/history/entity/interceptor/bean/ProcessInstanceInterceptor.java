@@ -12,6 +12,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component;
 @Order(100)
 @Component
 @Profile("entity-programmatic")
+@WhiteBox
 public class ProcessInstanceInterceptor implements EntityInterceptor {
   protected final AtomicInteger executionCount = new AtomicInteger(0);
 

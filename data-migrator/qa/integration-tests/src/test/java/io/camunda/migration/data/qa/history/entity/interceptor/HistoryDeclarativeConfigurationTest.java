@@ -44,16 +44,16 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
   @Test
   public void shouldDisableBuiltInInterceptorsViaConfig() {
     // Verify that built-in interceptors specified as disabled are not in the context
-    long disabledProcessInstanceConverters = configuredEntityInterceptors.stream()
+    long disabledProcessInstanceTransformers = configuredEntityInterceptors.stream()
         .filter(interceptor -> interceptor instanceof ProcessInstanceTransformer)
         .count();
 
-    long disabledFlowNodeConverters = configuredEntityInterceptors.stream()
+    long disabledFlowNodeTransformers = configuredEntityInterceptors.stream()
         .filter(interceptor -> interceptor instanceof FlowNodeTransformer)
         .count();
 
-    assertThat(disabledProcessInstanceConverters).isEqualTo(0);
-    assertThat(disabledFlowNodeConverters).isEqualTo(0);
+    assertThat(disabledProcessInstanceTransformers).isEqualTo(0);
+    assertThat(disabledFlowNodeTransformers).isEqualTo(0);
   }
 
   @Test

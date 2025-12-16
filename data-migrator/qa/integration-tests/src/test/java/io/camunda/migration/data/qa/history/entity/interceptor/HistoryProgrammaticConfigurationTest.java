@@ -24,8 +24,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
-    // Disable built-in converter for controlled testing
-    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.converter.ProcessInstanceConverter",
+    // Disable built-in transformer for controlled testing
+    "camunda.migrator.interceptors[0].className=io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer",
     "camunda.migrator.interceptors[0].enabled=false",
     // Register interceptor and disable it
     "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.DisabledCustomInterceptor",
@@ -59,13 +59,13 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
   }
 
   @Test
-  public void shouldDisableBuiltInConverter() {
-    // Verify built-in ProcessInstanceConverter is disabled
-    long disabledConverters = configuredEntityInterceptors.stream()
+  public void shouldDisableBuiltInTransformer() {
+    // Verify built-in ProcessInstanceTransformer is disabled
+    long disabledTransformers = configuredEntityInterceptors.stream()
         .filter(interceptor -> interceptor instanceof ProcessInstanceTransformer)
         .count();
 
-    assertThat(disabledConverters).isEqualTo(0); // Should be removed from context when disabled
+    assertThat(disabledTransformers).isEqualTo(0); // Should be removed from context when disabled
   }
 
   @Test
