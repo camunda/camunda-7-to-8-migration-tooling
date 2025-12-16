@@ -142,9 +142,9 @@ jobs:
           cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-${RELEASE_VERSION}.zip "${ARTIFACT_DIR}/"
           cp data-migrator/plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
           cp code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp model-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp model-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
-          cp model-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
       - name: Upload Release Artifacts
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}

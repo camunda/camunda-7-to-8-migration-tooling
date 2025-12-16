@@ -16,10 +16,10 @@ A tool for migrating Camunda 7 process instances and related data to Camunda 8. 
 
 Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/).
 
-### [Model Converter](./model-converter/)
+### [Model Converter](./diagram-converter/)
 A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 format. The Model Converter identifies migration tasks and automatically converts process models, with support for custom extensions to accommodate special requirements.
 
-For detailed information, see the [Model Converter README](./model-converter/README.md).
+For detailed information, see the [Model Converter README](./diagram-converter/README.md).
 
 ### [Code Conversion](./code-conversion/)
 A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module provides:
@@ -35,7 +35,7 @@ For detailed information, see the [Code Conversion README](./code-conversion/REA
 
 - **[Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)** - Official migration documentation
 - **[Data Migrator Documentation](./data-migrator/README.md)** - Detailed data migrator documentation
-- **[Model Converter Documentation](./model-converter/README.md)** - Model analysis and conversion tools
+- **[Model Converter Documentation](./diagram-converter/README.md)** - Model analysis and conversion tools
 - **[Code Conversion Documentation](./code-conversion/README.md)** - Code conversion patterns and tools
 - **[Camunda 8 Documentation](https://docs.camunda.io/)** - Official Camunda 8 documentation
 

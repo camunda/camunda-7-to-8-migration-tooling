@@ -69,7 +69,7 @@
       <modules>
         <module>code-conversion</module>
         <module>data-migrator</module>
-        <module>model-converter</module>
+        <module>diagram-converter</module>
       </modules>
     </profile>
     <profile>
@@ -81,9 +81,9 @@
         <module>code-conversion/recipes</module>
         <module>data-migrator/core</module>
         <module>data-migrator/plugins/cockpit</module>
-        <module>model-converter/core</module>
-        <module>model-converter/webapp</module>
-        <module>model-converter/cli</module>
+        <module>diagram-converter/core</module>
+        <module>diagram-converter/webapp</module>
+        <module>diagram-converter/cli</module>
       </modules>
     </profile>
   </profiles>

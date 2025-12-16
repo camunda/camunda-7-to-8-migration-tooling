@@ -108,7 +108,7 @@ You can build this project from source using Maven.
 
    ```shell
    git clone https://github.com/camunda/camunda-7-to-8-migration-tooling.git
-   cd camunda-7-to-8-migration-tooling/model-converter
+   cd camunda-7-to-8-migration-tooling/diagram-converter
    ```
 2. Build the project:
 

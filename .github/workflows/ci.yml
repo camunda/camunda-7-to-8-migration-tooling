@@ -129,7 +129,7 @@ jobs:
           path: ${{ steps.code-conversion-artifacts.outputs.dir }}
           retention-days: 7
 
-  model-converter:
+  diagram-converter:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -157,26 +157,26 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Build and test model-converter module
-        working-directory: model-converter
+      - name: Build and test diagram-converter module
+        working-directory: diagram-converter
         run: mvn verify -PcheckFormat --batch-mode
 
-      - name: Collect model-converter artifacts
-        id: model-converter-artifacts
+      - name: Collect diagram-converter artifacts
+        id: diagram-converter-artifacts
         if: github.ref == 'refs/heads/main'
         run: |
           ARTIFACT_DIR=$(mktemp -d)
-          cp model-converter/core/target/camunda-7-to-8-diagram-converter-core-*.jar "${ARTIFACT_DIR}/"
-          cp model-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-*.jar "${ARTIFACT_DIR}/"
-          cp model-converter/cli/target/camunda-7-to-8-diagram-converter-cli-*.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-*.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-*.jar "${ARTIFACT_DIR}/"
+          cp diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-*.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
-      - name: Upload model-converter artifacts
+      - name: Upload diagram-converter artifacts
         uses: actions/upload-artifact@v6
         if: github.ref == 'refs/heads/main'
         with:
-          name: model-converter
-          path: ${{ steps.model-converter-artifacts.outputs.dir }}
+          name: diagram-converter
+          path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
           retention-days: 7
 
   it-runtime-postgresql:
@@ -647,7 +647,7 @@ jobs:
     needs:
       - distro
       - code-conversion
-      - model-converter
+      - diagram-converter
       - it-runtime-postgresql
       - it-history-postgresql
       - it-runtime-oracle
