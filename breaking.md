@@ -20,11 +20,11 @@ The following Maven modules have been renamed:
 
 - **Parent Module**:
   - **Old**: `org.camunda.migration:camunda-7-to-8-rewrite-recipes-parent`
-  - **New**: `io.camunda:camunda-7-to-8-rewrite-recipes-root`
+  - **New**: `io.camunda:camunda-7-to-8-code-conversion-parent`
 
 - **Recipes Module**:
   - **Old**: `org.camunda.migration:camunda-7-to-8-rewrite-recipes`
-  - **New**: `io.camunda:camunda-7-to-8-rewrite-recipes`
+  - **New**: `io.camunda:camunda-7-to-8-code-conversion-recipes`
 
 ### GroupId Change
 
@@ -68,7 +68,7 @@ If you are using the OpenRewrite recipes in your project, update your dependenci
 ```xml
 <dependency>
   <groupId>io.camunda</groupId>
-  <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
+  <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
   <version>0.2.0</version>
 </dependency>
 ```
