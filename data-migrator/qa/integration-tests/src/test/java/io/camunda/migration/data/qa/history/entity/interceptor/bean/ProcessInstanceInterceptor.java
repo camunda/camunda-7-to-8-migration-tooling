@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
@@ -35,6 +37,7 @@ public class ProcessInstanceInterceptor implements EntityInterceptor {
     HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
         (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
+    builder.processInstanceKey(getNextKey());
 
     if (builder != null) {
       // Add "BEAN_" prefix to tenant ID
