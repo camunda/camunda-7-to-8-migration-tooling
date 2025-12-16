@@ -129,6 +129,9 @@ public class EntityConversionService {
           }
         }
       }
+    } catch (VariableInterceptorException vex) {
+      // will be handled in variable interceptor
+      throw vex;
     } catch (Exception ex) {
       String interceptorName = ex.getClass().getSimpleName();
       String entityType = context.getEntityType().getSimpleName();
