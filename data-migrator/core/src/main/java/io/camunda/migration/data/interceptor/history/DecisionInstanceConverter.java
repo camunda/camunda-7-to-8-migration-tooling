@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.interceptor.history;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;

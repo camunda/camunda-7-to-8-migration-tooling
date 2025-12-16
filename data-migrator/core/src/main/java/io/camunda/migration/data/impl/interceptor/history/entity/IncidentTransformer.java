@@ -5,37 +5,50 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
+import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
+
+import java.util.Set;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
-public class IncidentConverter {
+@Order(7)
+@Component
+public class IncidentTransformer implements EntityInterceptor {
 
-  public IncidentDbModel apply(HistoricIncident historicIncident,
-                               Long processDefinitionKey,
-                               Long processInstanceKey,
-                               Long jobDefinitionKey,
-                               Long flowNodeInstanceKey) {
-    return new IncidentDbModel.Builder()
-        .incidentKey(getNextKey())
-        .processDefinitionKey(processDefinitionKey)
+  @Override
+  public Set<Class<?>> getTypes() {
+    return Set.of(HistoricIncident.class);
+  }
+
+  @Override
+  public void execute(EntityConversionContext<?, ?> context) {
+    HistoricIncident historicIncident = (HistoricIncident) context.getC7Entity();
+    IncidentDbModel.Builder builder = (IncidentDbModel.Builder) context.getC8DbModelBuilder();
+
+    if (builder == null) {
+      throw new EntityInterceptorException("C8 IncidentDbModel.Builder is null in context");
+    }
+
+    builder.incidentKey(getNextKey())
         .processDefinitionId(historicIncident.getProcessDefinitionKey())
-        .processInstanceKey(processInstanceKey)
-        .flowNodeInstanceKey(flowNodeInstanceKey) //TODO: is this linking correct?
         .flowNodeId(historicIncident.getActivityId())
-        .jobKey(jobDefinitionKey)
         .errorType(null) // TODO: does error type exist in C7?
         .errorMessage(historicIncident.getIncidentMessage())
         .creationDate(convertDate(historicIncident.getCreateTime()))
         .state(convertState(0)) //TODO: make HistoricIncidentEventEntity#getIncidentState() accessible
         .treePath(null) //TODO ?
-        .tenantId(historicIncident.getTenantId())
-        .build();
+        .tenantId(historicIncident.getTenantId());
+    // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 
   protected IncidentEntity.IncidentState convertState(Integer state) {

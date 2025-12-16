@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.converter;
+package io.camunda.migration.data.interceptor.history;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.constants.MigratorConstants;

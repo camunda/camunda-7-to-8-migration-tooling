@@ -9,6 +9,7 @@
 package io.camunda.migration.data.impl.logging;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE = "Missing parent decision instance";
+  public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
 
   // HistoryMigrator Messages
   public static final String MIGRATING_DEFINITIONS = "Migrating {} definitions";
@@ -50,7 +52,6 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = SKIPPING_DECISION_INSTANCE + "Process instance not yet available.";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE = SKIPPING_DECISION_INSTANCE + "Flow node instance not yet available.";
-  public static final String SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR = SKIPPING_DECISION_INSTANCE + "Variable interceptor error: {}";
   public static final String NOT_MIGRATING_DECISION_INSTANCE = "Not migrating historic decision instance with "
       + "C7 ID: [{}] because it does not originate from a business rule task.";
 
@@ -68,7 +69,6 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
-  public static final String SKIPPING_VARIABLE_INTERCEPTOR_ERROR = SKIPPING_VARIABLE + " Variable interceptor error: {}";
 
 
   public static final String MIGRATING_USER_TASKS = "Migrating historic user tasks";
@@ -85,6 +85,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
+
+  public static final String SKIPPING_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
 
   public static void migratingDecisionDefinitions() {
     LOGGER.info(MIGRATING_DEFINITIONS, "decision");
@@ -170,10 +172,6 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE, c7DecisionInstanceId);
   }
 
-  public static void skippingDecisionInstanceDueToInterceptorError(String c7DecisionInstanceId, String message) {
-    LOGGER.warn(SKIPPING_DECISION_INSTANCE_INTERCEPTOR_ERROR, c7DecisionInstanceId, message);
-  }
-
   public static void migratingHistoricIncidents() {
     LOGGER.info(MIGRATING_INCIDENTS);
   }
@@ -216,10 +214,6 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricVariableDueToMissingScopeKey(String c7VariableId) {
     LOGGER.debug(SKIPPING_VARIABLE_MISSING_SCOPE, c7VariableId);
-  }
-
-  public static void skippingHistoricVariableDueToInterceptorError(String c7VariableId, String message) {
-    LOGGER.warn(SKIPPING_VARIABLE_INTERCEPTOR_ERROR, c7VariableId, message);
   }
 
   public static void stacktrace(Exception e) {
@@ -272,5 +266,9 @@ public class HistoryMigratorLogs {
 
   public static void migratingDecisionRequirementsCompleted(String c7DecisionRequirementsId) {
     LOGGER.debug(MIGRATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionRequirementsId);
+  }
+
+  public static void skippingEntityDueToInterceptorError(IdKeyMapper.TYPE type, String c7EntityId, String message) {
+    LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, type, c7EntityId, message);
   }
 }

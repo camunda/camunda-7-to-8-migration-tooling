@@ -60,7 +60,7 @@ public class InterceptorConfiguration {
    */
   @Bean
   public List<VariableInterceptor> configuredVariableInterceptors() {
-    ConfigurationLogs.logConfiguringInterceptors();
+    ConfigurationLogs.logConfiguringInterceptors("variable");
 
     // Get interceptors from Spring context (annotated with @Component)
     List<VariableInterceptor> contextInterceptors = new ArrayList<>(
@@ -72,7 +72,7 @@ public class InterceptorConfiguration {
     // Sort by order annotation if present
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
-    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size());
+    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), "variable");
     return contextInterceptors;
   }
 
@@ -83,7 +83,7 @@ public class InterceptorConfiguration {
    */
   @Bean
   public List<EntityInterceptor> configuredEntityInterceptors() {
-    ConfigurationLogs.logConfiguringInterceptors();
+    ConfigurationLogs.logConfiguringInterceptors("entity");
 
     // Get interceptors from Spring context (annotated with @Component)
     List<EntityInterceptor> contextInterceptors = new ArrayList<>(
@@ -95,7 +95,7 @@ public class InterceptorConfiguration {
     // Sort by order annotation if present
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
-    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size());
+    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), "entity");
     return contextInterceptors;
   }
 
@@ -124,7 +124,7 @@ public class InterceptorConfiguration {
     for (InterceptorConfig interceptorConfig : interceptorConfigs) {
       if (!interceptorConfig.isEnabled()) {
         // Handle interceptor disable by removing from context
-        handleInterceptorDisable(contextInterceptors, interceptorConfig);
+        handleInterceptorDisable(contextInterceptors, interceptorConfig, interceptorType);
       } else {
         // Handle interceptor creation/registration or property binding
         T existingInterceptor = findExistingInterceptor(contextInterceptors, interceptorConfig.getClassName());
@@ -140,7 +140,7 @@ public class InterceptorConfiguration {
             }
           } catch (ClassNotFoundException e) {
             // Log but don't fail - this allows configurations to contain both types
-            ConfigurationLogs.logInterceptorNotFoundForDisabling(interceptorConfig.getClassName());
+            ConfigurationLogs.logInterceptorNotFoundForDisabling(interceptorType.getSimpleName(), interceptorConfig.getClassName());
           }
         }
       }
@@ -171,14 +171,15 @@ public class InterceptorConfiguration {
    */
   protected <T extends BaseInterceptor<?>> void handleInterceptorDisable(
       List<T> contextInterceptors,
-      InterceptorConfig interceptorConfig) {
+      InterceptorConfig interceptorConfig,
+      Class<T> interceptorType) {
     boolean removed = contextInterceptors.removeIf(interceptor ->
         interceptor.getClass().getName().equals(interceptorConfig.getClassName()));
 
     if (removed) {
       ConfigurationLogs.logInterceptorDisabled(interceptorConfig.getClassName());
     } else {
-      ConfigurationLogs.logInterceptorNotFoundForDisabling(interceptorConfig.getClassName());
+      ConfigurationLogs.logInterceptorNotFoundForDisabling(interceptorType.getSimpleName(), interceptorConfig.getClassName());
     }
   }
 
@@ -222,11 +223,12 @@ public class InterceptorConfiguration {
       throw new IllegalArgumentException(ConfigurationLogs.getClassNameNullOrEmptyError());
     }
 
-    ConfigurationLogs.logCreatingInstance(className);
+    ConfigurationLogs.logCreatingInstance(interceptorType.getSimpleName(), className);
 
     Class<?> clazz = Class.forName(className);
     if (!interceptorType.isAssignableFrom(clazz)) {
-      throw new IllegalArgumentException(ConfigurationLogs.getClassNotImplementInterfaceError(className));
+      throw new IllegalArgumentException(ConfigurationLogs.getClassNotImplementInterfaceError(className,
+          interceptorType.getSimpleName()));
     }
 
     T interceptor = (T) clazz.getDeclaredConstructor().newInstance();
@@ -234,7 +236,7 @@ public class InterceptorConfiguration {
     // Set properties if provided
     Map<String, Object> properties = interceptorConfig.getProperties();
     if (properties != null && !properties.isEmpty()) {
-      ConfigurationLogs.logSettingProperties(className);
+      ConfigurationLogs.logSettingProperties(interceptorType.getSimpleName(), className);
       applyProperties(interceptor, properties, false);
     }
 
