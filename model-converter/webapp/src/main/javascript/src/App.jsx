@@ -306,7 +306,11 @@ function App() {
             Understand your BPMN models before migrating. Identify gaps, assess effort, and convert compatible elements.
             </p>
             <p>
-            For more information visit the <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/model-converter/" target="_blank">model converter guide</a>.
+              For more information visit the 
+              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/model-converter/"
+                rel="noopener noreferrer" target="_blank">
+                model converter guide
+              </a>.
             </p>
             {!isSaaS && (
               <div>
