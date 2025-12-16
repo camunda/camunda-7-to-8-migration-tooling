@@ -580,6 +580,7 @@ public class HistoryMigrator {
           String childDecisionInstanceId =
               // +2 because +1 is used for the parent decision instance
               String.format("%s-%d", c8ParentDecisionInstanceModel.decisionInstanceKey(), i + 2);
+          DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(childDecisionInstance.getDecisionDefinitionId());
           decisionInstanceDbModelBuilder.decisionDefinitionKey(decisionDefinition.decisionDefinitionKey())
               .decisionInstanceId(childDecisionInstanceId)
               .decisionRequirementsKey(decisionDefinition.decisionRequirementsKey())
@@ -587,7 +588,8 @@ public class HistoryMigrator {
               .processInstanceKey(c8ParentDecisionInstanceModel.processInstanceKey())
               .rootDecisionDefinitionKey(parentDecisionDefinitionKey)
               .flowNodeInstanceKey(c8ParentDecisionInstanceModel.flowNodeInstanceKey())
-              .flowNodeId(c8ParentDecisionInstanceModel.flowNodeId());
+              .flowNodeId(c8ParentDecisionInstanceModel.flowNodeId())
+              .decisionType(determineDecisionType(dmnModelInstance, childDecisionInstance.getDecisionDefinitionKey()));
           DecisionInstanceDbModel childDbModel = convertDecisionInstance(context);
           c8Client.insertDecisionInstance(childDbModel);
         } catch (EntityInterceptorException e) {
