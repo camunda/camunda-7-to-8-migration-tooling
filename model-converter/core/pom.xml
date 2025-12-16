@@ -3,12 +3,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.camunda</groupId>
-    <artifactId>camunda-7-to-8-model-converter-parent</artifactId>
+    <artifactId>camunda-7-to-8-diagram-converter-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>camunda-7-to-8-model-converter-core</artifactId>
-  <name>camunda-7-to-8-model-converter-core</name>
+  <artifactId>camunda-7-to-8-diagram-converter-core</artifactId>
+  <name>camunda-7-to-8-diagram-converter-core</name>
 
   <dependencies>
     <dependency>

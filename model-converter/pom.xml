@@ -9,7 +9,7 @@
     <relativePath>../</relativePath>
   </parent>
 
-  <artifactId>camunda-7-to-8-model-converter-parent</artifactId>
+  <artifactId>camunda-7-to-8-diagram-converter-parent</artifactId>
   <packaging>pom</packaging>
   <name>Camunda 7 to 8 Migration Tooling - Model Converter</name>
 
@@ -193,7 +193,7 @@
       </dependency>
       <dependency>
         <groupId>io.camunda</groupId>
-        <artifactId>camunda-7-to-8-model-converter-core</artifactId>
+        <artifactId>camunda-7-to-8-diagram-converter-core</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

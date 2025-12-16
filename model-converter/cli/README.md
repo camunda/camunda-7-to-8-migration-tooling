@@ -16,7 +16,7 @@ contains Umlaute, add the java option `-Dfile.encoding=UTF-8` between the java
 and -jar parameters:
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar
 ```
 
 ## Commands
@@ -24,14 +24,14 @@ java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar
 ### Convert diagrams from the local file systems
 
 ```
-Usage: camunda-7-to-8-model-converter-cli local [-dhoV] [--check] [--csv]
+Usage: camunda-7-to-8-diagram-converter-cli local [-dhoV] [--check] [--csv]
        [--disable-default-job-type] [-nr] [--default-job-type=<defaultJobType>]
        [--platform-version=<platformVersion>] [--prefix=<prefix>] <file>
 Converts the diagram from the given directory or file
 
 Execute as:
 
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar local
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar local
 
 Parameter:
       <file>                 The file to convert or directory to search in
@@ -62,13 +62,13 @@ Options:
 **Example:**
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar local c:\myDirectory
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar local c:\myDirectory
 ```
 
 ### Convert diagrams from a running process engine
 
 ```
-Usage: camunda-7-to-8-model-converter-cli engine [-dhoV] [--check] [--csv]
+Usage: camunda-7-to-8-diagram-converter-cli engine [-dhoV] [--check] [--csv]
        [--disable-default-job-type] [--default-job-type=<defaultJobType>]
        [-p=<password>] [--platform-version=<platformVersion>]
        [--prefix=<prefix>] [-t=<targetDirectory>] [-u=<username>] <url>
@@ -76,7 +76,7 @@ Description: Converts the diagrams from the given process engine
 
 Execute as:
 
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar engine
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine
 
 Parameter:
       <url>               Fully qualified http(s) address to the process engine
@@ -114,6 +114,6 @@ Options:
 **Example:**
 
 ```
-java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli-{version}.jar engine http://localhost:8080/engine-rest
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest
 ```
 

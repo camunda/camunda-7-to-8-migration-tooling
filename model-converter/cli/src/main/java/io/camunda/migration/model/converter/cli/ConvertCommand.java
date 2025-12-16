@@ -13,10 +13,10 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 @Command(
-    name = "camunda-7-to-8-model-converter-cli",
+    name = "camunda-7-to-8-diagram-converter-cli",
     description = {
       "%nExecute as:",
-      "%njava -Dfile.encoding=UTF-8 -jar camunda-7-to-8-model-converter-cli.jar%n"
+      "%njava -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli.jar%n"
     },
     mixinStandardHelpOptions = true,
     optionListHeading = "Options:%n",
