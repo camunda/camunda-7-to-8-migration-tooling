@@ -84,6 +84,6 @@ public class DecisionInstanceConverter implements EntityInterceptor {
         output.getClauseName(),
         variableService.convertValue((ValueFields) output),
         output.getRuleId(),
-        output.getRuleOrder())).toList();
+        output.getRuleOrder() != null ? output.getRuleOrder() : 1)).toList();
   }
 }
