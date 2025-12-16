@@ -131,7 +131,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
         rdbmsService.getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
-                    filterBuilder.processInstanceKeys(processInstanceKey))))
+                    filterBuilder.tenantIds("complex-tenant"))))
             .items();
 
     assertThat(migratedFlowNodes).isNotEmpty();

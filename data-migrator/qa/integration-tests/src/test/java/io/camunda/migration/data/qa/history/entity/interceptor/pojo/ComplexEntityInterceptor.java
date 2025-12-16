@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor.pojo;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
@@ -46,12 +48,14 @@ public class ComplexEntityInterceptor implements EntityInterceptor {
     if (entity instanceof HistoricProcessInstance && builder instanceof ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) {
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processBuilder =
           (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) builder;
+      ((ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) builder).processInstanceKey(getNextKey());
       if (targetTenantId != null) {
         processBuilder.tenantId(targetTenantId);
       }
     } else if (entity instanceof HistoricActivityInstance && builder instanceof FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) {
       FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder flowNodeBuilder =
           (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) builder;
+      ((FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) builder).processInstanceKey(getNextKey());
       if (targetTenantId != null) {
         flowNodeBuilder.tenantId(targetTenantId);
       }
