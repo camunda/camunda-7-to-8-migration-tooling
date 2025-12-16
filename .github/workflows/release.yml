@@ -230,7 +230,7 @@ jobs:
           mkdir -p docker-context
           cd docker-context
           tar -xzf ../artifacts/camunda-7-to-8-data-migrator-${{ env.RELEASE_VERSION }}.tar.gz
-          cp ../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar "${ARTIFACT_DIR}/"
+          cp ../artifacts/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar ./
           cp ../artifacts/camunda-7-to-8-data-migrator-cockpit-plugin-${{ env.RELEASE_VERSION }}.jar ./
           cp ../artifacts/camunda-7-to-8-model-converter-core-${{ env.RELEASE_VERSION }}.jar ./
           cp ../artifacts/camunda-7-to-8-model-converter-webapp-${{ env.RELEASE_VERSION }}.jar ./
