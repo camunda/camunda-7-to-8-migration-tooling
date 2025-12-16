@@ -23,47 +23,47 @@ import org.springframework.context.annotation.Configuration;
 public class ConverterConfiguration {
 
   @Bean
-  public DecisionDefinitionTransformer decisionDefinitionConverter() {
+  public DecisionDefinitionTransformer decisionDefinitionTransformer() {
     return new DecisionDefinitionTransformer();
   }
 
   @Bean
-  public DecisionRequirementsDefinitionTransformer decisionRequirementsDefinitionConverter() {
+  public DecisionRequirementsDefinitionTransformer decisionRequirementsDefinitionTransformer() {
     return new DecisionRequirementsDefinitionTransformer();
   }
 
   @Bean
-  public DecisionInstanceTransformer decisionInstanceConverter() {
+  public DecisionInstanceTransformer decisionInstanceTransformer() {
     return new DecisionInstanceTransformer();
   }
 
   @Bean
-  public FlowNodeTransformer flowNodeConverter() {
+  public FlowNodeTransformer flowNodeTransformer() {
     return new FlowNodeTransformer();
   }
 
   @Bean
-  public IncidentTransformer incidentConverter() {
+  public IncidentTransformer incidentTransformer() {
     return new IncidentTransformer();
   }
 
   @Bean
-  public ProcessDefinitionTransformer processDefinitionConverter() {
+  public ProcessDefinitionTransformer processDefinitionTransformer() {
     return new ProcessDefinitionTransformer();
   }
 
   @Bean
-  public ProcessInstanceTransformer processInstanceConverter() {
+  public ProcessInstanceTransformer processInstanceTransformer() {
     return new ProcessInstanceTransformer();
   }
 
   @Bean
-  public UserTaskTransformer userTaskConverter() {
+  public UserTaskTransformer userTaskTransformer() {
     return new UserTaskTransformer();
   }
 
   @Bean
-  public VariableTransformer variableConverter() {
+  public VariableTransformer variableTransformer() {
     return new VariableTransformer();
   }
 
