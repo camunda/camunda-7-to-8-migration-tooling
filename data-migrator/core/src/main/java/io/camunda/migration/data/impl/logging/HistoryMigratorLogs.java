@@ -69,7 +69,6 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
-  public static final String SKIPPING_VARIABLE_INTERCEPTOR_ERROR = SKIPPING_VARIABLE + " Variable interceptor error: {}";
 
 
   public static final String MIGRATING_USER_TASKS = "Migrating historic user tasks";
