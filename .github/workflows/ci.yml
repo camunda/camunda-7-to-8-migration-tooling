@@ -118,7 +118,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           ARTIFACT_DIR=$(mktemp -d)
-          cp code-conversion/recipes/target/camunda-7-to-8-rewrite-recipes-*.jar "${ARTIFACT_DIR}/"
+          cp code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-*.jar "${ARTIFACT_DIR}/"
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload code-conversion artifacts
