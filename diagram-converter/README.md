@@ -1,6 +1,6 @@
-# Camunda 7 to 8 Model Converter
+# Camunda 7 to 8 Diagram Converter
 
-A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 format. The Model Converter:
+A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 format. The Diagram Converter:
 
 - Analyzes Camunda 7 models to identify tasks required for migration to Camunda 8.
 - Converts those models to Camunda 8 format.
@@ -41,14 +41,14 @@ To understand what conversions will be applied, have a look at the [BPMN Convers
 
 ## Installation
 
-You can use the Model Converter in the following ways:
+You can use the Diagram Converter in the following ways:
 
-- **Web Interface**: A locally installed web-based wizard for the Model Converter, implemented as a Java Spring application. This can be installed locally as Java jar, or consumed as SaaS from a hosted version.
-- **CLI**: A Command-Line Interface for the Model Converter, implemented as a Java application.
+- **Web Interface**: A locally installed web-based wizard for the Diagram Converter, implemented as a Java Spring application. This can be installed locally as Java jar, or consumed as SaaS from a hosted version.
+- **CLI**: A Command-Line Interface for the Diagram Converter, implemented as a Java application.
 
 ### SaaS
 
-A free hosted version of the Model Converter is available at [https://migration-analyzer.consulting-sandbox.camunda.cloud/](https://migration-analyzer.consulting-sandbox.camunda.cloud/).
+A free hosted version of the Diagram Converter is available at [https://migration-analyzer.consulting-sandbox.camunda.cloud/](https://migration-analyzer.consulting-sandbox.camunda.cloud/).
 
 Note that your models are **not** stored on this platform, and all processing happens in-memory. Your data is transmitted securely over HTTPS. However, we don't give any guarantees on this free SaaS version.
 
@@ -61,7 +61,7 @@ You can also install the web application locally.
 
 **Steps**:
 
-1. Download the latest Model Converter web application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
+1. Download the latest Diagram Converter web application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
 2. Run the application. Navigate to the directory where the JAR file was downloaded and execute the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
    ```shell
@@ -81,7 +81,7 @@ The CLI is a standalone Java application.
 
 **Steps**:
 
-1. Download the latest Model Converter CLI application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
+1. Download the latest Diagram Converter CLI application: https://github.com/camunda/camunda-7-to-8-migration-tooling/releases.
 2. Run the CLI with the following command (replace `{version}` with the actual version number, e.g., `0.2.0`):
 
    ```shell

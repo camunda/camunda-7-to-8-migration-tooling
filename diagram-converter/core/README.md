@@ -1,6 +1,6 @@
-# Model Converter Core
+# Diagram Converter Core
 
-This is the core module of the Model Converter, containing the `DiagramConverter` plus its factory, the `DiagramConverterFactory`.
+This is the core module of the Diagram Converter, containing the `DiagramConverter` plus its factory, the `DiagramConverterFactory`.
 
 ## How does it work?
 

@@ -1,4 +1,4 @@
-# Model Converter Webapp
+# Diagram Converter Webapp
 
 ## Rest API
 

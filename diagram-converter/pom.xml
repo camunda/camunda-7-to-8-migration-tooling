@@ -11,7 +11,7 @@
 
   <artifactId>camunda-7-to-8-diagram-converter-parent</artifactId>
   <packaging>pom</packaging>
-  <name>Camunda 7 to 8 Migration Tooling - Model Converter</name>
+  <name>Camunda 7 to 8 Migration Tooling - Diagram Converter</name>
 
   <modules>
     <module>core</module>
