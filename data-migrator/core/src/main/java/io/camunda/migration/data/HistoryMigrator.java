@@ -238,35 +238,38 @@ public class HistoryMigrator {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7ProcessInstance,
             HistoricProcessInstance.class, processInstanceDbModelBuilder);
 
-        if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
-          String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
-          Long parentProcessInstanceKey = null;
-          if (c7SuperProcessInstanceId != null) {
-            ProcessInstanceEntity parentInstance = findProcessInstanceByC7Id(c7SuperProcessInstanceId);
-            if (parentInstance != null) {
-              parentProcessInstanceKey = parentInstance.processInstanceKey();
-            }
-          }
-          processInstanceDbModelBuilder.processDefinitionId(c7ProcessInstance.getProcessDefinitionKey())
-              .processDefinitionKey(processDefinitionKey);
-          if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
-            processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
-            ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-            insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
-          } else {
-            ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-            if (dbModel.parentProcessInstanceKey() != null) {
-              insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
-            } else {
-              markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-                  SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-              HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
-            }
-          }
-        } else {
+        processInstanceDbModelBuilder.processInstanceKey(getNextKey());
+        if (processDefinitionKey != null) {
+          processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey);
+        }
+
+        ProcessInstanceDbModel dbModel = convertProcessInstance(context);
+        if (!isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION) && dbModel.processDefinitionKey() == null) {
           markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
               SKIP_REASON_MISSING_PROCESS_DEFINITION);
           HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
+          return;
+        }
+        String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
+        Long parentProcessInstanceKey = null;
+        if (c7SuperProcessInstanceId != null) {
+          ProcessInstanceEntity parentInstance = findProcessInstanceByC7Id(c7SuperProcessInstanceId);
+          if (parentInstance != null) {
+            parentProcessInstanceKey = parentInstance.processInstanceKey();
+          }
+        }
+        if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
+          processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
+          dbModel = convertProcessInstance(context);
+          insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
+        } else {
+          if (dbModel.parentProcessInstanceKey() != null) {
+            insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
+          } else {
+            markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+                SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+            HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+          }
         }
       } catch (EntityInterceptorException | VariableInterceptorException e) {
         handleInterceptorException(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE,
