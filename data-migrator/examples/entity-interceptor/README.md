@@ -167,8 +167,8 @@ public void execute(EntityConversionContext<?, ?> context) {
     // Safe to cast because getTypes() restricts to HistoricProcessInstance
     HistoricProcessInstance c7Instance = 
         (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.Builder c8Builder = 
-        (ProcessInstanceDbModel.Builder) context.getC8DbModelBuilder();
+    rocessInstanceDbModel.ProcessInstanceDbModelBuilder c8Builder = 
+        (rocessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
     
     // Now you can access type-specific methods
 }
