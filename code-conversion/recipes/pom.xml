@@ -6,9 +6,11 @@
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
     <version>0.2.1-SNAPSHOT</version>
+    <relativePath>../</relativePath>
   </parent>
 
   <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
+  <name>camunda-7-to-8-code-conversion-recipes</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
