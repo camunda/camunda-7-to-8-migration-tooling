@@ -127,7 +127,7 @@ Entity interceptors have two lifecycle methods that are called during entity con
 
 1. **`presetParentProperties(context)`** - Called first, used to set parent-related properties like `processDefinitionKey` or `parentProcessInstanceKey`.
 Data Migrator ensures that parent entities are processed before child entities, and those properties are set accordingly when information about them is available.
-This method should be used set the properties when Data Migrator cannot automatically determine them.
+This method should be used to set the properties when Data Migrator cannot automatically determine them.
 2. **`execute(context)`** - Called second, performs the main conversion logic
 
 Both methods are optional (you only need to implement what you need).
