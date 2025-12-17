@@ -1,0 +1,87 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.diagram.converter.webapp;
+
+import com.slack.api.Slack;
+import com.slack.api.methods.request.chat.ChatPostMessageRequest;
+import com.slack.api.methods.request.files.FilesUploadV2Request;
+import io.camunda.migration.diagram.converter.NotificationService;
+import io.camunda.migration.diagram.converter.webapp.properties.NotificationProperties;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationServiceImpl implements NotificationService {
+  private static final Logger LOG = LoggerFactory.getLogger(NotificationServiceImpl.class);
+  private final NotificationProperties notificationProperties;
+
+  @Autowired
+  public NotificationServiceImpl(NotificationProperties notificationProperties) {
+    this.notificationProperties = notificationProperties;
+  }
+
+  private void notifySlack(Exception e) {
+    SlackProperties slackProperties = notificationProperties.getSlack();
+    if (!slackProperties.isEnabled()) {
+      return;
+    }
+    Slack slack = Slack.getInstance();
+    try {
+      slack
+          .methodsAsync(slackProperties.getToken())
+          .chatPostMessage(
+              ChatPostMessageRequest.builder()
+                  .channel(slackProperties.getChannelName())
+                  .text(
+                      "An exception happened. Please review in the attached stacktrace\n```"
+                          + e.getMessage()
+                          + "```")
+                  .build())
+          .join();
+      slack
+          .methodsAsync(slackProperties.getToken())
+          .filesUploadV2(
+              FilesUploadV2Request.builder()
+                  .channel(slackProperties.getChannelName())
+                  .fileData(buildText(e).getBytes())
+                  .filename(buildFilename())
+                  .build())
+          .join();
+    } catch (Exception ex) {
+      LOG.error("Exception while sending notification", ex);
+    }
+  }
+
+  private String buildFilename() {
+    String filename =
+        "stacktrace_" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + ".txt";
+    LOG.debug("Filename: {}", filename);
+    return filename;
+  }
+
+  private String buildText(Exception e) {
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    e.printStackTrace(pw);
+    String stacktrace = sw.toString();
+    return "```\n" + stacktrace + "\n```";
+  }
+
+  @Override
+  public void notify(Object object) {
+    if (object instanceof Exception) {
+      notifySlack((Exception) object);
+    }
+  }
+}

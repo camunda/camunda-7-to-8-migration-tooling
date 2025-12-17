@@ -1,0 +1,43 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.diagram.converter.visitor.impl.eventDefinition;
+
+import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.version.SemanticVersion;
+import io.camunda.migration.diagram.converter.visitor.AbstractEventDefinitionVisitor;
+
+public class EscalationEventDefinitionVisitor extends AbstractEventDefinitionVisitor {
+  @Override
+  public String localName() {
+    return "escalationEventDefinition";
+  }
+
+  @Override
+  protected SemanticVersion availableFrom(DomElementVisitorContext context) {
+    if (isThrowing(context)
+        || isAttachedToSubprocess(context)
+        || isAttachedToCallActivity(context)) {
+      return SemanticVersion._8_2;
+    }
+    return null;
+  }
+
+  private boolean isThrowing(DomElementVisitorContext context) {
+    return !isBoundaryEvent(context.getElement());
+  }
+
+  private boolean isAttachedToCallActivity(DomElementVisitorContext context) {
+    return isBoundaryEvent(context.getElement())
+        && findAttachedActivity(context.getElement()).getLocalName().equals("callActivity");
+  }
+
+  private boolean isAttachedToSubprocess(DomElementVisitorContext context) {
+    return isBoundaryEvent(context.getElement())
+        && findAttachedActivity(context.getElement()).getLocalName().equals("subProcess");
+  }
+}

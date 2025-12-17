@@ -1,0 +1,36 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.diagram.converter.visitor.impl.element;
+
+import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible;
+import io.camunda.migration.diagram.converter.message.Message;
+import io.camunda.migration.diagram.converter.message.MessageFactory;
+import io.camunda.migration.diagram.converter.visitor.AbstractCamundaElementVisitor;
+
+public class PropertyVisitor extends AbstractCamundaElementVisitor {
+  @Override
+  public String localName() {
+    return "property";
+  }
+
+  @Override
+  protected Message visitCamundaElement(DomElementVisitorContext context) {
+    String name = context.getElement().getAttribute("name");
+    String value = context.getElement().getAttribute("value");
+    context.addConversion(
+        AbstractProcessElementConvertible.class,
+        conversion -> conversion.addZeebeProperty(name, value));
+    return MessageFactory.property(context.getElement().getLocalName(), name);
+  }
+
+  @Override
+  public boolean canBeTransformed(DomElementVisitorContext context) {
+    return true;
+  }
+}

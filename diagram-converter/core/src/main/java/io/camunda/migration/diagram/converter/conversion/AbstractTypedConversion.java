@@ -1,0 +1,40 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.diagram.converter.conversion;
+
+import static io.camunda.migration.diagram.converter.BpmnElementFactory.*;
+
+import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
+import io.camunda.migration.diagram.converter.convertible.Convertible;
+import java.util.List;
+import org.camunda.bpm.model.xml.instance.DomElement;
+
+public abstract class AbstractTypedConversion<T extends Convertible> implements Conversion {
+
+  @Override
+  public final void convert(
+      DomElement element, Convertible convertible, List<ElementCheckMessage> messages) {
+    if (type().isAssignableFrom(convertible.getClass())) {
+      convertTyped(element, type().cast(convertible));
+    }
+    removeIfEmpty(getExtensionElements(element));
+    removeIfEmpty(getDocumentation(element));
+  }
+
+  private void removeIfEmpty(DomElement extensionElements) {
+    if (extensionElements.getChildElements().isEmpty()
+        && (extensionElements.getTextContent() == null
+            || extensionElements.getTextContent().trim().equals(""))) {
+      extensionElements.getParentElement().removeChild(extensionElements);
+    }
+  }
+
+  protected abstract Class<T> type();
+
+  protected abstract void convertTyped(DomElement element, T convertible);
+}
