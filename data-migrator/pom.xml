@@ -28,14 +28,29 @@
     </dependencies>
   </dependencyManagement>
 
-  <modules>
-    <module>core</module>
-    <module>plugins/cockpit</module>
-    <module>examples</module>
-    <module>qa</module>
-    <module>distro</module>
-    <module>assembly</module>
-  </modules>
+  <profiles>
+    <profile>
+      <id>distro</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>core</module>
+        <module>plugins/cockpit</module>
+        <module>examples</module>
+        <module>qa</module>
+        <module>distro</module>
+        <module>assembly</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>central-release</id>
+      <modules>
+        <module>core</module>
+        <module>plugins/cockpit</module>
+      </modules>
+    </profile>
+  </profiles>
 
 </project>
 
