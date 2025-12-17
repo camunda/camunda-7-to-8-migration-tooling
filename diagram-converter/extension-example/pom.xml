@@ -9,7 +9,7 @@
 
   <artifactId>camunda-7-to-8-diagram-converter-extension-example</artifactId>
   <version>0.2.0-SNAPSHOT</version>
-  <name>camunda-7-to-8-diagram-converter-extension-example</name>
+  <name>Camunda 7 to 8 Diagram Converter - Extension Example</name>
 
   <properties>
     <encoding>UTF-8</encoding>

@@ -12,6 +12,8 @@
     <artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
     <packaging>pom</packaging>
 
+    <name>Camunda 7 to 8 Migration Tooling - Code Conversion</name>
+
     <modules>
       <module>recipes</module>
     </modules>

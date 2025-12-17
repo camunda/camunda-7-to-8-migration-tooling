@@ -8,7 +8,7 @@
   </parent>
 
   <artifactId>camunda-7-to-8-diagram-converter-cli</artifactId>
-  <name>camunda-7-to-8-diagram-converter-cli</name>
+  <name>Camunda 7 to 8 Diagram Converter - CLI</name>
 
   <dependencies>
     <dependency>

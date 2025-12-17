@@ -8,7 +8,7 @@
   </parent>
 
   <artifactId>camunda-7-to-8-diagram-converter-core</artifactId>
-  <name>camunda-7-to-8-diagram-converter-core</name>
+  <name>Camunda 7 to 8 Diagram Converter - Core</name>
 
   <dependencies>
     <dependency>

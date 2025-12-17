@@ -11,6 +11,8 @@
 
   <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
 
+  <name>Camunda 7 to 8 Code Conversion - Recipes</name>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
