@@ -41,7 +41,7 @@ public class ProcessEngineAwareInterceptor implements EntityInterceptor {
     HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
         (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-    builder.processInstanceKey(getNextKey());
+    builder.processInstanceKey(getNextKey()).processDefinitionId(processInstance.getProcessDefinitionKey());;
 
     if (builder != null && context.getProcessEngine() != null) {
       // Use ProcessEngine to retrieve deployment information from C7
