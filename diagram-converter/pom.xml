@@ -13,13 +13,6 @@
   <packaging>pom</packaging>
   <name>Camunda 7 to 8 Migration Tooling - Diagram Converter</name>
 
-  <modules>
-    <module>core</module>
-    <module>webapp</module>
-    <module>cli</module>
-    <module>extension-example</module>
-  </modules>
-
   <properties>
     <version.jsoup>1.21.2</version.jsoup>
     <version.picocli>4.7.7</version.picocli>
@@ -407,6 +400,28 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <profile>
+      <id>distro</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>core</module>
+        <module>webapp</module>
+        <module>cli</module>
+        <module>extension-example</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <id>central-release</id>
+      <modules>
+        <module>core</module>
+        <module>webapp</module>
+        <module>cli</module>
+      </modules>
     </profile>
   </profiles>
 </project>
