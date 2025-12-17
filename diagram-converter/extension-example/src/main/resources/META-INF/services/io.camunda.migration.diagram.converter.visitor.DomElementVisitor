@@ -1,0 +1,2 @@
+io.camunda.migration.diagram.converter.example.extendedConverter.CustomDomElementVisitor
+io.camunda.migration.diagram.converter.example.extendedConverter.TaskTopicVisitor
