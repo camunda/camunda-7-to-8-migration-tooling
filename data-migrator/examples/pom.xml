@@ -17,6 +17,7 @@
 
   <modules>
     <module>variable-interceptor</module>
+    <module>entity-interceptor</module>
   </modules>
 
 </project>
