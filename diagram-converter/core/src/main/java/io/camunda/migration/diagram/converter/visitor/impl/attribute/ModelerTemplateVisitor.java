@@ -5,13 +5,13 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.model.converter.visitor.impl.attribute;
+package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
-import io.camunda.migration.model.converter.DomElementVisitorContext;
-import io.camunda.migration.model.converter.convertible.AbstractActivityConvertible;
-import io.camunda.migration.model.converter.message.Message;
-import io.camunda.migration.model.converter.message.MessageFactory;
-import io.camunda.migration.model.converter.visitor.AbstractSupportedAttributeVisitor;
+import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible;
+import io.camunda.migration.diagram.converter.message.Message;
+import io.camunda.migration.diagram.converter.message.MessageFactory;
+import io.camunda.migration.diagram.converter.visitor.AbstractSupportedAttributeVisitor;
 
 public class ModelerTemplateVisitor extends AbstractSupportedAttributeVisitor {
   @Override

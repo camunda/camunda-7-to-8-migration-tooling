@@ -8,7 +8,7 @@
 package io.camunda.migration.diagram.converter.conversion;
 
 import static io.camunda.migration.diagram.converter.BpmnElementFactory.*;
-import static io.camunda.migration.model.converter.NamespaceUri.*;
+import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.BpmnMultiInstanceLoopCharacteristics;
