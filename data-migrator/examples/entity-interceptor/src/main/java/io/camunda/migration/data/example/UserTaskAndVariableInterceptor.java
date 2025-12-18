@@ -31,7 +31,7 @@ public class UserTaskAndVariableInterceptor implements EntityInterceptor {
   protected static final Logger LOGGER =
       LoggerFactory.getLogger(UserTaskAndVariableInterceptor.class);
 
-  // Configurable properties
+  // Configurable properties that can be set via application.yml
   protected boolean normalizeAssignees = true;
   protected boolean validateVariables = true;
   protected String assigneePrefix = "";

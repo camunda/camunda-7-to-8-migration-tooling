@@ -27,7 +27,7 @@ public class MyCustomEntityInterceptor implements EntityInterceptor {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(MyCustomEntityInterceptor.class);
 
-  // Configurable properties that can be set via YAML
+  // Configurable properties that can be set via application.yml
   protected boolean auditEnabled = true;
   protected String tenantPrefix = "";
 

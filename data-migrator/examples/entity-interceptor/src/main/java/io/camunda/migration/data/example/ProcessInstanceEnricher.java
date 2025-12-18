@@ -31,7 +31,7 @@ public class ProcessInstanceEnricher implements EntityInterceptor {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ProcessInstanceEnricher.class);
 
-  // Configurable properties
+  // Configurable properties via application.yml
   protected boolean enrichMetadata = true;
   protected boolean enableLogging = true;
 

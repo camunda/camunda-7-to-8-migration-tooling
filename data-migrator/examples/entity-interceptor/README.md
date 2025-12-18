@@ -28,7 +28,7 @@ This creates a JAR file in the `target` directory that can be deployed to the Da
 
 ## Configuration Example
 
-Add the following to your `application.yml`:
+Add the following to your `camunda-7-to-8-data-migrator-${version}\application.yml`:
 
 ```yaml
 camunda:
