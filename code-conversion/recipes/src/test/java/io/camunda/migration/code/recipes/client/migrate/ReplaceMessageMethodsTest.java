@@ -9,7 +9,9 @@ package io.camunda.migration.code.recipes.client.migrate;
 
 import static org.openrewrite.java.Assertions.java;
 
+import io.camunda.client.CamundaClient;
 import io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe;
+import org.camunda.bpm.engine.ProcessEngine;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
@@ -140,8 +142,19 @@ public class CorrelateMessagesTestClass {
                 .processInstanceBusinessKey(businessKey)
                 .correlate();
     }
+    
+    public void correlateMessageAsyncMethods(String messageName, String businessKey, String processDefinitionId) {
+        
+        engine.getRuntimeService().createMessageCorrelationAsync(messageName)
+                .processInstanceQuery(
+                        engine.getRuntimeService()
+                                .createProcessInstanceQuery()
+                                .processInstanceBusinessKey(businessKey)
+                                .processDefinitionKey(processDefinitionId))
+                .correlateAllAsync();
+    }
 }
-                                """,
+""",
 """
 package org.camunda.community.migration.example;
 
@@ -393,7 +406,25 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
     }
+
+    public void correlateMessageAsyncMethods(String messageName, String businessKey, String processDefinitionId) {
+      
+        // processInstanceBusinessKey was removed
+        camundaClient
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter.processDefinitionKey(Long.valueOf(processDefinitionId)))
+                .send()
+                .join()
+                .items()
+                .stream()
+                .map(processInstance -> camundaClient.newPublishMessageCommand()
+                        .messageName(messageName)
+                        .correlationKey(String.valueOf(processInstance.getProcessInstanceKey()))
+                        .send()
+                        .join())
+                .toList();
+    }
 }
-                                """));
+"""));
   }
 }
