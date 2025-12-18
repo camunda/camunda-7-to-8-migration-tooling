@@ -16,7 +16,7 @@
     - `Accept`: Either `application/json` or `text/csv` or `application/ms-excel`
 - Response:
   - `200`: Everything fine. The body contains a
-    [check results](../core/src/main/java/io/camunda/migration/diagram/converter/BpmnDiagramCheckResult.java),
+    [check results](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/DiagramCheckResult.java),
     either in `application/json` format or flattened as `text/csv` or a Microsoft Excel file (XLST).
 
 `POST /convert`: convert the provided model from Camunda 7 to 8

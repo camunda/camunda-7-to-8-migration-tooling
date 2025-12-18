@@ -39,7 +39,7 @@ import java.util.List;
 
 List<DomElementVisitor> visitors = loadDomElementVisitors();
 List<Conversion> conversions = loadConversions();
-NotificationService notificationService = laodNotificationService();
+NotificationService notificationService = loadNotificationService();
 
 DiagramConverter converter = new DiagramConverter(visitors, conversions, notificationService);
 ```
@@ -59,7 +59,7 @@ You can also customize the used converter properties:
 
 DefaultConverterProperties defaultConverterProperties = new DefaultConverterProperties();
 // I want to migrate to an older platform version
-defaultConverterProperties.setPlatformVersion("8.5");
+defaultConverterProperties.setPlatformVersion("8.7");
 
 ConverterProperties properties = ConverterPropertiesFactory
         .getInstance()

@@ -1,6 +1,6 @@
 # Extension Example
 
-This module shows how to build a **custom extension** for the [Camunda 7 to 8 Diagram Converter](https://github.com/camunda/camunda-7-to-8-migration-tooling).
+This module shows how to build a **custom extension** for the [Camunda 7 to 8 Diagram Converter](https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/diagram-converter).
 
 It shows how to **inspect BPMN DOM elements**, **enqueue targeted conversions**, and **emit analysis messages**.
 
