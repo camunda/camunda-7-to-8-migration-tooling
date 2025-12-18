@@ -307,7 +307,7 @@ function App() {
             </p>
             <p>
               For more information visit the{" "}
-              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/diagram-converter/"
+              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
                 rel="noopener noreferrer" target="_blank">
                 diagram converter guide
               </a>.
