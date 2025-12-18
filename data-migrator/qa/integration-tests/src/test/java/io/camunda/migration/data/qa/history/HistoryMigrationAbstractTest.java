@@ -153,6 +153,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
+  public List<FlowNodeInstanceEntity> searchHistoricFlowNodes(long processInstanceKey) {
+    return rdbmsService.getFlowNodeInstanceReader()
+        .search(FlowNodeInstanceQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
+        .items();
+  }
+
   public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
     return rdbmsService.getIncidentReader()
         .search(IncidentQuery.of(queryBuilder ->

@@ -53,4 +53,43 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     FlowNodeInstanceEntity endEvent = endEvents.getFirst();
     assertThat(endEvent.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + endEvent.flowNodeInstanceKey());
   }
+
+  @Test
+  public void shouldMigrateCompletedFlowNodeState() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodes(processInstances.getFirst().processInstanceKey());
+    assertThat(flowNodes).hasSize(3)
+        .extracting(FlowNodeInstanceEntity::state)
+        .containsOnly(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
+  }
+
+  @Test
+  public void shouldMigrateCancelledFlowNodeState() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    String processInstanceId = runtimeService.startProcessInstanceByKey("userTaskProcessId").getId();
+    runtimeService.deleteProcessInstance(processInstanceId, "Expected cancellation");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> userTasks = searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
+    assertThat(userTasks).singleElement().satisfies(userTask ->
+      assertThat(userTask.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED)
+    );
+  }
 }
