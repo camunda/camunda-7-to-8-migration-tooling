@@ -15,7 +15,7 @@
     },
     {
       "description": "Disable updates for code-conversion modules",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-code-conversion-recipes"],
+      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-code-conversion"],
       "enabled": false
     },
     {
