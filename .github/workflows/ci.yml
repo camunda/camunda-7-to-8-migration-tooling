@@ -159,7 +159,7 @@ jobs:
 
       - name: Build and test diagram-converter module
         working-directory: diagram-converter
-        run: mvn verify -PcheckFormat --batch-mode
+        run: mvn verify -Pdistro,checkFormat --batch-mode
 
       - name: Collect diagram-converter artifacts
         id: diagram-converter-artifacts
