@@ -182,3 +182,11 @@ void shouldSkipInstanceWhenDefinitionMissing() {
      -e POSTGRES_PASSWORD=camunda \
      -p 5432:5432 -d postgres:17
    ```
+
+## Contributing
+
+See the [contribution guidelines](../README.md#contributing).
+
+## License
+
+The source files in this repository are made available under the [Camunda License Version 1.0](../CAMUNDA-LICENSE-1.0.txt).
