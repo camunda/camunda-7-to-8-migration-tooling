@@ -124,6 +124,10 @@ You can also embed the core diagram conversion as library into your own Java app
 
 You can extend diagram conversion by leveraging the SPI. You can find an example in the [extension example project](extension-example/).
 
+## Contributing
+
+See the [contribution guidelines](../README.md#contributing).
+
 ## License
 
 The source files in this repository are made available under the [Camunda License Version 1.0](../CAMUNDA-LICENSE-1.0.txt).
