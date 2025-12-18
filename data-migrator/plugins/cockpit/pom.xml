@@ -4,7 +4,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <relativePath>../../</relativePath>
   </parent>
 
@@ -12,7 +12,7 @@
 
   <packaging>jar</packaging>
 
-  <name>Camunda 7 to 8 Data Migrator - Plugins – Cockpit</name>
+  <name>Camunda 7 to 8 Migration Tooling - Data - Plugins – Cockpit</name>
   <description>A Cockpit plugin for Camunda 7 that helps identify and fix entities that were skipped during Camunda 7 to 8 data migration.</description>
 
   <properties>

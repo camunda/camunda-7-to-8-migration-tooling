@@ -5,14 +5,14 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
   <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
   <packaging>pom</packaging>
 
-  <name>Camunda 7 to 8 Migration Tooling - Data Migrator</name>
+  <name>Camunda 7 to 8 Migration Tooling - Data</name>
 
   <dependencyManagement>
     <dependencies>
@@ -28,14 +28,29 @@
     </dependencies>
   </dependencyManagement>
 
-  <modules>
-    <module>core</module>
-    <module>plugins/cockpit</module>
-    <module>examples</module>
-    <module>qa</module>
-    <module>distro</module>
-    <module>assembly</module>
-  </modules>
+  <profiles>
+    <profile>
+      <id>distro</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>core</module>
+        <module>plugins/cockpit</module>
+        <module>examples</module>
+        <module>qa</module>
+        <module>distro</module>
+        <module>assembly</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>central-release</id>
+      <modules>
+        <module>core</module>
+        <module>plugins/cockpit</module>
+      </modules>
+    </profile>
+  </profiles>
 
 </project>
 

@@ -5,11 +5,11 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
-  <name>Camunda 7 to 8 Data Migrator - QA</name>
+  <name>Camunda 7 to 8 Migration Tooling - Data - QA</name>
 
   <packaging>pom</packaging>
 

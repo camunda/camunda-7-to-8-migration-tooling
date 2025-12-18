@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.3.0-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -59,34 +59,11 @@
     <central.sonatype.deployment.name>${project.groupId}:${project.artifactId}:${project.version}</central.sonatype.deployment.name>
   </properties>
 
-  <profiles>
-    <!-- distro profile is default and builds the complete distribution. -->
-    <profile>
-      <id>distro</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <modules>
-        <module>code-conversion</module>
-        <module>data-migrator</module>
-        <module>diagram-converter</module>
-      </modules>
-    </profile>
-    <profile>
-      <!-- central-release profile to publish migration tooling modules to Maven Central. -->
-      <!-- We don't want to publish complete distributions. -->
-      <!-- Used in release workflow. -->
-      <id>central-release</id>
-      <modules>
-        <module>code-conversion/recipes</module>
-        <module>data-migrator/core</module>
-        <module>data-migrator/plugins/cockpit</module>
-        <module>diagram-converter/core</module>
-        <module>diagram-converter/webapp</module>
-        <module>diagram-converter/cli</module>
-      </modules>
-    </profile>
-  </profiles>
+  <modules>
+    <module>code-conversion</module>
+    <module>data-migrator</module>
+    <module>diagram-converter</module>
+  </modules>
 
   <scm>
     <connection>scm:git:https://${env.GITHUB_TOKEN_USR}:${env.GITHUB_TOKEN_PSW}@github.com/camunda/camunda-7-to-8-migration-tooling
@@ -221,6 +198,30 @@
             <goals>
               <goal>check</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.7.3</version>
+        <configuration combine.children="append">
+          <flattenMode>bom</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+            <phase>process-resources</phase>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <phase>clean</phase>
           </execution>
         </executions>
       </plugin>
