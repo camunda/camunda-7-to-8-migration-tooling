@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - maintenance/*
+      - release/*
   workflow_dispatch:
   schedule:
     - cron: "0 5 * * 1-5"
