@@ -9,34 +9,6 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Helper function to navigate to the first decision instance details page
- */
-async function navigateToFirstDecisionInstance(page: any) {
-  // Navigate to decisions page
-  const decisionsLink = page.locator('nav a:has-text("Decisions"), a[href*="/decisions"], a[title*="Decisions"]').first();
-  await decisionsLink.waitFor({ state: 'visible', timeout: 10000 });
-  await decisionsLink.click();
-
-  // Wait for the decisions page to load
-  await page.waitForURL('**/decisions**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
-
-  // Find the first decision instance and click on its key/ID to open details
-  const firstDecisionLink = page.locator(
-    '[data-testid="decision-instance-link"], ' +
-    'a[href*="/decisions/"], ' +
-    '[data-testid="data-list"] a, ' +
-    'table tbody tr td:first-child a'
-  ).first();
-  await firstDecisionLink.waitFor({ state: 'visible', timeout: 10000 });
-  await firstDecisionLink.click();
-
-  // Wait for the decision instance detail page to load
-  await page.waitForURL('**/decisions/**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
-}
-
-/**
  * Helper function to navigate to a specific decision instance by decision name
  */
 async function navigateToDecisionByName(page: any, decisionName: string) {
@@ -243,8 +215,8 @@ test.describe('Operate - Decision Instances', () => {
   });
 
   test('should display decision inputs table with entries', async ({ page }) => {
-    // Navigate to first decision instance details
-    await navigateToFirstDecisionInstance(page);
+    // Navigate to the "Assign Approver Group" decision instance specifically
+    await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Verify inputs section is visible
     const inputsSection = page.locator('section[aria-label="input variables"]');
@@ -273,8 +245,8 @@ test.describe('Operate - Decision Instances', () => {
   });
 
   test('should display decision outputs table with entries', async ({ page }) => {
-    // Navigate to first decision instance details
-    await navigateToFirstDecisionInstance(page);
+    // Navigate to the "Assign Approver Group" decision instance specifically
+    await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Verify outputs section is visible
     const outputsSection = page.locator('section[aria-label="output variables"]');
@@ -313,8 +285,8 @@ test.describe('Operate - Decision Instances', () => {
   });
 
   test('should display DRD diagram with execution badges', async ({ page }) => {
-    // Navigate to first decision instance details
-    await navigateToFirstDecisionInstance(page);
+    // Navigate to the "Assign Approver Group" decision instance specifically
+    await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Verify the DRD panel is visible
     const drdPanel = page.locator('[data-testid="drd-panel"]');
@@ -354,8 +326,8 @@ test.describe('Operate - Decision Instances', () => {
   });
 
   test('should navigate to different decision when clicking DRD nodes', async ({ page }) => {
-    // Navigate to first decision instance details
-    await navigateToFirstDecisionInstance(page);
+    // Navigate to the "Assign Approver Group" decision instance specifically
+    await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Get the current decision name from the header
     const currentDecisionName = await page.locator('[data-testid="instance-header"] td[title*="Assign Approver Group"]').textContent();

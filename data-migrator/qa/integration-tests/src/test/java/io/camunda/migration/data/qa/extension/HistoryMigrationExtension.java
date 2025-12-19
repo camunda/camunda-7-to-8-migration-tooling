@@ -34,7 +34,10 @@ import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.RepositoryService;
@@ -233,11 +236,10 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     if (rdbmsService == null) {
       throw new IllegalStateException("RdbmsService is not available in the Spring context");
     }
-    return rdbmsService.getFlowNodeInstanceReader()
-        .search(FlowNodeInstanceQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processInstanceKeys(processInstanceKey).types(type))))
-        .items();
+    return new ArrayList<>(rdbmsService.getFlowNodeInstanceReader()
+        .search(FlowNodeInstanceQuery.of(queryBuilder -> queryBuilder.filter(
+            filterBuilder -> filterBuilder.processInstanceKeys(processInstanceKey).types(type))))
+        .items());
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesById(String... flowNodeIds) {
