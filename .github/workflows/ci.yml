@@ -1,9 +1,12 @@
-name: CI
 on:
   push:
     branches:
       - main
+      - maintenance/*
   pull_request:
+    branches:
+      - main
+      - maintenance/*
   workflow_dispatch:
   schedule:
     - cron: "0 5 * * 1-5"
