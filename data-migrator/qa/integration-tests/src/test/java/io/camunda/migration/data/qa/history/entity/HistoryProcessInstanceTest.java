@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -176,9 +177,9 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(processInstance.processDefinitionKey()).isNotNull();
     assertThat(processInstance.tenantId()).isEqualTo(tenantId);
     assertThat(processInstance.startDate())
-        .isEqualTo(historicProcessInstance.getStartTime().toInstant().atOffset(ZoneOffset.UTC));
+        .isEqualTo(convertDate(historicProcessInstance.getStartTime()));
     assertThat(processInstance.endDate())
-        .isEqualTo(historicProcessInstance.getEndTime().toInstant().atOffset(ZoneOffset.UTC));
+        .isEqualTo(convertDate(historicProcessInstance.getEndTime()));
     assertThat(processInstance.processDefinitionVersion()).isEqualTo(1);
     assertThat(processInstance.processDefinitionVersionTag()).isEqualTo(versionTag);
 

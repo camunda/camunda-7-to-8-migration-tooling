@@ -7,20 +7,20 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.search.entities.IncidentEntity.IncidentState.RESOLVED;
+
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 @Order(7)
 @Component
@@ -46,19 +46,10 @@ public class IncidentTransformer implements EntityInterceptor {
         .errorType(null) // TODO: does error type exist in C7?
         .errorMessage(historicIncident.getIncidentMessage())
         .creationDate(convertDate(historicIncident.getCreateTime()))
-        .state(convertState(0)) //TODO: make HistoricIncidentEventEntity#getIncidentState() accessible
+        .state(RESOLVED) // Mark incident always as resolved
         .treePath(null) //TODO ?
         .tenantId(historicIncident.getTenantId());
     // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
-  }
-
-  protected IncidentEntity.IncidentState convertState(Integer state) {
-    return switch (state) {
-      case 0 -> IncidentEntity.IncidentState.ACTIVE; // open
-      case 1, 2 -> IncidentEntity.IncidentState.RESOLVED; // resolved/deleted
-
-      default -> throw new IllegalArgumentException("Unknown state: " + state);
-    };
   }
 
 }
