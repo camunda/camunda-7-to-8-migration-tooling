@@ -11,6 +11,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -55,9 +56,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .processDefinitionId(decisionInstance.getProcessDefinitionKey())
-        .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
-        .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
+        .processDefinitionId(prefixDefinitionId(decisionInstance.getProcessDefinitionKey()))
+        .decisionDefinitionId(prefixDefinitionId(decisionInstance.getDecisionDefinitionKey()))
+        .decisionRequirementsId(prefixDefinitionId(decisionInstance.getDecisionRequirementsDefinitionKey()))
         .result(null)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))

@@ -20,6 +20,7 @@ import static java.lang.String.format;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
@@ -123,16 +124,13 @@ public class C7Client {
    * Gets a single historic decision instance by ID.
    */
   public HistoricDecisionInstance getHistoricDecisionInstance(String c7Id) {
-    var query = historyService.createHistoricDecisionInstanceQuery().decisionInstanceId(c7Id);
-    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", c7Id));
-  }
+    var query = historyService.createHistoricDecisionInstanceQuery()
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .decisionInstanceId(c7Id);
 
-  /**
-   * Gets a single historic decision instance by ID.
-   */
-  public HistoricDecisionInstance getHistoricDecisionInstanceByDefinitionKey(String definitionKey) {
-    var query = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey(definitionKey);
-    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", definitionKey));
+    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", c7Id));
   }
 
   /**
@@ -221,6 +219,13 @@ public class C7Client {
         .execute(commandContext -> commandContext.getResourceManager()
         .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
         .getBytes()), Charset.defaultCharset()));
+  }
+
+  /**
+   * Gets a resource as string by ID and name.
+   */
+  public InputStream getResourceAsStream(String resourceId, String resourceName) {
+    return callApi(() -> repositoryService.getResourceAsStream(resourceId, resourceName));
   }
 
   /**
@@ -346,17 +351,6 @@ public class C7Client {
     if (deployedAfter != null) {
       query.deployedAfter(deployedAfter);
     }
-
-    fetchAndHandleProcessDefinitions(query, callback);
-  }
-
-  /**
-   * Processes process definitions with pagination using the provided callback consumer.
-   */
-  public void fetchAndHandleProcessDefinitions(Consumer<ProcessDefinition> callback, String[] ids) {
-    ProcessDefinitionQueryImpl query = (ProcessDefinitionQueryImpl) repositoryService.createProcessDefinitionQuery()
-        .orderByDeploymentTime()
-        .processDefinitionIdIn(ids);
 
     fetchAndHandleProcessDefinitions(query, callback);
   }

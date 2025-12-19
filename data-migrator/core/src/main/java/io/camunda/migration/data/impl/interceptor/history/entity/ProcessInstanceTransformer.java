@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
@@ -44,7 +45,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor {
 
     builder.processInstanceKey(getNextKey())
         // Get key from runtime instance/model migration
-        .processDefinitionId(processInstance.getProcessDefinitionKey())
+        .processDefinitionId(prefixDefinitionId(processInstance.getProcessDefinitionKey()))
         .startDate(convertDate(processInstance.getStartTime()))
         .endDate(convertDate(processInstance.getEndTime()))
         .state(convertState(processInstance.getState()))

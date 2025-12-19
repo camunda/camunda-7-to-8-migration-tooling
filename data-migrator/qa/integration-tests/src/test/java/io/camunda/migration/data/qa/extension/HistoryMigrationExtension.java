@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.extension;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.RdbmsService;
@@ -163,7 +164,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return rdbmsService.getProcessDefinitionReader()
         .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 
@@ -175,7 +176,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return rdbmsService.getDecisionDefinitionReader()
         .search(DecisionDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionDefinitionIds(decisionDefinitionId))))
+                filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))))
         .items();
   }
 
@@ -187,7 +188,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return rdbmsService.getDecisionRequirementsReader()
         .search(DecisionRequirementsQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionRequirementsIds(decisionRequirementsId))))
+                filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))))
         .items();
   }
 
@@ -199,7 +200,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return rdbmsService.getProcessInstanceReader()
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 
@@ -210,7 +211,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     }
     return rdbmsService.getDecisionInstanceReader()
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
-                filterBuilder -> filterBuilder.decisionDefinitionIds(decisionDefinitionId))
+                filterBuilder -> filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
         .items();
   }
@@ -259,7 +260,7 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return rdbmsService.getIncidentReader()
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 

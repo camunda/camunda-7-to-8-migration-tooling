@@ -102,7 +102,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
 
     // Verify process instance was migrated with modified tenant ID
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstancesWithoutPrefix("simpleProcess");
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -172,7 +172,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
 
     // Verify migration completed successfully without executing disabled interceptor
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstancesWithoutPrefix("simpleProcess");
 
     assertThat(migratedProcessInstances).isNotEmpty();
   }
