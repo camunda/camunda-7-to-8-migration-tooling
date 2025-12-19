@@ -223,14 +223,18 @@ public class MigrateExecutionRecipe extends Recipe {
     protected TreeVisitor<?, ExecutionContext> preconditions() {
       return Preconditions.and(
           new UsesType<>("io.camunda.client.annotation.JobWorker", true),
-          new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
+          Preconditions.or(
+              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true),
+              new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true)));
     }
 
     @Override
     protected Predicate<Cursor> visitorSkipCondition() {
       return cursor -> {
         J.MethodDeclaration m = cursor.firstEnclosing(J.MethodDeclaration.class);
-        return m != null && "execute".equals(m.getSimpleName());
+        return m != null
+            && ("execute".equals(m.getSimpleName())
+                || "notify".equals(m.getSimpleName()));
       };
     }
 
