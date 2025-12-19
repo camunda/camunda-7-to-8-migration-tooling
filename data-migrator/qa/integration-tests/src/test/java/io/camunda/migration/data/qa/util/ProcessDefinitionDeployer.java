@@ -111,8 +111,8 @@ public class ProcessDefinitionDeployer {
   }
 
   public void deployModelInstance(String process,
-                                     BpmnModelInstance c7Model,
-                                     io.camunda.zeebe.model.bpmn.BpmnModelInstance c8Model) {
+                                  BpmnModelInstance c7Model,
+                                  io.camunda.zeebe.model.bpmn.BpmnModelInstance c8Model) {
     deployC7ModelInstance(process, c7Model);
     camundaClient.newDeployResourceCommand().addProcessModel(c8Model, process + ".bpmn").execute();
     checkC8ProcessDefinitionAvailable(process + ".bpmn", null);

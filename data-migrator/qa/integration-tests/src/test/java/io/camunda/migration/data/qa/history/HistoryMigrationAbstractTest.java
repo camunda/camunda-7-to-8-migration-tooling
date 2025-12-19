@@ -7,11 +7,16 @@
  */
 package io.camunda.migration.data.qa.history;
 
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.PurgeMapper;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
@@ -72,6 +77,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected RdbmsService rdbmsService;
+
+  @Autowired
+  protected FlowNodeInstanceMapper flowNodeInstanceMapper;
 
   // C7 ---------------------------------------
 
@@ -159,6 +167,11 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
         .items();
+  }
+
+  public List<FlowNodeInstanceDbModel> searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {
+    return flowNodeInstanceMapper.search(
+        FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.processInstanceKeys(processInstanceKey))));
   }
 
   public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
