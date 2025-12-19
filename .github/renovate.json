@@ -1,6 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "baseBranchPatterns": [
+    "main",
+    "maintenance/0.2",
+    "maintenance/0.1",
+  ],
   "packageRules": [
     {
       "description": "Ignore SNAPSHOT versions for all packages.",
