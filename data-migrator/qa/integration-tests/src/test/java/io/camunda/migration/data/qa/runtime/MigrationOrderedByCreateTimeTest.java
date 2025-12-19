@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.qa.runtime;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.SearchResponsePage;
 import java.util.Date;

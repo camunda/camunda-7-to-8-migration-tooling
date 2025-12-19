@@ -94,7 +94,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -121,7 +121,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     // Verify both process instances and flow nodes were migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

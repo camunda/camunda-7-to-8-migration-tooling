@@ -32,13 +32,13 @@ public class HistoryTaskMigrationTest extends HistoryMigrationAbstractTest {
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(processInstances.size()).isEqualTo(5);
+    assertThat(processInstances).hasSize(5);
     for (ProcessInstanceEntity processInstance : processInstances) {
       // and process instance has expected state
       assertThat(processInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.COMPLETED);
       Long processInstanceKey = processInstance.processInstanceKey();
       List<UserTaskEntity> userTasks = searchHistoricUserTasks(processInstanceKey);
-      assertThat(userTasks.size()).isEqualTo(1);
+      assertThat(userTasks).hasSize(1);
       assertThat(userTasks.getFirst().state()).isEqualTo(UserTaskEntity.UserTaskState.COMPLETED);
       assertThat(searchHistoricFlowNodesForType(processInstanceKey, START_EVENT)).size().isEqualTo(1);
       assertThat(searchHistoricFlowNodesForType(processInstanceKey, END_EVENT)).size().isEqualTo(1);

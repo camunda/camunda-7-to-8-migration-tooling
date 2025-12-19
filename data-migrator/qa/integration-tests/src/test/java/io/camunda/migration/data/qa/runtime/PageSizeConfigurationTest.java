@@ -39,14 +39,14 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     for (int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("simpleProcess");
     }
-    assertThat(runtimeService.createProcessInstanceQuery().list().size()).isEqualTo(5);
+    assertThat(runtimeService.createProcessInstanceQuery().list()).hasSize(5);
 
     // when running runtime migration
     runtimeMigrator.start();
 
     // then
     List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(processInstances.size()).isEqualTo(5);
+    assertThat(processInstances).hasSize(5);
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 0, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 2, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 4, page size: 2");

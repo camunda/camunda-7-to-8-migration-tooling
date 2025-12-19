@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -40,10 +41,10 @@ public class DecisionDefinitionTransformer implements EntityInterceptor {
 
     builder.decisionDefinitionKey(getNextKey())
         .name(c7DecisionDefinition.getName())
-        .decisionDefinitionId(c7DecisionDefinition.getKey())
+        .decisionDefinitionId(prefixDefinitionId(c7DecisionDefinition.getKey()))
+        .decisionRequirementsId(prefixDefinitionId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey()))
         .tenantId(getTenantId(c7DecisionDefinition.getTenantId()))
-        .version(c7DecisionDefinition.getVersion())
-        .decisionRequirementsId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey());
+        .version(c7DecisionDefinition.getVersion());
     // Note: decisionRequirementsKey is set externally
   }
 }

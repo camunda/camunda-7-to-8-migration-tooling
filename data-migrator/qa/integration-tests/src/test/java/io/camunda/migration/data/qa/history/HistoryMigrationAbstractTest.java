@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -108,7 +109,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getProcessDefinitionReader()
         .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 
@@ -116,31 +117,42 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getDecisionDefinitionReader()
         .search(DecisionDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionDefinitionIds(decisionDefinitionId))))
+                filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))))
         .items();
   }
 
   public List<DecisionRequirementsEntity> searchHistoricDecisionRequirementsDefinition(String decisionRequirementsId) {
     return rdbmsService.getDecisionRequirementsReader()
         .search(DecisionRequirementsQuery.of(queryBuilder -> queryBuilder.filter(
-                filterBuilder -> filterBuilder.decisionRequirementsIds(decisionRequirementsId))
+                filterBuilder -> filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))
             .resultConfig(
                 DecisionRequirementsQueryResultConfig.of(builder -> builder.includeXml(true)))))
         .items();
   }
 
   public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId) {
+    return searchHistoricProcessInstances(processDefinitionId, false);
+  }
+
+  /**
+   * When the built-in ProcessInstanceTransformer is disabled, the processDefinitionId
+   * is NOT prefixed during migration. This method allows searching with or without prefixing.
+   */
+  public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId,
+                                                                    boolean builtInTransformerDisabled) {
+    String finalProcessDefinitionId = builtInTransformerDisabled ?
+        processDefinitionId :
+        prefixDefinitionId(processDefinitionId);
     return rdbmsService.getProcessInstanceReader()
-        .search(ProcessInstanceQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+        .search(ProcessInstanceQuery.of(queryBuilder -> queryBuilder.filter(
+            filterBuilder -> filterBuilder.processDefinitionIds(finalProcessDefinitionId))))
         .items();
   }
 
   public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String decisionDefinitionId) {
     return rdbmsService.getDecisionInstanceReader()
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
-                filterBuilder -> filterBuilder.decisionDefinitionIds(decisionDefinitionId))
+                filterBuilder -> filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
         .items();
   }
@@ -178,7 +190,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getIncidentReader()
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 

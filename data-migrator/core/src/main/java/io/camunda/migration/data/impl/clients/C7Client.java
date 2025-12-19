@@ -20,6 +20,7 @@ import static java.lang.String.format;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
@@ -133,14 +134,6 @@ public class C7Client {
   }
 
   /**
-   * Gets a single historic decision instance by definition key.
-   */
-  public HistoricDecisionInstance getHistoricDecisionInstanceByDefinitionKey(String definitionKey) {
-    var query = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey(definitionKey);
-    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", definitionKey));
-  }
-
-  /**
    * Gets a single historic process instance by ID.
    */
   public HistoricProcessInstance getHistoricProcessInstance(String c7Id) {
@@ -226,6 +219,13 @@ public class C7Client {
         .execute(commandContext -> commandContext.getResourceManager()
         .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
         .getBytes()), Charset.defaultCharset()));
+  }
+
+  /**
+   * Gets a resource as string by ID and name.
+   */
+  public InputStream getResourceAsStream(String resourceId, String resourceName) {
+    return callApi(() -> repositoryService.getResourceAsStream(resourceId, resourceName));
   }
 
   /**
@@ -351,17 +351,6 @@ public class C7Client {
     if (deployedAfter != null) {
       query.deployedAfter(deployedAfter);
     }
-
-    fetchAndHandleProcessDefinitions(query, callback);
-  }
-
-  /**
-   * Processes process definitions with pagination using the provided callback consumer.
-   */
-  public void fetchAndHandleProcessDefinitions(Consumer<ProcessDefinition> callback, String[] ids) {
-    ProcessDefinitionQueryImpl query = (ProcessDefinitionQueryImpl) repositoryService.createProcessDefinitionQuery()
-        .orderByDeploymentTime()
-        .processDefinitionIdIn(ids);
 
     fetchAndHandleProcessDefinitions(query, callback);
   }

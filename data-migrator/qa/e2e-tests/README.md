@@ -64,6 +64,13 @@ mvn process-resources
 # Run all tests (Chromium, Firefox, Edge)
 npm test
 
+# Run specific test file
+npx playwright test tests/cockpit-plugin.spec.ts
+npx playwright test tests/operate-decisions.spec.ts
+
+# Run both test files together (with proper test isolation)
+npx playwright test tests/cockpit-plugin.spec.ts tests/operate-decisions.spec.ts
+
 # Run specific browser (options: chromium, firefox, edge)
 npx playwright test --project=chromium
 
@@ -74,6 +81,13 @@ npx playwright test --project=firefox --headed
 
 npm run test:debug       # Debug mode
 ```
+
+### Test Isolation
+
+The test suites are configured with proper isolation to prevent interference when running together:
+- Each test suite runs in **serial mode** within its own context
+- Browser cookies and permissions are **cleared before and after each test**
+- This ensures tests can run both individually and together reliably
 
 ## How It Works
 

@@ -12,8 +12,9 @@ import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.PROCESS_INSTANCE_NOT_EXISTS;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.db.rdbms.RdbmsService;
@@ -179,7 +180,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
     // then the instance was migrated
     List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
     ProcessInstance processInstance = processInstances.getFirst();
     assertThat(processInstance.getProcessDefinitionId()).isEqualTo(process.getProcessDefinitionKey());
 
@@ -277,14 +278,14 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
     // then verify runtime process instance was migrated successfully
     List<ProcessInstance> c8ProcessInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(c8ProcessInstances.size()).isEqualTo(1);
+    assertThat(c8ProcessInstances).hasSize(1);
 
     // and verify historic process instance exists in RDBMS
     List<ProcessInstanceEntity> historicProcessInstances = rdbmsService.getProcessInstanceReader()
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(c7ProcDefKey)))).items();
-    assertThat(historicProcessInstances.size()).isEqualTo(1);
+                filterBuilder.processDefinitionIds(prefixDefinitionId(c7ProcDefKey))))).items();
+    assertThat(historicProcessInstances).hasSize(1);
   }
 
 }

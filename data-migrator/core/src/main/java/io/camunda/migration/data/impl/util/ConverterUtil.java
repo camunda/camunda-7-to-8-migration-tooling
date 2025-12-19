@@ -20,6 +20,7 @@ import java.util.HexFormat;
 import org.apache.commons.lang3.StringUtils;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.zeebe.protocol.Protocol.KEY_BITS;
 
@@ -53,6 +54,13 @@ public class ConverterUtil {
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException("SHA-256 algorithm not available", e);
     }
+  }
+
+  public static String prefixDefinitionId(String definitionId) {
+    if (definitionId == null) {
+      return null;
+    }
+    return String.format("%s-%s", C7_LEGACY_PREFIX, definitionId);
   }
 
 }

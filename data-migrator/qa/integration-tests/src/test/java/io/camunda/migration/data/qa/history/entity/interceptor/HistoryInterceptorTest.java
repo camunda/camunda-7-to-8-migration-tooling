@@ -66,7 +66,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstances("simpleProcess", true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
@@ -118,7 +118,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     // Verify process instance was migrated with deployment ID in tenant ID
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess");
+        searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

@@ -11,7 +11,7 @@ package io.camunda.migration.data.qa.runtime;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.FLOW_NODE_NOT_EXISTS_ERROR;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;

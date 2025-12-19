@@ -8,6 +8,8 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +63,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     String expectedDrdID = generateDecisionRequirementsId(c7DefinitionId);
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDecisionId");
+      assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
       assertThat(decision.decisionDefinitionKey()).isNotNull();
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDecisionName");
@@ -74,7 +76,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         searchHistoricDecisionRequirementsDefinition(expectedDrdID);
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
       assertThat(decisionRequirements.decisionRequirementsId())
-          .isEqualTo(expectedDrdID);
+          .isEqualTo(prefixDefinitionId(expectedDrdID));
       assertThat(decisionRequirements.decisionRequirementsKey())
           .isNotNull()
           .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
@@ -133,7 +135,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     // then
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
-      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
+      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqsId"));
       assertThat(decisionRequirements.decisionRequirementsKey()).isNotNull();
       assertThat(decisionRequirements.version()).isEqualTo(1);
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
@@ -151,6 +153,37 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(secondDecision).singleElement()
         .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs2Id", "simpleDmnWithReqs2Name", 1,
             decisionReqsKey, "simpleDmnWithReqsId"));
+  }
+
+  @Test
+  public void shouldMigrateHistoricDecisionWithAdjustedXml() {
+    // given
+    deployer.deployCamunda7Decision("dish-decision.dmn");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("dish-decision");
+
+    assertThat(decisionReqs).singleElement().extracting("xml").asString()
+        .contains("id=\"c7-legacy-Dish\"")
+        .contains("id=\"c7-legacy-Season\"")
+        .contains("id=\"c7-legacy-GuestCount\"")
+        .contains("<requiredDecision href=\"#c7-legacy-Season\"/>")
+        .contains("<requiredDecision href=\"#c7-legacy-GuestCount\"/>")
+        .contains("dmnElementRef=\"c7-legacy-Dish\"")
+        .contains("dmnElementRef=\"c7-legacy-Season\"")
+        .contains("dmnElementRef=\"c7-legacy-GuestCount\"")
+
+        .doesNotContain("id=\"Dish\"")
+        .doesNotContain("id=\"Season\"")
+        .doesNotContain("id=\"GuestCount\"")
+        .doesNotContain("<requiredDecision href=\"#Season\"/>")
+        .doesNotContain("<requiredDecision href=\"#GuestCount\"/>")
+        .doesNotContain("dmnElementRef=\"Dish\"")
+        .doesNotContain("dmnElementRef=\"Season\"")
+        .doesNotContain("dmnElementRef=\"GuestCount\"");
   }
 
   @Test
@@ -516,13 +549,13 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       int version,
       Long decisionRequirementsKey,
       String decisionRequirementsId) {
-    assertThat(decision.decisionDefinitionId()).isEqualTo(decisionId);
+    assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionId));
     assertThat(decision.decisionDefinitionKey()).isNotNull();
     assertThat(decision.version()).isEqualTo(version);
     assertThat(decision.name()).isEqualTo(decisionName);
     assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionRequirementsKey);
-    assertThat(decision.decisionRequirementsId()).isEqualTo(decisionRequirementsId);
+    assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
   }
 
   private void assertDecisionInstance(
@@ -550,7 +583,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
     assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
-    assertThat(instance.decisionDefinitionId()).isEqualTo(decisionDefinitionId);
+    assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionDefinitionId));
     assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
     assertThat(instance.result()).isEqualTo(result);

@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -352,7 +353,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Basic identifiers
     assertThat(userTask.userTaskKey()).isNotNull();
     assertThat(userTask.elementId()).isEqualTo(expectedElementId);
-    assertThat(userTask.processDefinitionId()).isEqualTo(c7Task.getProcessDefinitionKey());
+    assertThat(userTask.processDefinitionId()).isEqualTo(prefixDefinitionId(c7Task.getProcessDefinitionKey()));
     assertThat(userTask.processDefinitionKey()).isNotNull();
     assertThat(userTask.elementInstanceKey()).isNotNull();
 

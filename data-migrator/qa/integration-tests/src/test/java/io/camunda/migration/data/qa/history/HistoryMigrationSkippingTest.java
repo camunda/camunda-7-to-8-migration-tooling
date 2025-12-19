@@ -109,7 +109,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
             .contains(
                 formatMessage(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", processInstance.getId(), "process")))
         .toList()
-        .size()).isEqualTo(1); // Only the first skip
+        ).hasSize(1); // Only the first skip
   }
 
   @Test
@@ -145,7 +145,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
+    assertThat(historicProcesses).hasSize(1);
     var processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricUserTasks(processInstance.processInstanceKey())).isEmpty();
 
@@ -154,7 +154,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .stream()
         .filter(event -> event.getMessage().contains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, task.getId())))
         .toList()
-        .size()).isEqualTo(1); // Only the first skip from phase 1
+        ).hasSize(1); // Only the first skip from phase 1
   }
 
   @Test
@@ -219,7 +219,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Process instance was migrated but incident remains skipped
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
+    assertThat(historicProcesses).hasSize(1);
     ProcessInstanceEntity c8ProcessInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8ProcessInstance.processDefinitionId())).isEmpty();
 
@@ -228,7 +228,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .stream()
         .filter(event -> event.getMessage().contains(formatMessage(SKIPPING_INCIDENT, incidentId)))
         .toList()
-        .size()).isEqualTo(1); // Only the first skip from phase 1
+        ).hasSize(1); // Only the first skip from phase 1
   }
 
   @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
@@ -258,7 +258,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then process instance was migrated but incident was skipped due to skipped job
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
+    assertThat(historicProcesses).hasSize(1);
     ProcessInstanceEntity c8processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
 
@@ -323,13 +323,13 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Process instance was migrated but variables remain skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(1);
+    assertThat(historicProcesses).hasSize(1);
     
     // No variables were migrated - both remain skipped
     var variablesTestVar = searchHistoricVariables("testVar");
     var variablesAnotherVar = searchHistoricVariables("anotherVar");
-    assertThat(variablesTestVar.size()).isEqualTo(0);
-    assertThat(variablesAnotherVar.size()).isEqualTo(0);
+    assertThat(variablesTestVar).hasSize(0);
+    assertThat(variablesAnotherVar).hasSize(0);
   }
 
   @Test
@@ -353,7 +353,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Process instance was not migrated, task and its variables were skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(0);
+    assertThat(historicProcesses).hasSize(0);
 
     // Verify task and variable were skipped
     logs.assertContains(formatMessage(SKIPPING_USER_TASK_MISSING_PROCESS, taskId));
@@ -392,7 +392,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Process instance was not migrated, service task and variable were skipped
     var historicProcesses = searchHistoricProcessInstances("serviceTaskWithInputMappingProcessId");
-    assertThat(historicProcesses.size()).isEqualTo(0);
+    assertThat(historicProcesses).hasSize(0);
 
     // Verify variable was skipped
     logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_VARIABLE_MISSING_PROCESS, serviceTaskVariable.getId()));

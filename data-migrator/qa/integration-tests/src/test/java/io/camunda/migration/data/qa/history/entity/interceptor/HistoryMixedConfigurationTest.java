@@ -58,7 +58,8 @@ public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest 
     historyMigrator.migrate();
 
     // Verify process instance was migrated
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess");
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

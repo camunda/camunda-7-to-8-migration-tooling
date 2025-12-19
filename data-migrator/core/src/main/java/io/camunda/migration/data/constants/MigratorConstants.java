@@ -20,4 +20,5 @@ public final class MigratorConstants {
 
   public static final String LEGACY_ID_VAR_NAME = "legacyId";
   public static final String C8_DEFAULT_TENANT = "<default>";
+  public static final String C7_LEGACY_PREFIX = "c7-legacy";
 }
