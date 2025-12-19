@@ -72,6 +72,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   @Autowired
   protected RdbmsService rdbmsService;
 
+  @Autowired
+  protected io.camunda.migration.data.impl.clients.C8Client c8Client;
+
   // C7 ---------------------------------------
 
   @Autowired

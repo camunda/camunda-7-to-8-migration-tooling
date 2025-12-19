@@ -31,6 +31,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_BELONGS_TO_SKIPPED_TASK = "Belongs to a skipped task";
   public static final String SKIP_REASON_MISSING_SCOPE_KEY = "Missing scope key";
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
+  public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE = "Missing parent decision instance";

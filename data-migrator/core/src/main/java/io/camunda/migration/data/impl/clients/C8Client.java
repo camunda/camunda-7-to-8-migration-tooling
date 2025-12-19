@@ -330,6 +330,15 @@ public class C8Client {
   }
 
   /**
+   * Finds all FlowNodeInstances for a given process instance key.
+   */
+  public List<FlowNodeInstanceDbModel> findFlowNodesByProcessInstanceKey(Long processInstanceKey) {
+    return callApi(() -> flowNodeInstanceMapper.search(
+        FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.processInstanceKeys(processInstanceKey)))),
+        FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
+  }
+
+  /**
    * Searches for ProcessDefinitions matching the query.
    */
   public List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
