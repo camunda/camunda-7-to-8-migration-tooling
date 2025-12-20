@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.code.recipes.delegate;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.openrewrite.*;
@@ -52,7 +53,7 @@ public class CleanupDelegateRecipe extends Recipe {
             }
 
             // Filter out the interface to remove
-            List<TypeTree> updatedImplements =
+            List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
                 classDecl.getImplements().stream()
                     .filter(
                         id ->
