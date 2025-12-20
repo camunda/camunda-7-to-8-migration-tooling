@@ -9,6 +9,7 @@ recipeList:
       version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
+  - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathExecutionListenerRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllDelegateMigrateRecipes
