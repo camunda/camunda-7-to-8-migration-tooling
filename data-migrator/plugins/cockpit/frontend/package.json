@@ -31,7 +31,7 @@
     "cross-env": "^10.0.0",
     "livereload": "^0.10.0",
     "npm-run-all2": "^8.0.0",
-    "rollup": "~4.53.0",
+    "rollup": "~4.54.0",
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-scss": "~4.0.0",
     "sass": "^1.79.4"
