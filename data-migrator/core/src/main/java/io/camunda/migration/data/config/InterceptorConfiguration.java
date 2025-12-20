@@ -7,6 +7,9 @@
  */
 package io.camunda.migration.data.config;
 
+import static io.camunda.migration.data.impl.logging.ConfigurationLogs.ENTITY;
+import static io.camunda.migration.data.impl.logging.ConfigurationLogs.VARIABLE;
+
 import io.camunda.migration.data.config.property.InterceptorConfig;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.MigratorException;
@@ -20,6 +23,15 @@ import io.camunda.migration.data.impl.interceptor.ObjectXmlVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinJsonVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinXmlVariableTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.DecisionRequirementsDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.IncidentTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.UserTaskTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.VariableTransformer;
 import io.camunda.migration.data.impl.logging.ConfigurationLogs;
 import io.camunda.migration.data.interceptor.BaseInterceptor;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
@@ -60,7 +72,7 @@ public class InterceptorConfiguration {
    */
   @Bean
   public List<VariableInterceptor> configuredVariableInterceptors() {
-    ConfigurationLogs.logConfiguringInterceptors("variable");
+    ConfigurationLogs.logConfiguringInterceptors(VARIABLE);
 
     // Get interceptors from Spring context (annotated with @Component)
     List<VariableInterceptor> contextInterceptors = new ArrayList<>(
@@ -72,7 +84,7 @@ public class InterceptorConfiguration {
     // Sort by order annotation if present
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
-    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), "variable");
+    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), VARIABLE);
     return contextInterceptors;
   }
 
@@ -83,7 +95,7 @@ public class InterceptorConfiguration {
    */
   @Bean
   public List<EntityInterceptor> configuredEntityInterceptors() {
-    ConfigurationLogs.logConfiguringInterceptors("entity");
+    ConfigurationLogs.logConfiguringInterceptors(ENTITY);
 
     // Get interceptors from Spring context (annotated with @Component)
     List<EntityInterceptor> contextInterceptors = new ArrayList<>(
@@ -95,7 +107,7 @@ public class InterceptorConfiguration {
     // Sort by order annotation if present
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
-    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), "entity");
+    ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), ENTITY);
     return contextInterceptors;
   }
 
@@ -258,6 +270,7 @@ public class InterceptorConfiguration {
     }
   }
 
+  // Variable Transformers and Validators
   @Bean
   public ByteArrayVariableValidator byteArrayVariableValidator() {
     return new ByteArrayVariableValidator();
@@ -308,4 +321,50 @@ public class InterceptorConfiguration {
     return new SpinXmlVariableTransformer();
   }
 
+
+  // History Entity Transformers
+  @Bean
+  public DecisionDefinitionTransformer decisionDefinitionTransformer() {
+    return new DecisionDefinitionTransformer();
+  }
+
+  @Bean
+  public DecisionRequirementsDefinitionTransformer decisionRequirementsDefinitionTransformer() {
+    return new DecisionRequirementsDefinitionTransformer();
+  }
+
+  @Bean
+  public DecisionInstanceTransformer decisionInstanceTransformer() {
+    return new DecisionInstanceTransformer();
+  }
+
+  @Bean
+  public FlowNodeTransformer flowNodeTransformer() {
+    return new FlowNodeTransformer();
+  }
+
+  @Bean
+  public IncidentTransformer incidentTransformer() {
+    return new IncidentTransformer();
+  }
+
+  @Bean
+  public ProcessDefinitionTransformer processDefinitionTransformer() {
+    return new ProcessDefinitionTransformer();
+  }
+
+  @Bean
+  public ProcessInstanceTransformer processInstanceTransformer() {
+    return new ProcessInstanceTransformer();
+  }
+
+  @Bean
+  public UserTaskTransformer userTaskTransformer() {
+    return new UserTaskTransformer();
+  }
+
+  @Bean
+  public VariableTransformer variableTransformer() {
+    return new VariableTransformer();
+  }
 }

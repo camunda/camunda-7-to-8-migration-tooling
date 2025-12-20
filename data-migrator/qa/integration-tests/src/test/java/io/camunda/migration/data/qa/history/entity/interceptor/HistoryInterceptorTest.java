@@ -27,8 +27,8 @@ import org.springframework.test.context.TestPropertySource;
     // Register interceptor and disable it
     "camunda.migrator.interceptors[1].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.DisabledCustomInterceptor",
     "camunda.migrator.interceptors[1].enabled=false",
-    "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
-        + ".ProcessInstanceInterceptor", "camunda.migrator.interceptors[2].enabled=false" })
+    "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor",
+    "camunda.migrator.interceptors[2].enabled=false" })
 @ActiveProfiles("entity-programmatic")
 public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
