@@ -28,7 +28,7 @@
     <decisionTable id="DecisionTable_1jv5g6j">
       <input id="InputClause_0r96y1o" label="inputB" camunda:inputVariable="outputB">
         <inputExpression id="LiteralExpression_1g7ifox" typeRef="string">
-          <text>inputB</text>
+          <text>outputB</text>
         </inputExpression>
         <inputValues id="UnaryTests_11qhq94">
           <text>"B"</text>
