@@ -34,7 +34,8 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
         new UsesMethod<>("org.camunda.bpm.engine.TaskService createTaskQuery()", true),
         new UsesMethod<>("org.camunda.bpm.engine.RuntimeService claim(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.RuntimeService complete(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService getVariable(..)", true));
+        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService getVariable(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.task.Task getTaskDefinitionKey()", true));
   }
 
   @Override
@@ -120,7 +121,9 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
 
   @Override
   protected List<ReplacementUtils.BuilderReplacementSpec> builderMethodInvocations() {
-    return BuilderSpecFactory.createBuilderFilterSpecs(
+
+    List<ReplacementUtils.BuilderReplacementSpec> specs = new ArrayList<>();
+    specs.addAll(BuilderSpecFactory.createBuilderFilterSpecs(
         "org.camunda.bpm.engine.query.Query list()",
         null,
         List.of("processDefinitionKey", "dueBefore"),
@@ -142,7 +145,28 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
         """,
         "List<io.camunda.client.api.search.response.UserTask>",
         Collections.emptyList(),
-        Map.ofEntries(Map.entry("dueBefore", "java.time.ZoneOffset")));
+        Map.ofEntries(Map.entry("dueBefore", "java.time.ZoneOffset"))));
+
+    specs.add(new ReplacementUtils.BuilderReplacementSpec(
+        new MethodMatcher("org.camunda.bpm.engine.task.Task getTaskDefinitionKey()"),
+        Set.of("taskId"),
+        List.of("taskId"),
+        RecipeUtils.createSimpleJavaTemplate(
+            """
+            #{camundaClient:any(io.camunda.client.CamundaClient)}
+                .newUserTaskGetRequest(Long.parseLong(#{taskId:any(java.lang.String)}))
+                .send()
+                .join()
+                .getUserTaskKey()
+            """),
+        RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+        "java.lang.String",
+        ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList()));
+        
+    return specs;
   }
 
   /*
