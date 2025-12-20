@@ -29,6 +29,7 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.Variables;
@@ -147,23 +148,21 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDecisionId");
       assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
-      assertThat(instance.result()).isNull();
       assertThat(instance.rootDecisionDefinitionKey()).isNull();
-
+      assertThat(instance.result()).isNull();
       // TODO find out how to get a result http://github.com/camunda/camunda-bpm-platform/issues/5365
       //      assertThat(instance.result()).isEqualTo("B");
 
-      // TODO https://github.com/camunda/camunda-bpm-platform/issues/5364
-      //      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
-      //        assertThat(input.inputId()).isNotNull();
-      //        assertThat(input.inputName()).isEqualTo("inputA");
-      //        assertThat(input.inputValue()).isEqualTo("A");
-      //      });
-      //      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
-      //        assertThat(output.outputId()).isNotNull();
-      //        assertThat(output.outputName()).isEqualTo("outputB");
-      //        assertThat(output.outputValue()).isEqualTo("B");
-      //      });
+      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+        assertThat(input.inputId()).isNotNull();
+        assertThat(input.inputName()).isEqualTo("inputA");
+        assertThat(input.inputValue()).isEqualTo("\"A\"");
+      });
+      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+        assertThat(output.outputId()).isNotNull();
+        assertThat(output.outputName()).isEqualTo("outputB");
+        assertThat(output.outputValue()).isEqualTo("\"B\"");
+      });
     });
   }
 
@@ -186,8 +185,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateChildDecisionInstanceWhenParentInstanceTriggeredFromBusinessTask() {
+  public void shouldMigrateChildDecisionInstances() {
     // given
+    Date now = ClockUtil.now();
+    ClockUtil.setCurrentTime(now);
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
     deployer.deployCamunda7Process("businessRuleForDmnWithReqs.bpmn");
     runtimeService.startProcessInstanceByKey("businessRuleForDmnWithReqsId",
@@ -199,8 +200,75 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     // then
     List<DecisionInstanceEntity> instances1 = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
     List<DecisionInstanceEntity> instances2 = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
-    assertThat(instances1).singleElement();
-    assertThat(instances2).singleElement();
+    List<DecisionDefinitionEntity> migratedDecisions1 = searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
+    assertThat(migratedDecisions1).singleElement();
+    List<DecisionDefinitionEntity> migratedDecisions2 = searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
+    assertThat(migratedDecisions2).singleElement();
+    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("businessRuleForDmnWithReqsId");
+    assertThat(migratedProcessInstances).singleElement();
+    List<FlowNodeInstanceEntity> migratedFlowNodeInstances = searchHistoricFlowNodesForType(
+        migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
+    assertThat(migratedFlowNodeInstances).singleElement();
+
+    assertThat(instances1).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-2");
+      assertThat(instance.decisionInstanceKey()).isNotNull();
+      assertThat(instance.state()).isEqualTo(EVALUATED);
+      assertThat(instance.evaluationDate()).isEqualTo(
+          OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
+      assertThat(instance.evaluationFailure()).isNull();
+      assertThat(instance.evaluationFailureMessage()).isNull();
+      assertThat(instance.flowNodeInstanceKey()).isEqualTo(migratedFlowNodeInstances.getFirst().flowNodeInstanceKey());
+      assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
+      assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
+      assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions1.getFirst().decisionDefinitionKey());
+      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs1Id");
+      assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+      assertThat(instance.decisionDefinitionType()).isEqualTo(
+          DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
+      assertThat(instance.result()).isNull();
+      assertThat(instance.rootDecisionDefinitionKey()).isNull();
+      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+        assertThat(input.inputId()).isNotNull();
+        assertThat(input.inputName()).isEqualTo("inputA");
+        assertThat(input.inputValue()).isEqualTo("\"A\"");
+      });
+      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+        assertThat(output.outputId()).isNotNull();
+        assertThat(output.outputName()).isEqualTo("outputB");
+        assertThat(output.outputValue()).isEqualTo("\"B\"");
+      });
+    });
+
+    assertThat(instances2).singleElement().satisfies(instance -> {
+      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-1");
+      assertThat(instance.decisionInstanceKey()).isNotNull();
+      assertThat(instance.state()).isEqualTo(EVALUATED);
+      assertThat(instance.evaluationDate()).isEqualTo(
+          OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
+      assertThat(instance.evaluationFailure()).isNull();
+      assertThat(instance.evaluationFailureMessage()).isNull();
+      assertThat(instance.flowNodeInstanceKey()).isEqualTo(migratedFlowNodeInstances.getFirst().flowNodeInstanceKey());
+      assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
+      assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
+      assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions2.getFirst().decisionDefinitionKey());
+      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs2Id");
+      assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+      assertThat(instance.decisionDefinitionType()).isEqualTo(
+          DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
+      assertThat(instance.result()).isNull();
+      assertThat(instance.rootDecisionDefinitionKey()).isNull();
+      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+        assertThat(input.inputId()).isNotNull();
+        assertThat(input.inputName()).isEqualTo("inputB");
+        assertThat(input.inputValue()).isEqualTo("\"B\"");
+      });
+      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+        assertThat(output.outputId()).isNotNull();
+        assertThat(output.outputName()).isEqualTo("outputC");
+        assertThat(output.outputValue()).isEqualTo("\"C\"");
+      });
+    });
   }
 
   @Test
