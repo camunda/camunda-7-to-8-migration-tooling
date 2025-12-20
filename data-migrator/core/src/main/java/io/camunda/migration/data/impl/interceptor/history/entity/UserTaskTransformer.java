@@ -21,6 +21,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_P
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 @Order(4)
 @Component
@@ -42,7 +43,7 @@ public class UserTaskTransformer implements EntityInterceptor {
 
     builder.userTaskKey(getNextKey())
         .elementId(historicTask.getTaskDefinitionKey())
-        .processDefinitionId(historicTask.getProcessDefinitionKey())
+        .processDefinitionId(prefixDefinitionId(historicTask.getProcessDefinitionKey()))
         .creationDate(convertDate(historicTask.getStartTime()))
         .completionDate(convertDate(historicTask.getEndTime()))
         .assignee(historicTask.getAssignee())

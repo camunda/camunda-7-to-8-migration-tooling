@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -169,7 +170,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // Verify migration completed successfully via logs
     logs.assertContains(formatMessage(HistoryMigratorLogs.MIGRATING_INSTANCE_COMPLETE, "process", historicProcessInstance.getId()));
 
-    assertThat(processInstance.processDefinitionId()).isEqualTo(processDefinitionId);
+    assertThat(processInstance.processDefinitionId()).isEqualTo(prefixDefinitionId(processDefinitionId));
     assertThat(processInstance.state()).isEqualTo(processInstanceState);
     assertThat(processInstance.processInstanceKey()).isNotNull();
     assertThat(processInstance.processDefinitionKey()).isNotNull();
