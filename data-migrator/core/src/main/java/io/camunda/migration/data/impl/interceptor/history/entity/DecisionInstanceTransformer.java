@@ -49,7 +49,6 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
     }
 
-
     builder.partitionId(C7_HISTORY_PARTITION_ID)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
