@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:camunda="http://camunda.org/schema/1.0/dmn" id="hitPolicyRuleOrderDmnId" name="hitPolicyRuleOrderDmnName" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.24.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.21.0">
+  <decision id="hitPolicyRuleOrderDecisionId" name="hitPolicyRuleOrderDecisionName" camunda:historyTimeToLive="1">
+    <decisionTable id="DecisionTable_0ut4ed5" hitPolicy="RULE ORDER">
+      <input id="Input_1" label="Input">
+        <inputExpression id="InputExpression_1" typeRef="string">
+          <text>input</text>
+        </inputExpression>
+      </input>
+      <output id="Output_1" label="Output" name="output" typeRef="string" />
+      <rule id="DecisionRule_0i50yb6">
+        <inputEntry id="UnaryTests_0pyjw6a">
+          <text>not("B")</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1k83dwk">
+          <text>"firstRule"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_0rmuml0">
+        <inputEntry id="UnaryTests_1sknd9w">
+          <text>"A"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0rtv2f5">
+          <text>"secondRule"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram>
+      <dmndi:DMNShape dmnElementRef="hitPolicyRuleOrderDecisionId">
+        <dc:Bounds height="80" width="180" x="160" y="100" />
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>
