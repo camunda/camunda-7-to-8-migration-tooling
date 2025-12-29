@@ -39,7 +39,7 @@ public class ProcessInstanceInterceptor implements EntityInterceptor {
     HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
         (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-    builder.processInstanceKey(getNextKey());
+    builder.processInstanceKey(getNextKey()).processDefinitionId(processInstance.getProcessDefinitionKey());
 
     if (builder != null) {
       // Add "BEAN_" prefix to tenant ID
