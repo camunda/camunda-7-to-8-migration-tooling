@@ -436,7 +436,7 @@ public class HistoryMigrator {
       });
     } else {
       c7Client.fetchAndHandleHistoricDecisionInstances(this::migrateDecisionInstance,
-          dbClient.findLatestCreateTimeByType((HISTORY_DECISION_INSTANCE)));
+          dbClient.findLatestCreateTimeByType(HISTORY_DECISION_INSTANCE));
     }
   }
 
@@ -583,6 +583,7 @@ public class HistoryMigrator {
           DmnModelInstance dmnModelInstance = c7Client.getDmnModelInstance(childDecisionInstance.getDecisionDefinitionId());
           decisionInstanceDbModelBuilder.decisionDefinitionKey(decisionDefinition.decisionDefinitionKey())
               .decisionInstanceId(childDecisionInstanceId)
+              .decisionInstanceKey(c8ParentDecisionInstanceModel.decisionInstanceKey())
               .decisionRequirementsKey(decisionDefinition.decisionRequirementsKey())
               .processDefinitionKey(c8ParentDecisionInstanceModel.processDefinitionKey())
               .processInstanceKey(c8ParentDecisionInstanceModel.processInstanceKey())

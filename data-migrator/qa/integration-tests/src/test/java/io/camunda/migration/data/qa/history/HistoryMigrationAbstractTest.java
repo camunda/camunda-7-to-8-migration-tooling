@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history;
 
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -99,7 +100,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getProcessDefinitionReader()
         .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 
@@ -107,7 +108,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getDecisionDefinitionReader()
         .search(DecisionDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionDefinitionIds(decisionDefinitionId))))
+                filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))))
         .items();
   }
 
@@ -115,11 +116,19 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getDecisionRequirementsReader()
         .search(DecisionRequirementsQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionRequirementsIds(decisionRequirementsId))))
+                filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))))
         .items();
   }
 
   public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId) {
+    return rdbmsService.getProcessInstanceReader()
+        .search(ProcessInstanceQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
+  }
+
+  public List<ProcessInstanceEntity> searchHistoricProcessInstancesWithoutPrefix(String processDefinitionId) {
     return rdbmsService.getProcessInstanceReader()
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
@@ -130,7 +139,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String decisionDefinitionId) {
     return rdbmsService.getDecisionInstanceReader()
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
-                filterBuilder -> filterBuilder.decisionDefinitionIds(decisionDefinitionId))
+                filterBuilder -> filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
         .items();
   }
@@ -155,7 +164,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return rdbmsService.getIncidentReader()
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(processDefinitionId))))
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 

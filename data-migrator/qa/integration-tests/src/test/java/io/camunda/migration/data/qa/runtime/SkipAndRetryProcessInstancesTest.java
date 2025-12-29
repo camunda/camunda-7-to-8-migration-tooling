@@ -12,6 +12,7 @@ import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.PROCESS_INSTANCE_NOT_EXISTS;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -283,7 +284,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     List<ProcessInstanceEntity> historicProcessInstances = rdbmsService.getProcessInstanceReader()
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(c7ProcDefKey)))).items();
+                filterBuilder.processDefinitionIds(prefixDefinitionId(c7ProcDefKey))))).items();
     assertThat(historicProcessInstances.size()).isEqualTo(1);
   }
 

@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
@@ -52,7 +53,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     // then
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDecisionId");
+      assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
       assertThat(decision.decisionDefinitionKey()).isNotNull();
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDecisionName");
@@ -75,7 +76,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     // then
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
-      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
+      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqsId"));
       assertThat(decisionRequirements.decisionRequirementsKey()).isNotNull();
       assertThat(decisionRequirements.version()).isEqualTo(1);
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
@@ -86,23 +87,23 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     Long decisionReqsKey = decisionReqs.get(0).decisionRequirementsKey();
 
     assertThat(firstDecision).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs1Id");
+      assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqs1Id"));
       assertThat(decision.decisionDefinitionKey()).isNotNull();
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDmnWithReqs1Name");
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionReqsKey);
-      assertThat(decision.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
+      assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqsId"));
     });
 
     assertThat(secondDecision).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs2Id");
+      assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqs2Id"));
       assertThat(decision.decisionDefinitionKey()).isNotNull();
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDmnWithReqs2Name");
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionReqsKey);
-      assertThat(decision.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
+      assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId("simpleDmnWithReqsId"));
     });
   }
 
@@ -144,7 +145,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
       assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
       assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions.getFirst().decisionDefinitionKey());
-      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDecisionId");
+      assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
       assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
       assertThat(instance.result()).isNull();

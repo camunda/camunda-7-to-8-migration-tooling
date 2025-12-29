@@ -9,12 +9,13 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.constants.MigratorConstants;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.VariableService;
-import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -49,8 +50,8 @@ public class VariableTransformer implements EntityInterceptor {
     builder.variableKey(getNextKey())
         .name(historicVariable.getName())
         .value(variableService.convertValue(historicVariable))
-        .processDefinitionId(historicVariable.getProcessDefinitionKey())
-        .tenantId(ConverterUtil.getTenantId(historicVariable.getTenantId()))
+        .processDefinitionId(prefixDefinitionId(historicVariable.getProcessDefinitionKey()))
+        .tenantId(getTenantId(historicVariable.getTenantId()))
         .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID)
         .historyCleanupDate(convertDate(historicVariable.getRemovalTime()));
     // Note: processInstanceKey and scopeKey are set externally

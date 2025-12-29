@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -30,7 +31,7 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
     assertThat(processDefinitions.size()).isEqualTo(2);
     processDefinitions.forEach(definition -> {
       assertThat(definition.processDefinitionKey()).isNotNull();
-      assertThat(definition.processDefinitionId()).isEqualTo("userTaskProcessId");
+      assertThat(definition.processDefinitionId()).isEqualTo(prefixDefinitionId("userTaskProcessId"));
       assertThat(definition.name()).isEqualTo("UserTaskProcess");
       assertThat(definition.version()).isEqualTo(1);
       if (!definition.tenantId().equals("my-tenant1")) {
