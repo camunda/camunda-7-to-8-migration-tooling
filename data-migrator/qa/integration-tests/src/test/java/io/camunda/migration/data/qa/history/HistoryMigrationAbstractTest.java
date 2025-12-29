@@ -72,6 +72,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   @Autowired
   protected RdbmsService rdbmsService;
 
+  @Autowired
+  protected io.camunda.migration.data.impl.clients.C8Client c8Client;
+
   // C7 ---------------------------------------
 
   @Autowired
@@ -148,6 +151,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .search(FlowNodeInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey).types(type))))
+        .items();
+  }
+
+  public List<FlowNodeInstanceEntity> searchHistoricFlowNodes(long processInstanceKey) {
+    return rdbmsService.getFlowNodeInstanceReader()
+        .search(FlowNodeInstanceQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
         .items();
   }
 
