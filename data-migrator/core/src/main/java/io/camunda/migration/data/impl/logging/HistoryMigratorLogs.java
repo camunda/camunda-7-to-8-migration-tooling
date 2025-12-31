@@ -140,10 +140,6 @@ public class HistoryMigratorLogs {
     LOGGER.info(MIGRATING_INSTANCES, "decision");
   }
 
-  public static void notMigratingDecisionInstancesNotOriginatingFromBusinessRuleTasks(String c7DecisionInstanceId) {
-    LOGGER.debug(NOT_MIGRATING_DECISION_INSTANCE, c7DecisionInstanceId);
-  }
-
   public static void migratingDecisionInstance(String c7DecisionInstanceId) {
     LOGGER.debug(MIGRATING_INSTANCE, "decision", c7DecisionInstanceId);
   }
