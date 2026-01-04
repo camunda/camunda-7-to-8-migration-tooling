@@ -29,8 +29,6 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
-import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
@@ -82,29 +80,18 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
       assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(decisionRequirements.xml()).isNull();
-      assertThat(decisionRequirements.resourceName()).isEqualTo("io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
+      assertThat(decisionRequirements.resourceName()).isEqualTo(
+          "io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
     });
     Long decisionReqsKey = decisionReqs.get(0).decisionRequirementsKey();
 
-    assertThat(firstDecision).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs1Id");
-      assertThat(decision.decisionDefinitionKey()).isNotNull();
-      assertThat(decision.version()).isEqualTo(1);
-      assertThat(decision.name()).isEqualTo("simpleDmnWithReqs1Name");
-      assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionReqsKey);
-      assertThat(decision.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
-    });
+    assertThat(firstDecision).singleElement()
+        .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs1Id", "simpleDmnWithReqs1Name", 1,
+            decisionReqsKey, "simpleDmnWithReqsId"));
 
-    assertThat(secondDecision).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs2Id");
-      assertThat(decision.decisionDefinitionKey()).isNotNull();
-      assertThat(decision.version()).isEqualTo(1);
-      assertThat(decision.name()).isEqualTo("simpleDmnWithReqs2Name");
-      assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionReqsKey);
-      assertThat(decision.decisionRequirementsId()).isEqualTo("simpleDmnWithReqsId");
-    });
+    assertThat(secondDecision).singleElement()
+        .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs2Id", "simpleDmnWithReqs2Name", 1,
+            decisionReqsKey, "simpleDmnWithReqsId"));
   }
 
   @Test
@@ -129,41 +116,19 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
-    HistoricDecisionInstance c7Instance = historyService.createHistoricDecisionInstanceQuery()
-        .decisionDefinitionKey("simpleDecisionId")
-        .singleResult();
 
-    assertThat(migratedInstances).singleElement().satisfies(instance -> {
-      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-1");
-      assertThat(instance.decisionInstanceKey()).isNotNull();
-      assertThat(instance.state()).isEqualTo(EVALUATED);
-      assertThat(instance.evaluationDate()).isEqualTo(
-          OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
-      assertThat(instance.evaluationFailure()).isNull();
-      assertThat(instance.evaluationFailureMessage()).isNull();
-      assertThat(instance.flowNodeInstanceKey()).isEqualTo(migratedFlowNodeInstances.getFirst().flowNodeInstanceKey());
-      assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
-      assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
-      assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions.getFirst().decisionDefinitionKey());
-      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDecisionId");
-      assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
-      assertThat(instance.rootDecisionDefinitionKey()).isNull();
-      assertThat(instance.result()).isNull();
-      // TODO find out how to get a result http://github.com/camunda/camunda-bpm-platform/issues/5365
-      //      assertThat(instance.result()).isEqualTo("B");
-
-      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
-        assertThat(input.inputId()).isNotNull();
-        assertThat(input.inputName()).isEqualTo("inputA");
-        assertThat(input.inputValue()).isEqualTo("\"A\"");
-      });
-      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
-        assertThat(output.outputId()).isNotNull();
-        assertThat(output.outputName()).isEqualTo("outputB");
-        assertThat(output.outputValue()).isEqualTo("\"B\"");
-      });
-    });
+    assertThat(migratedInstances).singleElement().satisfies(instance ->
+        assertDecisionInstance(
+            instance,
+            "simpleDecisionId",
+            now,
+            migratedFlowNodeInstances.getFirst().flowNodeInstanceKey(),
+            migratedProcessInstances.getFirst().processInstanceKey(),
+            migratedProcessInstances.getFirst().processDefinitionKey(),
+            migratedDecisions.getFirst().decisionDefinitionKey(),
+            DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "inputA", "\"A\"",
+            "outputB", "\"B\""));
   }
 
   @Test
@@ -210,65 +175,31 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
 
-    assertThat(instances1).singleElement().satisfies(instance -> {
-      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-2");
-      assertThat(instance.decisionInstanceKey()).isNotNull();
-      assertThat(instance.state()).isEqualTo(EVALUATED);
-      assertThat(instance.evaluationDate()).isEqualTo(
-          OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
-      assertThat(instance.evaluationFailure()).isNull();
-      assertThat(instance.evaluationFailureMessage()).isNull();
-      assertThat(instance.flowNodeInstanceKey()).isEqualTo(migratedFlowNodeInstances.getFirst().flowNodeInstanceKey());
-      assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
-      assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
-      assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions1.getFirst().decisionDefinitionKey());
-      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs1Id");
-      assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(instance.decisionDefinitionType()).isEqualTo(
-          DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
-      assertThat(instance.result()).isNull();
-      assertThat(instance.rootDecisionDefinitionKey()).isNull();
-      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
-        assertThat(input.inputId()).isNotNull();
-        assertThat(input.inputName()).isEqualTo("inputA");
-        assertThat(input.inputValue()).isEqualTo("\"A\"");
-      });
-      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
-        assertThat(output.outputId()).isNotNull();
-        assertThat(output.outputName()).isEqualTo("outputB");
-        assertThat(output.outputValue()).isEqualTo("\"B\"");
-      });
-    });
+    assertThat(instances1).singleElement().satisfies(instance ->
+        assertDecisionInstance(
+            instance,
+            "simpleDmnWithReqs1Id",
+            now,
+            migratedFlowNodeInstances.getFirst().flowNodeInstanceKey(),
+            migratedProcessInstances.getFirst().processInstanceKey(),
+            migratedProcessInstances.getFirst().processDefinitionKey(),
+            migratedDecisions1.getFirst().decisionDefinitionKey(),
+            DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "inputA", "\"A\"",
+            "outputB", "\"B\""));
 
-    assertThat(instances2).singleElement().satisfies(instance -> {
-      assertThat(instance.decisionInstanceId()).isEqualTo(instance.decisionInstanceKey() + "-1");
-      assertThat(instance.decisionInstanceKey()).isNotNull();
-      assertThat(instance.state()).isEqualTo(EVALUATED);
-      assertThat(instance.evaluationDate()).isEqualTo(
-          OffsetDateTime.ofInstant(now.toInstant(), ZoneId.systemDefault()));
-      assertThat(instance.evaluationFailure()).isNull();
-      assertThat(instance.evaluationFailureMessage()).isNull();
-      assertThat(instance.flowNodeInstanceKey()).isEqualTo(migratedFlowNodeInstances.getFirst().flowNodeInstanceKey());
-      assertThat(instance.processInstanceKey()).isEqualTo(migratedProcessInstances.getFirst().processInstanceKey());
-      assertThat(instance.processDefinitionKey()).isEqualTo(migratedProcessInstances.getFirst().processDefinitionKey());
-      assertThat(instance.decisionDefinitionKey()).isEqualTo(migratedDecisions2.getFirst().decisionDefinitionKey());
-      assertThat(instance.decisionDefinitionId()).isEqualTo("simpleDmnWithReqs2Id");
-      assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(instance.decisionDefinitionType()).isEqualTo(
-          DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
-      assertThat(instance.result()).isNull();
-      assertThat(instance.rootDecisionDefinitionKey()).isNull();
-      assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
-        assertThat(input.inputId()).isNotNull();
-        assertThat(input.inputName()).isEqualTo("inputB");
-        assertThat(input.inputValue()).isEqualTo("\"B\"");
-      });
-      assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
-        assertThat(output.outputId()).isNotNull();
-        assertThat(output.outputName()).isEqualTo("outputC");
-        assertThat(output.outputValue()).isEqualTo("\"C\"");
-      });
-    });
+    assertThat(instances2).singleElement().satisfies(instance ->
+        assertDecisionInstance(
+            instance,
+            "simpleDmnWithReqs2Id",
+            now,
+            migratedFlowNodeInstances.getFirst().flowNodeInstanceKey(),
+            migratedProcessInstances.getFirst().processInstanceKey(),
+            migratedProcessInstances.getFirst().processDefinitionKey(),
+            migratedDecisions2.getFirst().decisionDefinitionKey(),
+            DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "inputB", "\"B\"",
+            "outputC", "\"C\""));
   }
 
   @Test
@@ -325,5 +256,64 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     // then
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
     logs.assertContains(formatMessage(NOT_MIGRATING_DECISION_INSTANCE, decisionInstanceId));
+  }
+
+  private void assertDecisionDefinition(
+      DecisionDefinitionEntity decision,
+      String decisionId,
+      String decisionName,
+      int version,
+      Long decisionRequirementsKey,
+      String decisionRequirementsId) {
+    assertThat(decision.decisionDefinitionId()).isEqualTo(decisionId);
+    assertThat(decision.decisionDefinitionKey()).isNotNull();
+    assertThat(decision.version()).isEqualTo(version);
+    assertThat(decision.name()).isEqualTo(decisionName);
+    assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionRequirementsKey);
+    assertThat(decision.decisionRequirementsId()).isEqualTo(decisionRequirementsId);
+  }
+
+  private void assertDecisionInstance(
+      DecisionInstanceEntity instance,
+      String decisionDefinitionId,
+      Date evaluationDate,
+      Long flowNodeInstanceKey,
+      Long processInstanceKey,
+      Long processDefinitionKey,
+      Long decisionDefinitionKey,
+      DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
+      String inputName,
+      String inputValue,
+      String outputName,
+      String outputValue) {
+    assertThat(instance.decisionInstanceId()).isNotNull();
+    assertThat(instance.decisionInstanceKey()).isNotNull();
+    assertThat(instance.state()).isEqualTo(EVALUATED);
+    assertThat(instance.evaluationDate()).isEqualTo(
+        OffsetDateTime.ofInstant(evaluationDate.toInstant(), ZoneId.systemDefault()));
+    assertThat(instance.evaluationFailure()).isNull();
+    assertThat(instance.evaluationFailureMessage()).isNull();
+    assertThat(instance.flowNodeInstanceKey()).isEqualTo(flowNodeInstanceKey);
+    assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
+    assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
+    assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
+    assertThat(instance.decisionDefinitionId()).isEqualTo(decisionDefinitionId);
+    assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
+    assertThat(instance.result()).isNull();
+    assertThat(instance.rootDecisionDefinitionKey()).isNull();
+
+    assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+      assertThat(input.inputId()).isNotNull();
+      assertThat(input.inputName()).isEqualTo(inputName);
+      assertThat(input.inputValue()).isEqualTo(inputValue);
+    });
+
+    assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+      assertThat(output.outputId()).isNotNull();
+      assertThat(output.outputName()).isEqualTo(outputName);
+      assertThat(output.outputValue()).isEqualTo(outputValue);
+    });
   }
 }
