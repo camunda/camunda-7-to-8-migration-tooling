@@ -36,9 +36,9 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldMigrateTenants() {
     // given 3 tenants in c7
-    var tenant1 = createTenant("tenantId1", "tenantName1");
-    var tenant2 = createTenant("tenantId2", "tenantName2");
-    var tenant3 = createTenant("tenantId3", "tenantName3");
+    var tenant1 = createTenantInC7("tenantId1", "tenantName1");
+    var tenant2 = createTenantInC7("tenantId2", "tenantName2");
+    var tenant3 = createTenantInC7("tenantId3", "tenantName3");
     var expectedTenants = List.of(tenant1, tenant2, tenant3);
 
     // when migrating
@@ -55,9 +55,9 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   public void shouldSkipTenants() {
     // given 3 tenants in c7
     processEngineConfiguration.setTenantResourceWhitelistPattern(".+"); // allow to create tenant with any ID
-    var tenant1 = createTenant("tenantId1", "tenantName1");
-    var tenant2 = createTenant("tenantId2-!~^", "tenantName2");
-    var tenant3 = createTenant("tenantId3", "tenantName3");
+    var tenant1 = createTenantInC7("tenantId1", "tenantName1");
+    var tenant2 = createTenantInC7("tenantId2-!~^", "tenantName2");
+    var tenant3 = createTenantInC7("tenantId3", "tenantName3");
     var expectedTenants = List.of(tenant1, tenant3);
 
     // when migrating
@@ -76,11 +76,11 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldMigrateOnlyNonPreviouslyMigratedTenants() {
     // given 3 tenants in c7 but one was already marked as migrated
-    var tenant1 = createTenant("tenantId1", "tenantName1");
+    var tenant1 = createTenantInC7("tenantId1", "tenantName1");
     identityMigrator.migrate();
     camundaClient.newDeleteTenantCommand(tenant1.getId()).execute(); // To be able to assert that it doesn't get migrated again
-    var tenant2 = createTenant("tenantId2", "tenantName2");
-    var tenant3 = createTenant("tenantId3", "tenantName3");
+    var tenant2 = createTenantInC7("tenantId2", "tenantName2");
+    var tenant3 = createTenantInC7("tenantId3", "tenantName3");
     var expectedTenants = List.of(tenant2, tenant3);
 
     // when migrating
@@ -105,13 +105,6 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     assertThat(tenants)
         .extracting(Tenant::getTenantId, Tenant::getName)
         .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
-  }
-
-  private org.camunda.bpm.engine.identity.Tenant createTenant(String id, String name) {
-    var tenant = identityService.newTenant(id);
-    tenant.setName(name);
-    identityService.saveTenant(tenant);
-    return tenant;
   }
 
   protected void verifySkippedViaLogs(String tenantId) {
