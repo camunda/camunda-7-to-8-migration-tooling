@@ -14,7 +14,7 @@
   <name>Camunda 7 to 8 Migration Tooling - Diagram</name>
 
   <properties>
-    <version.jsoup>1.21.2</version.jsoup>
+    <version.jsoup>1.22.1</version.jsoup>
     <version.picocli>4.7.7</version.picocli>
     <version.commons-io>2.21.0</version.commons-io>
     <version.slack-api-client>1.46.0</version.slack-api-client>
