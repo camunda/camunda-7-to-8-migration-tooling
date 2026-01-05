@@ -76,6 +76,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -424,22 +425,7 @@ public class HistoryMigrator {
           }
         } else {
           // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
-          String newDecisionRequirementsId = "drd-" + c7DecisionDefinition.getKey();
-          decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(newDecisionRequirementsId, HISTORY_DECISION_REQUIREMENT);
-
-          if (decisionRequirementsKey == null) {
-            HistoryMigratorLogs.creatingDecisionRequirement(c7Id);
-            String deploymentId = c7DecisionDefinition.getDeploymentId();
-            String resourceName = c7DecisionDefinition.getResourceName();
-            String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
-
-            DecisionRequirementsDbModel drdModel =
-                generateDrdForC7DefinitionWithoutDrd(newDecisionRequirementsId, c7DecisionDefinition, resourceName, dmnXml);
-            decisionRequirementsKey = drdModel.decisionRequirementsKey();
-            c8Client.insertDecisionRequirements(drdModel);
-            markMigrated(newDecisionRequirementsId, drdModel.decisionRequirementsKey(), deploymentTime, HISTORY_DECISION_REQUIREMENT);
-            HistoryMigratorLogs.creatingDecisionRequirementCompleted(c7Id);
-          }
+          decisionRequirementsKey = createAndMigrateNewDrdForC7DmnWithoutDrd(c7DecisionDefinition, deploymentTime);
           decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
         }
         dbModel = convertDecisionDefinition(context);
@@ -448,6 +434,29 @@ public class HistoryMigrator {
         handleInterceptorException(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, e);
       }
     }
+  }
+
+  protected Long createAndMigrateNewDrdForC7DmnWithoutDrd(DecisionDefinition c7DecisionDefinition,
+                                                          Date deploymentTime) {
+    String newDecisionRequirementsId = "drd-" + c7DecisionDefinition.getId();
+    Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(newDecisionRequirementsId,
+        HISTORY_DECISION_REQUIREMENT);
+
+    if (decisionRequirementsKey == null) {
+      String c7DecisionDefinitionId = c7DecisionDefinition.getId();
+      HistoryMigratorLogs.creatingDecisionRequirement(c7DecisionDefinitionId);
+      String deploymentId = c7DecisionDefinition.getDeploymentId();
+      String resourceName = c7DecisionDefinition.getResourceName();
+      String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+
+      DecisionRequirementsDbModel drdModel = generateDrdForC7DefinitionWithoutDrd(newDecisionRequirementsId,
+          c7DecisionDefinition, resourceName, dmnXml);
+      decisionRequirementsKey = drdModel.decisionRequirementsKey();
+      c8Client.insertDecisionRequirements(drdModel);
+      markMigrated(newDecisionRequirementsId, decisionRequirementsKey, deploymentTime, HISTORY_DECISION_REQUIREMENT);
+      HistoryMigratorLogs.creatingDecisionRequirementCompleted(c7DecisionDefinitionId);
+    }
+    return decisionRequirementsKey;
   }
 
   protected DecisionDefinitionDbModel convertDecisionDefinition(EntityConversionContext<?, ?> context) {

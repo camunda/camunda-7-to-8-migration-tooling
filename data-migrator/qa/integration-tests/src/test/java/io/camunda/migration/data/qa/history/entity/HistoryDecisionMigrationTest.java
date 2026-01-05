@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
+import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -49,6 +50,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
+    String c7DefinitionId = repositoryService.createDecisionDefinitionQuery()
+        .decisionDefinitionKey("simpleDecisionId")
+        .singleResult()
+        .getId();
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
       assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDecisionId");
@@ -60,10 +65,12 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.decisionRequirementsId()).isNull();
     });
 
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("drd-simpleDecisionId");
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("drd-" + c7DefinitionId);
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
-      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("drd-simpleDecisionId");
-      assertThat(decisionRequirements.decisionRequirementsKey()).isNotNull();
+      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("drd-" + c7DefinitionId );
+      assertThat(decisionRequirements.decisionRequirementsKey())
+          .isNotNull()
+          .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
       assertThat(decisionRequirements.version()).isEqualTo(1);
       assertThat(decisionRequirements.name()).isEqualTo("simpleDecisionName");
       assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
@@ -73,7 +80,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecisionOnlyOnce() {
+  public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecision() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     historyMigrator.migrate();
@@ -81,15 +88,29 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    assertThat(migratedDecisions).hasSize(2).allSatisfy(decision -> {
-      assertThat(decision.decisionRequirementsKey()).isNotNull();
-      assertThat(decision.decisionRequirementsId()).isNull();
-    });
+    List<DecisionDefinition> c7Definitions = repositoryService.createDecisionDefinitionQuery()
+        .decisionDefinitionKey("simpleDecisionId")
+        .orderByDecisionDefinitionVersion()
+        .asc()
+        .list();
+    assertThat(c7Definitions).hasSize(2);
 
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition(
-        "drd-simpleDecisionId");
-    assertThat(decisionReqs).hasSize(1);
+    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionRequirementsEntity> decisionReqs1 = searchHistoricDecisionRequirementsDefinition("drd-" + c7Definitions.getFirst().getId());
+    List<DecisionRequirementsEntity> decisionReqs2 = searchHistoricDecisionRequirementsDefinition("drd-" + c7Definitions.get(1).getId());
+
+    assertThat(decisionReqs1).hasSize(1);
+    assertThat(decisionReqs2).hasSize(1);
+
+    assertThat(migratedDecisions).hasSize(2);
+    assertThat(migratedDecisions).allSatisfy(decision ->
+      assertThat(decision.decisionRequirementsId()).isNull()
+    );
+    assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
+        .containsExactlyInAnyOrder(
+            decisionReqs1.getFirst().decisionRequirementsKey(),
+            decisionReqs2.getFirst().decisionRequirementsKey()
+        );
   }
 
   @Test

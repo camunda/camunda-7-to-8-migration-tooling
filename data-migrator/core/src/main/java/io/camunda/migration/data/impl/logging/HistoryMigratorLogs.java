@@ -83,7 +83,7 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
-  public static final String CREATING_DECISION_REQUIREMENT = "Creating decision requirement for C7 DMN with ID: {}";
+  public static final String CREATING_DECISION_REQUIREMENT = "Creating decision requirement for C7 DMN with ID: [{}]";
   public static final String CREATING_DECISION_REQUIREMENT_COMPLETED = "Creating decision requirement for C7 DMN with"
       + " ID [{}] completed";
 
