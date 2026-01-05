@@ -7,6 +7,12 @@
  */
 package io.camunda.migration.data.impl.identity;
 
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_PERMISSION_TYPE;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_OWNER_NOT_EXISTS;
 import static java.lang.String.format;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
@@ -41,16 +47,16 @@ public class AuthorizationManager {
 
   public AuthorizationMappingResult mapAuthorization(Authorization authorization) {
     if (authorization.getAuthorizationType() != Authorization.AUTH_TYPE_GRANT) {
-      return AuthorizationMappingResult.failure("GLOBAL and REVOKE authorization types are not supported");
+      return AuthorizationMappingResult.failure(FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED);
     }
 
     if (!ownerExists(authorization.getUserId(), authorization.getGroupId())) {
-      return AuthorizationMappingResult.failure("User or group does not exist in C8");
+      return AuthorizationMappingResult.failure(FAILURE_OWNER_NOT_EXISTS);
     }
 
     Resource c7ResourceType = ResourceTypeUtil.getResourceByType(authorization.getResourceType());
     if (!C7ToC8AuthorizationRegistry.isSupported(c7ResourceType)) {
-      return AuthorizationMappingResult.failure(format("Resource type [%s] is not supported", c7ResourceType.resourceName()));
+      return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, c7ResourceType.resourceName()));
     }
 
     var mappingForResourceType = C7ToC8AuthorizationRegistry.getMappingForResourceType(c7ResourceType);
@@ -63,16 +69,16 @@ public class AuthorizationManager {
         Set<PermissionType> c8MappedPermissions = mappingForResourceType.getMappedPermissions(permission);
         c8Permissions.addAll(c8MappedPermissions);
       } else {
-        return AuthorizationMappingResult.failure(format("Permission type [%s] is not supported for resource type [%s]", permission.getName(), c7ResourceType.resourceName()));
+        return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, permission.getName(), c7ResourceType.resourceName()));
       }
     }
     if (!isValidResourceId(mappingForResourceType, authorization.getResourceId())) {
-      return AuthorizationMappingResult.failure(format("Specific resource ID [%s] is not supported for resource type [%s]", authorization.getResourceId(), c7ResourceType.resourceName()));
+      return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, authorization.getResourceId(), c7ResourceType.resourceName()));
     }
 
     String c8ResourceId = mapResourceId(mappingForResourceType, authorization.getResourceId());
     if (c8ResourceId == null) {
-      return AuthorizationMappingResult.failure(format("Resource ID [%s] is not supported for resource type [%s]", authorization.getResourceId(), c7ResourceType.resourceName()));
+      return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_RESOURCE_ID, authorization.getResourceId(), c7ResourceType.resourceName()));
     }
 
     OwnerType ownerType = isNotBlank(authorization.getUserId()) ? OwnerType.USER : OwnerType.GROUP;
