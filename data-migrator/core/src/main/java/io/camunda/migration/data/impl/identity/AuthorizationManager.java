@@ -101,7 +101,7 @@ public class AuthorizationManager {
     Permission[] permissionsForResourceType = processEngineConfiguration.getPermissionProvider().getPermissionsForResource(resourceType);
     Set<Permission> permissions = Arrays.stream(authorization.getPermissions(permissionsForResourceType)).collect(Collectors.toSet());
 
-    if (permissions.stream().anyMatch(permission -> equals(permission, Permissions.ALL))) { // If has ALL
+    if (permissions.stream().anyMatch(permission -> equals(permission, Permissions.ALL))) { // If it has ALL
       return permissions.stream().filter(permission -> equals(permission, Permissions.ALL)).collect(Collectors.toSet()); // Return only ALL
     } else { // Else, remove NONE from the list and return singular permissions
       return permissions.stream().filter(permission -> !equals(permission, Permissions.NONE)).collect(Collectors.toSet());

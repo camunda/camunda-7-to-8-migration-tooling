@@ -18,6 +18,7 @@ import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
+import org.camunda.bpm.engine.authorization.SystemPermissions;
 
 public class C7ToC8AuthorizationRegistry {
 
@@ -74,8 +75,8 @@ public class C7ToC8AuthorizationRegistry {
         false,
         false,
         Map.of(
-            Permissions.ALL, getAllSupportedPerms(ResourceType.SYSTEM),
-            Permissions.READ, Set.of(PermissionType.READ, PermissionType.READ_USAGE_METRIC)),
+            SystemPermissions.ALL, getAllSupportedPerms(ResourceType.SYSTEM),
+            SystemPermissions.READ, Set.of(PermissionType.READ, PermissionType.READ_USAGE_METRIC)),
         null
     ));
 
@@ -83,10 +84,10 @@ public class C7ToC8AuthorizationRegistry {
         false,
         false,
         Map.of(
-            Permissions.ALL, getAllSupportedPerms(ResourceType.BATCH),
-            Permissions.READ, Set.of(PermissionType.READ),
-            Permissions.UPDATE, Set.of(PermissionType.UPDATE),
-            Permissions.CREATE, Set.of(PermissionType.CREATE),
+            BatchPermissions.ALL, getAllSupportedPerms(ResourceType.BATCH),
+            BatchPermissions.READ, Set.of(PermissionType.READ),
+            BatchPermissions.UPDATE, Set.of(PermissionType.UPDATE),
+            BatchPermissions.CREATE, Set.of(PermissionType.CREATE),
             BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE),
             BatchPermissions.CREATE_BATCH_MODIFY_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE),
             BatchPermissions.CREATE_BATCH_DELETE_RUNNING_PROCESS_INSTANCES, Set.of(PermissionType.CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE, PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE),
