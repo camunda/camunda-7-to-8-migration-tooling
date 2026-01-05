@@ -176,6 +176,6 @@ public void execute(EntityConversionContext<?, ?> context) {
 
 ## See Also
 
-- [History Migration Documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/data-migrator/history/)
+- [History Migration Documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/history/)
 - [Variable Interceptor Example](../variable-interceptor/)
 

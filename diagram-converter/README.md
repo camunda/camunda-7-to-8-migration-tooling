@@ -8,7 +8,7 @@ A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 f
 
 ## Documentation
 
-For installation and usage instructions, see the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/diagram-converter/).
+For installation and usage instructions, see the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
 
 See it in action in the **[Camunda 7 to 8 Migration Example](https://github.com/camunda-community-hub/camunda-7-to-8-migration-example)**.
 
