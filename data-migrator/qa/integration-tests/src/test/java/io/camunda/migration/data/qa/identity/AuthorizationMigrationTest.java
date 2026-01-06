@@ -8,8 +8,21 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.client.api.search.enums.OwnerType.USER;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_OWNER_NOT_EXISTS;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_PERMISSION_TYPE;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_AUTH;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_GLOBAL;
+import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_GRANT;
+import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_REVOKE;
 
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
@@ -34,22 +47,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.platform.commons.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-
-
-/*
- * TODO cases to test:
- * [X] Happy path for all supported resource types (migrate) with wildcard *
- * [X] Happy path for all supported resource types (migrate) with resourceId
- * [X] Happy path for C7 Permission.ALL to all C8 permissions (migrate)
- * [X] Happy path for  TENANT_MEMBERSHIP and GROUP_MEMBERSHIP
- *
- * [ ] SKIP Global or Revoke auth
- * [ ] SKIP User or group non existent in C8
- * [ ] SKIP Resource type not supported
- * [ ] SKIP Resource type supported but at least one permission not supported
- * [ ] SKIP Invalid resourceId for resource type - example: AUTHORIZATION with resourceId != *
- * [ ] SKIP Invalid mapping for resourceId - example: APPLICATION with resourceId != cockpit, tasklist, admin
- */
 
 public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
@@ -84,13 +81,13 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldMigrateAuthorizationsWithAllPermissions() {
     // given
-    createAuthorizationInC7(USERNAME, null, Resources.APPLICATION, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.GROUP, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.SYSTEM, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.BATCH, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.USER, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.SYSTEM, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "*", Set.of(Permissions.ALL));
 
     // when
     identityMigrator.migrate();
@@ -112,13 +109,13 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldMigrateAuthorizationsWithSpecificPermissions() {
     // given
-    createAuthorizationInC7(USERNAME, null, Resources.APPLICATION, "*", Set.of(Permissions.ACCESS));
-    createAuthorizationInC7(USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ, Permissions.UPDATE));
-    createAuthorizationInC7(USERNAME, null, Resources.GROUP, "*", Set.of(Permissions.READ, Permissions.DELETE));
-    createAuthorizationInC7(USERNAME, null, Resources.SYSTEM, "*", Set.of(SystemPermissions.READ));
-    createAuthorizationInC7(USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES));
-    createAuthorizationInC7(USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.READ, Permissions.CREATE));
-    createAuthorizationInC7(USERNAME, null, Resources.USER, "*", Set.of(Permissions.READ));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "*", Set.of(Permissions.ACCESS));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ, Permissions.UPDATE));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "*", Set.of(Permissions.READ, Permissions.DELETE));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.SYSTEM, "*", Set.of(SystemPermissions.READ));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.READ, Permissions.CREATE));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "*", Set.of(Permissions.READ));
 
     // when
     identityMigrator.migrate();
@@ -140,8 +137,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldMigrateMembershipAuthorizationsForAllPerms() {
     // given
-    createAuthorizationInC7(USERNAME, null, Resources.GROUP_MEMBERSHIP, "*", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.TENANT_MEMBERSHIP, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP_MEMBERSHIP, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT_MEMBERSHIP, "*", Set.of(Permissions.ALL));
 
     // when
     identityMigrator.migrate();
@@ -156,16 +153,30 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   }
 
   @Test
-  public void shouldMigrateMembershipsWithSpecificResourceId() {
+  public void shouldSkipMembershipAuthorizationForSpecificPerms() {
+    // given
+    Authorization auth1 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP_MEMBERSHIP, "*", Set.of(Permissions.CREATE));
+    Authorization auth2 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT_MEMBERSHIP, "*", Set.of(Permissions.DELETE));
+
+    // when
+    identityMigrator.migrate();
+
+    // then
+    verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.CREATE, Resources.GROUP_MEMBERSHIP.resourceName()));
+    verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE, Resources.TENANT_MEMBERSHIP.resourceName()));
+  }
+
+  @Test
+  public void shouldMigrateAuthorizationsWithSpecificResourceId() {
     createUserInC8("danwhite", "Dan", "White");
     createGroupInC8("group", "group");
     createTenantInC8("tenant", "tenant");
 
     // given
-    createAuthorizationInC7(USERNAME, null, Resources.APPLICATION, "tasklist", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.GROUP, "group", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.TENANT, "tenant", Set.of(Permissions.ALL));
-    createAuthorizationInC7(USERNAME, null, Resources.USER, "danwhite", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "tasklist", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "group", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "tenant", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "danwhite", Set.of(Permissions.ALL));
 
     // when
     identityMigrator.migrate();
@@ -179,6 +190,84 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "group", USER, USERNAME,  getAllSupportedPerms(ResourceType.GROUP));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "tenant", USER, USERNAME,  getAllSupportedPerms(ResourceType.TENANT));
     assertAuthorizationsContains(authorizations, ResourceType.USER, "danwhite", USER, USERNAME,  getAllSupportedPerms(ResourceType.USER));
+  }
+
+  @Test
+  public void shouldSkipRevokeAndGlobalAuthorizations() {
+    // given
+    Authorization auth1 = createAuthorizationInC7(AUTH_TYPE_GLOBAL, "*", null, Resources.USER, "*", Set.of(Permissions.ALL));
+    Authorization auth2 = createAuthorizationInC7(AUTH_TYPE_REVOKE, USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth1.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED);
+    verifySkippedViaLogs(auth2.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED);
+  }
+
+  @Test
+  public void shouldSkipWhenOwnerDoesNotExist() {
+    // given
+    Authorization auth1 = createAuthorizationInC7(AUTH_TYPE_GRANT, "unknownuser", null, Resources.APPLICATION, "*", Set.of(Permissions.ALL));
+    Authorization auth2 = createAuthorizationInC7(AUTH_TYPE_GRANT, null, "unknowngroup", Resources.APPLICATION, "*", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth1.getId(), FAILURE_OWNER_NOT_EXISTS);
+    verifySkippedViaLogs(auth2.getId(), FAILURE_OWNER_NOT_EXISTS);
+  }
+
+  @Test
+  public void shouldSkipWhenResourceIdDoesNotExist() {
+    // given
+    Authorization auth = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "unknownGroup", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth.getId(), FAILED_TO_MIGRATE_AUTHORIZATION);
+  }
+
+  @Test
+  public void shouldSkipOnUnsupportedResourceType() {
+    // given
+    Authorization auth = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.FILTER, "*", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, Resources.FILTER.resourceName()));
+  }
+
+  @Test
+  public void shouldSkipIfAtLeastOneUnsupportedPermission() {
+    // given
+    Authorization auth = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.READ, BatchPermissions.READ_HISTORY));
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, BatchPermissions.READ_HISTORY, Resources.BATCH.resourceName()));
+  }
+
+  @Test
+  public void shouldSkipIfUnsupportedResourceIdForGivenResourceType() {
+    // given
+    Authorization auth1 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "authId", Set.of(Permissions.ALL)); // AUTHORIZATION only accepts '*'
+    Authorization auth2 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "unknownApp", Set.of(Permissions.ALL)); // APPLICATION only accepts '*' or known app
+
+    // when
+    identityMigrator.migrate();
+
+    // then auths are skipped
+    verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, "authId", Resources.AUTHORIZATION.resourceName()));
+    verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownApp", Resources.APPLICATION.resourceName()));
   }
 
   protected static void assertAuthorizationsContains(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, Set<PermissionType> perms) {
@@ -195,8 +284,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     });
   }
 
-  protected Authorization createAuthorizationInC7(String userId, String groupId, Resources resourceType, String resourceId, Set<Permission> permissions) {
-    Authorization newAuthorization = authorizationService.createNewAuthorization(Authorization.AUTH_TYPE_GRANT);
+  protected Authorization createAuthorizationInC7(int type, String userId, String groupId, Resources resourceType, String resourceId, Set<Permission> permissions) {
+    Authorization newAuthorization = authorizationService.createNewAuthorization(type);
     if (StringUtils.isNotBlank(userId)) {
       newAuthorization.setUserId(userId);
     } else if (StringUtils.isNotBlank(groupId)) {
@@ -216,5 +305,9 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
         .stream()
         .map(permissionType -> PermissionType.valueOf(permissionType.name())) // Needed to convert from io.camunda.zeebe.protocol.record.value.PermissionType to io.camunda.client.api.search.enums.PermissionType
         .toArray(PermissionType[]::new);
+  }
+
+  protected void verifySkippedViaLogs(String authorizationId, String reason) {
+    logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, reason));
   }
 }

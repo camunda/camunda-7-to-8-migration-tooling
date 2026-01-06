@@ -23,7 +23,7 @@ public class IdentityMigratorLogs {
   public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}]";
   public static final String SKIPPED_AUTH = "Authorization with ID [{}] was skipped: {}";
 
-  // Failure messages
+  // Failure reasons constants
   public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
   public static final String FAILURE_OWNER_NOT_EXISTS = "User or group does not exist in C8";
   public static final String FAILURE_UNSUPPORTED_RESOURCE_TYPE = "Resource type [%s] is not supported";

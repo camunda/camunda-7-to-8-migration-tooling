@@ -16,6 +16,7 @@ import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
+import org.camunda.bpm.engine.authorization.SystemPermissions;
 import org.junit.jupiter.api.Test;
 
 class C7ToC8AuthorizationRegistryTest {
@@ -110,8 +111,8 @@ class C7ToC8AuthorizationRegistryTest {
     assertThat(entry.supportsExplicitId()).isFalse();
     assertThat(entry.needsToAdaptId()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(SystemPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
+    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).contains(
         PermissionType.READ,
         PermissionType.READ_USAGE_METRIC,
         PermissionType.UPDATE);
@@ -125,9 +126,9 @@ class C7ToC8AuthorizationRegistryTest {
     assertThat(entry.supportsExplicitId()).isFalse();
     assertThat(entry.needsToAdaptId()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(entry.getMappedPermissions(BatchPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(entry.getMappedPermissions(BatchPermissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
 
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE);
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_MODIFY_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE);
@@ -135,7 +136,7 @@ class C7ToC8AuthorizationRegistryTest {
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE);
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).contains(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
