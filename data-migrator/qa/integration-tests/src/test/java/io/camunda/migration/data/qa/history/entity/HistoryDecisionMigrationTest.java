@@ -37,7 +37,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 
 public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
-  private static final String BUSINESS_RULE_PROCESS_ID_PATTERN = "BusinessRuleProcess_%s";
+  protected static final String BUSINESS_RULE_PROCESS_ID_PATTERN = "BusinessRuleProcess_%s";
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -362,7 +362,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
   }
 
-  private List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
+  protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
                                                                                                String decisionFileName) {
     deployer.deployCamunda7Decision(decisionFileName);
     deployBusinessRuleProcessReferencingDecision(decisionId);
