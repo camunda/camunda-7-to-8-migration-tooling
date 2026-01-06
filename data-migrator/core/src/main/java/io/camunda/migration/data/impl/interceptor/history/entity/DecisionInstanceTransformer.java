@@ -75,7 +75,6 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
         .result(resultJsonString)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
         .evaluatedOutputs(evaluatedOutputs)
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
@@ -104,7 +103,8 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
 
   protected String constructResultFromCollectValue(Double collectResultValue) {
     try {
-      if (collectResultValue == collectResultValue.longValue()) {
+      if (collectResultValue % 1 == 0) {
+        // the result is a whole number, serialize as Long
         return objectMapper.writeValueAsString(collectResultValue.longValue());
       } else {
         return objectMapper.writeValueAsString(collectResultValue);
