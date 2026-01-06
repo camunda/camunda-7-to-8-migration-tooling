@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:biodi="http://bpmn.io/schema/dmn/biodi/2.0" xmlns:camunda="http://camunda.org/schema/1.0/dmn" id="hitPolicyAnyDmnId" name="HitPolicyAnyDmnName" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.24.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <decision id="hitPolicyAnyDecisionId" name="hitPolicyAnyDecisionName" camunda:historyTimeToLive="1">
+    <decisionTable id="DecisionTable_1tfxvyy" hitPolicy="ANY">
+      <input id="Input_1" label="Input" biodi:width="192">
+        <inputExpression id="InputExpression_1" typeRef="string">
+          <text>input</text>
+        </inputExpression>
+      </input>
+      <output id="Output_1" label="Output" name="output" typeRef="boolean" />
+      <rule id="DecisionRule_1gxk73o">
+        <inputEntry id="UnaryTests_1d4l46c">
+          <text>"A"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0y0i1ft">
+          <text>true</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1nrs5a4">
+        <inputEntry id="UnaryTests_1mkszuo">
+          <text>not("B")</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0atkbll">
+          <text>true</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram>
+      <dmndi:DMNShape dmnElementRef="hitPolicyAnyDecisionId">
+        <dc:Bounds height="80" width="180" x="160" y="100" />
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

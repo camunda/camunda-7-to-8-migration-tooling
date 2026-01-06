@@ -113,8 +113,12 @@ public class ProcessDefinitionDeployer {
   public void deployModelInstance(String process,
                                      BpmnModelInstance c7Model,
                                      io.camunda.zeebe.model.bpmn.BpmnModelInstance c8Model) {
-    repositoryService.createDeployment().addModelInstance(process + ".bpmn", c7Model).deploy();
+    deployC7ModelInstance(process, c7Model);
     camundaClient.newDeployResourceCommand().addProcessModel(c8Model, process + ".bpmn").execute();
     checkC8ProcessDefinitionAvailable(process + ".bpmn", null);
+  }
+
+  public void deployC7ModelInstance(String process, BpmnModelInstance c7Model) {
+    repositoryService.createDeployment().addModelInstance(process + ".bpmn", c7Model).deploy();
   }
 }

@@ -5,7 +5,6 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
@@ -31,11 +30,14 @@ import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.Variables;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 
 public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
+  protected static final String BUSINESS_RULE_PROCESS_ID_PATTERN = "BusinessRuleProcess_%s";
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -127,6 +129,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             migratedProcessInstances.getFirst().processDefinitionKey(),
             migratedDecisions.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "\"B\"",
             "inputA", "\"A\"",
             "outputB", "\"B\""));
   }
@@ -185,6 +188,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             migratedProcessInstances.getFirst().processDefinitionKey(),
             migratedDecisions1.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "\"B\"",
             "inputA", "\"A\"",
             "outputB", "\"B\""));
 
@@ -198,6 +202,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             migratedProcessInstances.getFirst().processDefinitionKey(),
             migratedDecisions2.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
+            "\"C\"",
             "inputB", "\"B\"",
             "outputC", "\"C\""));
   }
@@ -258,6 +263,129 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     logs.assertContains(formatMessage(NOT_MIGRATING_DECISION_INSTANCE, decisionInstanceId));
   }
 
+  @Test
+  public void shouldMigrateDecisionResult_Unique() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyUniqueDecisionId", "hitPolicyUniqueDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("\"A\"");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_First() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyFirstDecisionId", "hitPolicyFirstDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("true");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_Any() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyAnyDecisionId", "hitPolicyAnyDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("true");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_Collect() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyCollectDecisionId", "hitPolicyCollectDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("[1,\"not B\",true]");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_CollectSum() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyCollectSumDecisionId", "hitPolicyCollectSumDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("10");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_CollectMin() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyCollectMinDecisionId", "hitPolicyCollectMinDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("1");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_CollectMax() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyCollectMaxDecisionId", "hitPolicyCollectMaxDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("2");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_CollectCount() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyCollectCountDecisionId", "hitPolicyCollectCountDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("2");
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_RuleOrder() {
+    // given / when
+    List<DecisionInstanceEntity> migratedInstances = deployStartAndMigrateDmnForResultMigrationTestScenarios(
+        "hitPolicyRuleOrderDecisionId", "hitPolicyRuleOrderDmn.dmn");
+
+    // then
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
+  }
+
+  protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
+                                                                                               String decisionFileName) {
+    deployer.deployCamunda7Decision(decisionFileName);
+    deployBusinessRuleProcessReferencingDecision(decisionId);
+    Map<String, Object> variables = Variables.createVariables().putValue("input", stringValue("A"));
+    runtimeService.startProcessInstanceByKey(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), variables);
+
+    // when
+    historyMigrator.migrate();
+    return searchHistoricDecisionInstances(decisionId);
+  }
+
+  private void deployBusinessRuleProcessReferencingDecision(String decisionId) {
+    BpmnModelInstance c7BusinessRuleProcess = Bpmn.createExecutableProcess(
+            String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId))
+        .startEvent("startEvent")
+        .businessRuleTask("businessRuleTask")
+        .camundaDecisionRef(decisionId)
+        .endEvent("endEvent")
+        .done();
+    deployer.deployC7ModelInstance(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), c7BusinessRuleProcess);
+  }
+
+
   private void assertDecisionDefinition(
       DecisionDefinitionEntity decision,
       String decisionId,
@@ -283,6 +411,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       Long processDefinitionKey,
       Long decisionDefinitionKey,
       DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
+      String result,
       String inputName,
       String inputValue,
       String outputName,
@@ -301,15 +430,13 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(instance.decisionDefinitionId()).isEqualTo(decisionDefinitionId);
     assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
-    assertThat(instance.result()).isNull();
+    assertThat(instance.result()).isEqualTo(result);
     assertThat(instance.rootDecisionDefinitionKey()).isNull();
-
     assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
       assertThat(input.inputId()).isNotNull();
       assertThat(input.inputName()).isEqualTo(inputName);
       assertThat(input.inputValue()).isEqualTo(inputValue);
     });
-
     assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
       assertThat(output.outputId()).isNotNull();
       assertThat(output.outputName()).isEqualTo(outputName);

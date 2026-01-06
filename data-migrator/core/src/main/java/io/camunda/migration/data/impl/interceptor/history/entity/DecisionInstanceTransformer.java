@@ -12,6 +12,8 @@ import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_P
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.migration.data.impl.VariableService;
@@ -35,6 +37,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
   @Autowired
   protected VariableService variableService;
 
+  @Autowired
+  protected ObjectMapper objectMapper;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(HistoricDecisionInstance.class);
@@ -49,6 +54,17 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
     }
 
+    List<DecisionInstanceDbModel.EvaluatedOutput> evaluatedOutputs =
+        mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs());
+
+    String resultJsonString;
+    Double collectResultValue = decisionInstance.getCollectResultValue();
+    if (collectResultValue != null) {
+      resultJsonString = constructResultFromCollectValue(collectResultValue);
+    } else {
+      resultJsonString = constructResultJsonFromOutputs(evaluatedOutputs);
+    }
+
     builder.partitionId(C7_HISTORY_PARTITION_ID)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
@@ -57,11 +73,10 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
         .processDefinitionId(decisionInstance.getProcessDefinitionKey())
         .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
         .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
-        .result(null)
+        .result(resultJsonString)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))
         .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
-        .evaluatedOutputs(mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs()))
+        .evaluatedOutputs(evaluatedOutputs)
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
     // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey, decisionType
     // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
@@ -84,5 +99,41 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
         variableService.convertValue((ValueFields) output),
         output.getRuleId(),
         output.getRuleOrder() != null ? output.getRuleOrder() : 1)).toList();
+  }
+
+  protected String constructResultFromCollectValue(Double collectResultValue) {
+    try {
+      if (collectResultValue % 1 == 0) {
+        // the result is a whole number, serialize as Long
+        return objectMapper.writeValueAsString(collectResultValue.longValue());
+      } else {
+        return objectMapper.writeValueAsString(collectResultValue);
+      }
+    } catch (JsonProcessingException e) {
+      throw new EntityInterceptorException("Failed to construct result JSON from collect value", e);
+    }
+  }
+
+  protected String constructResultJsonFromOutputs(List<DecisionInstanceDbModel.EvaluatedOutput> outputValues) {
+    if (outputValues == null || outputValues.isEmpty()) {
+      return null;
+    }
+
+    try {
+      List<Object> parsedValues = new java.util.ArrayList<>();
+      for (DecisionInstanceDbModel.EvaluatedOutput output : outputValues) {
+        String jsonValue = output.value();
+        Object parsedValue = objectMapper.readValue(jsonValue, Object.class);
+        parsedValues.add(parsedValue);
+      }
+
+      if (parsedValues.size() == 1) {
+        return objectMapper.writeValueAsString(parsedValues.get(0));
+      }
+
+      return objectMapper.writeValueAsString(parsedValues);
+    } catch (JsonProcessingException e) {
+      throw new EntityInterceptorException("Failed to construct result JSON from outputs", e);
+    }
   }
 }
