@@ -66,7 +66,10 @@ import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import org.camunda.bpm.engine.ProcessEngine;
@@ -434,9 +437,22 @@ public class HistoryMigrator {
     }
   }
 
+  protected DecisionDefinitionDbModel convertDecisionDefinition(EntityConversionContext<?, ?> context) {
+    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
+    DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder builder =
+        (DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
+    return builder.build();
+  }
+
+  protected void insertDecisionDefinition(DecisionDefinitionDbModel dbModel, String c7Id, Date deploymentTime) {
+    c8Client.insertDecisionDefinition(dbModel);
+    markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
+    HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
+  }
+
   protected Long createAndMigrateNewDrdForC7DmnWithoutDrd(DecisionDefinition c7DecisionDefinition,
                                                           Date deploymentTime) {
-    String newDecisionRequirementsId = "drd-" + c7DecisionDefinition.getId();
+    String newDecisionRequirementsId = generateDecisionRequirementsId(c7DecisionDefinition.getId());
     Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(newDecisionRequirementsId,
         HISTORY_DECISION_REQUIREMENT);
 
@@ -462,17 +478,16 @@ public class HistoryMigrator {
     return decisionRequirementsKey;
   }
 
-  protected DecisionDefinitionDbModel convertDecisionDefinition(EntityConversionContext<?, ?> context) {
-    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
-    DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder builder =
-        (DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
-    return builder.build();
-  }
-
-  protected void insertDecisionDefinition(DecisionDefinitionDbModel dbModel, String c7Id, Date deploymentTime) {
-    c8Client.insertDecisionDefinition(dbModel);
-    markMigrated(c7Id, dbModel.decisionDefinitionKey(), deploymentTime, HISTORY_DECISION_DEFINITION);
-    HistoryMigratorLogs.migratingDecisionDefinitionCompleted(c7Id);
+  protected String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes());
+      String hexHash = HexFormat.of().formatHex(hash);
+      // "drd-" prefix (4 chars) + hash (60 chars) = 64 chars total
+      return "drd-" + hexHash.substring(0, 60);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("SHA-256 algorithm not available", e);
+    }
   }
 
   public void migrateDecisionInstances() {

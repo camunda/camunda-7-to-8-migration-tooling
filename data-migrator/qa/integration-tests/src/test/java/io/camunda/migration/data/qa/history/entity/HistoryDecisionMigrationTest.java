@@ -21,9 +21,12 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
@@ -54,6 +57,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .decisionDefinitionKey("simpleDecisionId")
         .singleResult()
         .getId();
+    String expectedDrdID = generateDecisionRequirementsId(c7DefinitionId);
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
       assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDecisionId");
@@ -65,9 +69,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.decisionRequirementsId()).isNull();
     });
 
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("drd-" + c7DefinitionId);
+    List<DecisionRequirementsEntity> decisionReqs =
+        searchHistoricDecisionRequirementsDefinition(expectedDrdID);
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
-      assertThat(decisionRequirements.decisionRequirementsId()).isEqualTo("drd-" + c7DefinitionId );
+      assertThat(decisionRequirements.decisionRequirementsId())
+          .isEqualTo(expectedDrdID);
       assertThat(decisionRequirements.decisionRequirementsKey())
           .isNotNull()
           .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
@@ -96,8 +102,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(c7Definitions).hasSize(2);
 
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    List<DecisionRequirementsEntity> decisionReqs1 = searchHistoricDecisionRequirementsDefinition("drd-" + c7Definitions.getFirst().getId());
-    List<DecisionRequirementsEntity> decisionReqs2 = searchHistoricDecisionRequirementsDefinition("drd-" + c7Definitions.get(1).getId());
+    List<DecisionRequirementsEntity> decisionReqs1 = searchHistoricDecisionRequirementsDefinition(generateDecisionRequirementsId(c7Definitions.getFirst().getId()));
+    List<DecisionRequirementsEntity> decisionReqs2 = searchHistoricDecisionRequirementsDefinition(generateDecisionRequirementsId(c7Definitions.get(1).getId()));
 
     assertThat(decisionReqs1).hasSize(1);
     assertThat(decisionReqs2).hasSize(1);
@@ -558,5 +564,16 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(output.outputName()).isEqualTo(outputName);
       assertThat(output.outputValue()).isEqualTo(outputValue);
     });
+  }
+
+  private String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes());
+      String hexHash = HexFormat.of().formatHex(hash);
+      return "drd-" + hexHash.substring(0, 60);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("SHA-256 algorithm not available", e);
+    }
   }
 }
