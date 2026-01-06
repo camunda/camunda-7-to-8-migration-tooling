@@ -76,7 +76,6 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -347,18 +346,17 @@ public class HistoryMigrator {
     return builder.build();
   }
 
-  protected DecisionRequirementsDbModel generateDrdForC7DefinitionWithoutDrd(String decisionRequirementsId,
-                                                                             DecisionDefinition c7DecisionDefinition,
-                                                                             String resourceName,
-                                                                             String xml) {
+  protected DecisionRequirementsDbModel.Builder generateBuilderForDrdForC7DefinitionWithoutDrd(String decisionRequirementsId,
+                                                                                               DecisionDefinition c7DecisionDefinition,
+                                                                                               String resourceName,
+                                                                                               String xml) {
     return new DecisionRequirementsDbModel.Builder().decisionRequirementsKey(getNextKey())
         .decisionRequirementsId(decisionRequirementsId)
         .name(c7DecisionDefinition.getName())
         .resourceName(resourceName)
         .version(c7DecisionDefinition.getVersion())
         .xml(xml)
-        .tenantId(getTenantId(c7DecisionDefinition.getTenantId()))
-        .build();
+        .tenantId(getTenantId(c7DecisionDefinition.getTenantId()));
   }
 
   public void migrateDecisionDefinitions() {
@@ -449,8 +447,13 @@ public class HistoryMigrator {
       String resourceName = c7DecisionDefinition.getResourceName();
       String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
-      DecisionRequirementsDbModel drdModel = generateDrdForC7DefinitionWithoutDrd(newDecisionRequirementsId,
+      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = generateBuilderForDrdForC7DefinitionWithoutDrd(newDecisionRequirementsId,
           c7DecisionDefinition, resourceName, dmnXml);
+      EntityConversionContext<?, ?> context = createEntityConversionContext(null,
+          DecisionRequirementsDefinition.class, decisionRequirementsDbModelBuilder);
+
+      DecisionRequirementsDbModel drdModel = convertDecisionRequirements(context);
+
       decisionRequirementsKey = drdModel.decisionRequirementsKey();
       c8Client.insertDecisionRequirements(drdModel);
       markMigrated(newDecisionRequirementsId, decisionRequirementsKey, deploymentTime, HISTORY_DECISION_REQUIREMENT);

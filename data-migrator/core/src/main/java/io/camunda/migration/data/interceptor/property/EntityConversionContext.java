@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.interceptor.property;
 
+import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import org.camunda.bpm.engine.ProcessEngine;
 
 /**
@@ -56,8 +57,9 @@ public class EntityConversionContext<C7, C8> {
    * @throws IllegalArgumentException if c7Entity is null
    */
   public EntityConversionContext(C7 c7Entity, Class<?> entityType, C8 c8DbModelBuilder, ProcessEngine processEngine) {
-    if (c7Entity == null) {
-      throw new IllegalArgumentException("C7 entity cannot be null");
+    if (c7Entity == null && !(c8DbModelBuilder instanceof DecisionRequirementsDbModel.Builder)) {
+      throw new IllegalArgumentException("C7 entity cannot be null other than for DecisionRequirementsDbModel.Builder"
+          + " edge case");
     }
     this.c7Entity = c7Entity;
     this.entityType = entityType;
