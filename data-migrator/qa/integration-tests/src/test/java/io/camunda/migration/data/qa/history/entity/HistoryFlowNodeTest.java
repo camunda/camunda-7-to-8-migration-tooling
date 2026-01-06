@@ -144,10 +144,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     List<FlowNodeInstanceDbModel> nestedFlowNodes = flowNodes.stream()
         .filter(fn -> !fn.flowNodeInstanceKey()
             .equals(subprocessFlowNode.flowNodeInstanceKey())) // exclude subprocess itself
-        .filter(fn -> {
-          return fn.flowNodeScopeKey() != null && fn.flowNodeScopeKey()
-              .equals(subprocessFlowNode.flowNodeInstanceKey());
-        })
+        .filter(fn -> subprocessFlowNode.flowNodeInstanceKey().equals(fn.flowNodeScopeKey()))
         .toList();
 
     assertThat(nestedFlowNodes).isNotEmpty();
