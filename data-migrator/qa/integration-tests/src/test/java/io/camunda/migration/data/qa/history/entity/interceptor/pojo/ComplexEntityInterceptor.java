@@ -50,7 +50,9 @@ public class ComplexEntityInterceptor implements EntityInterceptor {
     if (entity instanceof HistoricProcessInstance && builder instanceof ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) {
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processBuilder =
           (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) builder;
-      ((ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) builder).processInstanceKey(getNextKey());
+      ((ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) builder).processInstanceKey(getNextKey())
+          .processDefinitionId(((HistoricProcessInstance) entity).getProcessDefinitionKey());
+
       if (targetTenantId != null) {
         processBuilder.tenantId(targetTenantId);
       }

@@ -36,6 +36,9 @@ public class ConfigurationLogs {
   public static final String DEBUG_CREATING_INSTANCE = "Creating {} instance for class: {}";
   public static final String DEBUG_SETTING_PROPERTIES = "Setting properties for {} interceptor: {}";
 
+  public static final String ENTITY = "entity";
+  public static final String VARIABLE = "variable";
+
   /**
    * Logs the start of interceptor configuration process.
    */
