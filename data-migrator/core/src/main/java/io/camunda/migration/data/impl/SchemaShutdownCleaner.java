@@ -73,8 +73,7 @@ public class SchemaShutdownCleaner {
   protected void rollbackTableCreation(String prefix) {
     try (Connection conn = dataSource.getConnection()) {
       Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(conn));
-      Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.2.0.xml", new ClassLoaderResourceAccessor(),
-          database);
+      Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.1.0.xml", new ClassLoaderResourceAccessor(), database);
       database.setDatabaseChangeLogTableName(prefix + "DATABASECHANGELOG");
       database.setDatabaseChangeLogLockTableName(prefix + "DATABASECHANGELOGLOCK");
       liquibase.setChangeLogParameter("prefix", prefix);
