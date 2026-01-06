@@ -79,7 +79,7 @@ public class IdentityMigrator {
     }
   }
 
-  private void migrateAuthorization(Authorization authorization) {
+  protected void migrateAuthorization(Authorization authorization) {
     IdentityMigratorLogs.logMigratingAuthorization(authorization.getId());
     AuthorizationMappingResult authorizationMapping = authorizationManager.mapAuthorization(authorization);
 

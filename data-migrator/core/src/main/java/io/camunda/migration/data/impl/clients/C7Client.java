@@ -86,7 +86,7 @@ public class C7Client {
   protected IdentityService identityService;
 
   @Autowired
-  private AuthorizationService authorizationService;
+  protected AuthorizationService authorizationService;
 
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
