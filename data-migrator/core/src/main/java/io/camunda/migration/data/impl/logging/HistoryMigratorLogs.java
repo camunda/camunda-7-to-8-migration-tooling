@@ -52,8 +52,6 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = SKIPPING_DECISION_INSTANCE + "Process instance not yet available.";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE = SKIPPING_DECISION_INSTANCE + "Flow node instance not yet available.";
-  public static final String NOT_MIGRATING_DECISION_INSTANCE = "Not migrating historic decision instance with "
-      + "C7 ID: [{}] because it does not originate from a business rule task.";
 
   public static final String MIGRATING_INCIDENTS = "Migrating historic incidents";
   public static final String MIGRATING_INCIDENT = "Migrating historic incident with C7 ID: [{}]";
