@@ -83,6 +83,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
     // Migrate everything else
     historyMigrator.migrate();
+
+    assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
+
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
 
     // when
