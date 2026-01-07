@@ -64,10 +64,13 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   @Autowired
   protected IdentityService identityService;
 
+  @Autowired
+  protected IdentityTestHelper identityTestHelper;
+
   @BeforeEach
   public void setup() {
-    createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
-    createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
+    identityTestHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
+    identityTestHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
   }
 
   @AfterEach
@@ -93,10 +96,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(USERNAME));
-    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 8); // incremented by 1 because C8 creates default auth when user is created
-
-    var authorizations = request.execute().items();
+    var authorizations = awaitAuthorizationsCountAndGet(7);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.AUTHORIZATION));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.GROUP));
@@ -121,10 +121,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(USERNAME));
-    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 8); // incremented by 1 because C8 creates default auth when user is created
-
-    var authorizations = request.execute().items();
+    var authorizations = awaitAuthorizationsCountAndGet(7);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, Set.of(PermissionType.ACCESS));
     assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.UPDATE));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.DELETE));
@@ -144,10 +141,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(USERNAME));
-    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 3); // incremented by 1 because C8 creates default auth when user is created
-
-    var authorizations = request.execute().items();
+    var authorizations = awaitAuthorizationsCountAndGet(2);
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "*", USER, USERNAME, Set.of(PermissionType.UPDATE));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "*", USER, USERNAME, Set.of(PermissionType.UPDATE));
   }
@@ -168,9 +162,9 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
   @Test
   public void shouldMigrateAuthorizationsWithSpecificResourceId() {
-    createUserInC8("danwhite", "Dan", "White");
-    createGroupInC8("group", "group");
-    createTenantInC8("tenant", "tenant");
+    identityTestHelper.createUserInC8("danwhite", "Dan", "White");
+    identityTestHelper.createGroupInC8("group", "group");
+    identityTestHelper.createTenantInC8("tenant", "tenant");
 
     // given
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "tasklist", Set.of(Permissions.ALL));
@@ -182,10 +176,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(USERNAME));
-    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == 5); // incremented by 1 because C8 creates default auth when user is created
-
-    var authorizations = request.execute().items();
+    var authorizations = awaitAuthorizationsCountAndGet(4);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME,  getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "group", USER, USERNAME,  getAllSupportedPerms(ResourceType.GROUP));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "tenant", USER, USERNAME,  getAllSupportedPerms(ResourceType.TENANT));
@@ -272,6 +263,12 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
 
   protected static void assertAuthorizationsContains(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, Set<PermissionType> perms) {
     assertAuthorizationsContains(authorizations, resourceType, resourceId, ownerType, ownerId, perms.toArray(new PermissionType[0]));
+  }
+
+  protected List<io.camunda.client.api.search.response.Authorization> awaitAuthorizationsCountAndGet(int size) {
+    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(USERNAME));
+    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == size + 1); // incremented by 1 because C8 creates default auth when user is created
+    return request.execute().items();
   }
 
   protected static void assertAuthorizationsContains(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, PermissionType[] perms) {
