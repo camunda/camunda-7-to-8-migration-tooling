@@ -34,6 +34,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.generateDecisionRequirementsId;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
@@ -68,6 +69,7 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.List;
@@ -478,18 +480,6 @@ public class HistoryMigrator {
     return decisionRequirementsKey;
   }
 
-  protected String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes());
-      String hexHash = HexFormat.of().formatHex(hash);
-      // "drd-" prefix (4 chars) + hash (60 chars) = 64 chars total
-      return "drd-" + hexHash.substring(0, 60);
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("SHA-256 algorithm not available", e);
-    }
-  }
-
   public void migrateDecisionInstances() {
     HistoryMigratorLogs.migratingDecisionInstances();
     if (RETRY_SKIPPED.equals(mode)) {
@@ -684,7 +674,7 @@ public class HistoryMigrator {
     } else if (!isStandaloneDecision && dbModel.flowNodeInstanceKey() == null) {
       markSkipped(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE, c7DecisionInstance.getEvaluationTime(),
           SKIP_REASON_MISSING_FLOW_NODE);
-      HistoryMigratorLogs.skippingDecisionInstanceDueToMissingFlowNodeInstanceInstance(c7DecisionInstanceId);
+      HistoryMigratorLogs.skippingDecisionInstanceDueToMissingFlowNodeInstance(c7DecisionInstanceId);
     } else {
       String c7RootDecisionInstanceId = c7DecisionInstance.getRootDecisionInstanceId();
       if (c7RootDecisionInstanceId != null && dbModel.rootDecisionDefinitionKey() == null) {

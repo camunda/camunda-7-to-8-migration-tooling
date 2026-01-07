@@ -8,6 +8,9 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.NOT_MIGRATING_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.generateDecisionRequirementsId;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,12 +24,9 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Date;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
@@ -566,14 +566,4 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     });
   }
 
-  private String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes());
-      String hexHash = HexFormat.of().formatHex(hash);
-      return "drd-" + hexHash.substring(0, 60);
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("SHA-256 algorithm not available", e);
-    }
-  }
 }
