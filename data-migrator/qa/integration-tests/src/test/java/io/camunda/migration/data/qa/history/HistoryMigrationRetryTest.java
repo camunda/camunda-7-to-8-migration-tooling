@@ -66,6 +66,48 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigratePreviouslySkippedDecisionInstancesWithInputsAndOutputs() {
+    // given: Deploy decision and business rule process
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleProcess.bpmn");
+
+    // Start process instance with variables that will become decision inputs
+    runtimeService.startProcessInstanceByKey("businessRuleProcessId",
+        org.camunda.bpm.engine.variable.Variables.createVariables()
+            .putValue("inputA", "A"));
+
+    // Try to migrate decision instances without definitions (will skip)
+    historyMigrator.migrateDecisionInstances();
+
+    assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
+
+    // Migrate everything else
+    historyMigrator.migrate();
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+
+    // when
+    historyMigrator.migrate();
+
+    // then: Decision instance is migrated with inputs and outputs
+    var decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    assertThat(decisionInstances).hasSize(1);
+    assertThat(decisionInstances.getFirst().evaluatedInputs())
+        .hasSize(1)
+        .first()
+        .satisfies(input -> {
+          assertThat(input.inputName()).isEqualTo("inputA");
+          assertThat(input.inputValue()).isEqualTo("\"A\"");
+        });
+    assertThat(decisionInstances.getFirst().evaluatedOutputs())
+        .hasSize(1)
+        .first()
+        .satisfies(output -> {
+          assertThat(output.outputName()).isEqualTo("outputB");
+          assertThat(output.outputValue()).isEqualTo("\"B\"");
+        });
+  }
+
+  @Test
   public void shouldMigrateOnlyPreviouslySkippedElementsOnRetry() {
     // given
     deployer.deployCamunda7Process("includeAllSupportedElementsProcess.bpmn");
