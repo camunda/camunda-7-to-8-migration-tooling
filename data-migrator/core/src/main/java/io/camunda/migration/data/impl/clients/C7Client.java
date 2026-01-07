@@ -123,12 +123,17 @@ public class C7Client {
    * Gets a single historic decision instance by ID.
    */
   public HistoricDecisionInstance getHistoricDecisionInstance(String c7Id) {
-    var query = historyService.createHistoricDecisionInstanceQuery().decisionInstanceId(c7Id);
+    var query = historyService.createHistoricDecisionInstanceQuery()
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .decisionInstanceId(c7Id);
+
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", c7Id));
   }
 
   /**
-   * Gets a single historic decision instance by ID.
+   * Gets a single historic decision instance by definition key.
    */
   public HistoricDecisionInstance getHistoricDecisionInstanceByDefinitionKey(String definitionKey) {
     var query = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey(definitionKey);
