@@ -19,7 +19,7 @@ import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.authorization.SystemPermissions;
 import org.junit.jupiter.api.Test;
 
-class C7ToC8AuthorizationRegistryTest {
+class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldContainExactlyExpectedResources() {
@@ -36,7 +36,7 @@ class C7ToC8AuthorizationRegistryTest {
         Resources.USER);
 
     // when
-    Set<Resource> actualResources = C7ToC8AuthorizationRegistry.REGISTRY.keySet();
+    Set<Resource> actualResources = AuthorizationEntityRegistry.REGISTRY.keySet();
 
     // then
     assertThat(actualResources).containsExactlyInAnyOrderElementsOf(expectedResources);
@@ -44,7 +44,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedApplicationMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.APPLICATION);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.APPLICATION);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.COMPONENT);
     assertThat(entry.supportsExplicitId()).isTrue();
@@ -56,7 +56,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedAuthorizationMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.AUTHORIZATION);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.AUTHORIZATION);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.AUTHORIZATION);
     assertThat(entry.supportsExplicitId()).isFalse();
@@ -75,7 +75,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedGroupMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.GROUP);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(entry.supportsExplicitId()).isTrue();
@@ -94,7 +94,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedGroupMembershipMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.GROUP_MEMBERSHIP);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP_MEMBERSHIP);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(entry.supportsExplicitId()).isTrue();
@@ -105,7 +105,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedSystemMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.SYSTEM);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.SYSTEM);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.SYSTEM);
     assertThat(entry.supportsExplicitId()).isFalse();
@@ -120,7 +120,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedBatchMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.BATCH);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.BATCH);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.BATCH);
     assertThat(entry.supportsExplicitId()).isFalse();
@@ -152,7 +152,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedTenantMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.TENANT);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(entry.supportsExplicitId()).isTrue();
@@ -171,7 +171,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedTenantMembershipMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.TENANT_MEMBERSHIP);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT_MEMBERSHIP);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(entry.supportsExplicitId()).isTrue();
@@ -182,7 +182,7 @@ class C7ToC8AuthorizationRegistryTest {
 
   @Test
   void shouldHaveExpectedUserMapping() {
-    AuthorizationMappingEntry entry = C7ToC8AuthorizationRegistry.getMappingForResourceType(Resources.USER);
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.USER);
 
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.USER);
     assertThat(entry.supportsExplicitId()).isTrue();

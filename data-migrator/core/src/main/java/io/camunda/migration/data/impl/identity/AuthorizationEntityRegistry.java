@@ -20,7 +20,7 @@ import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.authorization.SystemPermissions;
 
-public class C7ToC8AuthorizationRegistry {
+public class AuthorizationEntityRegistry {
 
   protected static final Map<Resource, AuthorizationMappingEntry> REGISTRY = new HashMap<>();
 

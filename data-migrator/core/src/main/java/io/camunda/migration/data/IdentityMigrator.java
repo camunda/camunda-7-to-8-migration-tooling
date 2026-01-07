@@ -89,16 +89,16 @@ public class IdentityMigrator {
         IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuthorization.getAuthorizationKey());
       } catch (MigratorException e) {
-        markAsSkipped(authorization, e.getMessage());
+        markAsSkipped(authorization.getId(), e.getMessage());
       }
     } else {
-      markAsSkipped(authorization, authorizationMapping.getReason());
+      markAsSkipped(authorization.getId(), authorizationMapping.getReason());
     }
   }
 
-  protected void markAsSkipped(Authorization authorization, String reason) {
-    IdentityMigratorLogs.logSkippedAuthorization(authorization.getId(), reason);
-    saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
+  protected void markAsSkipped(String id, String reason) {
+    IdentityMigratorLogs.logSkippedAuthorization(id, reason);
+    saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, id, null);
   }
 
   protected void saveRecord(IdKeyMapper.TYPE type, String c7Id, Long c8Key) {

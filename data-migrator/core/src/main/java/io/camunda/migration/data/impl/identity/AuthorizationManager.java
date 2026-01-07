@@ -61,11 +61,11 @@ public class AuthorizationManager {
     }
 
     Resource c7ResourceType = ResourceTypeUtil.getResourceByType(authorization.getResourceType());
-    if (!C7ToC8AuthorizationRegistry.isSupported(c7ResourceType)) {
+    if (!AuthorizationEntityRegistry.isSupported(c7ResourceType)) {
       return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, c7ResourceType.resourceName()));
     }
 
-    var mappingForResourceType = C7ToC8AuthorizationRegistry.getMappingForResourceType(c7ResourceType);
+    var mappingForResourceType = AuthorizationEntityRegistry.getMappingForResourceType(c7ResourceType);
     ResourceType c8ResourceType = mappingForResourceType.c8ResourceType();
     Set<Permission> c7Permissions = decodePermissions(authorization);
 
