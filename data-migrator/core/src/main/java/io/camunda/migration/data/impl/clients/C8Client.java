@@ -369,9 +369,8 @@ public class C8Client {
 
   public Group getGroup(String groupId) {
     GroupGetRequest groupGetRequest = camundaClient.newGroupGetRequest(groupId);
-    return callApi(groupGetRequest::execute, "Failed to get group" + groupId);
+    return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
   }
-
 
 
 }

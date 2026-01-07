@@ -45,6 +45,12 @@ public class AuthorizationManager {
   @Autowired
   protected C8Client c8Client;
 
+  /**
+   * Validates and maps a C7 authorization to a C8 authorization if the validation is successful.
+   * If the validation fails, a failure reason is provided in the result.
+   * @param authorization The C7 authorization to be mapped.
+   * @return The result of the authorization mapping, containing either the mapped C8 authorization or a failure reason.
+   */
   public AuthorizationMappingResult mapAuthorization(Authorization authorization) {
     if (authorization.getAuthorizationType() != Authorization.AUTH_TYPE_GRANT) {
       return AuthorizationMappingResult.failure(FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED);

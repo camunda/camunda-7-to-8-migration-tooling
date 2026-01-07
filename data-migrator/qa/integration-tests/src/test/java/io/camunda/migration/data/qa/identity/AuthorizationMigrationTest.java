@@ -74,6 +74,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   }
 
   @AfterEach
+  @Override
   public void cleanup() {
     super.cleanup();
     identityService.deleteUser(USERNAME);

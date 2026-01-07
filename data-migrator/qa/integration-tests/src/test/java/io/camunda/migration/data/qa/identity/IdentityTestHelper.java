@@ -47,7 +47,7 @@ public class IdentityTestHelper {
         .name(tenantName)
         .execute();
 
-    // Because of eventual consistency, wait until group is visible
+    // Because of eventual consistency, wait until tenant is visible
     await().timeout(5, TimeUnit.SECONDS).until(() -> camundaClient.newTenantsSearchRequest().filter(t -> t.tenantId(tenantId)).execute().items().size() == 1);
   }
 

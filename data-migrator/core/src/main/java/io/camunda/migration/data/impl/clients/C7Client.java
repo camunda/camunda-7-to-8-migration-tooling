@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_ACTIVITY_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_AUTHORIZATIONS;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_BPMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DEPLOYMENT_TIME;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DMN_XML;
@@ -526,7 +527,7 @@ public class C7Client {
             .orderByAuthorizationId()
             .asc()
             .list(),
-        FAILED_TO_FETCH_TENANTS);
+        FAILED_TO_FETCH_AUTHORIZATIONS);
   }
 
   public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {

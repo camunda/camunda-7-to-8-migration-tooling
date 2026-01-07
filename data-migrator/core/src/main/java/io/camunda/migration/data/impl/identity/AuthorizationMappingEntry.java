@@ -21,6 +21,9 @@ public record AuthorizationMappingEntry (
     Map<String, String> resourceIdMapping) {
 
   public String getMappedResourceId(String c7ResourceId) {
+    if (resourceIdMapping == null) {
+      return null;
+    }
     return resourceIdMapping.getOrDefault(c7ResourceId, null);
   }
 
