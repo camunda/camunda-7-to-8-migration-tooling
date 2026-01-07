@@ -8,10 +8,7 @@
 package io.camunda.migration.code.recipes.client.migrate;
 
 import static org.openrewrite.java.Assertions.java;
-
-import io.camunda.client.CamundaClient;
 import io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe;
-import org.camunda.bpm.engine.ProcessEngine;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 

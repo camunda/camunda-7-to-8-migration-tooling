@@ -537,7 +537,4 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
   protected List<ReplacementUtils.RenameReplacementSpec> renameMethodInvocations() {
     return Collections.emptyList();
   }
-
-
-
 }

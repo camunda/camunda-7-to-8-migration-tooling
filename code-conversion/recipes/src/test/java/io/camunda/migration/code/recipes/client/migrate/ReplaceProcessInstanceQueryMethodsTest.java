@@ -16,7 +16,7 @@ import org.openrewrite.test.RewriteTest;
 public class ReplaceProcessInstanceQueryMethodsTest implements RewriteTest {
 
   @Test
-  void replaceUserTaskMethodsTest() {
+  void replaceProcessInstanceQueryMethods() {
     rewriteRun(spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
         java(
 """

@@ -111,7 +111,7 @@ public class HandleUserTasksTestClass {
                 .newUserTaskGetRequest(Long.parseLong(taskId))
                 .send()
                 .join()
-                .getUserTaskKey();
+                .getElementId();
     }
 }
 """));

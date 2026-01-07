@@ -157,7 +157,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
                 .newUserTaskGetRequest(Long.parseLong(#{taskId:any(java.lang.String)}))
                 .send()
                 .join()
-                .getUserTaskKey()
+                .getElementId()
             """),
         RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
         "java.lang.String",
