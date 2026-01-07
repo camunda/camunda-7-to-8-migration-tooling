@@ -67,7 +67,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldMigratePreviouslySkippedDecisionInstancesWithInputsAndOutputs() {
-    // given: Deploy decision and business rule process
+    // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
 
