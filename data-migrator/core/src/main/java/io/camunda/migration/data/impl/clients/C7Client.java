@@ -133,7 +133,7 @@ public class C7Client {
   }
 
   /**
-   * Gets a single historic decision instance by ID.
+   * Gets a single historic decision instance by definition key.
    */
   public HistoricDecisionInstance getHistoricDecisionInstanceByDefinitionKey(String definitionKey) {
     var query = historyService.createHistoricDecisionInstanceQuery().decisionDefinitionKey(definitionKey);
