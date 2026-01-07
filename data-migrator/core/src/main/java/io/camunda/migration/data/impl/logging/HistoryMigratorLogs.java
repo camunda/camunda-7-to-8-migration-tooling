@@ -165,7 +165,7 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE, c7DecisionInstanceId);
   }
 
-  public static void skippingDecisionInstanceDueToMissingFlowNodeInstanceInstance(String c7DecisionInstanceId) {
+  public static void skippingDecisionInstanceDueToMissingFlowNodeInstance(String c7DecisionInstanceId) {
     LOGGER.debug(SKIPPING_DECISION_INSTANCE_MISSING_FLOW_NODE_INSTANCE, c7DecisionInstanceId);
   }
 
