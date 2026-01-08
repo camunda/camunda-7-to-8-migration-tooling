@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -1077,6 +1078,14 @@ public class HistoryMigrator {
               .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
               .processDefinitionKey(processDefinitionKey);
 
+          Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(), processInstanceKey);
+          if (flowNodeScopeKey == null) {
+            markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
+            HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+            return;
+          }
+          flowNodeDbModelBuilder.flowNodeScopeKey(flowNodeScopeKey);
+
           FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
           insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
         } else {
@@ -1117,6 +1126,24 @@ public class HistoryMigrator {
     FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
         (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
+  }
+
+  protected Long resolveFlowNodeScopeKey(HistoricActivityInstance c7FlowNode,
+                                         String c7ProcessInstanceId, Long c8ProcessInstanceKey) {
+    String c7ParentActivityInstanceId = c7FlowNode.getParentActivityInstanceId();
+
+    if (c7ParentActivityInstanceId == null) {
+      return null;
+    } else if (c7ParentActivityInstanceId.equals(c7ProcessInstanceId)) {
+      return c8ProcessInstanceKey;
+    }
+
+    Long c8ParentFlowNodeKey = dbClient.findC8KeyByC7IdAndType(c7ParentActivityInstanceId, HISTORY_FLOW_NODE);
+    if (c8ParentFlowNodeKey == null) {
+      return null;
+    }
+
+    return c8ParentFlowNodeKey;
   }
 
   protected ProcessInstanceEntity findProcessInstanceByC7Id(String processInstanceId) {

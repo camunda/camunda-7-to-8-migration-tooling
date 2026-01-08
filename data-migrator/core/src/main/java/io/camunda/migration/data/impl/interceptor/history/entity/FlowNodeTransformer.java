@@ -14,6 +14,7 @@ import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
@@ -47,11 +48,20 @@ public class FlowNodeTransformer implements EntityInterceptor {
         .endDate(convertDate(flowNode.getEndTime()))
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
-        .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
+        .state(determineState(flowNode))
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
 
     // treePath, processInstanceKey, processDefinitionKey are set in io.camunda.migration.data.HistoryMigrator.migrateFlowNode
+  }
+
+  protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance flowNode) {
+    if (flowNode.getEndTime() == null) {
+      return null;
+    }
+    return flowNode.isCanceled() ?
+        FlowNodeInstanceEntity.FlowNodeState.TERMINATED :
+        FlowNodeInstanceEntity.FlowNodeState.COMPLETED;
   }
 
   protected FlowNodeType convertType(String activityType) {
