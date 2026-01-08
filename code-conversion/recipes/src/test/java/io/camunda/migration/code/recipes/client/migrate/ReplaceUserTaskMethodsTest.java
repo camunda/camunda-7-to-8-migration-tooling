@@ -57,6 +57,13 @@ public class HandleUserTasksTestClass {
         String assignee = firstTask.getAssignee();
         Date dueDate = firstTask.getDueDate();
     }
+    
+    public String getTaskDefinitionKeyByTask(String taskId) {
+        return engine.getTaskService().createTaskQuery()
+               .taskId(taskId)
+               .singleResult()
+               .getTaskDefinitionKey();
+    }
 }
                                 """,
 """
@@ -96,6 +103,14 @@ public class HandleUserTasksTestClass {
         String taskId = String.valueOf(firstTask.getUserTaskKey());
         String assignee = firstTask.getAssignee();
         Date dueDate = Date.from(firstTask.getDueDate().toInstant());
+    }
+    
+    public String getTaskDefinitionKeyByTask(String taskId) {
+        return camundaClient
+                .newUserTaskGetRequest(Long.parseLong(taskId))
+                .send()
+                .join()
+                .getElementId();
     }
 }
 """));

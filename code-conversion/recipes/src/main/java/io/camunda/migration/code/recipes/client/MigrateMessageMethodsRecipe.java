@@ -14,19 +14,28 @@ import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
 import io.camunda.migration.code.recipes.utils.BuilderSpecFactory;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
-import org.openrewrite.*;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+import org.openrewrite.ExecutionContext;
+import org.openrewrite.Preconditions;
+import org.openrewrite.Tree;
+import org.openrewrite.TreeVisitor;
+import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
+import org.openrewrite.java.tree.Expression;
+import org.openrewrite.java.tree.J;
 
 public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
 
   @Override
-  public String getDisplayName() {
+  public @NonNull String getDisplayName() {
     return "Convert message correlation methods";
   }
 
   @Override
-  public String getDescription() {
+  public @NonNull String getDescription() {
     return "Replaces Camunda 7 message correlation methods with Camunda 8 client methods.";
   }
 
@@ -35,9 +44,8 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
     return Preconditions.or(
         new UsesMethod<>("org.camunda.bpm.engine.RuntimeService correlateMessage(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.RuntimeService messageEventReceived(..)", true),
-        new UsesMethod<>(
-            "org.camunda.bpm.engine.RuntimeService createMessageCorrelation(java.lang.String)",
-            true));
+        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService createMessageCorrelation(java.lang.String)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService createMessageCorrelationAsync(java.lang.String)", true));
   }
 
   @Override
@@ -263,6 +271,91 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
               """,
         "io.camunda.client.api.response.CorrelateMessageResponse",
         List.of(" Hint: In Camunda 8 messages could also be correlated asynchronously"));
+  }
+
+  @Override
+  public @NonNull TreeVisitor<?, ExecutionContext> getVisitor() {
+    TreeVisitor<?, ExecutionContext> base = MigrateMessageMethodsRecipe.super.getVisitor();
+
+    return new TreeVisitor<>() {
+      @Override
+      public J visit(@Nullable Tree tree, ExecutionContext ctx) {
+        J afterBase = (J) base.visit(tree, ctx);
+        assert afterBase != null;
+        return new JavaIsoVisitor<ExecutionContext>() {
+
+          private final MethodMatcher asyncMatcher =
+              new MethodMatcher("org.camunda.bpm.engine.runtime.MessageCorrelationAsyncBuilder correlateAllAsync()");
+
+          @Override
+          public J.@NonNull MethodInvocation visitMethodInvocation(J.@NonNull MethodInvocation methodInvocation, ExecutionContext ctx) {
+            methodInvocation = super.visitMethodInvocation(methodInvocation, ctx);
+
+            if (!asyncMatcher.matches(methodInvocation)) {
+              return methodInvocation;
+            }
+
+            Expression select = methodInvocation.getSelect();
+            if (!(select instanceof J.MethodInvocation processInstanceQueryCall)) {
+              return methodInvocation;
+            }
+            if (!(processInstanceQueryCall.getSelect() instanceof J.MethodInvocation asyncCall)) {
+              return methodInvocation;
+            }
+
+            Expression messageNameArg = asyncCall.getArguments().getFirst();
+            Expression processDefinitionIdArg = findProcessDefinitionKeyArg(processInstanceQueryCall.getArguments().getFirst());
+            if (processDefinitionIdArg == null) {
+              return methodInvocation;
+            }
+
+            JavaTemplate tpl = RecipeUtils.createSimpleJavaTemplate(
+                """
+                #{camundaClient:any(io.camunda.client.CamundaClient)}
+                    .newProcessInstanceSearchRequest()
+                    .filter(filter -> filter.processDefinitionKey(Long.valueOf(#{processDefinitionId:any()})))
+                    .send()
+                    .join()
+                    .items()
+                    .stream()
+                    .map(processInstance -> #{camundaClient}.newPublishMessageCommand()
+                            .messageName(#{messageName:any()})
+                            .correlationKey(String.valueOf(processInstance.getProcessInstanceKey()))
+                            .send()
+                            .join())
+                    .toList()
+                """,
+                "io.camunda.client.CamundaClient"
+            );
+
+            J.Identifier camundaClient =
+                RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient");
+
+            Object[] args = { camundaClient, processDefinitionIdArg, messageNameArg };
+
+            return (J.MethodInvocation)
+                RecipeUtils.applyTemplate(
+                    tpl,
+                    methodInvocation,
+                    getCursor(),
+                    args,
+                    List.of(" processInstanceBusinessKey was removed"));
+          }
+
+          private @Nullable Expression findProcessDefinitionKeyArg(Expression queryExpr) {
+            if (queryExpr instanceof J.MethodInvocation m) {
+              if ("processDefinitionKey".equals(m.getSimpleName()) && !m.getArguments().isEmpty()) {
+                return m.getArguments().getFirst();
+              }
+              if (m.getSelect() != null) {
+                return findProcessDefinitionKeyArg(m.getSelect());
+              }
+            }
+            return null;
+          }
+        }.visitNonNull(afterBase, ctx);
+      }
+    };
   }
 
   /*static final MethodMatcher correlateMethodMatcher =
