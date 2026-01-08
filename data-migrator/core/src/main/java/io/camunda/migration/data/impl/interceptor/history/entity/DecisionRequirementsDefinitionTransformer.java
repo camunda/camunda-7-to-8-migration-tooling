@@ -15,6 +15,7 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import java.util.Set;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -37,6 +38,10 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
   @Override
   public void execute(EntityConversionContext<?, ?> context) {
     DecisionRequirementsDefinition c7DecisionRequirements = (DecisionRequirementsDefinition) context.getC7Entity();
+    if (c7DecisionRequirements == null) {
+      // DMNs consisting of just one decision do not have a DRD in C7
+      return;
+    }
     DecisionRequirementsDbModel.Builder builder =
         (DecisionRequirementsDbModel.Builder) context.getC8DbModelBuilder();
 

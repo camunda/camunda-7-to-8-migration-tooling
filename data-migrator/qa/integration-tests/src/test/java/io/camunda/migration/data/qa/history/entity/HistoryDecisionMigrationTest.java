@@ -21,12 +21,17 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Date;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
+import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -49,6 +54,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
+    String c7DefinitionId = repositoryService.createDecisionDefinitionQuery()
+        .decisionDefinitionKey("simpleDecisionId")
+        .singleResult()
+        .getId();
+    String expectedDrdID = generateDecisionRequirementsId(c7DefinitionId);
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
       assertThat(decision.decisionDefinitionId()).isEqualTo("simpleDecisionId");
@@ -56,9 +66,58 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.version()).isEqualTo(1);
       assertThat(decision.name()).isEqualTo("simpleDecisionName");
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isNull();
+      assertThat(decision.decisionRequirementsKey()).isNotNull();
       assertThat(decision.decisionRequirementsId()).isNull();
     });
+
+    List<DecisionRequirementsEntity> decisionReqs =
+        searchHistoricDecisionRequirementsDefinition(expectedDrdID);
+    assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
+      assertThat(decisionRequirements.decisionRequirementsId())
+          .isEqualTo(expectedDrdID);
+      assertThat(decisionRequirements.decisionRequirementsKey())
+          .isNotNull()
+          .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
+      assertThat(decisionRequirements.version()).isEqualTo(1);
+      assertThat(decisionRequirements.name()).isEqualTo("simpleDecisionName");
+      assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+      assertThat(decisionRequirements.xml()).isNotNull();
+      assertThat(decisionRequirements.resourceName()).isEqualTo("io/camunda/migration/data/dmn/c7/simpleDmn.dmn");
+    });
+  }
+
+  @Test
+  public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecision() {
+    // given
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    historyMigrator.migrate();
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionDefinition> c7Definitions = repositoryService.createDecisionDefinitionQuery()
+        .decisionDefinitionKey("simpleDecisionId")
+        .orderByDecisionDefinitionVersion()
+        .asc()
+        .list();
+    assertThat(c7Definitions).hasSize(2);
+
+    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionRequirementsEntity> decisionReqs1 = searchHistoricDecisionRequirementsDefinition(generateDecisionRequirementsId(c7Definitions.getFirst().getId()));
+    List<DecisionRequirementsEntity> decisionReqs2 = searchHistoricDecisionRequirementsDefinition(generateDecisionRequirementsId(c7Definitions.get(1).getId()));
+
+    assertThat(decisionReqs1).hasSize(1);
+    assertThat(decisionReqs2).hasSize(1);
+
+    assertThat(migratedDecisions).hasSize(2);
+    assertThat(migratedDecisions).allSatisfy(decision ->
+      assertThat(decision.decisionRequirementsId()).isNull()
+    );
+    assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
+        .containsExactlyInAnyOrder(
+            decisionReqs1.getFirst().decisionRequirementsKey(),
+            decisionReqs2.getFirst().decisionRequirementsKey()
+        );
   }
 
   @Test
@@ -79,7 +138,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decisionRequirements.version()).isEqualTo(1);
       assertThat(decisionRequirements.name()).isEqualTo("simpleDmnWithReqsName");
       assertThat(decisionRequirements.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decisionRequirements.xml()).isNull();
+      assertThat(decisionRequirements.xml()).isNotNull();
       assertThat(decisionRequirements.resourceName()).isEqualTo(
           "io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
     });
@@ -507,4 +566,17 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(output.outputValue()).isEqualTo(outputValue);
     });
   }
+
+  private String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes(StandardCharsets.UTF_8));
+      String hexHash = HexFormat.of().formatHex(hash);
+      // "drd-" prefix (4 chars) + hash (60 chars) = 64 chars total
+      return "drd-" + hexHash.substring(0, 60);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("SHA-256 algorithm not available", e);
+    }
+  }
+
 }

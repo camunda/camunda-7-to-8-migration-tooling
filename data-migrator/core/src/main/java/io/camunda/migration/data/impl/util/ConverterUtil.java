@@ -9,10 +9,14 @@ package io.camunda.migration.data.impl.util;
 
 import io.camunda.zeebe.protocol.Protocol;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.HexFormat;
 import org.apache.commons.lang3.StringUtils;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
@@ -37,6 +41,18 @@ public class ConverterUtil {
 
   public static String getTenantId(String c7TenantId) {
     return StringUtils.isEmpty(c7TenantId) ? C8_DEFAULT_TENANT : c7TenantId;
+  }
+
+  public static String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes(StandardCharsets.UTF_8));
+      String hexHash = HexFormat.of().formatHex(hash);
+      // "drd-" prefix (4 chars) + hash (60 chars) = 64 chars total
+      return "drd-" + hexHash.substring(0, 60);
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("SHA-256 algorithm not available", e);
+    }
   }
 
 }
