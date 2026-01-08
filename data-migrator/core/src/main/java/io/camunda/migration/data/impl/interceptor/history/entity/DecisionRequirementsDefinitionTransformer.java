@@ -7,18 +7,15 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
-import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import java.util.Date;
-import org.camunda.bpm.engine.repository.DecisionDefinition;
+import java.util.Set;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 
