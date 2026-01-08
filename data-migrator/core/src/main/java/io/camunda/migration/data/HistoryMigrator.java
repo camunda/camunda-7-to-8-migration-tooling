@@ -1129,11 +1129,12 @@ public class HistoryMigrator {
   }
 
   protected Long resolveFlowNodeScopeKey(HistoricActivityInstance c7FlowNode,
-                                         String c7ProcessInstanceId,
-                                         Long c8ProcessInstanceKey) {
+                                         String c7ProcessInstanceId, Long c8ProcessInstanceKey) {
     String c7ParentActivityInstanceId = c7FlowNode.getParentActivityInstanceId();
 
-    if (c7ParentActivityInstanceId == null || c7ParentActivityInstanceId.equals(c7ProcessInstanceId)) {
+    if (c7ParentActivityInstanceId == null) {
+      return null;
+    } else if (c7ParentActivityInstanceId.equals(c7ProcessInstanceId)) {
       return c8ProcessInstanceKey;
     }
 
