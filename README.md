@@ -42,7 +42,7 @@ For detailed information, see the [Code Conversion README](./code-conversion/REA
 
 ## Contributing
 
-We welcome contributions to the Data Migrator! Here's how you can help:
+We welcome contributions to the Camunda 7 to 8 Migration Tooling! Here's how you can help:
 
 ### Ways to Contribute
 

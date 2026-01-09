@@ -3,7 +3,7 @@
 > [!NOTE]  
 > The recipes are still under development. Feedback of course welcome. Expect recipes to work out-of-the-box only in simple scenarios, oftentimes you might want to extend them to suite your needs.
 >
-> **For users:** See the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite) for how to use the recipes in your project.
+> **For users:** See the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite) for how to use the recipes in your project.
 
 ## Overview
 
@@ -47,14 +47,14 @@ The recipes are organized by code type and transformation phase:
 | **Cleanup** | AllClientCleanupRecipes | AllDelegateCleanupRecipes | AllExternalWorkerCleanupRecipes |
 | **Combined** | AllClientRecipes | AllDelegateRecipes | AllExternalWorkerRecipes |
 
-See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
+See the [user documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite) for details on each recipe.
 
 ## Contributing
 See [the contribution guide](../../README.md#contributing).
 
 ## Resources
 
-- **User documentation:** [docs.camunda.io](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/code-conversion/#refactoring-recipes-using-openrewrite)
+- **User documentation:** [docs.camunda.io](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/code-conversion/#refactoring-recipes-using-openrewrite)
 - **OpenRewrite documentation:** [docs.openrewrite.org](https://docs.openrewrite.org/)
 - **Pattern catalog:** [../patterns/](../patterns/)
 - **Example migration:** [camunda-7-to-8-migration-example](https://github.com/camunda-community-hub/camunda-7-to-8-migration-example)

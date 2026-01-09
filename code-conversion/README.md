@@ -15,3 +15,11 @@ This project:
     -   Which Camunda 7 endpoints are discontinued
 
 See also **[Camunda 7 to 8 Migration Example in Action](https://github.com/camunda-community-hub/camunda-7-to-8-migration-example)**
+
+## Contributing
+
+See the [contribution guidelines](../README.md#contributing).
+
+## License
+
+The source files in this repository are made available under the [Camunda License Version 1.0](../CAMUNDA-LICENSE-1.0.txt).
