@@ -10,9 +10,7 @@ package io.camunda.migration.data.impl.history;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
@@ -86,35 +84,26 @@ public class IncidentMigrator extends BaseMigrator {
                 .flowNodeInstanceKey(flowNodeInstanceKey);
 
           }
-          IncidentDbModel dbModel = convertIncident(context);
-          if (dbModel.processInstanceKey() == null) {
-            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
-            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          } else if (dbModel.processDefinitionKey() == null) {
-            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                SKIP_REASON_MISSING_PROCESS_DEFINITION);
-            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
-            // check if flowNodeInstanceKey is resolved correctly
-            // } else if (dbModel.flowNodeInstanceKey() == null) {
-            //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-            //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          } else if (dbModel.jobKey() == null) {
-            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
-            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          } else {
-            insertIncident(c7Incident, dbModel, c7IncidentId);
-          }
+        }
+        IncidentDbModel dbModel = convertIncident(context);
+        if (dbModel.processInstanceKey() == null) {
+          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+              SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
+          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        } else if (dbModel.processDefinitionKey() == null) {
+          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+              SKIP_REASON_MISSING_PROCESS_DEFINITION);
+          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
+          // check if flowNodeInstanceKey is resolved correctly
+          // } else if (dbModel.flowNodeInstanceKey() == null) {
+          //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
+          //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        } else if (dbModel.jobKey() == null) {
+          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
+          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
         } else {
-          IncidentDbModel dbModel = convertIncident(context);
-          if (dbModel.processInstanceKey() == null) {
-            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                SKIP_REASON_MISSING_PROCESS_INSTANCE);
-            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          } else {
-            insertIncident(c7Incident, dbModel, c7IncidentId);
-          }
+          insertIncident(c7Incident, dbModel, c7IncidentId);
         }
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), e);

@@ -14,6 +14,7 @@ import static org.camunda.bpm.engine.variable.Variables.stringValue;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
@@ -98,7 +99,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-  public void shouldSkipDecisionInstanceWhenDecisionDefinitionIsSkipped() {
+  public void shouldMigrateDecisionInstanceWithPresetProperties() {
     Date now = ClockUtil.now();
     ClockUtil.setCurrentTime(now);
     // given: DMN and process with business rule task in C7
@@ -120,7 +121,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-  public void shouldMigrateFlowNode() {
+  public void shouldMigrateFlowNodeWithPresetProperties() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
@@ -139,7 +140,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-  public void shouldMigrateTask() {
+  public void shouldMigrateTaskWithPresetProperties() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
@@ -166,7 +167,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-  public void shouldMigrateVariable() {
+  public void shouldMigrateVariableWithPresetProperties() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
 
@@ -186,5 +187,38 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     VariableEntity variable = c8Variables.getFirst();
     assertThat(variable.processInstanceKey()).isEqualTo(1L);
     assertThat(variable.scopeKey()).isEqualTo(2L);
+  }
+
+  @Test
+  public void shouldMigrateIncidentWithPresetProperties() {
+    // given: Process with failing service task in C7
+    deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
+
+    // execute the job to trigger the incident
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+
+    // Try executing the job multiple times to ensure incident is created
+    for (int i = 0; i < 3; i++) {
+      try {
+        managementService.executeJob(jobs.getFirst().getId());
+      } catch (Exception e) {
+        // expected - job will fail due to empty delegate expression
+      }
+    }
+
+    // when
+    historyMigrator.migrateIncidents();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("failingServiceTaskProcessId");
+    assertThat(incidents).isNotEmpty();
+
+    IncidentEntity incident = incidents.getFirst();
+    assertThat(incident.processDefinitionKey()).isEqualTo(1L);
+    assertThat(incident.processInstanceKey()).isEqualTo(2L);
+    assertThat(incident.jobKey()).isEqualTo(3L);
+    assertThat(incident.flowNodeInstanceKey()).isEqualTo(4L);
+
   }
 }
