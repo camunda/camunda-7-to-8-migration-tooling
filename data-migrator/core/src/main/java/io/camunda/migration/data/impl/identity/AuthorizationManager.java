@@ -56,10 +56,6 @@ public class AuthorizationManager {
       return AuthorizationMappingResult.failure(FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED);
     }
 
-    if (!ownerExists(authorization.getUserId(), authorization.getGroupId())) {
-      return AuthorizationMappingResult.failure(FAILURE_OWNER_NOT_EXISTS);
-    }
-
     Resource c7ResourceType = ResourceTypeUtil.getResourceByType(authorization.getResourceType());
     if (!AuthorizationEntityRegistry.isSupported(c7ResourceType)) {
       return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, c7ResourceType.resourceName()));
@@ -85,6 +81,10 @@ public class AuthorizationManager {
     String c8ResourceId = mapResourceId(mappingForResourceType, authorization.getResourceId());
     if (c8ResourceId == null) {
       return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_RESOURCE_ID, authorization.getResourceId(), c7ResourceType.resourceName()));
+    }
+
+    if (!ownerExists(authorization.getUserId(), authorization.getGroupId())) {
+      return AuthorizationMappingResult.failure(FAILURE_OWNER_NOT_EXISTS);
     }
 
     OwnerType ownerType = isNotBlank(authorization.getUserId()) ? OwnerType.USER : OwnerType.GROUP;
