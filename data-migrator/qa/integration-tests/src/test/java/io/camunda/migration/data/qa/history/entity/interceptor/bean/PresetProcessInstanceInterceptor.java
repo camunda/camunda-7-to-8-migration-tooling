@@ -13,6 +13,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 
+
 public class PresetProcessInstanceInterceptor implements EntityInterceptor {
 
   @Override
@@ -25,7 +26,7 @@ public class PresetProcessInstanceInterceptor implements EntityInterceptor {
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
 
     if (builder != null) {
-      builder.processDefinitionKey(12345L);
+      builder.processDefinitionKey(12345L).parentProcessInstanceKey(67890L);
     }
   }
 
