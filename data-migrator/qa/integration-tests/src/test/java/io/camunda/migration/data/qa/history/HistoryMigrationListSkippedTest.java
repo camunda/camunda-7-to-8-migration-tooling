@@ -8,19 +8,18 @@
 package io.camunda.migration.data.qa.history;
 
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.history.DecisionDefinitionMigrator;
-import io.camunda.migration.data.history.DecisionInstanceMigrator;
-import io.camunda.migration.data.history.DecisionRequirementsMigrator;
-import io.camunda.migration.data.history.FlowNodeMigrator;
-import io.camunda.migration.data.history.IncidentMigrator;
-import io.camunda.migration.data.history.ProcessDefinitionMigrator;
-import io.camunda.migration.data.history.ProcessInstanceMigrator;
-import io.camunda.migration.data.history.UserTaskMigrator;
-import io.camunda.migration.data.history.VariableMigrator;
+import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.IncidentMigrator;
+import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.VariableMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
