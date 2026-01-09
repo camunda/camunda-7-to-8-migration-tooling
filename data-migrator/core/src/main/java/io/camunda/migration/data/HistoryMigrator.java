@@ -348,10 +348,12 @@ public class HistoryMigrator {
     return builder.build();
   }
 
-  protected DecisionRequirementsDbModel.Builder generateBuilderForDrdForC7DefinitionWithoutDrd(String decisionRequirementsId,
-                                                                                               DecisionDefinition c7DecisionDefinition,
+  protected DecisionRequirementsDbModel.Builder generateBuilderForDrdForC7DefinitionWithoutDrd(DecisionDefinition c7DecisionDefinition,
                                                                                                String resourceName,
                                                                                                String xml) {
+    String decisionRequirementsId = c7Client.getDmnModelInstance(c7DecisionDefinition.getId())
+        .getDefinitions()
+        .getId();
     return new DecisionRequirementsDbModel.Builder().decisionRequirementsKey(getNextKey())
         .decisionRequirementsId(prefixDefinitionId(decisionRequirementsId))
         .name(c7DecisionDefinition.getName())
@@ -455,17 +457,14 @@ public class HistoryMigrator {
         HISTORY_DECISION_REQUIREMENT);
 
     if (decisionRequirementsKey == null) {
-      String decisionRequirementsId = c7Client.getDmnModelInstance(c7DecisionDefinition.getId())
-          .getDefinitions()
-          .getId();
       String c7DecisionDefinitionId = c7DecisionDefinition.getId();
       HistoryMigratorLogs.creatingDecisionRequirement(c7DecisionDefinitionId);
       String deploymentId = c7DecisionDefinition.getDeploymentId();
       String resourceName = c7DecisionDefinition.getResourceName();
       String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
-      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = generateBuilderForDrdForC7DefinitionWithoutDrd(
-          decisionRequirementsId, c7DecisionDefinition, resourceName, dmnXml);
+      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder =
+          generateBuilderForDrdForC7DefinitionWithoutDrd(c7DecisionDefinition, resourceName, dmnXml);
       EntityConversionContext<?, ?> context = createEntityConversionContext(null, DecisionRequirementsDefinition.class,
           decisionRequirementsDbModelBuilder);
 
