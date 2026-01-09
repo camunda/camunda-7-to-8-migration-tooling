@@ -85,28 +85,24 @@ public class IncidentMigrator extends BaseMigrator {
                 .jobKey(jobDefinitionKey)
                 .flowNodeInstanceKey(flowNodeInstanceKey);
 
-            IncidentDbModel dbModel = convertIncident(context);
-            insertIncident(c7Incident, dbModel, c7IncidentId);
+          }
+          IncidentDbModel dbModel = convertIncident(context);
+          if (dbModel.processInstanceKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+                SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          } else if (dbModel.processDefinitionKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+                SKIP_REASON_MISSING_PROCESS_DEFINITION);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          } else if (dbModel.flowNodeInstanceKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          } else if (dbModel.jobKey() == null) {
+            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
+            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
           } else {
-            IncidentDbModel dbModel = convertIncident(context);
-            if (dbModel.processInstanceKey() == null) {
-              markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                  SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
-              HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            } else if (dbModel.processDefinitionKey() == null) {
-              markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                  SKIP_REASON_MISSING_PROCESS_DEFINITION);
-              HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            } else if (dbModel.flowNodeInstanceKey() == null) {
-              markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-              HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            } else if (dbModel.jobKey() == null) {
-              markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-                  SKIP_REASON_MISSING_JOB_REFERENCE);
-              HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-            } else {
-              insertIncident(c7Incident, dbModel, c7IncidentId);
-            }
+            insertIncident(c7Incident, dbModel, c7IncidentId);
           }
         } else {
           IncidentDbModel dbModel = convertIncident(context);

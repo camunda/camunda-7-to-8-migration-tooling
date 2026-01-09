@@ -7,16 +7,23 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.entities.UserTaskEntity;
+import io.camunda.search.entities.VariableEntity;
 import java.util.Date;
 import java.util.List;
+import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
+import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
@@ -27,7 +34,14 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[1].enabled=false",
     "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
         + ".PresetDecisionInstanceInterceptor",
-})
+    "camunda.migrator.interceptors[3].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
+        + ".PresetFlowNodeInterceptor",
+    "camunda.migrator.interceptors[4].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
+        + ".PresetIncidentInterceptor",
+    "camunda.migrator.interceptors[5].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
+        + ".PresetUserTaskInterceptor",
+    "camunda.migrator.interceptors[6].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
+        + ".PresetVariableInterceptor", })
 public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractTest {
 
   @Test
@@ -47,8 +61,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     historyMigrator.migrateProcessInstances();
 
     // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess", true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     ProcessInstanceEntity processInstanceEntity = migratedProcessInstances.getFirst();
@@ -57,7 +70,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-    public void shouldExecuteProcessInstancePresetInterceptorWithoutMigratedParent() {
+  public void shouldExecuteProcessInstancePresetInterceptorWithoutMigratedParent() {
     // Deploy and migrate a simple process
     deployer.deployCamunda7Process("callActivityProcess.bpmn");
     deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
@@ -70,12 +83,12 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     // Delete the historic calling process instance to simulate missing parent
     historyService.deleteHistoricProcessInstance(processInstance.getId());
 
-
     // Run history migration
     historyMigrator.migrateProcessInstances();
 
     // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId", true);
+    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId",
+        true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     ProcessInstanceEntity processInstanceEntity = migratedProcessInstances.getFirst();
@@ -93,26 +106,85 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");
     runtimeService.startProcessInstanceByKey("businessRuleProcessId",
         Variables.createVariables().putValue("inputA", stringValue("A")));
-    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
-    // when: Migrate decision instances WITHOUT decision definitions (creates real-world skip)
+    // when
     historyMigrator.migrateDecisionInstances();
 
     // then: decision instance is migrated
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
 
-    assertThat(migratedInstances).singleElement().satisfies(instance ->
-        assertDecisionInstance(
-            instance,
-            "simpleDecisionId",
-            now,
-            7L,
-            4L,
-            1L,
-            2L,
-            DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
-            "\"B\"",
-            "inputA", "\"A\"",
-            "outputB", "\"B\""));
+    assertThat(migratedInstances).singleElement()
+        .satisfies(instance -> assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 4L, 1L, 2L,
+            DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE, "\"B\"", "inputA", "\"A\"", "outputB",
+            "\"B\""));
+  }
+
+  @Test
+  public void shouldMigrateFlowNode() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrateFlowNodes();
+
+    // then
+    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
+
+    assertThat(flowNodes).isNotEmpty();
+    for (FlowNodeInstanceDbModel flowNode : flowNodes) {
+      assertThat(flowNode.flowNodeScopeKey()).isEqualTo(1L);
+    }
+  }
+
+  @Test
+  public void shouldMigrateTask() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    taskService.complete(task.getId());
+
+    HistoricTaskInstance c7Task = historyService.createHistoricTaskInstanceQuery()
+        .processInstanceId(processInstance.getId())
+        .singleResult();
+
+    // when
+    historyMigrator.migrateUserTasks();
+
+    // then
+    List<UserTaskEntity> userTasks = searchHistoricUserTasks(2L);
+    assertThat(userTasks).hasSize(1);
+
+    UserTaskEntity userTask = userTasks.getFirst();
+    assertThat(userTask.userTaskKey()).isNotNull();
+    assertThat(userTask.processDefinitionId()).isEqualTo(prefixDefinitionId(c7Task.getProcessDefinitionKey()));
+    assertThat(userTask.processDefinitionKey()).isEqualTo(1L);
+    assertThat(userTask.elementInstanceKey()).isEqualTo(3L);
+  }
+
+  @Test
+  public void shouldMigrateVariable() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+
+    VariableMap variables = Variables.createVariables();
+    variables.putValue("stringVar", "myStringVar");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess", variables);
+
+    Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    taskService.complete(task.getId());
+
+    // when
+    historyMigrator.migrateVariables();
+
+    // then
+    List<VariableEntity> c8Variables = searchHistoricVariables("stringVar");
+    assertThat(c8Variables).hasSize(1);
+    VariableEntity variable = c8Variables.getFirst();
+    assertThat(variable.processInstanceKey()).isEqualTo(1L);
+    assertThat(variable.scopeKey()).isEqualTo(2L);
   }
 }
