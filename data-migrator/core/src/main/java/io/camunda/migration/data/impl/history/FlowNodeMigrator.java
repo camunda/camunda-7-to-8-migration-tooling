@@ -91,25 +91,21 @@ public class FlowNodeMigrator extends BaseMigrator {
 
           Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(),
               processInstanceKey);
-          if (flowNodeScopeKey == null) {
-            markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(),
-                SKIP_REASON_MISSING_PARENT_FLOW_NODE);
-            HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
-            return;
+          if (flowNodeScopeKey != null) {
+            flowNodeDbModelBuilder.flowNodeScopeKey(flowNodeScopeKey);
           }
-          flowNodeDbModelBuilder.flowNodeScopeKey(flowNodeScopeKey);
 
-          FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
-          insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
+        }
+
+        FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
+        if (dbModel.processInstanceKey() == null || dbModel.processDefinitionKey() == null) {
+          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+        } else if (dbModel.flowNodeScopeKey() == null) {
+          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
+          HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
         } else {
-          FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
-          if (dbModel.processInstanceKey() == null) {
-            markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(),
-                SKIP_REASON_MISSING_PROCESS_INSTANCE);
-            HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
-          } else {
-            insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
-          }
+          insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
         }
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), e);
@@ -153,9 +149,7 @@ public class FlowNodeMigrator extends BaseMigrator {
       return c8ProcessInstanceKey;
     }
 
-    Long c8ParentFlowNodeKey = dbClient.findC8KeyByC7IdAndType(c7ParentActivityInstanceId, HISTORY_FLOW_NODE);
-
-    return c8ParentFlowNodeKey;
+    return dbClient.findC8KeyByC7IdAndType(c7ParentActivityInstanceId, HISTORY_FLOW_NODE);
   }
 }
 

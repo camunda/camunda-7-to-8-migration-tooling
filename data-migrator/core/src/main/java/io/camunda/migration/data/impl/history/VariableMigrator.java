@@ -14,7 +14,6 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
@@ -78,37 +77,24 @@ public class VariableMigrator extends BaseMigrator {
         VariableDbModel.VariableDbModelBuilder variableDbModelBuilder = new VariableDbModel.VariableDbModelBuilder();
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class, variableDbModelBuilder);
 
-        // Handle task-scoped variables
-        String taskId = c7Variable.getTaskId();
-        if (taskId != null && !isMigrated(taskId, HISTORY_USER_TASK)) {
-          processVariableConversion(c7Variable, context, c7VariableId);
-          return;
-        }
-
-        // Handle process-scoped variables
         String c7ProcessInstanceId = c7Variable.getProcessInstanceId();
-        if (!isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-          processVariableConversion(c7Variable, context, c7VariableId);
-          return;
+        if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+          ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
+          Long processInstanceKey = processInstance.processInstanceKey();
+          variableDbModelBuilder.processInstanceKey(processInstanceKey);
+          OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
+          variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
         }
 
-        // Process instance exists, prepare keys
-        ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
-        Long processInstanceKey = processInstance.processInstanceKey();
-        variableDbModelBuilder.processInstanceKey(processInstanceKey);
-
-        // Check if activity instance is migrated
         String activityInstanceId = c7Variable.getActivityInstanceId();
-        if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) ||
-            isMigrated(activityInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) || isMigrated(activityInstanceId,
+            HISTORY_PROCESS_INSTANCE)) {
           Long scopeKey = findScopeKey(activityInstanceId);
           if (scopeKey != null) {
             variableDbModelBuilder.scopeKey(scopeKey);
           }
         }
 
-        OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
-        variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
         processVariableConversion(c7Variable, context, c7VariableId);
       } catch (EntityInterceptorException | VariableInterceptorException e) {
         handleInterceptorException(c7VariableId, HISTORY_VARIABLE, c7Variable.getCreateTime(), e);

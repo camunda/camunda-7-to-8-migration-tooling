@@ -70,46 +70,32 @@ public class UserTaskMigrator extends BaseMigrator {
             userTaskDbModelBuilder);
 
         if (isMigrated(c7UserTask.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
-
           ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7UserTask.getProcessInstanceId());
           if (processInstance != null) {
             userTaskDbModelBuilder.processInstanceKey(processInstance.processInstanceKey())
                 .processDefinitionVersion(processInstance.processDefinitionVersion());
-          }
-          if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
-            Long elementInstanceKey = findFlowNodeInstanceKey(c7UserTask.getActivityInstanceId());
-            Long processDefinitionKey = findProcessDefinitionKey(c7UserTask.getProcessDefinitionId());
-
-            userTaskDbModelBuilder.processDefinitionKey(processDefinitionKey).elementInstanceKey(elementInstanceKey);
             OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7UserTask.getRemovalTime());
             OffsetDateTime completionDate = calculateCompletionDateForChild(processInstance.endDate(), c7UserTask.getEndTime());
             userTaskDbModelBuilder
                 .historyCleanupDate(historyCleanupDate)
                 .completionDate(completionDate);
-            UserTaskDbModel dbModel = convertUserTask(context);
-            insertUserTask(c7UserTask, dbModel, c7UserTaskId);
-          } else {
-            UserTaskDbModel dbModel = convertUserTask(context);
-            if (dbModel.elementInstanceKey() == null) {
-              markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(),
-                  SKIP_REASON_MISSING_FLOW_NODE);
-              HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingFlowNode(c7UserTaskId);
-            } else {
-              insertUserTask(c7UserTask, dbModel, c7UserTaskId);
-            }
           }
+          if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
+            Long elementInstanceKey = findFlowNodeInstanceKey(c7UserTask.getActivityInstanceId());
+            Long processDefinitionKey = findProcessDefinitionKey(c7UserTask.getProcessDefinitionId());
+            userTaskDbModelBuilder.processDefinitionKey(processDefinitionKey).elementInstanceKey(elementInstanceKey);
+          }
+        }
+        UserTaskDbModel dbModel = convertUserTask(context);
+        if (dbModel.processInstanceKey() == null || dbModel.processDefinitionVersion() == null) {
+          markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(),
+              SKIP_REASON_MISSING_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingProcessInstance(c7UserTaskId);
+        } else if (dbModel.elementInstanceKey() == null) {
+          markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_FLOW_NODE);
+          HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingFlowNode(c7UserTaskId);
         } else {
-          UserTaskDbModel dbModel = convertUserTask(context);
-          if (dbModel.processInstanceKey() == null || dbModel.processDefinitionVersion() == null) {
-            markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(),
-                SKIP_REASON_MISSING_PROCESS_INSTANCE);
-            HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingProcessInstance(c7UserTaskId);
-          } else if (dbModel.elementInstanceKey() == null) {
-            markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_FLOW_NODE);
-            HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingFlowNode(c7UserTaskId);
-          } else {
-            insertUserTask(c7UserTask, dbModel, c7UserTaskId);
-          }
+          insertUserTask(c7UserTask, dbModel, c7UserTaskId);
         }
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7UserTaskId, HISTORY_USER_TASK, c7UserTask.getStartTime(), e);
