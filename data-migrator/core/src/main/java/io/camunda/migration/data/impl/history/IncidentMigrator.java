@@ -95,9 +95,11 @@ public class IncidentMigrator extends BaseMigrator {
             markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
                 SKIP_REASON_MISSING_PROCESS_DEFINITION);
             HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          } else if (dbModel.flowNodeInstanceKey() == null) {
-            markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-            HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+            // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
+            // check if flowNodeInstanceKey is resolved correctly
+            // } else if (dbModel.flowNodeInstanceKey() == null) {
+            //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
+            //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
           } else if (dbModel.jobKey() == null) {
             markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
             HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);

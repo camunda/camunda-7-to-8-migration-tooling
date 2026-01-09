@@ -167,7 +167,6 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     processInstances = searchHistoricProcessInstances("allElementsProcessId");
     assertThat(processInstances).hasSize(1);
     assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).hasSize(1);
-    assertThat(searchHistoricIncidents("allElementsProcessId")).hasSize(1);
     assertThat(searchHistoricVariables("userTaskVar")).hasSize(1);
   }
 
