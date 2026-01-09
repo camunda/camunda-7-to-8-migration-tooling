@@ -456,6 +456,9 @@ public class HistoryMigrator {
         HISTORY_DECISION_REQUIREMENT);
 
     if (decisionRequirementsKey == null) {
+      String decisionRequirementsId = c7Client.getDmnModelInstance(c7DecisionDefinition.getId())
+          .getDefinitions()
+          .getId();
       String c7DecisionDefinitionId = c7DecisionDefinition.getId();
       HistoryMigratorLogs.creatingDecisionRequirement(c7DecisionDefinitionId);
       String deploymentId = c7DecisionDefinition.getDeploymentId();
@@ -463,7 +466,7 @@ public class HistoryMigrator {
       String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
       DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = generateBuilderForDrdForC7DefinitionWithoutDrd(
-          c7DecisionDefinitionId, c7DecisionDefinition, resourceName, dmnXml);
+          decisionRequirementsId, c7DecisionDefinition, resourceName, dmnXml);
       EntityConversionContext<?, ?> context = createEntityConversionContext(null, DecisionRequirementsDefinition.class,
           decisionRequirementsDbModelBuilder);
 

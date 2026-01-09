@@ -52,10 +52,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    String expectedDrdID = repositoryService.createDecisionDefinitionQuery()
-        .decisionDefinitionKey("simpleDecisionId")
-        .singleResult()
-        .getId();
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
       assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
@@ -68,10 +64,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     });
 
     List<DecisionRequirementsEntity> decisionReqs =
-        searchHistoricDecisionRequirementsDefinition(expectedDrdID);
+        searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
       assertThat(decisionRequirements.decisionRequirementsId())
-          .isEqualTo(prefixDefinitionId(expectedDrdID));
+          .isEqualTo("simpleDmnId");
       assertThat(decisionRequirements.decisionRequirementsKey())
           .isNotNull()
           .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
@@ -100,21 +96,14 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(c7Definitions).hasSize(2);
 
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    List<DecisionRequirementsEntity> decisionReqs1 = searchHistoricDecisionRequirementsDefinition(c7Definitions.getFirst().getId());
-    List<DecisionRequirementsEntity> decisionReqs2 = searchHistoricDecisionRequirementsDefinition(c7Definitions.get(1).getId());
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnId");
 
-    assertThat(decisionReqs1).hasSize(1);
-    assertThat(decisionReqs2).hasSize(1);
-
+    assertThat(decisionReqs).hasSize(2);
     assertThat(migratedDecisions).hasSize(2);
-    assertThat(migratedDecisions).allSatisfy(decision ->
-      assertThat(decision.decisionRequirementsId()).isNull()
-    );
+    assertThat(migratedDecisions).allSatisfy(decision -> assertThat(decision.decisionRequirementsId()).isNull());
     assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
-        .containsExactlyInAnyOrder(
-            decisionReqs1.getFirst().decisionRequirementsKey(),
-            decisionReqs2.getFirst().decisionRequirementsKey()
-        );
+        .containsExactlyInAnyOrderElementsOf(
+            decisionReqs.stream().map(DecisionRequirementsEntity::decisionRequirementsKey).toList());
   }
 
   @Test
