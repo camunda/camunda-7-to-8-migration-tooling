@@ -133,7 +133,7 @@ public class AuthorizationManager {
       if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
         return false;
       } else {
-        throw new IdentityMigratorException("Cannot verify owner existence", e);
+        throw new IdentityMigratorException("Cannot verify owner existence: " + userOrGroup, e);
       }
     }
   }

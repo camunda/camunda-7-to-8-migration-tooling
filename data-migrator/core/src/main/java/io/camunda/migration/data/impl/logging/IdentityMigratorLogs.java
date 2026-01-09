@@ -28,7 +28,7 @@ public class IdentityMigratorLogs {
   public static final String FAILURE_OWNER_NOT_EXISTS = "User or group does not exist in C8";
   public static final String FAILURE_UNSUPPORTED_RESOURCE_TYPE = "Resource type [%s] is not supported";
   public static final String FAILURE_UNSUPPORTED_PERMISSION_TYPE = "Permission type [%s] is not supported for resource type [%s]";
-  public static final String FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID = "Specific resource ID [%s] is not supported for resource type [%s]";
+  public static final String FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID = "Specific resource ID [%s] is not supported for resource type [%s], only wildcard is allowed";
   public static final String FAILURE_UNSUPPORTED_RESOURCE_ID = "Resource ID [%s] is not supported for resource type [%s]";
 
   public static void logMigratingTenant(String tenantId) {

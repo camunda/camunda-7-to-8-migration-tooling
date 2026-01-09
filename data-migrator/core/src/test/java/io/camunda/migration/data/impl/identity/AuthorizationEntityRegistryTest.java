@@ -44,20 +44,24 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedApplicationMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.APPLICATION);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.COMPONENT);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isTrue();
 
     assertThat(entry.getMappedPermissions(Permissions.ACCESS)).containsExactlyInAnyOrder(PermissionType.ACCESS);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(PermissionType.ACCESS);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.ACCESS);
   }
 
   @Test
   void shouldHaveExpectedAuthorizationMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.AUTHORIZATION);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.AUTHORIZATION);
     assertThat(entry.supportsExplicitId()).isFalse();
     assertThat(entry.needsToAdaptId()).isFalse();
@@ -66,7 +70,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
@@ -75,8 +79,10 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedGroupMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isFalse();
@@ -85,7 +91,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
@@ -94,25 +100,29 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedGroupMembershipMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP_MEMBERSHIP);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(PermissionType.UPDATE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
   }
 
   @Test
   void shouldHaveExpectedSystemMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.SYSTEM);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.SYSTEM);
     assertThat(entry.supportsExplicitId()).isFalse();
     assertThat(entry.needsToAdaptId()).isFalse();
 
     assertThat(entry.getMappedPermissions(SystemPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
-    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.READ_USAGE_METRIC,
         PermissionType.UPDATE);
@@ -120,8 +130,10 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedBatchMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.BATCH);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.BATCH);
     assertThat(entry.supportsExplicitId()).isFalse();
     assertThat(entry.needsToAdaptId()).isFalse();
@@ -136,7 +148,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE);
 
-    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
@@ -152,8 +164,10 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedTenantMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isFalse();
@@ -162,7 +176,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
@@ -171,19 +185,23 @@ class AuthorizationEntityRegistryTest {
 
   @Test
   void shouldHaveExpectedTenantMembershipMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT_MEMBERSHIP);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(PermissionType.UPDATE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
   }
 
   @Test
   void shouldHaveExpectedUserMapping() {
+    // when
     AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.USER);
 
+    // then
     assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.USER);
     assertThat(entry.supportsExplicitId()).isTrue();
     assertThat(entry.needsToAdaptId()).isFalse();
@@ -192,7 +210,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).contains(
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
         PermissionType.READ,
         PermissionType.UPDATE,
         PermissionType.CREATE,
