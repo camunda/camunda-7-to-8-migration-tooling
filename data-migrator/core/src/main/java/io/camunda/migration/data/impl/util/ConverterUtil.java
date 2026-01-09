@@ -40,18 +40,6 @@ public class ConverterUtil {
     return StringUtils.isEmpty(c7TenantId) ? C8_DEFAULT_TENANT : c7TenantId;
   }
 
-  public static String generateDecisionRequirementsId(String c7DecisionDefinitionId) {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
-      byte[] hash = digest.digest(c7DecisionDefinitionId.getBytes(StandardCharsets.UTF_8));
-      String hexHash = HexFormat.of().formatHex(hash);
-      // "drd-" prefix (4 chars) + hash (60 chars) = 64 chars total
-      return "drd-" + hexHash.substring(0, 60);
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("SHA-256 algorithm not available", e);
-    }
-  }
-
   public static String prefixDefinitionId(String definitionId) {
     if (definitionId == null) {
       return null;

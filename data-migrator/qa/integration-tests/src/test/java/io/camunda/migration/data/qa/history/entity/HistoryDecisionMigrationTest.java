@@ -67,7 +67,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
       assertThat(decisionRequirements.decisionRequirementsId())
-          .isEqualTo("simpleDmnId");
+          .isEqualTo("c7-legacy-simpleDmnId");
       assertThat(decisionRequirements.decisionRequirementsKey())
           .isNotNull()
           .isEqualTo(migratedDecisions.getFirst().decisionRequirementsKey());
