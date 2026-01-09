@@ -66,7 +66,7 @@ public class FlowNodeMigrator extends BaseMigrator {
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateFlowNode(HistoricActivityInstance c7FlowNode) {
+  public void migrateFlowNode(HistoricActivityInstance c7FlowNode) {
     String c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {
       HistoryMigratorLogs.migratingHistoricFlowNode(c7FlowNodeId);
@@ -152,9 +152,6 @@ public class FlowNodeMigrator extends BaseMigrator {
     }
 
     Long c8ParentFlowNodeKey = dbClient.findC8KeyByC7IdAndType(c7ParentActivityInstanceId, HISTORY_FLOW_NODE);
-    if (c8ParentFlowNodeKey == null) {
-      return null;
-    }
 
     return c8ParentFlowNodeKey;
   }

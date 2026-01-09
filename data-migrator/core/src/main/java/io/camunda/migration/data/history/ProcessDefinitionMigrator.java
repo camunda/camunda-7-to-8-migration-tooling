@@ -45,7 +45,7 @@ public class ProcessDefinitionMigrator extends BaseMigrator {
    * @param c7ProcessDefinition the process definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateProcessDefinition(ProcessDefinition c7ProcessDefinition) {
+  public void migrateProcessDefinition(ProcessDefinition c7ProcessDefinition) {
     String c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {
       HistoryMigratorLogs.migratingProcessDefinition(c7Id);

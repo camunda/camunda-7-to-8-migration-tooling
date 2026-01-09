@@ -61,7 +61,7 @@ public class IncidentMigrator extends BaseMigrator {
    * @param c7Incident the historic incident from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateIncident(HistoricIncident c7Incident) {
+  public void migrateIncident(HistoricIncident c7Incident) {
     String c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);

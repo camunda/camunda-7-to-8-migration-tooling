@@ -48,7 +48,7 @@ public class DecisionRequirementsMigrator extends BaseMigrator {
    * @param c7DecisionRequirements the decision requirements definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateDecisionRequirementsDefinition(DecisionRequirementsDefinition c7DecisionRequirements) {
+  public void migrateDecisionRequirementsDefinition(DecisionRequirementsDefinition c7DecisionRequirements) {
     String c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
       HistoryMigratorLogs.migratingDecisionRequirements(c7Id);

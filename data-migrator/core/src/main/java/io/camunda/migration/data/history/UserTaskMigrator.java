@@ -58,7 +58,7 @@ public class UserTaskMigrator extends BaseMigrator {
    * @param c7UserTask the historic user task from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateUserTask(HistoricTaskInstance c7UserTask) {
+  public void migrateUserTask(HistoricTaskInstance c7UserTask) {
     String c7UserTaskId = c7UserTask.getId();
     if (shouldMigrate(c7UserTaskId, HISTORY_USER_TASK)) {
       HistoryMigratorLogs.migratingHistoricUserTask(c7UserTaskId);

@@ -68,15 +68,15 @@ public class VariableMigrator extends BaseMigrator {
    * @param c7Variable the historic variable instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateVariable(HistoricVariableInstance c7Variable) {
+  public void migrateVariable(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
       HistoryMigratorLogs.migratingHistoricVariable(c7VariableId);
 
       try {
         VariableDbModel.VariableDbModelBuilder variableDbModelBuilder = new VariableDbModel.VariableDbModelBuilder();
-        EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable,
-            HistoricVariableInstance.class, variableDbModelBuilder);
+        EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class,
+            variableDbModelBuilder);
 
         // Handle task-scoped variables
         String taskId = c7Variable.getTaskId();
@@ -99,8 +99,8 @@ public class VariableMigrator extends BaseMigrator {
 
         // Check if activity instance is migrated
         String activityInstanceId = c7Variable.getActivityInstanceId();
-        if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) || isMigrated(activityInstanceId,
-            HISTORY_PROCESS_INSTANCE)) {
+        if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) ||
+            isMigrated(activityInstanceId, HISTORY_PROCESS_INSTANCE)) {
           Long scopeKey = findScopeKey(activityInstanceId);
           if (scopeKey != null) {
             variableDbModelBuilder.scopeKey(scopeKey);

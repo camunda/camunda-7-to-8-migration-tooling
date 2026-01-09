@@ -23,7 +23,6 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -31,9 +30,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class DecisionDefinitionMigrator extends BaseMigrator {
-
-  @Autowired
-  private DecisionRequirementsMigrator decisionRequirementsMigrator;
 
   public void migrateDecisionDefinitions() {
     HistoryMigratorLogs.migratingDecisionDefinitions();
@@ -64,7 +60,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
    * @param c7DecisionDefinition the decision definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  protected void migrateDecisionDefinition(DecisionDefinition c7DecisionDefinition) {
+  public void migrateDecisionDefinition(DecisionDefinition c7DecisionDefinition) {
     String c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {
       HistoryMigratorLogs.migratingDecisionDefinition(c7Id);
@@ -84,17 +80,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
           decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(
               c7DecisionDefinition.getDecisionRequirementsDefinitionId(), HISTORY_DECISION_REQUIREMENT);
 
-          if (decisionRequirementsKey == null) {
-            dbModel = convertDecisionDefinition(context);
-
-            if (dbModel.decisionRequirementsKey() != null) {
-              insertDecisionDefinition(dbModel, c7Id, deploymentTime);
-            } else {
-              markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
-              HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
-            }
-            return;
-          } else {
+          if (decisionRequirementsKey != null) {
             decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
           }
         } else {
@@ -103,7 +89,12 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
           decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
         }
         dbModel = convertDecisionDefinition(context);
-        insertDecisionDefinition(dbModel, c7Id, deploymentTime);
+        if (dbModel.decisionRequirementsKey() != null) {
+          insertDecisionDefinition(dbModel, c7Id, deploymentTime);
+        } else {
+          markSkipped(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
+          HistoryMigratorLogs.skippingDecisionDefinition(c7Id);
+        }
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7Id, HISTORY_DECISION_DEFINITION, deploymentTime, e);
       }
