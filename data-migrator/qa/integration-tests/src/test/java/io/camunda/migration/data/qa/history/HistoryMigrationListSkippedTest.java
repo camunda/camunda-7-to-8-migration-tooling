@@ -12,6 +12,15 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.history.DecisionDefinitionMigrator;
+import io.camunda.migration.data.history.DecisionInstanceMigrator;
+import io.camunda.migration.data.history.DecisionRequirementsMigrator;
+import io.camunda.migration.data.history.FlowNodeMigrator;
+import io.camunda.migration.data.history.IncidentMigrator;
+import io.camunda.migration.data.history.ProcessDefinitionMigrator;
+import io.camunda.migration.data.history.ProcessInstanceMigrator;
+import io.camunda.migration.data.history.UserTaskMigrator;
+import io.camunda.migration.data.history.VariableMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
@@ -40,7 +49,17 @@ import org.springframework.test.context.TestPropertySource;
 public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTest {
 
     @RegisterExtension
-    protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
+    protected LogCapturer logs = LogCapturer.create()
+        .captureForType(HistoryMigrator.class, Level.DEBUG)
+        .captureForType(ProcessDefinitionMigrator.class, Level.DEBUG)
+        .captureForType(ProcessInstanceMigrator.class, Level.DEBUG)
+        .captureForType(FlowNodeMigrator.class, Level.DEBUG)
+        .captureForType(UserTaskMigrator.class, Level.DEBUG)
+        .captureForType(VariableMigrator.class, Level.DEBUG)
+        .captureForType(IncidentMigrator.class, Level.DEBUG)
+        .captureForType(DecisionRequirementsMigrator.class, Level.DEBUG)
+        .captureForType(DecisionDefinitionMigrator.class, Level.DEBUG)
+        .captureForType(DecisionInstanceMigrator.class, Level.DEBUG);
 
     @Autowired
     protected HistoryService historyService;
