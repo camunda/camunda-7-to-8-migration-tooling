@@ -29,6 +29,16 @@ import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.RuntimeValidator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
+import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.IncidentMigrator;
+import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.VariableMigrator;
+
 import java.util.Optional;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
@@ -67,6 +77,15 @@ import org.springframework.transaction.PlatformTransactionManager;
     RuntimeMigrator.class,
     IdentityMigrator.class,
     AuthorizationManager.class,
+    DecisionDefinitionMigrator.class,
+    DecisionInstanceMigrator.class,
+    DecisionRequirementsMigrator.class,
+    FlowNodeMigrator.class,
+    IncidentMigrator.class,
+    ProcessDefinitionMigrator.class,
+    ProcessInstanceMigrator.class,
+    UserTaskMigrator.class,
+    VariableMigrator.class,
     SchemaShutdownCleaner.class
 })
 @Configuration

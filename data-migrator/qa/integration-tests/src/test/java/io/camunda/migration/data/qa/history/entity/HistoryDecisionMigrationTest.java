@@ -8,9 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
-import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -580,47 +578,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionRequirementsKey);
     assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
-  }
-
-  private void assertDecisionInstance(
-      DecisionInstanceEntity instance,
-      String decisionDefinitionId,
-      Date evaluationDate,
-      Long flowNodeInstanceKey,
-      Long processInstanceKey,
-      Long processDefinitionKey,
-      Long decisionDefinitionKey,
-      DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
-      String result,
-      String inputName,
-      String inputValue,
-      String outputName,
-      String outputValue) {
-    assertThat(instance.decisionInstanceId()).isNotNull();
-    assertThat(instance.decisionInstanceKey()).isNotNull();
-    assertThat(instance.state()).isEqualTo(EVALUATED);
-    assertThat(instance.evaluationDate()).isEqualTo(convertDate(evaluationDate));
-    assertThat(instance.evaluationFailure()).isNull();
-    assertThat(instance.evaluationFailureMessage()).isNull();
-    assertThat(instance.flowNodeInstanceKey()).isEqualTo(flowNodeInstanceKey);
-    assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
-    assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
-    assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
-    assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionDefinitionId));
-    assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-    assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
-    assertThat(instance.result()).isEqualTo(result);
-    assertThat(instance.rootDecisionDefinitionKey()).isNull();
-    assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
-      assertThat(input.inputId()).isNotNull();
-      assertThat(input.inputName()).isEqualTo(inputName);
-      assertThat(input.inputValue()).isEqualTo(inputValue);
-    });
-    assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
-      assertThat(output.outputId()).isNotNull();
-      assertThat(output.outputName()).isEqualTo(outputName);
-      assertThat(output.outputValue()).isEqualTo(outputValue);
-    });
   }
 
 }

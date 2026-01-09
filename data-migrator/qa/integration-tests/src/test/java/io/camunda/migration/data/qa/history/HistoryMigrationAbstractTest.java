@@ -7,10 +7,12 @@
  */
 package io.camunda.migration.data.qa.history;
 
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
-import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
-import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
+import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
@@ -47,6 +49,9 @@ import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
@@ -219,5 +224,46 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     for (Task task : taskService.createTaskQuery().taskDefinitionKey(USER_TASK_ID).list()) {
       taskService.complete(task.getId());
     }
+  }
+
+  protected void assertDecisionInstance(
+      DecisionInstanceEntity instance,
+      String decisionDefinitionId,
+      Date evaluationDate,
+      Long flowNodeInstanceKey,
+      Long processInstanceKey,
+      Long processDefinitionKey,
+      Long decisionDefinitionKey,
+      DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
+      String result,
+      String inputName,
+      String inputValue,
+      String outputName,
+      String outputValue) {
+    assertThat(instance.decisionInstanceId()).isNotNull();
+    assertThat(instance.decisionInstanceKey()).isNotNull();
+    assertThat(instance.state()).isEqualTo(EVALUATED);
+    assertThat(instance.evaluationDate()).isEqualTo(convertDate(evaluationDate));
+    assertThat(instance.evaluationFailure()).isNull();
+    assertThat(instance.evaluationFailureMessage()).isNull();
+    assertThat(instance.flowNodeInstanceKey()).isEqualTo(flowNodeInstanceKey);
+    assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
+    assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
+    assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
+    assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionDefinitionId));
+    assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
+    assertThat(instance.result()).isEqualTo(result);
+    assertThat(instance.rootDecisionDefinitionKey()).isNull();
+    assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+      assertThat(input.inputId()).isNotNull();
+      assertThat(input.inputName()).isEqualTo(inputName);
+      assertThat(input.inputValue()).isEqualTo(inputValue);
+    });
+    assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+      assertThat(output.outputId()).isNotNull();
+      assertThat(output.outputName()).isEqualTo(outputName);
+      assertThat(output.outputValue()).isEqualTo(outputValue);
+    });
   }
 }
