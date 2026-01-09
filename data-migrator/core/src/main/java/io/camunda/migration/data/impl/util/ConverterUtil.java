@@ -9,14 +9,10 @@ package io.camunda.migration.data.impl.util;
 
 import io.camunda.zeebe.protocol.Protocol;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
-import java.util.HexFormat;
 import org.apache.commons.lang3.StringUtils;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;

@@ -452,8 +452,7 @@ public class HistoryMigrator {
 
   protected Long createAndMigrateNewDrdForC7DmnWithoutDrd(DecisionDefinition c7DecisionDefinition,
                                                           Date deploymentTime) {
-    String newDecisionRequirementsId = generateDecisionRequirementsId(c7DecisionDefinition.getId());
-    Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(newDecisionRequirementsId,
+    Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(c7DecisionDefinition.getId(),
         HISTORY_DECISION_REQUIREMENT);
 
     if (decisionRequirementsKey == null) {
@@ -463,16 +462,16 @@ public class HistoryMigrator {
       String resourceName = c7DecisionDefinition.getResourceName();
       String dmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
 
-      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = generateBuilderForDrdForC7DefinitionWithoutDrd(newDecisionRequirementsId,
-          c7DecisionDefinition, resourceName, dmnXml);
-      EntityConversionContext<?, ?> context = createEntityConversionContext(null,
-          DecisionRequirementsDefinition.class, decisionRequirementsDbModelBuilder);
+      DecisionRequirementsDbModel.Builder decisionRequirementsDbModelBuilder = generateBuilderForDrdForC7DefinitionWithoutDrd(
+          c7DecisionDefinitionId, c7DecisionDefinition, resourceName, dmnXml);
+      EntityConversionContext<?, ?> context = createEntityConversionContext(null, DecisionRequirementsDefinition.class,
+          decisionRequirementsDbModelBuilder);
 
       DecisionRequirementsDbModel drdModel = convertDecisionRequirements(context);
 
       decisionRequirementsKey = drdModel.decisionRequirementsKey();
       c8Client.insertDecisionRequirements(drdModel);
-      markMigrated(newDecisionRequirementsId, decisionRequirementsKey, deploymentTime, HISTORY_DECISION_REQUIREMENT);
+      markMigrated(c7DecisionDefinition.getId(), decisionRequirementsKey, deploymentTime, HISTORY_DECISION_REQUIREMENT);
       HistoryMigratorLogs.creatingDecisionRequirementCompleted(c7DecisionDefinitionId);
     }
     return decisionRequirementsKey;
