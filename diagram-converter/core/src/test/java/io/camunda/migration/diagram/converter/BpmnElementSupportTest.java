@@ -155,26 +155,14 @@ public class BpmnElementSupportTest {
     DiagramCheckResult result = loadAndCheck("conditional-events.bpmn");
     return eventTypeTest(
         "Conditional",
-        isNotSupported(result, "ConditionalStartStartEvent", "Conditional Start Event"),
+        isSupported(result, "ConditionalStartStartEvent"),
         null,
-        isNotSupported(result, "ConditionalCatchEvent", "Conditional Intermediate Catch Event"),
+        isSupported(result, "ConditionalCatchEvent"),
         null,
-        isNotSupported(
-            result,
-            "ConditionalAttachedBoundaryEvent",
-            "Conditional Boundary Event attached to Task"),
-        isNotSupported(
-            result,
-            "ConditionalAttachedNoninterruptingBoundaryEvent",
-            "Non-interrupting Conditional Boundary Event attached to Task"),
-        isNotSupported(
-            result,
-            "ConditionalEventSubprocesStartStartEvent",
-            "Event Sub Process Conditional Start Event"),
-        isNotSupported(
-            result,
-            "ConditionalEventSubprocessStartNoninterruptingStartEvent",
-            "Non-interrupting Event Sub Process Conditional Start Event"));
+        isSupported(result, "ConditionalAttachedBoundaryEvent"),
+        isSupported(result, "ConditionalAttachedNoninterruptingBoundaryEvent"),
+        isSupported(result, "ConditionalEventSubprocesStartStartEvent"),
+        isSupported(result, "ConditionalEventSubprocessStartNoninterruptingStartEvent"));
   }
 
   @TestFactory

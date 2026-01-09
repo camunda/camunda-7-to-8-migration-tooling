@@ -19,6 +19,6 @@ public class ConditionalEventDefinitionVisitor extends AbstractEventDefinitionVi
 
   @Override
   protected SemanticVersion availableFrom(DomElementVisitorContext context) {
-    return null;
+    return SemanticVersion._8_9;
   }
 }
