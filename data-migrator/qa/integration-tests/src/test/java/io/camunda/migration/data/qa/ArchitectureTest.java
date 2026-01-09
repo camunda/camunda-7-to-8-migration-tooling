@@ -82,6 +82,7 @@ class ArchitectureTest {
     classes()
         .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
+        .and().areNotRecords() // Exclude records, which have private fields by design
         .should(notHavePrivateFields())
         .allowEmptyShould(true)
         .because("Fields should use protected or package-protected visibility instead of private " +
