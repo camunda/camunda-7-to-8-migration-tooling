@@ -31,8 +31,8 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   public void shouldMigrateProcessDefinitionsDeployedBetweenRuns() {
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    Supplier<List<ProcessDefinitionEntity>> definitionSupplier = () -> searchHistoricProcessDefinitions(
-        "simpleStartEndProcessId");
+    Supplier<List<ProcessDefinitionEntity>> definitionSupplier =
+        () -> searchHistoricProcessDefinitions("simpleStartEndProcessId");
 
     // when
     historyMigrator.migrate();
@@ -70,7 +70,8 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   public void shouldMigrateDecisionDefinitionsDeployedBetweenRuns() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
-    Supplier<List<DecisionDefinitionEntity>> definitionSupplier = () -> searchHistoricDecisionDefinitions("simpleDecisionId");
+    Supplier<List<DecisionDefinitionEntity>> definitionSupplier =
+        () -> searchHistoricDecisionDefinitions("simpleDecisionId");
 
     // when
     historyMigrator.migrate();
@@ -109,8 +110,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
     runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
-    Supplier<List<ProcessInstanceEntity>> instanceSupplier = () -> searchHistoricProcessInstances(
-        "simpleStartEndProcessId");
+    Supplier<List<ProcessInstanceEntity>> instanceSupplier = () -> searchHistoricProcessInstances("simpleStartEndProcessId");
 
     // when
     historyMigrator.migrate();
@@ -154,7 +154,8 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
     completeAllUserTasksWithDefaultUserTaskId();
-    Supplier<List<ProcessInstanceEntity>> instanceSupplier = () -> searchHistoricProcessInstances("userTaskProcessId");
+    Supplier<List<ProcessInstanceEntity>> instanceSupplier =
+        () -> searchHistoricProcessInstances("userTaskProcessId");
 
     // when
     historyMigrator.migrate();
@@ -206,8 +207,8 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("multipleSignalProcess.bpmn");
     runtimeService.startProcessInstanceByKey("multipleSignalProcessId");
     runtimeService.signalEventReceived("signalRef1");
-    Supplier<List<ProcessInstanceEntity>> proceInstSupplier = () -> searchHistoricProcessInstances(
-        "multipleSignalProcessId");
+    Supplier<List<ProcessInstanceEntity>> proceInstSupplier =
+        () -> searchHistoricProcessInstances("multipleSignalProcessId");
     Function<Long, List<FlowNodeInstanceEntity>> flownodeSupplier = procInstanceKey -> searchHistoricFlowNodesForType(
         procInstanceKey, INTERMEDIATE_CATCH_EVENT);
 
@@ -264,7 +265,8 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     String instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
     triggerIncident(instanceId);
-    Supplier<List<IncidentEntity>> incidentSupplier = () -> searchHistoricIncidents("incidentProcessId");
+    Supplier<List<IncidentEntity>> incidentSupplier =
+        () -> searchHistoricIncidents("incidentProcessId");
 
     // when
     historyMigrator.migrate();

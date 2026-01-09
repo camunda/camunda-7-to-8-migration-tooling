@@ -94,7 +94,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
 
   protected void assertThatProcessInstanceCountIsEqualTo(int expected) {
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
+      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
     });
   }
 

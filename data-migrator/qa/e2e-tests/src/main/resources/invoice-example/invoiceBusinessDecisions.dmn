@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:camunda="http://camunda.org/schema/1.0/dmn" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.2.1-SNAPSHOT" expressionLanguage="https://www.omg.org/spec/DMN/20191111/FEEL/" id="invoiceBusinessDecisions" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.7.0" name="Invoice Business Decisions" namespace="http://camunda.org/schema/1.0/dmn" typeLanguage="https://www.omg.org/spec/DMN/20191111/FEEL/">
+  <decision id="invoiceClassification" name="Invoice Classification">
+    <extensionElements>
+      <conversion:message severity="INFO">Unused attribute 'historyTimeToLive' on 'decision' is removed.</conversion:message>
+    </extensionElements>
+    <decisionTable hitPolicy="UNIQUE" id="decisionTable" preferredOrientation="Rule-as-Row">
+      <input camunda:inputVariable="" id="clause1" label="Invoice Amount">
+        <inputExpression id="inputExpression1" typeRef="number">
+          <extensionElements>
+            <conversion:message severity="REVIEW">Only type 'number' is supported on number types. Please review the rules.</conversion:message>
+          </extensionElements>
+          <text>amount</text>
+        </inputExpression>
+      </input>
+      <input camunda:inputVariable="" id="InputClause_15qmk0v" label="Invoice Category">
+        <inputExpression id="LiteralExpression_1oi86cw" typeRef="string">
+          <text>invoiceCategory</text>
+        </inputExpression>
+        <inputValues id="UnaryTests_0kisa67">
+          <text>"Travel Expenses","Misc","Software License Costs"</text>
+        </inputValues>
+      </input>
+      <output id="clause3" label="Classification" name="invoiceClassification" typeRef="string">
+        <outputValues id="UnaryTests_08dl8wf">
+          <text>"day-to-day expense","budget","exceptional"</text>
+        </outputValues>
+      </output>
+      <rule id="DecisionRule_1of5a87">
+        <inputEntry id="LiteralExpression_0yrqmtg">
+          <text>&lt; 250</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_06edsin">
+          <text>"Misc"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_046antl">
+          <text>"day-to-day expense"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1ak4z14">
+        <inputEntry id="LiteralExpression_0qmsef6">
+          <text>[250..1000]</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_09b743h">
+          <text>"Misc"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_05xxvip">
+          <text>"budget"</text>
+        </outputEntry>
+      </rule>
+      <rule id="row-49839158-4">
+        <inputEntry id="UnaryTests_0le0gl8">
+          <text>&gt; 1000</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0pukamj">
+          <text>"Misc"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1e76ugx">
+          <text>"exceptional"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_0cuxolz">
+        <inputEntry id="LiteralExpression_05lyjk7">
+          <extensionElements>
+            <conversion:message severity="REVIEW">Text field: Please review transformed expression: '' -&gt; 'null'.</conversion:message>
+          </extensionElements>
+          <text/>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0ve4z34">
+          <text>"Travel Expenses"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1bq8m03">
+          <text>"day-to-day expense"</text>
+        </outputEntry>
+      </rule>
+      <rule id="row-49839158-2">
+        <inputEntry id="UnaryTests_1nssdlk">
+          <extensionElements>
+            <conversion:message severity="REVIEW">Text field: Please review transformed expression: '' -&gt; 'null'.</conversion:message>
+          </extensionElements>
+          <text/>
+        </inputEntry>
+        <inputEntry id="UnaryTests_01ppb4l">
+          <text>"Software License Costs"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0y00iih">
+          <text>"budget"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="invoice-assign-approver" name="Assign Approver Group">
+    <extensionElements>
+      <conversion:message severity="INFO">Unused attribute 'historyTimeToLive' on 'decision' is removed.</conversion:message>
+    </extensionElements>
+    <informationRequirement id="InformationRequirement_1kkeocv">
+      <requiredDecision href="#invoiceClassification"/>
+    </informationRequirement>
+    <decisionTable hitPolicy="COLLECT" id="DecisionTable_16o85h8" preferredOrientation="Rule-as-Row">
+      <input camunda:inputVariable="" id="InputClause_0og2hn3" label="Invoice Classification">
+        <inputExpression id="LiteralExpression_1vywt5q" typeRef="string">
+          <text>invoiceClassification</text>
+        </inputExpression>
+        <inputValues id="UnaryTests_0by7qiy">
+          <text>"day-to-day expense","budget","exceptional"</text>
+        </inputValues>
+      </input>
+      <output id="OutputClause_1cthd0w" label="Approver Group" name="result" typeRef="string">
+        <outputValues id="UnaryTests_1ulmk9p">
+          <text>"management","accounting","sales"</text>
+        </outputValues>
+      </output>
+      <rule id="row-49839158-1">
+        <inputEntry id="UnaryTests_18ifczd">
+          <text>"day-to-day expense"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0sgxulk">
+          <text>"accounting"</text>
+        </outputEntry>
+      </rule>
+      <rule id="row-49839158-6">
+        <inputEntry id="UnaryTests_0kfae8g">
+          <text>"day-to-day expense"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1iksrro">
+          <text>"sales"</text>
+        </outputEntry>
+      </rule>
+      <rule id="row-49839158-5">
+        <inputEntry id="UnaryTests_08cevwi">
+          <text>"budget", "exceptional"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0c7hz8g">
+          <text>"management"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_1cuuevk">
+      <dmndi:DMNShape dmnElementRef="invoiceClassification" id="DMNShape_1abvt5s" isCollapsed="false">
+        <dc:Bounds height="55" width="100" x="393" y="325"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape dmnElementRef="invoice-assign-approver" id="DMNShape_1ay7af5" isCollapsed="false">
+        <dc:Bounds height="55" width="100" x="464" y="194"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge dmnElementRef="InformationRequirement_1kkeocv" id="DMNEdge_1wn1950">
+        <di:waypoint x="458" y="325"/>
+        <di:waypoint x="498" y="249"/>
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

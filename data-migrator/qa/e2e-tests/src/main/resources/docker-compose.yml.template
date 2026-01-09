@@ -7,7 +7,7 @@ services:
       - "8090:8080"
     environment:
       - DB_DRIVER=org.postgresql.Driver
-      - DB_URL=jdbc:postgresql://postgres:5432/camunda7
+      - DB_URL=jdbc:postgresql://postgres:5432/camunda
       - DB_USERNAME=camunda
       - DB_PASSWORD=camunda
       - WAIT_FOR=postgres:5432
@@ -43,13 +43,13 @@ services:
   postgres:
     image: postgres:18
     environment:
-      - POSTGRES_DB=camunda7
+      - POSTGRES_DB=camunda
       - POSTGRES_USER=camunda
       - POSTGRES_PASSWORD=camunda
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U camunda -d camunda7"]
+      test: ["CMD-SHELL", "pg_isready -U camunda -d camunda"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -61,12 +61,17 @@ services:
     image: eclipse-temurin:21-jdk
     volumes:
       - ../../assembly/target/camunda-7-to-8-data-migrator-${project.version}.zip:/tmp/migrator.zip:ro
+      - ./src/main/resources/invoice-example:/app/configuration/resources:ro
     working_dir: /app
     environment:
-      - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/camunda7
+      - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/camunda
       - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_USERNAME=camunda
       - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_PASSWORD=camunda
       - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - CAMUNDA_MIGRATOR_C8_DATA_SOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/camunda
+      - CAMUNDA_MIGRATOR_C8_DATA_SOURCE_USERNAME=camunda
+      - CAMUNDA_MIGRATOR_C8_DATA_SOURCE_PASSWORD=camunda
+      - CAMUNDA_MIGRATOR_C8_DATA_SOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - CAMUNDA_MIGRATOR_AUTO_DDL=true
       - CAMUNDA_MIGRATOR_SAVE_SKIP_REASON=true
       - CAMUNDA_CLIENT_MODE=self-managed
@@ -84,6 +89,9 @@ services:
         wget -q https://jdbc.postgresql.org/download/postgresql-42.7.3.jar -O /app/configuration/userlib/postgresql.jar
         echo 'Starting data migration...'
         cd /app
+        ./start.sh --history
+        echo 'Waiting 5 seconds for deployments to become available in Operate...'
+        sleep 5
         ./start.sh --runtime
         echo 'Migration completed - test data ready'
     depends_on:
@@ -95,7 +103,7 @@ services:
       - e2e-network
 
   camunda8: # Consolidated Zeebe + Operate + Tasklist - https://docs.camunda.io/docs/self-managed/setup/deploy/other/docker/#zeebe
-    image: camunda/camunda:8.9.0-alpha1
+    image: camunda/camunda:SNAPSHOT
     container_name: camunda8
     ports:
       - "26500:26500"
@@ -114,39 +122,12 @@ services:
         target: /usr/local/camunda/config/application.yaml
     networks:
       - e2e-network
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-
-  elasticsearch: # https://hub.docker.com/_/elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:${version.elasticsearch}
-    container_name: elasticsearch
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      # allow running with low disk space
-      - cluster.routing.allocation.disk.threshold_enabled=false
-      # Disable noisy deprecation logs, see https://github.com/camunda/camunda/issues/26285
-      - logger.org.elasticsearch.deprecation="OFF"
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cat/health | grep -q green" ]
-      interval: 1s
-      retries: 30
-      start_period: 30s
-      timeout: 1s
-    volumes:
-      - elastic:/usr/share/elasticsearch/data
-    networks:
-      - e2e-network
 
 configs:
   camunda8-config:
     content: |
       management.endpoints.configprops.show-values: always
+      zeebe.broker.exporters.rdbms.classname: io.camunda.exporter.rdbms.RdbmsExporter
       camunda:
         system:
           cpu-thread-count: "3"
@@ -165,17 +146,17 @@ configs:
                 email: "demo@demo.com"
             defaultRoles.admin.users:
               - "demo"
-        database.index.numberOfReplicas: 0 # Single node elasticsearch so we disable replication
         data:
           secondary-storage:
-            type: elasticsearch
-            elasticsearch:
-              cluster-name: elasticsearch
-              url: "http://elasticsearch:9200"
+            type: rdbms
+            rdbms:
+              database-vendor-id: "postgresql"
+              url: "jdbc:postgresql://postgres:5432/camunda"
+              username: "camunda"
+              password: "camunda"
 
 volumes:
   zeebe:
-  elastic:
 
 networks:
   e2e-network:

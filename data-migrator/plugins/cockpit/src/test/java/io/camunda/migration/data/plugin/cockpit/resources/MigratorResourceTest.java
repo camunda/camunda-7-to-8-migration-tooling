@@ -8,7 +8,7 @@
 package io.camunda.migration.data.plugin.cockpit.resources;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -55,7 +55,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
 
     // then - verify migrated records
     assertThat(migratedCount).isEqualTo(2L);
-    assertThat(migratedInstances.size()).isEqualTo(2);
+    assertThat(migratedInstances).hasSize(2);
     assertIdKeyDbModelListsEqual(List.of(expectedMigrated1, expectedMigrated2), migratedInstances);
   }
 
@@ -74,7 +74,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
 
     // then - verify skipped records
     assertThat(skippedCount).isEqualTo(2L);
-    assertThat(skippedInstances.size()).isEqualTo(2);
+    assertThat(skippedInstances).hasSize(2);
     assertIdKeyDbModelListsEqual(List.of(expectedSkipped1, expectedSkipped2), skippedInstances);
   }
 
@@ -98,16 +98,16 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     List<IdKeyDbModel> skippedSecondPage = resource.getSkipped(processInstanceType, 1, 1);
 
     // then - verify pagination results
-    assertThat(migratedSecondPage.size()).isEqualTo(1);
-    assertThat(skippedSecondPage.size()).isEqualTo(1);
+    assertThat(migratedSecondPage).hasSize(1);
+    assertThat(skippedSecondPage).hasSize(1);
 
     // when - test pagination beyond available data
     List<IdKeyDbModel> migratedBeyondData = resource.getMigrated(processInstanceType, 10, 1);
     List<IdKeyDbModel> skippedBeyondData = resource.getSkipped(processInstanceType, 10, 1);
 
     // then - verify empty results for out-of-bounds pagination
-    assertThat(migratedBeyondData.size()).isEqualTo(0);
-    assertThat(skippedBeyondData.size()).isEqualTo(0);
+    assertThat(migratedBeyondData).hasSize(0);
+    assertThat(skippedBeyondData).hasSize(0);
   }
 
   @Test
@@ -124,14 +124,14 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
     // then - verify empty state
     assertThat(migratedCount).isEqualTo(0L);
     assertThat(skippedCount).isEqualTo(0L);
-    assertThat(migratedInstances.size()).isEqualTo(0);
-    assertThat(skippedInstances.size()).isEqualTo(0);
+    assertThat(migratedInstances).hasSize(0);
+    assertThat(skippedInstances).hasSize(0);
   }
 
   protected void assertIdKeyDbModelListsEqual(List<IdKeyDbModel> expected, List<IdKeyDbModel> actual) {
     assertThat(actual).isNotNull();
     assertThat(expected).isNotNull();
-    assertThat(actual.size()).isEqualTo(expected.size());
+    assertThat(actual).hasSize(expected.size());
 
     if (expected.isEmpty()) {
       return;

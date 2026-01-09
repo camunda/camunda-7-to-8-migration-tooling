@@ -42,7 +42,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then: Process definition is migrated
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
+    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(1);
   }
 
   @Test
@@ -62,7 +62,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then: Decision requirements definition exists
-    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId").size()).isEqualTo(1);
+    assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(1);
   }
 
   @Test
@@ -144,12 +144,12 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then only previously skipped entities are migrated
-    assertThat(searchHistoricProcessDefinitions("allElementsProcessId").size()).isEqualTo(1);
+    assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(1);
     processInstances = searchHistoricProcessInstances("allElementsProcessId");
-    assertThat(processInstances.size()).isEqualTo(1);
-    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey()).size()).isEqualTo(1);
-    assertThat(searchHistoricIncidents("allElementsProcessId").size()).isEqualTo(1);
-    assertThat(searchHistoricVariables("userTaskVar").size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
+    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).hasSize(1);
+    assertThat(searchHistoricIncidents("allElementsProcessId")).hasSize(1);
+    assertThat(searchHistoricVariables("userTaskVar")).hasSize(1);
   }
 
   @Test
@@ -179,8 +179,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
     // then only non skipped entities are migrated
     // Assert that 4 process instances were migrated, not 5
-    assertThat(searchHistoricProcessDefinitions("userTaskProcessId").size()).isEqualTo(1);
-    assertThat(searchHistoricProcessInstances("userTaskProcessId").size()).isEqualTo(4);
+    assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(1);
+    assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(4);
   }
 
 }

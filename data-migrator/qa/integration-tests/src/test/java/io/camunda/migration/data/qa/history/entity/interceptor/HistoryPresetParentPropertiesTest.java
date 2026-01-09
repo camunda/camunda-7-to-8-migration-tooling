@@ -39,7 +39,8 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     historyMigrator.migrateProcessInstances();
 
     // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess");
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances("simpleProcess", true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     ProcessInstanceEntity processInstanceEntity = migratedProcessInstances.getFirst();

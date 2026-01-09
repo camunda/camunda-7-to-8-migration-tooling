@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -43,7 +44,7 @@ public class FlowNodeTransformer implements EntityInterceptor {
 
     builder
         .flowNodeId(flowNode.getActivityId())
-        .processDefinitionId(flowNode.getProcessDefinitionKey())
+        .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
         .endDate(convertDate(flowNode.getEndTime()))
         .type(convertType(flowNode.getActivityType()))

@@ -178,7 +178,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       throw new IllegalStateException("CamundaClient is not available in the Spring context");
     }
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items().size()).isEqualTo(expected);
+      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
     });
   }
 }

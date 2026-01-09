@@ -19,8 +19,14 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Cockpit Plugin E2E', () => {
-  
-  test.beforeEach(async ({ page }) => {
+  // Configure this test suite to run in isolation
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeEach(async ({ page, context }) => {
+    // Clear cookies and storage to ensure clean state
+    await context.clearCookies();
+    await context.clearPermissions();
+
     // Navigate to Camunda Cockpit and login
     await page.goto('/camunda/app/cockpit/default/');
     
@@ -57,6 +63,12 @@ test.describe('Cockpit Plugin E2E', () => {
       // The URL might redirect through several pages
       await page.waitForURL('**/cockpit/default/#/dashboard', { timeout: 30000 });
     }
+  });
+
+  test.afterEach(async ({ page, context }) => {
+    // Clean up after each test to prevent state leakage
+    await context.clearCookies();
+    await page.close();
   });
 
   test('should load Camunda Cockpit successfully', async ({ page }) => {
@@ -190,7 +202,7 @@ test.describe('Cockpit Plugin E2E', () => {
 
       // Skip Reason should contain the expected error message
       const skipReason = await cells.nth(2).textContent();
-      expect(skipReason).toContain('No C8 deployment found for process ID [invoice] required for instance with C7 ID');
+      expect(skipReason).toContain('No execution listener of type \'migrator\' found on start event [StartEvent_1]');
     }
 
     // Take a screenshot for verification
