@@ -20,6 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class IdentityAbstractTest extends AbstractMigratorTest {
 
   @Autowired
+  protected IdentityMigrator identityMigrator;
+
+  @Autowired
   protected CamundaClient camundaClient;
 
   @Autowired
@@ -28,12 +31,10 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
   @Autowired
   protected DbClient dbClient;
 
-  @Autowired
-  protected IdentityMigrator identityMigrator;
-
   @AfterEach
   public void cleanup() {
     identityService.createTenantQuery().list().forEach(tenant -> identityService.deleteTenant(tenant.getId()));
     dbClient.deleteAllMappings();
   }
+
 }

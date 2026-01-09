@@ -7,7 +7,10 @@
  */
 package io.camunda.migration.data;
 
+import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.migration.data.exception.MigratorException;
+import io.camunda.migration.data.impl.identity.AuthorizationManager;
+import io.camunda.migration.data.impl.identity.AuthorizationMappingResult;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
@@ -15,6 +18,7 @@ import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import java.util.List;
+import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -33,17 +37,34 @@ public class IdentityMigrator {
   @Autowired
   protected C8Client c8Client;
 
+  @Autowired
+  protected AuthorizationManager authorizationManager;
+
   public void migrate() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
-      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
-      List<Tenant> tenants = c7Client.fetchTenants(latestId);
-      for (Tenant tenant : tenants) {
-        migrateTenant(tenant);
-      }
+      migrateTenants();
+      migrateAuthorizations();
     } finally {
       ExceptionUtils.clearContext();
     }
+  }
+
+  protected void migrateTenants() {
+    String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
+    List<Tenant> tenants = c7Client.fetchTenants(latestId);
+    for (Tenant tenant : tenants) {
+      migrateTenant(tenant);
+    }
+  }
+
+  protected void migrateAuthorizations() {
+    String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
+    List<Authorization> authorizations = c7Client.fetchAuthorizations(latestId);
+    for (Authorization authorization : authorizations) {
+      migrateAuthorization(authorization);
+    }
+
   }
 
   protected void migrateTenant(Tenant tenant) {
@@ -51,14 +72,36 @@ public class IdentityMigrator {
       IdentityMigratorLogs.logMigratingTenant(tenant.getId());
       c8Client.createTenant(tenant);
       IdentityMigratorLogs.logMigratedTenant(tenant.getId());
-      saveRecord(tenant.getId(), DEFAULT_TENANT_KEY); // Tenants do not have keys, we need a value different from null
+      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY); // Tenants do not have keys, we need a value different from null
     } catch (MigratorException e) {
       IdentityMigratorLogs.logSkippedTenant(tenant.getId());
-      saveRecord(tenant.getId(), null);
+      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), null);
     }
   }
 
-  protected void saveRecord(String c7Id, Long c8Key) {
-    dbClient.insert(c7Id, c8Key, IdKeyMapper.TYPE.TENANT);
+  protected void migrateAuthorization(Authorization authorization) {
+    IdentityMigratorLogs.logMigratingAuthorization(authorization.getId());
+    AuthorizationMappingResult authorizationMapping = authorizationManager.mapAuthorization(authorization);
+
+    if (authorizationMapping.isSuccess()) {
+      try {
+        CreateAuthorizationResponse migratedAuthorization = c8Client.createAuthorization(authorization.getId(), authorizationMapping.getC8Authorization());
+        IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
+        saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuthorization.getAuthorizationKey());
+      } catch (MigratorException e) {
+        markAsSkipped(authorization.getId(), e.getMessage());
+      }
+    } else {
+      markAsSkipped(authorization.getId(), authorizationMapping.getReason());
+    }
+  }
+
+  protected void markAsSkipped(String id, String reason) {
+    IdentityMigratorLogs.logSkippedAuthorization(id, reason);
+    saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, id, null);
+  }
+
+  protected void saveRecord(IdKeyMapper.TYPE type, String c7Id, Long c8Key) {
+    dbClient.insert(c7Id, c8Key, type);
   }
 }

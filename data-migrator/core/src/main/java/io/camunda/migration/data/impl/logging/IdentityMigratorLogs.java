@@ -15,9 +15,21 @@ public class IdentityMigratorLogs {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(IdentityMigrator.class);
 
+  // Event log constants
   public static final String MIGRATING_TENANT = "Migrating tenant [{}]";
   public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}]";
   public static final String SKIPPED_TENANT = "Tenant with ID [{}] was skipped";
+  public static final String MIGRATING_AUTH = "Migrating authorization [{}]";
+  public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}]";
+  public static final String SKIPPED_AUTH = "Authorization with ID [{}] was skipped: {}";
+
+  // Failure reasons constants
+  public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
+  public static final String FAILURE_OWNER_NOT_EXISTS = "User or group does not exist in C8";
+  public static final String FAILURE_UNSUPPORTED_RESOURCE_TYPE = "Resource type [%s] is not supported";
+  public static final String FAILURE_UNSUPPORTED_PERMISSION_TYPE = "Permission type [%s] is not supported for resource type [%s]";
+  public static final String FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID = "Specific resource ID [%s] is not supported for resource type [%s], only wildcard is allowed";
+  public static final String FAILURE_UNSUPPORTED_RESOURCE_ID = "Resource ID [%s] is not supported for resource type [%s]";
 
   public static void logMigratingTenant(String tenantId) {
     LOGGER.debug(MIGRATING_TENANT, tenantId);
@@ -29,5 +41,17 @@ public class IdentityMigratorLogs {
 
   public static void logSkippedTenant(String tenantId) {
     LOGGER.warn(SKIPPED_TENANT, tenantId);
+  }
+
+  public static void logMigratingAuthorization(String authId) {
+    LOGGER.debug(MIGRATING_AUTH, authId);
+  }
+
+  public static void logMigratedAuthorization(String authId) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_AUTH, authId);
+  }
+
+  public static void logSkippedAuthorization(String authId, String reason) {
+    LOGGER.warn(SKIPPED_AUTH, authId, reason);
   }
 }
