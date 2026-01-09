@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
+import static io.camunda.search.entities.UserTaskEntity.UserTaskState.CANCELED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
@@ -166,14 +167,14 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
 
     // Check active task
     ProcessInstanceEntity activeProcessInstance = processInstances.stream()
-        .filter(pi -> pi.state() == ProcessInstanceEntity.ProcessInstanceState.ACTIVE)
+        .filter(pi -> pi.state() == ProcessInstanceEntity.ProcessInstanceState.CANCELED)
         .findFirst()
         .orElseThrow();
 
     List<UserTaskEntity> activeUserTasks = searchHistoricUserTasks(activeProcessInstance.processInstanceKey());
     assertThat(activeUserTasks).hasSize(1);
-    assertThat(activeUserTasks.getFirst().state()).isEqualTo(UserTaskEntity.UserTaskState.CREATED);
-    assertThat(activeUserTasks.getFirst().completionDate()).isNull();
+    assertThat(activeUserTasks.getFirst().state()).isEqualTo(CANCELED);
+    assertThat(activeUserTasks.getFirst().completionDate()).isNotNull();
   }
   @Test
   public void shouldMigrateTaskCancelState() {
@@ -238,7 +239,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(completedTask.elementId()).isEqualTo("userTask1");
 
     UserTaskEntity activeTask = userTasks.stream()
-        .filter(ut -> ut.state() == UserTaskEntity.UserTaskState.CREATED)
+        .filter(ut -> ut.state() == CANCELED)
         .findFirst()
         .orElseThrow();
     assertThat(activeTask.assignee()).isEqualTo("user2");

@@ -8,14 +8,16 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
-import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.qa.extension.CleanupExtension;
+import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -23,8 +25,8 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,12 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
+
+  @RegisterExtension
+  RdbmsQueryExtension rdbmsQuery = new RdbmsQueryExtension();
+
+  @RegisterExtension
+  CleanupExtension cleanup = new CleanupExtension(rdbmsQuery);
 
   @Test
   public void shouldMigrateSingleHistoricDecision() {
@@ -502,6 +510,39 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
   }
 
+  @Test
+  public void shouldCalculateCleanupDateForStandaloneDecision() {
+    // given - deploy and evaluate a standalone decision (not triggered by a process)
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+
+    // Evaluate the decision directly without a process instance
+    decisionService.evaluateDecisionTableByKey("simpleDecisionId", java.util.Map.of("inputA", "A"));
+
+    // when - migrate history
+    historyMigrator.migrate();
+
+    // then - verify standalone decision instance has proper cleanup date
+    List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    assertThat(decisionInstances).hasSize(1);
+
+    DecisionInstanceEntity migratedDecision = decisionInstances.getFirst();
+    assertThat(migratedDecision.state()).isEqualTo(DecisionInstanceEntity.DecisionInstanceState.EVALUATED);
+    assertThat(migratedDecision.evaluationDate()).isNotNull();
+
+    // Standalone decisions should not have process context
+    assertThat(migratedDecision.processInstanceKey()).isNull();
+    assertThat(migratedDecision.processDefinitionKey()).isNull();
+
+    // Whitebox test: Query database directly to verify history cleanup date
+    OffsetDateTime cleanupDate = cleanup.getDecisionInstanceCleanupDate(migratedDecision.decisionInstanceKey());
+
+    // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
+    assertThat(cleanupDate)
+        .isNotNull()
+        .as("Cleanup date should be evaluation date + 180 days")
+        .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
+  }
+
   protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
                                                                                                String decisionFileName) {
     deployer.deployCamunda7Decision(decisionFileName);
@@ -559,8 +600,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(instance.decisionInstanceId()).isNotNull();
     assertThat(instance.decisionInstanceKey()).isNotNull();
     assertThat(instance.state()).isEqualTo(EVALUATED);
-    assertThat(instance.evaluationDate()).isEqualTo(
-        OffsetDateTime.ofInstant(evaluationDate.toInstant(), ZoneId.systemDefault()));
+    assertThat(instance.evaluationDate()).isEqualTo(convertDate(evaluationDate));
     assertThat(instance.evaluationFailure()).isNull();
     assertThat(instance.evaluationFailureMessage()).isNull();
     assertThat(instance.flowNodeInstanceKey()).isEqualTo(flowNodeInstanceKey);

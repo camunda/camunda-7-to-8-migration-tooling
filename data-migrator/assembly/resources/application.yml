@@ -65,6 +65,19 @@ camunda:
     ## Find more information about the Cockpit plugin here: https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/cockpit-plugin/
     #save-skip-reason: false
 
+    ## History migration configuration
+    history:
+      # ACTIVE or SUSPENDED C7 instances will be automatically canceled in C8 with end date set to migration date
+      auto-cancel:
+        cleanup:
+          # Whether to populate cleanup dates for auto-canceled entities (default: true)
+          # When false, history cleanup dates will be set to null for all auto-canceled instances
+          enabled: true
+          # Time-to-live for auto-canceled active history records (default: P6M = 6 months)
+          # When cleanup is enabled, cleanup date is calculated as end date + ttl
+          # Accepts ISO-8601 duration format (e.g., P6M for 6 months, P1Y for 1 year, P90D for 90 days)
+          ttl: P6M
+
     ## Camunda 7 configuration
     c7:
       data-source:
