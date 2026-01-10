@@ -24,6 +24,7 @@ import io.camunda.db.rdbms.read.service.GroupDbReader;
 import io.camunda.db.rdbms.read.service.GroupMemberDbReader;
 import io.camunda.db.rdbms.read.service.HistoryDeletionDbReader;
 import io.camunda.db.rdbms.read.service.IncidentDbReader;
+import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByDefinitionDbReader;
 import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByErrorDbReader;
 import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
@@ -469,6 +470,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader(IncidentMapper incidentMapper) {
+    return new IncidentProcessInstanceStatisticsByDefinitionDbReader(incidentMapper);
+  }
+
+  @Bean
   public RdbmsWriterFactory rdbmsWriterFactory(
       @Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory,
       ExporterPositionMapper exporterPositionMapper,
@@ -553,7 +559,8 @@ public class C8Configuration extends AbstractConfiguration {
       ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
       ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
       HistoryDeletionDbReader historyDeletionReader,
-      IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader) {
+      IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
+      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         auditLogReader,
@@ -589,7 +596,8 @@ public class C8Configuration extends AbstractConfiguration {
         processDefinitionInstanceStatisticsDbReader,
         processDefinitionInstanceVersionStatisticsDbReader,
         historyDeletionReader,
-        incidentProcessInstanceStatisticsByErrorDbReader);
+        incidentProcessInstanceStatisticsByErrorDbReader,
+        incidentProcessInstanceStatisticsByDefinitionDbReader);
   }
 
 }
