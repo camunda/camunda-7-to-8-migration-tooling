@@ -45,7 +45,6 @@ public class UserTaskTransformer implements EntityInterceptor {
         .elementId(historicTask.getTaskDefinitionKey())
         .processDefinitionId(prefixDefinitionId(historicTask.getProcessDefinitionKey()))
         .creationDate(convertDate(historicTask.getStartTime()))
-        .completionDate(convertDate(historicTask.getEndTime()))
         .assignee(historicTask.getAssignee())
         .state(convertState(historicTask.getTaskState()))
         .tenantId(getTenantId(historicTask.getTenantId()))
@@ -57,7 +56,6 @@ public class UserTaskTransformer implements EntityInterceptor {
         .candidateUsers(null) //TODO ?
         .externalFormReference(null) //TODO ?
         .customHeaders(null) //TODO ?
-        .historyCleanupDate(convertDate(historicTask.getRemovalTime()))
         .partitionId(C7_HISTORY_PARTITION_ID)
         .name(historicTask.getName());
     // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
@@ -66,10 +64,8 @@ public class UserTaskTransformer implements EntityInterceptor {
   // See TaskEntity.TaskState
   protected UserTaskDbModel.UserTaskState convertState(String state) {
     return switch (state) {
-      case "Init", "Created" -> UserTaskDbModel.UserTaskState.CREATED;
+      case "Init", "Created", "Updated", "Deleted"  -> UserTaskDbModel.UserTaskState.CANCELED;
       case "Completed" -> UserTaskDbModel.UserTaskState.COMPLETED;
-      case "Deleted" -> UserTaskDbModel.UserTaskState.CANCELED;
-      case "Updated" -> UserTaskDbModel.UserTaskState.CREATED;
 
       default -> throw new IllegalArgumentException("Unknown state: " + state);
     };

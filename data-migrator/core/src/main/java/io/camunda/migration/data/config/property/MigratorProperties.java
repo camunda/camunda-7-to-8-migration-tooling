@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.config.property;
 
+import io.camunda.migration.data.config.property.history.HistoryProperties;
 import java.util.List;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -37,6 +38,7 @@ public class MigratorProperties {
 
   protected C7Properties c7;
   protected C8Properties c8;
+  protected HistoryProperties history;
 
   protected List<InterceptorConfig> interceptors;
 
@@ -152,4 +154,13 @@ public class MigratorProperties {
   public void setInterceptors(List<InterceptorConfig> interceptors) {
     this.interceptors = interceptors;
   }
+
+  public HistoryProperties getHistory() {
+    return history;
+  }
+
+  public void setHistory(HistoryProperties history) {
+    this.history = history;
+  }
+
 }

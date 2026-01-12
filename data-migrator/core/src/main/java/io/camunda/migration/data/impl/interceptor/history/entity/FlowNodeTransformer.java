@@ -46,7 +46,6 @@ public class FlowNodeTransformer implements EntityInterceptor {
         .flowNodeId(flowNode.getActivityId())
         .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
-        .endDate(convertDate(flowNode.getEndTime()))
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(determineState(flowNode))
@@ -58,7 +57,7 @@ public class FlowNodeTransformer implements EntityInterceptor {
 
   protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance flowNode) {
     if (flowNode.getEndTime() == null) {
-      return null;
+      return FlowNodeInstanceEntity.FlowNodeState.TERMINATED; // Active nodes are auto-cancelled in C8
     }
     return flowNode.isCanceled() ?
         FlowNodeInstanceEntity.FlowNodeState.TERMINATED :

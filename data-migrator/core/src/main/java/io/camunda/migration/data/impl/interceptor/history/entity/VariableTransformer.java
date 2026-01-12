@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -52,8 +51,7 @@ public class VariableTransformer implements EntityInterceptor {
         .value(variableService.convertValue(historicVariable))
         .processDefinitionId(prefixDefinitionId(historicVariable.getProcessDefinitionKey()))
         .tenantId(getTenantId(historicVariable.getTenantId()))
-        .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID)
-        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()));
+        .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID);
     // Note: processInstanceKey and scopeKey are set externally
   }
 

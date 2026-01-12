@@ -10,6 +10,7 @@ package io.camunda.migration.data;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migration.data.config.property.history.CleanupProperties.DEFAULT_TTL;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
@@ -52,6 +53,7 @@ import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
+import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
@@ -63,11 +65,17 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.Period;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +86,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -102,6 +111,13 @@ public class HistoryMigrator {
 
   @Autowired
   protected C8Client c8Client;
+
+  // Properties
+
+  @Autowired
+  protected MigratorProperties migratorProperties;
+
+  // Converters
 
   @Autowired
   protected EntityConversionService entityConversionService;
@@ -159,7 +175,7 @@ public class HistoryMigrator {
         migrateProcessDefinition(historicProcessDefinition);
       });
     } else {
-      c7Client.fetchAndHandleProcessDefinitions(this::migrateProcessDefinition, dbClient.findLatestCreateTimeByType((HISTORY_PROCESS_DEFINITION)));
+      c7Client.fetchAndHandleProcessDefinitions(this::migrateProcessDefinition, dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_DEFINITION));
     }
   }
 
@@ -204,7 +220,7 @@ public class HistoryMigrator {
         migrateProcessInstance(historicProcessInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricProcessInstances(this::migrateProcessInstance, dbClient.findLatestCreateTimeByType((HISTORY_PROCESS_INSTANCE)));
+      c7Client.fetchAndHandleHistoricProcessInstances(this::migrateProcessInstance, dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_INSTANCE));
     }
   }
 
@@ -261,6 +277,17 @@ public class HistoryMigrator {
             parentProcessInstanceKey = parentInstance.processInstanceKey();
           }
         }
+        OffsetDateTime historyCleanupDate = calculateHistoryCleanupDate(
+            c7ProcessInstance.getState(),
+            c7ProcessInstance.getEndTime(),
+            c7ProcessInstance.getRemovalTime());
+        OffsetDateTime endDate = calculateEndDate(
+            c7ProcessInstance.getState(),
+            c7ProcessInstance.getEndTime());
+
+        processInstanceDbModelBuilder
+            .historyCleanupDate(historyCleanupDate)
+            .endDate(endDate);
         if (parentProcessInstanceKey != null || c7SuperProcessInstanceId == null) {
           processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
           dbModel = convertProcessInstance(context);
@@ -373,7 +400,7 @@ public class HistoryMigrator {
       });
     } else {
       c7Client.fetchAndHandleDecisionDefinitions(this::migrateDecisionDefinition,
-          dbClient.findLatestCreateTimeByType((HISTORY_DECISION_DEFINITION)));
+          dbClient.findLatestCreateTimeByType(HISTORY_DECISION_DEFINITION));
     }
   }
 
@@ -406,7 +433,6 @@ public class HistoryMigrator {
             new DecisionDefinitionDbModel.DecisionDefinitionDbModelBuilder();
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7DecisionDefinition,
             DecisionDefinition.class, decisionDefinitionDbModelBuilder);
-        decisionDefinitionDbModelBuilder.decisionRequirementsId(c7DecisionDefinition.getDecisionRequirementsDefinitionKey());
 
         if (c7DecisionDefinition.getDecisionRequirementsDefinitionId() != null) {
           decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(c7DecisionDefinition.getDecisionRequirementsDefinitionId(),
@@ -589,6 +615,9 @@ public class HistoryMigrator {
               decisionInstanceDbModelBuilder.flowNodeId(flowNode.flowNodeId());
             }
           }
+
+          decisionInstanceDbModelBuilder
+              .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7DecisionInstance.getRemovalTime()));
         }
 
         // Generate decision instance key and finalize model
@@ -640,7 +669,8 @@ public class HistoryMigrator {
               .rootDecisionDefinitionKey(parentDecisionDefinitionKey)
               .flowNodeInstanceKey(c8ParentDecisionInstanceModel.flowNodeInstanceKey())
               .flowNodeId(c8ParentDecisionInstanceModel.flowNodeId())
-              .decisionType(determineDecisionType(dmnModelInstance, childDecisionInstance.getDecisionDefinitionKey()));
+              .decisionType(determineDecisionType(dmnModelInstance, childDecisionInstance.getDecisionDefinitionKey()))
+              .historyCleanupDate(c8ParentDecisionInstanceModel.historyCleanupDate());
           DecisionInstanceDbModel childDbModel = convertDecisionInstance(context);
           c8Client.insertDecisionInstance(childDbModel);
         } catch (EntityInterceptorException e) {
@@ -709,7 +739,7 @@ public class HistoryMigrator {
         migrateIncident(historicIncident);
       });
     } else {
-      c7Client.fetchAndHandleHistoricIncidents(this::migrateIncident, dbClient.findLatestCreateTimeByType((HISTORY_INCIDENT)));
+      c7Client.fetchAndHandleHistoricIncidents(this::migrateIncident, dbClient.findLatestCreateTimeByType(HISTORY_INCIDENT));
     }
   }
 
@@ -752,11 +782,11 @@ public class HistoryMigrator {
             Long processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
             Long jobDefinitionKey = null; // TODO Job table doesn't exist yet.
 
-
             incidentDbModelBuilder
                 .processDefinitionKey(processDefinitionKey)
                 .jobKey(jobDefinitionKey)
-                .flowNodeInstanceKey(flowNodeInstanceKey);
+                .flowNodeInstanceKey(flowNodeInstanceKey)
+                .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
 
             IncidentDbModel dbModel = convertIncident(context);
             insertIncident(c7Incident, dbModel, c7IncidentId);
@@ -850,8 +880,7 @@ public class HistoryMigrator {
 
       try {
         VariableDbModel.VariableDbModelBuilder variableDbModelBuilder = new VariableDbModel.VariableDbModelBuilder();
-        EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class,
-            variableDbModelBuilder);
+        EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class, variableDbModelBuilder);
 
         // Handle task-scoped variables
         String taskId = c7Variable.getTaskId();
@@ -881,7 +910,8 @@ public class HistoryMigrator {
             variableDbModelBuilder.scopeKey(scopeKey);
           }
         }
-
+        OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
+        variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
         processVariableConversion(c7Variable, context, c7VariableId);
       } catch (EntityInterceptorException | VariableInterceptorException e) {
         handleInterceptorException(c7VariableId, HISTORY_VARIABLE, c7Variable.getCreateTime(), e);
@@ -935,7 +965,7 @@ public class HistoryMigrator {
         migrateUserTask(historicTaskInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricUserTasks(this::migrateUserTask, dbClient.findLatestCreateTimeByType((HISTORY_USER_TASK)));
+      c7Client.fetchAndHandleHistoricUserTasks(this::migrateUserTask, dbClient.findLatestCreateTimeByType(HISTORY_USER_TASK));
     }
   }
 
@@ -979,8 +1009,14 @@ public class HistoryMigrator {
             userTaskDbModelBuilder.processDefinitionKey(processDefinitionKey)
                 .elementInstanceKey(elementInstanceKey);
 
+            OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7UserTask.getRemovalTime());
+            OffsetDateTime completionDate = calculateCompletionDateForChild(processInstance.endDate(), c7UserTask.getEndTime());
+            userTaskDbModelBuilder
+                .historyCleanupDate(historyCleanupDate)
+                .completionDate(completionDate);
             UserTaskDbModel dbModel = convertUserTask(context);
             insertUserTask(c7UserTask, dbModel, c7UserTaskId);
+            HistoryMigratorLogs.migratingHistoricUserTaskCompleted(c7UserTaskId);
           } else {
             UserTaskDbModel dbModel = convertUserTask(context);
             if (dbModel.elementInstanceKey() == null) {
@@ -1030,7 +1066,7 @@ public class HistoryMigrator {
         migrateFlowNode(historicActivityInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricFlowNodes(this::migrateFlowNode, dbClient.findLatestCreateTimeByType((HISTORY_FLOW_NODE)));
+      c7Client.fetchAndHandleHistoricFlowNodes(this::migrateFlowNode, dbClient.findLatestCreateTimeByType(HISTORY_FLOW_NODE));
     }
   }
 
@@ -1077,7 +1113,9 @@ public class HistoryMigrator {
 
           flowNodeDbModelBuilder.processInstanceKey(processInstanceKey)
               .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
-              .processDefinitionKey(processDefinitionKey);
+              .processDefinitionKey(processDefinitionKey)
+              .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
+              .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
 
           Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(), processInstanceKey);
           if (flowNodeScopeKey == null) {
@@ -1363,6 +1401,121 @@ public class HistoryMigrator {
     } else {
       return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
     }
+  }
+
+  /**
+   * Calculates the history cleanup date for an entity based on its state and endDate.
+   * Only calculates a new cleanup date when C7 removalTime is null.
+   * For entities with existing removalTime, uses that value directly.
+   *
+   * @param c7State the C7 state of the entity
+   * @param c7EndDate the C7 end date (null if still active)
+   * @param c7RemovalTime the C7 removal time
+   * @return the calculated history cleanup date
+   */
+  protected OffsetDateTime calculateHistoryCleanupDate(String c7State, Date c7EndDate, Date c7RemovalTime) {
+    // If C7 already has a removalTime, use it directly
+    if (c7RemovalTime != null) {
+      return convertDate(c7RemovalTime);
+    }
+
+    // Only calculate cleanup date when removalTime is null
+    // For active entities in C7, calculate cleanup date based on now + TTL
+    if (c7EndDate == null) {
+      Period ttl = getAutoCancelTtl();
+      // If TTL is null or zero, auto-cancel is disabled - return null for cleanup date
+      if (ttl == null || ttl.isZero()) {
+        return null;
+      }
+      OffsetDateTime now = convertDate(ClockUtil.now());
+      return now.plus(ttl);
+    }
+
+    // No removalTime and not active - return null
+    return null;
+  }
+
+  /**
+   * Calculates the history cleanup date for child entities (flow nodes, variables, etc.)
+   * based on the parent ProcessInstance's endDate.
+   * Only calculates when the parent ProcessInstance has no removalTime.
+   *
+   * @param processInstanceEndDate the endDate from the parent ProcessInstanceEntity
+   * @param c7RemovalTime the C7 removal time of the child entity
+   * @return the calculated history cleanup date, or null if auto-cancel TTL is disabled
+   */
+  protected OffsetDateTime calculateHistoryCleanupDateForChild(OffsetDateTime processInstanceEndDate, Date c7RemovalTime) {
+    // If C7 already has a removalTime, use it directly
+    if (c7RemovalTime != null) {
+      return convertDate(c7RemovalTime);
+    }
+
+    Period ttl = getAutoCancelTtl();
+    // If TTL is null or zero, auto-cancel is disabled - return null for cleanup date
+    if (ttl == null || ttl.isZero()) {
+      return null;
+    }
+    return processInstanceEndDate.plus(ttl);
+  }
+
+  /**
+   * Calculates the completion/end date for child entities.
+   * For entities that don't have an end date, inherit the parent process instance's end date.
+   *
+   * @param processInstanceEndDate the parent process instance's end date
+   * @param c7EndDate the C7 entity's end date
+   * @return the completion date to use (processInstanceEndDate if null, original if set)
+   */
+  protected OffsetDateTime calculateCompletionDateForChild(OffsetDateTime processInstanceEndDate, Date c7EndDate) {
+    if (c7EndDate == null) {
+      // Inherit the parent process instance's end date
+      return processInstanceEndDate;
+    }
+    return convertDate(c7EndDate);
+  }
+
+  /**
+   * Determines if the entity should have endDate set to now when converting to C8.
+   *
+   * @param c7State the C7 state
+   * @param c7EndDate the C7 end date
+   * @return the endDate to use (now if active, original if completed)
+   */
+  protected OffsetDateTime calculateEndDate(String c7State, Date c7EndDate) {
+    if (c7EndDate == null) {
+      return convertDate(ClockUtil.now());
+    }
+    return convertDate(c7EndDate);
+  }
+
+  /**
+   * Gets the configured auto-cancel TTL period.
+   *
+   * @return the configured TTL, or null if cleanup is disabled
+   */
+  protected Period getAutoCancelTtl() {
+    // If history configuration doesn't exist, use default
+    if (migratorProperties.getHistory() == null) {
+      return DEFAULT_TTL;
+    }
+
+    // If auto-cancel configuration doesn't exist, use default
+    if (migratorProperties.getHistory().getAutoCancel() == null) {
+      return DEFAULT_TTL;
+    }
+
+    // If cleanup configuration doesn't exist, use default
+    if (migratorProperties.getHistory().getAutoCancel().getCleanup() == null) {
+      return DEFAULT_TTL;
+    }
+
+    // Check if cleanup is explicitly disabled
+    if (!migratorProperties.getHistory().getAutoCancel().getCleanup().isEnabled()) {
+      return null;
+    }
+
+    // Return configured TTL (will have default of 180 days if not set)
+    return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
   }
 
 }
