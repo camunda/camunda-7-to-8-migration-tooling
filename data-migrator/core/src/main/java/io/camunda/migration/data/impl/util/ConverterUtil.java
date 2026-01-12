@@ -34,7 +34,6 @@ public class ConverterUtil {
   }
 
   /**
-   *
    * C7 stores timestamps WITHOUT timezone (wall-clock time only).
    * When JDBC reads these timestamps, it incorrectly interprets them as being in the JVM's timezone
    * and converts them to UTC. We need to undo this interpretation to preserve the original wall-clock time.

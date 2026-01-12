@@ -130,5 +130,5 @@ public class CleanupExtension implements Extension {
   public List<OffsetDateTime> getVariableCleanupDates(Long processInstanceKey) {
     return queryCleanupDates("VARIABLE", "PROCESS_INSTANCE_KEY", processInstanceKey);
   }
-}
 
+}

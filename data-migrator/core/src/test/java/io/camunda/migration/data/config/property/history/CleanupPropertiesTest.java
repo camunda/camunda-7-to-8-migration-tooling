@@ -70,4 +70,3 @@ class CleanupPropertiesTest {
     assertThat(properties.getTtl()).isNull();
   }
 }
-

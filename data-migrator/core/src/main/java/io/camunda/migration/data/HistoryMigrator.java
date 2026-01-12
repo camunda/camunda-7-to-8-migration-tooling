@@ -1493,7 +1493,7 @@ public class HistoryMigrator {
    *
    * @return the configured TTL, or null if cleanup is disabled
    */
-  protected Period getAutoCancelTtl() {// 6 months default
+  protected Period getAutoCancelTtl() {
     // If history configuration doesn't exist, use default
     if (migratorProperties.getHistory() == null) {
       return DEFAULT_TTL;
@@ -1517,6 +1517,5 @@ public class HistoryMigrator {
     // Return configured TTL (will have default of 180 days if not set)
     return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
   }
-
 
 }

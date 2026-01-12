@@ -211,5 +211,5 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
     Integer count = queryForObject(sql, Integer.class, args);
     return count != null ? count : 0;
   }
-}
 
+}

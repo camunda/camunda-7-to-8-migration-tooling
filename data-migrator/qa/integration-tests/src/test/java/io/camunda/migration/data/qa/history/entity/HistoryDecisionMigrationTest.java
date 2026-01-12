@@ -538,7 +538,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
     assertThat(cleanupDate)
-        .isNotNull()
         .as("Cleanup date should be evaluation date + 180 days")
         .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
   }

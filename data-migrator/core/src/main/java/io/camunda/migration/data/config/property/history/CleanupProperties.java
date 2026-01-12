@@ -15,7 +15,7 @@ import java.time.Period;
  */
 public class CleanupProperties {
 
-  public static Period DEFAULT_TTL = Period.ofDays(180); // 6 months default
+  public static final Period DEFAULT_TTL = Period.ofDays(180); // 6 months default
 
   /**
    * Whether to populate cleanup dates for auto-canceled entities.

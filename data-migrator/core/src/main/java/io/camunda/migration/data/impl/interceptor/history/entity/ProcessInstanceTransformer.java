@@ -59,14 +59,17 @@ public class ProcessInstanceTransformer implements EntityInterceptor {
         .partitionId(C7_HISTORY_PARTITION_ID);
   }
 
+  /**
+   * Active/suspended instances are auto-canceled in C8.
+   * Externally/internally terminated instances are also represented as CANCELED.
+   */
   protected ProcessInstanceState convertState(String state) {
     return switch (state) {
-      case "ACTIVE", "SUSPENDED", "EXTERNALLY_TERMINATED", "INTERNALLY_TERMINATED" -> ProcessInstanceState.CANCELED; // Active/suspended instances are auto-canceled in C8
+      case "ACTIVE", "SUSPENDED", "EXTERNALLY_TERMINATED", "INTERNALLY_TERMINATED" -> ProcessInstanceState.CANCELED;
       case "COMPLETED" -> ProcessInstanceState.COMPLETED;
 
       default -> throw new IllegalArgumentException("Unknown state: " + state);
     };
   }
-
 
 }

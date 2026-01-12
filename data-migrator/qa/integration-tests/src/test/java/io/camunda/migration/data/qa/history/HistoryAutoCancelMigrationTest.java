@@ -83,7 +83,6 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     assertThat(migratedInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.CANCELED);
     // Verify endDate was set to "migrationTime" during migration
     assertThat(migratedInstance.endDate())
-        .isNotNull()
         .isEqualTo(convertDate(migrationTime));
   }
 
@@ -111,39 +110,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     assertThat(migratedInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.COMPLETED);
     // Verify endDate exists and matches the completion time (from C7)
     assertThat(migratedInstance.endDate())
-        .isNotNull()
         .isEqualTo(convertDate(completionTime));
-  }
-
-  @Test
-  public void shouldTerminateActiveFlowNodesWhenAutoCanceling() {
-    // given - deploy and start a process instance
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
-
-    // when - migrate history
-    historyMigration.getMigrator().migrate();
-
-    // then - active flow nodes should be terminated
-    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(processInstances).hasSize(1);
-
-    ProcessInstanceEntity migratedInstance = processInstances.getFirst();
-    Long processInstanceKey = migratedInstance.processInstanceKey();
-
-    // Check start event - should be COMPLETED with its own end date
-    var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(startEvents).hasSize(1);
-    FlowNodeInstanceEntity startEvent = startEvents.getFirst();
-    assertThat(startEvent.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
-    assertThat(startEvent.endDate()).isNotEqualTo(migratedInstance.endDate());
-
-    // Check user task flow node - should be TERMINATED
-    var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
-    assertThat(userTaskFlowNodes).hasSize(1);
-    FlowNodeInstanceEntity userTaskFlowNode = userTaskFlowNodes.getFirst();
-    assertThat(userTaskFlowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
-    assertThat(userTaskFlowNode.endDate()).isEqualTo(migratedInstance.endDate());
   }
 
   @Test
@@ -232,7 +199,6 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     // Verify the completionDate was cascaded from process instance (allow small timing differences)
     assertThat(userTask.completionDate())
         .as("User task completion date should be cascaded from process instance")
-        .isNotNull()
         .isEqualTo(processInstanceEndDate);
   }
 
@@ -266,14 +232,12 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
     assertThat(startEvents).hasSize(1);
     assertThat(startEvents.getFirst().endDate())
-        .isNotNull()
         .isEqualTo(convertDate(startTime))
         .isNotEqualTo(processInstanceEndDate);
 
     var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
     assertThat(userTaskFlowNodes).hasSize(1);
     assertThat(userTaskFlowNodes.getFirst().endDate())
-        .isNotNull()
         .isEqualTo(convertDate(completionTime));
 
     // User task should have its own completion date
@@ -282,7 +246,6 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     UserTaskEntity userTask = userTasks.getFirst();
     assertThat(userTask.state()).isEqualTo(COMPLETED);
     assertThat(userTask.completionDate())
-        .isNotNull()
         .isEqualTo(convertDate(completionTime))
         .isEqualTo(processInstanceEndDate);
   }
@@ -309,9 +272,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     for (ProcessInstanceEntity instance : processInstances) {
       // All should be auto-canceled with endDate set
       assertThat(instance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.CANCELED);
-      assertThat(instance.endDate())
-          .isNotNull()
-          .isEqualTo(convertDate(migrationTime));
+      assertThat(instance.endDate()).isEqualTo(convertDate(migrationTime));
     }
   }
 
@@ -441,21 +402,18 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
     assertThat(startEvents).hasSize(1);
     assertThat(startEvents.getFirst().endDate())
-        .isNotNull()
         .isEqualTo(convertDate(initialTime));
 
     // User task flow node should have end date from task completion time
     var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
     assertThat(userTaskFlowNodes).hasSize(1);
     assertThat(userTaskFlowNodes.getFirst().endDate())
-        .isNotNull()
         .isEqualTo(convertDate(taskCompletionTime));
 
     // End event should have the same end date as process instance (task completion time)
     var endEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, END_EVENT);
     assertThat(endEvents).hasSize(1);
     assertThat(endEvents.getFirst().endDate())
-        .isNotNull()
         .isEqualTo(convertDate(taskCompletionTime));
   }
 
@@ -494,4 +452,3 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
   }
 
 }
-

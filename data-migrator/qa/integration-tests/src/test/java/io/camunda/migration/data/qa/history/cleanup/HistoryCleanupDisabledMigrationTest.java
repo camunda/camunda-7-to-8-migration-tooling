@@ -148,4 +148,3 @@ public class HistoryCleanupDisabledMigrationTest extends AbstractMigratorTest {
     }
   }
 }
-

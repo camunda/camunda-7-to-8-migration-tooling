@@ -104,7 +104,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     assertThat(migratedInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.CANCELED);
     // Verify endDate was set to "startTime" during migration
     assertThat(migratedInstance.endDate())
-        .isNotNull()
         .isEqualTo(convertDate(migrationTime));
 
     // Whitebox test: Query database directly to verify history cleanup date
@@ -142,7 +141,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     assertThat(migratedInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.COMPLETED);
     // Verify endDate exists and matches the completion time (from C7)
     assertThat(migratedInstance.endDate())
-        .isNotNull()
         .isEqualTo(convertDate(completionTime));
   }
 
@@ -218,7 +216,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     // Verify cleanup date exists and is properly calculated (completionDate + 30 days)
     assertThat(userTaskCleanupDate)
         .as("User task should have history cleanup date")
-        .isNotNull()
         .isEqualTo(processInstanceEndDate.plusDays(30));
   }
 
@@ -286,7 +283,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
       // Verify cleanup date is calculated as completionDate + 30 days
       assertThat(utCleanupDate)
           .as("User task should have history cleanup date")
-          .isNotNull()
           .isEqualTo(piCleanupDate);
     }
 
@@ -298,10 +294,8 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
       // Variables inherit cleanup date from process instance
       assertThat(varCleanupDate)
           .as("Variable cleanup date should match process instance cleanup date")
-          .isNotNull()
           .isEqualTo(piCleanupDate);
     }
   }
 
 }
-

@@ -73,9 +73,9 @@ camunda:
           # Whether to populate cleanup dates for auto-canceled entities (default: true)
           # When false, history cleanup dates will be set to null for all auto-canceled instances
           enabled: true
-          # Time-to-live for auto-canceled active history records (default: P6M = 6 months)
+          # Time-to-live for auto-canceled active history records (example: P6M ≈ 6 calendar months)
           # When cleanup is enabled, cleanup date is calculated as end date + ttl
-          # Accepts ISO-8601 duration format (e.g., P6M for 6 months, P1Y for 1 year, P90D for 90 days)
+          # Accepts ISO-8601 duration format (e.g., P6M for 6 calendar months, P1Y for 1 year, P90D for 90 days)
           ttl: P6M
 
     ## Camunda 7 configuration
