@@ -484,8 +484,7 @@ public class C8Configuration extends AbstractConfiguration {
       BatchOperationMapper batchOperationMapper,
       MessageSubscriptionMapper messageSubscriptionMapper,
       CorrelatedMessageSubscriptionMapper correlatedMessageMapper,
-      ClusterVariableMapper clusterVariableMapper,
-      HistoryDeletionMapper historyDeletionMapper) {
+      ClusterVariableMapper clusterVariableMapper) {
     return new RdbmsWriterFactory(
         c8SqlSessionFactory,
         exporterPositionMapper,
@@ -507,8 +506,7 @@ public class C8Configuration extends AbstractConfiguration {
         batchOperationMapper,
         messageSubscriptionMapper,
         correlatedMessageMapper,
-        clusterVariableMapper,
-        historyDeletionMapper);
+        clusterVariableMapper);
   }
 
   @Bean
