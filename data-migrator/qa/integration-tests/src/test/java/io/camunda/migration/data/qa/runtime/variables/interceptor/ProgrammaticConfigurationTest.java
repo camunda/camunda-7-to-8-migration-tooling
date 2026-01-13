@@ -27,6 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Disable built-in interceptor for controlled testing
@@ -37,7 +39,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
     "camunda.migrator.interceptors[1].enabled=false"
 })
 @ActiveProfiles("programmatic")
-public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ProgrammaticConfigurationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

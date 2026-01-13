@@ -40,10 +40,12 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(locations = "classpath:application-warn.properties")
-class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
+class SkipAndRetryProcessInstancesTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

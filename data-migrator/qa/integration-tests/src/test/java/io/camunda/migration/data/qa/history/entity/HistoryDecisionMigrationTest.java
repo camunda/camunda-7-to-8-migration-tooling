@@ -37,8 +37,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
@@ -204,7 +215,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
 
     assertThat(migratedInstances).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDecisionId",
             now,
@@ -236,7 +247,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     assertThat(migratedDecisions).singleElement();
     assertThat(migratedInstances).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDecisionId",
             now,
@@ -295,7 +306,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(migratedFlowNodeInstances).singleElement();
 
     assertThat(instances1).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs1Id",
             now,
@@ -309,7 +320,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             "outputB", "\"B\""));
 
     assertThat(instances2).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs2Id",
             now,
@@ -345,7 +356,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(migratedDecisions2).singleElement();
 
     assertThat(instances1).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs1Id",
             now,
@@ -359,7 +370,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             "outputB", "\"B\""));
 
     assertThat(instances2).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs2Id",
             now,

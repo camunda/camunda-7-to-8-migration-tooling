@@ -30,9 +30,12 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @SpringBootTest
-public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class GatewayMigrationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

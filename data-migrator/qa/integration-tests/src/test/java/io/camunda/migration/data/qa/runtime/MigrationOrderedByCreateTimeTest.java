@@ -16,8 +16,10 @@ import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-class MigrationOrderedByCreateTimeTest extends RuntimeMigrationAbstractTest {
+class MigrationOrderedByCreateTimeTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

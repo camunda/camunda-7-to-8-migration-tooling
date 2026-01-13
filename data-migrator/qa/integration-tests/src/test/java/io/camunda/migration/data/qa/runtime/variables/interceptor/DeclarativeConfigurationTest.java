@@ -36,10 +36,13 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @ExtendWith(OutputCaptureExtension.class)
 @WithSpringProfile("interceptor")
-public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class DeclarativeConfigurationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

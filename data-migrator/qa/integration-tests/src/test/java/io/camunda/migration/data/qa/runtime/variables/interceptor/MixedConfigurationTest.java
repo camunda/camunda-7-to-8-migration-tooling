@@ -21,6 +21,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
@@ -34,7 +36,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 })
 @WithSpringProfile("interceptor")
 @ActiveProfiles("programmatic")
-public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class MixedConfigurationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

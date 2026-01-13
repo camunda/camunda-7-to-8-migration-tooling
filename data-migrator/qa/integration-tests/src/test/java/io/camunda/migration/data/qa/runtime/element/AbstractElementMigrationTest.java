@@ -23,9 +23,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public abstract class AbstractElementMigrationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

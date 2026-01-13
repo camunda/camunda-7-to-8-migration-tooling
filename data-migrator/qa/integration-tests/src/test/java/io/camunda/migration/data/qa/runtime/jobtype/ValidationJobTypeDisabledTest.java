@@ -17,11 +17,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type=DISABLED"
 })
-public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ValidationJobTypeDisabledTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

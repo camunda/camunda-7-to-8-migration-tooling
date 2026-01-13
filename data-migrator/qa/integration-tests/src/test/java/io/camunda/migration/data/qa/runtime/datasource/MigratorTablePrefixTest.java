@@ -18,12 +18,15 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.table-prefix=MY_PREFIX_",
     "logging.level.io.camunda.migration.data.impl.persistence.IdKeyMapper=DEBUG"
 })
-public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class MigratorTablePrefixTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

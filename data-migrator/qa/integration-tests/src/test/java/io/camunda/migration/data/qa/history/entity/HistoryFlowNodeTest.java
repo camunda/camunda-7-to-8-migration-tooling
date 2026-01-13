@@ -24,8 +24,19 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryFlowNodeTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
@@ -119,7 +130,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     ProcessInstanceEntity processInstance = processInstances.getFirst();
     Long processInstanceKey = processInstance.processInstanceKey();
     List<FlowNodeInstanceDbModel> flowNodes =
-        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+        historyMigration.searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
 
     assertThat(flowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {
@@ -147,7 +158,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     ProcessInstanceEntity processInstance = processInstances.getFirst();
     Long processInstanceKey = processInstance.processInstanceKey();
     List<FlowNodeInstanceDbModel> flowNodes =
-        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+        historyMigration.searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
     FlowNodeInstanceDbModel subprocessFlowNode = flowNodes.stream()
         .filter(fn -> fn.type() == SUB_PROCESS)
         .findFirst()
@@ -194,7 +205,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     Long childProcessInstanceKey = childProcessInstance.processInstanceKey();
     assertThat(childProcessInstance.parentProcessInstanceKey()).isEqualTo(parentProcessInstance.processInstanceKey());
     List<FlowNodeInstanceDbModel> childFlowNodes =
-        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(childProcessInstanceKey);
+        historyMigration.searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(childProcessInstanceKey);
 
     assertThat(childFlowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : childFlowNodes) {

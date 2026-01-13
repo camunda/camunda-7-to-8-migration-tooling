@@ -18,11 +18,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
-public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ExternalTrafficWithValidationJobTypeTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

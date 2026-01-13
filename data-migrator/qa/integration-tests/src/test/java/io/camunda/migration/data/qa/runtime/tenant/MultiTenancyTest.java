@@ -28,6 +28,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 /**
  * Combined test class for testing multi-tenancy functionality in the migrator.
@@ -48,7 +50,7 @@ public class MultiTenancyTest {
   /**
    * Base class for shared test logic between tenant configuration scenarios
    */
-  abstract static class MultiTenancyTestBase extends RuntimeMigrationAbstractTest {
+  abstract static class MultiTenancyTestBase extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();

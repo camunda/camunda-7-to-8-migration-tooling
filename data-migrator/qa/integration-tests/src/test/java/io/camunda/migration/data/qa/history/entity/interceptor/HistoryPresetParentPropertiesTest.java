@@ -31,6 +31,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.interceptors[0].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.PresetProcessInstanceInterceptor",
@@ -46,7 +51,13 @@ import org.junit.jupiter.api.extension.RegisterExtension;
         + ".PresetUserTaskInterceptor",
     "camunda.migrator.interceptors[6].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
         + ".PresetVariableInterceptor", })
-public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryPresetParentPropertiesTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
@@ -121,7 +132,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
 
     assertThat(migratedInstances).singleElement()
-        .satisfies(instance -> assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 4L, 1L, 2L,
+        .satisfies(instance -> historyMigration.assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 4L, 1L, 2L,
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE, "\"B\"", "inputA", "\"A\"", "outputB",
             "\"B\""));
   }
@@ -137,7 +148,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     historyMigration.getMigrator().migrateFlowNodes();
 
     // then
-    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
+    List<FlowNodeInstanceDbModel> flowNodes = historyMigration.searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
 
     assertThat(flowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {

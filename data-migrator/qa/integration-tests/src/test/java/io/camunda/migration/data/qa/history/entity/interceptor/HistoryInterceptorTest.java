@@ -21,6 +21,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Disable built-in trasformer for controlled testing
@@ -32,7 +37,13 @@ import org.junit.jupiter.api.extension.RegisterExtension;
     "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor",
     "camunda.migrator.interceptors[2].enabled=false" })
 @ActiveProfiles("entity-programmatic")
-public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryInterceptorTest extends AbstractMigratorTest {
 
   @RegisterExtension
   protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
