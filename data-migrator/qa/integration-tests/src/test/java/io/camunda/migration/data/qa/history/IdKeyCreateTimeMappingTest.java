@@ -36,7 +36,7 @@ public class IdKeyCreateTimeMappingTest extends HistoryMigrationAbstractTest {
     Date beforeMigration = new Date();
 
     // When: Run the history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Then: Verify that migrated instances have correct mapping
     IdKeyDbModel migratedInstance = idKeyMapper.findMigratedByType(

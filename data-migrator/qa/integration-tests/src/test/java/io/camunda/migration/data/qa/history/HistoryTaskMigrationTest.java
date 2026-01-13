@@ -28,7 +28,7 @@ public class HistoryTaskMigrationTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");

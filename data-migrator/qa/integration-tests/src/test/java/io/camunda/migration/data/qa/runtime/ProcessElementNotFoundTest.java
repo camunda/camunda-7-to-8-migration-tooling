@@ -30,7 +30,7 @@ public class ProcessElementNotFoundTest extends RuntimeMigrationAbstractTest {
     var c7Instance = runtimeService.startProcessInstanceByKey("userTaskProcessWithMissingUserTaskInC8Id");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     logs.assertContains(

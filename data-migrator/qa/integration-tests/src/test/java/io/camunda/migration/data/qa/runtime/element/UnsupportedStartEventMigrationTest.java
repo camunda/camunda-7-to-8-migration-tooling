@@ -28,7 +28,7 @@ public class UnsupportedStartEventMigrationTest extends RuntimeMigrationAbstract
     runtimeService.correlateMessage("msgRef");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);

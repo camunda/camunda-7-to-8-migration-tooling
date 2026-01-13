@@ -90,7 +90,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
@@ -117,7 +117,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify both process instances and flow nodes were migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
@@ -128,7 +128,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
+        getRdbmsService().getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.tenantIds("complex-tenant"))))

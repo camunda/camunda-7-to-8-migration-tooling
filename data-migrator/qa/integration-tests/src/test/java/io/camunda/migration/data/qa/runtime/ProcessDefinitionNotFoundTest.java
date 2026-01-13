@@ -30,7 +30,7 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     var c7Instance = runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     logs.assertContains(
@@ -50,7 +50,7 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     String missingDefinitionLog = formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR,
@@ -61,7 +61,7 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     assertThat(logCountAfterFirstRun).isEqualTo(1);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then no additional log entry is created
     long logCountAfterSecondRun = logs.getEvents().stream()

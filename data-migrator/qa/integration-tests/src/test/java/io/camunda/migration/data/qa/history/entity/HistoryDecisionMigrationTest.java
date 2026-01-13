@@ -55,7 +55,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
@@ -89,9 +89,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecision() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
     deployer.deployCamunda7Decision("simpleDmn.dmn");
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionDefinition> c7Definitions = repositoryService.createDecisionDefinitionQuery()
@@ -118,7 +118,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
     List<DecisionDefinitionEntity> firstDecision = searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
     List<DecisionDefinitionEntity> secondDecision = searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
     List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
@@ -151,7 +151,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("dish-decision.dmn");
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("dish-decision");
@@ -187,7 +187,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("businessRuleProcessId");
@@ -224,7 +224,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
@@ -255,7 +255,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
@@ -275,7 +275,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         Variables.createVariables().putValue("inputA", stringValue("A")));
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionInstanceEntity> instances1 = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
@@ -329,7 +329,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDmnWithReqs2Id", variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionInstanceEntity> instances1 = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
@@ -377,7 +377,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleLiteralExpressionProcessId");
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("literalExpressionDecisionId");
@@ -395,7 +395,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleMixedTypesProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<DecisionInstanceEntity> decisionTableInstances = searchHistoricDecisionInstances("decisionTableInMixedId");
@@ -517,7 +517,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", java.util.Map.of("inputA", "A"));
 
     // when - migrate history
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then - verify standalone decision instance has proper cleanup date
     List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
@@ -548,7 +548,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), variables);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
     return searchHistoricDecisionInstances(decisionId);
   }
 

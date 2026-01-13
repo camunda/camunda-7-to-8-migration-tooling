@@ -32,10 +32,10 @@ public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    camundaClient.newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
+    getCamundaClient().newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(2);

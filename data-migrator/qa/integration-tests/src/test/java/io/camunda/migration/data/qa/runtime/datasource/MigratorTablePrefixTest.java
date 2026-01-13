@@ -36,7 +36,7 @@ public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
     runtimeService.correlateMessage("msgRef");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);

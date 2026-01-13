@@ -50,7 +50,7 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("noMigratorListener", variables);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     String originalSkipReason = String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR, "migrator", "Event_1px2j50", "noMigratorListener", 1, "migrator");
@@ -60,8 +60,8 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("addedMigratorListenerProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    getRuntimeMigrator().setMode(RETRY_SKIPPED);
+    getRuntimeMigrator().start();
 
     // then
     verifySkippedViaLogs(process, BYTE_ARRAY_UNSUPPORTED_ERROR);
@@ -75,7 +75,7 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     String expectedSkipReason = String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId());
@@ -85,8 +85,8 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    getRuntimeMigrator().setMode(RETRY_SKIPPED);
+    getRuntimeMigrator().start();
 
     // then
     String updatedSkipReason = String.format(NO_NONE_START_EVENT_ERROR, "MessageStartEventProcessId", 1);
@@ -101,7 +101,7 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("MessageStartEventProcessId");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -111,8 +111,8 @@ public class SkipReasonUpdateOnRetryTest extends RuntimeMigrationAbstractTest {
     deployer.deployCamunda8Process("messageStartEventProcess.bpmn");
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    getRuntimeMigrator().setMode(RETRY_SKIPPED);
+    getRuntimeMigrator().start();
 
     // then
     verifySkippedViaLogs(process, String.format(NO_C8_DEPLOYMENT_ERROR, "MessageStartEventProcessId", process.getId()));

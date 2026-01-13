@@ -68,7 +68,7 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     String c7WithT2 = runtimeService.startProcessInstanceById(definitionWithTenant2).getId();
 
     try {
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
     } catch (RuntimeMigratorException e) {
       // expected to throw an exception
       assertThat(e.getCause().toString()).contains("user is not authorized");
@@ -81,8 +81,8 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
     deployer.deployCamunda8Process(SIMPLE_PROCESS_BPMN, TENANT_ID_2);
 
-    runtimeMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    runtimeMigrator.start();
+    getRuntimeMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);

@@ -60,7 +60,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    getHistoryMigrator().migrateProcessInstances();
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess", true);
@@ -83,10 +83,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
       taskService.complete(task.getId());
     }
     // Delete the historic calling process instance to simulate missing parent
-    historyService.deleteHistoricProcessInstance(processInstance.getId());
+    getHistoryService().deleteHistoricProcessInstance(processInstance.getId());
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    getHistoryMigrator().migrateProcessInstances();
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId",
@@ -110,7 +110,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
         Variables.createVariables().putValue("inputA", stringValue("A")));
 
     // when
-    historyMigrator.migrateDecisionInstances();
+    getHistoryMigrator().migrateDecisionInstances();
 
     // then: decision instance is migrated
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
@@ -129,7 +129,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrateFlowNodes();
+    getHistoryMigrator().migrateFlowNodes();
 
     // then
     List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
@@ -149,12 +149,12 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = historyService.createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    historyMigrator.migrateUserTasks();
+    getHistoryMigrator().migrateUserTasks();
 
     // then
     List<UserTaskEntity> userTasks = searchHistoricUserTasks(2L);
@@ -180,7 +180,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     taskService.complete(task.getId());
 
     // when
-    historyMigrator.migrateVariables();
+    getHistoryMigrator().migrateVariables();
 
     // then
     List<VariableEntity> c8Variables = searchHistoricVariables("stringVar");
@@ -210,7 +210,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // when
-    historyMigrator.migrateIncidents();
+    getHistoryMigrator().migrateIncidents();
 
     // then
     List<IncidentEntity> incidents = searchHistoricIncidents("failingServiceTaskProcessId");

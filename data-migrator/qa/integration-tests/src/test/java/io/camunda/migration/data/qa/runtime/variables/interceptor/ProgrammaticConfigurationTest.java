@@ -71,7 +71,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(disabledInterceptors).isEqualTo(0); // Should be removed from context when disabled
 
     // Run migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // Verify primitive variable was processed by our test interceptors instead
     // Since built-in is disabled, our universal and string only interceptor should have processed it
@@ -93,7 +93,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "boolVar", true);
 
     // Run migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // Verify string-specific interceptor only executed for string variable
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -125,7 +125,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(enabledCustomInterceptors).isEqualTo(2); // All our test interceptors should be enabled
 
     // Run migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // Verify our custom interceptors executed
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -149,7 +149,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // Verify the disabled interceptor did not execute
     // Variables should not have the "DISABLED_" prefix that would be added by DisablableCustomInterceptor
@@ -168,7 +168,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(simpleProcessInstance.getId(), "varIntercept", "value");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -183,13 +183,13 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
     var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", true);
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    getRuntimeMigrator().setMode(RETRY_SKIPPED);
+    getRuntimeMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

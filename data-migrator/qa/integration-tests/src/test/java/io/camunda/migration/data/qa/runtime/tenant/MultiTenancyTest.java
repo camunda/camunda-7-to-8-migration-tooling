@@ -74,7 +74,7 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(1);
@@ -108,7 +108,7 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(1);
@@ -151,7 +151,7 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 10)).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(3);
@@ -169,7 +169,7 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(0);
@@ -187,7 +187,7 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(0);
@@ -205,7 +205,7 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      runtimeMigrator.start();
+      getRuntimeMigrator().start();
 
       // then
       assertThatProcessInstanceCountIsEqualTo(0);

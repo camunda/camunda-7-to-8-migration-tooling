@@ -61,7 +61,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("eventGatewayProcessId", variables);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThat(byProcessId("eventGatewayProcessId")).isActive()
@@ -84,7 +84,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("ParallelGatewayProcess");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     logs.assertDoesNotContain(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, instance.getId(),

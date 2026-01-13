@@ -34,7 +34,7 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -47,7 +47,7 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
      runtimeService.correlateMessage("msgRef");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -71,7 +71,7 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -90,7 +90,7 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);

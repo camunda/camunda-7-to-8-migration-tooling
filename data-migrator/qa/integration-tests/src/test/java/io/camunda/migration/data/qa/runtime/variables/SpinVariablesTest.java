@@ -47,7 +47,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinJsonNode c7value = (SpinJsonNode) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -76,7 +76,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinXmlElement c7value = (SpinXmlElement) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("var", c7value.toString());

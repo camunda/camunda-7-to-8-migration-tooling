@@ -51,14 +51,14 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
     // First migration skipps with a real-world scenario due to missing process definition migration
-    historyMigrator.migrateProcessInstances(); // Skips because definition not migrated
+    getHistoryMigrator().migrateProcessInstances(); // Skips because definition not migrated
 
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
 
     // when: Now migrate definitions and retry skipped instances
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    getHistoryMigrator().migrateProcessDefinitions();
+    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    getHistoryMigrator().migrate();
 
     // then: Process definition is migrated
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(1);
@@ -70,15 +70,15 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // Migrate decision definitions
-    historyMigrator.migrateDecisionDefinitions();
+    getHistoryMigrator().migrateDecisionDefinitions();
     assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(0);
 
     // Migrate dependency
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    getHistoryMigrator().migrateDecisionRequirementsDefinitions();
 
     // when: Retry migration (should not duplicate)
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    getHistoryMigrator().migrate();
 
     // then: Decision requirements definition exists
     assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(1);
@@ -96,19 +96,19 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
             .putValue("inputA", "A"));
 
     // Try to migrate decision instances without definitions (will skip)
-    historyMigrator.migrateDecisionInstances();
+    getHistoryMigrator().migrateDecisionInstances();
 
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
 
     // Migrate everything else
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
 
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then: Decision instance is migrated with inputs and outputs
     var decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
@@ -138,11 +138,11 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     executeAllJobsWithRetry();
 
     // Create real-world skip scenario
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
-    historyMigrator.migrateVariables();
-    historyMigrator.migrateIncidents();
+    getHistoryMigrator().migrateProcessInstances();
+    getHistoryMigrator().migrateFlowNodes();
+    getHistoryMigrator().migrateUserTasks();
+    getHistoryMigrator().migrateVariables();
+    getHistoryMigrator().migrateIncidents();
 
     assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(0);
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("allElementsProcessId");
@@ -158,9 +158,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     executeAllJobsWithRetry();
 
     // when: Retry skipped entities
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    getHistoryMigrator().migrateProcessDefinitions();
+    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    getHistoryMigrator().migrate();
 
     // then only previously skipped entities are migrated
     assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(1);
@@ -179,9 +179,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Try to migrate without process definition
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
+    getHistoryMigrator().migrateProcessInstances();
+    getHistoryMigrator().migrateFlowNodes();
+    getHistoryMigrator().migrateUserTasks();
 
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(0);
@@ -193,7 +193,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate normally
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then only non skipped entities are migrated
     // Assert that 4 process instances were migrated, not 5

@@ -41,9 +41,9 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
       runtimeService.startProcessInstanceByKey("miProcess");
     }
 
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(22);
@@ -59,10 +59,10 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
               .map(Task::getId).forEach(taskService::complete);
         });
 
-    runtimeMigrator.setMode(RETRY_SKIPPED);
+    getRuntimeMigrator().setMode(RETRY_SKIPPED);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(22*2);

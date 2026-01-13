@@ -59,7 +59,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify activity instance interceptor was executed
     assertThat(activityInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -73,7 +73,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     // Verify flow nodes were migrated with modified tenant ID
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
+        getRdbmsService().getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -107,7 +107,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify ProcessEngineAwareInterceptor was executed
     assertThat(processEngineAwareInterceptor.getExecutionCount()).isGreaterThan(0);

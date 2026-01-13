@@ -42,10 +42,10 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     assertThat(runtimeService.createProcessInstanceQuery().list()).hasSize(5);
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances = getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertThat(processInstances).hasSize(5);
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 0, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 2, page size: 2");
@@ -65,10 +65,10 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     }
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
-    assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5);
+    assertThat(getCamundaClient().newProcessInstanceSearchRequest().execute().items()).hasSize(5);
 
     Matcher matcher = Pattern.compile(MIGRATOR_JOBS_FOUND + "2").matcher(output.getOut());
     assertThat(matcher.results().count()).isEqualTo(2);
@@ -88,7 +88,7 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("root");
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     List<String> processIds = List.of(rootId, level1Id, level2Id);

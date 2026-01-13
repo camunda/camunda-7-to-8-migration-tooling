@@ -32,15 +32,15 @@ public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAb
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    camundaClient.newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
+    getCamundaClient().newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(2);
 
-    ActivateJobsResponse response = camundaClient.newActivateJobsCommand()
+    ActivateJobsResponse response = getCamundaClient().newActivateJobsCommand()
         .jobType("noop")
         .maxJobsToActivate(5)
         .execute();

@@ -46,12 +46,12 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances without definition
-        historyMigrator.migrateProcessInstances();
+        getHistoryMigrator().migrateProcessInstances();
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
-        historyMigrator.start();
+        getHistoryMigrator().setMode(LIST_SKIPPED);
+        getHistoryMigrator().setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
+        getHistoryMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -78,16 +78,16 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances and tasks without definition
-        historyMigrator.migrateProcessInstances();
-        historyMigrator.migrateUserTasks();
+        getHistoryMigrator().migrateProcessInstances();
+        getHistoryMigrator().migrateUserTasks();
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.setRequestedEntityTypes(List.of(
+        getHistoryMigrator().setMode(LIST_SKIPPED);
+        getHistoryMigrator().setRequestedEntityTypes(List.of(
             IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE,
             IdKeyMapper.TYPE.HISTORY_USER_TASK
         ));
-        historyMigrator.start();
+        getHistoryMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -105,7 +105,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
         // Verify user tasks
-        List<String> expectedUserTaskIds = historyService.createHistoricTaskInstanceQuery()
+        List<String> expectedUserTaskIds = getHistoryService().createHistoricTaskInstanceQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()

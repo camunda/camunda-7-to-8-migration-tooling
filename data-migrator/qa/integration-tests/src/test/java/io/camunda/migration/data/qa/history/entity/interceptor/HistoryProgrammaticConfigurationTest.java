@@ -95,7 +95,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify process instance interceptor was executed
     assertThat(processInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -125,7 +125,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify universal interceptor was executed for all entities
     // Universal interceptor should be called for process instance, flow nodes, etc.
@@ -146,7 +146,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify all interceptors were executed
     assertThat(universalEntityInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -168,7 +168,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration - DisabledCustomInterceptor should not throw exception
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // Verify migration completed successfully without executing disabled interceptor
     List<ProcessInstanceEntity> migratedProcessInstances =

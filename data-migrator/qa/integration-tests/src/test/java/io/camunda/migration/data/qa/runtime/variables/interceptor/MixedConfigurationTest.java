@@ -45,7 +45,7 @@ public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "var", "value"); // For ComplexInterceptor (declarative)
 
     // when running runtime migration
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then both interceptors should have executed
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

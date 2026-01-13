@@ -42,11 +42,11 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     io.camunda.client.api.search.response.ProcessInstance c8ParentInstance =
-        camundaClient.newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
+        getCamundaClient().newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
           processInstanceFilter.processDefinitionId("callingProcessId");
         }).execute().items().getFirst();
 
@@ -69,7 +69,7 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessIdNoPropagation");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     // verify no C8 instance was created
@@ -92,7 +92,7 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
         .singleResult();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThat(byProcessId("callingProcessIdNoPropagationWithMapping")).isActive()

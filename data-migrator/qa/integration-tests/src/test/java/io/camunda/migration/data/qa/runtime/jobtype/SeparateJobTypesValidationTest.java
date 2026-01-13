@@ -41,7 +41,7 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -71,7 +71,7 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
@@ -101,7 +101,7 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);

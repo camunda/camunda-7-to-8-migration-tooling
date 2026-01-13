@@ -24,7 +24,7 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant2");
 
     // when history is migrated
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessDefinitionEntity> processDefinitions = searchHistoricProcessDefinitions("userTaskProcessId");

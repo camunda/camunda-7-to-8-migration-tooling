@@ -36,7 +36,7 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -53,7 +53,7 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
@@ -70,7 +70,7 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
