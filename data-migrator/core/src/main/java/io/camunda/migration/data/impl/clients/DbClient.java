@@ -34,6 +34,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Wrapper class for IdKeyMapper database operations with exception handling.
@@ -98,12 +99,14 @@ public class DbClient {
   /**
    * Updates a record by setting the key for an existing ID and type.
    */
+  @Transactional(transactionManager = "migratorTransactionManager")
   public void updateC8KeyByC7IdAndType(String c7Id, Long c8Key, TYPE type) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, null, c8Key, type);
     callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
   }
 
+  @Transactional(transactionManager = "migratorTransactionManager")
   public void updateSkipReason(String c7Id, TYPE type, String skipReason) {
     if (!properties.getSaveSkipReason()) {
       return;
@@ -117,6 +120,7 @@ public class DbClient {
   /**
    * Inserts a new process instance record into the mapping table.
    */
+  @Transactional(transactionManager = "migratorTransactionManager")
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type) {
     insert(c7Id, c8Key, createTime, type, null);
   }
@@ -124,6 +128,7 @@ public class DbClient {
   /**
    * Inserts a new record into the mapping table.
    */
+  @Transactional(transactionManager = "migratorTransactionManager")
   public void insert(String c7Id, Long c8Key, TYPE type) {
     insert(c7Id, c8Key, null, type, null);
   }
@@ -131,6 +136,7 @@ public class DbClient {
   /**
    * Inserts a new process instance record into the mapping table.
    */
+  @Transactional(transactionManager = "migratorTransactionManager")
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type, String skipReason) {
     String finalSkipReason = properties.getSaveSkipReason() ? skipReason : null;
     DbClientLogs.insertingRecord(c7Id, createTime, null, finalSkipReason);
