@@ -54,13 +54,17 @@ public class FlowNodeMigrator extends BaseMigrator {
    *   <li>Validates the parent process instance exists in C8</li>
    *   <li>Retrieves the process definition key</li>
    *   <li>Converts the C7 flow node to C8 format</li>
-   *   <li>Either inserts the flow node or marks it as skipped if dependencies are missing</li>
+   *   <li>Inserts the flow node (even if flowNodeScopeKey is null)</li>
    * </ol>
    *
    * <p>Skip scenarios:
    * <ul>
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    * </ul>
+   *
+   * <p>Note: Flow nodes with null flowNodeScopeKey will be migrated. This may occur when the parent
+   * activity instance has not been migrated yet, but the flow node will be included to avoid
+   * introducing unnecessary retry iterations.
    *
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion

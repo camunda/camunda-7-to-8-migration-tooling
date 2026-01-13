@@ -45,13 +45,13 @@ public class FlowNodeTransformer implements EntityInterceptor {
 
     builder
         .flowNodeId(flowNode.getActivityId())
-        .flowNodeName(flowNode.getActivityName())
+        .flowNodeName(flowNode.getActivityName()) // Human-readable name from BPMN model
         .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
         .type(convertType(flowNode.getActivityType()))
         .tenantId(flowNode.getTenantId())
         .state(determineState(flowNode))
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_PARTITION_ID) // Set to max partition value to avoid collision with Zeebe keys
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
 
