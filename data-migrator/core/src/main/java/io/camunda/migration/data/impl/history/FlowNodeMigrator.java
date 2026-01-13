@@ -9,8 +9,10 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -84,6 +86,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7FlowNode,
             HistoricActivityInstance.class, flowNodeDbModelBuilder);
 
+        String c7RootProcessInstanceId = c7FlowNode.getRootProcessInstanceId();
         if (processInstance != null) {
           Long processInstanceKey = processInstance.processInstanceKey();
           Long processDefinitionKey = findProcessDefinitionKey(c7FlowNode.getProcessDefinitionId());
@@ -93,6 +96,13 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
               .processDefinitionKey(processDefinitionKey)
               .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
               .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
+
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              flowNodeDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
 
           Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(),
               processInstanceKey);
@@ -108,6 +118,9 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
           HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
         } else if (dbModel.flowNodeScopeKey() == null) {
           markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
+          HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+        } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
           HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
         } else {
           insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);

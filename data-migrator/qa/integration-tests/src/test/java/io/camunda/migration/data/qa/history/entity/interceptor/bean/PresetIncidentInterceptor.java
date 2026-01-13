@@ -28,7 +28,8 @@ public class PresetIncidentInterceptor implements EntityInterceptor {
       builder.processDefinitionKey(1L)
           .processInstanceKey(2L)
           .jobKey(3L)
-          .flowNodeInstanceKey(4L);
+          .flowNodeInstanceKey(4L)
+          .rootProcessInstanceKey(2L);
     }
   }
 

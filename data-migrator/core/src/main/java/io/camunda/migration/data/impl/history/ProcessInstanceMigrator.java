@@ -57,20 +57,24 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    * <p>This method handles the migration of process instances, including their parent-child relationships.
    * The migration process follows these steps:
    * <ol>
-   *   <li>Validates that the process definition has been migrated</li>
-   *   <li>Resolves parent process instance relationships (for sub-processes)</li>
+   *   <li>Checks if the process instance should be migrated based on the current mode</li>
+   *   <li>Configures the process instance builder with keys, parent/root relationships, and dates</li>
+   *   <li>Creates entity conversion context for interceptor processing</li>
    *   <li>Converts the C7 process instance to C8 format</li>
-   *   <li>Inserts the process instance or marks it as skipped if dependencies are missing</li>
+   *   <li>Validates dependencies and either inserts or marks as skipped</li>
    * </ol>
    *
    * <p>Skip scenarios:
    * <ul>
    *   <li>Process definition not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
-   *   <li>Parent process instance not yet migrated (for sub-processes) - skipped with {@code SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE}</li>
+   *   <li>Parent process instance not yet migrated (for call activities/sub-processes) - skipped with {@code SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE}</li>
+   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE}</li>
+   *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
    * @param c7ProcessInstance the historic process instance from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion or interception
+   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
+   * @throws VariableInterceptorException if an error occurs during variable interception (handled internally, entity marked as skipped)
    */
   @Override
   public void migrateOne(HistoricProcessInstance c7ProcessInstance) {
@@ -81,55 +85,146 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
       String processDefinitionId = c7ProcessInstance.getProcessDefinitionId();
 
       try {
-        ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder = new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
+        ProcessInstanceDbModel.ProcessInstanceDbModelBuilder processInstanceDbModelBuilder = configureProcessInstanceBuilder(
+            c7ProcessInstance, c7ProcessInstanceId, processDefinitionKey, processDefinitionId);
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7ProcessInstance,
             HistoricProcessInstance.class, processInstanceDbModelBuilder);
 
-        processInstanceDbModelBuilder.processInstanceKey(getNextKey());
-        if (processDefinitionKey != null) {
-          processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey);
-        }
-
         String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
-        if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
-          if (c7SuperProcessInstanceId != null) {
-            ProcessInstanceEntity parentInstance = findProcessInstanceByC7Id(c7SuperProcessInstanceId);
-            if (parentInstance != null) {
-              Long parentProcessInstanceKey = parentInstance.processInstanceKey();
-              processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
-            }
-          }
+        String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
+        validateDependenciesAndInsert(c7ProcessInstance, context, c7ProcessInstanceId, c7SuperProcessInstanceId,
+            c7RootProcessInstanceId);
+      } catch (EntityInterceptorException | VariableInterceptorException e) {
+
+        handleInterceptorException(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(), e);
+      }
+    }
+  }
+
+  /**
+   * Configures the process instance builder with keys, parent/root relationships, and dates.
+   *
+   * @param c7ProcessInstance the historic process instance from Camunda 7
+   * @param c7ProcessInstanceId the C7 process instance ID
+   * @param processDefinitionKey the C8 process definition key
+   * @param processDefinitionId the C7 process definition ID
+   * @return the configured builder
+   */
+  protected ProcessInstanceDbModel.ProcessInstanceDbModelBuilder configureProcessInstanceBuilder(
+      HistoricProcessInstance c7ProcessInstance,
+      String c7ProcessInstanceId,
+      Long processDefinitionKey,
+      String processDefinitionId) {
+
+    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = new ProcessInstanceDbModel.ProcessInstanceDbModelBuilder();
+
+    Long processInstanceKey = getNextKey();
+    builder.processInstanceKey(processInstanceKey);
+    if (processDefinitionKey != null) {
+      builder.processDefinitionKey(processDefinitionKey);
+    }
+
+    resolveParentAndRootKeys(builder, c7ProcessInstance, c7ProcessInstanceId, processInstanceKey, processDefinitionId);
+    setProcessInstanceDates(builder, c7ProcessInstance);
+
+    return builder;
+  }
+
+  /**
+   * Resolves and sets parent and root process instance keys on the builder.
+   *
+   * @param builder the process instance builder
+   * @param c7ProcessInstance the historic process instance from Camunda 7
+   * @param c7ProcessInstanceId the C7 process instance ID
+   * @param processInstanceKey the C8 process instance key
+   * @param processDefinitionId the C7 process definition ID
+   */
+  protected void resolveParentAndRootKeys(
+      ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,
+      HistoricProcessInstance c7ProcessInstance,
+      String c7ProcessInstanceId,
+      Long processInstanceKey,
+      String processDefinitionId) {
+
+    String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
+    String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
+
+    if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
+      if (c7SuperProcessInstanceId != null) {
+        ProcessInstanceEntity parentInstance = findProcessInstanceByC7Id(c7SuperProcessInstanceId);
+        if (parentInstance != null) {
+          Long parentProcessInstanceKey = parentInstance.processInstanceKey();
+          builder.parentProcessInstanceKey(parentProcessInstanceKey);
         }
+      }
+
+      if (c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
+        builder.rootProcessInstanceKey(processInstanceKey);
+      } else if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+        if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+          builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+        }
+      }
+    }
+  }
+
+  /**
+   * Calculates and sets history cleanup date and end date on the builder.
+   *
+   * @param builder the process instance builder
+   * @param c7ProcessInstance the historic process instance from Camunda 7
+   */
+  protected void setProcessInstanceDates(
+      ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,
+      HistoricProcessInstance c7ProcessInstance) {
 
       Date c7EndTime = c7ProcessInstance.getEndTime();
       var c8EndTime = calculateEndDate(c7EndTime);
       var c8HistoryCleanupDate = calculateHistoryCleanupDate(c8EndTime, c7ProcessInstance.getRemovalTime());
 
-        processInstanceDbModelBuilder
-            .historyCleanupDate(c8HistoryCleanupDate)
-            .endDate(c8EndTime);
-        ProcessInstanceDbModel dbModel = convertProcessInstance(context);
-        if (dbModel.processDefinitionKey() == null) {
-          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-              SKIP_REASON_MISSING_PROCESS_DEFINITION);
-          HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
-        } else if (c7SuperProcessInstanceId != null && dbModel.parentProcessInstanceKey() == null) {
-          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-              SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
-        } else {
-          insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
-        }
-      } catch (EntityInterceptorException | VariableInterceptorException e) {
-        handleInterceptorException(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(), e);
-      }
-    }
+    builder
+        .historyCleanupDate(c8HistoryCleanupDate)
+        .endDate(c8EndTime);
   }
 
   protected ProcessInstanceDbModel convertProcessInstance(EntityConversionContext<?, ?> context) {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
+  }
+
+  /**
+   * Validates dependencies and inserts the process instance or marks it as skipped.
+   *
+   * @param c7ProcessInstance the historic process instance from Camunda 7
+   * @param context the entity conversion context
+   * @param c7ProcessInstanceId the C7 process instance ID
+   * @param c7SuperProcessInstanceId the C7 super process instance ID (null if not a sub-process)
+   * @param c7RootProcessInstanceId the C7 root process instance ID (may be same as current instance ID)
+   */
+  protected void validateDependenciesAndInsert(HistoricProcessInstance c7ProcessInstance,
+                                               EntityConversionContext<?, ?> context,
+                                               String c7ProcessInstanceId,
+                                               String c7SuperProcessInstanceId,
+                                               String c7RootProcessInstanceId) {
+
+    ProcessInstanceDbModel dbModel = convertProcessInstance(context);
+    if (dbModel.processDefinitionKey() == null) {
+      markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+          SKIP_REASON_MISSING_PROCESS_DEFINITION);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingDefinition(c7ProcessInstanceId);
+    } else if (c7SuperProcessInstanceId != null && dbModel.parentProcessInstanceKey() == null) {
+      markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+          SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+    } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+      markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+          SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+    } else {
+      insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
+    }
   }
 
   protected void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,

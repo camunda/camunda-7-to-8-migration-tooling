@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
@@ -83,12 +84,20 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7Variable, HistoricVariableInstance.class, variableDbModelBuilder);
 
         String c7ProcessInstanceId = c7Variable.getProcessInstanceId();
+        String c7RootProcessInstanceId = c7Variable.getRootProcessInstanceId();
         if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
           Long processInstanceKey = processInstance.processInstanceKey();
           variableDbModelBuilder.processInstanceKey(processInstanceKey);
           OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
           variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
+
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              variableDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
         }
 
         String activityInstanceId = c7Variable.getActivityInstanceId();
@@ -100,7 +109,7 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
           }
         }
 
-        processVariableConversion(c7Variable, context, c7VariableId);
+        processVariableConversion(c7Variable, context, c7VariableId, c7RootProcessInstanceId);
       } catch (EntityInterceptorException | VariableInterceptorException e) {
         handleInterceptorException(c7VariableId, HISTORY_VARIABLE, c7Variable.getCreateTime(), e);
       }
@@ -109,7 +118,8 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
 
   protected void processVariableConversion(HistoricVariableInstance c7Variable,
                                            EntityConversionContext<?, ?> context,
-                                           String c7VariableId) {
+                                           String c7VariableId,
+                                           String c7RootProcessInstanceId) {
     VariableDbModel dbModel = convertVariable(context);
 
     if (dbModel.processInstanceKey() == null) {
@@ -126,6 +136,9 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
       } else {
         HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
       }
+    } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
     } else {
       insertVariable(c7Variable, dbModel, c7VariableId);
     }

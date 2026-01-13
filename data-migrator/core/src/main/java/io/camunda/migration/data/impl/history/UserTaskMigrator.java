@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -75,6 +76,7 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7UserTask, HistoricTaskInstance.class,
             userTaskDbModelBuilder);
 
+        String c7RootProcessInstanceId = c7UserTask.getRootProcessInstanceId();
         if (isMigrated(c7UserTask.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7UserTask.getProcessInstanceId());
           if (processInstance != null) {
@@ -85,6 +87,12 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
             userTaskDbModelBuilder
                 .historyCleanupDate(historyCleanupDate)
                 .completionDate(completionDate);
+          }
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              userTaskDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
           }
           if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
             Long elementInstanceKey = findFlowNodeInstanceKey(c7UserTask.getActivityInstanceId());
@@ -100,6 +108,9 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
         } else if (dbModel.elementInstanceKey() == null) {
           markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_FLOW_NODE);
           HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingFlowNode(c7UserTaskId);
+        } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+          markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingProcessInstance(c7UserTaskId);
         } else {
           insertUserTask(c7UserTask, dbModel, c7UserTaskId);
         }

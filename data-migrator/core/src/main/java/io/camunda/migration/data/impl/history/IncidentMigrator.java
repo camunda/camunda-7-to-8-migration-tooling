@@ -8,9 +8,11 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -74,6 +76,7 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7Incident, HistoricIncident.class,
             incidentDbModelBuilder);
 
+        String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
         if (c7ProcessInstance != null) {
           Long processInstanceKey = c7ProcessInstance.processInstanceKey();
           incidentDbModelBuilder.processInstanceKey(processInstanceKey);
@@ -87,6 +90,13 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
                 .jobKey(jobDefinitionKey)
                 .flowNodeInstanceKey(flowNodeInstanceKey)
                 .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
+
+            if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+              ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+              if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+                incidentDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+              }
+            }
 
           }
         }
@@ -108,6 +118,9 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
           //  } else if (dbModel.jobKey() == null) {
           //    markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
           //    HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
         } else {
           insertIncident(c7Incident, dbModel, c7IncidentId);
         }

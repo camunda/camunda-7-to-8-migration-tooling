@@ -26,7 +26,7 @@ public class PresetProcessInstanceInterceptor implements EntityInterceptor {
     ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
 
     if (builder != null) {
-      builder.processDefinitionKey(12345L).parentProcessInstanceKey(67890L);
+      builder.processDefinitionKey(12345L).parentProcessInstanceKey(67890L).rootProcessInstanceKey(12345L);
     }
   }
 
