@@ -36,6 +36,7 @@ replay_pid*
 # Build outputs
 **/target/
 **/h2/
+.flattened-pom.xml
 
 # Node.js / Frontend
 node_modules/
