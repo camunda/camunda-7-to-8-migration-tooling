@@ -8,7 +8,6 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
@@ -100,9 +99,6 @@ public class FlowNodeMigrator extends BaseMigrator {
         FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
         if (dbModel.processInstanceKey() == null || dbModel.processDefinitionKey() == null) {
           markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
-        } else if (dbModel.flowNodeScopeKey() == null) {
-          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
           HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
         } else {
           insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);

@@ -198,6 +198,71 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     }
   }
 
+  @Test
+  public void shouldSetPartitionIdForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).isNotEmpty()
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(4095));
+  }
+
+  @Test
+  public void shouldSetFlowNodeNameForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).isNotEmpty()
+        .allSatisfy(flowNode -> assertThat(flowNode.flowNodeName()).isNotNull());
+  }
+
+  @Test
+  public void shouldNotSkipFlowNodesWithNullScopeKey() {
+    // given - Create a scenario where scopeKey might be null but flowNode should still be migrated
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    String processInstanceId = runtimeService.startProcessInstanceByKey("userTaskProcessId").getId();
+    
+    // Delete process instance to create terminated flow nodes
+    runtimeService.deleteProcessInstance(processInstanceId, "Testing null scope handling");
+
+    // when
+    historyMigrator.migrate();
+
+    // then - Verify flow nodes were migrated even if scopeKey is null
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    // All flow nodes should be migrated, even if some have null scopeKey
+    assertThat(flowNodes).isNotEmpty();
+  }
+
   private void deploySubprocessModel() {
     String process = "subProcess";
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
