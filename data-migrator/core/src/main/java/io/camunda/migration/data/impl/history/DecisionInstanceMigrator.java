@@ -215,14 +215,14 @@ public class DecisionInstanceMigrator extends BaseMigrator {
   }
 
   /**
-   * Performs the actual C8 database inserts for a decision instance in a transaction.
+   * Performs the actual C8 database inserts for a decision instance and its children in a transaction.
    * This method is separate to ensure all C8 writes happen atomically within a single transaction.
    *
    * @param dbModel the decision instance model to insert
    * @param parentDecisionDefinitionKey the parent decision definition key
    * @param c7DecisionInstance the C7 decision instance
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   protected void insertDecisionInstanceWithChildren(DecisionInstanceDbModel dbModel,
                                                     Long parentDecisionDefinitionKey,
                                                     HistoricDecisionInstance c7DecisionInstance) {

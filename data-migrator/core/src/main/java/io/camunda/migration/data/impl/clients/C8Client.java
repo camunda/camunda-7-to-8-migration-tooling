@@ -237,7 +237,7 @@ public class C8Client {
   /**
    * Inserts a ProcessDefinition into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertProcessDefinition(ProcessDefinitionDbModel dbModel) {
     callApi(() -> processDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_DEFINITION);
   }
@@ -245,7 +245,7 @@ public class C8Client {
   /**
    * Inserts a ProcessInstance into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertProcessInstance(ProcessInstanceDbModel dbModel) {
     callApi(() -> processInstanceMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
   }
@@ -267,7 +267,7 @@ public class C8Client {
   /**
    * Inserts a DecisionRequirementsDefinition into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertDecisionRequirements(DecisionRequirementsDbModel dbModel) {
     callApi(() -> decisionRequirementsMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_REQUIREMENTS);
   }
@@ -275,7 +275,7 @@ public class C8Client {
   /**
    * Inserts a DecisionDefinition into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertDecisionDefinition(DecisionDefinitionDbModel dbModel) {
     callApi(() -> decisionDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_DEFINITION);
   }
@@ -291,7 +291,7 @@ public class C8Client {
    * Inserts a DecisionInstance into the database.
    * All inserts (main, input, output) are performed in a single transaction.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
     callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
     if (!dbModel.evaluatedInputs().isEmpty()) {
@@ -313,7 +313,7 @@ public class C8Client {
   /**
    * Inserts an Incident into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertIncident(IncidentDbModel dbModel) {
     callApi(() -> incidentMapper.insert(dbModel), FAILED_TO_INSERT_INCIDENT);
   }
@@ -321,7 +321,7 @@ public class C8Client {
   /**
    * Inserts a Variable into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertVariable(VariableDbModel dbModel) {
     callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
   }
@@ -329,7 +329,7 @@ public class C8Client {
   /**
    * Inserts a UserTask into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertUserTask(UserTaskDbModel dbModel) {
     callApi(() -> userTaskMapper.insert(dbModel), FAILED_TO_INSERT_USER_TASK);
   }
@@ -337,7 +337,7 @@ public class C8Client {
   /**
    * Inserts a FlowNodeInstance into the database.
    */
-  @Transactional(transactionManager = "c8TransactionManager")
+  @Transactional
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
     callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
   }

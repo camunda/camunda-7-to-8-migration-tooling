@@ -156,6 +156,13 @@ public class MigratorAutoConfiguration {
       return null;
     }
 
+    @Bean
+    @Primary
+    @Conditional(C8DataSourceConfigured.class)
+    public PlatformTransactionManager transactionManager(@Qualifier("migratorDataSource") DataSource migratorDataSource) {
+      return new DataSourceTransactionManager(migratorDataSource);
+    }
+
     protected HikariDataSource createDefaultDataSource(DataSourceProperties props) {
       props.setJdbcUrl("jdbc:h2:mem:migrator");
       return new HikariDataSource(props);
