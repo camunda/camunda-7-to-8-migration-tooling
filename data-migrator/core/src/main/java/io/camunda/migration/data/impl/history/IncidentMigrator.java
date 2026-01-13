@@ -83,6 +83,14 @@ public class IncidentMigrator extends BaseMigrator {
                 .flowNodeInstanceKey(flowNodeInstanceKey)
                 .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
 
+            String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
+            if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+              ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+              if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+                incidentDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+              }
+            }
+
           }
         }
         IncidentDbModel dbModel = convertIncident(context);

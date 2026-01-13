@@ -81,12 +81,19 @@ public class ProcessInstanceMigrator extends BaseMigrator {
         }
 
         String c7SuperProcessInstanceId = c7ProcessInstance.getSuperProcessInstanceId();
+        String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
         if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
           if (c7SuperProcessInstanceId != null) {
             ProcessInstanceEntity parentInstance = findProcessInstanceByC7Id(c7SuperProcessInstanceId);
             if (parentInstance != null) {
               Long parentProcessInstanceKey = parentInstance.processInstanceKey();
               processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
+            }
+          }
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              processInstanceDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
             }
           }
         }

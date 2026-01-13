@@ -89,6 +89,14 @@ public class FlowNodeMigrator extends BaseMigrator {
               .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
               .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
 
+          String c7RootProcessInstanceId = c7FlowNode.getRootProcessInstanceId();
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              flowNodeDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
+
           Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(),
               processInstanceKey);
           if (flowNodeScopeKey != null) {

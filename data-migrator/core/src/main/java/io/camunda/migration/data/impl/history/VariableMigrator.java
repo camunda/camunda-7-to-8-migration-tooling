@@ -84,6 +84,14 @@ public class VariableMigrator extends BaseMigrator {
           variableDbModelBuilder.processInstanceKey(processInstanceKey);
           OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
           variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
+
+          String c7RootProcessInstanceId = c7Variable.getRootProcessInstanceId();
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              variableDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
         }
 
         String activityInstanceId = c7Variable.getActivityInstanceId();

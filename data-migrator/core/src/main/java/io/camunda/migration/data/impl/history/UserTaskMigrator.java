@@ -80,6 +80,13 @@ public class UserTaskMigrator extends BaseMigrator {
                 .historyCleanupDate(historyCleanupDate)
                 .completionDate(completionDate);
           }
+          String c7RootProcessInstanceId = c7UserTask.getRootProcessInstanceId();
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              userTaskDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
           if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
             Long elementInstanceKey = findFlowNodeInstanceKey(c7UserTask.getActivityInstanceId());
             Long processDefinitionKey = findProcessDefinitionKey(c7UserTask.getProcessDefinitionId());
