@@ -231,6 +231,18 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
         .items();
   }
 
+  public List<UserTaskEntity> searchHistoricUserTasksById(String... elementIds) {
+    RdbmsService rdbmsService = getRdbmsServiceBean();
+    if (rdbmsService == null) {
+      throw new IllegalStateException("RdbmsService is not available in the Spring context");
+    }
+    return rdbmsService.getUserTaskReader()
+        .search(UserTaskQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.elementIds(elementIds))))
+        .items();
+  }
+
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
     RdbmsService rdbmsService = getRdbmsServiceBean();
     if (rdbmsService == null) {

@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
@@ -86,12 +87,23 @@ public class VariableMigrator extends BaseMigrator {
           variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
         }
 
-        String activityInstanceId = c7Variable.getActivityInstanceId();
-        if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) || isMigrated(activityInstanceId,
-            HISTORY_PROCESS_INSTANCE)) {
-          Long scopeKey = findScopeKey(activityInstanceId);
-          if (scopeKey != null) {
-            variableDbModelBuilder.scopeKey(scopeKey);
+        // Determine scope key based on variable type
+        // Task-scoped variables (taskId != null) should use the user task key as scope
+        // Other variables use activity instance or process instance as scope
+        String c7TaskId = c7Variable.getTaskId();
+        if (c7TaskId != null && isMigrated(c7TaskId, HISTORY_USER_TASK)) {
+          Long userTaskKey = dbClient.findC8KeyByC7IdAndType(c7TaskId, HISTORY_USER_TASK);
+          if (userTaskKey != null) {
+            variableDbModelBuilder.scopeKey(userTaskKey);
+          }
+        } else {
+          String activityInstanceId = c7Variable.getActivityInstanceId();
+          if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) || isMigrated(activityInstanceId,
+              HISTORY_PROCESS_INSTANCE)) {
+            Long scopeKey = findScopeKey(activityInstanceId);
+            if (scopeKey != null) {
+              variableDbModelBuilder.scopeKey(scopeKey);
+            }
           }
         }
 
