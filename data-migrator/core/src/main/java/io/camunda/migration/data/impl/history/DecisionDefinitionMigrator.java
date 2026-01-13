@@ -21,8 +21,8 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.stereotype.Service;
@@ -34,7 +34,8 @@ import org.springframework.stereotype.Service;
 public class DecisionDefinitionMigrator extends BaseMigrator {
 
   // Cache for DRD definitions to avoid N+1 queries when multiple decisions reference the same DRD
-  private final Map<String, DecisionRequirementsDefinition> drdCache = new HashMap<>();
+  // Thread-safe to support concurrent migration operations
+  private final Map<String, DecisionRequirementsDefinition> drdCache = new ConcurrentHashMap<>();
 
   public void migrateDecisionDefinitions() {
     HistoryMigratorLogs.migratingDecisionDefinitions();
@@ -90,7 +91,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
             // Use cache to avoid N+1 queries when multiple decisions reference the same DRD
             String drdId = c7DecisionDefinition.getDecisionRequirementsDefinitionId();
             DecisionRequirementsDefinition c7Drd = drdCache.computeIfAbsent(drdId, 
-                id -> c7Client.getDecisionRequirementsDefinition(id));
+                c7Client::getDecisionRequirementsDefinition);
             decisionDefinitionDbModelBuilder
                 .decisionRequirementsName(c7Drd.getName())
                 .decisionRequirementsVersion(c7Drd.getVersion());
