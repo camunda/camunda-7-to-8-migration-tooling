@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPL
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_PROCESS_DEFINITION_XML;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_VARIABLE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_AUDIT_LOG;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE_INPUT;
@@ -56,6 +57,7 @@ import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
+import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
 import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
@@ -65,6 +67,7 @@ import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
@@ -132,6 +135,9 @@ public class C8Client {
 
   @Autowired(required = false)
   protected DecisionRequirementsMapper decisionRequirementsMapper;
+
+  @Autowired(required = false)
+  protected AuditLogMapper auditLogMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -330,6 +336,13 @@ public class C8Client {
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
     callApi(() -> flowNodeInstanceMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+  }
+
+  /**
+   * Inserts an AuditLog into the database.
+   */
+  public void insertAuditLog(AuditLogDbModel dbModel) {
+    callApi(() -> auditLogMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_AUDIT_LOG);
   }
 
   /**
