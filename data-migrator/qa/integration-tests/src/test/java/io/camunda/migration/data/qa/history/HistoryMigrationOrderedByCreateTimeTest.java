@@ -23,7 +23,6 @@ import java.util.function.Supplier;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbstractTest {
@@ -261,7 +260,6 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   }
 
   @Test
-  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364")
   public void shouldMigrateIncidentsCreatedBetweenRuns() {
     // given
     deployer.deployCamunda7Process("incidentProcess.bpmn");
@@ -288,7 +286,6 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   }
 
   @Test
-  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364")
   public void shouldMigrateIncidentsWithSameCreationDate() {
     // given
     deployer.deployCamunda7Process("incidentProcess.bpmn");

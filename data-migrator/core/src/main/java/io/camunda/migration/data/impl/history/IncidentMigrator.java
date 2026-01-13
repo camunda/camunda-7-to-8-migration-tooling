@@ -8,7 +8,6 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
@@ -77,7 +76,7 @@ public class IncidentMigrator extends BaseMigrator {
             Long flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(),
                 c7Incident.getProcessInstanceId());
             Long processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
-            Long jobDefinitionKey = null; // TODO Job table doesn't exist yet.
+            Long jobDefinitionKey = null; // TODO jobs are not migrated yet
 
             incidentDbModelBuilder.processDefinitionKey(processDefinitionKey)
                 .jobKey(jobDefinitionKey)
@@ -100,9 +99,10 @@ public class IncidentMigrator extends BaseMigrator {
           // } else if (dbModel.flowNodeInstanceKey() == null) {
           //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
           //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-        } else if (dbModel.jobKey() == null) {
-          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
-          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+          // TODO: always null at the moment because jobs are not migrated yet
+          //  } else if (dbModel.jobKey() == null) {
+          //    markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
+          //    HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
         } else {
           insertIncident(c7Incident, dbModel, c7IncidentId);
         }
