@@ -89,6 +89,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Wrapper class for Camunda 8 Client API calls with exception handling.
@@ -284,7 +285,9 @@ public class C8Client {
 
   /**
    * Inserts a DecisionInstance into the database.
+   * All inserts (main, input, output) are performed in a single transaction.
    */
+  @Transactional(transactionManager = "c8TransactionManager")
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
     callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
     if (!dbModel.evaluatedInputs().isEmpty()) {

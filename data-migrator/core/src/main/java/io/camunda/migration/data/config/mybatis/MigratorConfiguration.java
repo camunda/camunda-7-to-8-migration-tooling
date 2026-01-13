@@ -23,6 +23,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 public class MigratorConfiguration extends AbstractConfiguration {
@@ -30,6 +32,11 @@ public class MigratorConfiguration extends AbstractConfiguration {
   @Autowired
   @Qualifier("migratorDataSource")
   protected DataSource dataSource;
+
+  @Bean
+  public PlatformTransactionManager migratorTransactionManager(@Qualifier("migratorDataSource") DataSource migratorDataSource) {
+    return new DataSourceTransactionManager(migratorDataSource);
+  }
 
   @Bean
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX, name = "auto-ddl", havingValue = "true")

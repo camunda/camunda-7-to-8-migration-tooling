@@ -59,6 +59,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Import({
     SpringProcessEngineServicesConfiguration.class,
@@ -90,6 +91,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 })
 @Configuration
 @EnableConfigurationProperties(MigratorProperties.class)
+@EnableTransactionManagement
 public class MigratorAutoConfiguration {
 
   protected final MigratorProperties migratorProperties;

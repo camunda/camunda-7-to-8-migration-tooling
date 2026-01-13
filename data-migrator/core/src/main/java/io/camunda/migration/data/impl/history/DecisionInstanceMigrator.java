@@ -35,6 +35,7 @@ import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating decision instances from Camunda 7 to Camunda 8.
@@ -201,8 +202,7 @@ public class DecisionInstanceMigrator extends BaseMigrator {
             return;
           }
         }
-        c8Client.insertDecisionInstance(dbModel);
-        migrateChildDecisionInstances(dbModel.rootDecisionDefinitionKey(), c7DecisionInstance, dbModel);
+        insertDecisionInstanceWithChildren(dbModel, dbModel.rootDecisionDefinitionKey(), c7DecisionInstance);
         markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(),
             HISTORY_DECISION_INSTANCE);
         HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
@@ -214,6 +214,30 @@ public class DecisionInstanceMigrator extends BaseMigrator {
     }
   }
 
+  /**
+   * Performs the actual C8 database inserts for a decision instance in a transaction.
+   * This method is separate to ensure all C8 writes happen atomically within a single transaction.
+   *
+   * @param dbModel the decision instance model to insert
+   * @param parentDecisionDefinitionKey the parent decision definition key
+   * @param c7DecisionInstance the C7 decision instance
+   */
+  @Transactional(transactionManager = "c8TransactionManager")
+  protected void insertDecisionInstanceWithChildren(DecisionInstanceDbModel dbModel,
+                                                    Long parentDecisionDefinitionKey,
+                                                    HistoricDecisionInstance c7DecisionInstance) {
+    c8Client.insertDecisionInstance(dbModel);
+    migrateChildDecisionInstances(parentDecisionDefinitionKey, c7DecisionInstance, dbModel);
+  }
+
+  /**
+   * Migrates child decision instances for a given parent decision instance.
+   * This method is called within the transaction started by insertDecisionInstanceWithChildren.
+   *
+   * @param parentDecisionDefinitionKey the parent decision definition key
+   * @param c7DecisionInstance the parent C7 decision instance
+   * @param c8ParentDecisionInstanceModel the parent C8 decision instance model
+   */
   public void migrateChildDecisionInstances(Long parentDecisionDefinitionKey,
                                             HistoricDecisionInstance c7DecisionInstance,
                                             DecisionInstanceDbModel c8ParentDecisionInstanceModel) {

@@ -92,6 +92,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 @Conditional(C8DataSourceConfigured.class)
@@ -100,6 +102,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Autowired
   @Qualifier("c8DataSource")
   protected DataSource dataSource;
+
+  @Bean
+  public PlatformTransactionManager c8TransactionManager(@Qualifier("c8DataSource") DataSource c8DataSource) {
+    return new DataSourceTransactionManager(c8DataSource);
+  }
 
   @Bean
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX
