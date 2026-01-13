@@ -118,6 +118,10 @@ public class ProcessInstanceMigrator extends BaseMigrator {
           markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
               SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
           HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+        } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+          markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
+              SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
         } else {
           insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
         }
