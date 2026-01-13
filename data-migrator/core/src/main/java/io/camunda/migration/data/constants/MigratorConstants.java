@@ -17,6 +17,7 @@ public final class MigratorConstants {
    * collide with actual Zeebe partition keys during migration.
    */
   public static int C7_HISTORY_PARTITION_ID = 4095;
+  public static int C7_AUDIT_LOG_ENTITY_VERSION = -4095;
 
   public static final String LEGACY_ID_VAR_NAME = "legacyId";
   public static final String C8_DEFAULT_TENANT = "<default>";

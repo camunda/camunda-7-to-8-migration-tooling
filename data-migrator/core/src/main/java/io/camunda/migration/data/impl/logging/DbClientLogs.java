@@ -42,7 +42,7 @@ public class DbClientLogs {
   public static final String FAILED_TO_DELETE = "Failed to delete mapping for C7 ID: ";
   public static final String FAILED_TO_DROP_MIGRATION_TABLE = "Failed to drop migration mapping table";
 
-  public static void updatingC8KeyForC7Id(String c7Id, Long c8Key) {
+  public static void updatingC8KeyForC7Id(String c7Id, String c8Key) {
     LOGGER.debug(UPDATING_KEY_FOR_C7_ID, c7Id, c8Key);
   }
 
