@@ -449,11 +449,16 @@ public class C7Client {
   /**
    * Processes decision requirements with pagination using the provided callback consumer.
    */
-  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback,
-                                                            Date ignored) {
+  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback, Date deployedAfter) {
     DecisionRequirementsDefinitionQuery query = repositoryService.createDecisionRequirementsDefinitionQuery()
+        .orderByDeploymentTime()
+        .asc()
         .orderByDecisionRequirementsDefinitionId()
         .asc();
+
+    if (deployedAfter != null) {
+      query.deployedAfter(deployedAfter);
+    }
 
     new Pagination<DecisionRequirementsDefinition>().pageSize(properties.getPageSize())
         .query(query)

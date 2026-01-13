@@ -10,7 +10,9 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.INTERMEDIATE_CATCH_EVENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
+import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
@@ -105,6 +107,50 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
 
     // then
     assertThat(searchHistoricDecisionDefinitions("simpleDecisionId")).hasSize(3);
+  }
+
+  @Test
+  public void shouldMigrateDecisionRequirementsDeployedBetweenRuns() {
+    // given
+    ClockUtil.setCurrentTime(new Date());
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+
+    // when
+    historyMigrator.migrateDecisionRequirementsDefinitions();
+
+    // then
+    List<DecisionRequirementsEntity> firstBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
+    assertThat(firstBatch).hasSize(1);
+
+    // given
+    ClockUtil.offset(1000L);
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+
+    // when
+    historyMigrator.migrateDecisionRequirementsDefinitions();
+
+    // then
+    List<DecisionRequirementsEntity> secondBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
+    assertThat(secondBatch).hasSize(2);
+  }
+
+  @Test
+  public void shouldMigrateDecisionRequirementsWithSameDeploymentDate() {
+    // given
+    ClockUtil.setCurrentTime(new Date());
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+
+    // when
+    historyMigrator.migrateDecisionRequirementsDefinitions();
+
+    // then
+    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
+    assertThat(decisionReqs).hasSize(2);
+
+    assertThat(decisionReqs)
+        .extracting(DecisionRequirementsEntity::version)
+        .containsExactlyInAnyOrder(1, 2);
   }
 
   @Test
