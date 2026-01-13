@@ -23,16 +23,16 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
 
   @Test
   public void shouldResumeDecisionRequirementsMigrationAfterPartialMigration() {
-    // given: Deploy first decision
+    // given: Deploy first decision requirements definition
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
     // Advance time to ensure different deployment times
     ClockUtil.offset(1000L);
     
-    // Migrate first decision requirements
+    // Migrate first decision requirements definition
     historyMigrator.migrateDecisionRequirementsDefinitions();
     
-    // Verify first decision requirements was migrated
+    // Verify first decision requirements definition was migrated
     List<DecisionRequirementsEntity> firstBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(firstBatch).hasSize(1);
     
@@ -40,25 +40,25 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
     Date latestCreateTime = dbClient.findLatestCreateTimeByType(IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT);
     assertThat(latestCreateTime).isNotNull();
     
-    // when: Deploy second decision after migration
+    // when: Deploy second decision requirements definition after migration
     ClockUtil.offset(1000L);
     deployer.deployCamunda7Decision("literalExpressionDmn.dmn");
     
-    // Resume migration (should only migrate the new decision requirements)
+    // Resume migration (should only migrate the new decision requirements definition)
     historyMigrator.migrateDecisionRequirementsDefinitions();
     
-    // then: Both decision requirements should be migrated
+    // then: Both decision requirements definitions should be migrated
     List<DecisionRequirementsEntity> secondBatch = searchHistoricDecisionRequirementsDefinition("literalExpressionDmnId");
     assertThat(secondBatch).hasSize(1);
     
-    // Verify first decision requirements still exists and wasn't re-migrated
+    // Verify first decision requirements definition still exists and wasn't re-migrated
     List<DecisionRequirementsEntity> allFirstBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(allFirstBatch).hasSize(1);
   }
 
   @Test
   public void shouldMigrateDecisionRequirementsInDeploymentTimeOrder() {
-    // given: Deploy multiple decisions at different times
+    // given: Deploy multiple decision requirements definitions at different times
     Date beforeFirstDeploy = ClockUtil.now();
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
@@ -70,10 +70,10 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
     
     deployer.deployCamunda7Decision("dish-decision.dmn");
     
-    // when: Migrate all decision requirements
+    // when: Migrate all decision requirements definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
     
-    // then: All decision requirements should be migrated
+    // then: All decision requirements definitions should be migrated
     List<DecisionRequirementsEntity> simpleDmn = searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     List<DecisionRequirementsEntity> literalExpression = searchHistoricDecisionRequirementsDefinition("literalExpressionDmnId");
     List<DecisionRequirementsEntity> dishDecision = searchHistoricDecisionRequirementsDefinition("dish-decision");
@@ -90,14 +90,14 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
 
   @Test
   public void shouldHandleMultipleVersionsOfSameDecisionRequirements() {
-    // given: Deploy same decision twice
+    // given: Deploy same decision requirements definition twice
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
     ClockUtil.offset(1000L);
     
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
-    // when: Migrate decision requirements
+    // when: Migrate decision requirements definitions
     historyMigrator.migrateDecisionRequirementsDefinitions();
     
     // then: Both versions should be migrated
