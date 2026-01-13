@@ -22,12 +22,12 @@ import org.junit.jupiter.api.Test;
 public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbstractTest {
 
   @Test
-  public void shouldResumeDecisionRequirementsMigrationAfterPartialMigration() throws InterruptedException {
+  public void shouldResumeDecisionRequirementsMigrationAfterPartialMigration() {
     // given: Deploy first decision
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
-    // Wait a bit to ensure different deployment times
-    Thread.sleep(100);
+    // Advance time to ensure different deployment times
+    ClockUtil.offset(1000L);
     
     // Migrate first decision requirements
     historyMigrator.migrateDecisionRequirementsDefinitions();
@@ -41,7 +41,7 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
     assertThat(latestCreateTime).isNotNull();
     
     // when: Deploy second decision after migration
-    Thread.sleep(100);
+    ClockUtil.offset(1000L);
     deployer.deployCamunda7Decision("literalExpressionDmn.dmn");
     
     // Resume migration (should only migrate the new decision requirements)
@@ -57,16 +57,16 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
   }
 
   @Test
-  public void shouldMigrateDecisionRequirementsInDeploymentTimeOrder() throws InterruptedException {
+  public void shouldMigrateDecisionRequirementsInDeploymentTimeOrder() {
     // given: Deploy multiple decisions at different times
     Date beforeFirstDeploy = ClockUtil.now();
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
-    Thread.sleep(100);
+    ClockUtil.offset(1000L);
     
     deployer.deployCamunda7Decision("literalExpressionDmn.dmn");
     
-    Thread.sleep(100);
+    ClockUtil.offset(1000L);
     
     deployer.deployCamunda7Decision("dish-decision.dmn");
     
@@ -89,11 +89,11 @@ public class DecisionRequirementsResumeMigrationTest extends HistoryMigrationAbs
   }
 
   @Test
-  public void shouldHandleMultipleVersionsOfSameDecisionRequirements() throws InterruptedException {
+  public void shouldHandleMultipleVersionsOfSameDecisionRequirements() {
     // given: Deploy same decision twice
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
-    Thread.sleep(100);
+    ClockUtil.offset(1000L);
     
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     
