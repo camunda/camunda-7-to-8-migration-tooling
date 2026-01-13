@@ -80,11 +80,22 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
 
           if (decisionRequirementsKey != null) {
             decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
+            
+            // Populate decisionRequirementsName and decisionRequirementsVersion from the DRD
+            DecisionRequirementsDefinition c7Drd = c7Client.getDecisionRequirementsDefinition(
+                c7DecisionDefinition.getDecisionRequirementsDefinitionId());
+            decisionDefinitionDbModelBuilder
+                .decisionRequirementsName(c7Drd.getName())
+                .decisionRequirementsVersion(c7Drd.getVersion());
           }
         } else {
           // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
           decisionRequirementsKey = createAndMigrateNewDrdForC7DmnWithoutDrd(c7DecisionDefinition, deploymentTime);
           decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
+          // For standalone decisions, use the decision's own name and version as the DRD values
+          decisionDefinitionDbModelBuilder
+              .decisionRequirementsName(c7DecisionDefinition.getName())
+              .decisionRequirementsVersion(c7DecisionDefinition.getVersion());
         }
         dbModel = convertDecisionDefinition(context);
         if (dbModel.decisionRequirementsKey() != null) {
