@@ -43,7 +43,7 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     assertThat(byTaskName("UserTaskName")).isCreated().hasElementId("userTaskId");
@@ -65,10 +65,10 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
         .isEqualToIgnoringCase("created");
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances = getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertEquals(1, processInstances.size());
     ProcessInstance processInstance = processInstances.getFirst();
     assertEquals(simpleProcess.getProcessDefinitionKey(), processInstance.getProcessDefinitionId());
