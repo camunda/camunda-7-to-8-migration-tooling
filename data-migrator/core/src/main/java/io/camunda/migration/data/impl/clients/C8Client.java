@@ -35,6 +35,7 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_FLOW_NODE_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_AUDIT_LOG;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
@@ -65,6 +66,7 @@ import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
@@ -74,6 +76,7 @@ import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -131,6 +134,9 @@ public class C8Client {
 
   @Autowired(required = false)
   protected DecisionRequirementsMapper decisionRequirementsMapper;
+
+  @Autowired(required = false)
+  protected AuditLogMapper auditLogMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -329,6 +335,13 @@ public class C8Client {
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
     callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+  }
+
+  /**
+   * Inserts an AuditLog into the database.
+   */
+  public void insertAuditLog(AuditLogDbModel dbModel) {
+    callApi(() -> auditLogMapper.insert(dbModel), FAILED_TO_INSERT_AUDIT_LOG);
   }
 
   /**

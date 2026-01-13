@@ -81,6 +81,11 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_FLOW_NODE_COMPLETED = "Migration of historic flow nodes with C7 ID [{}] completed.";
   public static final String SKIPPING_FLOW_NODE = "Migration of historic flow nodes with C7 ID [{}] skipped. Process instance yet not available.";
 
+  public static final String MIGRATING_AUDIT_LOGS = "Migrating historic audit logs";
+  public static final String MIGRATING_AUDIT_LOG = "Migrating historic audit log with C7 ID: [{}]";
+  public static final String MIGRATING_AUDIT_LOG_COMPLETED = "Migration of historic audit log with C7 ID [{}] completed.";
+  public static final String SKIPPING_AUDIT_LOG = "Migration of historic audit log with C7 ID [{}] skipped.";
+
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
@@ -276,5 +281,21 @@ public class HistoryMigratorLogs {
 
   public static void creatingDecisionRequirementCompleted(String c7DecisionId) {
     LOGGER.debug(CREATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionId);
+  }
+
+  public static void migratingHistoricAuditLogs() {
+    LOGGER.info(MIGRATING_AUDIT_LOGS);
+  }
+
+  public static void migratingHistoricAuditLog(String c7AuditLogId) {
+    LOGGER.debug(MIGRATING_AUDIT_LOG, c7AuditLogId);
+  }
+
+  public static void migratingHistoricAuditLogCompleted(String c7AuditLogId) {
+    LOGGER.debug(MIGRATING_AUDIT_LOG_COMPLETED, c7AuditLogId);
+  }
+
+  public static void skippingHistoricAuditLog(String c7AuditLogId) {
+    LOGGER.debug(SKIPPING_AUDIT_LOG, c7AuditLogId);
   }
 }
