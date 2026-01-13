@@ -45,7 +45,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
@@ -67,7 +67,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    runtimeMigrator.start();
+    getRuntimeMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
