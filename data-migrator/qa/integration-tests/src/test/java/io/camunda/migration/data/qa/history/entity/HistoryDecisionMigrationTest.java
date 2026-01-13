@@ -574,8 +574,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       int version,
       Long decisionRequirementsKey,
       String decisionRequirementsId) {
-    assertDecisionDefinition(decision, decisionId, decisionName, version, decisionRequirementsKey, decisionRequirementsId, 
-        null, null);
+    assertDecisionDefinitionBase(decision, decisionId, decisionName, version, decisionRequirementsKey, decisionRequirementsId);
   }
 
   private void assertDecisionDefinition(
@@ -587,6 +586,18 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       String decisionRequirementsId,
       String decisionRequirementsName,
       Integer decisionRequirementsVersion) {
+    assertDecisionDefinitionBase(decision, decisionId, decisionName, version, decisionRequirementsKey, decisionRequirementsId);
+    assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
+    assertThat(decision.decisionRequirementsVersion()).isEqualTo(decisionRequirementsVersion);
+  }
+
+  private void assertDecisionDefinitionBase(
+      DecisionDefinitionEntity decision,
+      String decisionId,
+      String decisionName,
+      int version,
+      Long decisionRequirementsKey,
+      String decisionRequirementsId) {
     assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionId));
     assertThat(decision.decisionDefinitionKey()).isNotNull();
     assertThat(decision.version()).isEqualTo(version);
@@ -594,12 +605,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionRequirementsKey);
     assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
-    if (decisionRequirementsName != null) {
-      assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
-    }
-    if (decisionRequirementsVersion != null) {
-      assertThat(decision.decisionRequirementsVersion()).isEqualTo(decisionRequirementsVersion);
-    }
   }
 
 }
