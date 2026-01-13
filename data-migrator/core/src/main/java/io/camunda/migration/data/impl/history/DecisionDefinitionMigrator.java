@@ -86,7 +86,6 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
 
           if (decisionRequirementsKey != null) {
             decisionDefinitionDbModelBuilder.decisionRequirementsKey(decisionRequirementsKey);
-            
             // Populate decisionRequirementsName and decisionRequirementsVersion from the DRD
             // Use cache to avoid N+1 queries when multiple decisions reference the same DRD
             String drdId = c7DecisionDefinition.getDecisionRequirementsDefinitionId();
