@@ -264,7 +264,7 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
 
     // 1. Verify process instance cleanup date
     OffsetDateTime piCleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
-    assertThat(piCleanupDate).isAfterOrEqualTo(processInstanceEndDate.plus(Duration.ofDays(30)));
+    assertThat(piCleanupDate).isEqualTo(processInstanceEndDate.plus(Duration.ofDays(30)));
 
     // 2. Verify all flow node cleanup dates
     var allFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
