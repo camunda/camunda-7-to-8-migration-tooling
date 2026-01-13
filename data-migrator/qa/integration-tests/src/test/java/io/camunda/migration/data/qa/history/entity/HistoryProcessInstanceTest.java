@@ -14,13 +14,19 @@ import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessag
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WhiteBox;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.entities.UserTaskEntity;
+import io.camunda.search.entities.VariableEntity;
+import io.camunda.search.query.VariableQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
@@ -157,6 +163,90 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // then
     assertThat(searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
+  }
+
+  @Test
+  public void shouldPopulateRootProcessInstanceKeyForCallActivity() {
+    // given
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
+    ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
+        .superProcessInstanceId(parentInstance.getProcessInstanceId())
+        .singleResult();
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> subProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");
+    assertThat(parentProcessInstances).hasSize(1);
+    assertThat(subProcessInstances).hasSize(1);
+
+    ProcessInstanceEntity parent = parentProcessInstances.getFirst();
+    ProcessInstanceEntity sub = subProcessInstances.getFirst();
+
+    // Parent process should not have rootProcessInstanceKey (it is the root)
+    assertThat(parent.rootProcessInstanceKey()).isNull();
+
+    // Sub process should have rootProcessInstanceKey pointing to the parent
+    assertThat(sub.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey());
+
+    // Verify that flow nodes also have rootProcessInstanceKey
+    List<FlowNodeInstanceEntity> subFlowNodes = searchHistoricFlowNodes(sub.processInstanceKey());
+    assertThat(subFlowNodes).isNotEmpty();
+    subFlowNodes.forEach(flowNode ->
+        assertThat(flowNode.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey())
+    );
+
+    // Verify that user tasks also have rootProcessInstanceKey
+    List<UserTaskEntity> userTasks = searchHistoricUserTasks(sub.processInstanceKey());
+    assertThat(userTasks).isNotEmpty();
+    userTasks.forEach(userTask ->
+        assertThat(userTask.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey())
+    );
+
+    // Verify that variables also have rootProcessInstanceKey
+    List<VariableEntity> variables = rdbmsService.getVariableReader()
+        .search(VariableQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(sub.processInstanceKey()))))
+        .items();
+    if (!variables.isEmpty()) {
+      variables.forEach(variable ->
+          assertThat(variable.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey())
+      );
+    }
+  }
+
+  @Test
+  public void shouldSkipEntitiesWhenRootProcessInstanceNotMigrated() {
+    // given
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
+    ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
+        .superProcessInstanceId(parentInstance.getProcessInstanceId())
+        .singleResult();
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // Manually skip the parent process instance to simulate it not being migrated yet
+    historyMigrator.setMode(MigratorMode.MIGRATE);
+    
+    // Mark parent as skipped
+    dbClient.insert(parentInstance.getId(), null, new Date(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE, "test skip");
+
+    // when - attempt to migrate (sub should be skipped because parent is skipped)
+    historyMigrator.migrate();
+
+    // then - sub process should be skipped
+    List<ProcessInstanceEntity> subProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");
+    assertThat(subProcessInstances).isEmpty();
+
+    // Verify skip was logged
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_PARENT, "process", subInstance.getId()));
   }
 
 
