@@ -16,7 +16,6 @@ import static org.camunda.bpm.engine.variable.Variables.stringValue;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.extension.CleanupExtension;
 import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;

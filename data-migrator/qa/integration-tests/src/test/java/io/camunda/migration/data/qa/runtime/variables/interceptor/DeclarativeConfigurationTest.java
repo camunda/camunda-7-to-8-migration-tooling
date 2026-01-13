@@ -18,7 +18,6 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.interceptor.DateVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor;

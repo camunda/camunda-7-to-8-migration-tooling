@@ -14,7 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.StringOnlyInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.UniversalInterceptor;

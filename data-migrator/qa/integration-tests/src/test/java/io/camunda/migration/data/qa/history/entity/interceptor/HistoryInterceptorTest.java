@@ -9,7 +9,6 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ActivityInstanceInterceptor;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;

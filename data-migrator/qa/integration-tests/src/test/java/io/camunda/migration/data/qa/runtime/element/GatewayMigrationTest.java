@@ -17,7 +17,6 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.property.MigratorProperties;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
 import org.camunda.bpm.engine.RuntimeService;

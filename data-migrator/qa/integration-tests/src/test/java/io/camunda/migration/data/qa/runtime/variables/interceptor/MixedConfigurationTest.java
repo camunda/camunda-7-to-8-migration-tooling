@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.runtime.variables.interceptor;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;

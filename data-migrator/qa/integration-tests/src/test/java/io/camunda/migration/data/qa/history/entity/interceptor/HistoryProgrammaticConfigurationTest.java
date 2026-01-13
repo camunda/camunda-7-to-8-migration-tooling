@@ -11,7 +11,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ActivityInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.UniversalEntityInterceptor;

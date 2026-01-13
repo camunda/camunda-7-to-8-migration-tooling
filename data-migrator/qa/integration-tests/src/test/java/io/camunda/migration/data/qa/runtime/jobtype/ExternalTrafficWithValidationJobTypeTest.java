@@ -12,7 +12,6 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byElement
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.response.ActivateJobsResponse;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;

@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -39,7 +38,6 @@ import io.camunda.migration.data.qa.AbstractMigratorTest;
   io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
   io.camunda.migration.data.config.MigratorAutoConfiguration.class
 })
-@WithSpringProfile("history-level-full")
 public class HistoryMixedConfigurationTest extends AbstractMigratorTest {
 
   @RegisterExtension

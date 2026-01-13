@@ -28,7 +28,7 @@ public class EventSubprocessMigrationTest extends AbstractElementMigrationTest {
     runtimeService.signalEventReceived("SignalEventName");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then both user tasks exist in C8
     assertThat(byProcessId("eventSubprocessId")).isActive()
@@ -48,7 +48,7 @@ public class EventSubprocessMigrationTest extends AbstractElementMigrationTest {
     runtimeService.signalEventReceived("SignalEventName");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then canceled user task does not exist in C8
     assertThat(byProcessId("eventSubprocessId")).isActive()

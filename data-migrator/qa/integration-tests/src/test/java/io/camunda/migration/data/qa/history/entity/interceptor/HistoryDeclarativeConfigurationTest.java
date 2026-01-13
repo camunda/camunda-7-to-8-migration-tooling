@@ -13,7 +13,6 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -27,13 +26,12 @@ import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-@WithSpringProfile("entity-interceptor")
 @Import({
   io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
   io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
   io.camunda.migration.data.config.MigratorAutoConfiguration.class
 })
-@WithSpringProfile("history-level-full")
+@WithSpringProfile("entity-interceptor")
 public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
 
   @RegisterExtension

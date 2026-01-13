@@ -26,7 +26,7 @@ public class MessageEventMigrationTest extends AbstractElementMigrationTest {
     runtimeService.setVariable(instance.getId(), "messageRef", "aMessageRef");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId("messageCatchEventProcessId")).isActive()

@@ -17,7 +17,6 @@ import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

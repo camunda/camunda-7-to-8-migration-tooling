@@ -18,7 +18,6 @@ import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskNam
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.client.api.search.response.Variable;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Optional;
