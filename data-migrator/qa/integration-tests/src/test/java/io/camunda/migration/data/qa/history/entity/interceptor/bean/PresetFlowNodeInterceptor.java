@@ -28,8 +28,7 @@ public class PresetFlowNodeInterceptor implements EntityInterceptor {
     if (builder != null) {
       builder.treePath("1/2/3/")
           .processInstanceKey(1L)
-          .processDefinitionKey(2L)
-          .flowNodeScopeKey(1L);
+          .processDefinitionKey(2L);
     }
   }
 

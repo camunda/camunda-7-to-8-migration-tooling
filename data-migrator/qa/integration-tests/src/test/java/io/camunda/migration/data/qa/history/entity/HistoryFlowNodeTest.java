@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
@@ -15,7 +16,6 @@ import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USE
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -131,10 +131,6 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
-    // Subprocesses and the start inside a subprocess have the same createTime, leading to the start sometimes being
-    // skipped on first round. Retrying skipped to avoid test flakiness
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("subProcess");
@@ -149,17 +145,17 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
         .orElseThrow(() -> new AssertionError("Subprocess flow node not found"));
     assertThat(subprocessFlowNode.flowNodeScopeKey()).isEqualTo(processInstanceKey);
     List<FlowNodeInstanceDbModel> nestedFlowNodes = flowNodes.stream()
-        .filter(fn -> !Set.of("start_outsideSub","subprocess", "end_outsideSub").contains(fn.flowNodeId()))
+        .filter(fn -> !Set.of("start_outsideSub","A_subprocess", "end_outsideSub").contains(fn.flowNodeId()))
         .toList();
 
     assertThat(nestedFlowNodes).hasSize(3)
         .allSatisfy(fn -> assertThat(fn.flowNodeScopeKey()).isEqualTo(subprocessFlowNode.flowNodeInstanceKey()))
         .extracting(FlowNodeInstanceDbModel::flowNodeId)
-        .containsExactlyInAnyOrder("start_insideSub", USER_TASK_ID, "end_insideSub");
+        .containsExactlyInAnyOrder("B_start_insideSub", USER_TASK_ID, "end_insideSub");
 
     List<FlowNodeInstanceDbModel> topLevelFlowNodes = flowNodes.stream()
         .filter(
-            fn -> !Set.of("start_insideSub", "subprocess", USER_TASK_ID, "end_insideSub").contains(fn.flowNodeId()))
+            fn -> !Set.of("B_start_insideSub", "A_subprocess", USER_TASK_ID, "end_insideSub").contains(fn.flowNodeId()))
         .toList();
 
     assertThat(topLevelFlowNodes).hasSize(2)
@@ -198,13 +194,55 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     }
   }
 
+  @Test
+  public void shouldSetPartitionIdForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).isNotEmpty()
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(C7_HISTORY_PARTITION_ID));
+  }
+
+  @Test
+  public void shouldSetFlowNodeNameForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).isNotEmpty()
+        .allSatisfy(flowNode -> assertThat(flowNode.flowNodeName()).isNotNull());
+  }
+
   private void deploySubprocessModel() {
     String process = "subProcess";
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent("start_outsideSub")
-        .subProcess("subprocess")
+        .subProcess("A_subprocess")        // having A prefix to be ordered before "B_start_insideSub"
         .embeddedSubProcess()
-        .startEvent("start_insideSub")
+        .startEvent("B_start_insideSub")  // see above comment
         .userTask(USER_TASK_ID)
         .endEvent("end_insideSub")
         .subProcessDone()
