@@ -26,6 +26,7 @@ import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.RuntimeValidator;
+import io.camunda.migration.data.impl.history.AuditLogMigrator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
 import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
@@ -86,6 +87,7 @@ import org.springframework.transaction.PlatformTransactionManager;
     ProcessInstanceMigrator.class,
     UserTaskMigrator.class,
     VariableMigrator.class,
+    AuditLogMigrator.class,
     SchemaShutdownCleaner.class
 })
 @Configuration

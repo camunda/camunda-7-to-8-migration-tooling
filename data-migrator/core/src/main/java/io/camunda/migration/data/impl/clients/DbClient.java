@@ -99,6 +99,13 @@ public class DbClient {
    * Updates a record by setting the key for an existing ID and type.
    */
   public void updateC8KeyByC7IdAndType(String c7Id, Long c8Key, TYPE type) {
+    updateC8KeyByC7IdAndType(c7Id, (c8Key == null) ? null : c8Key.toString(), type);
+  }
+
+  /**
+   * Updates a record by setting the key for an existing ID and type.
+   */
+  public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, null, c8Key, type);
     callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
@@ -132,6 +139,13 @@ public class DbClient {
    * Inserts a new process instance record into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type, String skipReason) {
+    insert(c7Id, (c8Key == null) ? null : c8Key.toString(), createTime, type, skipReason);
+  }
+
+  /**
+   * Inserts a new process instance record into the mapping table.
+   */
+  public void insert(String c7Id, String c8Key, Date createTime, TYPE type, String skipReason) {
     String finalSkipReason = properties.getSaveSkipReason() ? skipReason : null;
     DbClientLogs.insertingRecord(c7Id, createTime, null, finalSkipReason);
     var model = createIdKeyDbModel(c7Id, createTime, c8Key, type, finalSkipReason);
@@ -201,7 +215,7 @@ public class DbClient {
   /**
    * Creates a new IdKeyDbModel instance with the provided parameters including skip reason.
    */
-  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, Long c8Key, TYPE type, String skipReason) {
+  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, String c8Key, TYPE type, String skipReason) {
     var keyIdDbModel = new IdKeyDbModel();
     keyIdDbModel.setC7Id(c7Id);
     keyIdDbModel.setCreateTime(createTime);
@@ -214,7 +228,7 @@ public class DbClient {
   /**
    * Creates a new IdKeyDbModel instance with the provided parameters.
    */
-  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, Long c8Key, TYPE type) {
+  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, String c8Key, TYPE type) {
     return createIdKeyDbModel(c7Id, createTime, c8Key, type, null);
   }
 }

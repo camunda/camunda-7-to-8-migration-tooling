@@ -160,7 +160,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
   protected IdKeyDbModel createExpectedMigratedModel(String c7Id) {
     IdKeyDbModel model = new IdKeyDbModel();
     model.setC7Id(c7Id);
-    model.setC8Key(getNextKey());
+    model.setC8Key(String.valueOf(getNextKey()));
     model.setType(IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE);
     return model;
   }
@@ -184,7 +184,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
         if (idKeyDbModel.getC8Key() == null) {
           stmt.setNull(2, java.sql.Types.BIGINT);
         } else {
-          stmt.setLong(2, idKeyDbModel.getC8Key());
+          stmt.setString(2, idKeyDbModel.getC8Key());
         }
         stmt.executeUpdate();
       }
