@@ -144,16 +144,10 @@ public class MigratorAutoConfiguration {
     @Bean
     public DataSource migratorDataSource(@Qualifier("c7DataSource") DataSource c7DataSource,
                                          @Qualifier("c8DataSource") Optional<DataSource> c8DataSource) {
-      if (C7.equals(migratorProperties.getDataSource())) {
-        return c7DataSource;
-
-      } else if (C8.equals(migratorProperties.getDataSource())) {
-        if (c8DataSource.isPresent()) {
-          return c8DataSource.get();
-        }
-      }
-
-      return null;
+      // Always prefer C8 datasource when configured (for both runtime and history migration)
+      // This ensures the migration schema is on the same datasource as the migrated data,
+      // providing true single-transaction atomicity without cross-datasource coordination
+      return c8DataSource.orElse(c7DataSource);
     }
 
     @Bean

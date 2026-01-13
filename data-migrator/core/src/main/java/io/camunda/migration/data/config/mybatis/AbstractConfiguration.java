@@ -46,14 +46,6 @@ public class AbstractConfiguration {
                                                       DatabaseIdProvider databaseIdProvider,
                                                       Properties databaseProperties,
                                                       String tablePrefix) throws Exception {
-    return createSqlSessionFactory(dataSource, databaseIdProvider, databaseProperties, tablePrefix, null);
-  }
-
-  protected SqlSessionFactory createSqlSessionFactory(DataSource dataSource,
-                                                      DatabaseIdProvider databaseIdProvider,
-                                                      Properties databaseProperties,
-                                                      String tablePrefix,
-                                                      org.apache.ibatis.transaction.TransactionFactory transactionFactory) throws Exception {
     var configuration = new org.apache.ibatis.session.Configuration();
     configuration.setJdbcTypeForNull(JdbcType.NULL);
     configuration.getTypeHandlerRegistry().register(OffsetDateTimeTypeHandler.class);
@@ -62,9 +54,6 @@ public class AbstractConfiguration {
     factoryBean.setConfiguration(configuration);
     factoryBean.setDataSource(dataSource);
     factoryBean.setDatabaseIdProvider(databaseIdProvider);
-    if (transactionFactory != null) {
-      factoryBean.setTransactionFactory(transactionFactory);
-    }
     factoryBean.addMapperLocations(new PathMatchingResourcePatternResolver().getResources("classpath*:mapper/*.xml"));
 
     Properties p = new Properties();

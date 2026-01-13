@@ -76,8 +76,6 @@ import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
 import io.camunda.db.rdbms.write.RdbmsWriterMetrics;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
-import io.camunda.migration.data.config.CrossDataSourceTransactionManager;
-import io.camunda.migration.data.config.mybatis.CrossDataSourceTransactionFactory;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.logging.ConfigurationLogs;
@@ -132,24 +130,10 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public CrossDataSourceTransactionManager crossDataSourceTransactionManager(@Qualifier("c8DataSource") DataSource c8DataSource) {
-    return new CrossDataSourceTransactionManager(c8DataSource);
-  }
-
-  @Bean
-  public CrossDataSourceTransactionFactory crossDataSourceTransactionFactory(CrossDataSourceTransactionManager crossDataSourceTransactionManager) {
-    CrossDataSourceTransactionFactory factory = new CrossDataSourceTransactionFactory();
-    factory.setTransactionManager(crossDataSourceTransactionManager);
-    return factory;
-  }
-
-  @Bean
-  public SqlSessionFactory c8SqlSessionFactory(VendorDatabaseProperties vendorDatabaseProperties, 
-                                                DbVendorProvider dbVendorProvider,
-                                                CrossDataSourceTransactionFactory transactionFactory) throws Exception {
+  public SqlSessionFactory c8SqlSessionFactory(VendorDatabaseProperties vendorDatabaseProperties, DbVendorProvider dbVendorProvider) throws Exception {
     String tablePrefix = this.configProperties.getC8().getDataSource().getTablePrefix();
     Properties properties = vendorDatabaseProperties.properties();
-    return createSqlSessionFactory(dataSource, dbVendorProvider, properties, tablePrefix, transactionFactory);
+    return createSqlSessionFactory(dataSource, dbVendorProvider, properties, tablePrefix);
   }
 
   @Bean

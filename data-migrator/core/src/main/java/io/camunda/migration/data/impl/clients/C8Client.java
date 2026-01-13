@@ -87,8 +87,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,8 +97,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 public class C8Client {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
 
   @Autowired
   protected MigratorProperties properties;
@@ -239,70 +235,19 @@ public class C8Client {
   // ========== MyBatis Mapper Wrapper Methods for History Migration ==========
 
   /**
-   * Helper method to handle insert operations that may fail due to duplicate key violations.
-   * If a duplicate key error occurs, logs a warning and continues gracefully instead of throwing.
-   * This handles the edge case where C8 commits but migrator DB fails, and on retry we attempt
-   * to re-insert already committed C8 data.
-   *
-   * @param insertOperation the insert operation to perform
-   * @param entityDescription description of the entity being inserted (for logging)
-   */
-  protected void insertWithDuplicateHandling(Runnable insertOperation, String entityDescription) {
-    try {
-      insertOperation.run();
-    } catch (Exception e) {
-      if (isDuplicateKeyException(e)) {
-        LOGGER.warn("Duplicate key detected when inserting {}, likely due to previous partial commit. " +
-            "Skipping insert as data already exists in C8.", entityDescription);
-      } else {
-        throw e;
-      }
-    }
-  }
-
-  /**
-   * Checks if an exception is a duplicate key violation.
-   * Checks common duplicate key error patterns across different databases.
-   */
-  protected boolean isDuplicateKeyException(Exception e) {
-    String message = e.getMessage();
-    if (message == null) {
-      return false;
-    }
-    message = message.toLowerCase();
-    
-    // Check for common duplicate key error messages across different databases
-    return message.contains("duplicate key") ||
-           message.contains("unique constraint") ||
-           message.contains("duplicate entry") ||
-           message.contains("violates unique constraint") ||
-           message.contains("ora-00001") || // Oracle unique constraint
-           message.contains("sqlstate: 23505") || // PostgreSQL unique violation
-           message.contains("sqlstate: 23000"); // MySQL/H2 duplicate key
-  }
-
-  /**
    * Inserts a ProcessDefinition into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertProcessDefinition(ProcessDefinitionDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> processDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_DEFINITION),
-        "ProcessDefinition key=" + dbModel.processDefinitionKey()
-    );
+    callApi(() -> processDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_DEFINITION);
   }
 
   /**
    * Inserts a ProcessInstance into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertProcessInstance(ProcessInstanceDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> processInstanceMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE),
-        "ProcessInstance key=" + dbModel.processInstanceKey()
-    );
+    callApi(() -> processInstanceMapper.insert(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
   }
 
   /**
@@ -321,26 +266,18 @@ public class C8Client {
 
   /**
    * Inserts a DecisionRequirementsDefinition into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertDecisionRequirements(DecisionRequirementsDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> decisionRequirementsMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_REQUIREMENTS),
-        "DecisionRequirements key=" + dbModel.decisionRequirementsKey()
-    );
+    callApi(() -> decisionRequirementsMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_REQUIREMENTS);
   }
 
   /**
    * Inserts a DecisionDefinition into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertDecisionDefinition(DecisionDefinitionDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> decisionDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_DEFINITION),
-        "DecisionDefinition key=" + dbModel.decisionDefinitionKey()
-    );
+    callApi(() -> decisionDefinitionMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_DEFINITION);
   }
 
   /**
@@ -352,23 +289,17 @@ public class C8Client {
 
   /**
    * Inserts a DecisionInstance into the database.
-   * All inserts (main, input, output) are performed in a single transaction.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> {
-          callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
-          if (!dbModel.evaluatedInputs().isEmpty()) {
-            callApi(() -> decisionInstanceMapper.insertInput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_INPUT);
-          }
-          if (!dbModel.evaluatedOutputs().isEmpty()) {
-            callApi(() -> decisionInstanceMapper.insertOutput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT);
-          }
-        },
-        "DecisionInstance key=" + dbModel.decisionInstanceKey()
-    );
+    callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
+    if (!dbModel.evaluatedInputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertInput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_INPUT);
+    }
+
+    if (!dbModel.evaluatedOutputs().isEmpty()) {
+      callApi(() -> decisionInstanceMapper.insertOutput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT);
+    }
   }
 
   /**
@@ -380,50 +311,34 @@ public class C8Client {
 
   /**
    * Inserts an Incident into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertIncident(IncidentDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> incidentMapper.insert(dbModel), FAILED_TO_INSERT_INCIDENT),
-        "Incident key=" + dbModel.incidentKey()
-    );
+    callApi(() -> incidentMapper.insert(dbModel), FAILED_TO_INSERT_INCIDENT);
   }
 
   /**
    * Inserts a Variable into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertVariable(VariableDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE),
-        "Variable key=" + dbModel.key()
-    );
+    callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
    * Inserts a UserTask into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertUserTask(UserTaskDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> userTaskMapper.insert(dbModel), FAILED_TO_INSERT_USER_TASK),
-        "UserTask key=" + dbModel.userTaskKey()
-    );
+    callApi(() -> userTaskMapper.insert(dbModel), FAILED_TO_INSERT_USER_TASK);
   }
 
   /**
    * Inserts a FlowNodeInstance into the database.
-   * Handles duplicate keys gracefully in case of retry after partial commit.
    */
   @Transactional
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
-    insertWithDuplicateHandling(
-        () -> callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE),
-        "FlowNodeInstance key=" + dbModel.flowNodeInstanceKey()
-    );
+    callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
   }
 
   /**
