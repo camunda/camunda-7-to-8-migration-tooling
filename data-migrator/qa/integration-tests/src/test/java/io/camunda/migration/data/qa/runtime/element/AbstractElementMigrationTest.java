@@ -21,9 +21,14 @@ import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @EnabledIf("hasScenarios_activeElementPostMigration")
   @MethodSource("elementScenarios_activeElementPostMigration")
@@ -36,7 +41,7 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId(processId)).isActive()
@@ -55,7 +60,7 @@ public abstract class AbstractElementMigrationTest extends RuntimeMigrationAbstr
     ProcessInstance instance = runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId(processId)).hasCompletedElement(elementId, 1)

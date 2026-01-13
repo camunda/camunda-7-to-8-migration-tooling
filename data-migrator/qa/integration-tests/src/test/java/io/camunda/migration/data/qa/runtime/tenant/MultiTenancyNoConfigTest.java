@@ -26,9 +26,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true" })
 class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -62,10 +66,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 1234)).getId();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
     logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7ProcessInstanceId,
             formatMessage(TENANT_ID_ERROR, TENANT_ID_1)));
@@ -80,10 +84,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 1234)).getId();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
 
     assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
     var c8VariableTenant = client.newVariableSearchRequest()
@@ -123,10 +127,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
         Variables.putValue("myVar", 10)).getId();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
     assertProcessInstanceState(C8_DEFAULT_TENANT, c7instance, 10);
 
     // Verify the two tenant instances were skipped via logs
@@ -145,10 +149,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
     logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7ProcessInstanceId,
             formatMessage(TENANT_ID_ERROR, TENANT_ID_1)));
@@ -163,10 +167,10 @@ class MultiTenancyNoConfigTest extends RuntimeMigrationAbstractTest {
     String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
     logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7ProcessInstanceId,
             formatMessage(TENANT_ID_ERROR, TENANT_ID_2)));

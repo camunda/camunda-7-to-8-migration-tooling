@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(properties = {
     // Disable built-in transformer for controlled testing
@@ -33,6 +35,9 @@ import org.springframework.test.context.TestPropertySource;
 })
 @ActiveProfiles("entity-programmatic")
 public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
@@ -95,14 +100,14 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance interceptor was executed
     assertThat(processInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
 
     // Verify process instance was migrated with modified tenant ID
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -125,7 +130,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify universal interceptor was executed for all entities
     // Universal interceptor should be called for process instance, flow nodes, etc.
@@ -146,7 +151,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify all interceptors were executed
     assertThat(universalEntityInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -168,11 +173,11 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration - DisabledCustomInterceptor should not throw exception
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify migration completed successfully without executing disabled interceptor
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
   }

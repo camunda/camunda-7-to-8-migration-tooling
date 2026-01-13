@@ -16,8 +16,12 @@ import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -32,13 +36,13 @@ public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    getCamundaClient().newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
+    runtimeMigration.getCamundaClient().newCreateInstanceCommand().bpmnProcessId("simpleProcess").latestVersion().execute();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(2);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(2);
 
     var events = logs.getEvents();
     assertThat(events.stream()

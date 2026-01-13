@@ -22,38 +22,43 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Test
   public void shouldGenerateTreePathForFlowNodes() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     
     ProcessInstanceEntity processInstance = processInstances.getFirst();
     Long processInstanceKey = processInstance.processInstanceKey();
     
     // Verify all flow node types have treePath set
-    List<FlowNodeInstanceEntity> startEvents = searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
+    List<FlowNodeInstanceEntity> startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
     assertThat(startEvents).hasSize(1);
     FlowNodeInstanceEntity startEvent = startEvents.getFirst();
     assertThat(startEvent.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + startEvent.flowNodeInstanceKey());
     
-    List<FlowNodeInstanceEntity> userTasks = searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
+    List<FlowNodeInstanceEntity> userTasks = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
     assertThat(userTasks).hasSize(1);
     FlowNodeInstanceEntity userTask = userTasks.getFirst();
     assertThat(userTask.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + userTask.flowNodeInstanceKey());
     
-    List<FlowNodeInstanceEntity> endEvents = searchHistoricFlowNodesForType(processInstanceKey, END_EVENT);
+    List<FlowNodeInstanceEntity> endEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, END_EVENT);
     assertThat(endEvents).hasSize(1);
     FlowNodeInstanceEntity endEvent = endEvents.getFirst();
     assertThat(endEvent.treePath()).isNotNull().isEqualTo(processInstanceKey + "/" + endEvent.flowNodeInstanceKey());
@@ -64,15 +69,15 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
-    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodes(processInstances.getFirst().processInstanceKey());
+    List<FlowNodeInstanceEntity> flowNodes = historyMigration.searchHistoricFlowNodes(processInstances.getFirst().processInstanceKey());
     assertThat(flowNodes).hasSize(3)
         .extracting(FlowNodeInstanceEntity::state)
         .containsOnly(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
@@ -86,13 +91,13 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     runtimeService.deleteProcessInstance(processInstanceId, "Expected cancellation");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
-    List<FlowNodeInstanceEntity> userTasks = searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
+    List<FlowNodeInstanceEntity> userTasks = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
     assertThat(userTasks).singleElement().satisfies(userTask ->
       assertThat(userTask.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED)
     );
@@ -103,13 +108,13 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     ProcessInstanceEntity processInstance = processInstances.getFirst();
     Long processInstanceKey = processInstance.processInstanceKey();
@@ -127,17 +132,17 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // given
     deploySubprocessModel();
     runtimeService.startProcessInstanceByKey("subProcess");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
     // Subprocesses and the start inside a subprocess have the same createTime, leading to the start sometimes being
     // skipped on first round. Retrying skipped to avoid test flakiness
-    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("subProcess");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("subProcess");
     assertThat(processInstances).hasSize(1);
     ProcessInstanceEntity processInstance = processInstances.getFirst();
     Long processInstanceKey = processInstance.processInstanceKey();
@@ -174,16 +179,16 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("callActivityProcess.bpmn");
     deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
     runtimeService.startProcessInstanceByKey("callingProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> parentProcessInstances = historyMigration.searchHistoricProcessInstances("callingProcessId");
     assertThat(parentProcessInstances).hasSize(1);
     ProcessInstanceEntity parentProcessInstance = parentProcessInstances.getFirst();
-    List<ProcessInstanceEntity> childProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");
+    List<ProcessInstanceEntity> childProcessInstances = historyMigration.searchHistoricProcessInstances("calledProcessInstanceId");
     assertThat(childProcessInstances).hasSize(1);
     ProcessInstanceEntity childProcessInstance = childProcessInstances.getFirst();
     Long childProcessInstanceKey = childProcessInstance.processInstanceKey();

@@ -16,11 +16,15 @@ import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type=DISABLED"
 })
 public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -36,10 +40,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -53,10 +57,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -70,10 +74,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
 }

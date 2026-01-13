@@ -19,6 +19,8 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
@@ -34,6 +36,9 @@ import org.springframework.test.context.TestPropertySource;
 @ActiveProfiles("programmatic")
 public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
 
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
+
   @Test
   public void shouldWorkAlongsideSpringComponentInterceptors(CapturedOutput output) {
     // This test verifies that configured interceptors work alongside Spring @Component interceptors
@@ -45,7 +50,7 @@ public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "var", "value"); // For ComplexInterceptor (declarative)
 
     // when running runtime migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then both interceptors should have executed
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

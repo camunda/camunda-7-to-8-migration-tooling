@@ -26,10 +26,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(locations = "classpath:application-warn.properties")
 @ExtendWith({OutputCaptureExtension.class})
 public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
     @Autowired
     protected ManagementService managementService;
@@ -46,12 +51,12 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances without definition
-        getHistoryMigrator().migrateProcessInstances();
+        historyMigration.getMigrator().migrateProcessInstances();
 
         // when
-        getHistoryMigrator().setMode(LIST_SKIPPED);
-        getHistoryMigrator().setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
-        getHistoryMigrator().start();
+        historyMigration.getMigrator().setMode(LIST_SKIPPED);
+        historyMigration.getMigrator().setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
+        historyMigration.getMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -78,16 +83,16 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances and tasks without definition
-        getHistoryMigrator().migrateProcessInstances();
-        getHistoryMigrator().migrateUserTasks();
+        historyMigration.getMigrator().migrateProcessInstances();
+        historyMigration.getMigrator().migrateUserTasks();
 
         // when
-        getHistoryMigrator().setMode(LIST_SKIPPED);
-        getHistoryMigrator().setRequestedEntityTypes(List.of(
+        historyMigration.getMigrator().setMode(LIST_SKIPPED);
+        historyMigration.getMigrator().setRequestedEntityTypes(List.of(
             IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE,
             IdKeyMapper.TYPE.HISTORY_USER_TASK
         ));
-        getHistoryMigrator().start();
+        historyMigration.getMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -105,7 +110,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
         // Verify user tasks
-        List<String> expectedUserTaskIds = getHistoryService().createHistoricTaskInstanceQuery()
+        List<String> expectedUserTaskIds = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()

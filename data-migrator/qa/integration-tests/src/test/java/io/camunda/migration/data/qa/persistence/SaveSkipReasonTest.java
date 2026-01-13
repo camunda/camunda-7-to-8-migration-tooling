@@ -20,8 +20,13 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected IdKeyMapper idKeyMapper;
@@ -45,7 +50,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
@@ -67,7 +72,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     assertThat(taskCount).isEqualTo(4);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);

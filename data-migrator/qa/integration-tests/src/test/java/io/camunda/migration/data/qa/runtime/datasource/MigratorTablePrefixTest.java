@@ -17,12 +17,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @TestPropertySource(properties = {
     "camunda.migrator.table-prefix=MY_PREFIX_",
     "logging.level.io.camunda.migration.data.impl.persistence.IdKeyMapper=DEBUG"
 })
 public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   protected static final String TABLE_PREFIX_INSERT_PATTERN = ".*INSERT INTO MY_PREFIX_MIGRATION_MAPPING.*";
 
@@ -36,10 +40,10 @@ public class MigratorTablePrefixTest extends RuntimeMigrationAbstractTest {
     runtimeService.correlateMessage("msgRef");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()

@@ -29,8 +29,12 @@ import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 
 public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
@@ -46,19 +50,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     taskService.setPriority(task.getId(), 75);
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -75,19 +79,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     taskService.setAssignee(task.getId(), "tenantUser");
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -113,19 +117,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
 
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -148,10 +152,10 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     ProcessInstance processInstance2 = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(2);
 
     // Check completed task
@@ -160,7 +164,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
         .findFirst()
         .orElseThrow();
 
-    List<UserTaskEntity> completedUserTasks = searchHistoricUserTasks(completedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> completedUserTasks = historyMigration.searchHistoricUserTasks(completedProcessInstance.processInstanceKey());
     assertThat(completedUserTasks).hasSize(1);
     assertThat(completedUserTasks.getFirst().state()).isEqualTo(UserTaskEntity.UserTaskState.COMPLETED);
     assertThat(completedUserTasks.getFirst().completionDate()).isNotNull();
@@ -171,7 +175,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
         .findFirst()
         .orElseThrow();
 
-    List<UserTaskEntity> activeUserTasks = searchHistoricUserTasks(activeProcessInstance.processInstanceKey());
+    List<UserTaskEntity> activeUserTasks = historyMigration.searchHistoricUserTasks(activeProcessInstance.processInstanceKey());
     assertThat(activeUserTasks).hasSize(1);
     assertThat(activeUserTasks.getFirst().state()).isEqualTo(CANCELED);
     assertThat(activeUserTasks.getFirst().completionDate()).isNotNull();
@@ -184,19 +188,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
     runtimeService.deleteProcessInstance(processInstance.getId(), "Test cancellation");
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -220,14 +224,14 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     taskService.setAssignee(task2.getId(), "user2");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("simpleProcess");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("simpleProcess");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(2);
 
     // Verify both tasks were migrated with correct states and assignees
@@ -256,19 +260,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Don't set assignee - leave it null
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -286,19 +290,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Leave due date and follow up date as null
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -324,19 +328,19 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // given
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(processName);
 
-    HistoricTaskInstance c7Task = getHistoryService().createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processName);
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances(processName);
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedProcessInstance = processInstances.getFirst();
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(migratedProcessInstance.processInstanceKey());
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();

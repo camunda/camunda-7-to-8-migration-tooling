@@ -17,8 +17,12 @@ import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -30,13 +34,13 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     var c7Instance = runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7Instance.getId(),
             formatMessage(NO_C8_DEPLOYMENT_ERROR, "simpleProcess", c7Instance.getId())));
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
   }
 
   @Test
@@ -50,7 +54,7 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     String missingDefinitionLog = formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR,
@@ -61,7 +65,7 @@ class ProcessDefinitionNotFoundTest extends RuntimeMigrationAbstractTest {
     assertThat(logCountAfterFirstRun).isEqualTo(1);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then no additional log entry is created
     long logCountAfterSecondRun = logs.getEvents().stream()

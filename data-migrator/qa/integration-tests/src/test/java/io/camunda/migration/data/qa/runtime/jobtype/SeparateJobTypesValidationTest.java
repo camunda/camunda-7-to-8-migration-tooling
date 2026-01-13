@@ -18,12 +18,16 @@ import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @TestPropertySource(properties = {
     "camunda.migrator.job-type=custom-activation-type",
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
 public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   protected static final String VALIDATION_JOB_TYPE = "=if legacyId != null then \"migrator\" else \"noop\"";
 
@@ -41,10 +45,10 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream()
@@ -71,10 +75,10 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream()
@@ -101,10 +105,10 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
 }

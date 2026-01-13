@@ -16,11 +16,16 @@ import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
 public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Test
   public void shouldHandleExternallyStartedMigratorJobsGracefully() {
@@ -32,15 +37,15 @@ public class ExternalTrafficWithValidationJobTypeTest extends RuntimeMigrationAb
     // assume
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
-    getCamundaClient().newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
+    runtimeMigration.getCamundaClient().newCreateInstanceCommand().bpmnProcessId("migratorListenerFeel").latestVersion().execute();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(2);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(2);
 
-    ActivateJobsResponse response = getCamundaClient().newActivateJobsCommand()
+    ActivateJobsResponse response = runtimeMigration.getCamundaClient().newActivateJobsCommand()
         .jobType("noop")
         .maxJobsToActivate(5)
         .execute();

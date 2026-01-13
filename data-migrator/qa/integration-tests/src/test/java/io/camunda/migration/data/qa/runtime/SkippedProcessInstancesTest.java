@@ -18,11 +18,16 @@ import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(properties = {
     "camunda.migrator.page-size=4"
 })
 class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected RuntimeService runtimeService;
@@ -41,9 +46,9 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
       runtimeService.startProcessInstanceByKey("miProcess");
     }
 
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
-    Supplier<SearchResponsePage> response = () -> getCamundaClient().newProcessInstanceSearchRequest().execute().page();
+    Supplier<SearchResponsePage> response = () -> runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().page();
 
     // assume
     assertThat(response.get().totalItems()).isEqualTo(22);
@@ -59,10 +64,10 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
               .map(Task::getId).forEach(taskService::complete);
         });
 
-    getRuntimeMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(response.get().totalItems()).isEqualTo(22*2);

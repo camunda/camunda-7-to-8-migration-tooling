@@ -15,8 +15,13 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class HistoryTaskMigrationTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Test
   public void shouldHistoricUserTasksBeMigrated() {
@@ -25,23 +30,23 @@ public class HistoryTaskMigrationTest extends HistoryMigrationAbstractTest {
     for(int i = 0; i < 5; i++) {
       runtimeService.startProcessInstanceByKey("userTaskProcessId");
     }
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(5);
     for (ProcessInstanceEntity processInstance : processInstances) {
       // and process instance has expected state
       assertThat(processInstance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.COMPLETED);
       Long processInstanceKey = processInstance.processInstanceKey();
-      List<UserTaskEntity> userTasks = searchHistoricUserTasks(processInstanceKey);
+      List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(processInstanceKey);
       assertThat(userTasks).hasSize(1);
       assertThat(userTasks.getFirst().state()).isEqualTo(UserTaskEntity.UserTaskState.COMPLETED);
-      assertThat(searchHistoricFlowNodesForType(processInstanceKey, START_EVENT)).size().isEqualTo(1);
-      assertThat(searchHistoricFlowNodesForType(processInstanceKey, END_EVENT)).size().isEqualTo(1);
+      assertThat(historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT)).size().isEqualTo(1);
+      assertThat(historyMigration.searchHistoricFlowNodesForType(processInstanceKey, END_EVENT)).size().isEqualTo(1);
     }
   }
 }

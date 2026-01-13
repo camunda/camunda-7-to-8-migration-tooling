@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(properties = {
     // Disable built-in interceptor for controlled testing
@@ -36,6 +38,9 @@ import org.springframework.test.context.TestPropertySource;
 })
 @ActiveProfiles("programmatic")
 public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected List<VariableInterceptor> configuredVariableInterceptors;
@@ -71,7 +76,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(disabledInterceptors).isEqualTo(0); // Should be removed from context when disabled
 
     // Run migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify primitive variable was processed by our test interceptors instead
     // Since built-in is disabled, our universal and string only interceptor should have processed it
@@ -93,7 +98,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "boolVar", true);
 
     // Run migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify string-specific interceptor only executed for string variable
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -125,7 +130,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(enabledCustomInterceptors).isEqualTo(2); // All our test interceptors should be enabled
 
     // Run migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify our custom interceptors executed
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -149,7 +154,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify the disabled interceptor did not execute
     // Variables should not have the "DISABLED_" prefix that would be added by DisablableCustomInterceptor
@@ -168,7 +173,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(simpleProcessInstance.getId(), "varIntercept", "value");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -183,13 +188,13 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
     var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", true);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
     // when
-    getRuntimeMigrator().setMode(RETRY_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

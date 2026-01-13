@@ -21,8 +21,13 @@ import org.camunda.spin.plugin.variable.value.XmlValue;
 import org.camunda.spin.xml.SpinXmlElement;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected ObjectMapper objectMapper;
@@ -47,7 +52,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinJsonNode c7value = (SpinJsonNode) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -76,7 +81,7 @@ public class SpinVariablesTest extends RuntimeMigrationAbstractTest {
     SpinXmlElement c7value = (SpinXmlElement) runtimeService.getVariable(simpleProcessInstance.getId(), "var");
 
     // when running runtime migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("var", c7value.toString());

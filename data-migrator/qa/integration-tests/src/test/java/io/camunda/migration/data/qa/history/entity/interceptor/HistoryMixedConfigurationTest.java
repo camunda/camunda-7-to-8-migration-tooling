@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @TestPropertySource(properties = {
     // Add a POJO interceptor via configuration
@@ -29,6 +31,9 @@ import org.springframework.test.context.TestPropertySource;
 @WithSpringProfile("entity-interceptor")
 @ActiveProfiles("entity-programmatic")
 public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
@@ -55,11 +60,11 @@ public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest 
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

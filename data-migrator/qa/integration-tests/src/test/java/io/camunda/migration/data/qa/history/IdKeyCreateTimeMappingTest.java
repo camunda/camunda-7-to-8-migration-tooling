@@ -15,12 +15,17 @@ import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.Date;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /**
  * Test to verify that IdKeyDbModel createTime is mapped correctly across different database types
  * when running actual migration queries defined in IdKey.xml.
  */
 public class IdKeyCreateTimeMappingTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected IdKeyMapper idKeyMapper;
@@ -36,7 +41,7 @@ public class IdKeyCreateTimeMappingTest extends HistoryMigrationAbstractTest {
     Date beforeMigration = new Date();
 
     // When: Run the history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Then: Verify that migrated instances have correct mapping
     IdKeyDbModel migratedInstance = idKeyMapper.findMigratedByType(

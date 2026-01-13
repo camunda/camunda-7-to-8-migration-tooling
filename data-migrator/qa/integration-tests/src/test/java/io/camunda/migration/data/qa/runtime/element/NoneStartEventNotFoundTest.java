@@ -15,8 +15,12 @@ import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -34,10 +38,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -47,10 +51,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
      runtimeService.correlateMessage("msgRef");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()
@@ -71,10 +75,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -90,10 +94,10 @@ public class NoneStartEventNotFoundTest extends RuntimeMigrationAbstractTest {
         .isNotNull();
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     var events = logs.getEvents();
     assertThat(events.stream().filter(event -> event.getMessage()

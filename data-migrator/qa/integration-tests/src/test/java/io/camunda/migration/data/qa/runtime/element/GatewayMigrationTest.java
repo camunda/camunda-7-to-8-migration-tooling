@@ -29,9 +29,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @SpringBootTest
 public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -61,7 +65,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("eventGatewayProcessId", variables);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId("eventGatewayProcessId")).isActive()
@@ -84,7 +88,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("ParallelGatewayProcess");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
     logs.assertDoesNotContain(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, instance.getId(),

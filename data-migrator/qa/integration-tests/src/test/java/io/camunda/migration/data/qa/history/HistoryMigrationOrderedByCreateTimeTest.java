@@ -24,18 +24,23 @@ import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Test
   public void shouldMigrateProcessDefinitionsDeployedBetweenRuns() {
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
     Supplier<List<ProcessDefinitionEntity>> definitionSupplier =
-        () -> searchHistoricProcessDefinitions("simpleStartEndProcessId");
+        () -> historyMigration.searchHistoricProcessDefinitions("simpleStartEndProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(definitionSupplier.get()).singleElement();
@@ -44,7 +49,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(definitionSupplier.get()).hasSize(2);
@@ -60,10 +65,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricProcessDefinitions("simpleStartEndProcessId")).hasSize(3);
+    assertThat(historyMigration.searchHistoricProcessDefinitions("simpleStartEndProcessId")).hasSize(3);
   }
 
   @Test
@@ -71,10 +76,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     Supplier<List<DecisionDefinitionEntity>> definitionSupplier =
-        () -> searchHistoricDecisionDefinitions("simpleDecisionId");
+        () -> historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(definitionSupplier.get()).singleElement();
@@ -83,7 +88,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(definitionSupplier.get()).hasSize(2);
@@ -99,10 +104,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricDecisionDefinitions("simpleDecisionId")).hasSize(3);
+    assertThat(historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId")).hasSize(3);
   }
 
   @Test
@@ -110,10 +115,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
     runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
-    Supplier<List<ProcessInstanceEntity>> instanceSupplier = () -> searchHistoricProcessInstances("simpleStartEndProcessId");
+    Supplier<List<ProcessInstanceEntity>> instanceSupplier = () -> historyMigration.searchHistoricProcessInstances("simpleStartEndProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(instanceSupplier.get()).singleElement();
@@ -122,7 +127,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(instanceSupplier.get()).hasSize(2);
@@ -142,10 +147,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricProcessInstances("simpleStartEndProcessId")).hasSize(4);
+    assertThat(historyMigration.searchHistoricProcessInstances("simpleStartEndProcessId")).hasSize(4);
   }
 
   @Test
@@ -153,29 +158,29 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
     Supplier<List<ProcessInstanceEntity>> instanceSupplier =
-        () -> searchHistoricProcessInstances("userTaskProcessId");
+        () -> historyMigration.searchHistoricProcessInstances("userTaskProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(instanceSupplier.get()).singleElement()
         .extracting(ProcessInstanceEntity::processInstanceKey)
-        .satisfies(c8Key -> assertThat(searchHistoricUserTasks(c8Key)).singleElement());
+        .satisfies(c8Key -> assertThat(historyMigration.searchHistoricUserTasks(c8Key)).singleElement());
 
     // given
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(instanceSupplier.get()).hasSize(2)
         .extracting(ProcessInstanceEntity::processInstanceKey)
-        .allSatisfy(c8Key -> assertThat(searchHistoricUserTasks(c8Key)).singleElement());
+        .allSatisfy(c8Key -> assertThat(historyMigration.searchHistoricUserTasks(c8Key)).singleElement());
   }
 
   @Test
@@ -190,15 +195,15 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     ClockUtil.offset(1_000 * 4L);
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(3)
+    assertThat(historyMigration.searchHistoricProcessInstances("userTaskProcessId")).hasSize(3)
         .extracting(ProcessInstanceEntity::processInstanceKey)
-        .allSatisfy(c8Key -> assertThat(searchHistoricUserTasks(c8Key)).singleElement());
+        .allSatisfy(c8Key -> assertThat(historyMigration.searchHistoricUserTasks(c8Key)).singleElement());
   }
 
   @Test
@@ -208,12 +213,12 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.startProcessInstanceByKey("multipleSignalProcessId");
     runtimeService.signalEventReceived("signalRef1");
     Supplier<List<ProcessInstanceEntity>> proceInstSupplier =
-        () -> searchHistoricProcessInstances("multipleSignalProcessId");
-    Function<Long, List<FlowNodeInstanceEntity>> flownodeSupplier = procInstanceKey -> searchHistoricFlowNodesForType(
+        () -> historyMigration.searchHistoricProcessInstances("multipleSignalProcessId");
+    Function<Long, List<FlowNodeInstanceEntity>> flownodeSupplier = procInstanceKey -> historyMigration.searchHistoricFlowNodesForType(
         procInstanceKey, INTERMEDIATE_CATCH_EVENT);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = proceInstSupplier.get();
@@ -227,7 +232,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.signalEventReceived("signalRef2");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(flownodeSupplier.apply(processInstanceKey)).hasSize(3)
@@ -248,12 +253,12 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.signalEventReceived("signalRef2");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> instance = searchHistoricProcessInstances("multipleSignalProcessId");
+    List<ProcessInstanceEntity> instance = historyMigration.searchHistoricProcessInstances("multipleSignalProcessId");
     assertThat(instance).singleElement();
-    assertThat(searchHistoricFlowNodesForType(instance.get(0).processInstanceKey(), INTERMEDIATE_CATCH_EVENT)).hasSize(
+    assertThat(historyMigration.searchHistoricFlowNodesForType(instance.get(0).processInstanceKey(), INTERMEDIATE_CATCH_EVENT)).hasSize(
             3)
         .extracting(FlowNodeInstanceEntity::flowNodeId)
         .containsExactlyInAnyOrder("signal1Id", "signal2Id", "signal3Id");
@@ -266,10 +271,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     String instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
     triggerIncident(instanceId);
     Supplier<List<IncidentEntity>> incidentSupplier =
-        () -> searchHistoricIncidents("incidentProcessId");
+        () -> historyMigration.searchHistoricIncidents("incidentProcessId");
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(incidentSupplier.get()).singleElement();
@@ -279,7 +284,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     triggerIncident(instanceId);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(incidentSupplier.get()).hasSize(2);
@@ -297,10 +302,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     triggerIncident(processInstanceId2);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricIncidents("incidentProcessId")).hasSize(2);
+    assertThat(historyMigration.searchHistoricIncidents("incidentProcessId")).hasSize(2);
   }
 
   @Test
@@ -308,11 +313,11 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
     VariableMap variables = Variables.createVariables().putValue("stringVar", "myStringVar");
-    Supplier<List<VariableEntity>> variableSupplier = () -> searchHistoricVariables("stringVar");
+    Supplier<List<VariableEntity>> variableSupplier = () -> historyMigration.searchHistoricVariables("stringVar");
     runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(variableSupplier.get()).singleElement();
@@ -321,7 +326,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     assertThat(variableSupplier.get()).hasSize(2);
@@ -337,10 +342,10 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    assertThat(searchHistoricVariables("stringVar")).hasSize(2);
+    assertThat(historyMigration.searchHistoricVariables("stringVar")).hasSize(2);
   }
 
 

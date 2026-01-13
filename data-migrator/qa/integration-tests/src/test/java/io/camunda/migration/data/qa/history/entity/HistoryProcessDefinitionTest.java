@@ -14,8 +14,13 @@ import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Test
   public void shouldMigrateHistoricProcessDefinitions() {
@@ -24,10 +29,10 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant2");
 
     // when history is migrated
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessDefinitionEntity> processDefinitions = searchHistoricProcessDefinitions("userTaskProcessId");
+    List<ProcessDefinitionEntity> processDefinitions = historyMigration.searchHistoricProcessDefinitions("userTaskProcessId");
     assertThat(processDefinitions).hasSize(2);
     processDefinitions.forEach(definition -> {
       assertThat(definition.processDefinitionKey()).isNotNull();

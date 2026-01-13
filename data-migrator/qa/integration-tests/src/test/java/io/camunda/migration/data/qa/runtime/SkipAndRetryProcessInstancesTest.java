@@ -39,10 +39,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(locations = "classpath:application-warn.properties")
 class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -70,10 +74,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
         .isEqualTo(4L);
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     // Assert via logs instead of querying database
     logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, process.getId(),
@@ -88,10 +92,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     var process = runtimeService.startProcessInstanceByKey("multiInstanceServiceTaskProcess");
 
     // when
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
 
     // Logs should contains the activityId without the multi-instance body suffix
@@ -113,10 +117,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
         .isEqualTo(4L);
 
     // when running runtime migration
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then the instance was not migrated and marked as skipped
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, process.getId(),
         formatMessage(MULTI_INSTANCE_LOOP_CHARACTERISTICS_ERROR, "multiUserTask")));
@@ -127,7 +131,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     // given skipped process instance
     deployer.deployProcessInC7AndC8("multiInstanceProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("multiInstanceProcess");
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify the instance was skipped via logs
     var events = logs.getEvents();
@@ -138,11 +142,11 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
         .hasSize(1);
 
     // when running retrying runtime migration
-    getRuntimeMigrator().setMode(RETRY_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then the instance was not migrated and still marked as skipped
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     events = logs.getEvents();
     Assertions.assertThat(events.stream()
@@ -157,7 +161,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     // given skipped process instance
     deployer.deployProcessInC7AndC8("multiInstanceProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("multiInstanceProcess");
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     var events = logs.getEvents();
     Assertions.assertThat(events.stream()
@@ -175,11 +179,11 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
         .isEqualTo(2L);
 
     // when running retrying runtime migration
-    getRuntimeMigrator().setMode(RETRY_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then the instance was migrated
-    List<ProcessInstance> processInstances = getCamundaClient().newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> processInstances = runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertThat(processInstances).hasSize(1);
     ProcessInstance processInstance = processInstances.getFirst();
     assertThat(processInstance.getProcessDefinitionId()).isEqualTo(process.getProcessDefinitionKey());
@@ -199,7 +203,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     // given skipped process instance
     deployer.deployProcessInC7AndC8("multiInstanceProcess.bpmn");
     var process = runtimeService.startProcessInstanceByKey("multiInstanceProcess");
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify via logs that instance was skipped
     logs.assertContains(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, process.getId(), ""));
@@ -207,8 +211,8 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeService.deleteProcessInstance(process.getId(), "State cannot be fixed!");
 
     // when running retrying runtime migration
-    getRuntimeMigrator().setMode(RETRY_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(output.getOut()).containsPattern(
@@ -223,7 +227,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     for (int i = 0; i < 10; i++) {
       processInstancesIds.add(runtimeService.startProcessInstanceByKey("multiInstanceProcess").getProcessInstanceId());
     }
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // Verify via logs that 10 instances were skipped
     for (String processInstanceId : processInstancesIds) {
@@ -231,8 +235,8 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     }
 
     // when running migration with list skipped mode
-    getRuntimeMigrator().setMode(LIST_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(LIST_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then all skipped process instances were listed
     String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE.getDisplayName() + "s\\]:";
@@ -250,15 +254,15 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     // given no skipped instances
 
     // when running migration with list skipped mode
-    getRuntimeMigrator().setMode(LIST_SKIPPED);
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().setMode(LIST_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then expected message is printed
     String expectedMessage = "No entities of type [" + IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE.getDisplayName() + "] were skipped during previous migration";
     assertThat(output.getOut().trim()).endsWith(expectedMessage);
 
     // and no migration was done (still 0 instances in C8)
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
   }
 
   @Test
@@ -274,10 +278,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     // History migration should not interfere with runtime migration
 
     // when running runtime migration afterwards
-    getRuntimeMigrator().start();
+    runtimeMigration.getMigrator().start();
 
     // then verify runtime process instance was migrated successfully
-    List<ProcessInstance> c8ProcessInstances = getCamundaClient().newProcessInstanceSearchRequest().execute().items();
+    List<ProcessInstance> c8ProcessInstances = runtimeMigration.getCamundaClient().newProcessInstanceSearchRequest().execute().items();
     assertThat(c8ProcessInstances).hasSize(1);
 
     // and verify historic process instance exists in RDBMS

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
 
 /**
  * Combined test class for testing multi-tenancy functionality in the migrator.
@@ -48,6 +49,9 @@ public class MultiTenancyTest {
    * Base class for shared test logic between tenant configuration scenarios
    */
   abstract static class MultiTenancyTestBase extends RuntimeMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
     @RegisterExtension
     protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -74,10 +78,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(1);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
       var c8ProcessInstanceTenant = client.newProcessInstanceSearchRequest()
           .filter(f -> f.processDefinitionId(SIMPLE_PROCESS_ID))
           .send()
@@ -108,10 +112,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 1234)).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(1);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
 
       assertProcessInstanceState(C8_DEFAULT_TENANT, c7ProcessInstanceId, 1234);
       var c8VariableTenant = client.newVariableSearchRequest()
@@ -151,10 +155,10 @@ public class MultiTenancyTest {
           Variables.putValue("myVar", 10)).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(3);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(3);
       assertProcessInstanceState(TENANT_ID_1, c7WithT1, 1);
       assertProcessInstanceState(TENANT_ID_2, c7WithT2, 2);
       assertProcessInstanceState(C8_DEFAULT_TENANT, c7instance, 10);
@@ -169,10 +173,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7ProcessInstanceId)));
@@ -187,10 +191,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(NO_C8_TENANT_DEPLOYMENT_ERROR, SIMPLE_PROCESS_ID, TENANT_ID_1, c7ProcessInstanceId)));
@@ -205,10 +209,10 @@ public class MultiTenancyTest {
       String c7ProcessInstanceId = runtimeService.startProcessInstanceByKey(SIMPLE_PROCESS_ID).getId();
 
       // when
-      getRuntimeMigrator().start();
+      runtimeMigration.getMigrator().start();
 
       // then
-      assertThatProcessInstanceCountIsEqualTo(0);
+      runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
       logs.assertContains(
           String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("{}", "%s"), c7ProcessInstanceId,
               String.format(TENANT_ID_ERROR, TENANT_ID_3)));

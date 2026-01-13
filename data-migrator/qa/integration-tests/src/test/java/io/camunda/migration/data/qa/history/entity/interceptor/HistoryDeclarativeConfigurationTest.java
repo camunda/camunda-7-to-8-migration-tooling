@@ -20,9 +20,14 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 @WithSpringProfile("entity-interceptor")
 public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstractTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected MigratorProperties migratorProperties;
@@ -90,11 +95,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -117,18 +122,18 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    getHistoryMigrator().migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify both process instances and flow nodes were migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        getRdbmsService().getFlowNodeInstanceReader()
+        historyMigration.getRdbmsService().getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.tenantIds("complex-tenant"))))

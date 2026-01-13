@@ -298,5 +298,32 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     assertThat(variable.value()).isEqualTo(expectedValue);
   }
 
+  public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId,
+                                                                    boolean builtInTransformerDisabled) {
+    RdbmsService rdbmsService = getRdbmsServiceBean();
+    if (rdbmsService == null) {
+      throw new IllegalStateException("RdbmsService is not available in the Spring context");
+    }
+    String finalProcessDefinitionId = builtInTransformerDisabled ?
+        processDefinitionId :
+        prefixDefinitionId(processDefinitionId);
+    return rdbmsService.getProcessInstanceReader()
+        .search(ProcessInstanceQuery.of(queryBuilder -> queryBuilder.filter(
+            filterBuilder -> filterBuilder.processDefinitionIds(finalProcessDefinitionId))))
+        .items();
+  }
+
+  public List<FlowNodeInstanceEntity> searchHistoricFlowNodes(long processInstanceKey) {
+    RdbmsService rdbmsService = getRdbmsServiceBean();
+    if (rdbmsService == null) {
+      throw new IllegalStateException("RdbmsService is not available in the Spring context");
+    }
+    return rdbmsService.getFlowNodeInstanceReader()
+        .search(FlowNodeInstanceQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
+        .items();
+  }
+
 }
 
