@@ -21,25 +21,29 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating user tasks from Camunda 7 to Camunda 8.
  */
 @Service
-public class UserTaskMigrator extends BaseMigrator {
-  public void migrateUserTasks() {
+public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
+
+  public void migrate() {
     HistoryMigratorLogs.migratingHistoricUserTasks();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_USER_TASK, idKeyDbModel -> {
         HistoricTaskInstance historicTaskInstance = c7Client.getHistoricTaskInstance(idKeyDbModel.getC7Id());
-        migrateUserTask(historicTaskInstance);
+        self.migrateOne(historicTaskInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricUserTasks(this::migrateUserTask,
-          dbClient.findLatestCreateTimeByType(HISTORY_USER_TASK));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_USER_TASK);
+      c7Client.fetchAndHandleHistoricUserTasks(self::migrateOne, createTime);
     }
   }
 
@@ -59,7 +63,7 @@ public class UserTaskMigrator extends BaseMigrator {
    * @param c7UserTask the historic user task from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateUserTask(HistoricTaskInstance c7UserTask) {
+  public void migrateOne(HistoricTaskInstance c7UserTask) {
     String c7UserTaskId = c7UserTask.getId();
     if (shouldMigrate(c7UserTaskId, HISTORY_USER_TASK)) {
       HistoryMigratorLogs.migratingHistoricUserTask(c7UserTaskId);

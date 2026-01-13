@@ -18,27 +18,30 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating flow node instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class FlowNodeMigrator extends BaseMigrator {
+public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
 
-  public void migrateFlowNodes() {
+  public void migrate() {
     HistoryMigratorLogs.migratingHistoricFlowNodes();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_FLOW_NODE, idKeyDbModel -> {
         HistoricActivityInstance historicActivityInstance = c7Client.getHistoricActivityInstance(
             idKeyDbModel.getC7Id());
-        migrateFlowNode(historicActivityInstance);
+        self.migrateOne(historicActivityInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricFlowNodes(this::migrateFlowNode,
-          dbClient.findLatestCreateTimeByType(HISTORY_FLOW_NODE));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_FLOW_NODE);
+      c7Client.fetchAndHandleHistoricFlowNodes(self::migrateOne, createTime);
     }
   }
 
@@ -66,7 +69,7 @@ public class FlowNodeMigrator extends BaseMigrator {
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateFlowNode(HistoricActivityInstance c7FlowNode) {
+  public void migrateOne(HistoricActivityInstance c7FlowNode) {
     String c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {
       HistoryMigratorLogs.migratingHistoricFlowNode(c7FlowNodeId);

@@ -23,25 +23,27 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating decision definitions from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionDefinitionMigrator extends BaseMigrator {
+public class DecisionDefinitionMigrator extends BaseMigrator<DecisionDefinition> {
 
-  public void migrateDecisionDefinitions() {
+  public void migrate() {
     HistoryMigratorLogs.migratingDecisionDefinitions();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_DEFINITION, idKeyDbModel -> {
         DecisionDefinition c7DecisionDefinition = c7Client.getDecisionDefinition(idKeyDbModel.getC7Id());
-        migrateDecisionDefinition(c7DecisionDefinition);
+        self.migrateOne(c7DecisionDefinition);
       });
     } else {
-      c7Client.fetchAndHandleDecisionDefinitions(this::migrateDecisionDefinition,
-          dbClient.findLatestCreateTimeByType(HISTORY_DECISION_DEFINITION));
+      Date latestCreateTime = dbClient.findLatestCreateTimeByType(HISTORY_DECISION_DEFINITION);
+      c7Client.fetchAndHandleDecisionDefinitions(self::migrateOne, latestCreateTime);
     }
   }
 
@@ -60,7 +62,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
    * @param c7DecisionDefinition the decision definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateDecisionDefinition(DecisionDefinition c7DecisionDefinition) {
+  public void migrateOne(DecisionDefinition c7DecisionDefinition) {
     String c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {
       HistoryMigratorLogs.migratingDecisionDefinition(c7Id);

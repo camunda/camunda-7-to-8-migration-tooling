@@ -26,6 +26,7 @@ import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
@@ -51,6 +52,7 @@ import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
@@ -154,10 +156,10 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
-  public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String decisionDefinitionId) {
+  public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String... decisionDefinitionIds) {
     return rdbmsService.getDecisionInstanceReader()
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
-                filterBuilder -> filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))
+                filterBuilder -> filterBuilder.decisionDefinitionIds(Arrays.stream(decisionDefinitionIds).map(ConverterUtil::prefixDefinitionId).toList()))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
         .items();
   }

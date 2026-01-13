@@ -48,12 +48,14 @@ import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.model.dmn.instance.Decision;
 import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Base class for all history entity migrators.
  * Contains common utility methods for migration operations.
  */
-public abstract class BaseMigrator {
+public abstract class BaseMigrator<T> {
 
   @Autowired
   protected DbClient dbClient;
@@ -74,6 +76,10 @@ public abstract class BaseMigrator {
   protected ProcessEngine processEngine;
 
   protected MigratorMode mode = MIGRATE;
+
+  @Autowired
+  @Lazy
+  protected BaseMigrator<T> self;
 
   protected Long findProcessDefinitionKey(String processDefinitionId) {
     Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId,
@@ -196,7 +202,7 @@ public abstract class BaseMigrator {
     return !dbClient.checkExistsByC7IdAndType(id, type);
   }
 
-  protected void markMigrated(String c7Id, Long c8Key, Date createTime, TYPE type) {
+  public void markMigrated(String c7Id, Long c8Key, Date createTime, TYPE type) {
     saveRecord(c7Id, c8Key, type, createTime, null);
   }
 
@@ -367,6 +373,11 @@ public abstract class BaseMigrator {
     // Return configured TTL (will have default of 180 days if not set)
     return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
   }
+
+  abstract void migrate();
+
+  @Transactional("c8TransactionManager")
+  abstract void migrateOne(T entity);
 
 }
 

@@ -21,24 +21,28 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating process instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class ProcessInstanceMigrator extends BaseMigrator {
-  public void migrateProcessInstances() {
+public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstance> {
+
+  public void migrate() {
     HistoryMigratorLogs.migratingProcessInstances();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_INSTANCE, idKeyDbModel -> {
         HistoricProcessInstance historicProcessInstance = c7Client.getHistoricProcessInstance(idKeyDbModel.getC7Id());
-        migrateProcessInstance(historicProcessInstance);
+        self.migrateOne(historicProcessInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricProcessInstances(this::migrateProcessInstance,
-          dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_INSTANCE));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_INSTANCE);
+      c7Client.fetchAndHandleHistoricProcessInstances(self::migrateOne, createTime);
     }
   }
 
@@ -63,7 +67,7 @@ public class ProcessInstanceMigrator extends BaseMigrator {
    * @param c7ProcessInstance the historic process instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion or interception
    */
-  public void migrateProcessInstance(HistoricProcessInstance c7ProcessInstance) {
+  public void migrateOne(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
       HistoryMigratorLogs.migratingProcessInstance(c7ProcessInstanceId);
@@ -126,12 +130,11 @@ public class ProcessInstanceMigrator extends BaseMigrator {
     return builder.build();
   }
 
-  protected void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
+  public void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
                                        ProcessInstanceDbModel dbModel,
                                        String c7ProcessInstanceId) {
     c8Client.insertProcessInstance(dbModel);
-    markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(),
-        HISTORY_PROCESS_INSTANCE);
+    markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(), HISTORY_PROCESS_INSTANCE);
     HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
   }
 }

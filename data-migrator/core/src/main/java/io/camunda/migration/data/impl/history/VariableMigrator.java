@@ -23,26 +23,29 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating variables from Camunda 7 to Camunda 8.
  */
 @Service
-public class VariableMigrator extends BaseMigrator {
-  public void migrateVariables() {
+public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
+
+  public void migrate() {
     HistoryMigratorLogs.migratingHistoricVariables();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_VARIABLE, idKeyDbModel -> {
-        HistoricVariableInstance historicVariableInstance = c7Client.getHistoricVariableInstance(
-            idKeyDbModel.getC7Id());
-        migrateVariable(historicVariableInstance);
+        HistoricVariableInstance historicVariableInstance = c7Client.getHistoricVariableInstance(idKeyDbModel.getC7Id());
+        self.migrateOne(historicVariableInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricVariables(this::migrateVariable,
-          dbClient.findLatestCreateTimeByType(HISTORY_VARIABLE));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_VARIABLE);
+      c7Client.fetchAndHandleHistoricVariables(self::migrateOne, createTime);
     }
   }
 
@@ -68,7 +71,7 @@ public class VariableMigrator extends BaseMigrator {
    * @param c7Variable the historic variable instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateVariable(HistoricVariableInstance c7Variable) {
+  public void migrateOne(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
       HistoryMigratorLogs.migratingHistoricVariable(c7VariableId);
