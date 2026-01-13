@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
@@ -216,7 +217,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
         searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
 
     assertThat(flowNodes).isNotEmpty()
-        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(4095));
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(C7_HISTORY_PARTITION_ID));
   }
 
   @Test
