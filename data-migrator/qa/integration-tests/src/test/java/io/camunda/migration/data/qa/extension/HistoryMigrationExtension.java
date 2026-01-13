@@ -34,6 +34,7 @@ import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
+import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -189,9 +190,10 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
       throw new IllegalStateException("RdbmsService is not available in the Spring context");
     }
     return rdbmsService.getDecisionRequirementsReader()
-        .search(DecisionRequirementsQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))))
+        .search(DecisionRequirementsQuery.of(queryBuilder -> queryBuilder.filter(
+                filterBuilder -> filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))
+            .resultConfig(
+                DecisionRequirementsQueryResultConfig.of(builder -> builder.includeXml(true)))))
         .items();
   }
 

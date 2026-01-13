@@ -38,6 +38,7 @@ import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
+import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
 import java.util.Date;
 import java.util.List;
@@ -84,9 +85,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitions(String processDefinitionId) {
     return historyMigration.searchHistoricProcessDefinitions(processDefinitionId);
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
-        .items();
   }
 
   public List<DecisionDefinitionEntity> searchHistoricDecisionDefinitions(String decisionDefinitionId) {

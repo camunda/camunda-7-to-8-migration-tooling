@@ -33,7 +33,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -67,7 +67,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -86,7 +86,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     runtimeService.deleteProcessInstance(processInstanceId, "Expected cancellation");
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -106,7 +106,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -130,11 +130,11 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
     // Subprocesses and the start inside a subprocess have the same createTime, leading to the start sometimes being
     // skipped on first round. Retrying skipped to avoid test flakiness
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    getHistoryMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("subProcess");
@@ -177,7 +177,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
+    getHistoryMigrator().migrate();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
