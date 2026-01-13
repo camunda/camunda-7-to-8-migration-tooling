@@ -12,11 +12,9 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
-import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
-import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel.Builder;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Set;
@@ -33,7 +31,7 @@ import org.springframework.stereotype.Component;
 
 @Order(9)
 @Component
-public class DecisionRequirementsDefinitionTransformer implements EntityInterceptor {
+public class DecisionRequirementsDefinitionTransformer implements EntityInterceptor<DecisionRequirementsDefinition, Builder> {
 
   public static final String REQUIRED_DECISION = "requiredDecision";
   public static final String DECISION = "decision";
@@ -52,32 +50,24 @@ public class DecisionRequirementsDefinitionTransformer implements EntityIntercep
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    DecisionRequirementsDefinition c7DecisionRequirements = (DecisionRequirementsDefinition) context.getC7Entity();
-    if (c7DecisionRequirements == null) {
+  public void execute(DecisionRequirementsDefinition entity, Builder builder) {
+    if (entity == null) {
       // DMNs consisting of just one decision do not have a DRD in C7
       return;
     }
-    DecisionRequirementsDbModel.Builder builder =
-        (DecisionRequirementsDbModel.Builder) context.getC8DbModelBuilder();
 
-    if (builder == null) {
-      throw new EntityInterceptorException("C8 DecisionRequirementsDbModel.Builder is null in context");
-    }
-
-    String deploymentId = c7DecisionRequirements.getDeploymentId();
-    String resourceName = c7DecisionRequirements.getResourceName();
-
-    InputStream resourceAsStream = c7Client.getResourceAsStream(deploymentId, resourceName);
-    String dmnXml = prefixDecisionIdsInDmn(resourceAsStream);
+    var deploymentId = entity.getDeploymentId();
+    var resourceName = entity.getResourceName();
+    var resourceAsStream = c7Client.getResourceAsStream(deploymentId, resourceName);
+    var dmnXml = prefixDecisionIdsInDmn(resourceAsStream);
 
     builder.decisionRequirementsKey(getNextKey())
-        .decisionRequirementsId(prefixDefinitionId(c7DecisionRequirements.getKey()))
-        .name(c7DecisionRequirements.getName())
+        .decisionRequirementsId(prefixDefinitionId(entity.getKey()))
+        .name(entity.getName())
         .resourceName(resourceName)
-        .version(c7DecisionRequirements.getVersion())
+        .version(entity.getVersion())
         .xml(dmnXml)
-        .tenantId(getTenantId(c7DecisionRequirements.getTenantId()));
+        .tenantId(getTenantId(entity.getTenantId()));
   }
 
   /**

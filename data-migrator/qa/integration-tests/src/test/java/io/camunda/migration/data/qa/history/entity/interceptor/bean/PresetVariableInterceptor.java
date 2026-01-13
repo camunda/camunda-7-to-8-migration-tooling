@@ -8,12 +8,13 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.domain.VariableDbModel.VariableDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 
-public class PresetVariableInterceptor implements EntityInterceptor {
+public class PresetVariableInterceptor implements EntityInterceptor<HistoricVariableInstance, VariableDbModelBuilder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -21,18 +22,13 @@ public class PresetVariableInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    VariableDbModel.VariableDbModelBuilder builder =
-        (VariableDbModel.VariableDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      builder.processInstanceKey(1L)
-          .scopeKey(2L);
-    }
+  public void presetParentProperties(HistoricVariableInstance c7Entity, VariableDbModelBuilder builder) {
+    builder.processInstanceKey(1L)
+        .scopeKey(2L);
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricVariableInstance, VariableDbModelBuilder> context) {
     // This interceptor intentionally does not modify the variable during execution.
   }
 }

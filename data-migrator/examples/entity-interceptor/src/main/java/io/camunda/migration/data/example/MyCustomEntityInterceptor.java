@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  * - How to perform custom entity transformations
  * - How to log entity conversions for audit purposes
  */
-public class MyCustomEntityInterceptor implements EntityInterceptor {
+public class MyCustomEntityInterceptor implements EntityInterceptor<Object, Object> {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(MyCustomEntityInterceptor.class);
 
@@ -42,11 +42,11 @@ public class MyCustomEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     if (auditEnabled) {
       LOGGER.info(
           "Converting entity type: {} with ID: {}",
-          context.getEntityType().getSimpleName(),
+          context.getC7Entity().getClass().getSimpleName(),
           getEntityId(context.getC7Entity()));
     }
 
@@ -58,7 +58,7 @@ public class MyCustomEntityInterceptor implements EntityInterceptor {
     if (auditEnabled) {
       LOGGER.info(
           "Completed conversion for entity type: {}",
-          context.getEntityType().getSimpleName());
+          context.getC7Entity().getClass().getSimpleName());
     }
   }
 
@@ -105,7 +105,7 @@ public class MyCustomEntityInterceptor implements EntityInterceptor {
     } catch (Exception e) {
       // Not all entities have tenant IDs, so we silently ignore errors
       LOGGER.trace("Entity type {} does not support tenant ID modification",
-          context.getEntityType().getSimpleName());
+          context.getC7Entity().getClass().getSimpleName());
     }
   }
 

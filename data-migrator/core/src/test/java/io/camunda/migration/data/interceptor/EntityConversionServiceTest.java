@@ -38,7 +38,7 @@ public class EntityConversionServiceTest {
 
     // When
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
-        service.convert(c7Entity, HistoricProcessInstance.class);
+        service.convert(c7Entity);
 
     // Then
     assertThat(interceptor.wasExecuted()).isTrue();
@@ -57,7 +57,7 @@ public class EntityConversionServiceTest {
     HistoricActivityInstance c7Entity = new HistoricActivityInstance("activity-123");
 
     // When
-    service.convert(c7Entity, HistoricActivityInstance.class);
+    service.convert(c7Entity);
 
     // Then
     assertThat(processInterceptor.wasExecuted()).isFalse();
@@ -71,7 +71,7 @@ public class EntityConversionServiceTest {
 
     // When - Test with process instance
     service.convert(
-        new HistoricProcessInstance("proc-123", "key"), HistoricProcessInstance.class);
+        new HistoricProcessInstance("proc-123", "key"));
 
     // Then
     assertThat(universalInterceptor.wasExecuted()).isTrue();
@@ -81,7 +81,7 @@ public class EntityConversionServiceTest {
     ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(universalInterceptor));
 
     // When - Test with activity instance
-    service.convert(new HistoricActivityInstance("act-123"), HistoricActivityInstance.class);
+    service.convert(new HistoricActivityInstance("act-123"));
 
     // Then
     assertThat(universalInterceptor.wasExecuted()).isTrue();
@@ -99,7 +99,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> result = service.convert(c7Entity);
 
     // Then
     assertThat(processInterceptor.wasExecuted()).isTrue();
@@ -123,7 +123,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
-    service.convert(c7Entity, HistoricProcessInstance.class);
+    service.convert(c7Entity);
 
     // Then
     assertThat(processInterceptor.wasExecuted()).isTrue();
@@ -139,7 +139,7 @@ public class EntityConversionServiceTest {
     ReflectionTestUtils.setField(service, "configuredEntityInterceptors", List.of(interceptor));
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context =
-        new EntityConversionContext<>(c7Entity, HistoricProcessInstance.class);
+        new EntityConversionContext<>(c7Entity);
 
     // When
     EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> result =
@@ -158,7 +158,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> result = service.convert(c7Entity);
 
     // Then
     assertThat(result).isNotNull();
@@ -173,7 +173,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When
-    EntityConversionContext<?, ?> result = service.convert(c7Entity, HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> result = service.convert(c7Entity);
 
     // Then
     assertThat(result).isNotNull();
@@ -188,7 +188,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+    assertThatThrownBy(() -> service.convert(c7Entity))
         .isInstanceOf(EntityInterceptorException.class)
         .hasMessageContaining("FailingInterceptor")
         .hasMessageContaining("HistoricProcessInstance")
@@ -202,7 +202,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+    assertThatThrownBy(() -> service.convert(c7Entity))
         .isInstanceOf(EntityInterceptorException.class)
         .hasMessage("Custom error message")
         .hasNoCause();
@@ -217,7 +217,7 @@ public class EntityConversionServiceTest {
     HistoricProcessInstance c7Entity = new HistoricProcessInstance("proc-123", "business-key");
 
     // When & Then
-    assertThatThrownBy(() -> service.convert(c7Entity, HistoricProcessInstance.class))
+    assertThatThrownBy(() -> service.convert(c7Entity))
         .isInstanceOf(EntityInterceptorException.class);
 
     // The universal interceptor should not have been executed
@@ -280,7 +280,7 @@ public class EntityConversionServiceTest {
   }
 
   // Test interceptors
-  public static class ProcessInstanceInterceptor implements EntityInterceptor {
+  public static class ProcessInstanceInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
     protected boolean executed = false;
     protected List<String> executionOrder;
 
@@ -290,18 +290,14 @@ public class EntityConversionServiceTest {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       executed = true;
       if (executionOrder != null) {
         executionOrder.add("ProcessInstanceInterceptor");
       }
-      HistoricProcessInstance c7Entity = (HistoricProcessInstance) context.getC7Entity();
       ProcessInstanceDbModelBuilder c8Builder = new ProcessInstanceDbModelBuilder();
-      c8Builder.processInstanceKey(12345L).bpmnProcessId(c7Entity.getBusinessKey());
-
-      EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> typedContext =
-          (EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder>) context;
-      typedContext.setC8DbModelBuilder(c8Builder);
+      c8Builder.processInstanceKey(12345L).bpmnProcessId(context.getC7Entity().getBusinessKey());
+      context.setC8DbModelBuilder(c8Builder);
     }
 
     @Override
@@ -314,7 +310,7 @@ public class EntityConversionServiceTest {
     }
   }
 
-  public static class UniversalInterceptor implements EntityInterceptor {
+  public static class UniversalInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder>  {
     protected boolean executed = false;
     protected List<String> executionOrder;
 
@@ -323,7 +319,7 @@ public class EntityConversionServiceTest {
     }
 
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       executed = true;
       if (executionOrder != null) {
         executionOrder.add("UniversalInterceptor");
@@ -340,11 +336,11 @@ public class EntityConversionServiceTest {
     }
   }
 
-  public static class ActivityInterceptor implements EntityInterceptor {
+  public static class ActivityInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder>  {
     protected boolean executed = false;
 
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       executed = true;
     }
 
@@ -358,9 +354,9 @@ public class EntityConversionServiceTest {
     }
   }
 
-  public static class FailingInterceptor implements EntityInterceptor {
+  public static class FailingInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder>  {
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       throw new RuntimeException("Interceptor failed");
     }
 
@@ -370,9 +366,9 @@ public class EntityConversionServiceTest {
     }
   }
 
-  public static class ExceptionThrowingInterceptor implements EntityInterceptor {
+  public static class ExceptionThrowingInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder>  {
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       throw new EntityInterceptorException("Custom error message");
     }
 

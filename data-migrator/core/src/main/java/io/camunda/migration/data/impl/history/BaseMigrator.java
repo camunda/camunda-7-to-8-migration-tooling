@@ -20,7 +20,6 @@ import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
-import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -34,14 +33,19 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
+import io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import io.camunda.util.ObjectBuilder;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
@@ -53,7 +57,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Base class for all history entity migrators.
  * Contains common utility methods for migration operations.
  */
-public abstract class BaseMigrator {
+public abstract class BaseMigrator<C7, C8> {
 
   @Autowired
   protected DbClient dbClient;
@@ -212,45 +216,70 @@ public abstract class BaseMigrator {
     }
   }
 
-  protected <T> EntityConversionContext<?, ?> createEntityConversionContext(T c7Entity,
-                                                                            Class<T> c7EntityClass,
-                                                                            Object dbModelBuilder) {
-    EntityConversionContext<?, ?> context = new EntityConversionContext<>(c7Entity, c7EntityClass, dbModelBuilder,
-        processEngine);
-    entityConversionService.prepareParentProperties(context);
-    return context;
-  }
-
   protected void handleInterceptorException(String c7Id, TYPE type, Date time, MigratorException e) {
     HistoryMigratorLogs.skippingEntityDueToInterceptorError(type, c7Id, e.getMessage());
     HistoryMigratorLogs.stacktrace(e);
     markSkipped(c7Id, type, time, e.getMessage());
   }
 
-  protected DecisionInstanceEntity.DecisionDefinitionType determineDecisionType(DmnModelInstance dmnModelInstance,
-                                                                                String decisionDefinitionId) {
-    Decision decision = dmnModelInstance.getModelElementById(decisionDefinitionId);
-    if (decision == null) {
-      return null;
-    }
-
-    if (decision.getExpression() instanceof LiteralExpression) {
-      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
-    } else {
-      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
-    }
-  }
-
   public void setMode(MigratorMode mode) {
     this.mode = mode;
   }
 
+  /**
+   * Centralized method to execute migration logic with standard retry/fetch behavior.
+   * This method handles the common pattern of:
+   * <ul>
+   *   <li>Fetching skipped entities in RETRY_SKIPPED mode</li>
+   *   <li>Fetching entities from C7 in normal mode (starting from last migrated timestamp)</li>
+   *   <li>Delegating to the specific migration handler</li>
+   * </ul>
+   *
+   * @param type the entity type being migrated
+   * @param c7Fetcher fetches a specific entity from C7 by its ID (for retry mode)
+   * @param c7BatchHandler fetches and processes entities from C7 in batches (for normal mode)
+   * @param migrationHandler the actual migration logic for a single entity
+   * @param <T> the type of entity being migrated
+   */
+  protected <T> void executeMigration(
+      TYPE type,
+      Function<String, T> c7Fetcher,
+      BiConsumer<Consumer<T>, Date> c7BatchHandler,
+      Consumer<T> migrationHandler) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      dbClient.fetchAndHandleSkippedForType(type, idKeyDbModel -> {
+        T entity = c7Fetcher.apply(idKeyDbModel.getC7Id());
+        migrationHandler.accept(entity);
+      });
+    } else {
+      Date latestCreateTime = dbClient.findLatestCreateTimeByType(type);
+      c7BatchHandler.accept(migrationHandler, latestCreateTime);
+    }
+  }
 
-  protected DecisionRequirementsDbModel convertDecisionRequirements(EntityConversionContext<?, ?> context) {
-    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
-    DecisionRequirementsDbModel.Builder builder =
-        (DecisionRequirementsDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
-    return builder.build();
+  /**
+   * Centralized method to execute migration logic with standard retry/fetch behavior.
+   * This overload is for batch handlers that don't accept a Date parameter.
+   *
+   * @param type the entity type being migrated
+   * @param c7Fetcher fetches a specific entity from C7 by its ID (for retry mode)
+   * @param c7BatchHandler fetches and processes entities from C7 in batches (for normal mode)
+   * @param migrationHandler the actual migration logic for a single entity
+   * @param <T> the type of entity being migrated
+   */
+  protected <T> void executeMigration(
+      TYPE type,
+      Function<String, T> c7Fetcher,
+      Consumer<Consumer<T>> c7BatchHandler,
+      Consumer<T> migrationHandler) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      dbClient.fetchAndHandleSkippedForType(type, idKeyDbModel -> {
+        T entity = c7Fetcher.apply(idKeyDbModel.getC7Id());
+        migrationHandler.accept(entity);
+      });
+    } else {
+      c7BatchHandler.accept(migrationHandler);
+    }
   }
 
   /**
@@ -366,6 +395,13 @@ public abstract class BaseMigrator {
 
     // Return configured TTL (will have default of 180 days if not set)
     return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
+  }
+
+  protected C8 convert(C7 c7Entity, ObjectBuilder<C8> builder) {
+    EntityConversionContext<C7, ObjectBuilder<C8>> context = new EntityConversionContext<>(c7Entity, builder, processEngine);
+    entityConversionService.prepareParentProperties(context);
+    entityConversionService.convertWithContext(context);
+    return builder.build();
   }
 
 }

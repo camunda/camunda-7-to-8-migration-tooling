@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("entity-programmatic")
-public class DisabledCustomInterceptor implements EntityInterceptor {
+public class DisabledCustomInterceptor implements EntityInterceptor<Object, Object> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -24,7 +24,7 @@ public class DisabledCustomInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     // This interceptor should never execute if properly disabled
     throw new IllegalStateException("DisabledCustomInterceptor should not be executed");
   }
