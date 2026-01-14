@@ -74,7 +74,6 @@ import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
 import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
-import io.camunda.db.rdbms.write.RdbmsWriterMetrics;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.MigratorException;
@@ -287,11 +286,6 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public RdbmsWriterMetrics rdbmsWriterMetrics(MeterRegistry meterRegistry) {
-    return new RdbmsWriterMetrics(meterRegistry);
-  }
-
-  @Bean
   public VariableDbReader variableRdbmsReader(VariableMapper variableMapper) {
     return new VariableDbReader(variableMapper);
   }
@@ -487,7 +481,7 @@ public class C8Configuration extends AbstractConfiguration {
       PurgeMapper purgeMapper,
       UserTaskMapper userTaskMapper,
       VariableMapper variableMapper,
-      RdbmsWriterMetrics rdbmsWriterMetrics,
+      MeterRegistry meterRegistry,
       BatchOperationDbReader batchOperationReader,
       JobMapper jobMapper,
       SequenceFlowMapper sequenceFlowMapper,
@@ -510,7 +504,7 @@ public class C8Configuration extends AbstractConfiguration {
         purgeMapper,
         userTaskMapper,
         variableMapper,
-        rdbmsWriterMetrics,
+        meterRegistry,
         batchOperationReader,
         jobMapper,
         sequenceFlowMapper,
