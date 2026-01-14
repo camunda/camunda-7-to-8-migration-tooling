@@ -15,6 +15,7 @@ import io.camunda.zeebe.protocol.record.value.AuthorizationResourceType;
 import java.util.Set;
 import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
+import org.camunda.bpm.engine.authorization.ProcessDefinitionPermissions;
 import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.authorization.SystemPermissions;
@@ -34,7 +35,10 @@ class AuthorizationEntityRegistryTest {
         Resources.BATCH,
         Resources.TENANT,
         Resources.TENANT_MEMBERSHIP,
-        Resources.USER);
+        Resources.USER,
+        Resources.DECISION_DEFINITION,
+        Resources.DECISION_REQUIREMENTS_DEFINITION,
+        Resources.PROCESS_DEFINITION);
 
     // when
     Set<Resource> actualResources = AuthorizationEntityRegistry.REGISTRY.keySet();
@@ -186,6 +190,56 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
     assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.USER));
+  }
+
+  @Test
+  void shouldHaveExpectedDecisionDefinitionMapping() {
+    // when
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.DECISION_DEFINITION);
+
+    // then
+    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.DECISION_DEFINITION);
+    assertThat(entry.supportsExplicitId()).isTrue();
+    assertThat(entry.needsToAdaptId()).isFalse();
+
+    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE);
+    assertThat(entry.getMappedPermissions(Permissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_DECISION_INSTANCE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+  }
+
+  @Test
+  void shouldHaveExpectedDecisionRequirementsDefinitionMapping() {
+    // when
+    AuthorizationMappingEntry entry =
+        AuthorizationEntityRegistry.getMappingForResourceType(Resources.DECISION_REQUIREMENTS_DEFINITION);
+
+    // then
+    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.DECISION_REQUIREMENTS_DEFINITION);
+    assertThat(entry.supportsExplicitId()).isTrue();
+    assertThat(entry.needsToAdaptId()).isFalse();
+
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
+  }
+
+  @Test
+  void shouldHaveExpectedProcessDefinitionMapping() {
+    // when
+    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.PROCESS_DEFINITION);
+
+    // then
+    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.PROCESS_DEFINITION);
+    assertThat(entry.supportsExplicitId()).isTrue();
+    assertThat(entry.needsToAdaptId()).isFalse();
+
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_DEFINITION);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_PROCESS_INSTANCE);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ_INSTANCE)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_INSTANCE);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.UPDATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.UPDATE_PROCESS_INSTANCE);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.DELETE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.DELETE_PROCESS_INSTANCE);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ_TASK)).containsExactlyInAnyOrder(PermissionType.READ_USER_TASK);
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.UPDATE_TASK)).containsExactlyInAnyOrder(PermissionType.UPDATE_USER_TASK);
+
+    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
   }
 
   protected static PermissionType[] getAllSupportedPerms(ResourceType resourceType) {

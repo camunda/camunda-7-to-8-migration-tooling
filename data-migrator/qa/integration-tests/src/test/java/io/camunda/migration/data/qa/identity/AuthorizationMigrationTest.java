@@ -39,6 +39,7 @@ import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permission;
 import org.camunda.bpm.engine.authorization.Permissions;
+import org.camunda.bpm.engine.authorization.ProcessDefinitionPermissions;
 import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.authorization.SystemPermissions;
 import org.junit.jupiter.api.AfterEach;
@@ -92,12 +93,15 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(Permissions.ALL));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.ALL));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_REQUIREMENTS_DEFINITION, "*", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "*", Set.of(Permissions.ALL));
 
     // when
     identityMigrator.migrate();
 
     // then
-    var authorizations = awaitAuthorizationsCountAndGet(7);
+    var authorizations = awaitAuthorizationsCountAndGet(10);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.AUTHORIZATION));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.GROUP));
@@ -105,6 +109,9 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     assertAuthorizationsContains(authorizations, ResourceType.BATCH, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.BATCH));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.TENANT));
     assertAuthorizationsContains(authorizations, ResourceType.USER, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.USER));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_REQUIREMENTS_DEFINITION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
   }
 
   @Test
@@ -117,19 +124,25 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "*", Set.of(Permissions.READ, Permissions.CREATE));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "*", Set.of(Permissions.READ));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "*", Set.of(Permissions.READ));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_REQUIREMENTS_DEFINITION, "*", Set.of(Permissions.READ));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "*", Set.of(Permissions.READ));
 
     // when
     identityMigrator.migrate();
 
     // then
-    var authorizations = awaitAuthorizationsCountAndGet(7);
-    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, Set.of(PermissionType.ACCESS));
+    var authorizations = awaitAuthorizationsCountAndGet(10);
+    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT)); // Only ACCESS exists
     assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.UPDATE));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.DELETE));
     assertAuthorizationsContains(authorizations, ResourceType.SYSTEM, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.READ_USAGE_METRIC));
     assertAuthorizationsContains(authorizations, ResourceType.BATCH, "*", USER, USERNAME, Set.of(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "*", USER, USERNAME, Set.of(PermissionType.READ, PermissionType.CREATE));
     assertAuthorizationsContains(authorizations, ResourceType.USER, "*", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_REQUIREMENTS_DEFINITION, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION)); // Only READ exists
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_PROCESS_DEFINITION));
   }
 
   @Test
@@ -172,16 +185,22 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "group", Set.of(Permissions.ALL));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "tenant", Set.of(Permissions.ALL));
     createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "danwhite", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "decDefKey", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_REQUIREMENTS_DEFINITION, "decReqDefKey", Set.of(Permissions.ALL));
+    createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "procDefKey", Set.of(Permissions.ALL));
 
     // when
     identityMigrator.migrate();
 
     // then
-    var authorizations = awaitAuthorizationsCountAndGet(4);
+    var authorizations = awaitAuthorizationsCountAndGet(7);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME,  getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "group", USER, USERNAME,  getAllSupportedPerms(ResourceType.GROUP));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "tenant", USER, USERNAME,  getAllSupportedPerms(ResourceType.TENANT));
     assertAuthorizationsContains(authorizations, ResourceType.USER, "danwhite", USER, USERNAME,  getAllSupportedPerms(ResourceType.USER));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_REQUIREMENTS_DEFINITION, "decReqDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
   }
 
   @Test
@@ -239,13 +258,17 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   @Test
   public void shouldSkipIfAtLeastOneUnsupportedPermission() {
     // given
-    Authorization auth = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.READ, BatchPermissions.READ_HISTORY));
+    Authorization auth1 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "*", Set.of(BatchPermissions.READ, BatchPermissions.READ_HISTORY));
+    Authorization auth2 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "*", Set.of(Permissions.READ, Permissions.DELETE_HISTORY));
+    Authorization auth3 = createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "*", Set.of(ProcessDefinitionPermissions.READ, ProcessDefinitionPermissions.UPDATE));
 
     // when
     identityMigrator.migrate();
 
     // then auths are skipped
-    verifySkippedViaLogs(auth.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, BatchPermissions.READ_HISTORY, Resources.BATCH.resourceName()));
+    verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, BatchPermissions.READ_HISTORY, Resources.BATCH.resourceName()));
+    verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE_HISTORY, Resources.DECISION_DEFINITION.resourceName()));
+    verifySkippedViaLogs(auth3.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, ProcessDefinitionPermissions.UPDATE, Resources.PROCESS_DEFINITION.resourceName()));
   }
 
   @Test
@@ -301,7 +324,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
         .valueOf(resourceType.name())
         .getSupportedPermissionTypes()
         .stream()
-        .map(permissionType -> PermissionType.valueOf(permissionType.name())) // Needed to convert from io.camunda.zeebe.protocol.record.value.PermissionType to io.camunda.client.api.search.enums.PermissionType
+        .map(permissionType -> PermissionType.valueOf(permissionType.name()))
         .toArray(PermissionType[]::new);
   }
 

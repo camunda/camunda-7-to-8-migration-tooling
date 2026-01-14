@@ -16,10 +16,16 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
+import org.camunda.bpm.engine.authorization.ProcessDefinitionPermissions;
 import org.camunda.bpm.engine.authorization.Resource;
 import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.authorization.SystemPermissions;
 
+/**
+ * Registry which holds the mapping information between combinations of
+ * Camunda 7 Resources/Permissions and Camunda 8 ResourceTypes/PermissionTypes.
+ * All mappings not defined here are not supported.
+ */
 public class AuthorizationEntityRegistry {
 
   protected static final Map<Resource, AuthorizationMappingEntry> REGISTRY = new HashMap<>();
@@ -30,7 +36,7 @@ public class AuthorizationEntityRegistry {
         true,
         Map.of(
             Permissions.ALL, getAllSupportedPerms(ResourceType.COMPONENT),
-            Permissions.ACCESS, Set.of(PermissionType.ACCESS)),
+            Permissions.ACCESS, getAllSupportedPerms(ResourceType.COMPONENT)), // Only ACCESS exists
         Map.of(
             "*", "*",
             "cockpit", "operate",
@@ -65,9 +71,7 @@ public class AuthorizationEntityRegistry {
     REGISTRY.put(Resources.GROUP_MEMBERSHIP, new AuthorizationMappingEntry(ResourceType.GROUP,
         false,
         true,
-        Map.of(
-            Permissions.ALL, Set.of(PermissionType.UPDATE)
-        ),
+        Map.of(Permissions.ALL, Set.of(PermissionType.UPDATE)),
         null
     ));
 
@@ -112,10 +116,8 @@ public class AuthorizationEntityRegistry {
     REGISTRY.put(Resources.TENANT_MEMBERSHIP, new AuthorizationMappingEntry(ResourceType.TENANT,
         false,
         true,
-        Map.of(
-            Permissions.ALL, Set.of(PermissionType.UPDATE)
-        ),
-    null
+        Map.of(Permissions.ALL, Set.of(PermissionType.UPDATE)),
+        null
     ));
 
     REGISTRY.put(Resources.USER, new AuthorizationMappingEntry(ResourceType.USER,
@@ -127,6 +129,41 @@ public class AuthorizationEntityRegistry {
             Permissions.UPDATE, Set.of(PermissionType.UPDATE),
             Permissions.CREATE, Set.of(PermissionType.CREATE),
             Permissions.DELETE, Set.of(PermissionType.DELETE)),
+        null
+    ));
+
+    REGISTRY.put(Resources.DECISION_DEFINITION, new AuthorizationMappingEntry(ResourceType.DECISION_DEFINITION,
+        false,
+        true,
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.DECISION_DEFINITION),
+            Permissions.READ, Set.of(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE),
+            Permissions.CREATE_INSTANCE, Set.of(PermissionType.CREATE_DECISION_INSTANCE)),
+        null
+    ));
+
+    REGISTRY.put(Resources.DECISION_REQUIREMENTS_DEFINITION, new AuthorizationMappingEntry(ResourceType.DECISION_REQUIREMENTS_DEFINITION,
+        false,
+        true,
+        Map.of(
+            Permissions.ALL, getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION),
+            Permissions.READ, getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION)), // Only READ exists
+        null
+    ));
+
+    REGISTRY.put(Resources.PROCESS_DEFINITION, new AuthorizationMappingEntry(ResourceType.PROCESS_DEFINITION,
+        false,
+        true,
+        Map.of(
+            ProcessDefinitionPermissions.ALL, getAllSupportedPerms(ResourceType.PROCESS_DEFINITION),
+            ProcessDefinitionPermissions.READ, Set.of(PermissionType.READ_PROCESS_DEFINITION),
+            ProcessDefinitionPermissions.CREATE_INSTANCE, Set.of(PermissionType.CREATE_PROCESS_INSTANCE),
+            ProcessDefinitionPermissions.READ_INSTANCE, Set.of(PermissionType.READ_PROCESS_INSTANCE),
+            ProcessDefinitionPermissions.UPDATE_INSTANCE, Set.of(PermissionType.UPDATE_PROCESS_INSTANCE),
+            ProcessDefinitionPermissions.DELETE_INSTANCE, Set.of(PermissionType.DELETE_PROCESS_INSTANCE),
+            ProcessDefinitionPermissions.READ_TASK, Set.of(PermissionType.READ_USER_TASK),
+            ProcessDefinitionPermissions.UPDATE_TASK, Set.of(PermissionType.UPDATE_USER_TASK)
+        ),
         null
     ));
   }
