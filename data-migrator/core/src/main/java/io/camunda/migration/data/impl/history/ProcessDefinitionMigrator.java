@@ -17,6 +17,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating process definitions from Camunda 7 to Camunda 8.
@@ -45,6 +46,7 @@ public class ProcessDefinitionMigrator extends BaseMigrator {
    * @param c7ProcessDefinition the process definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateProcessDefinition(ProcessDefinition c7ProcessDefinition) {
     String c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {

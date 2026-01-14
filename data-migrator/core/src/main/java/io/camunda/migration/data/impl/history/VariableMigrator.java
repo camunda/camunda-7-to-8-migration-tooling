@@ -25,6 +25,7 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating variables from Camunda 7 to Camunda 8.
@@ -68,6 +69,7 @@ public class VariableMigrator extends BaseMigrator {
    * @param c7Variable the historic variable instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateVariable(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {

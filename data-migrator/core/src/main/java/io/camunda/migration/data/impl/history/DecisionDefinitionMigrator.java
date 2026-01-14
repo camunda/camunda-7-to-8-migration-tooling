@@ -24,6 +24,7 @@ import java.util.Date;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating decision definitions from Camunda 7 to Camunda 8.
@@ -60,6 +61,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator {
    * @param c7DecisionDefinition the decision definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateDecisionDefinition(DecisionDefinition c7DecisionDefinition) {
     String c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {

@@ -20,6 +20,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating flow node instances from Camunda 7 to Camunda 8.
@@ -66,6 +67,7 @@ public class FlowNodeMigrator extends BaseMigrator {
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateFlowNode(HistoricActivityInstance c7FlowNode) {
     String c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {

@@ -23,6 +23,7 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating user tasks from Camunda 7 to Camunda 8.
@@ -59,6 +60,7 @@ public class UserTaskMigrator extends BaseMigrator {
    * @param c7UserTask the historic user task from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateUserTask(HistoricTaskInstance c7UserTask) {
     String c7UserTaskId = c7UserTask.getId();
     if (shouldMigrate(c7UserTaskId, HISTORY_USER_TASK)) {

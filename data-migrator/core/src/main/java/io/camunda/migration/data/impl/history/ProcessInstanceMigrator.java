@@ -23,6 +23,7 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating process instances from Camunda 7 to Camunda 8.
@@ -63,6 +64,7 @@ public class ProcessInstanceMigrator extends BaseMigrator {
    * @param c7ProcessInstance the historic process instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion or interception
    */
+  @Transactional
   public void migrateProcessInstance(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {

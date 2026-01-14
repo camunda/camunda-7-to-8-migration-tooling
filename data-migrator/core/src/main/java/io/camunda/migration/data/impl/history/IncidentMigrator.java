@@ -19,6 +19,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating incidents from Camunda 7 to Camunda 8.
@@ -58,6 +59,7 @@ public class IncidentMigrator extends BaseMigrator {
    * @param c7Incident the historic incident from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateIncident(HistoricIncident c7Incident) {
     String c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {

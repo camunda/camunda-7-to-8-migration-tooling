@@ -85,6 +85,7 @@ public class DecisionInstanceMigrator extends BaseMigrator {
    * @param c7DecisionInstance the historic decision instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) {
     String c7DecisionInstanceId = c7DecisionInstance.getId();
     if (shouldMigrate(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE)) {
@@ -215,14 +216,13 @@ public class DecisionInstanceMigrator extends BaseMigrator {
   }
 
   /**
-   * Performs the actual C8 database inserts for a decision instance and its children in a transaction.
-   * This method is separate to ensure all C8 writes happen atomically within a single transaction.
+   * Performs the actual C8 database inserts for a decision instance and its children.
+   * This method is called within the transaction started by migrateDecisionInstance.
    *
    * @param dbModel the decision instance model to insert
    * @param parentDecisionDefinitionKey the parent decision definition key
    * @param c7DecisionInstance the C7 decision instance
    */
-  @Transactional
   protected void insertDecisionInstanceWithChildren(DecisionInstanceDbModel dbModel,
                                                     Long parentDecisionDefinitionKey,
                                                     HistoricDecisionInstance c7DecisionInstance) {

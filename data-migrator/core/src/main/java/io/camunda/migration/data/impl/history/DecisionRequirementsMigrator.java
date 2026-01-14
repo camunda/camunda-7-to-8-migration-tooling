@@ -17,6 +17,7 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service class responsible for migrating decision requirements definitions from Camunda 7 to Camunda 8.
@@ -48,6 +49,7 @@ public class DecisionRequirementsMigrator extends BaseMigrator {
    * @param c7DecisionRequirements the decision requirements definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Transactional
   public void migrateDecisionRequirementsDefinition(DecisionRequirementsDefinition c7DecisionRequirements) {
     String c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
