@@ -25,7 +25,7 @@ public class HistoryBoundryMigrationTest extends HistoryAbstractElementMigration
   public void shouldMigrateIntermediateThrow() {
     // given
     deployModel();
-    ProcessInstance process = runtimeService.startProcessInstanceByKey(PROCESS);
+    runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
     historyMigrator.start();

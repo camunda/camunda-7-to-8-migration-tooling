@@ -8,8 +8,10 @@
 package io.camunda.migration.data.qa.history.element;
 
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.COMPLETED;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.TERMINATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.MANUAL_TASK;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.MULTI_INSTANCE_BODY;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.RECEIVE_TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SCRIPT_TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SEND_TASK;
@@ -103,6 +105,27 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
     assertThat(flowNodes.size()).isEqualTo(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
+
+  @Test
+  public void shouldMigrateMultiInstance() {
+    // given
+    deployer.deployCamunda7Process("miProcess.bpmn");
+
+    runtimeService.startProcessInstanceByKey("miProcess");
+
+    // when
+    historyMigrator.start();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances.size()).isEqualTo(1);
+
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, MULTI_INSTANCE_BODY);
+    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes.getFirst().state()).isEqualTo(TERMINATED);
+  }
+
 
   protected void deployModelWithScriptTask() {
     String process = PROCESS;

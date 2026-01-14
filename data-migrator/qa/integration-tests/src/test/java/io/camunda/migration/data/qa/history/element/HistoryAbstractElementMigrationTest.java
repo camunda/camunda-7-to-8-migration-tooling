@@ -17,7 +17,6 @@ import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import java.util.stream.Stream;
-import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
