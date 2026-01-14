@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
+import io.camunda.zeebe.protocol.record.value.AuthorizationResourceType;
 import java.util.Set;
 import org.camunda.bpm.engine.authorization.BatchPermissions;
 import org.camunda.bpm.engine.authorization.Permissions;
@@ -53,7 +54,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.needsToAdaptId()).isTrue();
 
     assertThat(entry.getMappedPermissions(Permissions.ACCESS)).containsExactlyInAnyOrder(PermissionType.ACCESS);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.ACCESS);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.COMPONENT));
   }
 
   @Test
@@ -70,11 +71,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.UPDATE,
-        PermissionType.CREATE,
-        PermissionType.DELETE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.AUTHORIZATION));
   }
 
   @Test
@@ -91,11 +88,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.UPDATE,
-        PermissionType.CREATE,
-        PermissionType.DELETE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.GROUP));
   }
 
   @Test
@@ -122,10 +115,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.needsToAdaptId()).isFalse();
 
     assertThat(entry.getMappedPermissions(SystemPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
-    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.READ_USAGE_METRIC,
-        PermissionType.UPDATE);
+    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.SYSTEM));
   }
 
   @Test
@@ -148,18 +138,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
     assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE);
 
-    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.UPDATE,
-        PermissionType.CREATE,
-        PermissionType.CREATE_BATCH_OPERATION_RESOLVE_INCIDENT,
-        PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE,
-        PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE,
-        PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE,
-        PermissionType.CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE,
-        PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE,
-        PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_DEFINITION,
-        PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_DEFINITION);
+    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.BATCH));
   }
 
   @Test
@@ -176,11 +155,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.UPDATE,
-        PermissionType.CREATE,
-        PermissionType.DELETE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.TENANT));
   }
 
   @Test
@@ -210,10 +185,15 @@ class AuthorizationEntityRegistryTest {
     assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
     assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
     assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(
-        PermissionType.READ,
-        PermissionType.UPDATE,
-        PermissionType.CREATE,
-        PermissionType.DELETE);
+    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.USER));
+  }
+
+  protected static PermissionType[] getAllSupportedPerms(ResourceType resourceType) {
+    return AuthorizationResourceType
+        .valueOf(resourceType.name())
+        .getSupportedPermissionTypes()
+        .stream()
+        .map(permissionType -> PermissionType.valueOf(permissionType.name()))
+        .toArray(PermissionType[]::new);
   }
 }
