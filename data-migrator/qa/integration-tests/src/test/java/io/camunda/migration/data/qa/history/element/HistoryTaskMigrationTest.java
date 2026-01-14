@@ -7,11 +7,24 @@
  */
 package io.camunda.migration.data.qa.history.element;
 
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.COMPLETED;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.MANUAL_TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.RECEIVE_TASK;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SCRIPT_TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SEND_TASK;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SERVICE_TASK;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.TASK;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USER_TASK;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
+import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.List;
 import java.util.stream.Stream;
+import org.camunda.bpm.engine.variable.Variables;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -22,12 +35,96 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   protected Stream<Arguments> elementScenarios_terminatedElementPostMigration() {
     return Stream.of(Arguments.of("sendTaskProcess.bpmn", "sendTaskProcessId", SEND_TASK),
         Arguments.of("receiveTaskProcess.bpmn", "receiveTaskProcessId", RECEIVE_TASK),
-        Arguments.of("userTaskProcess.bpmn", "userTaskProcessId", USER_TASK)
-//        ,
-//        Arguments.of("serviceTaskProcess.bpmn", "serviceTaskProcessId", SERVICE_TASK) // doesn't create a task due to async before
-    );
+        Arguments.of("userTaskProcess.bpmn", "userTaskProcessId", USER_TASK));
   }
 
+  @Override
+  protected Stream<Arguments> elementScenarios_completedElementPostMigration() {
+    return Stream.of(Arguments.of("parallelGateway.bpmn", "ParallelGatewayProcess", TASK),
+        Arguments.of("serviceTaskProcessExpr.bpmn", "serviceTaskProcessId", SERVICE_TASK));
+  }
 
+  @Test
+  public void shouldMigrateBussinessRuleTask() {
+    // given
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    deployer.deployCamunda7Process("businessRuleProcess.bpmn");
+
+    runtimeService.startProcessInstanceByKey("businessRuleProcessId",
+        Variables.createVariables().putValue("inputA", stringValue("FAIL")));
+
+    // when
+    historyMigrator.start();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("businessRuleProcessId");
+    assertThat(processInstances.size()).isEqualTo(1);
+
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, BUSINESS_RULE_TASK);
+    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
+  }
+
+  @Test
+  public void shouldMigrateScriptTask() {
+    // given
+    deployModelWithScriptTask();
+    runtimeService.startProcessInstanceByKey("process");
+
+    // when
+    historyMigrator.start();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    assertThat(processInstances.size()).isEqualTo(1);
+
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, SCRIPT_TASK);
+    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
+  }
+
+  @Test
+  public void shouldMigrateManualTask() {
+    // given
+    deployModelManualTask();
+    runtimeService.startProcessInstanceByKey("process");
+
+    // when
+    historyMigrator.start();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    assertThat(processInstances.size()).isEqualTo(1);
+
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, MANUAL_TASK);
+    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
+  }
+
+  protected void deployModelWithScriptTask() {
+    String process = "process";
+    var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
+        .startEvent()
+        .scriptTask()
+        .scriptText("print(\"expected in test\")")
+        .endEvent()
+        .done();
+
+    deployer.deployC7ModelInstance(process, c7Model);
+  }
+
+  protected void deployModelManualTask() {
+    String process = "process";
+    var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
+        .startEvent()
+        .manualTask()
+        .endEvent()
+        .done();
+
+    deployer.deployC7ModelInstance(process, c7Model);
+  }
 }
 

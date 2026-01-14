@@ -5,18 +5,19 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
+
 package io.camunda.migration.data.qa.history.element;
 
-import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.INTERMEDIATE_CATCH_EVENT;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.params.provider.Arguments;
 
-public class HistoryMessageEventMigrationTest extends HistoryAbstractElementMigrationTest {
+public class HistoryEndEventTest extends HistoryAbstractElementMigrationTest {
 
   @Override
-  protected Stream<Arguments> elementScenarios_terminatedElementPostMigration() {
-    return Stream.of(Arguments.of("messageCatchEventProcess.bpmn", "messageCatchEventProcessId", INTERMEDIATE_CATCH_EVENT));
+  protected Stream<Arguments> elementScenarios_completedElementPostMigration() {
+    return Stream.of(Arguments.of("serviceTaskProcessExpr.bpmn", "serviceTaskProcessId", END_EVENT));
   }
 }
 
