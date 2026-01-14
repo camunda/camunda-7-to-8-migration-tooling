@@ -75,7 +75,8 @@ public class ProcessInstanceMigrator extends BaseMigrator {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7ProcessInstance,
             HistoricProcessInstance.class, processInstanceDbModelBuilder);
 
-        processInstanceDbModelBuilder.processInstanceKey(getNextKey());
+        Long processInstanceKey = getNextKey();
+        processInstanceDbModelBuilder.processInstanceKey(processInstanceKey);
         if (processDefinitionKey != null) {
           processInstanceDbModelBuilder.processDefinitionKey(processDefinitionKey);
         }
@@ -90,7 +91,9 @@ public class ProcessInstanceMigrator extends BaseMigrator {
               processInstanceDbModelBuilder.parentProcessInstanceKey(parentProcessInstanceKey);
             }
           }
-          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+          if (c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
+            processInstanceDbModelBuilder.rootProcessInstanceKey(processInstanceKey);
+          } else if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
             ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
             if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
               processInstanceDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());

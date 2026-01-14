@@ -27,7 +27,8 @@ public class PresetVariableInterceptor implements EntityInterceptor {
 
     if (builder != null) {
       builder.processInstanceKey(1L)
-          .scopeKey(2L);
+          .scopeKey(2L)
+          .rootProcessInstanceKey(1L);
     }
   }
 

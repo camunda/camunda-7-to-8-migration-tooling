@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,12 +26,14 @@ import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
 import io.camunda.search.query.VariableQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
-import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -170,10 +173,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Process("callActivityProcess.bpmn");
     deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
-    ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
-    ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
-        .superProcessInstanceId(parentInstance.getProcessInstanceId())
-        .singleResult();
+    runtimeService.startProcessInstanceByKey("callingProcessId");
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
@@ -188,8 +188,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     ProcessInstanceEntity parent = parentProcessInstances.getFirst();
     ProcessInstanceEntity sub = subProcessInstances.getFirst();
 
-    // Parent process should not have rootProcessInstanceKey (it is the root)
-    assertThat(parent.rootProcessInstanceKey()).isNull();
+    assertThat(parent.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey());
 
     // Sub process should have rootProcessInstanceKey pointing to the parent
     assertThat(sub.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey());
@@ -222,19 +221,22 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  @WhiteBox
   public void shouldSkipEntitiesWhenRootProcessInstanceNotMigrated() {
     // given
-    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployModel();
     deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    ClockUtil.setCurrentTime(new Date());
     ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
+    ClockUtil.offset(1_000 * 4L);
+    completeAllUserTasksWithDefaultUserTaskId();
     ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
-    completeAllUserTasksWithDefaultUserTaskId();
 
     // Manually skip the parent process instance to simulate it not being migrated yet
     historyMigrator.setMode(MigratorMode.MIGRATE);
-    
+
     // Mark parent as skipped
     dbClient.insert(parentInstance.getId(), null, new Date(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE, "test skip");
 
@@ -248,7 +250,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // Verify skip was logged
     logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_PARENT, "process", subInstance.getId()));
   }
-
 
   protected void verifyProcessInstanceFields(ProcessInstanceEntity processInstance,
                                              HistoricProcessInstance historicProcessInstance,
@@ -287,4 +288,15 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
   }
 
+
+  protected void deployModel() {
+    BpmnModelInstance c7BusinessRuleProcess = Bpmn.createExecutableProcess("callingProcessId")
+        .startEvent()
+        .userTask(USER_TASK_ID)
+        .callActivity()
+        .calledElement("calledProcessInstanceId")
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("callingProcessId", c7BusinessRuleProcess);
+  }
 }

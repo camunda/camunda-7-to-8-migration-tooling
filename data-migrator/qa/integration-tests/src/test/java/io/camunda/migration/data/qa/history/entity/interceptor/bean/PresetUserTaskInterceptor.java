@@ -28,7 +28,8 @@ public class PresetUserTaskInterceptor implements EntityInterceptor {
       builder.processDefinitionKey(1L)
           .processInstanceKey(2L)
           .elementInstanceKey(3L)
-          .processDefinitionVersion(1);
+          .processDefinitionVersion(1)
+          .rootProcessInstanceKey(2L);
     }
   }
 
