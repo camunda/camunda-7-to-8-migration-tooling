@@ -70,13 +70,13 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   public void shouldMigrateScriptTask() {
     // given
     deployModelWithScriptTask();
-    runtimeService.startProcessInstanceByKey("process");
+    runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
     historyMigrator.start();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
     assertThat(processInstances.size()).isEqualTo(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
@@ -89,13 +89,13 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   public void shouldMigrateManualTask() {
     // given
     deployModelManualTask();
-    runtimeService.startProcessInstanceByKey("process");
+    runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
     historyMigrator.start();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
     assertThat(processInstances.size()).isEqualTo(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
@@ -105,7 +105,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   }
 
   protected void deployModelWithScriptTask() {
-    String process = "process";
+    String process = PROCESS;
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent()
         .scriptTask()
@@ -117,10 +117,11 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   }
 
   protected void deployModelManualTask() {
-    String process = "process";
+    String process = PROCESS;
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent()
         .manualTask()
+        .intermediateThrowEvent()
         .endEvent()
         .done();
 

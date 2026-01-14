@@ -83,13 +83,13 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   public void shouldMigrateExclusiveGateway() {
     // given
     deployModelExclusiveGateway();
-    runtimeService.startProcessInstanceByKey("process", Variables.createVariables().putValue("testVar", "outputValue"));
+    runtimeService.startProcessInstanceByKey(PROCESS, Variables.createVariables().putValue("testVar", "outputValue"));
 
     // when
     historyMigrator.start();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
     assertThat(processInstances.size()).isEqualTo(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
@@ -102,13 +102,13 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   public void shouldMigrateInclusiveGateway() {
     // given
     deployModelInclusiveGateway();
-    runtimeService.startProcessInstanceByKey("process");
+    runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
     historyMigrator.start();
 
     // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("process");
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
     assertThat(processInstances.size()).isEqualTo(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
@@ -118,7 +118,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   }
 
   protected void deployModelExclusiveGateway() {
-    String process = "process";
+    String process = PROCESS;
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent()
         .exclusiveGateway()
@@ -135,7 +135,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   }
 
   protected void deployModelInclusiveGateway() {
-    String process = "process";
+    String process = PROCESS;
     var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent()
         .inclusiveGateway("fork")

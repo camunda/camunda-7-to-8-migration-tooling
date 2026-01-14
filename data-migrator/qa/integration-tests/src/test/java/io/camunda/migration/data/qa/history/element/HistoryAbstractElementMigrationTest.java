@@ -27,6 +27,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrationAbstractTest {
 
+  public static final String PROCESS = "process";
+
   @EnabledIf("hasScenarios_terminatedElementPostMigration")
   @MethodSource("elementScenarios_terminatedElementPostMigration")
   @ParameterizedTest
