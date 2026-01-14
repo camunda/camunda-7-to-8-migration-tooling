@@ -14,6 +14,9 @@ import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.U
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.search.response.Variable;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
@@ -49,10 +52,10 @@ import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
+import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.task.Task;
@@ -94,6 +97,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected DbClient dbClient;
+
+  @Autowired
+  protected CamundaClient camundaClient;
 
   @AfterEach
   public void cleanup() {
