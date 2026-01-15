@@ -42,7 +42,6 @@ public class FlowNodeTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
     }
 
-
     builder
         .flowNodeId(flowNode.getActivityId())
         .flowNodeName(flowNode.getActivityName()) // Human-readable name from BPMN model
@@ -55,7 +54,7 @@ public class FlowNodeTransformer implements EntityInterceptor {
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
 
-    // treePath, processInstanceKey, processDefinitionKey are set in io.camunda.migration.data.HistoryMigrator.migrateFlowNode
+    // flowNodeInstanceKey, processInstanceKey, treePath, processDefinitionKey, historyCleanupDate, endDate, flowNodeScopeKey are set in io.camunda.migration.data.impl.history.FlowNodeMigrator
   }
 
   protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance flowNode) {
