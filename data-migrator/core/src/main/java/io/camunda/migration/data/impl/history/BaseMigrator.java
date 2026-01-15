@@ -251,44 +251,11 @@ public abstract class BaseMigrator<T> {
     this.mode = mode;
   }
 
-
   protected DecisionRequirementsDbModel convertDecisionRequirements(EntityConversionContext<?, ?> context) {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
     DecisionRequirementsDbModel.Builder builder =
         (DecisionRequirementsDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
-  }
-
-  /**
-   * Calculates the history cleanup date for an entity based on its state and endDate.
-   * Only calculates a new cleanup date when C7 removalTime is null.
-   * For entities with existing removalTime, uses that value directly.
-   *
-   * @param c7State the C7 state of the entity
-   * @param c7EndDate the C7 end date (null if still active)
-   * @param c7RemovalTime the C7 removal time
-   * @return the calculated history cleanup date
-   */
-  protected OffsetDateTime calculateHistoryCleanupDate(String c7State, Date c7EndDate, Date c7RemovalTime) {
-    // If C7 already has a removalTime, use it directly
-    if (c7RemovalTime != null) {
-      return convertDate(c7RemovalTime);
-    }
-
-    // Only calculate cleanup date when removalTime is null
-    // For active entities in C7, calculate cleanup date based on now + TTL
-    if (c7EndDate == null) {
-      Period ttl = getAutoCancelTtl();
-      // If TTL is null or zero, auto-cancel is disabled - return null for cleanup date
-      if (ttl == null || ttl.isZero()) {
-        return null;
-      }
-      OffsetDateTime now = convertDate(ClockUtil.now());
-      return now.plus(ttl);
-    }
-
-    // No removalTime and not active - return null
-    return null;
   }
 
   /**
@@ -326,20 +293,6 @@ public abstract class BaseMigrator<T> {
     if (c7EndDate == null) {
       // Inherit the parent process instance's end date
       return processInstanceEndDate;
-    }
-    return convertDate(c7EndDate);
-  }
-
-  /**
-   * Determines if the entity should have endDate set to now when converting to C8.
-   *
-   * @param c7State the C7 state
-   * @param c7EndDate the C7 end date
-   * @return the endDate to use (now if active, original if completed)
-   */
-  protected OffsetDateTime calculateEndDate(String c7State, Date c7EndDate) {
-    if (c7EndDate == null) {
-      return convertDate(ClockUtil.now());
     }
     return convertDate(c7EndDate);
   }
