@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstance> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingProcessInstances();
     if (RETRY_SKIPPED.equals(mode)) {
@@ -67,6 +68,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    * @param c7ProcessInstance the historic process instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion or interception
    */
+  @Override
   public void migrateOne(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -130,7 +132,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
     return builder.build();
   }
 
-  public void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
+  protected void insertProcessInstance(HistoricProcessInstance c7ProcessInstance,
                                        ProcessInstanceDbModel dbModel,
                                        String c7ProcessInstanceId) {
     c8Client.insertProcessInstance(dbModel);

@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DecisionRequirementsMigrator extends BaseMigrator<DecisionRequirementsDefinition> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingDecisionRequirements();
 
@@ -49,6 +50,7 @@ public class DecisionRequirementsMigrator extends BaseMigrator<DecisionRequireme
    * @param c7DecisionRequirements the decision requirements definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(DecisionRequirementsDefinition c7DecisionRequirements) {
     String c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {

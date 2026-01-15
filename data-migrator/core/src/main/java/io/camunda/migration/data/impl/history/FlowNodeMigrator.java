@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingHistoricFlowNodes();
 
@@ -69,6 +70,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(HistoricActivityInstance c7FlowNode) {
     String c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {

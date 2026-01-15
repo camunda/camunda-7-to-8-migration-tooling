@@ -202,7 +202,7 @@ public abstract class BaseMigrator<T> {
     return !dbClient.checkExistsByC7IdAndType(id, type);
   }
 
-  public void markMigrated(String c7Id, Long c8Key, Date createTime, TYPE type) {
+  protected void markMigrated(String c7Id, Long c8Key, Date createTime, TYPE type) {
     saveRecord(c7Id, c8Key, type, createTime, null);
   }
 
@@ -374,8 +374,41 @@ public abstract class BaseMigrator<T> {
     return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
   }
 
+  /**
+   * Migrates all entities of type T from Camunda 7 to Camunda 8.
+   * <p>
+   * This method is responsible for:
+   * <ul>
+   *   <li>Fetching all entities from Camunda 7</li>
+   *   <li>Converting each entity to Camunda 8 format</li>
+   *   <li>Persisting the converted entities to Camunda 8</li>
+   *   <li>Tracking migration status in the migration database</li>
+   * </ul>
+   * </p>
+   * <p>
+   * The migration mode (MIGRATE or RETRY_SKIPPED) affects which entities are processed.
+   * </p>
+   */
   abstract void migrate();
 
+  /**
+   * Migrates a single entity from Camunda 7 to Camunda 8.
+   * <p>
+   * This method is transactional and ensures that all database operations
+   * for a single entity migration are committed or rolled back together.
+   * </p>
+   * <p>
+   * Implementations should:
+   * <ul>
+   *   <li>Convert the C7 entity to C8 format using interceptors</li>
+   *   <li>Persist the converted entity to the C8 database</li>
+   *   <li>Mark the entity as migrated or skipped in the migration tracking database</li>
+   *   <li>Handle any migration errors appropriately</li>
+   * </ul>
+   * </p>
+   *
+   * @param entity the Camunda 7 entity to migrate
+   */
   @Transactional("c8TransactionManager")
   abstract void migrateOne(T entity);
 

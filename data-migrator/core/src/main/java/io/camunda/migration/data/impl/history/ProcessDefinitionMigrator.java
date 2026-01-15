@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ProcessDefinitionMigrator extends BaseMigrator<ProcessDefinition> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingProcessDefinitions();
     if (RETRY_SKIPPED.equals(mode)) {
@@ -48,6 +49,7 @@ public class ProcessDefinitionMigrator extends BaseMigrator<ProcessDefinition> {
    * @param c7ProcessDefinition the process definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(ProcessDefinition c7ProcessDefinition) {
     String c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {

@@ -45,6 +45,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInstance> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingDecisionInstances();
     if (RETRY_SKIPPED.equals(mode)) {
@@ -86,6 +87,7 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
    * @param c7DecisionInstance the historic decision instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(HistoricDecisionInstance c7DecisionInstance) {
     String c7DecisionInstanceId = c7DecisionInstance.getId();
     if (shouldMigrate(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE)) {

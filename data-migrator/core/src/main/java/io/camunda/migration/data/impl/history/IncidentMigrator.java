@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingHistoricIncidents();
     if (RETRY_SKIPPED.equals(mode)) {
@@ -61,6 +62,7 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
    * @param c7Incident the historic incident from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(HistoricIncident c7Incident) {
     String c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {

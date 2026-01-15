@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingHistoricVariables();
 
@@ -71,6 +72,7 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
    * @param c7Variable the historic variable instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {

@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DecisionDefinitionMigrator extends BaseMigrator<DecisionDefinition> {
 
+  @Override
   public void migrate() {
     HistoryMigratorLogs.migratingDecisionDefinitions();
 
@@ -62,6 +63,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator<DecisionDefinition>
    * @param c7DecisionDefinition the decision definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
+  @Override
   public void migrateOne(DecisionDefinition c7DecisionDefinition) {
     String c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {
