@@ -136,7 +136,8 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
 
     assertThat(flowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {
-      assertThat(flowNode.flowNodeScopeKey()).isEqualTo(1L);
+      assertThat(flowNode.processInstanceKey()).isEqualTo(1L);
+      assertThat(flowNode.processDefinitionKey()).isEqualTo(2L);
     }
   }
 
