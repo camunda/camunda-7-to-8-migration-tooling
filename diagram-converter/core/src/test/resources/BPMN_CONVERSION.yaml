@@ -702,3 +702,55 @@ categories:
           </bpmn:sequenceFlow>
         expectedMessages: |
           <conversion:message severity="WARNING">Execution Listener at 'take' with implementation 'class' 'abc.def' cannot be transformed.</conversion:message>
+
+  - category: Conditional Event Definition
+    cases:
+      - name: Conditional Intermediate Catch Event with JUEL expression
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch">
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">${myVariable == true}</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedBpmn: |
+          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch" parallelMultiple="false">
+            <extensionElements>
+            </extensionElements>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
+              <documentation/>
+              <extensionElements>
+                <zeebe:conditionalFilter/>
+              </extensionElements>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">=myVariable = true</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${myVariable == true}' -&gt; '=myVariable = true'.</conversion:message>
+      - name: Conditional start event
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">${x &gt; 10}</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <extensionElements>
+            </extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <documentation/>
+              <extensionElements>
+                <zeebe:conditionalFilter/>
+              </extensionElements>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
+
