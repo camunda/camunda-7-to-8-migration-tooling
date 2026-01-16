@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @WhiteBox
-public class ComplexEntityInterceptor implements EntityInterceptor {
+public class ComplexEntityInterceptor implements EntityInterceptor<Object, Object> {
   private static final Logger LOG = LoggerFactory.getLogger(ComplexEntityInterceptor.class);
 
   protected String logMessage;
@@ -35,7 +35,7 @@ public class ComplexEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     if (logMessage != null && !logMessage.isEmpty()) {
       LOG.info(logMessage);
     }

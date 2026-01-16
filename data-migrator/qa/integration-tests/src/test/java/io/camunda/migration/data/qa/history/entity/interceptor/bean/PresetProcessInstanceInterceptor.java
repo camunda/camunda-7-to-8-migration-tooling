@@ -8,13 +8,14 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 
 
-public class PresetProcessInstanceInterceptor implements EntityInterceptor {
+public class PresetProcessInstanceInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -22,24 +23,16 @@ public class PresetProcessInstanceInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      builder.processDefinitionKey(12345L).parentProcessInstanceKey(67890L);
-    }
+  public void presetParentProperties(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
+    context.getC8DbModelBuilder()
+        .processDefinitionKey(12345L)
+        .parentProcessInstanceKey(67890L);
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    // This execute method runs after presetParentProperties
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder = (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      HistoricProcessInstance entityType = (HistoricProcessInstance) context.getC7Entity();
-      builder.processInstanceKey(88888L)
-          .processDefinitionId(entityType.getProcessDefinitionKey());
-    }
-
+  public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
+    context.getC8DbModelBuilder()
+        .processInstanceKey(88888L)
+        .processDefinitionId(context.getC7Entity().getProcessDefinitionKey());
   }
 }

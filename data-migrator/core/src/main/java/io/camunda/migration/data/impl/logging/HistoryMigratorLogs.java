@@ -24,6 +24,7 @@ public class HistoryMigratorLogs {
   public static final String STACKTRACE = "Stack trace:";
 
   // Skip reason constants
+  public static final String SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE = "Missing root process instance";
   public static final String SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE = "Missing parent process instance";
   public static final String SKIP_REASON_MISSING_PROCESS_DEFINITION = "Missing process definition";
   public static final String SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY = "Missing process instance key";
@@ -48,6 +49,7 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_INSTANCE = "Migrating historic {} instance with C7 ID: [{}]";
   public static final String MIGRATING_INSTANCE_COMPLETE =
       "Migration of historic {} instance with C7 ID " + "[{}] completed";
+  public static final String SKIPPING_INSTANCE_MISSING_ROOT = "Migration of historic {} instance with C7 ID [{}] skipped. Root instance not yet available.";
   public static final String SKIPPING_INSTANCE_MISSING_PARENT = "Migration of historic {} instance with C7 ID [{}] skipped. Parent instance not yet available.";
   public static final String SKIPPING_INSTANCE_MISSING_DEFINITION = "Migration of historic {} instance with C7 ID [{}] skipped. {} definition not yet available.";
   public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
@@ -152,6 +154,10 @@ public class HistoryMigratorLogs {
 
   public static void skippingDecisionInstanceDueToMissingParent(String c7DecisionInstanceId) {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_PARENT, "decision", c7DecisionInstanceId);
+  }
+
+  public static void skippingDecisionInstanceDueToMissingRoot(String c7DecisionInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_ROOT, "decision", c7DecisionInstanceId);
   }
 
   public static void skippingDecisionInstanceDueToMissingDecisionDefinition(String c7DecisionInstanceId) {

@@ -7,16 +7,15 @@
  */
 package io.camunda.migration.data.impl.history;
 
-import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
-import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.springframework.stereotype.Service;
 
@@ -24,19 +23,16 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating incidents from Camunda 7 to Camunda 8.
  */
 @Service
-public class IncidentMigrator extends BaseMigrator {
+public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbModel> {
 
   public void migrateIncidents() {
     HistoryMigratorLogs.migratingHistoricIncidents();
-    if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.fetchAndHandleSkippedForType(HISTORY_INCIDENT, idKeyDbModel -> {
-        HistoricIncident historicIncident = c7Client.getHistoricIncident(idKeyDbModel.getC7Id());
-        migrateIncident(historicIncident);
-      });
-    } else {
-      c7Client.fetchAndHandleHistoricIncidents(this::migrateIncident,
-          dbClient.findLatestCreateTimeByType(HISTORY_INCIDENT));
-    }
+    executeMigration(
+        HISTORY_INCIDENT,
+        c7Client::getHistoricIncident,
+        c7Client::fetchAndHandleHistoricIncidents,
+        this::migrateIncident
+    );
   }
 
   /**
@@ -59,69 +55,61 @@ public class IncidentMigrator extends BaseMigrator {
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   public void migrateIncident(HistoricIncident c7Incident) {
-    String c7IncidentId = c7Incident.getId();
+    var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
-      ProcessInstanceEntity c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
+      var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
 
+      var builder = new Builder();
+
+      if (c7ProcessInstance != null) {
+        var processInstanceKey = c7ProcessInstance.processInstanceKey();
+        builder.processInstanceKey(processInstanceKey);
+        if (processInstanceKey != null) {
+          var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(),
+              c7Incident.getProcessInstanceId());
+          var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
+          Long jobDefinitionKey = null; // TODO jobs are not migrated yet
+
+          builder.processDefinitionKey(processDefinitionKey)
+              .jobKey(jobDefinitionKey)
+              .flowNodeInstanceKey(flowNodeInstanceKey)
+              .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
+        }
+      }
+
+      IncidentDbModel dbModel;
       try {
-        IncidentDbModel.Builder incidentDbModelBuilder = new IncidentDbModel.Builder();
-        EntityConversionContext<?, ?> context = createEntityConversionContext(c7Incident, HistoricIncident.class,
-            incidentDbModelBuilder);
-
-        if (c7ProcessInstance != null) {
-          Long processInstanceKey = c7ProcessInstance.processInstanceKey();
-          incidentDbModelBuilder.processInstanceKey(processInstanceKey);
-          if (processInstanceKey != null) {
-            Long flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(),
-                c7Incident.getProcessInstanceId());
-            Long processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
-            Long jobDefinitionKey = null; // TODO jobs are not migrated yet
-
-            incidentDbModelBuilder.processDefinitionKey(processDefinitionKey)
-                .jobKey(jobDefinitionKey)
-                .flowNodeInstanceKey(flowNodeInstanceKey)
-                .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
-
-          }
-        }
-        IncidentDbModel dbModel = convertIncident(context);
-        if (dbModel.processInstanceKey() == null) {
-          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-              SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
-          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-        } else if (dbModel.processDefinitionKey() == null) {
-          markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
-              SKIP_REASON_MISSING_PROCESS_DEFINITION);
-          HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
-          // check if flowNodeInstanceKey is resolved correctly
-          // } else if (dbModel.flowNodeInstanceKey() == null) {
-          //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-          //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-          // TODO: always null at the moment because jobs are not migrated yet
-          //  } else if (dbModel.jobKey() == null) {
-          //    markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
-          //    HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-        } else {
-          insertIncident(c7Incident, dbModel, c7IncidentId);
-        }
+        dbModel = convert(c7Incident, builder);
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), e);
+        return;
+      }
+
+      if (dbModel.processInstanceKey() == null) {
+        markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+            SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY);
+        HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+      } else if (dbModel.processDefinitionKey() == null) {
+        markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(),
+            SKIP_REASON_MISSING_PROCESS_DEFINITION);
+        HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
+        // check if flowNodeInstanceKey is resolved correctly
+        // } else if (dbModel.flowNodeInstanceKey() == null) {
+        //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
+        //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+        // TODO: always null at the moment because jobs are not migrated yet
+        //  } else if (dbModel.jobKey() == null) {
+        //    markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
+        //    HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
+      } else {
+        c8Client.insertIncident(dbModel);
+        markMigrated(c7IncidentId, dbModel.incidentKey(), c7Incident.getCreateTime(), HISTORY_INCIDENT);
+        HistoryMigratorLogs.migratingHistoricIncidentCompleted(c7IncidentId);
       }
     }
   }
 
-  protected void insertIncident(HistoricIncident c7Incident, IncidentDbModel dbModel, String c7IncidentId) {
-    c8Client.insertIncident(dbModel);
-    markMigrated(c7IncidentId, dbModel.incidentKey(), c7Incident.getCreateTime(), HISTORY_INCIDENT);
-    HistoryMigratorLogs.migratingHistoricIncidentCompleted(c7IncidentId);
-  }
-
-  protected IncidentDbModel convertIncident(EntityConversionContext<?, ?> context) {
-    EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
-    IncidentDbModel.Builder builder = (IncidentDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
-    return builder.build();
-  }
 }
 

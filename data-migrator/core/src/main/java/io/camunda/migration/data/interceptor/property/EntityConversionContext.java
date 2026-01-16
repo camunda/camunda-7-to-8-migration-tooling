@@ -21,48 +21,42 @@ public class EntityConversionContext<C7, C8> {
 
   protected final C7 c7Entity;
   protected C8 c8DbModelBuilder;
-  protected final Class<?> entityType;
   protected ProcessEngine processEngine;
 
   /**
-   * Creates a new context with a C7 entity and entity type.
+   * Creates a new context with a C7 entity.
    *
    * @param c7Entity the Camunda 7 entity
-   * @param entityType the entity type class
    * @throws IllegalArgumentException if c7Entity is null
    */
-  public EntityConversionContext(C7 c7Entity, Class<?> entityType) {
-    this(c7Entity, entityType, null);
+  public EntityConversionContext(C7 c7Entity) {
+    this(c7Entity, null);
   }
 
   /**
-   * Creates a new context with a C7 entity, entity type, and process engine.
+   * Creates a new context with a C7 entity and process engine.
    *
    * @param c7Entity the Camunda 7 entity
-   * @param entityType the entity type class
    * @param processEngine the Camunda 7 process engine
    * @throws IllegalArgumentException if c7Entity is null
    */
-  public EntityConversionContext(C7 c7Entity, Class<?> entityType, ProcessEngine processEngine) {
-    this(c7Entity, entityType, null, processEngine);
+  public EntityConversionContext(C7 c7Entity, ProcessEngine processEngine) {
+    this(c7Entity, null, processEngine);
   }
 
   /**
-   * Creates a new context with a C7 entity, entity type, C8 database model builder, and process engine.
+   * Creates a new context with a C7 entity, C8 database model builder, and process engine.
    *
    * @param c7Entity the Camunda 7 entity
-   * @param entityType the entity type class
    * @param c8DbModelBuilder the Camunda 8 database model builder
    * @param processEngine the Camunda 7 process engine
-   * @throws IllegalArgumentException if c7Entity is null
+   * @throws IllegalArgumentException if c7Entity is null (except for DecisionRequirementsDbModel.Builder edge case)
    */
-  public EntityConversionContext(C7 c7Entity, Class<?> entityType, C8 c8DbModelBuilder, ProcessEngine processEngine) {
+  public EntityConversionContext(C7 c7Entity, C8 c8DbModelBuilder, ProcessEngine processEngine) {
     if (c7Entity == null && !(c8DbModelBuilder instanceof DecisionRequirementsDbModel.Builder)) {
-      throw new IllegalArgumentException("C7 entity cannot be null other than for DecisionRequirementsDbModel.Builder"
-          + " edge case");
+      throw new IllegalArgumentException("C7 entity cannot be null other than for DecisionRequirementsDbModel.Builder edge case");
     }
     this.c7Entity = c7Entity;
-    this.entityType = entityType;
     this.c8DbModelBuilder = c8DbModelBuilder;
     this.processEngine = processEngine;
   }
@@ -92,15 +86,6 @@ public class EntityConversionContext<C7, C8> {
    */
   public void setC8DbModelBuilder(C8 c8DbModelBuilder) {
     this.c8DbModelBuilder = c8DbModelBuilder;
-  }
-
-  /**
-   * Gets the entity type class.
-   *
-   * @return the entity type
-   */
-  public Class<?> getEntityType() {
-    return entityType;
   }
 
   /**

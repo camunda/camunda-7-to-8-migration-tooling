@@ -11,6 +11,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.camunda.bpm.engine.variable.Variables.createVariables;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
@@ -33,6 +34,7 @@ import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
@@ -48,6 +50,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
   @RegisterExtension
   CleanupExtension cleanup = new CleanupExtension(rdbmsQuery);
+
+  @AfterEach
+  public void resetClock() {
+    ClockUtil.reset();
+  }
 
   @Test
   public void shouldMigrateSingleHistoricDecision() {
@@ -510,34 +517,40 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldCalculateCleanupDateForStandaloneDecision() {
-    // given - deploy and evaluate a standalone decision (not triggered by a process)
-    deployer.deployCamunda7Decision("simpleDmn.dmn");
+    // given - deploy and evaluate a DRD with multiple decisions
+    deployer.deployCamunda7Decision("dish-decision.dmn");
 
-    // Evaluate the decision directly without a process instance
-    decisionService.evaluateDecisionTableByKey("simpleDecisionId", java.util.Map.of("inputA", "A"));
+    // Set a fixed evaluation time to ensure all decisions have the same removal time
+    Date evaluationTime = new Date();
+    ClockUtil.setCurrentTime(evaluationTime);
+
+    // Evaluate the root decision which triggers all dependent decisions (Season, GuestCount)
+    decisionService.evaluateDecisionByKey("Dish")
+        .variables(createVariables()
+            .putValue("season", "Winter")
+            .putValue("guestCount", 5))
+        .evaluate();
 
     // when - migrate history
     historyMigrator.migrate();
 
-    // then - verify standalone decision instance has proper cleanup date
-    List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
-    assertThat(decisionInstances).hasSize(1);
+    // then - verify all decision instances in the DRD have proper cleanup date
+    List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("Dish", "Season", "GuestCount");
+    assertThat(decisionInstances)
+        .as("Should have 3 decision instances: Dish, Season, and GuestCount")
+        .hasSize(3);
 
-    DecisionInstanceEntity migratedDecision = decisionInstances.getFirst();
-    assertThat(migratedDecision.state()).isEqualTo(DecisionInstanceEntity.DecisionInstanceState.EVALUATED);
-    assertThat(migratedDecision.evaluationDate()).isNotNull();
+    DecisionInstanceEntity dishDecisionInstance = searchHistoricDecisionInstances("Dish").getFirst();
+    OffsetDateTime dishCleanupDate = cleanup.getDecisionInstanceCleanupDate("Dish");
+    assertThat(dishDecisionInstance.evaluationDate().plus(Duration.ofDays(180))).isEqualTo(dishCleanupDate);
 
-    // Standalone decisions should not have process context
-    assertThat(migratedDecision.processInstanceKey()).isNull();
-    assertThat(migratedDecision.processDefinitionKey()).isNull();
+    DecisionInstanceEntity seasonDecisionInstance = searchHistoricDecisionInstances("Season").getFirst();
+    OffsetDateTime seasonCleanupDate = cleanup.getDecisionInstanceCleanupDate("Season");
+    assertThat(seasonDecisionInstance.evaluationDate().plus(Duration.ofDays(180))).isEqualTo(seasonCleanupDate);
 
-    // Whitebox test: Query database directly to verify history cleanup date
-    OffsetDateTime cleanupDate = cleanup.getDecisionInstanceCleanupDate(migratedDecision.decisionInstanceKey());
-
-    // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
-    assertThat(cleanupDate)
-        .as("Cleanup date should be evaluation date + 180 days")
-        .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
+    DecisionInstanceEntity guestCountDecisionInstance = searchHistoricDecisionInstances("GuestCount").getFirst();
+    OffsetDateTime guestCountCleanupDate = cleanup.getDecisionInstanceCleanupDate("GuestCount");
+    assertThat(guestCountDecisionInstance.evaluationDate().plus(Duration.ofDays(180))).isEqualTo(guestCountCleanupDate);
   }
 
   protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
