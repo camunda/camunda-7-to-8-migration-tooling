@@ -35,7 +35,7 @@ public class TimerElementMigrationTest extends AbstractElementMigrationTest {
     runtimeService.setVariable(c7instance.getId(), "leftoverDuration", "P1D");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then timer has not yet fired
     assertThat(byProcessId("timerDurationBoundaryEventProcessId")).isActive()
@@ -65,7 +65,7 @@ public class TimerElementMigrationTest extends AbstractElementMigrationTest {
     ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerCycleBoundaryEventProcessId");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
     processTestContext.increaseTime(Duration.ofDays(11));
 
     // then
@@ -91,7 +91,7 @@ public class TimerElementMigrationTest extends AbstractElementMigrationTest {
     ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerDateCatchProcessId");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then instance is still waiting in the timer catch event
     assertThat(byProcessId("timerDateCatchProcessId")).isActive()

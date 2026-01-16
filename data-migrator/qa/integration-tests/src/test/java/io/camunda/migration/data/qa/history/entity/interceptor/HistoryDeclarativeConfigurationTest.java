@@ -13,16 +13,29 @@ import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
 @WithSpringProfile("entity-interceptor")
-public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstractTest {
+public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected MigratorProperties migratorProperties;
@@ -90,11 +103,11 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -117,18 +130,18 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify both process instances and flow nodes were migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
+        historyMigration.getRdbmsService().getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.tenantIds("complex-tenant"))))

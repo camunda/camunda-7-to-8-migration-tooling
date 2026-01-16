@@ -17,8 +17,15 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-public class ProcessElementNotFoundTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ProcessElementNotFoundTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -30,13 +37,13 @@ public class ProcessElementNotFoundTest extends RuntimeMigrationAbstractTest {
     var c7Instance = runtimeService.startProcessInstanceByKey("userTaskProcessWithMissingUserTaskInC8Id");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     logs.assertContains(
         formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7Instance.getId(),
             formatMessage(FLOW_NODE_NOT_EXISTS_ERROR, "userTaskId")));
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
   }
 
 }

@@ -34,6 +34,7 @@ import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
+import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -189,9 +190,10 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
       throw new IllegalStateException("RdbmsService is not available in the Spring context");
     }
     return rdbmsService.getDecisionRequirementsReader()
-        .search(DecisionRequirementsQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))))
+        .search(DecisionRequirementsQuery.of(queryBuilder -> queryBuilder.filter(
+                filterBuilder -> filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))
+            .resultConfig(
+                DecisionRequirementsQueryResultConfig.of(builder -> builder.includeXml(true)))))
         .items();
   }
 
@@ -294,6 +296,91 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     VariableEntity variable = variables.getFirst();
     assertThat(variable.name()).isEqualTo(varName);
     assertThat(variable.value()).isEqualTo(expectedValue);
+  }
+
+  public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId,
+                                                                    boolean builtInTransformerDisabled) {
+    RdbmsService rdbmsService = getRdbmsServiceBean();
+    if (rdbmsService == null) {
+      throw new IllegalStateException("RdbmsService is not available in the Spring context");
+    }
+    String finalProcessDefinitionId = builtInTransformerDisabled ?
+        processDefinitionId :
+        prefixDefinitionId(processDefinitionId);
+    return rdbmsService.getProcessInstanceReader()
+        .search(ProcessInstanceQuery.of(queryBuilder -> queryBuilder.filter(
+            filterBuilder -> filterBuilder.processDefinitionIds(finalProcessDefinitionId))))
+        .items();
+  }
+
+  public List<FlowNodeInstanceEntity> searchHistoricFlowNodes(long processInstanceKey) {
+    RdbmsService rdbmsService = getRdbmsServiceBean();
+    if (rdbmsService == null) {
+      throw new IllegalStateException("RdbmsService is not available in the Spring context");
+    }
+    return rdbmsService.getFlowNodeInstanceReader()
+        .search(FlowNodeInstanceQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
+        .items();
+  }
+
+  private io.camunda.db.rdbms.sql.FlowNodeInstanceMapper getFlowNodeInstanceMapperBean() {
+    try {
+      return applicationContext != null ? applicationContext.getBean(io.camunda.db.rdbms.sql.FlowNodeInstanceMapper.class) : null;
+    } catch (BeansException e) {
+      return null;
+    }
+  }
+
+  public List<io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel> searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {
+    io.camunda.db.rdbms.sql.FlowNodeInstanceMapper flowNodeInstanceMapper = getFlowNodeInstanceMapperBean();
+    if (flowNodeInstanceMapper == null) {
+      throw new IllegalStateException("FlowNodeInstanceMapper is not available in the Spring context");
+    }
+    return flowNodeInstanceMapper.search(
+        io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.processInstanceKeys(processInstanceKey))));
+  }
+
+  public void assertDecisionInstance(
+      DecisionInstanceEntity instance,
+      String decisionDefinitionId,
+      java.util.Date evaluationDate,
+      Long flowNodeInstanceKey,
+      Long processInstanceKey,
+      Long processDefinitionKey,
+      Long decisionDefinitionKey,
+      DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
+      String result,
+      String inputName,
+      String inputValue,
+      String outputName,
+      String outputValue) {
+    assertThat(instance.decisionInstanceId()).isNotNull();
+    assertThat(instance.decisionInstanceKey()).isNotNull();
+    assertThat(instance.state()).isEqualTo(DecisionInstanceEntity.DecisionInstanceState.EVALUATED);
+    assertThat(instance.evaluationDate()).isEqualTo(io.camunda.migration.data.impl.util.ConverterUtil.convertDate(evaluationDate));
+    assertThat(instance.evaluationFailure()).isNull();
+    assertThat(instance.evaluationFailureMessage()).isNull();
+    assertThat(instance.flowNodeInstanceKey()).isEqualTo(flowNodeInstanceKey);
+    assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
+    assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
+    assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
+    assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionDefinitionId));
+    assertThat(instance.tenantId()).isEqualTo(io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT);
+    assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
+    assertThat(instance.result()).isEqualTo(result);
+    assertThat(instance.rootDecisionDefinitionKey()).isNull();
+    assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
+      assertThat(input.inputId()).isNotNull();
+      assertThat(input.inputName()).isEqualTo(inputName);
+      assertThat(input.inputValue()).isEqualTo(inputValue);
+    });
+    assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+      assertThat(output.outputId()).isNotNull();
+      assertThat(output.outputName()).isEqualTo(outputName);
+      assertThat(output.outputValue()).isEqualTo(outputValue);
+    });
   }
 
 }

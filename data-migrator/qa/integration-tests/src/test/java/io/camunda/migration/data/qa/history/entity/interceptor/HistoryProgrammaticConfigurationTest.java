@@ -11,7 +11,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ActivityInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.UniversalEntityInterceptor;
@@ -22,6 +21,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Disable built-in transformer for controlled testing
@@ -32,7 +38,16 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[1].enabled=false"
 })
 @ActiveProfiles("entity-programmatic")
-public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
@@ -95,14 +110,14 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance interceptor was executed
     assertThat(processInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
 
     // Verify process instance was migrated with modified tenant ID
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -125,7 +140,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify universal interceptor was executed for all entities
     // Universal interceptor should be called for process instance, flow nodes, etc.
@@ -146,7 +161,7 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify all interceptors were executed
     assertThat(universalEntityInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -168,11 +183,11 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     }
 
     // Run history migration - DisabledCustomInterceptor should not throw exception
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify migration completed successfully without executing disabled interceptor
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
   }

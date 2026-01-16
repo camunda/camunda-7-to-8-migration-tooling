@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.runtime.variables.interceptor;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import org.junit.jupiter.api.Test;
@@ -19,6 +18,10 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
@@ -32,7 +35,11 @@ import org.springframework.test.context.TestPropertySource;
 })
 @WithSpringProfile("interceptor")
 @ActiveProfiles("programmatic")
-public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class MixedConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Test
   public void shouldWorkAlongsideSpringComponentInterceptors(CapturedOutput output) {
@@ -45,7 +52,7 @@ public class MixedConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeService.setVariable(processInstance.getId(), "var", "value"); // For ComplexInterceptor (declarative)
 
     // when running runtime migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then both interceptors should have executed
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

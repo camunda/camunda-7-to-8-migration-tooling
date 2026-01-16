@@ -17,7 +17,6 @@ import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.by
 
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.property.MigratorProperties;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
 import org.camunda.bpm.engine.RuntimeService;
@@ -29,9 +28,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @SpringBootTest
-public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class GatewayMigrationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -61,7 +67,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("eventGatewayProcessId", variables);
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     assertThat(byProcessId("eventGatewayProcessId")).isActive()
@@ -84,7 +90,7 @@ public class GatewayMigrationTest extends RuntimeMigrationAbstractTest {
     ProcessInstance instance = runtimeService.startProcessInstanceByKey("ParallelGatewayProcess");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     logs.assertDoesNotContain(formatMessage(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, instance.getId(),

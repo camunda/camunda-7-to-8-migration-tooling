@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -29,6 +28,13 @@ import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.interceptors[0].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.PresetProcessInstanceInterceptor",
@@ -44,7 +50,16 @@ import org.springframework.test.context.TestPropertySource;
         + ".PresetUserTaskInterceptor",
     "camunda.migrator.interceptors[6].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
         + ".PresetVariableInterceptor", })
-public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryPresetParentPropertiesTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Test
   public void shouldExecuteProcessInstancePresetInterceptor() {
@@ -60,10 +75,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    historyMigration.getMigrator().migrateProcessInstances();
 
     // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess", true);
+    List<ProcessInstanceEntity> migratedProcessInstances = historyMigration.searchHistoricProcessInstances("simpleProcess", true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     ProcessInstanceEntity processInstanceEntity = migratedProcessInstances.getFirst();
@@ -83,13 +98,13 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
       taskService.complete(task.getId());
     }
     // Delete the historic calling process instance to simulate missing parent
-    historyService.deleteHistoricProcessInstance(processInstance.getId());
+    historyMigration.getHistoryService().deleteHistoricProcessInstance(processInstance.getId());
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    historyMigration.getMigrator().migrateProcessInstances();
 
     // Get the migrated process instance to get the key
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId",
+    List<ProcessInstanceEntity> migratedProcessInstances = historyMigration.searchHistoricProcessInstances("calledProcessInstanceId",
         true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
@@ -110,13 +125,13 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
         Variables.createVariables().putValue("inputA", stringValue("A")));
 
     // when
-    historyMigrator.migrateDecisionInstances();
+    historyMigration.getMigrator().migrateDecisionInstances();
 
     // then: decision instance is migrated
-    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
 
     assertThat(migratedInstances).singleElement()
-        .satisfies(instance -> assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 4L, 1L, 2L,
+        .satisfies(instance -> historyMigration.assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 4L, 1L, 2L,
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE, "\"B\"", "inputA", "\"A\"", "outputB",
             "\"B\""));
   }
@@ -126,13 +141,13 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    completeAllUserTasksWithDefaultUserTaskId();
+    historyMigration.completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrateFlowNodes();
+    historyMigration.getMigrator().migrateFlowNodes();
 
     // then
-    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
+    List<FlowNodeInstanceDbModel> flowNodes = historyMigration.searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
 
     assertThat(flowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {
@@ -149,15 +164,15 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
     taskService.complete(task.getId());
 
-    HistoricTaskInstance c7Task = historyService.createHistoricTaskInstanceQuery()
+    HistoricTaskInstance c7Task = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
         .processInstanceId(processInstance.getId())
         .singleResult();
 
     // when
-    historyMigrator.migrateUserTasks();
+    historyMigration.getMigrator().migrateUserTasks();
 
     // then
-    List<UserTaskEntity> userTasks = searchHistoricUserTasks(2L);
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(2L);
     assertThat(userTasks).hasSize(1);
 
     UserTaskEntity userTask = userTasks.getFirst();
@@ -180,10 +195,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     taskService.complete(task.getId());
 
     // when
-    historyMigrator.migrateVariables();
+    historyMigration.getMigrator().migrateVariables();
 
     // then
-    List<VariableEntity> c8Variables = searchHistoricVariables("stringVar");
+    List<VariableEntity> c8Variables = historyMigration.searchHistoricVariables("stringVar");
     assertThat(c8Variables).hasSize(1);
     VariableEntity variable = c8Variables.getFirst();
     assertThat(variable.processInstanceKey()).isEqualTo(1L);
@@ -210,10 +225,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // when
-    historyMigrator.migrateIncidents();
+    historyMigration.getMigrator().migrateIncidents();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("failingServiceTaskProcessId");
+    List<IncidentEntity> incidents = historyMigration.searchHistoricIncidents("failingServiceTaskProcessId");
     assertThat(incidents).isNotEmpty();
 
     IncidentEntity incident = incidents.getFirst();

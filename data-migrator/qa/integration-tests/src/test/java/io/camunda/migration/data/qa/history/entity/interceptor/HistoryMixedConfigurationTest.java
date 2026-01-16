@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -19,6 +18,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Add a POJO interceptor via configuration
@@ -28,7 +33,15 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[1].enabled=false", })
 @WithSpringProfile("entity-interceptor")
 @ActiveProfiles("entity-programmatic")
-public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+public class HistoryMixedConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
@@ -55,11 +68,11 @@ public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest 
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify process instance was migrated
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

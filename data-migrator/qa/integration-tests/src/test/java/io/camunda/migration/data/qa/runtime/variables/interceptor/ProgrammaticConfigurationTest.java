@@ -14,7 +14,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.DisabledCustomInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.StringOnlyInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.bean.UniversalInterceptor;
@@ -25,6 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Disable built-in interceptor for controlled testing
@@ -35,7 +38,11 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[1].enabled=false"
 })
 @ActiveProfiles("programmatic")
-public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ProgrammaticConfigurationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @Autowired
   protected List<VariableInterceptor> configuredVariableInterceptors;
@@ -71,7 +78,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(disabledInterceptors).isEqualTo(0); // Should be removed from context when disabled
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify primitive variable was processed by our test interceptors instead
     // Since built-in is disabled, our universal and string only interceptor should have processed it
@@ -93,7 +100,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "boolVar", true);
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify string-specific interceptor only executed for string variable
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -125,7 +132,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     assertThat(enabledCustomInterceptors).isEqualTo(2); // All our test interceptors should be enabled
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify our custom interceptors executed
     assertThat(stringOnlyInterceptor.getExecutionCount()).isEqualTo(1);
@@ -149,7 +156,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(processInstance.getId(), "testVar", "value");
 
     // Run migration
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // Verify the disabled interceptor did not execute
     // Variables should not have the "DISABLED_" prefix that would be added by DisablableCustomInterceptor
@@ -168,7 +175,7 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     runtimeService.setVariable(simpleProcessInstance.getId(), "varIntercept", "value");
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
@@ -183,13 +190,13 @@ public class ProgrammaticConfigurationTest extends RuntimeMigrationAbstractTest 
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
     var simpleProcessInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", true);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
     // when
-    runtimeMigrator.setMode(RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

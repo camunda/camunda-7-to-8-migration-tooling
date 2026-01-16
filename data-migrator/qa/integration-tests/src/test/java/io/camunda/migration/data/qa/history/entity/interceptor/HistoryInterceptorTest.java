@@ -9,7 +9,6 @@ package io.camunda.migration.data.qa.history.entity.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ActivityInstanceInterceptor;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -19,6 +18,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     // Disable built-in trasformer for controlled testing
@@ -30,7 +36,16 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[2].className=io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor",
     "camunda.migrator.interceptors[2].enabled=false" })
 @ActiveProfiles("entity-programmatic")
-public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryInterceptorTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
   @Autowired
   protected ActivityInstanceInterceptor activityInstanceInterceptor;
@@ -59,21 +74,21 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify activity instance interceptor was executed
     assertThat(activityInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
     assertThat(migratedProcessInstances).isNotEmpty();
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
     // Verify flow nodes were migrated with modified tenant ID
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
+        historyMigration.getRdbmsService().getFlowNodeInstanceReader()
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -107,7 +122,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     }
 
     // Run history migration
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // Verify ProcessEngineAwareInterceptor was executed
     assertThat(processEngineAwareInterceptor.getExecutionCount()).isGreaterThan(0);
@@ -118,7 +133,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     // Verify process instance was migrated with deployment ID in tenant ID
     List<ProcessInstanceEntity> migratedProcessInstances =
-        searchHistoricProcessInstances("simpleProcess", true);
+        historyMigration.searchHistoricProcessInstances("simpleProcess", true);
 
     assertThat(migratedProcessInstances).isNotEmpty();
 

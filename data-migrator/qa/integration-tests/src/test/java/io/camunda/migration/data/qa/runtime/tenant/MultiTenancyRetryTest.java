@@ -17,17 +17,22 @@ import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = { "camunda.process-test.multi-tenancy-enabled=true",
     "camunda.migrator.tenant-ids=tenant-1,tenant-2" })
-class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
+class MultiTenancyRetryTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -68,24 +73,24 @@ class MultiTenancyRetryTest extends RuntimeMigrationAbstractTest {
     String c7WithT2 = runtimeService.startProcessInstanceById(definitionWithTenant2).getId();
 
     try {
-      runtimeMigrator.start();
+      runtimeMigration.getMigrator().start();
     } catch (RuntimeMigratorException e) {
       // expected to throw an exception
       assertThat(e.getCause().toString()).contains("user is not authorized");
     }
 
-    assertThatProcessInstanceCountIsEqualTo(0);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(0);
 
     // when
     client.newCreateTenantCommand().tenantId(TENANT_ID_2).name(TENANT_ID_2).execute();
     client.newAssignUserToTenantCommand().username(DEFAULT_USERNAME).tenantId(TENANT_ID_2).execute();
     deployer.deployCamunda8Process(SIMPLE_PROCESS_BPMN, TENANT_ID_2);
 
-    runtimeMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().setMode(MigratorMode.RETRY_SKIPPED);
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
     var c8ProcessInstance = client.newProcessInstanceSearchRequest()
         .filter(f -> f.tenantId(TENANT_ID_2))
         .send()

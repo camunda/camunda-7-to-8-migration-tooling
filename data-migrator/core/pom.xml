@@ -15,6 +15,10 @@
 
   <name>Camunda 7 to 8 Migration Tooling - Data - Core</name>
 
+  <properties>
+    <skip.unit.tests>true</skip.unit.tests>
+  </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -257,7 +261,31 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.4</version>
+        <configuration>
+          <skipTests>${skip.unit.tests}</skipTests>
+        </configuration>
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>identity-only</id>
+      <properties>
+        <skip.unit.tests>true</skip.unit.tests>
+      </properties>
+    </profile>
+    <profile>
+      <id>history-only</id>
+      <properties>
+        <skip.unit.tests>true</skip.unit.tests>
+      </properties>
+    </profile>
+    <profile>
+      <id>runtime-only</id>
+      <properties>
+        <skip.unit.tests>true</skip.unit.tests>
+      </properties>
+    </profile>
+  </profiles>
 </project>

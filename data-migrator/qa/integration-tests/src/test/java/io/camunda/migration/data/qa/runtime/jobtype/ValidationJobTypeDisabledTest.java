@@ -11,16 +11,22 @@ package io.camunda.migration.data.qa.runtime.jobtype;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.RuntimeMigrationExtension;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(properties = {
     "camunda.migrator.validation-job-type=DISABLED"
 })
-public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest {
+@CamundaSpringProcessTest
+public class ValidationJobTypeDisabledTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final RuntimeMigrationExtension runtimeMigration = new RuntimeMigrationExtension();
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
@@ -36,10 +42,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -53,10 +59,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
   @Test
@@ -70,10 +76,10 @@ public class ValidationJobTypeDisabledTest extends RuntimeMigrationAbstractTest 
     assertThat(runtimeService.createProcessInstanceQuery().processInstanceId(id).singleResult()).isNotNull();
 
     // when
-    runtimeMigrator.start();
+    runtimeMigration.getMigrator().start();
 
     // then
-    assertThatProcessInstanceCountIsEqualTo(1);
+    runtimeMigration.assertThatProcessInstanceCountIsEqualTo(1);
   }
 
 }

@@ -16,7 +16,6 @@ import static org.camunda.bpm.engine.variable.Variables.stringValue;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.extension.CleanupExtension;
 import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
-import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
@@ -36,8 +35,23 @@ import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
-public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
   protected static final String BUSINESS_RULE_PROCESS_ID_PATTERN = "BusinessRuleProcess_%s";
 
   @RegisterExtension
@@ -55,10 +69,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionDefinitionEntity> migratedDecisions = historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement().satisfies(decision -> {
       assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
       assertThat(decision.decisionDefinitionKey()).isNotNull();
@@ -70,7 +84,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     });
 
     List<DecisionRequirementsEntity> decisionReqs =
-        searchHistoricDecisionRequirementsDefinition("simpleDmnId");
+        historyMigration.searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
       assertThat(decisionRequirements.decisionRequirementsId())
           .isEqualTo("c7-legacy-simpleDmnId");
@@ -89,9 +103,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   public void shouldGenerateDecisionRequirementsForDifferentVersionsOfSingleHistoricDecision() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
     deployer.deployCamunda7Decision("simpleDmn.dmn");
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
     List<DecisionDefinition> c7Definitions = repositoryService.createDecisionDefinitionQuery()
@@ -101,8 +115,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .list();
     assertThat(c7Definitions).hasSize(2);
 
-    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnId");
+    List<DecisionDefinitionEntity> migratedDecisions = historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionRequirementsEntity> decisionReqs = historyMigration.searchHistoricDecisionRequirementsDefinition("simpleDmnId");
 
     assertThat(decisionReqs).hasSize(2);
     assertThat(migratedDecisions).hasSize(2);
@@ -118,10 +132,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // when
-    historyMigrator.migrate();
-    List<DecisionDefinitionEntity> firstDecision = searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
-    List<DecisionDefinitionEntity> secondDecision = searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
+    historyMigration.getMigrator().migrate();
+    List<DecisionDefinitionEntity> firstDecision = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
+    List<DecisionDefinitionEntity> secondDecision = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
+    List<DecisionRequirementsEntity> decisionReqs = historyMigration.searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
 
     // then
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
@@ -151,10 +165,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("dish-decision.dmn");
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("dish-decision");
+    List<DecisionRequirementsEntity> decisionReqs = historyMigration.searchHistoricDecisionRequirementsDefinition("dish-decision");
 
     assertThat(decisionReqs).singleElement().extracting("xml").asString()
         .contains("id=\"c7-legacy-Dish\"")
@@ -187,20 +201,20 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("businessRuleProcessId");
+    List<ProcessInstanceEntity> migratedProcessInstances = historyMigration.searchHistoricProcessInstances("businessRuleProcessId");
     assertThat(migratedProcessInstances).singleElement();
-    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionDefinitionEntity> migratedDecisions = historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId");
     assertThat(migratedDecisions).singleElement();
-    List<FlowNodeInstanceEntity> migratedFlowNodeInstances = searchHistoricFlowNodesForType(
+    List<FlowNodeInstanceEntity> migratedFlowNodeInstances = historyMigration.searchHistoricFlowNodesForType(
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
-    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
 
     assertThat(migratedInstances).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDecisionId",
             now,
@@ -224,15 +238,15 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", variables);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    List<DecisionDefinitionEntity> migratedDecisions = historyMigration.searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
 
     assertThat(migratedDecisions).singleElement();
     assertThat(migratedInstances).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDecisionId",
             now,
@@ -255,10 +269,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
     assertThat(migratedInstances).flatExtracting(DecisionInstanceEntity::tenantId)
         .singleElement()
         .isEqualTo("aTenantId");
@@ -275,23 +289,23 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         Variables.createVariables().putValue("inputA", stringValue("A")));
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionInstanceEntity> instances1 = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
-    List<DecisionInstanceEntity> instances2 = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
-    List<DecisionDefinitionEntity> migratedDecisions1 = searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
+    List<DecisionInstanceEntity> instances1 = historyMigration.searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
+    List<DecisionInstanceEntity> instances2 = historyMigration.searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
+    List<DecisionDefinitionEntity> migratedDecisions1 = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
     assertThat(migratedDecisions1).singleElement();
-    List<DecisionDefinitionEntity> migratedDecisions2 = searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
+    List<DecisionDefinitionEntity> migratedDecisions2 = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
     assertThat(migratedDecisions2).singleElement();
-    List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("businessRuleForDmnWithReqsId");
+    List<ProcessInstanceEntity> migratedProcessInstances = historyMigration.searchHistoricProcessInstances("businessRuleForDmnWithReqsId");
     assertThat(migratedProcessInstances).singleElement();
-    List<FlowNodeInstanceEntity> migratedFlowNodeInstances = searchHistoricFlowNodesForType(
+    List<FlowNodeInstanceEntity> migratedFlowNodeInstances = historyMigration.searchHistoricFlowNodesForType(
         migratedProcessInstances.getFirst().processInstanceKey(), BUSINESS_RULE_TASK);
     assertThat(migratedFlowNodeInstances).singleElement();
 
     assertThat(instances1).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs1Id",
             now,
@@ -305,7 +319,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             "outputB", "\"B\""));
 
     assertThat(instances2).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs2Id",
             now,
@@ -329,19 +343,19 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDmnWithReqs2Id", variables);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionInstanceEntity> instances1 = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
-    List<DecisionInstanceEntity> instances2 = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
-    List<DecisionDefinitionEntity> migratedDecisions1 = searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
-    List<DecisionDefinitionEntity> migratedDecisions2 = searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
+    List<DecisionInstanceEntity> instances1 = historyMigration.searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
+    List<DecisionInstanceEntity> instances2 = historyMigration.searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
+    List<DecisionDefinitionEntity> migratedDecisions1 = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id");
+    List<DecisionDefinitionEntity> migratedDecisions2 = historyMigration.searchHistoricDecisionDefinitions("simpleDmnWithReqs2Id");
 
     assertThat(migratedDecisions1).singleElement();
     assertThat(migratedDecisions2).singleElement();
 
     assertThat(instances1).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs1Id",
             now,
@@ -355,7 +369,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             "outputB", "\"B\""));
 
     assertThat(instances2).singleElement().satisfies(instance ->
-        assertDecisionInstance(
+        historyMigration.assertDecisionInstance(
             instance,
             "simpleDmnWithReqs2Id",
             now,
@@ -377,10 +391,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleLiteralExpressionProcessId");
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("literalExpressionDecisionId");
+    List<DecisionInstanceEntity> migratedInstances = historyMigration.searchHistoricDecisionInstances("literalExpressionDecisionId");
     assertThat(migratedInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
     });
@@ -395,15 +409,15 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("businessRuleMixedTypesProcessId", variables);
 
     // when
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then
-    List<DecisionInstanceEntity> decisionTableInstances = searchHistoricDecisionInstances("decisionTableInMixedId");
+    List<DecisionInstanceEntity> decisionTableInstances = historyMigration.searchHistoricDecisionInstances("decisionTableInMixedId");
     assertThat(decisionTableInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE);
     });
 
-    List<DecisionInstanceEntity> literalExpressionInstances = searchHistoricDecisionInstances("literalExpressionInMixedId");
+    List<DecisionInstanceEntity> literalExpressionInstances = historyMigration.searchHistoricDecisionInstances("literalExpressionInMixedId");
     assertThat(literalExpressionInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
     });
@@ -517,10 +531,10 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     decisionService.evaluateDecisionTableByKey("simpleDecisionId", java.util.Map.of("inputA", "A"));
 
     // when - migrate history
-    historyMigrator.migrate();
+    historyMigration.getMigrator().migrate();
 
     // then - verify standalone decision instance has proper cleanup date
-    List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
+    List<DecisionInstanceEntity> decisionInstances = historyMigration.searchHistoricDecisionInstances("simpleDecisionId");
     assertThat(decisionInstances).hasSize(1);
 
     DecisionInstanceEntity migratedDecision = decisionInstances.getFirst();
@@ -548,8 +562,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), variables);
 
     // when
-    historyMigrator.migrate();
-    return searchHistoricDecisionInstances(decisionId);
+    historyMigration.getMigrator().migrate();
+    return historyMigration.searchHistoricDecisionInstances(decisionId);
   }
 
   private void deployBusinessRuleProcessReferencingDecision(String decisionId) {

@@ -42,10 +42,25 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
+import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import org.springframework.context.annotation.Import;
+import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
+import io.camunda.migration.data.qa.AbstractMigratorTest;
 
 @TestPropertySource(locations = "classpath:application-warn.properties")
 @ExtendWith({OutputCaptureExtension.class})
-public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTest {
+@Import({
+  io.camunda.migration.data.qa.history.HistoryCustomConfiguration.class,
+  io.camunda.migration.data.qa.config.TestProcessEngineConfiguration.class,
+  io.camunda.migration.data.config.MigratorAutoConfiguration.class
+})
+@WithSpringProfile("history-level-full")
+public class HistoryMigrationListSkippedTest extends AbstractMigratorTest {
+
+  @RegisterExtension
+  protected final HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
 
     @RegisterExtension
     protected LogCapturer logs = LogCapturer.create()
@@ -75,32 +90,32 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         verifyC7EntitiesExist();
 
         // Capture entity IDs before migration for strict assertions
-        List<String> userTaskIds = historyService.createHistoricTaskInstanceQuery().list().stream()
+        List<String> userTaskIds = historyMigration.getHistoryService().createHistoricTaskInstanceQuery().list().stream()
             .map(HistoricTaskInstance::getId)
             .collect(Collectors.toList());
-        List<String> incidentIds = historyService.createHistoricIncidentQuery().list().stream()
+        List<String> incidentIds = historyMigration.getHistoryService().createHistoricIncidentQuery().list().stream()
             .map(HistoricIncident::getId)
             .collect(Collectors.toList());
-        List<String> variableIds = historyService.createHistoricVariableInstanceQuery().list().stream()
+        List<String> variableIds = historyMigration.getHistoryService().createHistoricVariableInstanceQuery().list().stream()
             .map(HistoricVariableInstance::getId)
             .collect(Collectors.toList());
-        List<String> flowNodeIds = historyService.createHistoricActivityInstanceQuery().list().stream()
+        List<String> flowNodeIds = historyMigration.getHistoryService().createHistoricActivityInstanceQuery().list().stream()
             .map(HistoricActivityInstance::getId)
             .collect(Collectors.toList());
 
         // Create real-world skip scenario by migrating instances without definition
-        historyMigrator.migrateProcessInstances();
-        historyMigrator.migrateFlowNodes();
-        historyMigrator.migrateUserTasks();
-        historyMigrator.migrateVariables();
-        historyMigrator.migrateIncidents();
+        historyMigration.getMigrator().migrateProcessInstances();
+        historyMigration.getMigrator().migrateFlowNodes();
+        historyMigration.getMigrator().migrateUserTasks();
+        historyMigration.getMigrator().migrateVariables();
+        historyMigration.getMigrator().migrateIncidents();
 
         // Verify all entities were marked as skipped with specific IDs
         verifyEntitiesMarkedAsSkipped(processInstanceIds, userTaskIds, incidentIds, variableIds, flowNodeIds);
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.start();
+        historyMigration.getMigrator().setMode(LIST_SKIPPED);
+        historyMigration.getMigrator().start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -136,11 +151,11 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
     }
 
     protected void verifyC7EntitiesExist() {
-        assertThat(historyService.createHistoricProcessInstanceQuery().count()).isEqualTo(3);
-        assertThat(historyService.createHistoricTaskInstanceQuery().count()).isEqualTo(3);
-        assertThat(historyService.createHistoricVariableInstanceQuery().count()).isEqualTo(9);
-        assertThat(historyService.createHistoricIncidentQuery().count()).isEqualTo(3);
-        assertThat(historyService.createHistoricActivityInstanceQuery().count()).isEqualTo(12);
+        assertThat(historyMigration.getHistoryService().createHistoricProcessInstanceQuery().count()).isEqualTo(3);
+        assertThat(historyMigration.getHistoryService().createHistoricTaskInstanceQuery().count()).isEqualTo(3);
+        assertThat(historyMigration.getHistoryService().createHistoricVariableInstanceQuery().count()).isEqualTo(9);
+        assertThat(historyMigration.getHistoryService().createHistoricIncidentQuery().count()).isEqualTo(3);
+        assertThat(historyMigration.getHistoryService().createHistoricActivityInstanceQuery().count()).isEqualTo(12);
     }
 
     protected void verifyEntitiesMarkedAsSkipped(List<String> processInstanceIds,
@@ -257,7 +272,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
 
     protected void verifyHistoricEntitiesById(Map<String, List<String>> skippedEntitiesByType, String processDefinitionId) {
         // Verify user tasks
-        List<String> expectedUserTaskIds = historyService.createHistoricTaskInstanceQuery()
+        List<String> expectedUserTaskIds = historyMigration.getHistoryService().createHistoricTaskInstanceQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()
@@ -268,7 +283,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .containsExactlyInAnyOrderElementsOf(expectedUserTaskIds);
 
         // Verify incidents
-        List<String> expectedIncidentIds = historyService.createHistoricIncidentQuery()
+        List<String> expectedIncidentIds = historyMigration.getHistoryService().createHistoricIncidentQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()
@@ -279,7 +294,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .containsExactlyInAnyOrderElementsOf(expectedIncidentIds);
 
         // Verify variables
-        List<String> expectedVariableIds = historyService.createHistoricVariableInstanceQuery()
+        List<String> expectedVariableIds = historyMigration.getHistoryService().createHistoricVariableInstanceQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()
@@ -290,7 +305,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .containsAll(expectedVariableIds);
 
         // Verify flow nodes
-        List<String> expectedFlowNodeIds = historyService.createHistoricActivityInstanceQuery()
+        List<String> expectedFlowNodeIds = historyMigration.getHistoryService().createHistoricActivityInstanceQuery()
             .processDefinitionId(processDefinitionId)
             .list()
             .stream()
