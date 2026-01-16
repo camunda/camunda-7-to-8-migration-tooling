@@ -506,6 +506,60 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).isEmpty();
   }
 
+  @Test
+  public void shouldMigrateTaskScopedVariable() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+
+    Map<String, Object> vars = new HashMap<>();
+    vars.put("globalVariable", "globalValue");
+
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId", vars);
+    Task currentTask = taskService.createTaskQuery().singleResult();
+    
+    // Set variable directly on the task (task-scoped variable)
+    taskService.setVariableLocal(currentTask.getId(), "taskVariable", "taskValue");
+
+    HistoricVariableInstance c7GlobalVar = historyMigration.getHistoryService().createHistoricVariableInstanceQuery()
+        .processInstanceId(processInstance.getId())
+        .variableName("globalVariable")
+        .singleResult();
+
+    HistoricVariableInstance c7TaskVar = historyMigration.getHistoryService().createHistoricVariableInstanceQuery()
+        .processInstanceId(processInstance.getId())
+        .variableName("taskVariable")
+        .singleResult();
+
+    // Verify that the task variable has taskId set in C7
+    assertThat(c7TaskVar.getTaskId()).isNotNull();
+    assertThat(c7TaskVar.getTaskId()).isEqualTo(currentTask.getId());
+
+    // when
+    historyMigration.getMigrator().migrate();
+
+    // then
+    List<VariableEntity> globalVars = historyMigration.searchHistoricVariables("globalVariable");
+    List<VariableEntity> taskVars = historyMigration.searchHistoricVariables("taskVariable");
+
+    assertThat(globalVars).hasSize(1);
+    assertThat(taskVars).hasSize(1);
+
+    VariableEntity globalVar = globalVars.getFirst();
+    VariableEntity taskVar = taskVars.getFirst();
+
+    assertVariableFields(globalVar, c7GlobalVar, "\"globalValue\"");
+    assertVariableFields(taskVar, c7TaskVar, "\"taskValue\"");
+
+    // Task variable should have user task key as scope (different from process instance scope)
+    assertThat(taskVar.scopeKey()).isNotEqualTo(globalVar.scopeKey());
+    assertThat(taskVar.scopeKey()).isNotEqualTo(taskVar.processInstanceKey());
+    
+    // Verify the task variable's scope matches the user task key
+    var userTasks = historyMigration.searchHistoricUserTasksById("userTaskId");
+    assertThat(userTasks).hasSize(1);
+    assertThat(taskVar.scopeKey()).isEqualTo(userTasks.getFirst().userTaskKey());
+  }
+
   protected void assertVariableExists(String varName, Object expectedValue) {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables(varName);
     assertThat(variables).hasSize(1);
