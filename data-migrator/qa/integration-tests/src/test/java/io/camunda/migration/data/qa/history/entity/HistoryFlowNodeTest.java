@@ -232,8 +232,10 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     List<FlowNodeInstanceDbModel> flowNodes =
         searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
 
-    assertThat(flowNodes).isNotEmpty()
-        .allSatisfy(flowNode -> assertThat(flowNode.flowNodeName()).isNotNull());
+    assertThat(flowNodes).hasSize(3)
+        .extracting(FlowNodeInstanceDbModel::flowNodeName)
+        .containsExactlyInAnyOrder("Start", "UserTaskName", "End");
+
   }
 
   private void deploySubprocessModel() {

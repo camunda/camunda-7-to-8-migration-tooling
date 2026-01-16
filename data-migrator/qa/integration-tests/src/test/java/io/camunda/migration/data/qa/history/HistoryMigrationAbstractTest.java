@@ -49,8 +49,6 @@ import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
@@ -184,6 +182,11 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
         .items();
+  }
+
+  public List<FlowNodeInstanceDbModel> searchFlowNodeInstancesByName(String flowNodeName) {
+    return flowNodeInstanceMapper.search(
+        FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.flowNodeNames(flowNodeName))));
   }
 
   public List<FlowNodeInstanceDbModel> searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {

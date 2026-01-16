@@ -15,6 +15,8 @@ import org.camunda.bpm.engine.history.HistoricActivityInstance;
 
 public class PresetFlowNodeInterceptor implements EntityInterceptor {
 
+  protected boolean configureScopeKey = true;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(HistoricActivityInstance.class);
@@ -29,11 +31,22 @@ public class PresetFlowNodeInterceptor implements EntityInterceptor {
       builder.treePath("1/2/3/")
           .processInstanceKey(1L)
           .processDefinitionKey(2L);
+      if (configureScopeKey) {
+        builder.flowNodeScopeKey(1L);
+      }
     }
   }
 
   @Override
   public void execute(EntityConversionContext<?, ?> context) {
     // This interceptor intentionally does not modify the flow node during execution.
+  }
+
+  public boolean isConfigureScopeKey() {
+    return configureScopeKey;
+  }
+
+  public void setConfigureScopeKey(boolean configureScopeKey) {
+    this.configureScopeKey = configureScopeKey;
   }
 }
