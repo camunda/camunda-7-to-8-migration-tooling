@@ -8,6 +8,11 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PARENT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
@@ -64,13 +69,10 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
    * <p>Skip scenarios:
    * <ul>
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
-   *   <li>Process definition not found - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
+   *   <li>Process definition not found - skipped with {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
+   *   <li>Parent flow node (scope) not yet migrated - skipped with {@code SKIP_REASON_MISSING_PARENT}</li>
    *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
-   *
-   * <p>Note: Flow nodes with null flowNodeScopeKey will be migrated. This may occur when the parent
-   * activity instance has not been migrated yet, but the flow node will be included to avoid
-   * introducing unnecessary retry iterations.
    *
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
@@ -80,11 +82,9 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
     String c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {
       HistoryMigratorLogs.migratingHistoricFlowNode(c7FlowNodeId);
-      String c7ProcessInstanceId = c7FlowNode.getProcessInstanceId();
-      ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
 
       FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder flowNodeDbModelBuilder = configureFlowNodeBuilder(
-          c7FlowNode, processInstance);
+          c7FlowNode);
       try {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7FlowNode,
             HistoricActivityInstance.class, flowNodeDbModelBuilder);
@@ -100,25 +100,26 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
    * Configures the flow node builder with keys, scope relationships, and dates.
    *
    * @param c7FlowNode the historic activity instance from Camunda 7
-   * @param processInstance the parent process instance entity (may be null)
    * @return the configured builder
    */
   protected FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder configureFlowNodeBuilder(
-      HistoricActivityInstance c7FlowNode,
-      ProcessInstanceEntity processInstance) {
+      HistoricActivityInstance c7FlowNode) {
+    String c7ProcessInstanceId = c7FlowNode.getProcessInstanceId();
+    ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
 
     FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder = new FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder();
 
     Long flowNodeInstanceKey = getNextKey();
-    builder.flowNodeInstanceKey(flowNodeInstanceKey);
+    Long processDefinitionKey = findProcessDefinitionKey(c7FlowNode.getProcessDefinitionId());
+    builder.flowNodeInstanceKey(flowNodeInstanceKey)
+        .processDefinitionKey(processDefinitionKey);
 
+    Long processInstanceKey;
     if (processInstance != null) {
-      Long processInstanceKey = processInstance.processInstanceKey();
-      Long processDefinitionKey = findProcessDefinitionKey(c7FlowNode.getProcessDefinitionId());
+      processInstanceKey = processInstance.processInstanceKey();
 
       builder.processInstanceKey(processInstanceKey)
-          .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
-          .processDefinitionKey(processDefinitionKey);
+          .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey));
 
       setFlowNodeDates(builder, c7FlowNode, processInstance);
       resolveFlowNodeScopeKey(builder, c7FlowNode, processInstanceKey);
@@ -188,9 +189,15 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
       String c7FlowNodeId) {
 
     FlowNodeInstanceDbModel dbModel = convertFlowNode(context);
-    if (dbModel.processInstanceKey() == null || dbModel.processDefinitionKey() == null) {
+    if (dbModel.processDefinitionKey() == null) {
+      markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_DEFINITION);
+      HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION, c7FlowNodeId);
+    } else if (dbModel.processInstanceKey() == null) {
       markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-      HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+      HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PROCESS, c7FlowNodeId);
+    } else if (dbModel.flowNodeScopeKey() == null) {
+      markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT);
+      HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PARENT, c7FlowNodeId);
     } else {
       insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
     }

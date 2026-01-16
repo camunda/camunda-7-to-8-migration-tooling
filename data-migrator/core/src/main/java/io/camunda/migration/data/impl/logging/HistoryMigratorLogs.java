@@ -31,7 +31,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_BELONGS_TO_SKIPPED_TASK = "Belongs to a skipped task";
   public static final String SKIP_REASON_MISSING_SCOPE_KEY = "Missing scope key";
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
-  public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
+  public static final String SKIP_REASON_MISSING_PARENT = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_PARENT_DECISION_INSTANCE = "Missing parent decision instance";
@@ -79,7 +79,10 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_FLOW_NODES = "Migrating historic flow nodes";
   public static final String MIGRATING_FLOW_NODE = "Migrating historic flow nodes with C7 ID: [{}]";
   public static final String MIGRATING_FLOW_NODE_COMPLETED = "Migration of historic flow nodes with C7 ID [{}] completed.";
-  public static final String SKIPPING_FLOW_NODE = "Migration of historic flow nodes with C7 ID [{}] skipped. Process instance yet not available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS = "Migration of historic flow nodes with C7 ID [{}] skipped. Process instance yet not available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION = "Migration of historic flow nodes with C7 ID [{}] skipped. Process definition yet not available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PARENT = "Migration of historic flow nodes with C7 ID [{}] "
+      + "skipped. Missing parent flow node. Rerun migration for skipped flow nodes to ensure complete migration.";
 
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
@@ -250,8 +253,8 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_FLOW_NODE_COMPLETED, c7FlowNodeId);
   }
 
-  public static void skippingHistoricFlowNode(String c7FlowNodeId) {
-    LOGGER.debug(SKIPPING_FLOW_NODE, c7FlowNodeId);
+  public static void skippingHistoricFlowNode(String message, String c7FlowNodeId) {
+    LOGGER.debug(message, c7FlowNodeId);
   }
 
   public static void migratingDecisionRequirements() {
