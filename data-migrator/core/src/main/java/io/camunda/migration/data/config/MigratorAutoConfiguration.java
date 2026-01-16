@@ -7,8 +7,6 @@
  */
 package io.camunda.migration.data.config;
 
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C7;
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C8;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
@@ -142,16 +140,17 @@ public class MigratorAutoConfiguration {
     @Bean
     public DataSource migratorDataSource(@Qualifier("c7DataSource") DataSource c7DataSource,
                                          @Qualifier("c8DataSource") Optional<DataSource> c8DataSource) {
-      if (C7.equals(migratorProperties.getDataSource())) {
-        return c7DataSource;
+      // Always prefer C8 datasource when configured (for both runtime and history migration)
+      // This ensures the migration schema is on the same datasource as the migrated data,
+      // providing true single-transaction atomicity without cross-datasource coordination
+      return c8DataSource.orElse(c7DataSource);
+    }
 
-      } else if (C8.equals(migratorProperties.getDataSource())) {
-        if (c8DataSource.isPresent()) {
-          return c8DataSource.get();
-        }
-      }
-
-      return null;
+    @Bean
+    @Primary
+    @Conditional(C8DataSourceConfigured.class)
+    public PlatformTransactionManager c8TransactionManager(@Qualifier("migratorDataSource") DataSource migratorDataSource) {
+      return new DataSourceTransactionManager(migratorDataSource);
     }
 
     protected HikariDataSource createDefaultDataSource(DataSourceProperties props) {

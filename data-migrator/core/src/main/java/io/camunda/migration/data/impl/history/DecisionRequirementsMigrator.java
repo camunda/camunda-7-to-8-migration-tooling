@@ -16,25 +16,27 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Date;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating decision requirements definitions from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionRequirementsMigrator extends BaseMigrator {
+public class DecisionRequirementsMigrator extends BaseMigrator<DecisionRequirementsDefinition> {
 
-  public void migrateDecisionRequirementsDefinitions() {
+  @Override
+  public void migrate() {
     HistoryMigratorLogs.migratingDecisionRequirements();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_REQUIREMENT, idKeyDbModel -> {
-        DecisionRequirementsDefinition c7DecisionRequirement = c7Client.getDecisionRequirementsDefinition(
-            idKeyDbModel.getC7Id());
-        migrateDecisionRequirementsDefinition(c7DecisionRequirement);
+        DecisionRequirementsDefinition c7DecisionRequirement = c7Client.getDecisionRequirementsDefinition(idKeyDbModel.getC7Id());
+        self.migrateOne(c7DecisionRequirement);
       });
     } else {
-      c7Client.fetchAndHandleDecisionRequirementsDefinitions(this::migrateDecisionRequirementsDefinition);
+      c7Client.fetchAndHandleDecisionRequirementsDefinitions(self::migrateOne);
     }
   }
 
@@ -48,7 +50,8 @@ public class DecisionRequirementsMigrator extends BaseMigrator {
    * @param c7DecisionRequirements the decision requirements definition from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateDecisionRequirementsDefinition(DecisionRequirementsDefinition c7DecisionRequirements) {
+  @Override
+  public void migrateOne(DecisionRequirementsDefinition c7DecisionRequirements) {
     String c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
       HistoryMigratorLogs.migratingDecisionRequirements(c7Id);

@@ -31,28 +31,31 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating decision instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionInstanceMigrator extends BaseMigrator {
+public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInstance> {
 
-  public void migrateDecisionInstances() {
+  @Override
+  public void migrate() {
     HistoryMigratorLogs.migratingDecisionInstances();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_DECISION_INSTANCE, idKeyDbModel -> {
-        HistoricDecisionInstance historicDecisionInstance = c7Client.getHistoricDecisionInstance(
-            idKeyDbModel.getC7Id());
-        migrateDecisionInstance(historicDecisionInstance);
+        HistoricDecisionInstance historicDecisionInstance = c7Client.getHistoricDecisionInstance(idKeyDbModel.getC7Id());
+        self.migrateOne(historicDecisionInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricDecisionInstances(this::migrateDecisionInstance,
-          dbClient.findLatestCreateTimeByType(HISTORY_DECISION_INSTANCE));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_DECISION_INSTANCE);
+      c7Client.fetchAndHandleHistoricDecisionInstances(self::migrateOne, createTime);
     }
   }
 
@@ -84,7 +87,8 @@ public class DecisionInstanceMigrator extends BaseMigrator {
    * @param c7DecisionInstance the historic decision instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateDecisionInstance(HistoricDecisionInstance c7DecisionInstance) {
+  @Override
+  public void migrateOne(HistoricDecisionInstance c7DecisionInstance) {
     String c7DecisionInstanceId = c7DecisionInstance.getId();
     if (shouldMigrate(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE)) {
       HistoryMigratorLogs.migratingDecisionInstance(c7DecisionInstanceId);
@@ -201,12 +205,12 @@ public class DecisionInstanceMigrator extends BaseMigrator {
             return;
           }
         }
+
         c8Client.insertDecisionInstance(dbModel);
         migrateChildDecisionInstances(dbModel.rootDecisionDefinitionKey(), c7DecisionInstance, dbModel);
-        markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(),
-            HISTORY_DECISION_INSTANCE);
-        HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
+        markMigrated(c7DecisionInstanceId, dbModel.decisionInstanceKey(), c7DecisionInstance.getEvaluationTime(), HISTORY_DECISION_INSTANCE);
 
+        HistoryMigratorLogs.migratingDecisionInstanceCompleted(c7DecisionInstanceId);
       } catch (VariableInterceptorException | EntityInterceptorException e) {
         handleInterceptorException(c7DecisionInstanceId, HISTORY_DECISION_INSTANCE,
             c7DecisionInstance.getEvaluationTime(), e);

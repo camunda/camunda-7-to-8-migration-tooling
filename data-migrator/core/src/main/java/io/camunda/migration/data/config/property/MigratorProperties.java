@@ -22,12 +22,7 @@ public class MigratorProperties {
   public static final String PREFIX = "camunda.migrator";
   public static final String DEFAULT_JOB_TYPE = "migrator";
 
-  public enum DataSource {
-    C7, C8
-  }
-
   protected Integer pageSize = DEFAULT_PAGE_SIZE;
-  protected DataSource dataSource = DataSource.C7;
   protected String jobType = DEFAULT_JOB_TYPE;
   protected String validationJobType;
   protected Set<String> tenantIds;
@@ -82,13 +77,6 @@ public class MigratorProperties {
     this.tablePrefix = tablePrefix;
   }
 
-  public DataSource getDataSource() {
-    return dataSource;
-  }
-
-  public void setDataSource(DataSource dataSource) {
-    this.dataSource = dataSource;
-  }
 
   public String getJobType() {
     return jobType;

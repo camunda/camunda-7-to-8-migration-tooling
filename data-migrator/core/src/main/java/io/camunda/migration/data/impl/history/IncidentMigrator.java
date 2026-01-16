@@ -17,25 +17,29 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating incidents from Camunda 7 to Camunda 8.
  */
 @Service
-public class IncidentMigrator extends BaseMigrator {
+public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
 
-  public void migrateIncidents() {
+  @Override
+  public void migrate() {
     HistoryMigratorLogs.migratingHistoricIncidents();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_INCIDENT, idKeyDbModel -> {
         HistoricIncident historicIncident = c7Client.getHistoricIncident(idKeyDbModel.getC7Id());
-        migrateIncident(historicIncident);
+        self.migrateOne(historicIncident);
       });
     } else {
-      c7Client.fetchAndHandleHistoricIncidents(this::migrateIncident,
-          dbClient.findLatestCreateTimeByType(HISTORY_INCIDENT));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_INCIDENT);
+      c7Client.fetchAndHandleHistoricIncidents(self::migrateOne, createTime);
     }
   }
 
@@ -58,7 +62,8 @@ public class IncidentMigrator extends BaseMigrator {
    * @param c7Incident the historic incident from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateIncident(HistoricIncident c7Incident) {
+  @Override
+  public void migrateOne(HistoricIncident c7Incident) {
     String c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);

@@ -45,7 +45,7 @@ public class C7AndC8DataSourceTest {
 
   @Test
   public void shouldConfigureDataSources() {
-    assertThat(c7DataSource).isEqualTo(migratorDataSource);
+    assertThat(c8DataSource).isEqualTo(migratorDataSource);
     assertThat(c7DataSource).isInstanceOf(HikariDataSource.class)
         .extracting("username", "password", "jdbcUrl", "driverClassName")
         .containsExactly("c7-abc", "c7-xyz", "jdbc:h2:mem:c7;DB_CLOSE_DELAY=-1", "org.h2.Driver");

@@ -7,9 +7,6 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C7;
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C8;
-
 import io.camunda.migration.data.config.property.MigratorProperties;
 import java.util.Properties;
 import javax.sql.DataSource;
@@ -53,16 +50,13 @@ public class MigratorConfiguration extends AbstractConfiguration {
   }
 
   public String getC7OrC8DbVendor() {
-    if (C7.equals(configProperties.getDataSource())) {
-      if (configProperties.getC7() != null && configProperties.getC7().getDataSource() != null) {
-        return configProperties.getC7().getDataSource().getVendor();
-      }
+    // Always prefer C8 vendor when configured (matching migratorDataSource logic)
+    if (configProperties.getC8() != null && configProperties.getC8().getDataSource() != null) {
+      return configProperties.getC8().getDataSource().getVendor();
+    }
 
-    } else if (C8.equals(configProperties.getDataSource())) {
-      if (configProperties.getC8() != null && configProperties.getC8().getDataSource() != null) {
-        return configProperties.getC8().getDataSource().getVendor();
-      }
-
+    if (configProperties.getC7() != null && configProperties.getC7().getDataSource() != null) {
+      return configProperties.getC7().getDataSource().getVendor();
     }
 
     return null;
