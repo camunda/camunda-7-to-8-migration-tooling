@@ -38,7 +38,8 @@ class AuthorizationEntityRegistryTest {
         Resources.USER,
         Resources.DECISION_DEFINITION,
         Resources.DECISION_REQUIREMENTS_DEFINITION,
-        Resources.PROCESS_DEFINITION);
+        Resources.PROCESS_DEFINITION,
+        Resources.DEPLOYMENT);
 
     // when
     Set<Resource> actualResources = AuthorizationEntityRegistry.REGISTRY.keySet();
@@ -50,196 +51,234 @@ class AuthorizationEntityRegistryTest {
   @Test
   void shouldHaveExpectedApplicationMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.APPLICATION);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.APPLICATION);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.COMPONENT);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isTrue();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.COMPONENT);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isTrue();
 
-    assertThat(entry.getMappedPermissions(Permissions.ACCESS)).containsExactlyInAnyOrder(PermissionType.ACCESS);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.COMPONENT));
+    assertThat(mapping.get().getMappedPermissions(Permissions.ACCESS)).containsExactlyInAnyOrder(PermissionType.ACCESS);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.COMPONENT));
   }
 
   @Test
   void shouldHaveExpectedAuthorizationMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.AUTHORIZATION);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.AUTHORIZATION);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.AUTHORIZATION);
-    assertThat(entry.supportsExplicitId()).isFalse();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.AUTHORIZATION);
+    assertThat(mapping.get().supportsExplicitId()).isFalse();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
-    assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.AUTHORIZATION));
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.AUTHORIZATION));
   }
 
   @Test
   void shouldHaveExpectedGroupMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.GROUP);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.GROUP);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
-    assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.GROUP));
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.GROUP));
   }
 
   @Test
   void shouldHaveExpectedGroupMembershipMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.GROUP_MEMBERSHIP);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.GROUP_MEMBERSHIP);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.GROUP);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.GROUP);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
   }
 
   @Test
   void shouldHaveExpectedSystemMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.SYSTEM);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.SYSTEM);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.SYSTEM);
-    assertThat(entry.supportsExplicitId()).isFalse();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.SYSTEM);
+    assertThat(mapping.get().supportsExplicitId()).isFalse();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(SystemPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
-    assertThat(entry.getMappedPermissions(SystemPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.SYSTEM));
+    assertThat(mapping.get().getMappedPermissions(SystemPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ, PermissionType.READ_USAGE_METRIC);
+    assertThat(mapping.get().getMappedPermissions(SystemPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.SYSTEM));
   }
 
   @Test
   void shouldHaveExpectedBatchMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.BATCH);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.BATCH);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.BATCH);
-    assertThat(entry.supportsExplicitId()).isFalse();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.BATCH);
+    assertThat(mapping.get().supportsExplicitId()).isFalse();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(BatchPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(BatchPermissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
 
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_MODIFY_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_RUNNING_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE, PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE_BATCH_MIGRATE_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MIGRATE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE_BATCH_MODIFY_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_MODIFY_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_RUNNING_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_CANCEL_PROCESS_INSTANCE, PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_FINISHED_PROCESS_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.CREATE_BATCH_DELETE_DECISION_INSTANCES)).containsExactlyInAnyOrder(PermissionType.CREATE_BATCH_OPERATION_DELETE_DECISION_INSTANCE);
 
-    assertThat(entry.getMappedPermissions(BatchPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.BATCH));
+    assertThat(mapping.get().getMappedPermissions(BatchPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.BATCH));
   }
 
   @Test
   void shouldHaveExpectedTenantMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.TENANT);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.TENANT);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
-    assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.TENANT));
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.TENANT));
   }
 
   @Test
   void shouldHaveExpectedTenantMembershipMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.TENANT_MEMBERSHIP);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.TENANT_MEMBERSHIP);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.TENANT);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.TENANT);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(PermissionType.UPDATE);
   }
 
   @Test
   void shouldHaveExpectedUserMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.USER);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.USER);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.USER);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.USER);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
-    assertThat(entry.getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
-    assertThat(entry.getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.USER));
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(Permissions.UPDATE)).containsExactlyInAnyOrder(PermissionType.UPDATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(PermissionType.DELETE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.USER));
   }
 
   @Test
   void shouldHaveExpectedDecisionDefinitionMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.DECISION_DEFINITION);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DECISION_DEFINITION);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.DECISION_DEFINITION);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.DECISION_DEFINITION);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE);
-    assertThat(entry.getMappedPermissions(Permissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_DECISION_INSTANCE);
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_DECISION_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
   }
 
   @Test
   void shouldHaveExpectedDecisionRequirementsDefinitionMapping() {
     // when
-    AuthorizationMappingEntry entry =
-        AuthorizationEntityRegistry.getMappingForResourceType(Resources.DECISION_REQUIREMENTS_DEFINITION);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DECISION_REQUIREMENTS_DEFINITION);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.DECISION_REQUIREMENTS_DEFINITION);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.DECISION_REQUIREMENTS_DEFINITION);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
   }
 
   @Test
   void shouldHaveExpectedProcessDefinitionMapping() {
     // when
-    AuthorizationMappingEntry entry = AuthorizationEntityRegistry.getMappingForResourceType(Resources.PROCESS_DEFINITION);
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.PROCESS_DEFINITION);
 
     // then
-    assertThat(entry.c8ResourceType()).isEqualTo(ResourceType.PROCESS_DEFINITION);
-    assertThat(entry.supportsExplicitId()).isTrue();
-    assertThat(entry.needsToAdaptId()).isFalse();
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.PROCESS_DEFINITION);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isFalse();
 
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_DEFINITION);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ_INSTANCE)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.UPDATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.UPDATE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.DELETE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.DELETE_PROCESS_INSTANCE);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.READ_TASK)).containsExactlyInAnyOrder(PermissionType.READ_USER_TASK);
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.UPDATE_TASK)).containsExactlyInAnyOrder(PermissionType.UPDATE_USER_TASK);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_DEFINITION);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.READ_INSTANCE)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.UPDATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.UPDATE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.DELETE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.DELETE_PROCESS_INSTANCE);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.READ_TASK)).containsExactlyInAnyOrder(PermissionType.READ_USER_TASK);
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.UPDATE_TASK)).containsExactlyInAnyOrder(PermissionType.UPDATE_USER_TASK);
 
-    assertThat(entry.getMappedPermissions(ProcessDefinitionPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
+    assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
+  }
+
+  @Test
+  void shouldHaveExpectedDeploymentMapping() {
+    // when
+    var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DEPLOYMENT);
+
+    // then
+    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.RESOURCE);
+    assertThat(mapping.get().supportsExplicitId()).isTrue();
+    assertThat(mapping.get().needsIdMapping()).isTrue();
+
+    assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ);
+    assertThat(mapping.get().getMappedPermissions(Permissions.CREATE)).containsExactlyInAnyOrder(PermissionType.CREATE);
+    assertThat(mapping.get().getMappedPermissions(Permissions.DELETE)).containsExactlyInAnyOrder(
+        PermissionType.DELETE_RESOURCE,
+        PermissionType.DELETE_PROCESS,
+        PermissionType.DELETE_DRD,
+        PermissionType.DELETE_FORM);
+
+    assertThat(mapping.get().getMappedPermissions(Permissions.ALL)).containsExactlyInAnyOrder(getAllSupportedPerms(ResourceType.RESOURCE));
+  }
+
+  @Test
+  void shouldReturnEmptyOptionalForUnsupportedResource() {
+    assertThat(AuthorizationEntityRegistry.findMappingForResourceType(Resources.FILTER)).isEmpty();
   }
 
   protected static PermissionType[] getAllSupportedPerms(ResourceType resourceType) {

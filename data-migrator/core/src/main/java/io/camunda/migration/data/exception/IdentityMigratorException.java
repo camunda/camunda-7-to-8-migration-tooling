@@ -9,6 +9,10 @@ package io.camunda.migration.data.exception;
 
 public class IdentityMigratorException extends MigratorException {
 
+  public IdentityMigratorException(String message) {
+    super(message, null);
+  }
+
   public IdentityMigratorException(String message, Throwable cause) {
     super(message, cause);
   }
