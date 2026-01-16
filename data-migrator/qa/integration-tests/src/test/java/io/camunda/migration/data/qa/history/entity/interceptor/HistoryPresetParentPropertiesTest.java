@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.IncidentEntity;
@@ -28,6 +30,7 @@ import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
@@ -45,6 +48,9 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.interceptors[6].className=io.camunda.migration.data.qa.history.entity.interceptor.bean"
         + ".PresetVariableInterceptor", })
 public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractTest {
+
+  @Autowired
+  protected List<EntityInterceptor>  configuredEntityInterceptors;
 
   @Test
   public void shouldExecuteProcessInstancePresetInterceptor() {
@@ -136,7 +142,8 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
 
     assertThat(flowNodes).isNotEmpty();
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {
-      assertThat(flowNode.flowNodeScopeKey()).isEqualTo(1L);
+      assertThat(flowNode.processInstanceKey()).isEqualTo(1L);
+      assertThat(flowNode.processDefinitionKey()).isEqualTo(2L);
     }
   }
 
@@ -222,5 +229,42 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     assertThat(incident.jobKey()).isEqualTo(3L);
     assertThat(incident.flowNodeInstanceKey()).isEqualTo(4L);
 
+  }
+
+  @Test
+  public void shouldMigrateFlowNodeWithScopeKey() {
+    // given
+    configureScopeKey(false);
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // assume
+    historyMigrator.migrateFlowNodes();
+    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
+    assertThat(flowNodes).isEmpty();
+
+    // when
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    configureScopeKey(true);
+    historyMigrator.migrateFlowNodes();
+
+    // then
+    flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
+
+    assertThat(flowNodes).isNotEmpty();
+    for (FlowNodeInstanceDbModel flowNode : flowNodes) {
+      assertThat(flowNode.processInstanceKey()).isEqualTo(1L);
+      assertThat(flowNode.processDefinitionKey()).isEqualTo(2L);
+    }
+  }
+
+  protected void configureScopeKey(boolean configure) {
+    configuredEntityInterceptors.stream()
+        .filter(interceptor -> interceptor instanceof io.camunda.migration.data.qa.history.entity.interceptor.bean
+            .PresetFlowNodeInterceptor)
+        .map(interceptor -> (io.camunda.migration.data.qa.history.entity.interceptor.bean.PresetFlowNodeInterceptor)
+            interceptor)
+        .forEach(interceptor -> interceptor.setConfigureScopeKey(configure));
   }
 }

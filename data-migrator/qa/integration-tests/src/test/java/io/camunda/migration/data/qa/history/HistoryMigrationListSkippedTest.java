@@ -197,7 +197,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
 
         // Flow nodes: SKIPPING_FLOW_NODE expects flowNodeId
         for (String id : flowNodeIds) {
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_FLOW_NODE, id);
+            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION, id);
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("Flow node %s should be logged as skipped", id)
