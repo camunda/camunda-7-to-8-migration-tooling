@@ -34,7 +34,8 @@ public class DecisionRequirementsMigrator extends BaseMigrator {
         migrateDecisionRequirementsDefinition(c7DecisionRequirement);
       });
     } else {
-      c7Client.fetchAndHandleDecisionRequirementsDefinitions(this::migrateDecisionRequirementsDefinition);
+      c7Client.fetchAndHandleDecisionRequirementsDefinitions(this::migrateDecisionRequirementsDefinition,
+          dbClient.findLatestCreateTimeByType(HISTORY_DECISION_REQUIREMENT));
     }
   }
 
