@@ -27,6 +27,7 @@ public interface IdKeyMapper {
     HISTORY_DECISION_INSTANCE("Historic Decision Instance"),
     HISTORY_DECISION_DEFINITION("Historic Decision Definition"),
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
+    HISTORY_AUDIT_LOG("Historic Audit Log"),
 
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
