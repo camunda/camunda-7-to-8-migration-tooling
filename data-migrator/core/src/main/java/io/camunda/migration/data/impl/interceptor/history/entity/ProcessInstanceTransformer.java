@@ -50,12 +50,12 @@ public class ProcessInstanceTransformer implements EntityInterceptor {
         .tenantId(getTenantId(processInstance.getTenantId()))
         .version(processInstance.getProcessDefinitionVersion())
         // parent and super process instance are used synonym (process instance that contained the call activity)
-        // TODO: Call activity instance id that created the process in C8. No yet migrated from C7.
+        // Call activity instance id that created the process in C8. Not yet migrated from C7.
         // https://github.com/camunda/camunda-bpm-platform/issues/5359
-        //        .parentElementInstanceKey(null)
-        //        .treePath(null)
-        // TODO https://github.com/camunda/camunda-bpm-platform/issues/5400
-//        .numIncidents()
+        .parentElementInstanceKey(null)
+        .treePath(null)
+        // https://github.com/camunda/camunda-bpm-platform/issues/5400
+        .numIncidents(null)
         .partitionId(C7_HISTORY_PARTITION_ID);
   }
 
