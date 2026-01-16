@@ -9,7 +9,6 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState;
@@ -42,7 +41,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 ProcessInstanceDbModel.Builder is null in context");
     }
 
-    builder.processInstanceKey(getNextKey())
+    builder
         // Get key from runtime instance/model migration
         .processDefinitionId(prefixDefinitionId(processInstance.getProcessDefinitionKey()))
         .startDate(convertDate(processInstance.getStartTime()))
