@@ -24,8 +24,6 @@ import io.camunda.db.rdbms.read.service.GroupDbReader;
 import io.camunda.db.rdbms.read.service.GroupMemberDbReader;
 import io.camunda.db.rdbms.read.service.HistoryDeletionDbReader;
 import io.camunda.db.rdbms.read.service.IncidentDbReader;
-import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByDefinitionDbReader;
-import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByErrorDbReader;
 import io.camunda.db.rdbms.read.service.JobDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
@@ -459,16 +457,6 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader(IncidentMapper incidentMapper) {
-    return new IncidentProcessInstanceStatisticsByErrorDbReader(incidentMapper);
-  }
-
-  @Bean
-  public IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader(IncidentMapper incidentMapper) {
-    return new IncidentProcessInstanceStatisticsByDefinitionDbReader(incidentMapper);
-  }
-
-  @Bean
   public RdbmsWriterFactory rdbmsWriterFactory(
       @Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory,
       ExporterPositionMapper exporterPositionMapper,
@@ -490,8 +478,7 @@ public class C8Configuration extends AbstractConfiguration {
       BatchOperationMapper batchOperationMapper,
       MessageSubscriptionMapper messageSubscriptionMapper,
       CorrelatedMessageSubscriptionMapper correlatedMessageMapper,
-      ClusterVariableMapper clusterVariableMapper,
-      HistoryDeletionMapper historyDeletionMapper) {
+      ClusterVariableMapper clusterVariableMapper) {
     return new RdbmsWriterFactory(
         c8SqlSessionFactory,
         exporterPositionMapper,
@@ -513,8 +500,7 @@ public class C8Configuration extends AbstractConfiguration {
         batchOperationMapper,
         messageSubscriptionMapper,
         correlatedMessageMapper,
-        clusterVariableMapper,
-        historyDeletionMapper);
+        clusterVariableMapper);
   }
 
   @Bean
@@ -552,9 +538,7 @@ public class C8Configuration extends AbstractConfiguration {
       CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
       ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
       ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
-      HistoryDeletionDbReader historyDeletionReader,
-      IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
-      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader) {
+      HistoryDeletionDbReader historyDeletionReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         auditLogReader,
@@ -589,9 +573,7 @@ public class C8Configuration extends AbstractConfiguration {
         correlatedMessageDbReader,
         processDefinitionInstanceStatisticsDbReader,
         processDefinitionInstanceVersionStatisticsDbReader,
-        historyDeletionReader,
-        incidentProcessInstanceStatisticsByErrorDbReader,
-        incidentProcessInstanceStatisticsByDefinitionDbReader);
+        historyDeletionReader);
   }
 
 }
