@@ -12,8 +12,10 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
+import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
@@ -21,24 +23,31 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
+import java.time.Period;
+import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Service class responsible for migrating process instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class ProcessInstanceMigrator extends BaseMigrator {
-  public void migrateProcessInstances() {
+public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstance> {
+
+  @Override
+  public void migrate() {
     HistoryMigratorLogs.migratingProcessInstances();
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_PROCESS_INSTANCE, idKeyDbModel -> {
         HistoricProcessInstance historicProcessInstance = c7Client.getHistoricProcessInstance(idKeyDbModel.getC7Id());
-        migrateProcessInstance(historicProcessInstance);
+        self.migrateOne(historicProcessInstance);
       });
     } else {
-      c7Client.fetchAndHandleHistoricProcessInstances(this::migrateProcessInstance,
-          dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_INSTANCE));
+      Date createTime = dbClient.findLatestCreateTimeByType(HISTORY_PROCESS_INSTANCE);
+      c7Client.fetchAndHandleHistoricProcessInstances(self::migrateOne, createTime);
     }
   }
 
@@ -63,7 +72,8 @@ public class ProcessInstanceMigrator extends BaseMigrator {
    * @param c7ProcessInstance the historic process instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion or interception
    */
-  public void migrateProcessInstance(HistoricProcessInstance c7ProcessInstance) {
+  @Override
+  public void migrateOne(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
       HistoryMigratorLogs.migratingProcessInstance(c7ProcessInstanceId);
@@ -91,17 +101,13 @@ public class ProcessInstanceMigrator extends BaseMigrator {
           }
         }
 
-        OffsetDateTime historyCleanupDate = calculateHistoryCleanupDate(
-            c7ProcessInstance.getState(),
-            c7ProcessInstance.getEndTime(),
-            c7ProcessInstance.getRemovalTime());
-        OffsetDateTime endDate = calculateEndDate(
-            c7ProcessInstance.getState(),
-            c7ProcessInstance.getEndTime());
+      Date c7EndTime = c7ProcessInstance.getEndTime();
+      var c8EndTime = calculateEndDate(c7EndTime);
+      var c8HistoryCleanupDate = calculateHistoryCleanupDate(c8EndTime, c7ProcessInstance.getRemovalTime());
 
         processInstanceDbModelBuilder
-            .historyCleanupDate(historyCleanupDate)
-            .endDate(endDate);
+            .historyCleanupDate(c8HistoryCleanupDate)
+            .endDate(c8EndTime);
         ProcessInstanceDbModel dbModel = convertProcessInstance(context);
         if (dbModel.processDefinitionKey() == null) {
           markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
@@ -130,9 +136,43 @@ public class ProcessInstanceMigrator extends BaseMigrator {
                                        ProcessInstanceDbModel dbModel,
                                        String c7ProcessInstanceId) {
     c8Client.insertProcessInstance(dbModel);
-    markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(),
-        HISTORY_PROCESS_INSTANCE);
+    markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(), HISTORY_PROCESS_INSTANCE);
     HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
   }
+
+  /**
+   * Calculates the history cleanup date for an entity.
+   * Only calculates a new cleanup date when C7 removalTime is null.
+   * For entities with existing removalTime, uses that value directly.
+   *
+   * @param endTime the C7 or auto-canceled end time
+   * @param c7RemovalTime the C7 removal time
+   * @return the calculated history cleanup date
+   */
+  protected OffsetDateTime calculateHistoryCleanupDate(OffsetDateTime endTime, Date c7RemovalTime) {
+    if (c7RemovalTime != null) {
+      return convertDate(c7RemovalTime);
+    }
+
+    Period ttl = getAutoCancelTtl();
+    if (ttl == null || ttl.isZero()) {
+      return null;
+    }
+    return endTime.plus(ttl);
+  }
+
+  /**
+   * Determines if the entity should have endDate set to now when converting to C8.
+   *
+   * @param c7EndDate the C7 end date
+   * @return the endDate to use (now if active, original if completed)
+   */
+  protected OffsetDateTime calculateEndDate(Date c7EndDate) {
+    if (c7EndDate == null) {
+      return convertDate(ClockUtil.now());
+    }
+    return convertDate(c7EndDate);
+  }
+
 }
 

@@ -109,39 +109,39 @@ public class HistoryMigrator {
   }
 
   public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrateProcessDefinitions();
+    processDefinitionMigrator.migrate();
   }
 
   public void migrateProcessInstances() {
-    processInstanceMigrator.migrateProcessInstances();
+    processInstanceMigrator.migrate();
   }
 
   public void migrateFlowNodes() {
-    flowNodeMigrator.migrateFlowNodes();
+    flowNodeMigrator.migrate();
   }
 
   public void migrateUserTasks() {
-    userTaskMigrator.migrateUserTasks();
+    userTaskMigrator.migrate();
   }
 
   public void migrateVariables() {
-    variableMigrator.migrateVariables();
+    variableMigrator.migrate();
   }
 
   public void migrateIncidents() {
-    incidentMigrator.migrateIncidents();
+    incidentMigrator.migrate();
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrateDecisionRequirementsDefinitions();
+    decisionRequirementsMigrator.migrate();
   }
 
   public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrateDecisionDefinitions();
+    decisionDefinitionMigrator.migrate();
   }
 
   public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrateDecisionInstances();
+    decisionInstanceMigrator.migrate();
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {

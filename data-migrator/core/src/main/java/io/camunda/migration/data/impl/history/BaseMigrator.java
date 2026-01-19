@@ -48,12 +48,14 @@ import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.model.dmn.instance.Decision;
 import org.camunda.bpm.model.dmn.instance.LiteralExpression;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Base class for all history entity migrators.
  * Contains common utility methods for migration operations.
  */
-public abstract class BaseMigrator {
+public abstract class BaseMigrator<T> {
 
   @Autowired
   protected DbClient dbClient;
@@ -74,6 +76,10 @@ public abstract class BaseMigrator {
   protected ProcessEngine processEngine;
 
   protected MigratorMode mode = MIGRATE;
+
+  @Autowired
+  @Lazy
+  protected BaseMigrator<T> self;
 
   protected Long findProcessDefinitionKey(String processDefinitionId) {
     Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId,
@@ -245,44 +251,11 @@ public abstract class BaseMigrator {
     this.mode = mode;
   }
 
-
   protected DecisionRequirementsDbModel convertDecisionRequirements(EntityConversionContext<?, ?> context) {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
     DecisionRequirementsDbModel.Builder builder =
         (DecisionRequirementsDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
-  }
-
-  /**
-   * Calculates the history cleanup date for an entity based on its state and endDate.
-   * Only calculates a new cleanup date when C7 removalTime is null.
-   * For entities with existing removalTime, uses that value directly.
-   *
-   * @param c7State the C7 state of the entity
-   * @param c7EndDate the C7 end date (null if still active)
-   * @param c7RemovalTime the C7 removal time
-   * @return the calculated history cleanup date
-   */
-  protected OffsetDateTime calculateHistoryCleanupDate(String c7State, Date c7EndDate, Date c7RemovalTime) {
-    // If C7 already has a removalTime, use it directly
-    if (c7RemovalTime != null) {
-      return convertDate(c7RemovalTime);
-    }
-
-    // Only calculate cleanup date when removalTime is null
-    // For active entities in C7, calculate cleanup date based on now + TTL
-    if (c7EndDate == null) {
-      Period ttl = getAutoCancelTtl();
-      // If TTL is null or zero, auto-cancel is disabled - return null for cleanup date
-      if (ttl == null || ttl.isZero()) {
-        return null;
-      }
-      OffsetDateTime now = convertDate(ClockUtil.now());
-      return now.plus(ttl);
-    }
-
-    // No removalTime and not active - return null
-    return null;
   }
 
   /**
@@ -325,20 +298,6 @@ public abstract class BaseMigrator {
   }
 
   /**
-   * Determines if the entity should have endDate set to now when converting to C8.
-   *
-   * @param c7State the C7 state
-   * @param c7EndDate the C7 end date
-   * @return the endDate to use (now if active, original if completed)
-   */
-  protected OffsetDateTime calculateEndDate(String c7State, Date c7EndDate) {
-    if (c7EndDate == null) {
-      return convertDate(ClockUtil.now());
-    }
-    return convertDate(c7EndDate);
-  }
-
-  /**
    * Gets the configured auto-cancel TTL period.
    *
    * @return the configured TTL, or null if cleanup is disabled
@@ -367,6 +326,44 @@ public abstract class BaseMigrator {
     // Return configured TTL (will have default of 180 days if not set)
     return migratorProperties.getHistory().getAutoCancel().getCleanup().getTtl();
   }
+
+  /**
+   * Migrates all entities of type T from Camunda 7 to Camunda 8.
+   * <p>
+   * This method is responsible for:
+   * <ul>
+   *   <li>Fetching all entities from Camunda 7</li>
+   *   <li>Converting each entity to Camunda 8 format</li>
+   *   <li>Persisting the converted entities to Camunda 8</li>
+   *   <li>Tracking migration status in the migration database</li>
+   * </ul>
+   * </p>
+   * <p>
+   * The migration mode (MIGRATE or RETRY_SKIPPED) affects which entities are processed.
+   * </p>
+   */
+  abstract void migrate();
+
+  /**
+   * Migrates a single entity from Camunda 7 to Camunda 8.
+   * <p>
+   * This method is transactional and ensures that all database operations
+   * for a single entity migration are committed or rolled back together.
+   * </p>
+   * <p>
+   * Implementations should:
+   * <ul>
+   *   <li>Convert the C7 entity to C8 format using interceptors</li>
+   *   <li>Persist the converted entity to the C8 database</li>
+   *   <li>Mark the entity as migrated or skipped in the migration tracking database</li>
+   *   <li>Handle any migration errors appropriately</li>
+   * </ul>
+   * </p>
+   *
+   * @param entity the Camunda 7 entity to migrate
+   */
+  @Transactional("c8TransactionManager")
+  abstract void migrateOne(T entity);
 
 }
 
