@@ -94,6 +94,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_AUDIT_LOG = "Migrating historic audit log with C7 ID: [{}]";
   public static final String MIGRATING_AUDIT_LOG_COMPLETED = "Migration of historic audit log with C7 ID [{}] completed.";
   public static final String SKIPPING_AUDIT_LOG = "Migration of historic audit log with C7 ID [{}] skipped.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_DEFINITION = SKIPPING_AUDIT_LOG + " Process definition not yet available.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_PROCESS = SKIPPING_AUDIT_LOG + " Process instance not yet available.";
 
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
@@ -334,5 +336,13 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricAuditLog(String c7AuditLogId) {
     LOGGER.debug(SKIPPING_AUDIT_LOG, c7AuditLogId);
+  }
+
+  public static void skippingAuditLogDueToMissingDefinition(String c7AuditLogId) {
+    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_DEFINITION, c7AuditLogId);
+  }
+
+  public static void skippingAuditLogDueToMissingProcess(String c7AuditLogId) {
+    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_PROCESS, c7AuditLogId);
   }
 }

@@ -7,14 +7,18 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.search.entities.AuditLogEntity;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import java.util.Set;
+import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -44,32 +48,25 @@ public class AuditLogTransformer implements EntityInterceptor {
     if (builder == null) {
       throw new EntityInterceptorException("C8 AuditLogDbModel.Builder is null in context");
     }
-
-    builder.key(getNextKey())
+    builder
+        .partitionId(C7_HISTORY_PARTITION_ID)
         .timestamp(convertDate(userOperationLog.getTimestamp()))
-        .userId(userOperationLog.getUserId())
-        .operationType(userOperationLog.getOperationType())
-        .entityType(userOperationLog.getEntityType())
-        .category(userOperationLog.getCategory())
-        .property(userOperationLog.getProperty())
-        .orgValue(userOperationLog.getOrgValue())
-        .newValue(userOperationLog.getNewValue())
-        .processDefinitionId(userOperationLog.getProcessDefinitionId())
-        .processDefinitionKey(userOperationLog.getProcessDefinitionKey())
-        .processInstanceId(userOperationLog.getProcessInstanceId())
-        .executionId(userOperationLog.getExecutionId())
-        .caseDefinitionId(userOperationLog.getCaseDefinitionId())
-        .caseInstanceId(userOperationLog.getCaseInstanceId())
-        .caseExecutionId(userOperationLog.getCaseExecutionId())
-        .taskId(userOperationLog.getTaskId())
-        .externalTaskId(userOperationLog.getExternalTaskId())
-        .batchId(userOperationLog.getBatchId())
-        .jobId(userOperationLog.getJobId())
-        .jobDefinitionId(userOperationLog.getJobDefinitionId())
-        .deploymentId(userOperationLog.getDeploymentId())
+        .actorId(userOperationLog.getUserId())
+        .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))
         .annotation(userOperationLog.getAnnotation())
         .tenantId(userOperationLog.getTenantId())
-        .removalTime(convertDate(userOperationLog.getRemovalTime()))
-        .rootProcessInstanceId(userOperationLog.getRootProcessInstanceId());
+        .category(convertCategory(userOperationLog.getCategory()))
+        .historyCleanupDate(convertDate(userOperationLog.getRemovalTime()));
+
+    // Note: auditLogKey, processInstanceKey, and processDefinitionKey are set externally in the migrator
+  }
+
+  protected AuditLogEntity.AuditLogOperationCategory convertCategory(String category) {
+    return switch (category) {
+      case UserOperationLogEntry.CATEGORY_ADMIN -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
+      case UserOperationLogEntry.CATEGORY_OPERATOR -> AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES;
+      case UserOperationLogEntry.CATEGORY_TASK_WORKER -> AuditLogEntity.AuditLogOperationCategory.USER_TASKS;
+      default -> AuditLogEntity.AuditLogOperationCategory.UNKNOWN;
+    };
   }
 }

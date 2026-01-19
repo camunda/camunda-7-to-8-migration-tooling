@@ -150,7 +150,7 @@ public class HistoryMigrator {
   }
 
   public void migrateAuditLogs() {
-    auditLogMigrator.migrateAuditLogs();
+    auditLogMigrator.migrate();
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
