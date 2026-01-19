@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
  * </p>
  */
 @Service
-public class AuditLogMigrator extends BaseMigrator {
+public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
 
   /**
    * Migrates all audit log entries from Camunda 7 to Camunda 8.
@@ -35,16 +35,17 @@ public class AuditLogMigrator extends BaseMigrator {
    * new entries or retrying skipped ones based on the migration mode.
    * </p>
    */
-  public void migrateAuditLogs() {
+  @Override
+  public void migrate() {
     HistoryMigratorLogs.migratingHistoricAuditLogs();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_AUDIT_LOG, idKeyDbModel -> {
         UserOperationLogEntry userOperationLogEntry = c7Client.getUserOperationLogEntry(idKeyDbModel.getC7Id());
-        migrateAuditLog(userOperationLogEntry);
+        migrateOne(userOperationLogEntry);
       });
     } else {
-      c7Client.fetchAndHandleUserOperationLogEntries(this::migrateAuditLog,
+      c7Client.fetchAndHandleUserOperationLogEntries(this::migrateOne,
           dbClient.findLatestCreateTimeByType(HISTORY_AUDIT_LOG));
     }
   }
@@ -60,7 +61,8 @@ public class AuditLogMigrator extends BaseMigrator {
    * @param c7AuditLog the user operation log entry from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
-  public void migrateAuditLog(UserOperationLogEntry c7AuditLog) {
+  @Override
+  public void migrateOne(UserOperationLogEntry c7AuditLog) {
     String c7AuditLogId = c7AuditLog.getOperationId();
     if (shouldMigrate(c7AuditLogId, HISTORY_AUDIT_LOG)) {
       HistoryMigratorLogs.migratingHistoricAuditLog(c7AuditLogId);
@@ -87,7 +89,7 @@ public class AuditLogMigrator extends BaseMigrator {
    */
   protected void insertAuditLog(UserOperationLogEntry c7AuditLog, AuditLogDbModel dbModel, String c7AuditLogId) {
     c8Client.insertAuditLog(dbModel);
-    markMigrated(c7AuditLogId, dbModel.key(), c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
+    markMigrated(c7AuditLogId, Long.parseLong(dbModel.auditLogKey()), c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
     HistoryMigratorLogs.migratingHistoricAuditLogCompleted(c7AuditLogId);
   }
 
