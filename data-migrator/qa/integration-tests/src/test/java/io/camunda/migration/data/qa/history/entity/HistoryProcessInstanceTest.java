@@ -234,7 +234,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
 
-    // Manually skip the parent process instance to simulate it not being migrated yet
+    // Manually configure migrator to MIGRATE mode
     historyMigrator.setMode(MigratorMode.MIGRATE);
 
     // Mark parent as skipped

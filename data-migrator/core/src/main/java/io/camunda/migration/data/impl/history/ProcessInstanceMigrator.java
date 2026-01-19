@@ -10,12 +10,12 @@ package io.camunda.migration.data.impl.history;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
-import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
@@ -27,8 +27,6 @@ import java.time.Period;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -68,7 +66,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    * <ul>
    *   <li>Process definition not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
    *   <li>Parent process instance not yet migrated (for call activities/sub-processes) - skipped with {@code SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE}</li>
-   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE}</li>
+   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
    *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
@@ -158,7 +156,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
         }
       }
 
-      if (c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
+      if (c7RootProcessInstanceId != null && c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
         builder.rootProcessInstanceKey(processInstanceKey);
       } else if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
         ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
@@ -201,7 +199,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    * @param context the entity conversion context
    * @param c7ProcessInstanceId the C7 process instance ID
    * @param c7SuperProcessInstanceId the C7 super process instance ID (null if not a sub-process)
-   * @param c7RootProcessInstanceId the C7 root process instance ID (may be same as current instance ID)
+   * @param c7RootProcessInstanceId the C7 root process instance ID (might be same as current instance ID)
    */
   protected void validateDependenciesAndInsert(HistoricProcessInstance c7ProcessInstance,
                                                EntityConversionContext<?, ?> context,
@@ -220,8 +218,8 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
       HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
     } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
       markSkipped(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE, c7ProcessInstance.getStartTime(),
-          SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-      HistoryMigratorLogs.skippingProcessInstanceDueToMissingParent(c7ProcessInstanceId);
+          SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingProcessInstanceDueToMissingRoot(c7ProcessInstanceId);
     } else {
       insertProcessInstance(c7ProcessInstance, dbModel, c7ProcessInstanceId);
     }

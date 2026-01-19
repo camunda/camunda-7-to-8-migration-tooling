@@ -9,8 +9,8 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -68,10 +68,13 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    *   <li>User task not yet migrated (for task-scoped variables) - skipped with {@code SKIP_REASON_BELONGS_TO_SKIPPED_TASK}</li>
    *   <li>Scope key missing (flow node or process instance) - skipped with {@code SKIP_REASON_MISSING_SCOPE_KEY}</li>
+   *   <li>Root process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
    * @param c7Variable the historic variable instance from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion
+   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
+   * @throws VariableInterceptorException if an error occurs during variable interception (handled internally, entity marked as skipped)
    */
   @Override
   public void migrateOne(HistoricVariableInstance c7Variable) {
@@ -123,12 +126,10 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
     VariableDbModel dbModel = convertVariable(context);
 
     if (dbModel.processInstanceKey() == null) {
-      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(),
-          SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
       HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
     } else if (dbModel.scopeKey() == null) {
-      String skipReason =
-          c7Variable.getTaskId() != null ? SKIP_REASON_BELONGS_TO_SKIPPED_TASK : SKIP_REASON_MISSING_SCOPE_KEY;
+      String skipReason = c7Variable.getTaskId() != null ? SKIP_REASON_BELONGS_TO_SKIPPED_TASK : SKIP_REASON_MISSING_SCOPE_KEY;
       markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), skipReason);
 
       if (c7Variable.getTaskId() != null) {
@@ -137,8 +138,8 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
         HistoryMigratorLogs.skippingHistoricVariableDueToMissingScopeKey(c7VariableId);
       }
     } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
-      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-      HistoryMigratorLogs.skippingHistoricVariableDueToMissingProcessInstance(c7VariableId);
+      markSkipped(c7VariableId, TYPE.HISTORY_VARIABLE, c7Variable.getCreateTime(), SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+      HistoryMigratorLogs.skippingHistoricVariableDueToMissingRootProcessInstance(c7VariableId);
     } else {
       insertVariable(c7Variable, dbModel, c7VariableId);
     }

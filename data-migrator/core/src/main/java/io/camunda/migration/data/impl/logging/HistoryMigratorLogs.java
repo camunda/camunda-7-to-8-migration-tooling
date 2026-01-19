@@ -25,6 +25,7 @@ public class HistoryMigratorLogs {
 
   // Skip reason constants
   public static final String SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE = "Missing parent process instance";
+  public static final String SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE = "Missing root process instance";
   public static final String SKIP_REASON_MISSING_PROCESS_DEFINITION = "Missing process definition";
   public static final String SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY = "Missing process instance key";
   public static final String SKIP_REASON_MISSING_PROCESS_INSTANCE = "Missing process instance";
@@ -49,6 +50,7 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_INSTANCE_COMPLETE =
       "Migration of historic {} instance with C7 ID " + "[{}] completed";
   public static final String SKIPPING_INSTANCE_MISSING_PARENT = "Migration of historic {} instance with C7 ID [{}] skipped. Parent instance not yet available.";
+  public static final String SKIPPING_INSTANCE_MISSING_ROOT = "Migration of historic {} instance with C7 ID [{}] skipped. Root instance not yet available.";
   public static final String SKIPPING_INSTANCE_MISSING_DEFINITION = "Migration of historic {} instance with C7 ID [{}] skipped. {} definition not yet available.";
   public static final String SKIPPING_DECISION_INSTANCE = "Migration of historic decision instance with C7 ID [{}] skipped. ";
   public static final String SKIPPING_DECISION_INSTANCE_MISSING_PROCESS_INSTANCE = SKIPPING_DECISION_INSTANCE + "Process instance not yet available.";
@@ -57,8 +59,9 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_INCIDENTS = "Migrating historic incidents";
   public static final String MIGRATING_INCIDENT = "Migrating historic incident with C7 ID: [{}]";
   public static final String MIGRATING_INCIDENT_COMPLETED = "Migration of historic incident with C7 ID [{}] completed.";
-  public static final String SKIPPING_INCIDENT = "Migration of historic incident with C7 ID [{}] skipped. Process "
-      + "instance not yet available.";
+  public static final String SKIPPING_INCIDENT = "Migration of historic incident with C7 ID [{}] skipped. Process instance not yet available.";
+  public static final String SKIPPING_INCIDENT_MISSING_DEFINITION = "Migration of historic incident with C7 ID [{}] skipped. Process definition not yet available.";
+  public static final String SKIPPING_INCIDENT_MISSING_ROOT_PROCESS = "Migration of historic incident with C7 ID [{}] skipped. Root process instance not yet available.";
 
   public static final String MIGRATING_VARIABLES = "Migrating historic variables";
   public static final String MIGRATING_VARIABLE = "Migrating historic variables with C7 ID: [{}]";
@@ -66,6 +69,7 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_VARIABLE = "Migration of historic variable with C7 ID [{}] skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_FLOW_NODE = SKIPPING_VARIABLE + " Flow node instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_PROCESS = SKIPPING_VARIABLE + " Process instance not yet available.";
+  public static final String SKIPPING_VARIABLE_MISSING_ROOT_PROCESS = SKIPPING_VARIABLE + " Parent process instance not yet available.";
   public static final String SKIPPING_VARIABLE_MISSING_TASK = SKIPPING_VARIABLE + " Associated task [{}] was skipped.";
   public static final String SKIPPING_VARIABLE_MISSING_SCOPE = SKIPPING_VARIABLE + " Scope key is not yet available.";
 
@@ -75,11 +79,13 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_USER_TASK_COMPLETED = "Migration of historic user task with C7 ID [{}] completed.";
   public static final String SKIPPING_MIGRATING_USER_TASK_MISSING_FLOW_NODE = "Migration of historic user task with C7 ID [{}] skipped. Flow node instance yet not available.";
   public static final String SKIPPING_USER_TASK_MISSING_PROCESS = "Migration of historic user task with C7 ID [{}] skipped. Process instance yet not available.";
+  public static final String SKIPPING_USER_TASK_MISSING_ROOT_PROCESS = "Migration of historic user task with C7 ID [{}] skipped. Root process instance yet not available.";
 
   public static final String MIGRATING_FLOW_NODES = "Migrating historic flow nodes";
   public static final String MIGRATING_FLOW_NODE = "Migrating historic flow nodes with C7 ID: [{}]";
   public static final String MIGRATING_FLOW_NODE_COMPLETED = "Migration of historic flow nodes with C7 ID [{}] completed.";
   public static final String SKIPPING_FLOW_NODE = "Migration of historic flow nodes with C7 ID [{}] skipped. Process instance yet not available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_ROOT = "Migration of historic flow nodes with C7 ID [{}] skipped. Root process instance yet not available.";
 
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
@@ -134,6 +140,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_PARENT, "process", c7ProcessInstanceId);
   }
 
+  public static void skippingProcessInstanceDueToMissingRoot(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_ROOT, "process", c7ProcessInstanceId);
+  }
+
   public static void skippingProcessInstanceDueToMissingDefinition(String c7ProcessInstanceId) {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", c7ProcessInstanceId, "process");
   }
@@ -152,6 +162,10 @@ public class HistoryMigratorLogs {
 
   public static void skippingDecisionInstanceDueToMissingParent(String c7DecisionInstanceId) {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_PARENT, "decision", c7DecisionInstanceId);
+  }
+
+  public static void skippingDecisionInstanceDueToMissingRoot(String c7DecisionInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_ROOT, "decision", c7DecisionInstanceId);
   }
 
   public static void skippingDecisionInstanceDueToMissingDecisionDefinition(String c7DecisionInstanceId) {
@@ -186,6 +200,14 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_INCIDENT, c7IncidentId);
   }
 
+  public static void skippingHistoricIncidentMissingDefinition(String c7IncidentId) {
+    LOGGER.debug(SKIPPING_INCIDENT_MISSING_DEFINITION, c7IncidentId);
+  }
+
+  public static void skippingHistoricIncidentMissingRootProcess(String c7IncidentId) {
+    LOGGER.debug(SKIPPING_INCIDENT_MISSING_ROOT_PROCESS, c7IncidentId);
+  }
+
   public static void migratingHistoricVariables() {
     LOGGER.info(MIGRATING_VARIABLES);
   }
@@ -204,6 +226,10 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricVariableDueToMissingProcessInstance(String c7VariableId) {
     LOGGER.debug(SKIPPING_VARIABLE_MISSING_PROCESS, c7VariableId);
+  }
+
+  public static void skippingHistoricVariableDueToMissingRootProcessInstance(String c7VariableId) {
+    LOGGER.debug(SKIPPING_VARIABLE_MISSING_ROOT_PROCESS, c7VariableId);
   }
 
   public static void skippingHistoricVariableDueToMissingTask(String c7VariableId, String taskId) {
@@ -238,6 +264,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_USER_TASK_MISSING_PROCESS, c7UserTaskId);
   }
 
+  public static void skippingHistoricUserTaskDueToMissingRootProcessInstance(String c7UserTaskId) {
+    LOGGER.debug(SKIPPING_USER_TASK_MISSING_ROOT_PROCESS, c7UserTaskId);
+  }
+
   public static void migratingHistoricFlowNodes() {
     LOGGER.info(MIGRATING_FLOW_NODES);
   }
@@ -252,6 +282,10 @@ public class HistoryMigratorLogs {
 
   public static void skippingHistoricFlowNode(String c7FlowNodeId) {
     LOGGER.debug(SKIPPING_FLOW_NODE, c7FlowNodeId);
+  }
+
+  public static void skippingHistoricFlowNodeMissingRootProcess(String c7FlowNodeId) {
+    LOGGER.debug(SKIPPING_FLOW_NODE_MISSING_ROOT, c7FlowNodeId);
   }
 
   public static void migratingDecisionRequirements() {

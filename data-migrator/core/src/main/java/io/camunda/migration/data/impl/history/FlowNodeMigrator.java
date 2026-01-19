@@ -9,8 +9,8 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
@@ -22,8 +22,6 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -67,10 +65,13 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
    * <p>Skip scenarios:
    * <ul>
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
+   *   <li>Parent flow node (scope) not yet migrated - skipped with {@code SKIP_REASON_MISSING_PARENT_FLOW_NODE}</li>
+   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion
+   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
   public void migrateOne(HistoricActivityInstance c7FlowNode) {
@@ -120,8 +121,8 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
           markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
           HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
         } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
-          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricFlowNodeMissingRootProcess(c7FlowNodeId);
         } else {
           insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
         }

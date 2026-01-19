@@ -9,8 +9,8 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
@@ -24,8 +24,6 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -60,10 +58,12 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
    * <ul>
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    *   <li>Flow node instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_FLOW_NODE}</li>
+   *   <li>Root process instance not yet migrated  - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
    * @param c7UserTask the historic user task from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion
+   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
   public void migrateOne(HistoricTaskInstance c7UserTask) {
@@ -109,8 +109,8 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
           markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_FLOW_NODE);
           HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingFlowNode(c7UserTaskId);
         } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
-          markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
-          HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingProcessInstance(c7UserTaskId);
+          markSkipped(c7UserTaskId, TYPE.HISTORY_USER_TASK, c7UserTask.getStartTime(), SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricUserTaskDueToMissingRootProcessInstance(c7UserTaskId);
         } else {
           insertUserTask(c7UserTask, dbModel, c7UserTaskId);
         }
