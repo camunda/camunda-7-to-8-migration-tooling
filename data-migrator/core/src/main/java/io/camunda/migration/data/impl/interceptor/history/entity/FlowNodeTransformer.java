@@ -41,9 +41,7 @@ public class FlowNodeTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
     }
 
-
-    builder
-        .flowNodeId(flowNode.getActivityId())
+    builder.flowNodeId(flowNode.getActivityId())
         .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
         .type(convertType(flowNode.getActivityType()))
@@ -66,28 +64,39 @@ public class FlowNodeTransformer implements EntityInterceptor {
 
   protected FlowNodeType convertType(String activityType) {
     return switch (activityType) {
-      case ActivityTypes.START_EVENT, ActivityTypes.START_EVENT_TIMER, ActivityTypes.START_EVENT_MESSAGE -> FlowNodeType.START_EVENT;
-      case ActivityTypes.END_EVENT_NONE -> FlowNodeType.END_EVENT;
+      case ActivityTypes.START_EVENT, ActivityTypes.START_EVENT_TIMER, ActivityTypes.START_EVENT_MESSAGE,
+           ActivityTypes.START_EVENT_SIGNAL, ActivityTypes.START_EVENT_ESCALATION, ActivityTypes.START_EVENT_ERROR,
+           ActivityTypes.START_EVENT_COMPENSATION, ActivityTypes.START_EVENT_CONDITIONAL -> FlowNodeType.START_EVENT;
+      case ActivityTypes.END_EVENT_NONE, ActivityTypes.END_EVENT_CANCEL, ActivityTypes.END_EVENT_ERROR,
+           ActivityTypes.END_EVENT_MESSAGE, ActivityTypes.END_EVENT_SIGNAL, ActivityTypes.END_EVENT_ESCALATION,
+           ActivityTypes.END_EVENT_TERMINATE, ActivityTypes.END_EVENT_COMPENSATION -> FlowNodeType.END_EVENT;
       case ActivityTypes.TASK_SERVICE -> FlowNodeType.SERVICE_TASK;
       case ActivityTypes.TASK_USER_TASK -> FlowNodeType.USER_TASK;
       case ActivityTypes.GATEWAY_EXCLUSIVE -> FlowNodeType.EXCLUSIVE_GATEWAY;
-      case ActivityTypes.INTERMEDIATE_EVENT_TIMER, ActivityTypes.INTERMEDIATE_EVENT_SIGNAL ->
-          FlowNodeType.INTERMEDIATE_CATCH_EVENT;
       case ActivityTypes.GATEWAY_PARALLEL -> FlowNodeType.PARALLEL_GATEWAY;
+      case ActivityTypes.GATEWAY_INCLUSIVE -> FlowNodeType.INCLUSIVE_GATEWAY;
+      case ActivityTypes.GATEWAY_EVENT_BASED -> FlowNodeType.EVENT_BASED_GATEWAY;
       case ActivityTypes.TASK_BUSINESS_RULE -> FlowNodeType.BUSINESS_RULE_TASK;
       case ActivityTypes.CALL_ACTIVITY -> FlowNodeType.CALL_ACTIVITY;
       case ActivityTypes.TASK_SCRIPT -> FlowNodeType.SCRIPT_TASK;
       case ActivityTypes.MULTI_INSTANCE_BODY -> FlowNodeType.MULTI_INSTANCE_BODY;
-      case ActivityTypes.START_EVENT_ERROR -> FlowNodeType.START_EVENT;
-      case ActivityTypes.END_EVENT_CANCEL -> FlowNodeType.END_EVENT;
-      case ActivityTypes.END_EVENT_ERROR -> FlowNodeType.END_EVENT;
       case ActivityTypes.SUB_PROCESS -> FlowNodeType.SUB_PROCESS;
-      case ActivityTypes.INTERMEDIATE_EVENT_COMPENSATION_THROW -> FlowNodeType.INTERMEDIATE_THROW_EVENT;
+      case ActivityTypes.SUB_PROCESS_AD_HOC -> FlowNodeType.AD_HOC_SUB_PROCESS;
+      case ActivityTypes.INTERMEDIATE_EVENT_CATCH, ActivityTypes.INTERMEDIATE_EVENT_TIMER,
+           ActivityTypes.INTERMEDIATE_EVENT_SIGNAL, ActivityTypes.INTERMEDIATE_EVENT_MESSAGE,
+           ActivityTypes.INTERMEDIATE_EVENT_CONDITIONAL, ActivityTypes.INTERMEDIATE_EVENT_LINK ->
+          FlowNodeType.INTERMEDIATE_CATCH_EVENT;
+      case ActivityTypes.INTERMEDIATE_EVENT_COMPENSATION_THROW, ActivityTypes.INTERMEDIATE_EVENT_NONE_THROW,
+           ActivityTypes.INTERMEDIATE_EVENT_MESSAGE_THROW, ActivityTypes.INTERMEDIATE_EVENT_SIGNAL_THROW,
+           ActivityTypes.INTERMEDIATE_EVENT_ESCALATION_THROW -> FlowNodeType.INTERMEDIATE_THROW_EVENT;
+      case ActivityTypes.BOUNDARY_TIMER, ActivityTypes.BOUNDARY_MESSAGE, ActivityTypes.BOUNDARY_SIGNAL,
+           ActivityTypes.BOUNDARY_COMPENSATION, ActivityTypes.BOUNDARY_ERROR, ActivityTypes.BOUNDARY_ESCALATION,
+           ActivityTypes.BOUNDARY_CANCEL, ActivityTypes.BOUNDARY_CONDITIONAL -> FlowNodeType.BOUNDARY_EVENT;
       case ActivityTypes.TASK_MANUAL_TASK -> FlowNodeType.MANUAL_TASK;
       case ActivityTypes.TASK_RECEIVE_TASK -> FlowNodeType.RECEIVE_TASK;
-      case ActivityTypes.TRANSACTION -> FlowNodeType.SUB_PROCESS; // TODO how to handle this?
+      case ActivityTypes.TASK_SEND_TASK -> FlowNodeType.SEND_TASK;
       case ActivityTypes.TASK -> FlowNodeType.TASK;
-      default -> throw new IllegalArgumentException("Unknown type: " + activityType);
+      default -> FlowNodeType.UNKNOWN;
     };
   }
 
