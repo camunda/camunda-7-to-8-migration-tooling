@@ -10,10 +10,14 @@ package io.camunda.migration.data.impl.history;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
 
+import io.camunda.db.rdbms.sql.AuditLogMapper.BatchInsertAuditLogsDto;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.search.entities.DecisionDefinitionEntity;
+import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.List;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.springframework.stereotype.Service;
 
@@ -42,10 +46,10 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(HISTORY_AUDIT_LOG, idKeyDbModel -> {
         UserOperationLogEntry userOperationLogEntry = c7Client.getUserOperationLogEntry(idKeyDbModel.getC7Id());
-        migrateOne(userOperationLogEntry);
+        self.migrateOne(userOperationLogEntry);
       });
     } else {
-      c7Client.fetchAndHandleUserOperationLogEntries(this::migrateOne,
+      c7Client.fetchAndHandleUserOperationLogEntries(self::migrateOne,
           dbClient.findLatestCreateTimeByType(HISTORY_AUDIT_LOG));
     }
   }
@@ -68,11 +72,34 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
       HistoryMigratorLogs.migratingHistoricAuditLog(c7AuditLogId);
 
       try {
+        String auditLogKey = c7AuditLog.getId();
         AuditLogDbModel.Builder auditLogDbModelBuilder = new AuditLogDbModel.Builder();
+        auditLogDbModelBuilder.auditLogKey(auditLogKey);
+
+        // Populate processInstanceKey if process instance reference exists
+        String c7ProcessInstanceId = c7AuditLog.getProcessInstanceId();
+        if (c7ProcessInstanceId != null) {
+          ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
+          if (processInstance != null) {
+            auditLogDbModelBuilder.processInstanceKey(processInstance.processInstanceKey());
+          }
+        }
+
+        // Populate processDefinitionKey if process definition reference exists
+        String c7ProcessDefinitionId = c7AuditLog.getProcessDefinitionId();
+        if (c7ProcessDefinitionId != null) {
+          Long processDefinitionKey = findProcessDefinitionKey(c7ProcessDefinitionId);
+          if (processDefinitionKey != null) {
+            auditLogDbModelBuilder.processDefinitionKey(processDefinitionKey);
+          }
+        }
+
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7AuditLog,
             UserOperationLogEntry.class, auditLogDbModelBuilder);
 
         AuditLogDbModel dbModel = convertAuditLog(context);
+        // skipping mechanism for process definitions not yet migrated
+        // skipping mechanism for process instance not yet migrated
         insertAuditLog(c7AuditLog, dbModel, c7AuditLogId);
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7AuditLogId, HISTORY_AUDIT_LOG, c7AuditLog.getTimestamp(), e);
@@ -88,8 +115,10 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
    * @param c7AuditLogId the Camunda 7 audit log ID
    */
   protected void insertAuditLog(UserOperationLogEntry c7AuditLog, AuditLogDbModel dbModel, String c7AuditLogId) {
-    c8Client.insertAuditLog(dbModel);
-    markMigrated(c7AuditLogId, Long.parseLong(dbModel.auditLogKey()), c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
+    c8Client.insertAuditLog(new BatchInsertAuditLogsDto(List.of(dbModel)));
+    // Use hash code of the audit log key as the Long value for tracking
+    Long trackingKey = (long) dbModel.auditLogKey().hashCode(); // TODO
+    markMigrated(c7AuditLogId, trackingKey, c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
     HistoryMigratorLogs.migratingHistoricAuditLogCompleted(c7AuditLogId);
   }
 

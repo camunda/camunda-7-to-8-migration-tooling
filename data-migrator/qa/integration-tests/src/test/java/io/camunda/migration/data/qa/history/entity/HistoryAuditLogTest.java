@@ -9,12 +9,16 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
+import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Integration test for audit log migration from Camunda 7 to Camunda 8.
@@ -25,12 +29,16 @@ import org.junit.jupiter.api.Test;
  */
 public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
+  @Autowired
+  protected IdentityService identityService;
+
   @Test
   public void shouldMigrateAuditLogsForProcessInstanceOperations() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcessId");
-    
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    identityService.setAuthenticatedUserId("demo");
     // Perform operations that generate audit log entries
     runtimeService.suspendProcessInstanceById(processInstance.getId());
     runtimeService.activateProcessInstanceById(processInstance.getId());
@@ -46,9 +54,11 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // then
     // Verify process instance was migrated
-//    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcessId");
-//    assertThat(c8ProcessInstance).isEqualTo(1);
-    
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
+//    assertThat(logs).hasSize(1);
+
     // Note: Verification of migrated audit logs in C8 will depend on the 
     // availability of audit log search API in Camunda 8.9.0
     // This test establishes the migration infrastructure
@@ -61,6 +71,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
     
     // Complete a user task to generate audit logs
+    identityService.setAuthenticatedUserId("demo");
     completeAllUserTasksWithDefaultUserTaskId();
     
     // Verify audit logs exist in C7
@@ -74,7 +85,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // then
     // Verify process instance was migrated
-//    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcessId");
+//    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
 //    assertThat(c8ProcessInstance).isEqualTo(1);
   }
 
@@ -82,9 +93,10 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   public void shouldMigrateAuditLogsForVariableOperations() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcessId");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     
     // Set variables to generate audit logs
+    identityService.setAuthenticatedUserId("demo");
     runtimeService.setVariable(processInstance.getId(), "testVar1", "value1");
     runtimeService.setVariable(processInstance.getId(), "testVar2", 123);
     
@@ -100,7 +112,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // then
     // Verify process instance was migrated
-//    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcessId");
+//    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
 //    assertThat(c8ProcessInstance).isEqualTo(1);
   }
 
@@ -108,9 +120,10 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   public void shouldHandleMigrationOfAuditLogsWithoutProcessInstance() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcessId");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
     
     // Perform operation
+    identityService.setAuthenticatedUserId("demo");
     runtimeService.suspendProcessInstanceById(processInstance.getId());
     
     // Get audit log entries before migration
