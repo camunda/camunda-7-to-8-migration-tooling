@@ -37,16 +37,16 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("MessageStartEventProcessId");
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
   @Test
-  public void shouldNotSkipOnMultipleStartEventsAndNoneStartEventPresent() {
+  public void shouldMigrateNoneStartEvent() {
     // given
     deployer.deployCamunda7Process("multipleStartEvent.bpmn");
 
@@ -65,12 +65,12 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
   @Test
-  public void shouldSkipOnNoneStartEventOnlyExistInSubprocess() {
+  public void shouldMigrateNoneStartEventInSubprocess() {
     // given
     deployer.deployCamunda7Process("messageStartEventWithSubprocess.bpmn");
 
@@ -89,7 +89,7 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(flowNodes.size()).isEqualTo(2);
+    assertThat(flowNodes).hasSize(2);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 }

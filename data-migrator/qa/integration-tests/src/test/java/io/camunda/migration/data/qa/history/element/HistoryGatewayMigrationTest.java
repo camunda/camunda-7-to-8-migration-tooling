@@ -32,7 +32,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   protected RuntimeService runtimeService;
 
   @Test
-  public void shouldMigrateEventBasedActivityInstance() {
+  public void shouldMigrateEventBasedGateway() {
     // given
     deployer.deployCamunda7Process("eventGateway.bpmn");
 
@@ -57,7 +57,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
   }
 
   @Test
-  public void shouldSkipActiveParallelGatewayActivityInstance() {
+  public void shouldMigrateParallelGateway() {
     // given
     deployer.deployCamunda7Process("parallelGateway.bpmn");
 
@@ -72,12 +72,8 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, PARALLEL_GATEWAY);
-    assertThat(flowNodes.size()).isEqualTo(2);
+    assertThat(flowNodes).hasSize(2);
   }
-
-  // TODO exclusive gateway
-
-  // TODO inclusive gateway
 
   @Test
   public void shouldMigrateExclusiveGateway() {
@@ -90,11 +86,11 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, EXCLUSIVE_GATEWAY);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
@@ -109,11 +105,11 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, INCLUSIVE_GATEWAY);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 

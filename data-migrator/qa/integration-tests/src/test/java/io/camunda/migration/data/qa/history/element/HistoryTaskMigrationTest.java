@@ -60,11 +60,11 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("businessRuleProcessId");
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, BUSINESS_RULE_TASK);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
@@ -79,11 +79,11 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, SCRIPT_TASK);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
@@ -98,11 +98,11 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, MANUAL_TASK);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 
@@ -118,11 +118,11 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
-    assertThat(processInstances.size()).isEqualTo(1);
+    assertThat(processInstances).hasSize(1);
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, MULTI_INSTANCE_BODY);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(TERMINATED);
   }
 

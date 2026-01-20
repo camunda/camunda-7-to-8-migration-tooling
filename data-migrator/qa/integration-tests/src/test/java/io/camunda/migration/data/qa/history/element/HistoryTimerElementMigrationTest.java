@@ -38,7 +38,7 @@ public class HistoryTimerElementMigrationTest extends HistoryAbstractElementMigr
 
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
     List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodesForType(processInstanceKey, BOUNDARY_EVENT);
-    assertThat(flowNodes.size()).isEqualTo(1);
+    assertThat(flowNodes).hasSize(1);
     assertThat(flowNodes.getFirst().state()).isEqualTo(COMPLETED);
   }
 }
