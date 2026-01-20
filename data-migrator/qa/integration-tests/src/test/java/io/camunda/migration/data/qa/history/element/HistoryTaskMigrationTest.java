@@ -47,7 +47,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
   }
 
   @Test
-  public void shouldMigrateBussinessRuleTask() {
+  public void shouldMigrateBusinessRuleTask() {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     deployer.deployCamunda7Process("businessRuleProcess.bpmn");

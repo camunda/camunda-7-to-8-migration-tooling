@@ -76,7 +76,6 @@ public class FlowNodeTransformer implements EntityInterceptor {
       case ActivityTypes.GATEWAY_PARALLEL -> FlowNodeType.PARALLEL_GATEWAY;
       case ActivityTypes.GATEWAY_INCLUSIVE -> FlowNodeType.INCLUSIVE_GATEWAY;
       case ActivityTypes.GATEWAY_EVENT_BASED -> FlowNodeType.EVENT_BASED_GATEWAY;
-      case ActivityTypes.GATEWAY_COMPLEX -> FlowNodeType.UNSPECIFIED;
       case ActivityTypes.TASK_BUSINESS_RULE -> FlowNodeType.BUSINESS_RULE_TASK;
       case ActivityTypes.CALL_ACTIVITY -> FlowNodeType.CALL_ACTIVITY;
       case ActivityTypes.TASK_SCRIPT -> FlowNodeType.SCRIPT_TASK;
@@ -96,9 +95,8 @@ public class FlowNodeTransformer implements EntityInterceptor {
       case ActivityTypes.TASK_MANUAL_TASK -> FlowNodeType.MANUAL_TASK;
       case ActivityTypes.TASK_RECEIVE_TASK -> FlowNodeType.RECEIVE_TASK;
       case ActivityTypes.TASK_SEND_TASK -> FlowNodeType.SEND_TASK;
-      case ActivityTypes.TRANSACTION -> FlowNodeType.UNSPECIFIED;
       case ActivityTypes.TASK -> FlowNodeType.TASK;
-      default -> throw new IllegalArgumentException("Unknown type: " + activityType);
+      default -> FlowNodeType.UNKNOWN;
     };
   }
 

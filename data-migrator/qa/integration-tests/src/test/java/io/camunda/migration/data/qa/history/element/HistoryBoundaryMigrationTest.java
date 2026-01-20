@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-public class HistoryBoundryMigrationTest extends HistoryAbstractElementMigrationTest {
+public class HistoryBoundaryMigrationTest extends HistoryAbstractElementMigrationTest {
 
   @Test
   public void shouldMigrateIntermediateThrow() {

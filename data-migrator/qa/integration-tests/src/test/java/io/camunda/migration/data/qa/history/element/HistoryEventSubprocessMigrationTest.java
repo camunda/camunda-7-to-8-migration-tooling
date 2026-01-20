@@ -12,6 +12,7 @@ import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.CO
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.TERMINATED;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.SUB_PROCESS;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.search.entities.FlowNodeInstanceEntity;
@@ -69,5 +70,25 @@ public class HistoryEventSubprocessMigrationTest extends HistoryAbstractElementM
     assertThat(subprocess).hasSize(1);
     assertThat(subprocess.getFirst().state()).isEqualTo(TERMINATED);
   }
+
+  @Test
+  public void shouldMigrateTransactionAsUnspecified() {
+    // given
+    deployer.deployCamunda7Process("transaction.bpmn");
+    runtimeService.startProcessInstanceByKey("transaction");
+
+    // when
+    historyMigrator.start();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("transaction");
+    assertThat(processInstances).hasSize(1);
+
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodes(processInstanceKey);
+    assertThat(flowNodes.stream().filter(fn -> fn.type().equals(UNKNOWN)).toList()).isNotEmpty()
+        .allMatch(fn -> fn.state() == TERMINATED);
+  }
+
 }
 
