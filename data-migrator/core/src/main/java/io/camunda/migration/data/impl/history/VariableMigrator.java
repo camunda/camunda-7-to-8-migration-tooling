@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 
+import io.camunda.db.rdbms.sql.VariableMapper.BatchInsertVariablesDto;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
@@ -24,9 +25,8 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import java.util.Date;
+import java.util.List;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -132,7 +132,7 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
   }
 
   protected void insertVariable(HistoricVariableInstance c7Variable, VariableDbModel dbModel, String c7VariableId) {
-    c8Client.insertVariable(dbModel);
+    c8Client.insertVariable(new BatchInsertVariablesDto(List.of(dbModel)));
     markMigrated(c7VariableId, dbModel.variableKey(), c7Variable.getCreateTime(), HISTORY_VARIABLE);
     HistoryMigratorLogs.migratingHistoricVariableCompleted(c7VariableId);
   }
