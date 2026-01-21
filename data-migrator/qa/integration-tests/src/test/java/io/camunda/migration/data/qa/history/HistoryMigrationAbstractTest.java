@@ -147,6 +147,12 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             f.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
+  public List<AuditLogEntity> searchAuditLogss(String processDefinitionId) {
+    return rdbmsService.getAuditLogReader()
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.processInstanceKeys(123L))))
+        .items();
+  }
 
   /**
    * When the built-in ProcessInstanceTransformer is disabled, the processDefinitionId

@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -47,12 +48,11 @@ public class AuditLogTransformer implements EntityInterceptor {
     if (builder == null) {
       throw new EntityInterceptorException("C8 AuditLogDbModel.Builder is null in context");
     }
-
     builder
         .partitionId(C7_HISTORY_PARTITION_ID)
         .timestamp(convertDate(userOperationLog.getTimestamp()))
         .actorId(userOperationLog.getUserId())
-        .processDefinitionId(userOperationLog.getProcessDefinitionId())
+        .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))
         .annotation(userOperationLog.getAnnotation())
         .tenantId(userOperationLog.getTenantId())
         .category(convertCategory(userOperationLog.getCategory()))
@@ -64,7 +64,7 @@ public class AuditLogTransformer implements EntityInterceptor {
   protected AuditLogEntity.AuditLogOperationCategory convertCategory(String category) {
     return switch (category) {
       case UserOperationLogEntry.CATEGORY_ADMIN -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
-      case UserOperationLogEntry.CATEGORY_OPERATOR -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
+      case UserOperationLogEntry.CATEGORY_OPERATOR -> AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES;
       case UserOperationLogEntry.CATEGORY_TASK_WORKER -> AuditLogEntity.AuditLogOperationCategory.USER_TASKS;
       default -> AuditLogEntity.AuditLogOperationCategory.UNKNOWN;
     };
