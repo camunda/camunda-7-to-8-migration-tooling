@@ -38,11 +38,12 @@ public record AuthorizationMappingEntry (
     return new Builder(c8ResourceType);
   }
 
-  public static final class Builder {
-    private final ResourceType c8ResourceType;
-    private boolean supportsExplicitId;
-    private boolean needsIdMapping;
-    private Map<Permission, Set<PermissionType>> permissionMapping = Map.of();
+  public static class Builder {
+
+    protected final ResourceType c8ResourceType;
+    protected boolean supportsExplicitId;
+    protected boolean needsIdMapping;
+    protected Map<Permission, Set<PermissionType>> permissionMapping = Map.of();
 
     public Builder(ResourceType c8ResourceType) {
       this.c8ResourceType = Objects.requireNonNull(c8ResourceType, "c8ResourceType");

@@ -136,7 +136,7 @@ public class AuthorizationEntityRegistry {
 
         Map.entry(Resources.DECISION_DEFINITION,
             AuthorizationMappingEntry.builder(ResourceType.DECISION_DEFINITION)
-                .needsIdMapping(false)
+                .needsIdMapping(true)
                 .supportsExplicitId(true)
                 .permissionMapping(Map.of(
                     Permissions.ALL, getAllSupportedPerms(ResourceType.DECISION_DEFINITION),
@@ -155,7 +155,7 @@ public class AuthorizationEntityRegistry {
 
         Map.entry(Resources.PROCESS_DEFINITION,
             AuthorizationMappingEntry.builder(ResourceType.PROCESS_DEFINITION)
-                .needsIdMapping(false)
+                .needsIdMapping(true)
                 .supportsExplicitId(true)
                 .permissionMapping(Map.of(
                     ProcessDefinitionPermissions.ALL, getAllSupportedPerms(ResourceType.PROCESS_DEFINITION),

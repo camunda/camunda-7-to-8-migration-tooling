@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.identity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.identity.AuthorizationEntityRegistry.WILDCARD;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_OWNER_NOT_EXISTS;
@@ -19,7 +20,9 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.camunda.bpm.engine.authorization.Resources.APPLICATION;
+import static org.camunda.bpm.engine.authorization.Resources.DECISION_DEFINITION;
 import static org.camunda.bpm.engine.authorization.Resources.DEPLOYMENT;
+import static org.camunda.bpm.engine.authorization.Resources.PROCESS_DEFINITION;
 
 import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.search.enums.OwnerType;
@@ -125,7 +128,8 @@ public class AuthorizationManager {
     if (authMapping.needsIdMapping()) {
       return switch (c7ResourceType) {
         case APPLICATION -> mapApplicationToComponentId(resourceId);
-        case DEPLOYMENT -> mapDeploymentIdToResourceIds(resourceId);
+        case DEPLOYMENT -> mapDeploymentIdToResourceKeys(resourceId);
+        case PROCESS_DEFINITION, DECISION_DEFINITION -> mapDefinitionKeyToPrefixedKey(resourceId);
         default -> throw new IdentityMigratorException("No dynamic id mapper configured for resource type: " + c7ResourceType.resourceName());
       };
     } else {
@@ -175,6 +179,11 @@ public class AuthorizationManager {
         permission1.getValue() == permission2.getValue();
   }
 
+  /**
+   * Maps C7 application IDs to C8 component IDs.
+   * @param applicationId
+   * @return
+   */
   protected Set<String> mapApplicationToComponentId(String applicationId) {
     return switch (applicationId) {
       case WILDCARD -> Set.of(WILDCARD);
@@ -185,9 +194,29 @@ public class AuthorizationManager {
     };
   }
 
-  protected Set<String> mapDeploymentIdToResourceIds(String resourceId) {
+  /**
+   * Maps C7 deployment IDs to all resource IDs (definition keys) that belong to that deployment
+   * @param resourceId
+   * @return
+   */
+  protected Set<String> mapDeploymentIdToResourceKeys(String resourceId) {
     Set<String> allDefinitionsInDeployment = callApi(() -> definitionLookupService.getAllDefinitionKeysForDeployment(resourceId));
     IdentityMigratorLogs.foundDefinitionsInDeployment(allDefinitionsInDeployment.size(), resourceId);
     return allDefinitionsInDeployment;
+  }
+
+  /**
+   * Maps C7 definition keys to the same key and the legacy prefixed key in C8
+   * This is because when we migrate history data, to avoid collisions, we prefix all definition keys with C7_LEGACY_PREFIX
+   * And we need to grant authorizations to both the original and the prefixed keys
+   * @param resourceId
+   * @return
+   */
+  protected Set<String> mapDefinitionKeyToPrefixedKey(String resourceId) {
+    if (resourceId.equals(WILDCARD)) {
+      return Set.of(WILDCARD);
+    } else {
+      return Set.of(resourceId, C7_LEGACY_PREFIX + resourceId);
+    }
   }
 }

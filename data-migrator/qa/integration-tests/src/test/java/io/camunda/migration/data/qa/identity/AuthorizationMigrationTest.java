@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.client.api.search.enums.OwnerType.USER;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_OWNER_NOT_EXISTS;
@@ -154,7 +155,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
   }
 
   @Test
-  public void shouldMigrateAuthorizationsWithSpecificResourceId() {
+  public void shouldMigrateCommonAuthorizationsWithSpecificResourceId() {
     testHelper.createUserInC8("danwhite", "Dan", "White");
     testHelper.createGroupInC8("group", "group");
     testHelper.createTenantInC8("tenant", "tenant");
@@ -164,22 +165,19 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.GROUP, "group", Set.of(Permissions.ALL));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.TENANT, "tenant", Set.of(Permissions.ALL));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.USER, "danwhite", Set.of(Permissions.ALL));
-    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "decDefKey", Set.of(Permissions.ALL));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_REQUIREMENTS_DEFINITION, "decReqDefKey", Set.of(Permissions.ALL));
-    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "procDefKey", Set.of(Permissions.ALL));
+
 
     // when
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(7, USERNAME);
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(5, USERNAME);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME,  getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.GROUP, "group", USER, USERNAME,  getAllSupportedPerms(ResourceType.GROUP));
     assertAuthorizationsContains(authorizations, ResourceType.TENANT, "tenant", USER, USERNAME,  getAllSupportedPerms(ResourceType.TENANT));
     assertAuthorizationsContains(authorizations, ResourceType.USER, "danwhite", USER, USERNAME,  getAllSupportedPerms(ResourceType.USER));
-    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
     assertAuthorizationsContains(authorizations, ResourceType.DECISION_REQUIREMENTS_DEFINITION, "decReqDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_REQUIREMENTS_DEFINITION));
-    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
   }
 
   @Test
@@ -262,6 +260,23 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     // then auths are skipped
     testHelper.verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, "authId", Resources.AUTHORIZATION.resourceName()), logs);
     testHelper.verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownApp", Resources.APPLICATION.resourceName()), logs);
+  }
+
+  @Test
+  public void shouldMigrateTwoAuthorizationsForEachDefinitionAuthorization() {
+    // given
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DECISION_DEFINITION, "decDefKey", Set.of(Permissions.ALL));
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "procDefKey", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.migrate();
+
+    // then
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME);
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, C7_LEGACY_PREFIX + "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, C7_LEGACY_PREFIX + "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
   }
   
 }

@@ -211,7 +211,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(mapping.isPresent()).isTrue();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.DECISION_DEFINITION);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
-    assertThat(mapping.get().needsIdMapping()).isFalse();
+    assertThat(mapping.get().needsIdMapping()).isTrue();
 
     assertThat(mapping.get().getMappedPermissions(Permissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_DECISION_DEFINITION, PermissionType.READ_DECISION_INSTANCE);
     assertThat(mapping.get().getMappedPermissions(Permissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_DECISION_INSTANCE);
@@ -241,7 +241,7 @@ class AuthorizationEntityRegistryTest {
     assertThat(mapping.isPresent()).isTrue();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.PROCESS_DEFINITION);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
-    assertThat(mapping.get().needsIdMapping()).isFalse();
+    assertThat(mapping.get().needsIdMapping()).isTrue();
 
     assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.READ)).containsExactlyInAnyOrder(PermissionType.READ_PROCESS_DEFINITION);
     assertThat(mapping.get().getMappedPermissions(ProcessDefinitionPermissions.CREATE_INSTANCE)).containsExactlyInAnyOrder(PermissionType.CREATE_PROCESS_INSTANCE);
