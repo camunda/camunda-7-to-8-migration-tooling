@@ -720,9 +720,6 @@ categories:
             </extensionElements>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
               <documentation/>
-              <extensionElements>
-                <zeebe:conditionalFilter/>
-              </extensionElements>
               <bpmn:condition xsi:type="bpmn:tFormalExpression">=myVariable = true</bpmn:condition>
             </bpmn:conditionalEventDefinition>
           </bpmn:intermediateCatchEvent>
@@ -745,12 +742,33 @@ categories:
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
               <documentation/>
-              <extensionElements>
-                <zeebe:conditionalFilter/>
-              </extensionElements>
               <bpmn:condition xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
           <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
-
+      - name: Conditional start event with variable filter
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr" camunda:variableName="variable" camunda:variableEvents="update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">${x &gt; 10}</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <extensionElements>
+            </extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableNames="variable" variableEvents="update" />
+              </bpmn:extensionElements>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>

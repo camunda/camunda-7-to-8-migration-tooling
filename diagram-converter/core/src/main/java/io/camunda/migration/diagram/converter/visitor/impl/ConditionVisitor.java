@@ -44,8 +44,7 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     if (isInsideConditionalEventDefinition(context)) {
       return SemanticVersion._8_9;
     }
-    // For other contexts, let other visitors handle it
-    return SemanticVersion._8_0;
+    return null;
   }
 
   @Override
@@ -117,10 +116,26 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
     DomElement extensionElements =
         BpmnElementFactory.getExtensionElements(conditionalEventDefinition);
+    String variableName = conditionalEventDefinition.getAttribute(CAMUNDA, "variableName");
+    String variableEvents = conditionalEventDefinition.getAttribute(CAMUNDA, "variableEvents");
 
-    // Create and add zeebe:conditionalFilter element
+    if (StringUtils.isBlank(variableName) && StringUtils.isBlank(variableEvents)) {
+      return;
+    }
+
     DomElement conditionalFilter =
         context.getElement().getDocument().createElement(ZEEBE, "conditionalFilter");
+
+    if (StringUtils.isNotBlank(variableName)) {
+      conditionalFilter.setAttribute("variableNames", variableName);
+      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
+    }
+
+    if (StringUtils.isNotBlank(variableEvents)) {
+      conditionalFilter.setAttribute("variableEvents", variableEvents);
+      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableEvents");
+    }
+
     extensionElements.appendChild(conditionalFilter);
   }
 }
