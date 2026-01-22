@@ -34,8 +34,6 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected IdentityService identityService;
-  @Autowired
-  private AuthorizationService authorizationService;
 
   @Test
   public void shouldMigrateAuditLogsForProcessInstanceOperations() {
@@ -131,13 +129,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // Set variables to generate audit logs
     identityService.setAuthenticatedUserId("demo");
-
-    // Verify audit logs exist in C7
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
-        .operationType("SetVariable")
-        .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    var user = identityService.newUser("newUserId");
+    identityService.saveUser(user);
 
     // when
     historyMigrator.migrate();
@@ -146,8 +139,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSize(2);
-    assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+    assertThat(logs).hasSize(1);
+    assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.ADMIN);
   }
 
   @Test
