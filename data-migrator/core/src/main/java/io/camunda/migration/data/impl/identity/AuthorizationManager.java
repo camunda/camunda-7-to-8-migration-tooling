@@ -54,9 +54,6 @@ public class AuthorizationManager {
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   @Autowired
-  protected RepositoryService repositoryService;
-
-  @Autowired
   protected C8Client c8Client;
 
   @Autowired
@@ -201,10 +198,15 @@ public class AuthorizationManager {
    */
   protected Set<String> mapDeploymentIdToResourceKeys(String resourceId) {
     // Retrieve all keys
-    Set<String> allDefinitionsInDeployment = callApi(() -> definitionLookupService.getAllDefinitionKeysForDeployment(resourceId));
+    Set<String> allDefinitionsInDeployment = callApi(
+        () -> definitionLookupService.getAllDefinitionKeysForDeployment(resourceId),
+        "There was an error while querying for definitions in deployment " + resourceId
+    );
     IdentityMigratorLogs.foundDefinitionsInDeployment(allDefinitionsInDeployment.size(), resourceId);
     // Then map each key to both the original and the prefixed key
-    return allDefinitionsInDeployment.stream().flatMap(s -> mapDefinitionKeyToPrefixedKey(s).stream()).collect(Collectors.toSet());
+    return allDefinitionsInDeployment.stream()
+        .flatMap(key -> mapDefinitionKeyToPrefixedKey(key).stream())
+        .collect(Collectors.toSet());
   }
 
   /**

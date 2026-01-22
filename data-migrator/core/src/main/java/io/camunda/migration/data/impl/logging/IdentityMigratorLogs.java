@@ -24,7 +24,7 @@ public class IdentityMigratorLogs {
   public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}]";
   public static final String SKIPPED_AUTH = "Authorization with ID [{}] was skipped: {}";
-  public static final String FOUND_DEFINITIONS_IN_DEPLOYMENT = "Found {} definitions for deployment [{}], an authorization will be created for each";
+  public static final String FOUND_DEFINITIONS_IN_DEPLOYMENT = "Found {} definitions for deployment [{}]";
   public static final String FOUND_CMMN_IN_DEPLOYMENT = "Found {} CMMN resources for deployment [{}], but CMMN is not supported in Camunda 8";
 
   // Failure reasons constants

@@ -181,6 +181,25 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
   }
 
   @Test
+  public void shouldMigrateDeploymentAuthorizationWithDRD() {
+    // given
+    Deployment deployment = deployer.createDeployment("io/camunda/migration/data/dmn/c7/simpleDmnWithReqs.dmn");
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.READ));
+
+    // when
+    identityMigrator.migrate();
+
+    // then
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment (2 DD and 1 DRD)
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqsId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqsId"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs2Id", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs2Id"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs1Id", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs1Id"), USER, USERNAME, Set.of(PermissionType.READ));
+  }
+
+  @Test
   public void shouldSkipDeploymentAuthorizationWhenDeploymentHasNoResources() {
     // given
     Authorization authorization = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, "unknownDeploymentId", Set.of(Permissions.ALL));

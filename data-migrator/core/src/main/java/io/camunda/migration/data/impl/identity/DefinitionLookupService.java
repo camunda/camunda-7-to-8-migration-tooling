@@ -33,8 +33,8 @@ public class DefinitionLookupService {
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   /**
-   * Returns all keys of process, decision, DRD, case and form
-   * definitions that belong to the given deployment.
+   * Returns all keys of process, decision, DRD and form definitions that belong to the given deployment.
+   * Case definitions are not supported in Camunda 8, so if any are found, a message is logged.
    */
   public Set<String> getAllDefinitionKeysForDeployment(String deploymentId) {
     if (WILDCARD.equals(deploymentId)) {
