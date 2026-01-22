@@ -104,7 +104,7 @@ public class C8Configuration extends AbstractConfiguration {
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX
       + ".c8.data-source", name = "auto-ddl", havingValue = "true")
   public MultiTenantSpringLiquibase createRdbmsExporterSchema(VendorDatabaseProperties vendorDatabaseProperties) {
-    String userCharColumnSize = "";
+    String userCharColumnSize;
     try {
       userCharColumnSize = String.valueOf(vendorDatabaseProperties.userCharColumnSize());
     } catch (Exception e) {
@@ -478,6 +478,7 @@ public class C8Configuration extends AbstractConfiguration {
       FlowNodeInstanceMapper flowNodeInstanceMapper,
       IncidentMapper incidentMapper,
       ProcessInstanceMapper processInstanceMapper,
+      ProcessDefinitionMapper processDefinitionMapper,
       PurgeMapper purgeMapper,
       UserTaskMapper userTaskMapper,
       VariableMapper variableMapper,
@@ -501,6 +502,7 @@ public class C8Configuration extends AbstractConfiguration {
         flowNodeInstanceMapper,
         incidentMapper,
         processInstanceMapper,
+        processDefinitionMapper,
         purgeMapper,
         userTaskMapper,
         variableMapper,
