@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
@@ -129,10 +130,11 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("subProcess");
     completeAllUserTasksWithDefaultUserTaskId();
 
-    // when
+    // when we migrate the history
+    // the flow node of start event ("start_insideSub") in subprocess can be processed before its parent flow node ("subprocess"),
+    // causing the "start_insideSub" to be skipped
     historyMigrator.migrate();
-    // Subprocesses and the start inside a subprocess have the same createTime, leading to the start sometimes being
-    // skipped on first round. Retrying skipped to avoid test flakiness
+    // retry the skipped ones to ensure all flow nodes are migrated
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrate();
 
@@ -196,6 +198,50 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
       assertThat(flowNode.flowNodeScopeKey())
           .isEqualTo(childProcessInstanceKey);
     }
+  }
+
+  @Test
+  public void shouldSetPartitionIdForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).isNotEmpty()
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(C7_HISTORY_PARTITION_ID));
+  }
+
+  @Test
+  public void shouldSetFlowNodeNameForFlowNodes() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+
+    assertThat(flowNodes).hasSize(3)
+        .extracting(FlowNodeInstanceDbModel::flowNodeName)
+        .containsExactlyInAnyOrder("Start", "UserTaskName", "End");
+
   }
 
   private void deploySubprocessModel() {

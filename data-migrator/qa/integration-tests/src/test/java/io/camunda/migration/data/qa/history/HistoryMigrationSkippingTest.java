@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INCIDENT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_USER_TASK_MISSING_PROCESS;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -535,4 +536,37 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(userTasks.getFirst().elementId()).as("User task should have correct id").isEqualTo("userTaskId");
   }
 
+  @Test
+  public void shouldSkipFlowNodeWhenProcessDefinitionNotMigrated() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    String id = historyService.createHistoricActivityInstanceQuery().activityId(USER_TASK_ID).singleResult().getId();
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+
+    // then
+    assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION, id));
+  }
+
+  @Test
+  public void shouldSkipFlowNodeWhenProcessInstanceNotMigrated() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    String id = historyService.createHistoricActivityInstanceQuery().activityId(USER_TASK_ID).singleResult().getId();
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateFlowNodes();
+
+    // then
+    assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_INSTANCE, id));
+  }
 }
