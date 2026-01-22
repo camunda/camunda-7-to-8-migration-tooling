@@ -10,7 +10,9 @@ package io.camunda.migration.data.impl.history;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -20,8 +22,6 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
@@ -65,10 +65,13 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
    * <p>Skip scenarios:
    * <ul>
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
+   *   <li>Parent flow node (scope) not yet migrated - skipped with {@code SKIP_REASON_MISSING_PARENT_FLOW_NODE}</li>
+   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
    * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion
+   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
   public void migrateOne(HistoricActivityInstance c7FlowNode) {
@@ -84,6 +87,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(c7FlowNode,
             HistoricActivityInstance.class, flowNodeDbModelBuilder);
 
+        String c7RootProcessInstanceId = c7FlowNode.getRootProcessInstanceId();
         if (processInstance != null) {
           Long processInstanceKey = processInstance.processInstanceKey();
           Long processDefinitionKey = findProcessDefinitionKey(c7FlowNode.getProcessDefinitionId());
@@ -93,6 +97,13 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
               .processDefinitionKey(processDefinitionKey)
               .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
               .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
+
+          if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+              flowNodeDbModelBuilder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            }
+          }
 
           Long flowNodeScopeKey = resolveFlowNodeScopeKey(c7FlowNode, c7FlowNode.getProcessInstanceId(),
               processInstanceKey);
@@ -109,6 +120,9 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
         } else if (dbModel.flowNodeScopeKey() == null) {
           markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_FLOW_NODE);
           HistoryMigratorLogs.skippingHistoricFlowNode(c7FlowNodeId);
+        } else if (c7RootProcessInstanceId != null && dbModel.rootProcessInstanceKey() == null) {
+          markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+          HistoryMigratorLogs.skippingHistoricFlowNodeMissingRootProcess(c7FlowNodeId);
         } else {
           insertFlowNodeInstance(c7FlowNode, dbModel, c7FlowNodeId);
         }
