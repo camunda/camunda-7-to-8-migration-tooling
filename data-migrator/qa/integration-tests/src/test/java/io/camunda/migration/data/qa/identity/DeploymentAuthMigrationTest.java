@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.client.api.search.enums.OwnerType.USER;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsContains;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.getAllSupportedPerms;
 import static java.lang.String.format;
@@ -66,10 +67,13 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME); // One for each resource contained in the deployment
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // One for each resource contained in the deployment
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
   }
 
   @Test
@@ -86,10 +90,13 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME); // One for each resource contained in the deployment
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.CREATE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.CREATE));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
   }
 
   @Test
@@ -106,11 +113,14 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME); // One for each resource contained in the deployment
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
     var expectedPermissions = Set.of(PermissionType.DELETE_RESOURCE, PermissionType.DELETE_PROCESS, PermissionType.DELETE_DRD, PermissionType.DELETE_FORM);
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, expectedPermissions);
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, expectedPermissions);
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  expectedPermissions);
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  expectedPermissions);
   }
 
   @Test
@@ -127,10 +137,13 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME); // One for each resource contained in the deployment
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.READ));
   }
 
   @Test
@@ -147,9 +160,11 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     identityMigrator.migrate();
 
     // then
-    var authorizations = testHelper.awaitAuthorizationsCountAndGet(2, USERNAME); // Only 2 because CMMN is not supported in C8
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME); // Two for each resource contained in the deployment (excluding CMMN)
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
     assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
   }
 
   @Test

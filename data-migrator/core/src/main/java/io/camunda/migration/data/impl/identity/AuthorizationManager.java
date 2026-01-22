@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.impl.identity;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.identity.AuthorizationEntityRegistry.WILDCARD;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_OWNER_NOT_EXISTS;
@@ -201,9 +200,11 @@ public class AuthorizationManager {
    * @return
    */
   protected Set<String> mapDeploymentIdToResourceKeys(String resourceId) {
+    // Retrieve all keys
     Set<String> allDefinitionsInDeployment = callApi(() -> definitionLookupService.getAllDefinitionKeysForDeployment(resourceId));
     IdentityMigratorLogs.foundDefinitionsInDeployment(allDefinitionsInDeployment.size(), resourceId);
-    return allDefinitionsInDeployment;
+    // Then map each key to both the original and the prefixed key
+    return allDefinitionsInDeployment.stream().flatMap(s -> mapDefinitionKeyToPrefixedKey(s).stream()).collect(Collectors.toSet());
   }
 
   /**
