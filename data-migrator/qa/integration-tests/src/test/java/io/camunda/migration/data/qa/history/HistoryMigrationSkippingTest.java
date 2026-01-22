@@ -567,6 +567,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then
     assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
-    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS, id));
+    logs.assertContains(formatMessage(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_INSTANCE, id));
   }
 }

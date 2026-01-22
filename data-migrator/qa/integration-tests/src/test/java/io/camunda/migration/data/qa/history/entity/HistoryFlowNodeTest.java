@@ -130,10 +130,11 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey("subProcess");
     completeAllUserTasksWithDefaultUserTaskId();
 
-    // when migrating flow nodes we order by activity id and start time,
-    // so that the subprocess flow node can be processed before its parent flow node, and they might be skipped initially;
-    // we then retry the skipped ones to ensure they are migrated
+    // when we migrate the history
+    // the flow node of start event ("start_insideSub") in subprocess can be processed before its parent flow node ("subprocess"),
+    // causing the "start_insideSub" to be skipped
     historyMigrator.migrate();
+    // retry the skipped ones to ensure all flow nodes are migrated
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrate();
 

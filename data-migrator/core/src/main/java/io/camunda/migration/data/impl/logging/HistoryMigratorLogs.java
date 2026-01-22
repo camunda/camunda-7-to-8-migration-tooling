@@ -83,10 +83,10 @@ public class HistoryMigratorLogs {
 
   public static final String MIGRATING_FLOW_NODES = "Migrating historic flow nodes";
   public static final String MIGRATING_FLOW_NODE = "Migrating historic flow nodes with C7 ID: [{}]";
-  public static final String MIGRATING_FLOW_NODE_COMPLETED = "Migration of historic flow nodes with C7 ID [{}] completed.";
-  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS = "Migration of historic flow nodes with C7 ID [{}] skipped. Process instance yet not available.";
-  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION = "Migration of historic flow nodes with C7 ID [{}] skipped. Process definition yet not available.";
-  public static final String SKIPPING_FLOW_NODE_MISSING_PARENT = "Migration of historic flow nodes with C7 ID [{}] "
+  public static final String MIGRATING_FLOW_NODE_COMPLETED = "Migration of historic flow node with C7 ID [{}] completed.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS_INSTANCE = "Migration of historic flow node with C7 ID [{}] skipped. Process instance not yet available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION = "Migration of historic flow node with C7 ID [{}] skipped. Process definition not yet available.";
+  public static final String SKIPPING_FLOW_NODE_MISSING_PARENT = "Migration of historic flow node with C7 ID [{}] "
       + "skipped. Missing parent flow node. Rerun migration for skipped flow nodes to ensure complete migration.";
   public static final String SKIPPING_FLOW_NODE_MISSING_ROOT = "Migration of historic flow nodes with C7 ID [{}] skipped. Root process instance yet not available.";
 

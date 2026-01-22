@@ -9,7 +9,7 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PARENT;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
@@ -203,7 +203,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
       HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION, c7FlowNodeId);
     } else if (dbModel.processInstanceKey() == null) {
       markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PROCESS_INSTANCE);
-      HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PROCESS, c7FlowNodeId);
+      HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PROCESS_INSTANCE, c7FlowNodeId);
     } else if (dbModel.flowNodeScopeKey() == null) {
       markSkipped(c7FlowNodeId, HISTORY_FLOW_NODE, c7FlowNode.getStartTime(), SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
       HistoryMigratorLogs.skippingHistoricFlowNode(SKIPPING_FLOW_NODE_MISSING_PARENT, c7FlowNodeId);

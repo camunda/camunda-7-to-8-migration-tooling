@@ -234,7 +234,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   @Test
   public void shouldMigrateFlowNodeWithScopeKey() {
     // given
-    configureScopeKey(false);
+    skipSettingScopeKeyForFlowNode(true);
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
     completeAllUserTasksWithDefaultUserTaskId();
@@ -246,7 +246,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
 
     // when
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    configureScopeKey(true);
+    skipSettingScopeKeyForFlowNode(false);
     historyMigrator.migrateFlowNodes();
 
     // then
@@ -256,15 +256,16 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     for (FlowNodeInstanceDbModel flowNode : flowNodes) {
       assertThat(flowNode.processInstanceKey()).isEqualTo(1L);
       assertThat(flowNode.processDefinitionKey()).isEqualTo(2L);
+      assertThat(flowNode.flowNodeScopeKey()).isEqualTo(1L);
     }
   }
 
-  protected void configureScopeKey(boolean configure) {
+  protected void skipSettingScopeKeyForFlowNode(boolean configure) {
     configuredEntityInterceptors.stream()
         .filter(interceptor -> interceptor instanceof io.camunda.migration.data.qa.history.entity.interceptor.bean
             .PresetFlowNodeInterceptor)
         .map(interceptor -> (io.camunda.migration.data.qa.history.entity.interceptor.bean.PresetFlowNodeInterceptor)
             interceptor)
-        .forEach(interceptor -> interceptor.setConfigureScopeKey(configure));
+        .forEach(interceptor -> interceptor.setSkipSettingScopeKey(configure));
   }
 }
