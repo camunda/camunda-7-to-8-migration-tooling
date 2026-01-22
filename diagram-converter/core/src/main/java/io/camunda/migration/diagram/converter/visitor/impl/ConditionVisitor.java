@@ -103,7 +103,7 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
       return;
     }
     // Other script languages (JavaScript, Groovy, etc.) - add warning
-    context.addMessage(MessageFactory.scriptOnConditionalFlow(language, expression));
+    context.addMessage(MessageFactory.scriptOnConditionalEvent(language, expression));
   }
 
   private void handleFeelExpression(DomElementVisitorContext context, String expression) {
