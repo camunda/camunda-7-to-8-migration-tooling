@@ -40,4 +40,8 @@ public class AuthorizationMappingResult {
   public String getReason() {
     return reason;
   }
+
+  public boolean isSingleAuth() {
+    return c8authorizations.size() == 1;
+  }
 }

@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILUR
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -216,7 +217,7 @@ public class AuthorizationManager {
     if (resourceId.equals(WILDCARD)) {
       return Set.of(WILDCARD);
     } else {
-      return Set.of(resourceId, C7_LEGACY_PREFIX + resourceId);
+      return Set.of(resourceId, prefixDefinitionId(resourceId));
     }
   }
 }

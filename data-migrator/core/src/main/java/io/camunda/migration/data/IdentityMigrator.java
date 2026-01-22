@@ -86,12 +86,18 @@ public class IdentityMigrator {
     AuthorizationMappingResult mappingResult = authorizationManager.mapAuthorization(authorization);
 
     if (mappingResult.isSuccess()) {
+      List<CreateAuthorizationResponse> migratedAuths = new ArrayList<>();
       try {
-        List<C8Authorization> authsToMigrate = mappingResult.getC8Authorizations();
-        List<CreateAuthorizationResponse> migratedAuths = new ArrayList<>();
-        for (C8Authorization auth : authsToMigrate) {
-          IdentityMigratorLogs.logMigratingChildAuthorization(auth.resourceId());
-          migratedAuths.add(c8Client.createAuthorization(authorization.getId(), auth));
+        if (mappingResult.isSingleAuth()) {
+          migratedAuths.add(c8Client.createAuthorization(authorization.getId(), mappingResult.getC8Authorizations().getFirst()));
+        } else {
+          List<C8Authorization> authsToMigrate = mappingResult.getC8Authorizations();
+          for (C8Authorization auth : authsToMigrate) {
+            IdentityMigratorLogs.logMigratingChildAuthorization(auth.resourceId());
+            CreateAuthorizationResponse response = c8Client.createAuthorization(authorization.getId(), auth);
+            migratedAuths.add(response);
+            IdentityMigratorLogs.logMigratedChildAuthorization(auth.resourceId());
+          }
         }
         IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());

@@ -33,7 +33,7 @@ public class DefinitionLookupService {
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   /**
-   * Returns all IDs of process, decision, DRD, case and form
+   * Returns all keys of process, decision, DRD, case and form
    * definitions that belong to the given deployment.
    */
   public Set<String> getAllDefinitionKeysForDeployment(String deploymentId) {
@@ -53,7 +53,7 @@ public class DefinitionLookupService {
     ids.addAll(getDecisionReqDefinitionKeys(deploymentId));
 
     // Camunda Forms
-    ids.addAll(getCamundaFormDefinitionIdsForDeployment(deploymentId));
+    ids.addAll(getCamundaFormDefinitionKeys(deploymentId));
 
     // CMMN (not supported in Camunda 8, so just log if any are found)
     List<String> caseDefinitions = getCaseDefinitionKeys(deploymentId);
@@ -100,7 +100,7 @@ public class DefinitionLookupService {
         .toList();
   }
 
-  protected List<String> getCamundaFormDefinitionIdsForDeployment(String deploymentId) {
+  protected List<String> getCamundaFormDefinitionKeys(String deploymentId) {
     return processEngineConfiguration
       .getCommandExecutorTxRequired()
       .execute(commandContext ->

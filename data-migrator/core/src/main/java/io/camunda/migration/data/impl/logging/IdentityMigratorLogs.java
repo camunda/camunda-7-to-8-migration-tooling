@@ -21,6 +21,7 @@ public class IdentityMigratorLogs {
   public static final String SKIPPED_TENANT = "Tenant with ID [{}] was skipped";
   public static final String MIGRATING_AUTH = "Migrating authorization [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
+  public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}]";
   public static final String SKIPPED_AUTH = "Authorization with ID [{}] was skipped: {}";
   public static final String FOUND_DEFINITIONS_IN_DEPLOYMENT = "Found {} definitions for deployment [{}], an authorization will be created for each";
@@ -53,6 +54,10 @@ public class IdentityMigratorLogs {
 
   public static void logMigratingChildAuthorization(String resourceId) {
     LOGGER.debug(MIGRATING_CHILD_AUTH, resourceId);
+  }
+
+  public static void logMigratedChildAuthorization(String resourceId) {
+    LOGGER.debug(SUCCESSFULLY_MIGRATED_CHILD_AUTH, resourceId);
   }
 
   public static void logMigratedAuthorization(String authId) {

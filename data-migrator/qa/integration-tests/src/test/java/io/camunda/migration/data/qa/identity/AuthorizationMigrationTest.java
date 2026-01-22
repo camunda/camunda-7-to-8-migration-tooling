@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILUR
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsContains;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.getAllSupportedPerms;
 import static java.lang.String.format;
@@ -274,9 +275,9 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME);
     assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
-    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, C7_LEGACY_PREFIX + "procDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, prefixDefinitionId("procDefKey"), USER, USERNAME,  getAllSupportedPerms(ResourceType.PROCESS_DEFINITION));
     assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
-    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, C7_LEGACY_PREFIX + "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
+    assertAuthorizationsContains(authorizations, ResourceType.DECISION_DEFINITION, prefixDefinitionId("decDefKey"), USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
   }
   
 }
