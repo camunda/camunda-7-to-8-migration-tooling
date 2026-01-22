@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,10 +21,10 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
   @Test
   public void shouldMigrateHistoricProcessDefinitions() {
     // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn", null);
     deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant1");
-    deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant2");
 
-    // when history is migrated
+    // when
     historyMigrator.migrate();
 
     // then
@@ -35,7 +36,7 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
       assertThat(definition.name()).isEqualTo("UserTaskProcess");
       assertThat(definition.version()).isEqualTo(1);
       if (!definition.tenantId().equals("my-tenant1")) {
-        assertThat(definition.tenantId()).isEqualTo("my-tenant2");
+        assertThat(definition.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       }
       assertThat(definition.versionTag()).isEqualTo("custom-version-tag");
       assertThat(definition.bpmnXml()).isNotEmpty();

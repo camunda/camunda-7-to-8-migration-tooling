@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.IncidentEntity.IncidentState.RESOLVED;
 
@@ -48,7 +49,7 @@ public class IncidentTransformer implements EntityInterceptor {
         .creationDate(convertDate(historicIncident.getCreateTime()))
         .state(RESOLVED) // Mark incident always as resolved
         .treePath(null) //TODO ?
-        .tenantId(historicIncident.getTenantId());
+        .tenantId(getTenantId(historicIncident.getTenantId()));
     // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 

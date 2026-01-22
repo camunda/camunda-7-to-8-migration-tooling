@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
@@ -48,7 +49,7 @@ public class FlowNodeTransformer implements EntityInterceptor {
         .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
         .type(convertType(flowNode.getActivityType()))
-        .tenantId(flowNode.getTenantId())
+        .tenantId(getTenantId(flowNode.getTenantId()))
         .state(determineState(flowNode))
         .partitionId(C7_HISTORY_PARTITION_ID)
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
