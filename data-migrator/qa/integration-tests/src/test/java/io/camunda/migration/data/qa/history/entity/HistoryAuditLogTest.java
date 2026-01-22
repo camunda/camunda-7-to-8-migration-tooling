@@ -9,16 +9,11 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
-import io.camunda.search.entities.DecisionDefinitionEntity;
-import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
-import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.IdentityService;
-import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,23 +119,24 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   @Test
   public void shouldMigrateAuditLogsForUser() {
     // given
-    deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+//    deployer.deployCamunda7Process("simpleProcess.bpmn");
+//    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // Set variables to generate audit logs
     identityService.setAuthenticatedUserId("demo");
     var user = identityService.newUser("newUserId");
     identityService.saveUser(user);
 
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .count();
+    assertThat(auditLogCount).isGreaterThan(0);
+
     // when
     historyMigrator.migrate();
 
     // then
-    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
-    assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
-    assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.ADMIN);
   }
 
   @Test

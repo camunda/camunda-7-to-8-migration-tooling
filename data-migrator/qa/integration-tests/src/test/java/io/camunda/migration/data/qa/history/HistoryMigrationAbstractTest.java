@@ -147,6 +147,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             f.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
+
+  public List<AuditLogEntity> searchAuditLogsByCategory(String name) {
+    return rdbmsService.getAuditLogReader()
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.categories(name))))
+        .items();
+  }
+
   public List<AuditLogEntity> searchAuditLogss(String processDefinitionId) {
     return rdbmsService.getAuditLogReader()
         .search(AuditLogQuery.of(q -> q.filter(f ->
