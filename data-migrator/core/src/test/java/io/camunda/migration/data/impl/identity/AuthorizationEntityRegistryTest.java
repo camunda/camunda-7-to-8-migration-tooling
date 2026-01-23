@@ -54,7 +54,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.APPLICATION);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.COMPONENT);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isTrue();
@@ -69,7 +69,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.AUTHORIZATION);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.AUTHORIZATION);
     assertThat(mapping.get().supportsExplicitId()).isFalse();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -87,7 +87,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.GROUP);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -105,7 +105,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.GROUP_MEMBERSHIP);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.GROUP);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -119,7 +119,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.SYSTEM);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.SYSTEM);
     assertThat(mapping.get().supportsExplicitId()).isFalse();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -134,7 +134,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.BATCH);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.BATCH);
     assertThat(mapping.get().supportsExplicitId()).isFalse();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -158,7 +158,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.TENANT);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -176,7 +176,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.TENANT_MEMBERSHIP);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.TENANT);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -190,7 +190,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.USER);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.USER);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -208,7 +208,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DECISION_DEFINITION);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.DECISION_DEFINITION);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isTrue();
@@ -224,7 +224,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DECISION_REQUIREMENTS_DEFINITION);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.DECISION_REQUIREMENTS_DEFINITION);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isFalse();
@@ -238,7 +238,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.PROCESS_DEFINITION);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.PROCESS_DEFINITION);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isTrue();
@@ -260,7 +260,7 @@ class AuthorizationEntityRegistryTest {
     var mapping = AuthorizationEntityRegistry.findMappingForResourceType(Resources.DEPLOYMENT);
 
     // then
-    assertThat(mapping.isPresent()).isTrue();
+    assertThat(mapping).isPresent();
     assertThat(mapping.get().c8ResourceType()).isEqualTo(ResourceType.RESOURCE);
     assertThat(mapping.get().supportsExplicitId()).isTrue();
     assertThat(mapping.get().needsIdMapping()).isTrue();

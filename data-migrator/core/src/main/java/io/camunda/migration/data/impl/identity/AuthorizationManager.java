@@ -179,7 +179,7 @@ public class AuthorizationManager {
   /**
    * Maps C7 application IDs to C8 component IDs.
    * @param applicationId
-   * @return
+   * @return the equivalent component ID
    */
   protected Set<String> mapApplicationToComponentId(String applicationId) {
     return switch (applicationId) {
@@ -194,7 +194,7 @@ public class AuthorizationManager {
   /**
    * Maps C7 deployment IDs to all resource IDs (definition keys) that belong to that deployment
    * @param resourceId
-   * @return
+   * @return a set of all resource keys belonging to the deployment
    */
   protected Set<String> mapDeploymentIdToResourceKeys(String resourceId) {
     // Retrieve all keys
@@ -214,7 +214,7 @@ public class AuthorizationManager {
    * This is because when we migrate history data, to avoid collisions, we prefix all definition keys with C7_LEGACY_PREFIX
    * And we need to grant authorizations to both the original and the prefixed keys
    * @param resourceId
-   * @return
+   * @return a set containing both the original and the prefixed key
    */
   protected Set<String> mapDefinitionKeyToPrefixedKey(String resourceId) {
     if (resourceId.equals(WILDCARD)) {
