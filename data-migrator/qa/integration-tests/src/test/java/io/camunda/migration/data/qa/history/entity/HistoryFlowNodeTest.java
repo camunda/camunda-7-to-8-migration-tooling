@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
@@ -198,6 +199,34 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
       assertThat(flowNode.flowNodeScopeKey())
           .isEqualTo(childProcessInstanceKey);
     }
+  }
+
+  @Test
+  public void shouldMigrateFlowNodeTenant() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn", "tenantA");
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> tenantAInstances = searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> defaultTenantInstances = searchHistoricProcessInstances("simpleProcess");
+    assertThat(tenantAInstances).hasSize(1);
+    assertThat(defaultTenantInstances).hasSize(1);
+    Long tenantAProcessInstanceKey = tenantAInstances.getFirst().processInstanceKey();
+    Long defaultTenantProcessInstanceKey = defaultTenantInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceEntity> tenantAFlowNodes = searchHistoricFlowNodes(tenantAProcessInstanceKey);
+    List<FlowNodeInstanceEntity> defaultTenantFlowNodes = searchHistoricFlowNodes(defaultTenantProcessInstanceKey);
+    assertThat(tenantAFlowNodes).hasSize(2)
+        .extracting(FlowNodeInstanceEntity::tenantId)
+        .containsOnly("tenantA");
+    assertThat(defaultTenantFlowNodes).hasSize(2)
+        .extracting(FlowNodeInstanceEntity::tenantId)
+        .containsOnly(C8_DEFAULT_TENANT);
   }
 
   @Test

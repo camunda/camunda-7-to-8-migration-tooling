@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
@@ -53,7 +54,7 @@ public class ProcessDefinitionTransformer implements EntityInterceptor {
         .processDefinitionId(prefixDefinitionId(c7ProcessDefinition.getKey()))
         .resourceName(resourceName)
         .name(c7ProcessDefinition.getName())
-        .tenantId(c7ProcessDefinition.getTenantId())
+        .tenantId(getTenantId(c7ProcessDefinition.getTenantId()))
         .versionTag(c7ProcessDefinition.getVersionTag())
         .version(c7ProcessDefinition.getVersion())
         .bpmnXml(bpmnXml)
