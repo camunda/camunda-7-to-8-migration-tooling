@@ -121,4 +121,14 @@ public class ProcessDefinitionDeployer {
   public void deployC7ModelInstance(String process, BpmnModelInstance c7Model) {
     repositoryService.createDeployment().addModelInstance(process + ".bpmn", c7Model).deploy();
   }
+
+  public Deployment createDeployment(String... fileNames) {
+    var deploymentBuilder = repositoryService.createDeployment();
+
+    for (String fileName : fileNames) {
+      deploymentBuilder.addClasspathResource(fileName);
+    }
+
+    return deploymentBuilder.deploy();
+  }
 }

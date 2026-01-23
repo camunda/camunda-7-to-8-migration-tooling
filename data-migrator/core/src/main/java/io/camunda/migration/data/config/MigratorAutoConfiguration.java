@@ -37,6 +37,7 @@ import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.VariableMigrator;
 
+import io.camunda.migration.data.impl.identity.DefinitionLookupService;
 import java.util.Optional;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
@@ -75,6 +76,7 @@ import org.springframework.transaction.PlatformTransactionManager;
     RuntimeMigrator.class,
     IdentityMigrator.class,
     AuthorizationManager.class,
+    DefinitionLookupService.class,
     DecisionDefinitionMigrator.class,
     DecisionInstanceMigrator.class,
     DecisionRequirementsMigrator.class,

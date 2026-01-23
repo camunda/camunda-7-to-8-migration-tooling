@@ -14,9 +14,11 @@ import io.camunda.migration.data.impl.identity.AuthorizationMappingResult;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
+import java.util.ArrayList;
 import java.util.List;
 import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.identity.Tenant;
@@ -81,18 +83,29 @@ public class IdentityMigrator {
 
   protected void migrateAuthorization(Authorization authorization) {
     IdentityMigratorLogs.logMigratingAuthorization(authorization.getId());
-    AuthorizationMappingResult authorizationMapping = authorizationManager.mapAuthorization(authorization);
+    AuthorizationMappingResult mappingResult = authorizationManager.mapAuthorization(authorization);
 
-    if (authorizationMapping.isSuccess()) {
+    if (mappingResult.isSuccess()) {
+      List<CreateAuthorizationResponse> migratedAuths = new ArrayList<>();
       try {
-        CreateAuthorizationResponse migratedAuthorization = c8Client.createAuthorization(authorization.getId(), authorizationMapping.getC8Authorization());
+        if (mappingResult.isSingleAuth()) {
+          migratedAuths.add(c8Client.createAuthorization(authorization.getId(), mappingResult.getC8Authorizations().getFirst()));
+        } else {
+          List<C8Authorization> authsToMigrate = mappingResult.getC8Authorizations();
+          for (C8Authorization auth : authsToMigrate) {
+            IdentityMigratorLogs.logMigratingChildAuthorization(auth.resourceId());
+            CreateAuthorizationResponse response = c8Client.createAuthorization(authorization.getId(), auth);
+            migratedAuths.add(response);
+            IdentityMigratorLogs.logMigratedChildAuthorization(auth.resourceId());
+          }
+        }
         IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
-        saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuthorization.getAuthorizationKey());
+        saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());
       } catch (MigratorException e) {
         markAsSkipped(authorization.getId(), e.getMessage());
       }
     } else {
-      markAsSkipped(authorization.getId(), authorizationMapping.getReason());
+      markAsSkipped(authorization.getId(), mappingResult.getReason());
     }
   }
 

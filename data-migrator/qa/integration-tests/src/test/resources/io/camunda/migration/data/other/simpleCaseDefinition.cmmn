@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cmmn:definitions xmlns:cmmn="http://www.omg.org/spec/CMMN/20151109/MODEL"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:camunda="http://camunda.org/schema/1.0/cmmn"
+                  id="Definitions_1"
+                  targetNamespace="http://camunda.org/examples"
+                  exporter="Camunda Modeler"
+                  exporterVersion="7.24.0">
+  <cmmn:case id="simpleCmmn"
+             name="Simple CMMN Case"
+             camunda:historyTimeToLive="5">
+    <cmmn:casePlanModel id="CasePlanModel_1" name="Simple Case Plan">
+      <cmmn:planItem id="PlanItem_HumanTask_1" definitionRef="HumanTask_1" />
+      <cmmn:humanTask id="HumanTask_1" name="Do something" camunda:assignee="demo" />
+    </cmmn:casePlanModel>
+  </cmmn:case>
+</cmmn:definitions>
