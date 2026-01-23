@@ -130,6 +130,9 @@ public class DiagramConverter {
               conversions.forEach(conversion -> conversion.convert(element, convertible, messages));
             });
     LOG.info("Done with conversion");
+    LOG.info("Start cleanup");
+    removeEmptyDocumentationElements(rootElement);
+    LOG.info("Done with cleanup");
     return result;
   }
 
@@ -184,6 +187,24 @@ public class DiagramConverter {
 
   private boolean isBpmn(DomDocument document) {
     return determineDiagramType(document) == DiagramType.BPMN;
+  }
+
+  private void removeEmptyDocumentationElements(DomElement element) {
+    List<DomElement> toRemove = new ArrayList<>();
+    collectEmptyDocumentationElements(element, toRemove);
+    toRemove.forEach(doc -> doc.getParentElement().removeChild(doc));
+  }
+
+  private void collectEmptyDocumentationElements(DomElement element, List<DomElement> toRemove) {
+    for (DomElement child : element.getChildElements()) {
+      if ("documentation".equals(child.getLocalName())
+          && BPMN.equals(child.getNamespaceURI())
+          && child.getChildElements().isEmpty()
+          && (child.getTextContent() == null || child.getTextContent().trim().isEmpty())) {
+        toRemove.add(child);
+      }
+      collectEmptyDocumentationElements(child, toRemove);
+    }
   }
 
   private DiagramType determineDiagramType(DomDocument document) {
