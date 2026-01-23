@@ -235,6 +235,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             IdKeyMapper.TYPE.HISTORY_FLOW_NODE.getDisplayName(),
             IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName(),
             IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName(),
+            IdKeyMapper.TYPE.HISTORY_AUDIT_LOG.getDisplayName(),
             IdKeyMapper.TYPE.HISTORY_INCIDENT.getDisplayName(),
             IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
             IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),

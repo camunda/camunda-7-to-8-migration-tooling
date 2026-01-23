@@ -22,6 +22,7 @@ import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.VariableMigrator;
+import io.camunda.migration.data.impl.history.AuditLogMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
@@ -62,6 +63,9 @@ public class HistoryMigrator {
 
   @Autowired
   protected DecisionInstanceMigrator decisionInstanceMigrator;
+
+  @Autowired
+  protected AuditLogMigrator auditLogMigrator;
 
   @Autowired
   protected DbClient dbClient;
@@ -106,6 +110,7 @@ public class HistoryMigrator {
     migrateDecisionRequirementsDefinitions();
     migrateDecisionDefinitions();
     migrateDecisionInstances();
+    migrateAuditLogs();
   }
 
   public void migrateProcessDefinitions() {
@@ -144,6 +149,10 @@ public class HistoryMigrator {
     decisionInstanceMigrator.migrate();
   }
 
+  public void migrateAuditLogs() {
+    auditLogMigrator.migrate();
+  }
+
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
     this.requestedEntityTypes = requestedEntityTypes;
   }
@@ -159,5 +168,6 @@ public class HistoryMigrator {
     processInstanceMigrator.setMode(mode);
     userTaskMigrator.setMode(mode);
     variableMigrator.setMode(mode);
+    auditLogMigrator.setMode(mode);
   }
 }
