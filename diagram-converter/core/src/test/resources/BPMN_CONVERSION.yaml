@@ -603,7 +603,6 @@ categories:
           <bpmn:sequenceFlow id="Flow_1bmugtj" sourceRef="MultiInstanceConfigurationWithExecutionServiceTask" targetRef="MultiInstanceConfigurationWithMethodInvocationServiceTask"/>
           <bpmn:serviceTask completionQuantity="1" id="MultiInstanceConfigurationWithExecutionServiceTask" implementation="##WebService" isForCompensation="false" name="Multi-instance configuration with execution" startQuantity="1">
             <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="true">
-              <documentation/>
               <extensionElements>
                 <zeebe:loopCharacteristics inputCollection="=myList" inputElement="theElement"/>
               </extensionElements>
@@ -613,7 +612,6 @@ categories:
           <bpmn:sequenceFlow id="Flow_13lx2sc" sourceRef="MultiInstanceConfigurationWithMethodInvocationServiceTask" targetRef="someGateway"/>
           <bpmn:serviceTask completionQuantity="1" id="MultiInstanceConfigurationWithMethodInvocationServiceTask" implementation="##WebService" isForCompensation="false" name="Multi-instance configuration with method invocation" startQuantity="1">
             <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="true">
-              <documentation/>
               <extensionElements>
                 <zeebe:loopCharacteristics inputCollection="=myInput.getAdresses().getAll()" inputElement="myElement"/>
               </extensionElements>
@@ -719,7 +717,6 @@ categories:
             <extensionElements>
             </extensionElements>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
-              <documentation/>
               <bpmn:condition xsi:type="bpmn:tFormalExpression">=myVariable = true</bpmn:condition>
             </bpmn:conditionalEventDefinition>
           </bpmn:intermediateCatchEvent>
@@ -741,7 +738,6 @@ categories:
             </extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
-              <documentation/>
               <bpmn:condition xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
@@ -763,7 +759,6 @@ categories:
             </extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
-              <documentation/>
               <bpmn:extensionElements>
                 <zeebe:conditionalFilter variableNames="variable" variableEvents="update" />
               </bpmn:extensionElements>
@@ -789,7 +784,6 @@ categories:
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
-              <bpmn:documentation/>
               <bpmn:extensionElements/>
               <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
             </bpmn:conditionalEventDefinition>
@@ -813,7 +807,6 @@ categories:
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
             <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
-              <bpmn:documentation/>
               <bpmn:extensionElements/>
               <bpmn:condition language="js" xsi:type="bpmn:tFormalExpression">x &gt; 10</bpmn:condition>
             </bpmn:conditionalEventDefinition>
