@@ -239,6 +239,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
       Long processInstanceKey,
       Long processDefinitionKey,
       Long decisionDefinitionKey,
+      Long rootDecisionDefinitionKey,
       DecisionInstanceEntity.DecisionDefinitionType decisionDefinitionType,
       String result,
       String inputName,
@@ -255,11 +256,11 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     assertThat(instance.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(instance.processDefinitionKey()).isEqualTo(processDefinitionKey);
     assertThat(instance.decisionDefinitionKey()).isEqualTo(decisionDefinitionKey);
+    assertThat(instance.rootDecisionDefinitionKey()).isEqualTo(rootDecisionDefinitionKey);
     assertThat(instance.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionDefinitionId));
     assertThat(instance.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(instance.decisionDefinitionType()).isEqualTo(decisionDefinitionType);
     assertThat(instance.result()).isEqualTo(result);
-    assertThat(instance.rootDecisionDefinitionKey()).isNull();
     assertThat(instance.evaluatedInputs()).singleElement().satisfies(input -> {
       assertThat(input.inputId()).isNotNull();
       assertThat(input.inputName()).isEqualTo(inputName);

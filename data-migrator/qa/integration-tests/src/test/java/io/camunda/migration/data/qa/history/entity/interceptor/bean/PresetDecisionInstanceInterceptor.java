@@ -27,8 +27,9 @@ public class PresetDecisionInstanceInterceptor implements EntityInterceptor {
     if (builder != null) {
       builder.processDefinitionKey(1L)
           .decisionDefinitionKey(2L)
-          .decisionRequirementsKey(3L)
-          .processInstanceKey(4L)
+          .rootDecisionDefinitionKey(3L)
+          .decisionRequirementsKey(4L)
+          .processInstanceKey(5L)
           .rootProcessInstanceKey(6L)
           .flowNodeInstanceKey(7L)
           .flowNodeId("flowNodeId");
