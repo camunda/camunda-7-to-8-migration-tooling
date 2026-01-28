@@ -102,6 +102,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // Migrator
+    dbClient.clearBuffers();
     dbClient.deleteAllMappings();
     historyMigrator.setMode(MigratorMode.MIGRATE);
     historyMigrator.setRequestedEntityTypes(null);

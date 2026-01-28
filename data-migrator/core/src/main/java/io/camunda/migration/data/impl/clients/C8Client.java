@@ -371,5 +371,15 @@ public class C8Client {
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
   }
 
+  /**
+   * Cancels a process instance in Camunda 8.
+   * Used to rollback process instances when batch insert fails.
+   * 
+   * @param processInstanceKey the key of the process instance to cancel
+   */
+  public void cancelProcessInstance(long processInstanceKey) {
+    callApi(() -> camundaClient.newCancelInstanceCommand(processInstanceKey).execute(),
+        "Failed to cancel process instance: " + processInstanceKey);
+  }
 
 }
