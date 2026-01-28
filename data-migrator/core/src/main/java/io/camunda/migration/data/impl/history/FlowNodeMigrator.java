@@ -150,7 +150,6 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
       ProcessInstanceEntity processInstance) {
 
     builder
-        .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
         .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
   }
 

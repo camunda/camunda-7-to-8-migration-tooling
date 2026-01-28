@@ -16,9 +16,10 @@ import org.junit.jupiter.api.extension.Extension;
 /**
  * JUnit extension for querying history cleanup dates from C8 database tables.
  *
- * <p>This extension provides helper methods to verify HISTORY_CLEANUP_DATE column values
- * in C8 tables during whitebox testing. Since cleanup dates are not exposed via public API,
- * direct SQL queries are needed to verify correct cleanup date calculation (endDate + TTL).</p>
+ * <p>This extension provides helper methods to verify REMOVAL_TIME column values
+ * (history cleanup date) in C8 tables during whitebox testing. Since cleanup dates are not
+ * exposed via public API, direct SQL queries are needed to verify correct cleanup date
+ * calculation (endDate + TTL).</p>
  *
  * <p>Usage in tests:</p>
  * <pre>
@@ -53,7 +54,6 @@ public class CleanupExtension implements Extension {
   protected String getSql(String tableName, String keyColumn) {
     return String.format("SELECT HISTORY_CLEANUP_DATE FROM %s WHERE %s = ?", tableName, keyColumn);
   }
-
   /**
    * Generic method to query cleanup date information from any C8 table.
    *
@@ -88,47 +88,6 @@ public class CleanupExtension implements Extension {
     return queryCleanupDate("PROCESS_INSTANCE", "PROCESS_INSTANCE_KEY", processInstanceKey);
   }
 
-  /**
-   * Query cleanup date for a flow node instance.
-   *
-   * @param flowNodeInstanceKey the flow node instance key
-   * @return the history cleanup date, or null if not set
-   */
-  public OffsetDateTime getFlowNodeCleanupDate(Long flowNodeInstanceKey) {
-    return queryCleanupDate("FLOW_NODE_INSTANCE", "FLOW_NODE_INSTANCE_KEY", flowNodeInstanceKey);
-  }
 
-  /**
-   * Query cleanup date for a user task.
-   * Note: For user tasks, endDate represents COMPLETION_DATE.
-   *
-   * @param userTaskKey the user task key
-   * @return the history cleanup date, or null if not set
-   */
-  public OffsetDateTime getUserTaskCleanupDate(Long userTaskKey) {
-    return queryCleanupDate("USER_TASK", "USER_TASK_KEY", userTaskKey);
-  }
-
-  /**
-   * Query cleanup date for a decision instance.
-   * Note: For decision instances, endDate represents EVALUATION_DATE.
-   *
-   * @param decisionInstanceKey the decision instance key
-   * @return the history cleanup date, or null if not set
-   */
-  public OffsetDateTime getDecisionInstanceCleanupDate(Long decisionInstanceKey) {
-    return queryCleanupDate("DECISION_INSTANCE", "DECISION_INSTANCE_KEY", decisionInstanceKey);
-  }
-
-  /**
-   * Query cleanup dates for all variables of a process instance.
-   * Variables don't have an end date, only cleanup date.
-   *
-   * @param processInstanceKey the process instance key
-   * @return list of history cleanup dates for all variables
-   */
-  public List<OffsetDateTime> getVariableCleanupDates(Long processInstanceKey) {
-    return queryCleanupDates("VARIABLE", "PROCESS_INSTANCE_KEY", processInstanceKey);
-  }
 
 }
