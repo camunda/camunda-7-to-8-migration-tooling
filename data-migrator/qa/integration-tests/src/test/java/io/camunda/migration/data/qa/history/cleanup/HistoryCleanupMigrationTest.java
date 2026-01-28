@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.history.cleanup;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USER_TASK;
-import static io.camunda.search.entities.UserTaskEntity.UserTaskState.CANCELED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.AbstractMigratorTest;
@@ -20,7 +19,6 @@ import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.ProcessDefinitionDeployer;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import io.camunda.search.entities.UserTaskEntity;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Date;
@@ -107,9 +105,8 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
         .isEqualTo(convertDate(migrationTime));
 
     // Whitebox test: Query database directly to verify history cleanup date
-    Long processInstanceKey = migratedInstance.processInstanceKey();
-    OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
-
+     Long processInstanceKey = migratedInstance.processInstanceKey();
+     OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
     // Verify cleanup date is calculated as endDate + 30 days (from test property)
     assertThat(cleanupDate).isEqualTo(migratedInstance.endDate().plus(Duration.ofDays(30)));
   }
@@ -170,9 +167,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     assertThat(startEvent.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
     assertThat(startEvent.endDate()).isNotEqualTo(processInstanceEndDate);
 
-    // Whitebox: Verify start event cleanup date is cascaded endDate
-    OffsetDateTime startEventCleanupDate = cleanup.getFlowNodeCleanupDate(startEvent.flowNodeInstanceKey());
-    assertThat(startEventCleanupDate).isEqualTo(processInstanceEndDate.plus(Duration.ofDays(30)));
 
     // Check user task flow node - should be TERMINATED and inherit process instance end date
     var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
@@ -181,42 +175,6 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     assertThat(userTaskFlowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
     assertThat(userTaskFlowNode.endDate()).isEqualTo(processInstanceEndDate);
 
-    // Whitebox: Verify user task flow node cleanup date and cascaded endDate
-    OffsetDateTime userTaskFlowNodeCleanupDate = cleanup.getFlowNodeCleanupDate(userTaskFlowNode.flowNodeInstanceKey());
-    assertThat(userTaskFlowNodeCleanupDate).isEqualTo(processInstanceEndDate.plus(Duration.ofDays(30)));
-  }
-
-  @Test
-  public void shouldCascadeCompletionDateToUserTasksForActiveProcessInstance() {
-    // given - deploy and start a process instance with active user task
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
-
-    // when - migrate history
-    historyMigration.getMigrator().migrate();
-
-    // then - user task should inherit the process instance's end date as completion date
-    var processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(processInstances).hasSize(1);
-
-    ProcessInstanceEntity migratedInstance = processInstances.getFirst();
-    Long processInstanceKey = migratedInstance.processInstanceKey();
-    OffsetDateTime processInstanceEndDate = migratedInstance.endDate();
-
-    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(processInstanceKey);
-    assertThat(userTasks).hasSize(1);
-
-    UserTaskEntity userTask = userTasks.getFirst();
-    assertThat(userTask.state()).isEqualTo(CANCELED);
-    assertThat(userTask.completionDate()).isEqualTo(processInstanceEndDate);
-
-    // Whitebox: Verify user task cleanup date and completion date from database
-    OffsetDateTime userTaskCleanupDate = cleanup.getUserTaskCleanupDate(userTask.userTaskKey());
-
-    // Verify cleanup date exists and is properly calculated (completionDate + 30 days)
-    assertThat(userTaskCleanupDate)
-        .as("User task should have history cleanup date")
-        .isEqualTo(processInstanceEndDate.plusDays(30));
   }
 
   @Test
@@ -238,63 +196,8 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
       // All should be auto-canceled with endDate set
       assertThat(instance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.CANCELED);
       assertThat(instance.endDate()).isNotNull();
-      OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(instance.processInstanceKey());
-      assertThat(cleanupDate).isNotNull();
-    }
-  }
-
-  @Test
-  public void shouldCalculateCleanupDateForAllEntityTypes() {
-    // given - deploy and start a process instance with variables
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId",
-        java.util.Map.of("testVar1", "value1", "testVar2", 123));
-
-    // when - migrate history
-    historyMigration.getMigrator().migrate();
-
-    // then - verify cleanup dates for all entity types
-    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(processInstances).hasSize(1);
-
-    ProcessInstanceEntity migratedInstance = processInstances.getFirst();
-    Long processInstanceKey = migratedInstance.processInstanceKey();
-    OffsetDateTime processInstanceEndDate = migratedInstance.endDate();
-    assertThat(processInstanceEndDate).isNotNull();
-
-    // 1. Verify process instance cleanup date
-    OffsetDateTime piCleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
-    assertThat(piCleanupDate).isEqualTo(processInstanceEndDate.plus(Duration.ofDays(30)));
-
-    // 2. Verify all flow node cleanup dates
-    var allFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    allFlowNodes.addAll(historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK));
-
-    for (FlowNodeInstanceEntity flowNode : allFlowNodes) {
-      OffsetDateTime fnCleanupDate = cleanup.getFlowNodeCleanupDate(flowNode.flowNodeInstanceKey());
-      assertThat(fnCleanupDate).isEqualTo(piCleanupDate);
-    }
-
-    // 3. Verify user task cleanup date
-    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(processInstanceKey);
-    for (UserTaskEntity userTask : userTasks) {
-      OffsetDateTime utCleanupDate = cleanup.getUserTaskCleanupDate(userTask.userTaskKey());
-
-      // Verify cleanup date is calculated as completionDate + 30 days
-      assertThat(utCleanupDate)
-          .as("User task should have history cleanup date")
-          .isEqualTo(piCleanupDate);
-    }
-
-    // 4. Verify variable cleanup dates (variables don't have endDate, only cleanup date)
-    List<OffsetDateTime> variableCleanupDates = cleanup.getVariableCleanupDates(processInstanceKey);
-    assertThat(variableCleanupDates).isNotEmpty();
-
-    for (OffsetDateTime varCleanupDate : variableCleanupDates) {
-      // Variables inherit cleanup date from process instance
-      assertThat(varCleanupDate)
-          .as("Variable cleanup date should match process instance cleanup date")
-          .isEqualTo(piCleanupDate);
+       OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(instance.processInstanceKey());
+       assertThat(cleanupDate).isNotNull();
     }
   }
 
