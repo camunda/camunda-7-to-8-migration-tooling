@@ -179,8 +179,10 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
 
       Date c7EndTime = c7ProcessInstance.getEndTime();
       var c8EndTime = calculateEndDate(c7EndTime);
+      var c8HistoryCleanupDate = calculateHistoryCleanupDate(c8EndTime, c7ProcessInstance.getRemovalTime());
 
     builder
+        .historyCleanupDate(c8HistoryCleanupDate)
         .endDate(c8EndTime);
   }
 
