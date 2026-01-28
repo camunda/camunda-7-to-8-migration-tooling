@@ -52,6 +52,9 @@ public class MigratorProperties {
   }
 
   public void setBatchSize(int batchSize) {
+    if (batchSize < 1) {
+      throw new IllegalArgumentException("Batch size must be at least 1, but was: " + batchSize);
+    }
     this.batchSize = batchSize;
   }
 

@@ -99,8 +99,10 @@ public class DbClient {
       return cached;
     }
 
-    // Fall back to database
-    return callApi(() -> idKeyMapper.checkHasC8KeyByC7IdAndType(type, c7Id), FAILED_TO_CHECK_KEY + c7Id);
+    // Fall back to database and cache the result
+    boolean result = callApi(() -> idKeyMapper.checkHasC8KeyByC7IdAndType(type, c7Id), FAILED_TO_CHECK_KEY + c7Id);
+    existenceCache.put(cacheKey, result);
+    return result;
   }
 
   /**
@@ -141,8 +143,13 @@ public class DbClient {
       return cachedKey;
     }
 
-    // Fall back to database
-    return callApi(() -> idKeyMapper.findC8KeyByC7IdAndType(c7Id, type), FAILED_TO_FIND_KEY_BY_ID + c7Id);
+    // Fall back to database and cache the result
+    Long result = callApi(() -> idKeyMapper.findC8KeyByC7IdAndType(c7Id, type), FAILED_TO_FIND_KEY_BY_ID + c7Id);
+    if (result != null) {
+      idKeyCache.put(cacheKey, result);
+      existenceCache.put(cacheKey, true);
+    }
+    return result;
   }
 
   /**
@@ -205,7 +212,6 @@ public class DbClient {
     var model = createIdKeyDbModel(c7Id, createTime, c8Key, type, finalSkipReason);
     
     // Add to batch buffer
-    boolean shouldFlush = false;
     synchronized (insertBuffer) {
       insertBuffer.add(model);
       
@@ -224,15 +230,48 @@ public class DbClient {
         currentBatchC8Keys.add(c8Key);
       }
       
-      // Check if batch size is reached
+      // Check if batch size is reached and flush within synchronized block
       if (insertBuffer.size() >= properties.getBatchSize()) {
-        shouldFlush = true;
+        flushBatchInternal();
       }
     }
+  }
+
+  /**
+   * Internal flush method that must be called from within synchronized(insertBuffer) block.
+   * This method does not acquire the lock itself to avoid nested locking issues.
+   */
+  private void flushBatchInternal() {
+    if (insertBuffer.isEmpty()) {
+      return;
+    }
     
-    // Flush outside the synchronized block to avoid nested locking
-    if (shouldFlush) {
-      flushBatch();
+    DbClientLogs.flushingBatch(insertBuffer.size());
+    List<IdKeyDbModel> toFlush = new java.util.ArrayList<>(insertBuffer);
+    List<Long> keysToRollback = new java.util.ArrayList<>(currentBatchC8Keys);
+    
+    // Clear buffers before attempting flush
+    insertBuffer.clear();
+    currentBatchC8Keys.clear();
+    
+    try {
+      callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
+      // Success - cache remains populated with committed data
+      failedBatchKeys.get().clear();
+    } catch (RuntimeException e) {
+      // Failed - remove cache entries for failed records since they weren't persisted
+      for (IdKeyDbModel model : toFlush) {
+        String cacheKey = getCacheKey(model.getType(), model.getC7Id());
+        idKeyCache.remove(cacheKey);
+        existenceCache.remove(cacheKey);
+      }
+
+      // Store keys for rollback and log error
+      failedBatchKeys.get().clear();
+      failedBatchKeys.get().addAll(keysToRollback);
+      DbClientLogs.batchInsertFailed(keysToRollback.size());
+      // Rethrow the exception
+      throw e;
     }
   }
 
@@ -245,37 +284,7 @@ public class DbClient {
    */
   public void flushBatch() {
     synchronized (insertBuffer) {
-      if (insertBuffer.isEmpty()) {
-        return;
-      }
-      
-      DbClientLogs.flushingBatch(insertBuffer.size());
-      List<IdKeyDbModel> toFlush = new java.util.ArrayList<>(insertBuffer);
-      List<Long> keysToRollback = new java.util.ArrayList<>(currentBatchC8Keys);
-      
-      // Clear buffers before attempting flush
-      insertBuffer.clear();
-      currentBatchC8Keys.clear();
-      
-      try {
-        callApi(() -> idKeyMapper.insertBatch(toFlush), FAILED_TO_INSERT_RECORD + "batch");
-        // Success - cache remains populated with committed data
-        failedBatchKeys.get().clear();
-      } catch (RuntimeException e) {
-        // Failed - remove cache entries for failed records since they weren't persisted
-        for (IdKeyDbModel model : toFlush) {
-          String cacheKey = getCacheKey(model.getType(), model.getC7Id());
-          idKeyCache.remove(cacheKey);
-          existenceCache.remove(cacheKey);
-        }
-
-        // Store keys for rollback and log error
-        failedBatchKeys.get().clear();
-        failedBatchKeys.get().addAll(keysToRollback);
-        DbClientLogs.batchInsertFailed(keysToRollback.size());
-        // Rethrow the exception
-        throw e;
-      }
+      flushBatchInternal();
     }
   }
 
@@ -294,6 +303,7 @@ public class DbClient {
    */
   public void clearFailedBatchKeys() {
     failedBatchKeys.get().clear();
+    failedBatchKeys.remove(); // Prevent ThreadLocal memory leak
   }
 
   /**

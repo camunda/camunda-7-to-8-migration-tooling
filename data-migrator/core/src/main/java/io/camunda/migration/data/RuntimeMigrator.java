@@ -91,9 +91,6 @@ public class RuntimeMigrator {
         }
       });
 
-      // Flush any remaining records in the batch
-      flushBatchWithRollback();
-
       activateMigratorJobs();
     } finally {
       // Ensure batch is flushed even if an exception occurs
