@@ -108,7 +108,7 @@ public class DbClient {
   /**
    * Generates a cache key from type and C7 ID.
    */
-  private String getCacheKey(TYPE type, String c7Id) {
+  protected String getCacheKey(TYPE type, String c7Id) {
     return type.name() + ":" + c7Id;
   }
 
@@ -241,7 +241,7 @@ public class DbClient {
    * Internal flush method that must be called from within synchronized(insertBuffer) block.
    * This method does not acquire the lock itself to avoid nested locking issues.
    */
-  private void flushBatchInternal() {
+  protected void flushBatchInternal() {
     if (insertBuffer.isEmpty()) {
       return;
     }

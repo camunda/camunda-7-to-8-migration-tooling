@@ -21,13 +21,13 @@ import java.util.function.Function;
  */
 public class MigrationDescriptor<C7Entity> {
 
-  private final TYPE type;
-  private final Function<String, C7Entity> c7Fetcher;
-  private final BiConsumer<Consumer<C7Entity>, Date> c7BatchFetcher;
-  private final Consumer<C7Entity> migrator;
-  private final Runnable startLogger;
+  protected final TYPE type;
+  protected final Function<String, C7Entity> c7Fetcher;
+  protected final BiConsumer<Consumer<C7Entity>, Date> c7BatchFetcher;
+  protected final Consumer<C7Entity> migrator;
+  protected final Runnable startLogger;
 
-  private MigrationDescriptor(Builder<C7Entity> builder) {
+  protected MigrationDescriptor(Builder<C7Entity> builder) {
     this.type = builder.type;
     this.c7Fetcher = builder.c7Fetcher;
     this.c7BatchFetcher = builder.c7BatchFetcher;
@@ -62,11 +62,11 @@ public class MigrationDescriptor<C7Entity> {
   }
 
   public static class Builder<C7Entity> {
-    private TYPE type;
-    private Function<String, C7Entity> c7Fetcher;
-    private BiConsumer<Consumer<C7Entity>, Date> c7BatchFetcher;
-    private Consumer<C7Entity> migrator;
-    private Runnable startLogger;
+    protected TYPE type;
+    protected Function<String, C7Entity> c7Fetcher;
+    protected BiConsumer<Consumer<C7Entity>, Date> c7BatchFetcher;
+    protected Consumer<C7Entity> migrator;
+    protected Runnable startLogger;
 
     public Builder<C7Entity> type(TYPE type) {
       this.type = type;
