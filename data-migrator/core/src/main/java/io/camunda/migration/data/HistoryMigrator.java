@@ -70,6 +70,19 @@ public class HistoryMigrator {
 
   protected List<TYPE> requestedEntityTypes;
 
+  /**
+   * Safely flushes the batch, catching and logging any exceptions.
+   * For history migration, we log errors but continue processing.
+   */
+  protected void safeFlushBatch() {
+    try {
+      dbClient.flushBatch();
+    } catch (Exception e) {
+      io.camunda.migration.data.impl.logging.HistoryMigratorLogs.batchFlushFailed(e.getMessage());
+      dbClient.clearFailedBatchKeys();
+    }
+  }
+
   public void start() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
@@ -97,15 +110,20 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
-    migrateProcessDefinitions();
-    migrateProcessInstances();
-    migrateFlowNodes();
-    migrateUserTasks();
-    migrateVariables();
-    migrateIncidents();
-    migrateDecisionRequirementsDefinitions();
-    migrateDecisionDefinitions();
-    migrateDecisionInstances();
+    try {
+      migrateProcessDefinitions();
+      migrateProcessInstances();
+      migrateFlowNodes();
+      migrateUserTasks();
+      migrateVariables();
+      migrateIncidents();
+      migrateDecisionRequirementsDefinitions();
+      migrateDecisionDefinitions();
+      migrateDecisionInstances();
+    } finally {
+      // Ensure batch is flushed at the end
+      safeFlushBatch();
+    }
   }
 
   public void migrateProcessDefinitions() {
