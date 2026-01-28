@@ -127,39 +127,75 @@ public class HistoryMigrator {
   }
 
   public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrate();
+    try {
+      processDefinitionMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateProcessInstances() {
-    processInstanceMigrator.migrate();
+    try {
+      processInstanceMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateFlowNodes() {
-    flowNodeMigrator.migrate();
+    try {
+      flowNodeMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateUserTasks() {
-    userTaskMigrator.migrate();
+    try {
+      userTaskMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateVariables() {
-    variableMigrator.migrate();
+    try {
+      variableMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateIncidents() {
-    incidentMigrator.migrate();
+    try {
+      incidentMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrate();
+    try {
+      decisionRequirementsMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrate();
+    try {
+      decisionDefinitionMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrate();
+    try {
+      decisionInstanceMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
