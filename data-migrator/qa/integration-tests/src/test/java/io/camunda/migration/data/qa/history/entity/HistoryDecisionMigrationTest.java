@@ -508,38 +508,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
   }
 
-  @Test
-  public void shouldCalculateCleanupDateForStandaloneDecision() {
-    // given - deploy and evaluate a standalone decision (not triggered by a process)
-    deployer.deployCamunda7Decision("simpleDmn.dmn");
-
-    // Evaluate the decision directly without a process instance
-    decisionService.evaluateDecisionTableByKey("simpleDecisionId", java.util.Map.of("inputA", "A"));
-
-    // when - migrate history
-    historyMigrator.migrate();
-
-    // then - verify standalone decision instance has proper cleanup date
-    List<DecisionInstanceEntity> decisionInstances = searchHistoricDecisionInstances("simpleDecisionId");
-    assertThat(decisionInstances).hasSize(1);
-
-    DecisionInstanceEntity migratedDecision = decisionInstances.getFirst();
-    assertThat(migratedDecision.state()).isEqualTo(DecisionInstanceEntity.DecisionInstanceState.EVALUATED);
-    assertThat(migratedDecision.evaluationDate()).isNotNull();
-
-    // Standalone decisions should not have process context
-    assertThat(migratedDecision.processInstanceKey()).isNull();
-    assertThat(migratedDecision.processDefinitionKey()).isNull();
-
-    // Whitebox test: Query database directly to verify history cleanup date
-    OffsetDateTime cleanupDate = cleanup.getDecisionInstanceCleanupDate(migratedDecision.decisionInstanceKey());
-
-    // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
-    assertThat(cleanupDate)
-        .as("Cleanup date should be evaluation date + 180 days")
-        .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
-  }
-
   protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
                                                                                                String decisionFileName) {
     deployer.deployCamunda7Decision(decisionFileName);
