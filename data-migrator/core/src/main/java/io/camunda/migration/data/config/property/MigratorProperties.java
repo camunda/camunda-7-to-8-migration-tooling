@@ -19,10 +19,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class MigratorProperties {
 
   public static final int DEFAULT_PAGE_SIZE = 100;
+  public static final int DEFAULT_BATCH_SIZE = 100;
   public static final String PREFIX = "camunda.migrator";
   public static final String DEFAULT_JOB_TYPE = "migrator";
 
   protected Integer pageSize = DEFAULT_PAGE_SIZE;
+  protected Integer batchSize = DEFAULT_BATCH_SIZE;
   protected String jobType = DEFAULT_JOB_TYPE;
   protected String validationJobType;
   protected Set<String> tenantIds;
@@ -43,6 +45,17 @@ public class MigratorProperties {
 
   public void setPageSize(int pageSize) {
     this.pageSize = pageSize;
+  }
+
+  public int getBatchSize() {
+    return batchSize;
+  }
+
+  public void setBatchSize(int batchSize) {
+    if (batchSize < 1) {
+      throw new IllegalArgumentException("Batch size must be at least 1, but was: " + batchSize);
+    }
+    this.batchSize = batchSize;
   }
 
   public C7Properties getC7() {

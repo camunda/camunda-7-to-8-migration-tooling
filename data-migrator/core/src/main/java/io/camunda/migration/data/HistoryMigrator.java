@@ -70,6 +70,19 @@ public class HistoryMigrator {
 
   protected List<TYPE> requestedEntityTypes;
 
+  /**
+   * Safely flushes the batch, catching and logging any exceptions.
+   * For history migration, we log errors but continue processing.
+   */
+  protected void safeFlushBatch() {
+    try {
+      dbClient.flushBatch();
+    } catch (Exception e) {
+      io.camunda.migration.data.impl.logging.HistoryMigratorLogs.batchFlushFailed(e.getMessage());
+      dbClient.clearFailedBatchKeys();
+    }
+  }
+
   public void start() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
@@ -97,51 +110,92 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
-    migrateProcessDefinitions();
-    migrateProcessInstances();
-    migrateFlowNodes();
-    migrateUserTasks();
-    migrateVariables();
-    migrateIncidents();
-    migrateDecisionRequirementsDefinitions();
-    migrateDecisionDefinitions();
-    migrateDecisionInstances();
+    try {
+      migrateProcessDefinitions();
+      migrateProcessInstances();
+      migrateFlowNodes();
+      migrateUserTasks();
+      migrateVariables();
+      migrateIncidents();
+      migrateDecisionRequirementsDefinitions();
+      migrateDecisionDefinitions();
+      migrateDecisionInstances();
+    } finally {
+      // Ensure batch is flushed at the end
+      safeFlushBatch();
+    }
   }
 
   public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrate();
+    try {
+      processDefinitionMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateProcessInstances() {
-    processInstanceMigrator.migrate();
+    try {
+      processInstanceMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateFlowNodes() {
-    flowNodeMigrator.migrate();
+    try {
+      flowNodeMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateUserTasks() {
-    userTaskMigrator.migrate();
+    try {
+      userTaskMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateVariables() {
-    variableMigrator.migrate();
+    try {
+      variableMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateIncidents() {
-    incidentMigrator.migrate();
+    try {
+      incidentMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrate();
+    try {
+      decisionRequirementsMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrate();
+    try {
+      decisionDefinitionMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrate();
+    try {
+      decisionInstanceMigrator.migrate();
+    } finally {
+      safeFlushBatch();
+    }
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
