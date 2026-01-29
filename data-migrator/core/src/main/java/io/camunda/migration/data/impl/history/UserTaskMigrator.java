@@ -82,10 +82,8 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance> {
           if (processInstance != null) {
             userTaskDbModelBuilder.processInstanceKey(processInstance.processInstanceKey())
                 .processDefinitionVersion(processInstance.processDefinitionVersion());
-            OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7UserTask.getRemovalTime());
             OffsetDateTime completionDate = calculateCompletionDateForChild(processInstance.endDate(), c7UserTask.getEndTime());
             userTaskDbModelBuilder
-                .historyCleanupDate(historyCleanupDate)
                 .completionDate(completionDate);
           }
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {

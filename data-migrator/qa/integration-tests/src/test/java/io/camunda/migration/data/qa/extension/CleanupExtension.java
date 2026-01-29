@@ -16,9 +16,10 @@ import org.junit.jupiter.api.extension.Extension;
 /**
  * JUnit extension for querying history cleanup dates from C8 database tables.
  *
- * <p>This extension provides helper methods to verify HISTORY_CLEANUP_DATE column values
- * in C8 tables during whitebox testing. Since cleanup dates are not exposed via public API,
- * direct SQL queries are needed to verify correct cleanup date calculation (endDate + TTL).</p>
+ * <p>This extension provides helper methods to verify REMOVAL_TIME column values
+ * (history cleanup date) in C8 tables during whitebox testing. Since cleanup dates are not
+ * exposed via public API, direct SQL queries are needed to verify correct cleanup date
+ * calculation (endDate + TTL).</p>
  *
  * <p>Usage in tests:</p>
  * <pre>
@@ -47,11 +48,11 @@ public class CleanupExtension implements Extension {
   }
 
   protected static OffsetDateTime mapRow(ResultSet rs, int rowNum) throws SQLException {
-    return rs.getObject("HISTORY_CLEANUP_DATE", OffsetDateTime.class);
+    return rs.getObject("REMOVAL_TIME", OffsetDateTime.class);
   }
 
   protected String getSql(String tableName, String keyColumn) {
-    return String.format("SELECT HISTORY_CLEANUP_DATE FROM %s WHERE %s = ?", tableName, keyColumn);
+    return String.format("SELECT REMOVAL_TIME FROM %s WHERE %s = ?", tableName, keyColumn);
   }
 
   /**
@@ -107,17 +108,6 @@ public class CleanupExtension implements Extension {
    */
   public OffsetDateTime getUserTaskCleanupDate(Long userTaskKey) {
     return queryCleanupDate("USER_TASK", "USER_TASK_KEY", userTaskKey);
-  }
-
-  /**
-   * Query cleanup date for a decision instance.
-   * Note: For decision instances, endDate represents EVALUATION_DATE.
-   *
-   * @param decisionInstanceKey the decision instance key
-   * @return the history cleanup date, or null if not set
-   */
-  public OffsetDateTime getDecisionInstanceCleanupDate(Long decisionInstanceKey) {
-    return queryCleanupDate("DECISION_INSTANCE", "DECISION_INSTANCE_KEY", decisionInstanceKey);
   }
 
   /**
