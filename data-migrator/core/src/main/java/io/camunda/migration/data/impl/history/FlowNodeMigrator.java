@@ -138,7 +138,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
   }
 
   /**
-   * Calculates and sets history cleanup date and end date on the builder.
+   * Calculates and sets end date on the builder.
    *
    * @param builder the flow node builder
    * @param c7FlowNode the historic activity instance from Camunda 7
@@ -150,7 +150,6 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance> {
       ProcessInstanceEntity processInstance) {
 
     builder
-        .historyCleanupDate(calculateHistoryCleanupDateForChild(processInstance.endDate(), c7FlowNode.getRemovalTime()))
         .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
   }
 

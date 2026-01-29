@@ -24,7 +24,6 @@ import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import java.time.OffsetDateTime;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
@@ -92,8 +91,6 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
           ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
           Long processInstanceKey = processInstance.processInstanceKey();
           variableDbModelBuilder.processInstanceKey(processInstanceKey);
-          OffsetDateTime historyCleanupDate = calculateHistoryCleanupDateForChild(processInstance.endDate(), c7Variable.getRemovalTime());
-          variableDbModelBuilder.historyCleanupDate(historyCleanupDate);
 
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
             ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);

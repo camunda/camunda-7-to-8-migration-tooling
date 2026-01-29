@@ -88,8 +88,7 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident> {
 
             incidentDbModelBuilder.processDefinitionKey(processDefinitionKey)
                 .jobKey(jobDefinitionKey)
-                .flowNodeInstanceKey(flowNodeInstanceKey)
-                .historyCleanupDate(calculateHistoryCleanupDateForChild(c7ProcessInstance.endDate(), c7Incident.getRemovalTime()));
+                .flowNodeInstanceKey(flowNodeInstanceKey);
 
             if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
               ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
