@@ -72,7 +72,7 @@ public class HistoryCleanupDisabledMigrationTest extends AbstractMigratorTest {
     assertThat(migratedInstance.endDate()).isNotNull();
 
     // Verify cleanup date is null using direct SQL query
-     OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(migratedInstance.processInstanceKey());
-     assertThat(cleanupDate).isNull();
+    OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(migratedInstance.processInstanceKey());
+    assertThat(cleanupDate).isNull();
   }
 }

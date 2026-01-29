@@ -105,8 +105,8 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
         .isEqualTo(convertDate(migrationTime));
 
     // Whitebox test: Query database directly to verify history cleanup date
-     Long processInstanceKey = migratedInstance.processInstanceKey();
-     OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
+    Long processInstanceKey = migratedInstance.processInstanceKey();
+    OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(processInstanceKey);
     // Verify cleanup date is calculated as endDate + 30 days (from test property)
     assertThat(cleanupDate).isEqualTo(migratedInstance.endDate().plus(Duration.ofDays(30)));
   }
@@ -196,8 +196,8 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
       // All should be auto-canceled with endDate set
       assertThat(instance.state()).isEqualTo(ProcessInstanceEntity.ProcessInstanceState.CANCELED);
       assertThat(instance.endDate()).isNotNull();
-       OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(instance.processInstanceKey());
-       assertThat(cleanupDate).isNotNull();
+      OffsetDateTime cleanupDate = cleanup.getProcessInstanceCleanupDate(instance.processInstanceKey());
+      assertThat(cleanupDate).isNotNull();
     }
   }
 

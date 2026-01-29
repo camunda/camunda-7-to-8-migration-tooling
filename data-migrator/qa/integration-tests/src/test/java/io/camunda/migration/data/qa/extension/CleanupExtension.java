@@ -16,7 +16,7 @@ import org.junit.jupiter.api.extension.Extension;
 /**
  * JUnit extension for querying history cleanup dates from C8 database tables.
  *
- * <p>This extension provides helper methods to verify REMOVAL_TIME column values
+ * <p>This extension provides helper methods to verify HISTORY_CLEANUP_DATE column values
  * (history cleanup date) in C8 tables during whitebox testing. Since cleanup dates are not
  * exposed via public API, direct SQL queries are needed to verify correct cleanup date
  * calculation (endDate + TTL).</p>
