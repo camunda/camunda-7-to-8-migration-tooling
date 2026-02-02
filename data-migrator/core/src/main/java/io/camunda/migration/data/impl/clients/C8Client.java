@@ -60,6 +60,7 @@ import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
 import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
+import io.camunda.db.rdbms.sql.FormMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
 import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
@@ -70,11 +71,13 @@ import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FormDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -132,6 +135,9 @@ public class C8Client {
 
   @Autowired(required = false)
   protected DecisionRequirementsMapper decisionRequirementsMapper;
+
+  @Autowired(required = false)
+  protected FormMapper formMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -315,7 +321,7 @@ public class C8Client {
    * Inserts a Variable into the database.
    */
   public void insertVariable(VariableDbModel dbModel) {
-    callApi(() -> variableMapper.insert(new VariableMapper.BatchInsertVariablesDto(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
+    callApi(() -> variableMapper.insert(new BatchInsertDto<>(dbModel)), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
@@ -329,7 +335,7 @@ public class C8Client {
    * Inserts a FlowNodeInstance into the database.
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
-    callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+    callApi(() -> flowNodeInstanceMapper.insert(new BatchInsertDto<>(dbModel)), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
   }
 
   /**
@@ -373,5 +379,11 @@ public class C8Client {
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
   }
 
+  /**
+   * Inserts a Form into the database.
+   */
+  public void insertForm(FormDbModel dbModel) {
+    callApi(() -> formMapper.insert(dbModel), "Failed to insert form");
+  }
 
 }

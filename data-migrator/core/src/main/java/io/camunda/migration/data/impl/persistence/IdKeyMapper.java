@@ -18,6 +18,7 @@ import org.apache.ibatis.annotations.Param;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
@@ -36,7 +37,8 @@ public interface IdKeyMapper {
       HistoricActivityInstanceEntity.class, TYPE.HISTORY_FLOW_NODE,
       HistoricDecisionInstanceEntity.class, TYPE.HISTORY_DECISION_INSTANCE,
       DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION,
-      DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT
+      DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT,
+      CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION
   );
 
   enum TYPE {
@@ -49,6 +51,7 @@ public interface IdKeyMapper {
     HISTORY_DECISION_INSTANCE("Historic Decision Instance"),
     HISTORY_DECISION_DEFINITION("Historic Decision Definition"),
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
+    HISTORY_FORM_DEFINITION("Historic Form Definition"),
 
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
@@ -62,18 +65,7 @@ public interface IdKeyMapper {
     }
 
     public static <C7> TYPE of(C7 entity) {
-      return switch (entity) {
-        case ProcessDefinitionEntity c7ProcessDefinition -> TYPE.HISTORY_PROCESS_DEFINITION;
-        case HistoricProcessInstanceEntity c7ProcessInstance -> TYPE.HISTORY_PROCESS_INSTANCE;
-        case HistoricIncidentEntity c7Incident -> TYPE.HISTORY_INCIDENT;
-        case HistoricVariableInstanceEntity c7VariableInstance -> TYPE.HISTORY_VARIABLE;
-        case HistoricTaskInstanceEntity c7TaskInstance -> TYPE.HISTORY_USER_TASK;
-        case HistoricActivityInstanceEntity c7ActivityInstance -> TYPE.HISTORY_FLOW_NODE;
-        case HistoricDecisionInstanceEntity c7DecisionInstance -> TYPE.HISTORY_DECISION_INSTANCE;
-        case DecisionDefinitionEntity c7DecisionDefinition -> TYPE.HISTORY_DECISION_DEFINITION;
-        case DecisionRequirementsDefinitionEntity c7DecisionRequirements -> TYPE.HISTORY_DECISION_REQUIREMENT;
-        default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + entity.getClass().getName());
-      };
+      return HISTORY_TYPE_NAME_MAP.get(entity.getClass());
     }
 
     public String getDisplayName() {

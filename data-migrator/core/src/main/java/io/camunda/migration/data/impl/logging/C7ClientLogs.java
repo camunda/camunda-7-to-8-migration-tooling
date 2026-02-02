@@ -24,4 +24,5 @@ public class C7ClientLogs {
   public static final String FAILED_TO_FETCH_HISTORIC_ELEMENT = "Failed to fetch %s for C7 ID: %s";
   public static final String FAILED_TO_FETCH_TENANTS = "Failed to fetch tenants";
   public static final String FAILED_TO_FETCH_AUTHORIZATIONS = "Failed to fetch authorizations";
+  public static final String FAILED_TO_FETCH_FORM = "Failed to fetch form";
 }

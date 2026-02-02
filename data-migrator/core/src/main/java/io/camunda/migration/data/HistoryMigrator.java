@@ -17,6 +17,7 @@ import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrato
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
@@ -35,6 +36,9 @@ import org.springframework.stereotype.Component;
 public class HistoryMigrator {
 
   // Migrator Services
+
+  @Autowired
+  protected FormMigrator formMigrator;
 
   @Autowired
   protected ProcessDefinitionMigrator processDefinitionMigrator;
@@ -97,6 +101,7 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
+    migrateForms();
     migrateProcessDefinitions();
     migrateProcessInstances();
     migrateFlowNodes();
@@ -106,6 +111,10 @@ public class HistoryMigrator {
     migrateDecisionRequirementsDefinitions();
     migrateDecisionDefinitions();
     migrateDecisionInstances();
+  }
+
+  public void migrateForms() {
+    formMigrator.migrateAll();
   }
 
   public void migrateProcessDefinitions() {
@@ -150,6 +159,7 @@ public class HistoryMigrator {
 
   public void setMode(MigratorMode mode) {
     this.mode = mode;
+    formMigrator.setMode(mode);
     decisionDefinitionMigrator.setMode(mode);
     decisionInstanceMigrator.setMode(mode);
     decisionRequirementsMigrator.setMode(mode);
