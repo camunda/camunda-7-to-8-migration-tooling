@@ -463,14 +463,16 @@ public class MessageFactoryTest {
 
   @Test
   void shouldBuildDeleteVariableEventNotSupported() {
-    Message message = deleteVariableEventNotSupported();
+    String elementId = random();
+    Message message = deleteVariableEventNotSupported(elementId);
     assertNotNull(message);
     assertNotNull(message.getMessage());
     assertNotNull(message.getSeverity());
     assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
     assertThat(message.getMessage())
         .isEqualTo(
-            "Variable event 'delete' was removed from conditional event filter. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).");
+            "Variable event 'delete' was removed from conditional event filter on '%s'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).",
+            elementId);
     assertThat(message.getLink())
         .isEqualTo("https://docs.camunda.io/docs/components/modeler/bpmn/conditional-events/");
   }

@@ -509,8 +509,10 @@ public class MessageFactory {
         ContextBuilder.builder().entry("language", language).entry("script", script).build());
   }
 
-  public static Message deleteVariableEventNotSupported() {
-    return INSTANCE.staticMessage("delete-variable-event-not-supported");
+  public static Message deleteVariableEventNotSupported(String elementId) {
+    return INSTANCE.composeMessage(
+        "delete-variable-event-not-supported",
+        ContextBuilder.builder().entry("elementId", elementId).build());
   }
 
   public static Message oldInAllHint() {

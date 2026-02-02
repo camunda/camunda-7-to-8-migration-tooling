@@ -862,7 +862,7 @@ categories:
             </bpmn:startEvent>
           </bpmn:subProcess>
         expectedMessages: |
-          <conversion:message severity="TASK">Variable event 'delete' was removed from conditional event filter. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+          <conversion:message severity="TASK">Variable event 'delete' was removed from conditional event filter on 'ConditionalEventDefinition_1s8fds3cr'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
           <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${variable == 1}' -&gt; '=variable = 1'.</conversion:message>
       - name: Subprocess with Conditional start event and delete event filter should remove empty event filter
         properties:
@@ -910,82 +910,5 @@ categories:
             </bpmn:startEvent>
           </bpmn:subProcess>
         expectedMessages: |
-          <conversion:message severity="TASK">Variable event 'delete' was removed from conditional event filter. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+          <conversion:message severity="TASK">Variable event 'delete' was removed from conditional event filter on 'ConditionalEventDefinition_1s8fds3cr'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
           <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${variable == 1}' -&gt; '=variable = 1'.</conversion:message>
-
-#      - name: Conditional Event not supported in 8.8
-#        properties:
-#          platformVersion: "8.8"
-#        givenBpmn: |
-#          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression">${x > 5}</bpmn:condition>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:intermediateCatchEvent>
-#        expectedBpmn: |
-#          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression">${x > 5}</bpmn:condition>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:intermediateCatchEvent>
-#        expectedMessages: |
-#          <conversion:message severity="HINT">Conditional Intermediate Catch Event is not supported in 8.8, available in 8.9.0.</conversion:message>
-#
-#      - name: Conditional Boundary Event with expression transformation
-#        properties:
-#          platformVersion: "8.9"
-#        givenBpmn: |
-#          <bpmn:task id="Task_1" name="Some Task"/>
-#          <bpmn:boundaryEvent id="ConditionalBoundaryEvent" name="Conditional Boundary" attachedToRef="Task_1">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_2">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression">${status == "completed"}</bpmn:condition>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:boundaryEvent>
-#        expectedBpmn: |
-#          <bpmn:task completionQuantity="1" id="Task_1" isForCompensation="false" name="Some Task" startQuantity="1"/>
-#          <bpmn:boundaryEvent attachedToRef="Task_1" cancelActivity="true" id="ConditionalBoundaryEvent" name="Conditional Boundary">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_2">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression">=status = "completed"</bpmn:condition>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:boundaryEvent>
-#        expectedMessages: |
-#          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${status == "completed"}' -&gt; '=status = "completed"'.</conversion:message>
-#
-#      - name: Conditional Event Subprocess Start Event
-#        properties:
-#          platformVersion: "8.9"
-#        givenBpmn: |
-#          <bpmn:subProcess id="EventSubProcess_1" triggeredByEvent="true">
-#            <bpmn:startEvent id="ConditionalStartEvent" isInterrupting="true">
-#              <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_3">
-#                <bpmn:condition xsi:type="bpmn:tFormalExpression">${counter >= 10}</bpmn:condition>
-#              </bpmn:conditionalEventDefinition>
-#            </bpmn:startEvent>
-#          </bpmn:subProcess>
-#        expectedBpmn: |
-#          <bpmn:subProcess id="EventSubProcess_1" triggeredByEvent="true">
-#            <bpmn:startEvent id="ConditionalStartEvent" isInterrupting="true">
-#              <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_3">
-#                <bpmn:condition xsi:type="bpmn:tFormalExpression">=counter >= 10</bpmn:condition>
-#              </bpmn:conditionalEventDefinition>
-#            </bpmn:startEvent>
-#          </bpmn:subProcess>
-#        expectedMessages: |
-#          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${counter >= 10}' -&gt; '=counter >= 10'.</conversion:message>
-#
-#      - name: Conditional Event with empty condition
-#        properties:
-#          platformVersion: "8.9"
-#        givenBpmn: |
-#          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Empty Condition">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_4">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression"/>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:intermediateCatchEvent>
-#        expectedBpmn: |
-#          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Empty Condition">
-#            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_4">
-#              <bpmn:condition xsi:type="bpmn:tFormalExpression"/>
-#            </bpmn:conditionalEventDefinition>
-#          </bpmn:intermediateCatchEvent>
-#        expectedMessages: ""
