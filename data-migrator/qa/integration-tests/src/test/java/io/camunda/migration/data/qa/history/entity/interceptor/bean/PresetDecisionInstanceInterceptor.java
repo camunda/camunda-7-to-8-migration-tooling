@@ -8,12 +8,13 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.Builder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 
-public class PresetDecisionInstanceInterceptor implements EntityInterceptor {
+public class PresetDecisionInstanceInterceptor implements EntityInterceptor<HistoricDecisionInstance, Builder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -21,11 +22,9 @@ public class PresetDecisionInstanceInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    DecisionInstanceDbModel.Builder builder = (DecisionInstanceDbModel.Builder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      builder.processDefinitionKey(1L)
+  public void presetParentProperties(EntityConversionContext<HistoricDecisionInstance, Builder> context) {
+      context.getC8DbModelBuilder()
+          .processDefinitionKey(1L)
           .decisionDefinitionKey(2L)
           .rootDecisionDefinitionKey(3L)
           .decisionRequirementsKey(4L)
@@ -33,11 +32,10 @@ public class PresetDecisionInstanceInterceptor implements EntityInterceptor {
           .rootProcessInstanceKey(6L)
           .flowNodeInstanceKey(7L)
           .flowNodeId("flowNodeId");
-    }
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricDecisionInstance, Builder> context) {
     // This interceptor intentionally does not modify the decision instance during execution.
   }
 }

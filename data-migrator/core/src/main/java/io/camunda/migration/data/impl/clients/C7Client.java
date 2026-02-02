@@ -20,6 +20,7 @@ import static java.lang.String.format;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
+import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -401,7 +402,7 @@ public class C7Client {
   /**
    * Processes decision requirements with pagination using the provided callback consumer.
    */
-  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback) {
+  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback, Date ignored) {
     DecisionRequirementsDefinitionQuery query = repositoryService.createDecisionRequirementsDefinitionQuery()
         .orderByDecisionRequirementsDefinitionId()
         .asc();

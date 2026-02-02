@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.extension;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -59,23 +61,11 @@ public class CleanupExtension implements Extension {
    *
    * @param tableName the name of the C8 table
    * @param keyColumn the key column name
-   * @param keyValue the key value to search for
+   * @param value the value to search for
    * @return the history cleanup date, or null if not set
    */
-  public OffsetDateTime queryCleanupDate(String tableName, String keyColumn, Long keyValue) {
-    return rdbmsQuery.queryForObject(getSql(tableName, keyColumn), CleanupExtension::mapRow, keyValue);
-  }
-
-  /**
-   * Generic method to query multiple cleanup date records from any C8 table.
-   *
-   * @param tableName the name of the C8 table
-   * @param filterColumn the filter column name
-   * @param filterValue the filter value
-   * @return list of history cleanup dates
-   */
-  public List<OffsetDateTime> queryCleanupDates(String tableName, String filterColumn, Long filterValue) {
-    return rdbmsQuery.query(getSql(tableName, filterColumn), CleanupExtension::mapRow, filterValue);
+  public OffsetDateTime queryCleanupDate(String tableName, String keyColumn, Object value) {
+    return rdbmsQuery.queryForObject(getSql(tableName, keyColumn), CleanupExtension::mapRow, value);
   }
 
   /**

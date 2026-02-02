@@ -95,7 +95,8 @@ public class InterceptorConfiguration {
    * @return List of configured entity interceptors
    */
   @Bean
-  public List<EntityInterceptor> configuredEntityInterceptors() {
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public List<EntityInterceptor<?, ?>> configuredEntityInterceptors() {
     ConfigurationLogs.logConfiguringInterceptors(ENTITY);
 
     // Get interceptors from Spring context (annotated with @Component)
@@ -109,7 +110,7 @@ public class InterceptorConfiguration {
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
     ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), ENTITY);
-    return contextInterceptors;
+    return (List) contextInterceptors;
   }
 
   /**

@@ -370,36 +370,6 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
   }
 
   /**
-   * Tests the rollback behavior for a specific entity type.
-   *
-   * @param entityType the entity type being tested
-   * @param migration the migration operation to execute
-   * @param verifyEmptyC8Data verification that C8 contains no data after rollback
-   * @param verifySuccessfulRetry verification that retry succeeds and data exists
-   */
-  protected void testRollbackForEntityType(
-      IdKeyMapper.TYPE entityType,
-      Runnable migration,
-      Runnable verifyEmptyC8Data,
-      Runnable verifySuccessfulRetry) {
-
-    // Configure spy to fail on first insert
-    configureSpyToFailOnFirstInsert(entityType);
-
-    // when - migration should fail
-    assertThatThrownBy(migration::run)
-        .isInstanceOf(DataAccessException.class)
-        .isSameAs(SIMULATED_MAPPING_FAILURE);
-
-    // then - verify NO C8 data (rollback occurred)
-    verifyEmptyC8Data.run();
-
-    // verify successful retry
-    migration.run();
-    verifySuccessfulRetry.run();
-  }
-
-  /**
    * Tests rollback with mapping verification for entities that have ID-based mapping.
    *
    * @param entityType the entity type being tested

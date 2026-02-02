@@ -85,9 +85,9 @@ public class InterceptorConfigurationTest {
     }
   }
 
-  public static class CustomEntityInterceptor implements EntityInterceptor {
+  public static class CustomEntityInterceptor implements EntityInterceptor<Object, Object> {
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<Object, Object> context) {
       // No-op for testing
     }
   }

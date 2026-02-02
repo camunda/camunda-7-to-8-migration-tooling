@@ -8,20 +8,23 @@
 package io.camunda.migration.data.qa.history;
 
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
+import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
-import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
-import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
-import io.camunda.migration.data.impl.history.FlowNodeMigrator;
-import io.camunda.migration.data.impl.history.IncidentMigrator;
-import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
-import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
-import io.camunda.migration.data.impl.history.UserTaskMigrator;
-import io.camunda.migration.data.impl.history.VariableMigrator;
-import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
@@ -156,27 +159,26 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         assertThat(flowNodeIds).hasSize(12);
 
         // Build regex patterns from constants by converting SLF4J placeholders to regex
-        // Process instances: SKIPPING_INSTANCE_MISSING_DEFINITION expects "process", instanceId, "process"
+        // Process instances: SKIPPING_PROCESS_INSTANCE expects instanceId, reason
         for (String id : processInstanceIds) {
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_INSTANCE_MISSING_DEFINITION, "process", id, "process");
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_DEFINITION));
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("Process instance %s should be logged as skipped", id)
                 .isTrue();
         }
 
-        // User tasks: SKIPPING_USER_TASK_MISSING_PROCESS expects taskId
         for (String id : userTaskIds) {
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_USER_TASK_MISSING_PROCESS, id);
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("User task %s should be logged as skipped", id)
                 .isTrue();
         }
 
-        // Incidents: SKIPPING_INCIDENT expects incidentId
+        // Incidents: SKIPPING_INCIDENT_GENERIC expects incidentId, reason
         for (String id : incidentIds) {
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_INCIDENT, id);
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("Incident %s should be logged as skipped", id)
@@ -187,7 +189,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         // So we check if ANY skip message exists for each variable ID using regex pattern matching
         for (String id : variableIds) {
             // Pattern matches any variable skip message with the specific ID
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_VARIABLE, id);
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_VARIABLE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
             boolean foundSkipMessage = logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern));
             assertThat(foundSkipMessage)
@@ -195,9 +197,9 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
                 .isTrue();
         }
 
-        // Flow nodes: SKIPPING_FLOW_NODE expects flowNodeId
+        // Flow nodes: SKIPPING_FLOW_NODE expects flowNodeId, reason
         for (String id : flowNodeIds) {
-            String pattern = convertToRegex(HistoryMigratorLogs.SKIPPING_FLOW_NODE_MISSING_PROCESS_DEFINITION, id);
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("Flow node %s should be logged as skipped", id)
@@ -245,15 +247,15 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         assertThat(skippedEntitiesByType.keySet().toArray()).containsExactlyInAnyOrder(expectedEntityTypes);
 
         // Verify specific entities with expected counts and IDs
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
         verifyHistoricEntitiesById(skippedEntitiesByType, processDefinitionId);
 
         // Verify empty entity types
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION.getDisplayName())).isEmpty();
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName())).isEmpty();
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_DECISION_DEFINITION.getDisplayName())).isEmpty();
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_DECISION_INSTANCE.getDisplayName())).isEmpty();
     }
 
     protected void verifyHistoricEntitiesById(Map<String, List<String>> skippedEntitiesByType, String processDefinitionId) {
@@ -264,7 +266,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .stream()
             .map(HistoricTaskInstance::getId)
             .collect(Collectors.toList());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_USER_TASK.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(expectedUserTaskIds);
 
@@ -275,7 +277,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .stream()
             .map(HistoricIncident::getId)
             .collect(Collectors.toList());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_INCIDENT.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_INCIDENT.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(expectedIncidentIds);
 
@@ -286,7 +288,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .stream()
             .map(HistoricVariableInstance::getId)
             .collect(Collectors.toList());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_VARIABLE.getDisplayName()))
             .hasSize(9)
             .containsAll(expectedVariableIds);
 
@@ -297,7 +299,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             .stream()
             .map(HistoricActivityInstance::getId)
             .collect(Collectors.toList());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_FLOW_NODE.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_FLOW_NODE.getDisplayName()))
             .hasSize(12)
             .containsExactlyInAnyOrderElementsOf(expectedFlowNodeIds);
     }

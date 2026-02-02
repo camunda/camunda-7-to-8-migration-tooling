@@ -11,6 +11,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.camunda.bpm.engine.variable.Variables.createVariables;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
@@ -33,6 +34,7 @@ import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
@@ -48,6 +50,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
   @RegisterExtension
   CleanupExtension cleanup = new CleanupExtension(rdbmsQuery);
+
+  @AfterEach
+  public void resetClock() {
+    ClockUtil.reset();
+  }
 
   @Test
   public void shouldMigrateSingleHistoricDecision() {

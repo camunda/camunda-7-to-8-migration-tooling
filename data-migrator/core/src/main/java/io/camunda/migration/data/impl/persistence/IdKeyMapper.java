@@ -9,13 +9,35 @@ package io.camunda.migration.data.impl.persistence;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.EnumSet;
 import java.util.stream.Collectors;
 import java.util.Arrays;
 import org.apache.ibatis.annotations.Param;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
 
 public interface IdKeyMapper {
+
+  Map<Class<?>, TYPE> HISTORY_TYPE_NAME_MAP = Map.of(
+      ProcessDefinitionEntity.class, TYPE.HISTORY_PROCESS_DEFINITION,
+      HistoricProcessInstanceEntity.class, TYPE.HISTORY_PROCESS_INSTANCE,
+      HistoricIncidentEntity.class, TYPE.HISTORY_INCIDENT,
+      HistoricVariableInstanceEntity.class, TYPE.HISTORY_VARIABLE,
+      HistoricTaskInstanceEntity.class, TYPE.HISTORY_USER_TASK,
+      HistoricActivityInstanceEntity.class, TYPE.HISTORY_FLOW_NODE,
+      HistoricDecisionInstanceEntity.class, TYPE.HISTORY_DECISION_INSTANCE,
+      DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION,
+      DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT
+  );
 
   enum TYPE {
     HISTORY_PROCESS_DEFINITION("Historic Process Definition"),
@@ -38,6 +60,21 @@ public interface IdKeyMapper {
 
     TYPE(String displayName) {
       this.displayName = displayName;
+    }
+
+    public static <C7> TYPE of(C7 entity) {
+      return switch (entity) {
+        case ProcessDefinitionEntity c7ProcessDefinition -> TYPE.HISTORY_PROCESS_DEFINITION;
+        case HistoricProcessInstanceEntity c7ProcessInstance -> TYPE.HISTORY_PROCESS_INSTANCE;
+        case HistoricIncidentEntity c7Incident -> TYPE.HISTORY_INCIDENT;
+        case HistoricVariableInstanceEntity c7VariableInstance -> TYPE.HISTORY_VARIABLE;
+        case HistoricTaskInstanceEntity c7TaskInstance -> TYPE.HISTORY_USER_TASK;
+        case HistoricActivityInstanceEntity c7ActivityInstance -> TYPE.HISTORY_FLOW_NODE;
+        case HistoricDecisionInstanceEntity c7DecisionInstance -> TYPE.HISTORY_DECISION_INSTANCE;
+        case DecisionDefinitionEntity c7DecisionDefinition -> TYPE.HISTORY_DECISION_DEFINITION;
+        case DecisionRequirementsDefinitionEntity c7DecisionRequirements -> TYPE.HISTORY_DECISION_REQUIREMENT;
+        default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + entity.getClass().getName());
+      };
     }
 
     public String getDisplayName() {
