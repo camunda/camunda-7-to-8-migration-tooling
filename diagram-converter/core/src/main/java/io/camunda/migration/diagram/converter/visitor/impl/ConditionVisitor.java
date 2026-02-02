@@ -114,28 +114,67 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
 
   private void addConditionalFilterElement(DomElementVisitorContext context) {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
-    DomElement extensionElements =
-        BpmnElementFactory.getExtensionElements(conditionalEventDefinition);
     String variableName = conditionalEventDefinition.getAttribute(CAMUNDA, "variableName");
     String variableEvents = conditionalEventDefinition.getAttribute(CAMUNDA, "variableEvents");
 
-    if (StringUtils.isBlank(variableName) && StringUtils.isBlank(variableEvents)) {
+    // Check for unsupported 'delete' variable event and strip it
+    String filteredVariableEvents = null;
+    if (StringUtils.isNotBlank(variableEvents)) {
+      if (containsDeleteEvent(variableEvents)) {
+        context.addMessage(MessageFactory.deleteVariableEventNotSupported());
+        filteredVariableEvents = stripDeleteEvent(variableEvents);
+      } else {
+        filteredVariableEvents = variableEvents;
+      }
+      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableEvents");
+    }
+
+    if (StringUtils.isNotBlank(variableName)) {
+      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
+    }
+
+    // Don't create filter if both variableName and filteredVariableEvents are empty
+    if (StringUtils.isBlank(variableName) && StringUtils.isBlank(filteredVariableEvents)) {
       return;
     }
 
+    DomElement extensionElements =
+        BpmnElementFactory.getExtensionElements(conditionalEventDefinition);
     DomElement conditionalFilter =
         context.getElement().getDocument().createElement(ZEEBE, "conditionalFilter");
 
     if (StringUtils.isNotBlank(variableName)) {
       conditionalFilter.setAttribute("variableNames", variableName);
-      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
     }
 
-    if (StringUtils.isNotBlank(variableEvents)) {
-      conditionalFilter.setAttribute("variableEvents", variableEvents);
-      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableEvents");
+    if (StringUtils.isNotBlank(filteredVariableEvents)) {
+      conditionalFilter.setAttribute("variableEvents", filteredVariableEvents);
     }
 
     extensionElements.appendChild(conditionalFilter);
+  }
+
+  private boolean containsDeleteEvent(String variableEvents) {
+    String[] events = variableEvents.split(",");
+    for (String event : events) {
+      if ("delete".equalsIgnoreCase(event.trim())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private String stripDeleteEvent(String variableEvents) {
+    String[] events = variableEvents.split(",");
+    StringBuilder result = new StringBuilder();
+    for (String event : events) {
+      if (!"delete".equalsIgnoreCase(event.trim())) {
+        if (result.length() > 0) {
+          result.append(",");
+        }
+        result.append(event.trim());
+      }
+    }
+    return result.toString();
   }
 }

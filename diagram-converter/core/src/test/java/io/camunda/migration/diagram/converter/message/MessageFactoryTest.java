@@ -11,6 +11,7 @@ import static io.camunda.migration.diagram.converter.message.MessageFactory.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
@@ -458,6 +459,20 @@ public class MessageFactoryTest {
         .isEqualTo(
             "FEEL Condition expression: Please review transformed expression: '%s' -> '%s'. Check for custom FEEL functions as they are not supported by Zeebe.",
             oldExpression, newExpression);
+  }
+
+  @Test
+  void shouldBuildDeleteVariableEventNotSupported() {
+    Message message = deleteVariableEventNotSupported();
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Variable event 'delete' was removed from conditional event filter. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).");
+    assertThat(message.getLink())
+        .isEqualTo("https://docs.camunda.io/docs/components/modeler/bpmn/conditional-events/");
   }
 
   @Test
