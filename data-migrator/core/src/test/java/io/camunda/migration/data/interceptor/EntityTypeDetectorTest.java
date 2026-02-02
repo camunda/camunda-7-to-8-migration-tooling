@@ -19,8 +19,7 @@ class EntityTypeDetectorTest {
   void shouldSupportAllTypesWhenInterceptorReturnsEmptySet() {
     // Given
     EntityInterceptor interceptor = new UniversalInterceptor();
-    EntityConversionContext<?, ?> context =
-        new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(new HistoricProcessInstance());
 
     // When
     boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
@@ -34,8 +33,7 @@ class EntityTypeDetectorTest {
     // Given
     EntityInterceptor interceptor = new UniversalInterceptor();
     EntityConversionContext<?, ?> context =
-        new EntityConversionContext<>(
-            new HistoricActivityInstance(), HistoricActivityInstance.class);
+        new EntityConversionContext<>(new HistoricActivityInstance());
 
     // When
     boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
@@ -48,8 +46,7 @@ class EntityTypeDetectorTest {
   void shouldSupportSpecificTypeWhenInterceptorSpecifiesIt() {
     // Given
     EntityInterceptor interceptor = new ProcessInstanceInterceptor();
-    EntityConversionContext<?, ?> context =
-        new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(new HistoricProcessInstance());
 
     // When
     boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
@@ -62,9 +59,7 @@ class EntityTypeDetectorTest {
   void shouldNotSupportTypeWhenInterceptorDoesNotSpecifyIt() {
     // Given
     EntityInterceptor interceptor = new ProcessInstanceInterceptor();
-    EntityConversionContext<?, ?> context =
-        new EntityConversionContext<>(
-            new HistoricActivityInstance(), HistoricActivityInstance.class);
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(new HistoricActivityInstance());
 
     // When
     boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
@@ -79,22 +74,19 @@ class EntityTypeDetectorTest {
     EntityInterceptor interceptor = new MultiTypeInterceptor();
 
     // When & Then
-    EntityConversionContext<?, ?> processContext =
-        new EntityConversionContext<>(new HistoricProcessInstance(), HistoricProcessInstance.class);
+    EntityConversionContext<?, ?> processContext = new EntityConversionContext<>(new HistoricProcessInstance());
     assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, processContext)).isTrue();
 
     EntityConversionContext<?, ?> activityContext =
         new EntityConversionContext<>(
-            new HistoricActivityInstance(), HistoricActivityInstance.class);
+            new HistoricActivityInstance());
     assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, activityContext)).isTrue();
 
-    EntityConversionContext<?, ?> taskContext =
-        new EntityConversionContext<>(new HistoricTaskInstance(), HistoricTaskInstance.class);
+    EntityConversionContext<?, ?> taskContext = new EntityConversionContext<>(new HistoricTaskInstance());
     assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, taskContext)).isTrue();
 
     EntityConversionContext<?, ?> variableContext =
-        new EntityConversionContext<>(
-            new HistoricVariableInstance(), HistoricVariableInstance.class);
+        new EntityConversionContext<>(new HistoricVariableInstance());
     assertThat(EntityTypeDetector.supportsEntityBasedOnContext(interceptor, variableContext)).isFalse();
   }
 
@@ -102,9 +94,7 @@ class EntityTypeDetectorTest {
   void shouldSupportSubclassWhenInterceptorSpecifiesParentClass() {
     // Given
     EntityInterceptor interceptor = new ProcessInstanceInterceptor();
-    EntityConversionContext<?, ?> context =
-        new EntityConversionContext<>(
-            new SpecializedProcessInstance(), SpecializedProcessInstance.class);
+    EntityConversionContext<?, ?> context = new EntityConversionContext<>(new SpecializedProcessInstance());
 
     // When
     boolean supports = EntityTypeDetector.supportsEntityBasedOnContext(interceptor, context);
@@ -241,9 +231,9 @@ class EntityTypeDetectorTest {
   static class SpecializedProcessInstance extends HistoricProcessInstance {}
 
   // Test interceptor implementations
-  static abstract class NoOpInterceptor implements EntityInterceptor {
+  static abstract class NoOpInterceptor implements EntityInterceptor<Object, Object> {
     @Override
-    public void execute(EntityConversionContext<?, ?> context) {
+    public void execute(EntityConversionContext<Object, Object> context) {
       // No-op for testing
     }
 

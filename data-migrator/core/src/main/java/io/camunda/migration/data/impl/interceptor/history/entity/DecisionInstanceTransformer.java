@@ -8,6 +8,7 @@
 
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.*;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -15,12 +16,10 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinition
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.exception.EntityInterceptorException;
-import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.List;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricDecisionInputInstance;
@@ -33,7 +32,7 @@ import org.springframework.stereotype.Component;
 
 @Order(11)
 @Component
-public class DecisionInstanceTransformer implements EntityInterceptor {
+public class DecisionInstanceTransformer implements EntityInterceptor<HistoricDecisionInstance, Builder> {
 
   @Autowired
   protected VariableService variableService;
@@ -47,19 +46,11 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricDecisionInstance decisionInstance = (HistoricDecisionInstance) context.getC7Entity();
-    DecisionInstanceDbModel.Builder builder = (DecisionInstanceDbModel.Builder) context.getC8DbModelBuilder();
-
-    if (builder == null) {
-      throw new EntityInterceptorException("C8 DecisionInstanceDbModel.Builder is null in context");
-    }
-
-    List<DecisionInstanceDbModel.EvaluatedOutput> evaluatedOutputs =
-        mapOutputs(decisionInstance.getId(), decisionInstance.getOutputs());
+  public void execute(HistoricDecisionInstance entity, Builder builder) {
+    var evaluatedOutputs = mapOutputs(entity.getId(), entity.getOutputs());
 
     String resultJsonString;
-    Double collectResultValue = decisionInstance.getCollectResultValue();
+    var collectResultValue = entity.getCollectResultValue();
     if (collectResultValue != null) {
       resultJsonString = constructResultFromCollectValue(collectResultValue);
     } else {
@@ -68,33 +59,32 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
 
     builder.partitionId(C7_HISTORY_PARTITION_ID)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
-        .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
+        .evaluationDate(convertDate(entity.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .processDefinitionId(prefixDefinitionId(decisionInstance.getProcessDefinitionKey()))
-        .decisionDefinitionId(prefixDefinitionId(decisionInstance.getDecisionDefinitionKey()))
-        .decisionRequirementsId(prefixDefinitionId(decisionInstance.getDecisionRequirementsDefinitionKey()))
+        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .decisionDefinitionId(prefixDefinitionId(entity.getDecisionDefinitionKey()))
+        .decisionRequirementsId(prefixDefinitionId(entity.getDecisionRequirementsDefinitionKey()))
         .result(resultJsonString)
-        .tenantId(getTenantId(decisionInstance.getTenantId()))
-        .evaluatedInputs(mapInputs(decisionInstance.getId(), decisionInstance.getInputs()))
-        .evaluatedOutputs(evaluatedOutputs)
-        .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()));
+        .tenantId(getTenantId(entity.getTenantId()))
+        .evaluatedInputs(mapInputs(entity.getId(), entity.getInputs()))
+        .evaluatedOutputs(evaluatedOutputs);
     // Note: decisionDefinitionKey, processDefinitionKey, decisionRequirementsKey, decisionType
     // processInstanceKey, rootDecisionDefinitionKey, flowNodeInstanceKey, and flowNodeId are set externally
   }
 
-  protected List<DecisionInstanceDbModel.EvaluatedInput> mapInputs(String decisionInstanceId,
-                                                                 List<HistoricDecisionInputInstance> c7Inputs) {
-    return c7Inputs.stream().map(input -> new DecisionInstanceDbModel.EvaluatedInput(decisionInstanceId,
+  protected List<EvaluatedInput> mapInputs(String decisionInstanceId,
+                                           List<HistoricDecisionInputInstance> c7Inputs) {
+    return c7Inputs.stream().map(input -> new EvaluatedInput(decisionInstanceId,
         input.getId(),
         input.getClauseName(),
         variableService.convertValue((ValueFields) input)
     )).toList();
   }
 
-  protected List<DecisionInstanceDbModel.EvaluatedOutput> mapOutputs(String decisionInstanceId,
-                                                                   List<HistoricDecisionOutputInstance> c7Outputs) {
-    return c7Outputs.stream().map(output -> new DecisionInstanceDbModel.EvaluatedOutput(decisionInstanceId,
+  protected List<EvaluatedOutput> mapOutputs(String decisionInstanceId,
+                                             List<HistoricDecisionOutputInstance> c7Outputs) {
+    return c7Outputs.stream().map(output -> new EvaluatedOutput(decisionInstanceId,
         output.getId(),
         output.getClauseName(),
         variableService.convertValue((ValueFields) output),
@@ -115,14 +105,14 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
     }
   }
 
-  protected String constructResultJsonFromOutputs(List<DecisionInstanceDbModel.EvaluatedOutput> outputValues) {
+  protected String constructResultJsonFromOutputs(List<EvaluatedOutput> outputValues) {
     if (outputValues == null || outputValues.isEmpty()) {
       return null;
     }
 
     try {
       List<Object> parsedValues = new java.util.ArrayList<>();
-      for (DecisionInstanceDbModel.EvaluatedOutput output : outputValues) {
+      for (EvaluatedOutput output : outputValues) {
         String jsonValue = output.value();
         Object parsedValue = objectMapper.readValue(jsonValue, Object.class);
         parsedValues.add(parsedValue);

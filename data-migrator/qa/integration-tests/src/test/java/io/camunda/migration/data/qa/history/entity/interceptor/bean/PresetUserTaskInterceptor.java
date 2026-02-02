@@ -8,12 +8,13 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
+import io.camunda.db.rdbms.write.domain.UserTaskDbModel.Builder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
-public class PresetUserTaskInterceptor implements EntityInterceptor {
+public class PresetUserTaskInterceptor implements EntityInterceptor<HistoricTaskInstance, Builder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -21,20 +22,16 @@ public class PresetUserTaskInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    UserTaskDbModel.Builder builder = (UserTaskDbModel.Builder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      builder.processDefinitionKey(1L)
-          .processInstanceKey(2L)
-          .elementInstanceKey(3L)
-          .processDefinitionVersion(1)
-          .rootProcessInstanceKey(2L);
-    }
+  public void presetParentProperties(HistoricTaskInstance c7Entity, Builder builder) {
+    builder.processDefinitionKey(1L)
+        .processInstanceKey(2L)
+        .elementInstanceKey(3L)
+        .processDefinitionVersion(1)
+        .rootProcessInstanceKey(2L);
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricTaskInstance, Builder> context) {
     // This interceptor intentionally does not modify the user task during execution.
   }
 }

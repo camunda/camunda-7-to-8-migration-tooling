@@ -7,7 +7,10 @@
  */
 package io.camunda.migration.data.example;
 
+import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.*;
+
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -27,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * - How to access the Camunda 7 process engine
  * - How to enrich entity data with additional information
  */
-public class ProcessInstanceEnricher implements EntityInterceptor {
+public class ProcessInstanceEnricher implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ProcessInstanceEnricher.class);
 
@@ -45,11 +48,10 @@ public class ProcessInstanceEnricher implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
     // Safe to cast because getTypes() restricts to HistoricProcessInstance
-    HistoricProcessInstance c7Instance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder c8Builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
+    HistoricProcessInstance c7Instance = context.getC7Entity();
+    ProcessInstanceDbModelBuilder c8Builder = context.getC8DbModelBuilder();
 
     if (enableLogging) {
       LOGGER.info(
@@ -125,10 +127,9 @@ public class ProcessInstanceEnricher implements EntityInterceptor {
    * This method is called before execute() and is useful for setting hierarchical relationships.
    */
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    HistoricProcessInstance c7Instance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder c8Builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
+  public void presetParentProperties(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
+    HistoricProcessInstance c7Instance = context.getC7Entity();
+    ProcessInstanceDbModelBuilder c8Builder = context.getC8DbModelBuilder();
 
     // Example: Handle parent process instance relationships
     if (c7Instance.getSuperProcessInstanceId() != null) {

@@ -29,7 +29,8 @@ public interface BaseInterceptor<T> {
    *
    * @param context containing data and methods to process or modify it
    */
-  void execute(T context);
+  default void execute(T context) {
+  }
 
   /**
    * Returns the set of types that this interceptor can handle.

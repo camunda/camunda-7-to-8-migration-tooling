@@ -9,6 +9,7 @@ package io.camunda.migration.data.example;
 
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.domain.VariableDbModel.VariableDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -26,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * - How to apply type-specific transformations
  * - How to add custom validation logic
  */
-public class UserTaskAndVariableInterceptor implements EntityInterceptor {
+public class UserTaskAndVariableInterceptor implements EntityInterceptor<Object, Object> {
 
   protected static final Logger LOGGER =
       LoggerFactory.getLogger(UserTaskAndVariableInterceptor.class);
@@ -45,7 +46,7 @@ public class UserTaskAndVariableInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     // Determine which entity type we're processing and handle accordingly
     if (context.getC7Entity() instanceof HistoricTaskInstance) {
       handleUserTask(context);
@@ -95,9 +96,9 @@ public class UserTaskAndVariableInterceptor implements EntityInterceptor {
   /**
    * Handles variable entity conversion.
    */
-  protected void handleVariable(EntityConversionContext<?, ?> context) {
+  protected void handleVariable(EntityConversionContext<Object, Object> context) {
     HistoricVariableInstance c7Variable = (HistoricVariableInstance) context.getC7Entity();
-    VariableDbModel.VariableDbModelBuilder c8Builder = (VariableDbModel.VariableDbModelBuilder) context.getC8DbModelBuilder();
+    VariableDbModelBuilder c8Builder = (VariableDbModelBuilder) context.getC8DbModelBuilder();
 
     LOGGER.debug(
         "Processing variable: {} (type: {})",

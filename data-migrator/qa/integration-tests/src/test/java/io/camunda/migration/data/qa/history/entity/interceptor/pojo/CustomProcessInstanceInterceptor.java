@@ -8,12 +8,13 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.pojo;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 
-public class CustomProcessInstanceInterceptor implements EntityInterceptor {
+public class CustomProcessInstanceInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
   protected String tenantIdSuffix;
 
   @Override
@@ -22,19 +23,13 @@ public class CustomProcessInstanceInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
+  public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
       // Modify the tenant ID by appending a suffix
-      String originalTenantId = processInstance.getTenantId();
+      String originalTenantId = context.getC7Entity().getTenantId();
       String modifiedTenantId = originalTenantId != null
           ? originalTenantId + tenantIdSuffix
           : tenantIdSuffix;
-      builder.tenantId(modifiedTenantId);
-    }
+      context.getC8DbModelBuilder().tenantId(modifiedTenantId);
   }
 
   // Setter for property binding from YAML
