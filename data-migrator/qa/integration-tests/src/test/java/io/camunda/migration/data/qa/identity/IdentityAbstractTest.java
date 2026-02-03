@@ -12,6 +12,7 @@ import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +33,12 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
 
   @Autowired
   protected DbClient dbClient;
+
+  @Autowired
+  protected AuthorizationService authorizationService;
+
+  @Autowired
+  protected IdentityTestHelper testHelper;
 
   @Autowired
   protected ProcessEngineConfiguration processEngineConfiguration;
