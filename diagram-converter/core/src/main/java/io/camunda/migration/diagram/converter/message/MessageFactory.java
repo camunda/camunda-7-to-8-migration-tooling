@@ -515,6 +515,12 @@ public class MessageFactory {
         ContextBuilder.builder().entry("elementId", elementId).build());
   }
 
+  public static Message conditionalEventDefinitionMissingId(String parentElementId) {
+    return INSTANCE.composeMessage(
+        "conditional-event-definition-missing-id",
+        ContextBuilder.builder().entry("parentElementId", parentElementId).build());
+  }
+
   public static Message oldInAllHint() {
     return INSTANCE.staticMessage("old-in-all-hint");
   }

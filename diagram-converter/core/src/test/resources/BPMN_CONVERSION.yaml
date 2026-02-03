@@ -703,6 +703,26 @@ categories:
 
   - category: Conditional Event Definition
     cases:
+      - name: Conditional Intermediate Catch Event with missing id on conditionalEventDefinition
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch">
+            <bpmn:conditionalEventDefinition>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">${myVariable == true}</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedBpmn: |
+          <bpmn:intermediateCatchEvent id="ConditionalCatchEvent" name="Conditional Catch" parallelMultiple="false">
+            <extensionElements>
+            </extensionElements>
+            <bpmn:conditionalEventDefinition>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">=myVariable = true</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">The conditionalEventDefinition on element 'ConditionalCatchEvent' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_ConditionalCatchEvent').</conversion:message>
+          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${myVariable == true}' -&gt; '=myVariable = true'.</conversion:message>
       - name: Conditional Intermediate Catch Event with JUEL expression
         properties:
           platformVersion: "8.9"

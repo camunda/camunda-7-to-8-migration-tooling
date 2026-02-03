@@ -478,6 +478,22 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildConditionalEventDefinitionMissingId() {
+    String parentElementId = random();
+    Message message = conditionalEventDefinitionMissingId(parentElementId);
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "The conditionalEventDefinition on element '%s' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_%s').",
+            parentElementId, parentElementId);
+    assertThat(message.getLink())
+        .isEqualTo("https://docs.camunda.io/docs/components/modeler/bpmn/conditional-events/");
+  }
+
+  @Test
   void shouldBuildDelegateExpressionAsJobType() {
     String jobType = random();
     String expression = random();
