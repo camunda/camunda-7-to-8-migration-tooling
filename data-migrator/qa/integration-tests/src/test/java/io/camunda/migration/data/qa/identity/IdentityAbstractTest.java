@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.identity;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
@@ -50,6 +51,7 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
 
   @AfterEach
   public void cleanup() {
+    identityMigrator.setMode(MigratorMode.MIGRATE);
     identityService.createTenantQuery().list().forEach(tenant -> identityService.deleteTenant(tenant.getId()));
     dbClient.deleteAllMappings();
   }

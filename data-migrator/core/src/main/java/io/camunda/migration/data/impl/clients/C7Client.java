@@ -33,6 +33,7 @@ import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.authorization.AuthorizationQuery;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
@@ -507,16 +508,28 @@ public class C7Client {
   }
 
   /**
-   * Fetches authorization entities
+   * Processes authorization entities with pagination using the provided callback consumer.
    */
-  public List<Authorization> fetchAuthorizations(String idAfter) {
-    return callApi(() -> (
-            (AuthorizationQueryImpl) (((AuthorizationQueryImpl) authorizationService.createAuthorizationQuery()))
-            .idAfter(idAfter))
-            .orderByAuthorizationId()
-            .asc()
-            .list(),
-        FAILED_TO_FETCH_AUTHORIZATIONS);
+  public void fetchAndHandleAuthorizations(Consumer<Authorization> callback, String idAfter) {
+    AuthorizationQueryImpl query = (AuthorizationQueryImpl) ((AuthorizationQueryImpl) (((AuthorizationQueryImpl) authorizationService
+        .createAuthorizationQuery()))
+        .idAfter(idAfter))
+        .orderByAuthorizationId()
+        .asc();
+
+    new Pagination<Authorization>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
+   * Gets a single authorization by ID.
+   */
+  public Authorization getAuthorization(String authorizationId) {
+    AuthorizationQuery query = authorizationService.createAuthorizationQuery().authorizationId(authorizationId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_AUTHORIZATIONS);
   }
 
   public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {

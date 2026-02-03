@@ -7,19 +7,25 @@
  */
 package io.camunda.migration.data;
 
+import static io.camunda.migration.data.MigratorMode.MIGRATE;
+import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+
 import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.migration.data.exception.MigratorException;
-import io.camunda.migration.data.impl.identity.AuthorizationManager;
-import io.camunda.migration.data.impl.identity.AuthorizationMappingResult;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.identity.AuthorizationManager;
+import io.camunda.migration.data.impl.identity.AuthorizationMappingResult;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +35,8 @@ import org.springframework.stereotype.Component;
 public class IdentityMigrator {
 
   public static final long DEFAULT_TENANT_KEY = 1L;
+
+  protected MigratorMode mode = MigratorMode.MIGRATE;
 
   @Autowired
   protected DbClient dbClient;
@@ -52,6 +60,10 @@ public class IdentityMigrator {
     }
   }
 
+  public void setMode(MigratorMode mode) {
+    this.mode = mode == null ? MigratorMode.MIGRATE : mode;
+  }
+
   protected void migrateTenants() {
     String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
     List<Tenant> tenants = c7Client.fetchTenants(latestId);
@@ -61,12 +73,16 @@ public class IdentityMigrator {
   }
 
   protected void migrateAuthorizations() {
-    String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
-    List<Authorization> authorizations = c7Client.fetchAuthorizations(latestId);
-    for (Authorization authorization : authorizations) {
-      migrateAuthorization(authorization);
-    }
+    fetchAuthorizationsToMigrate(this::migrateAuthorization);
+  }
 
+  protected void fetchAuthorizationsToMigrate(Consumer<Authorization> authorizationConsumer) {
+    if (mode == MigratorMode.RETRY_SKIPPED) {
+      fetchAndHandleSkippedAuthorizations(authorizationConsumer);
+    } else {
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
+      c7Client.fetchAndHandleAuthorizations(authorizationConsumer, latestId);
+    }
   }
 
   protected void migrateTenant(Tenant tenant) {
@@ -111,10 +127,26 @@ public class IdentityMigrator {
 
   protected void markAsSkipped(String id, String reason) {
     IdentityMigratorLogs.logSkippedAuthorization(id, reason);
-    saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, id, null);
+    if (MIGRATE.equals(mode)) { // only mark as skipped in MIGRATE mode, if it's RETRY_SKIPPED, it's already marked as skipped
+      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, id, null);
+    }
   }
 
   protected void saveRecord(IdKeyMapper.TYPE type, String c7Id, Long c8Key) {
-    dbClient.insert(c7Id, c8Key, type);
+    if (RETRY_SKIPPED.equals(mode)) {
+      dbClient.updateC8KeyByC7IdAndType(c7Id, c8Key, type);
+    } else if (MIGRATE.equals(mode)) {
+      dbClient.insert(c7Id, c8Key, type);
+    }
+  }
+
+  protected void fetchAndHandleSkippedAuthorizations(Consumer<Authorization> callback) {
+    dbClient.fetchAndHandleSkippedForType(IdKeyMapper.TYPE.AUTHORIZATION, (IdKeyDbModel skipped) -> {
+      String authorizationId = skipped.getC7Id();
+      Authorization authorization = c7Client.getAuthorization(authorizationId);
+      if (authorization != null) {
+        callback.accept(authorization);
+      }
+    });
   }
 }

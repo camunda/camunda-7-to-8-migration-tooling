@@ -232,9 +232,7 @@ public class MigratorApp {
   public static void migrateIdentity(ConfigurableApplicationContext context, MigratorMode mode) {
     LOGGER.info("Migrating identity data...");
     IdentityMigrator identityMigrator = context.getBean(IdentityMigrator.class);
-    if (mode != MigratorMode.MIGRATE) { // Retry covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/440
-      throw new UnsupportedOperationException("Only migrate mode is supported for identity data");
-    }
+    identityMigrator.setMode(mode);
     identityMigrator.migrate();
   }
 
