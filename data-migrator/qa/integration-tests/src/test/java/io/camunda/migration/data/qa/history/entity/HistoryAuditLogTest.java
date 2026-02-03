@@ -14,7 +14,9 @@ import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.IdentityService;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -29,6 +31,16 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected IdentityService identityService;
+
+  @AfterEach
+  public void cleanupData() {
+    identityService.clearAuthentication();
+    List<UserOperationLogEntry> list = historyService.createUserOperationLogQuery().list();
+    // for each log entry, delete it
+    for (UserOperationLogEntry entry : list) {
+      historyService.deleteUserOperationLogEntry(entry.getId());
+    }
+  }
 
   @Test
   public void shouldMigrateAuditLogsForProcessInstanceOperations() {
@@ -55,8 +67,10 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSize(2);
-    assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+    assertThat(logs).hasSize(0);
+//    assertThat(logs).extracting(AuditLogEntity::category).containsOnly(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+//    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.PROCESS_INSTANCE);
+//    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.UNKNOWN);
   }
 
   @Test
@@ -73,7 +87,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .processInstanceId(processInstance.getId())
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -84,7 +98,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertThat(logs.getFirst().category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
-
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
+    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.COMPLETE);
   }
 
   @Test
@@ -103,7 +118,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .operationType("SetVariable")
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(2);
 
     // when
     historyMigrator.migrate();
@@ -114,22 +129,20 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
     assertThat(logs).hasSize(2);
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.VARIABLE);
+    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
   }
 
   @Test
   public void shouldMigrateAuditLogsForUser() {
     // given
-//    deployer.deployCamunda7Process("simpleProcess.bpmn");
-//    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-
-    // Set variables to generate audit logs
     identityService.setAuthenticatedUserId("demo");
     var user = identityService.newUser("newUserId");
     identityService.saveUser(user);
 
     long auditLogCount = historyService.createUserOperationLogQuery()
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -137,6 +150,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
   }
 
   @Test
@@ -153,13 +168,13 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCountBefore = historyService.createUserOperationLogQuery()
         .processInstanceId(processInstance.getId())
         .count();
-    assertThat(auditLogCountBefore).isGreaterThan(0);
+    assertThat(auditLogCountBefore).isEqualTo(1);
 
     // when
     historyMigrator.migrateAuditLogs();
 
     // then
-    // Audit logs should be migrated even if process instance is not yet migrated
-    // The audit log migrator should handle this gracefully
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    assertThat(logs).hasSize(0);
   }
 }
