@@ -29,8 +29,8 @@ public final class EntityTypeDetector {
    * @param context the entity conversion context
    * @return true if the interceptor supports the entity type
    */
-  public static boolean supportsEntityBasedOnContext(EntityInterceptor interceptor, EntityConversionContext<?, ?> context) {
-    return supportsEntityType(interceptor, context.getEntityType());
+  public static boolean supportsEntityBasedOnContext(EntityInterceptor<?, ?> interceptor, EntityConversionContext<?, ?> context) {
+    return supportsEntityType(interceptor, context.getC7Entity().getClass());
   }
 
   /**
@@ -40,7 +40,7 @@ public final class EntityTypeDetector {
    * @param entityType the entity type class to check
    * @return true if the interceptor supports the entity type
    */
-  public static boolean supportsEntityType(EntityInterceptor interceptor, Class<?> entityType) {
+  public static boolean supportsEntityType(EntityInterceptor<?, ?> interceptor, Class<?> entityType) {
     var supportedTypes = interceptor.getTypes();
 
     // Empty set means handle all types
@@ -60,7 +60,7 @@ public final class EntityTypeDetector {
    * @param entity the entity instance to check
    * @return true if the interceptor supports the entity type
    */
-  public static boolean supportsEntityBasedOnContext(EntityInterceptor interceptor, Object entity) {
+  public static boolean supportsEntityBasedOnContext(EntityInterceptor<?, ?> interceptor, Object entity) {
     if (entity == null) {
       return false;
     }

@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Profile("entity-programmatic")
 @Component
 @Order(200)
-public class ActivityInstanceInterceptor implements EntityInterceptor {
+public class ActivityInstanceInterceptor implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
 
   protected final AtomicInteger executionCount = new AtomicInteger(0);
 
@@ -28,16 +29,13 @@ public class ActivityInstanceInterceptor implements EntityInterceptor {
     return Set.of(HistoricActivityInstance.class);
   }
 
-  public void execute(EntityConversionContext<?, ?> context) {
+  @Override
+  public void execute(HistoricActivityInstance c7Entity, FlowNodeInstanceDbModelBuilder c8ModelBuilder) {
     executionCount.incrementAndGet();
-    HistoricActivityInstance activityInstance = (HistoricActivityInstance) context.getC7Entity();
-    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder = (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
-    if (builder != null) {
-      // Add "BEAN_" prefix to tenant ID
-      String originalTenantId = activityInstance.getTenantId();
-      String modifiedTenantId = originalTenantId != null ? "BEAN_" + originalTenantId : "BEAN_DEFAULT";
-      builder.tenantId(modifiedTenantId);
-    }
+    // Add "BEAN_" prefix to tenant ID
+    String originalTenantId = c7Entity.getTenantId();
+    String modifiedTenantId = originalTenantId != null ? "BEAN_" + originalTenantId : "BEAN_DEFAULT";
+    c8ModelBuilder.tenantId(modifiedTenantId);
   }
 
   public int getExecutionCount() {

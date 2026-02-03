@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Order(99) // Run before specific interceptors
 @Component
 @Profile("entity-programmatic")
-public class UniversalEntityInterceptor implements EntityInterceptor {
+public class UniversalEntityInterceptor implements EntityInterceptor<Object, Object> {
   protected final AtomicInteger executionCount = new AtomicInteger(0);
 
   @Override
@@ -27,7 +27,7 @@ public class UniversalEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     executionCount.incrementAndGet();
     // Universal interceptor - processes all entity types
   }

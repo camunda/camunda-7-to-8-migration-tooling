@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.migration.data.qa.util.WhiteBox;
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("entity-programmatic")
 @WhiteBox
-public class ProcessInstanceInterceptor implements EntityInterceptor {
+public class ProcessInstanceInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
   protected final AtomicInteger executionCount = new AtomicInteger(0);
 
   @Override
@@ -33,22 +34,18 @@ public class ProcessInstanceInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(HistoricProcessInstance processInstance, ProcessInstanceDbModelBuilder builder) {
     executionCount.incrementAndGet();
 
-    HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-    builder.processInstanceKey(getNextKey()).processDefinitionId(processInstance.getProcessDefinitionKey());
+    // Add "BEAN_" prefix to tenant ID
+    String originalTenantId = processInstance.getTenantId();
+    String modifiedTenantId = originalTenantId != null
+        ? "BEAN_" + originalTenantId
+        : "BEAN_DEFAULT";
 
-    if (builder != null) {
-      // Add "BEAN_" prefix to tenant ID
-      String originalTenantId = processInstance.getTenantId();
-      String modifiedTenantId = originalTenantId != null
-          ? "BEAN_" + originalTenantId
-          : "BEAN_DEFAULT";
-      builder.tenantId(modifiedTenantId);
-    }
+    builder.processInstanceKey(getNextKey())
+        .processDefinitionId(processInstance.getProcessDefinitionKey())
+        .tenantId(modifiedTenantId);
   }
 
   public int getExecutionCount() {

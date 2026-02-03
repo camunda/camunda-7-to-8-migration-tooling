@@ -65,6 +65,7 @@ import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.write.domain.DbModel;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
@@ -73,6 +74,7 @@ import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
+import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -312,8 +314,8 @@ public class C8Client {
   /**
    * Inserts a Variable into the database.
    */
-  public void insertVariable(VariableMapper.BatchInsertVariablesDto dbModel) {
-    callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
+  public void insertVariable(VariableDbModel dbModel) {
+    callApi(() -> variableMapper.insert(new VariableMapper.BatchInsertVariablesDto(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**

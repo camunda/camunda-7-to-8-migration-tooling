@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.pojo;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -16,7 +17,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-public class TypeSpecificEntityInterceptor implements EntityInterceptor {
+public class TypeSpecificEntityInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -24,19 +25,13 @@ public class TypeSpecificEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
+  public void execute(HistoricProcessInstance c7Entity, ProcessInstanceDbModelBuilder builder) {
       // Add a specific suffix to tenant ID for type-specific processing
-      String originalTenantId = processInstance.getTenantId();
+      String originalTenantId = c7Entity.getTenantId();
       String modifiedTenantId = originalTenantId != null
           ? originalTenantId + "-type-specific"
           : "type-specific";
       builder.tenantId(modifiedTenantId);
-    }
   }
 }
 

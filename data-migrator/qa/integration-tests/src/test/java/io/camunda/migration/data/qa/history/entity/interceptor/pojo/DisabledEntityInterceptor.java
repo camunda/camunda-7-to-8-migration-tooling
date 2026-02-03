@@ -7,12 +7,14 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor.pojo;
 
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 
-public class DisabledEntityInterceptor implements EntityInterceptor {
+public class DisabledEntityInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -20,7 +22,7 @@ public class DisabledEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
     // This interceptor should never execute if properly disabled
     throw new IllegalStateException("DisabledEntityInterceptor should not be executed");
   }

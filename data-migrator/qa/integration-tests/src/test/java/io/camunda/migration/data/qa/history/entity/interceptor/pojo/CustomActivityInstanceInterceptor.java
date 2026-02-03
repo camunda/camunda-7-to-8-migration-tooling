@@ -8,12 +8,13 @@
 package io.camunda.migration.data.qa.history.entity.interceptor.pojo;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 
-public class CustomActivityInstanceInterceptor implements EntityInterceptor {
+public class CustomActivityInstanceInterceptor implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
   protected String tenantIdPrefix;
 
   @Override
@@ -22,19 +23,13 @@ public class CustomActivityInstanceInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricActivityInstance activityInstance = (HistoricActivityInstance) context.getC7Entity();
-    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
-        (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
+  public void execute(HistoricActivityInstance c7Entity, FlowNodeInstanceDbModelBuilder builder) {
       // Modify the tenant ID by prepending a prefix
-      String originalTenantId = activityInstance.getTenantId();
+      String originalTenantId = c7Entity.getTenantId();
       String modifiedTenantId = originalTenantId != null
           ? tenantIdPrefix + originalTenantId
           : tenantIdPrefix;
       builder.tenantId(modifiedTenantId);
-    }
   }
 
   // Setter for property binding from YAML
