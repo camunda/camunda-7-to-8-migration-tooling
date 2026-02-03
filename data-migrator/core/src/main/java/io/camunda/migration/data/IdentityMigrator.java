@@ -23,7 +23,6 @@ import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
 import org.camunda.bpm.engine.authorization.Authorization;
@@ -65,24 +64,11 @@ public class IdentityMigrator {
   }
 
   protected void migrateTenants() {
-    String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
-    List<Tenant> tenants = c7Client.fetchTenants(latestId);
-    for (Tenant tenant : tenants) {
-      migrateTenant(tenant);
-    }
+    fetchTenantsToMigrate(this::migrateTenant);
   }
 
   protected void migrateAuthorizations() {
     fetchAuthorizationsToMigrate(this::migrateAuthorization);
-  }
-
-  protected void fetchAuthorizationsToMigrate(Consumer<Authorization> authorizationConsumer) {
-    if (mode == MigratorMode.RETRY_SKIPPED) {
-      fetchAndHandleSkippedAuthorizations(authorizationConsumer);
-    } else {
-      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
-      c7Client.fetchAndHandleAuthorizations(authorizationConsumer, latestId);
-    }
   }
 
   protected void migrateTenant(Tenant tenant) {
@@ -92,8 +78,7 @@ public class IdentityMigrator {
       IdentityMigratorLogs.logMigratedTenant(tenant.getId());
       saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY); // Tenants do not have keys, we need a value different from null
     } catch (MigratorException e) {
-      IdentityMigratorLogs.logSkippedTenant(tenant.getId());
-      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), null);
+      markAsSkipped(IdKeyMapper.TYPE.TENANT, tenant.getId(), e.getMessage());
     }
   }
 
@@ -118,17 +103,21 @@ public class IdentityMigrator {
         IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());
       } catch (MigratorException e) {
-        markAsSkipped(authorization.getId(), e.getMessage());
+        markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), e.getMessage());
       }
     } else {
-      markAsSkipped(authorization.getId(), mappingResult.getReason());
+      markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), mappingResult.getReason());
     }
   }
 
-  protected void markAsSkipped(String id, String reason) {
-    IdentityMigratorLogs.logSkippedAuthorization(id, reason);
+  protected void markAsSkipped(IdKeyMapper.TYPE type, String id, String reason) {
+    switch (type) {
+      case TENANT -> IdentityMigratorLogs.logSkippedTenant(id);
+      case AUTHORIZATION -> IdentityMigratorLogs.logSkippedAuthorization(id, reason);
+    }
+
     if (MIGRATE.equals(mode)) { // only mark as skipped in MIGRATE mode, if it's RETRY_SKIPPED, it's already marked as skipped
-      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, id, null);
+      saveRecord(type, id, null);
     }
   }
 
@@ -140,12 +129,40 @@ public class IdentityMigrator {
     }
   }
 
+  protected void fetchTenantsToMigrate(Consumer<Tenant> tenantConsumer) {
+    if (mode == RETRY_SKIPPED) {
+      fetchAndHandleSkippedTenants(tenantConsumer);
+    } else {
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
+      c7Client.fetchAndHandleTenants(tenantConsumer, latestId);
+    }
+  }
+
+  protected void fetchAuthorizationsToMigrate(Consumer<Authorization> authorizationConsumer) {
+    if (mode == MigratorMode.RETRY_SKIPPED) {
+      fetchAndHandleSkippedAuthorizations(authorizationConsumer);
+    } else {
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
+      c7Client.fetchAndHandleAuthorizations(authorizationConsumer, latestId);
+    }
+  }
+
   protected void fetchAndHandleSkippedAuthorizations(Consumer<Authorization> callback) {
     dbClient.fetchAndHandleSkippedForType(IdKeyMapper.TYPE.AUTHORIZATION, (IdKeyDbModel skipped) -> {
       String authorizationId = skipped.getC7Id();
       Authorization authorization = c7Client.getAuthorization(authorizationId);
       if (authorization != null) {
         callback.accept(authorization);
+      }
+    });
+  }
+
+  protected void fetchAndHandleSkippedTenants(Consumer<Tenant> callback) {
+    dbClient.fetchAndHandleSkippedForType(IdKeyMapper.TYPE.TENANT, (IdKeyDbModel skipped) -> {
+      String tenantId = skipped.getC7Id();
+      Tenant tenant = c7Client.getTenant(tenantId);
+      if (tenant != null) {
+        callback.accept(tenant);
       }
     });
   }

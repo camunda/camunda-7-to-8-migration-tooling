@@ -41,6 +41,7 @@ import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.identity.Tenant;
+import org.camunda.bpm.engine.identity.TenantQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
@@ -495,16 +496,28 @@ public class C7Client {
   }
 
   /**
-   * Fetches tenant entities
+   * Processes tenant entities with pagination using the provided callback consumer.
    */
-  public List<Tenant> fetchTenants(String idAfter) {
-    return callApi(() -> (
-        (TenantQueryImpl) identityService.createTenantQuery())
+  public void fetchAndHandleTenants(Consumer<Tenant> callback, String idAfter) {
+    TenantQueryImpl query = (TenantQueryImpl) ((TenantQueryImpl) identityService
+        .createTenantQuery())
         .idAfter(idAfter)
         .orderByTenantId()
-        .asc()
-        .list(),
-        FAILED_TO_FETCH_TENANTS);
+        .asc();
+
+    new Pagination<Tenant>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
+   * Gets a single tenant by ID.
+   */
+  public Tenant getTenant(String tenantId) {
+    TenantQuery query = identityService.createTenantQuery().tenantId(tenantId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_TENANTS);
   }
 
   /**
