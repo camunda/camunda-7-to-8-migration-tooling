@@ -8,7 +8,9 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
@@ -20,6 +22,7 @@ import io.camunda.search.entities.AuditLogEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.EntityTypes;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
+import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -49,22 +52,31 @@ public class AuditLogTransformer implements EntityInterceptor {
       throw new EntityInterceptorException("C8 AuditLogDbModel.Builder is null in context");
     }
     convertOperationType(userOperationLog, builder);
+    String tenantId = getTenantId(userOperationLog.getTenantId());
     builder
         .entityType(convertEntityType(userOperationLog))
         .partitionId(C7_HISTORY_PARTITION_ID) // test
-        .timestamp(convertDate(userOperationLog.getTimestamp()))// test
+        .result(AuditLogEntity.AuditLogOperationResult.SUCCESS)
         .actorId(userOperationLog.getUserId()) // test
         .actorType(AuditLogEntity.AuditLogActorType.USER) // test
         .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))// test
         .annotation(userOperationLog.getAnnotation()) // test
-        .tenantId(userOperationLog.getTenantId()) // test
-        .tenantScope(AuditLogEntity.AuditLogTenantScope.TENANT) // test
-        .category(convertCategory(userOperationLog.getCategory()))
-        .historyCleanupDate(convertDate(userOperationLog.getRemovalTime()));
-    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey are set externally in AuditLogMigrator
+        .tenantId(tenantId) // test
+        .tenantScope(getAuditLogTenantScope(tenantId)) // test
+        .category(convertCategory(userOperationLog.getCategory()));
+    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, historyCleanupDate are set
+    // externally in AuditLogMigrator
 
+  }
 
-
+  protected static AuditLogEntity.@NonNull AuditLogTenantScope getAuditLogTenantScope(String tenantId) {
+    AuditLogEntity.AuditLogTenantScope tenantScope;
+    if ( tenantId.equals(C8_DEFAULT_TENANT)) {
+      tenantScope = AuditLogEntity.AuditLogTenantScope.GLOBAL;
+    } else {
+      tenantScope = AuditLogEntity.AuditLogTenantScope.TENANT;
+    }
+    return tenantScope;
   }
 
   protected AuditLogEntity.AuditLogOperationCategory convertCategory(String category) {

@@ -8,8 +8,8 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -17,6 +17,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
@@ -24,7 +25,11 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.time.OffsetDateTime;
+import java.time.Period;
+import java.util.Date;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.springframework.stereotype.Service;
 
 /**
@@ -81,6 +86,8 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
         AuditLogDbModel.Builder auditLogDbModelBuilder = configureAuditLogBuilder(c7AuditLog);
         EntityConversionContext<?, ?> context = createEntityConversionContext(
             c7AuditLog, UserOperationLogEntry.class, auditLogDbModelBuilder);
+
+        setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
 
         validateDependenciesAndInsert(c7AuditLog, context, c7AuditLogId);
       } catch (EntityInterceptorException e) {
@@ -199,5 +206,35 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     EntityConversionContext<?, ?> entityConversionContext = entityConversionService.convertWithContext(context);
     AuditLogDbModel.Builder builder = (AuditLogDbModel.Builder) entityConversionContext.getC8DbModelBuilder();
     return builder.build();
+  }
+
+  protected OffsetDateTime calculateHistoryCleanupDate(OffsetDateTime endTime, Date c7RemovalTime) {
+    if (c7RemovalTime != null) {
+      return convertDate(c7RemovalTime);
+    }
+
+    Period ttl = getAutoCancelTtl();
+    if (ttl == null || ttl.isZero()) {
+      return null;
+    }
+    return endTime.plus(ttl);
+  }
+
+  protected OffsetDateTime calculateEndDate(Date c7EndDate) {
+    if (c7EndDate == null) {
+      return convertDate(ClockUtil.now());
+    }
+    return convertDate(c7EndDate);
+  }
+
+  protected void setHistoryCleanupDate(UserOperationLogEntry c7AuditLog,
+                                       AuditLogDbModel.Builder auditLogDbModelBuilder) {
+    Date c7EndTime = c7AuditLog.getTimestamp();
+    var c8EndTime = calculateEndDate(c7EndTime);
+    var c8HistoryCleanupDate = calculateHistoryCleanupDate(c8EndTime, c7AuditLog.getRemovalTime());
+
+    auditLogDbModelBuilder
+        .historyCleanupDate(c8HistoryCleanupDate)
+        .timestamp(c8EndTime);
   }
 }
