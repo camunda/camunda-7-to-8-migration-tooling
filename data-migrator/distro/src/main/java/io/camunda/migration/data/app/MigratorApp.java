@@ -233,7 +233,7 @@ public class MigratorApp {
     LOGGER.info("Migrating identity data...");
     IdentityMigrator identityMigrator = context.getBean(IdentityMigrator.class);
     identityMigrator.setMode(mode);
-    identityMigrator.migrate();
+    identityMigrator.start();
   }
 
   protected static List<IdKeyMapper.TYPE> extractEntityTypeFilters(ApplicationArguments appArgs) {

@@ -39,7 +39,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     var t1 = identityTestHelper.createTenantInC7("tenantId1", "");
     var t2 = identityTestHelper.createTenantInC7("tenantId2", "");
     var t3 = identityTestHelper.createTenantInC7("tenantId3", "");
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when issue is fixed (by setting valid names)
     t1.setName("Tenant1");
@@ -51,7 +51,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
 
     // and migration is retried
     identityMigrator.setMode(RETRY_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then all three tenants are migrated successfully
     awaitTenantsCount(3);
@@ -64,7 +64,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     var t1 = identityTestHelper.createTenantInC7("tenantId1", "tenantName1");
     var t2 = identityTestHelper.createTenantInC7("tenantId2", "");
     var t3 = identityTestHelper.createTenantInC7("tenantId3", "tenantName3");
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when issue is fixed and migration is retried
     t2.setName("Tenant2");
@@ -72,7 +72,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
 
     // and migration is retried
     identityMigrator.setMode(RETRY_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then only the previously skipped tenant is additionally migrated
     awaitTenantsCount(3);
@@ -84,13 +84,13 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     // given one skipped, one migrated tenant, and one non migrated tenant
     var t1 = identityTestHelper.createTenantInC7("tenantId1", "tenantName1");
     var t2 = identityTestHelper.createTenantInC7("tenantId2", "");
-    identityMigrator.migrate();
+    identityMigrator.start();
     var t3 = identityTestHelper.createTenantInC7("tenantId3", "tenantName3");
 
     // when issue is fixed but migration is rerun without retry
     t2.setName("Tenant2");
     identityService.saveTenant(t2);
-    identityMigrator.migrate(); // default mode is MIGRATE
+    identityMigrator.start(); // default mode is MIGRATE
 
     // then we the non migrated tenant is migrated but the previously skipped one is not
     awaitTenantsCount(2);
@@ -106,11 +106,11 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     for (int i = 0; i < 10; i++) {
       tenantIds.add(identityTestHelper.createTenantInC7("tenantId-" + i + "-!~^", "tenantName" + i).getId());
     }
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when running migration with list skipped mode
     identityMigrator.setMode(LIST_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then all skipped tenants were listed
     String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.TENANT.getDisplayName() + "s\\]:";

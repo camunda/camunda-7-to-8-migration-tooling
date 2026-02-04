@@ -51,44 +51,47 @@ public class IdentityMigrator {
   @Autowired
   protected AuthorizationManager authorizationManager;
 
-  public void migrate() {
+  public void start() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
-
       if (LIST_SKIPPED.equals(mode)) {
-        listSkipped();
+        listSkippedIdentityEntities();
       } else {
-        migrateTenants();
-        migrateAuthorizations();
+        migrate();
       }
     } finally {
       ExceptionUtils.clearContext();
     }
   }
 
-  protected void listSkipped() {
-    // tenants
-    PrintUtils.printSkippedInstancesHeader(
-        dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT),
-        IdKeyMapper.TYPE.TENANT);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.TENANT);
-
-    // authorizations
-    PrintUtils.printSkippedInstancesHeader(
-        dbClient.countSkippedByType(IdKeyMapper.TYPE.AUTHORIZATION),
-        IdKeyMapper.TYPE.AUTHORIZATION);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
-  }
-
   public void setMode(MigratorMode mode) {
     this.mode = mode == null ? MigratorMode.MIGRATE : mode;
   }
 
+  protected void migrate() {
+    migrateTenants();
+    migrateAuthorizations();
+  }
+
+  protected void listSkippedIdentityEntities() {
+    // tenants
+    Long skippedTenantsCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT);
+    PrintUtils.printSkippedInstancesHeader(skippedTenantsCount, IdKeyMapper.TYPE.TENANT);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.TENANT);
+
+    // authorizations
+    Long skippedAuthCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.AUTHORIZATION);
+    PrintUtils.printSkippedInstancesHeader(skippedAuthCount, IdKeyMapper.TYPE.AUTHORIZATION);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
+  }
+
   protected void migrateTenants() {
+    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.TENANT);
     fetchTenantsToMigrate(this::migrateTenant);
   }
 
   protected void migrateAuthorizations() {
+    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.AUTHORIZATION);
     fetchAuthorizationsToMigrate(this::migrateAuthorization);
   }
 
@@ -154,7 +157,9 @@ public class IdentityMigrator {
     if (mode == RETRY_SKIPPED) {
       fetchAndHandleSkippedTenants(tenantConsumer);
     } else {
+      IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.TENANT);
       String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.TENANT);
+      IdentityMigratorLogs.logLatestId(IdKeyMapper.TYPE.TENANT, latestId);
       c7Client.fetchAndHandleTenants(tenantConsumer, latestId);
     }
   }
@@ -163,7 +168,9 @@ public class IdentityMigrator {
     if (mode == MigratorMode.RETRY_SKIPPED) {
       fetchAndHandleSkippedAuthorizations(authorizationConsumer);
     } else {
+      IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.AUTHORIZATION);
       String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.AUTHORIZATION);
+      IdentityMigratorLogs.logLatestId(IdKeyMapper.TYPE.AUTHORIZATION, latestId);
       c7Client.fetchAndHandleAuthorizations(authorizationConsumer, latestId);
     }
   }

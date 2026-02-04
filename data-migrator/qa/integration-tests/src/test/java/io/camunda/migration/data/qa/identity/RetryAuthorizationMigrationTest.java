@@ -61,14 +61,14 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ALL));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "admin", Set.of(Permissions.ALL));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "tasklist", Set.of(Permissions.ALL));
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when issue is fixed
     testHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
 
     // and migration is retried
     identityMigrator.setMode(RETRY_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then all three authorizations are migrated successfully
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME);
@@ -84,7 +84,7 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ));
     var skippedAuth = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "batchId", Set.of(Permissions.READ));
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "*", Set.of(Permissions.READ));
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when issue is fixed
     skippedAuth.setResourceId("*"); // fix issue
@@ -92,7 +92,7 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // and migration is retried
     identityMigrator.setMode(RETRY_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then we have three migrated authorizations
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME);
@@ -107,13 +107,13 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
     testHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ));
     var skippedAuth = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "batchId", Set.of(Permissions.READ));
-    identityMigrator.migrate();
+    identityMigrator.start();
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.PROCESS_DEFINITION, "*", Set.of(Permissions.READ));
 
     // when issue is fixed but migration is rerun without retry mode
     skippedAuth.setResourceId("*"); // fix issue
     authorizationService.saveAuthorization(skippedAuth);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then we have only two migrated authorizations (skipped remained skipped)
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(2, USERNAME);
@@ -130,11 +130,11 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
           .createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "cockpit-" + i, Set.of(Permissions.ALL))
           .getId());
     }
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // when running migration with list skipped mode
     identityMigrator.setMode(LIST_SKIPPED);
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then all skipped authorizations were listed
     String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.AUTHORIZATION.getDisplayName() + "s\\]:";
