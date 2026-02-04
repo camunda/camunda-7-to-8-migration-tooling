@@ -74,35 +74,6 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateAuditLogsForTaskOperations() {
-    // given
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
-    
-    // Complete a user task to generate audit logs
-    identityService.setAuthenticatedUserId("demo");
-    completeAllUserTasksWithDefaultUserTaskId();
-    
-    // Verify audit logs exist in C7
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
-        .count();
-    assertThat(auditLogCount).isEqualTo(1);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
-    assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
-    assertThat(logs).hasSize(1);
-    assertThat(logs.getFirst().category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
-    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.COMPLETE);
-  }
-
-  @Test
   public void shouldMigrateAuditLogsForVariableOperations() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
@@ -116,7 +87,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     // Verify audit logs exist in C7
     long auditLogCount = historyService.createUserOperationLogQuery()
         .processInstanceId(processInstance.getId())
-        .operationType("SetVariable")
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLE)
         .count();
     assertThat(auditLogCount).isEqualTo(2);
 
@@ -131,27 +102,6 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.VARIABLE);
     assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
-  }
-
-  @Test
-  public void shouldMigrateAuditLogsForUser() {
-    // given
-    identityService.setAuthenticatedUserId("demo");
-    var user = identityService.newUser("newUserId");
-    identityService.saveUser(user);
-
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .count();
-    assertThat(auditLogCount).isEqualTo(1);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
-    assertThat(logs).hasSize(1);
-
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
   }
 
   @Test

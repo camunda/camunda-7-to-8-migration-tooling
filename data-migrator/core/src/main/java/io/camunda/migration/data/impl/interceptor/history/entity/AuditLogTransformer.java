@@ -13,6 +13,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinition
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.AuditLogEntity;
@@ -47,19 +48,22 @@ public class AuditLogTransformer implements EntityInterceptor {
     if (builder == null) {
       throw new EntityInterceptorException("C8 AuditLogDbModel.Builder is null in context");
     }
+    convertOperationType(userOperationLog, builder);
     builder
-        .partitionId(C7_HISTORY_PARTITION_ID)
-        .timestamp(convertDate(userOperationLog.getTimestamp()))
-        .actorId(userOperationLog.getUserId())
-        .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))
-        .annotation(userOperationLog.getAnnotation())
-        .tenantId(userOperationLog.getTenantId())
+        .entityType(convertEntityType(userOperationLog))
+        .partitionId(C7_HISTORY_PARTITION_ID) // test
+        .timestamp(convertDate(userOperationLog.getTimestamp()))// test
+        .actorId(userOperationLog.getUserId()) // test
+        .actorType(AuditLogEntity.AuditLogActorType.USER) // test
+        .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))// test
+        .annotation(userOperationLog.getAnnotation()) // test
+        .tenantId(userOperationLog.getTenantId()) // test
+        .tenantScope(AuditLogEntity.AuditLogTenantScope.TENANT) // test
         .category(convertCategory(userOperationLog.getCategory()))
         .historyCleanupDate(convertDate(userOperationLog.getRemovalTime()));
-    // Note: auditLogKey, processInstanceKey, and processDefinitionKey are set externally in the migrator
+    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey are set externally in AuditLogMigrator
 
-    builder.entityType(convertEntityType(userOperationLog));
-    convertOperationType(userOperationLog, builder);
+
 
   }
 
@@ -82,13 +86,27 @@ public class AuditLogTransformer implements EntityInterceptor {
       case EntityTypes.TENANT -> AuditLogEntity.AuditLogEntityType.TENANT;
       case EntityTypes.AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
       case EntityTypes.PROCESS_DEFINITION, EntityTypes.DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
-      //      case EntityTypes.BATCH - can't be mapped currently
-      //      case EntityTypes.INCIDENT - can't be mapped currently
+
+      // Camunda 7 entity types that are currently NOT converted:
+      // - EntityTypes.INCIDENT: No direct C8 equivalent (incident operations are tracked differently)
+      // - EntityTypes.BATCH: Could map to BatchOperation but not fully implemented
+      // - EntityTypes.IDENTITY_LINK: Task candidate assignments, no direct C8 audit log equivalent
+      // - EntityTypes.ATTACHMENT: Task attachments, not tracked in C8 audit logs
+      // - EntityTypes.JOB_DEFINITION: Job configuration, not in C8
+      // - EntityTypes.JOB: Async jobs, not in C8
+      // - EntityTypes.EXTERNAL_TASK: External task workers, not in C8
+      // - EntityTypes.CASE_DEFINITION: CMMN not supported in C8
+      // - EntityTypes.CASE_INSTANCE: CMMN not supported in C8
+      // - EntityTypes.METRICS: Engine metrics, not in C8 audit logs
+      // - EntityTypes.TASK_METRICS: Task metrics, not in C8 audit logs
+      // - EntityTypes.OPERATION_LOG: Operation log annotations, not in C8
+      // - EntityTypes.FILTER: Task filters, not in C8
+      // - EntityTypes.COMMENT: Task comments, not tracked in C8 audit logs
+      // - EntityTypes.PROPERTY: Engine properties, not in C8
+
       default ->
-//          AuditLogEntity.AuditLogEntityType.UNKNOWN;
           throw new EntityInterceptorException(
-              "Unknown entity type: " + userOperationLog.getEntityType() + " for AuditLog entry ID: "
-                  + userOperationLog.getId());
+              HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE + userOperationLog.getEntityType());
     };
   }
 
@@ -97,17 +115,22 @@ public class AuditLogTransformer implements EntityInterceptor {
 
     switch (operationType) {
     // Task operations
-    case "Assign", "Claim", "Delegate", "SetOwner" ->
+    case UserOperationLogEntry.OPERATION_TYPE_ASSIGN,
+         UserOperationLogEntry.OPERATION_TYPE_CLAIM,
+         UserOperationLogEntry.OPERATION_TYPE_DELEGATE,
+         UserOperationLogEntry.OPERATION_TYPE_SET_OWNER ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.ASSIGN);
-    case "Complete" ->
+    case UserOperationLogEntry.OPERATION_TYPE_COMPLETE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.COMPLETE);
-    case "Resolve", "SetPriority", "Update" ->
+    case UserOperationLogEntry.OPERATION_TYPE_RESOLVE,
+         UserOperationLogEntry.OPERATION_TYPE_SET_PRIORITY,
+         UserOperationLogEntry.OPERATION_TYPE_UPDATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.UPDATE);
 
     // ProcessInstance operations
-    case "Create" ->
+    case UserOperationLogEntry.OPERATION_TYPE_CREATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.CREATE);
-    case "Delete" -> {
+    case UserOperationLogEntry.OPERATION_TYPE_DELETE -> {
       // ProcessInstance Delete maps to CANCEL, but other entity types map to DELETE
       String entityType = userOperationLog.getEntityType();
       if (EntityTypes.PROCESS_INSTANCE.equals(entityType)) {
@@ -116,30 +139,30 @@ public class AuditLogTransformer implements EntityInterceptor {
         builder.operationType(AuditLogEntity.AuditLogOperationType.DELETE);
       }
     }
-    case "ModifyProcessInstance" ->
+    case UserOperationLogEntry.OPERATION_TYPE_MODIFY_PROCESS_INSTANCE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.MODIFY);
-    case "Migrate" ->
+    case UserOperationLogEntry.OPERATION_TYPE_MIGRATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.MIGRATE);
-    case "DeleteHistory" ->
+    case UserOperationLogEntry.OPERATION_TYPE_DELETE_HISTORY ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.DELETE);
 
     // Variable operations
-    case "ModifyVariable" ->
+    case UserOperationLogEntry.OPERATION_TYPE_MODIFY_VARIABLE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.UPDATE);
-    case "RemoveVariable" -> builder.operationType(AuditLogEntity.AuditLogOperationType.DELETE);
-    case "SetVariable", "SetVariables" -> {
+    case UserOperationLogEntry.OPERATION_TYPE_REMOVE_VARIABLE ->
+        builder.operationType(AuditLogEntity.AuditLogOperationType.DELETE);
+    case UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLE,
+         UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLES -> {
       builder.operationType(AuditLogEntity.AuditLogOperationType.UPDATE);
       builder.entityType(AuditLogEntity.AuditLogEntityType.VARIABLE);
     }
 
     // DecisionDefinition operations
-    case "Evaluate" ->
+    case UserOperationLogEntry.OPERATION_TYPE_EVALUATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.EVALUATE);
 
-    default -> builder.operationType(AuditLogEntity.AuditLogOperationType.UNKNOWN);
-    //          throw new EntityInterceptorException(
-    //          "Unknown operation type: " + operationType + " for entity: " + userOperationLog.getEntityType() + " "
-    //              + "; AuditLog entry ID: " + userOperationLog.getId());
+    default ->
+        throw new EntityInterceptorException(HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE + operationType);
     }
   }
 }

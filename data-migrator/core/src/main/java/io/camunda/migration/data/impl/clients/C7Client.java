@@ -504,7 +504,7 @@ public class C7Client {
         .asc();
 
     if (timestampAfter != null) {
-//      query.timestampAfter(timestampAfter);
+      query.afterTimestamp(timestampAfter);
     }
 
     new Pagination<UserOperationLogEntry>()

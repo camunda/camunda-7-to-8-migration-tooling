@@ -104,157 +104,157 @@
 
 | Entity Type | Operation Type | Category |
 |-------------|----------------|----------|
-| **Authorization** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| **BatchOperation** | CREATE | |
-| | RESUME | |
-| | SUSPEND | |
-| | CANCEL | |
-| **DecisionEvaluation** | EVALUATE | |
-| **Decision** | CREATE | |
-| | DELETE | |
-| **DecisionRequirements** | CREATE | |
-| | DELETE | |
-| **Form** | CREATE | |
-| | DELETE | |
-| **Group** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| | ASSIGN | |
-| | UNASSIGN | |
-| **Incident** | RESOLVE | |
-| **MappingRule** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| **Process** | CREATE | |
-| | DELETE | |
-| **ProcessInstanceCreation** | CREATE | |
-| **ProcessInstance** | CANCEL | |
-| **ProcessInstanceMigration** | MIGRATE | |
-| **ProcessInstanceModification** | MODIFY | |
-| **Resource** | CREATE | |
-| | DELETE | |
-| **Tenant** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| | ASSIGN | |
-| | UNASSIGN | |
-| **Role** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| | ASSIGN | |
-| | UNASSIGN | |
-| **User** | CREATE | |
-| | UPDATE | |
-| | DELETE | |
-| **UserTask** | ASSIGN | |
-| | UPDATE | |
-| | COMPLETE | |
-| **Variable** | CREATE | |
-| | UPDATE | |
+| **Authorization** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| **BatchOperation** | CREATE | DEPLOYED_RESOURCES |
+| | RESUME | DEPLOYED_RESOURCES |
+| | SUSPEND | DEPLOYED_RESOURCES |
+| | CANCEL | DEPLOYED_RESOURCES |
+| **DecisionEvaluation** | EVALUATE | DEPLOYED_RESOURCES |
+| **Decision** | CREATE | DEPLOYED_RESOURCES |
+| | DELETE | DEPLOYED_RESOURCES |
+| **DecisionRequirements** | CREATE | DEPLOYED_RESOURCES |
+| | DELETE | DEPLOYED_RESOURCES |
+| **Form** | CREATE | DEPLOYED_RESOURCES |
+| | DELETE | DEPLOYED_RESOURCES |
+| **Group** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| | ASSIGN | ADMIN |
+| | UNASSIGN | ADMIN |
+| **Incident** | RESOLVE | DEPLOYED_RESOURCES |
+| **MappingRule** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| **Process** | CREATE | DEPLOYED_RESOURCES |
+| | DELETE | DEPLOYED_RESOURCES |
+| **ProcessInstanceCreation** | CREATE | DEPLOYED_RESOURCES |
+| **ProcessInstance** | CANCEL | DEPLOYED_RESOURCES |
+| **ProcessInstanceMigration** | MIGRATE | DEPLOYED_RESOURCES |
+| **ProcessInstanceModification** | MODIFY | DEPLOYED_RESOURCES |
+| **Resource** | CREATE | DEPLOYED_RESOURCES |
+| | DELETE | DEPLOYED_RESOURCES |
+| **Tenant** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| | ASSIGN | ADMIN |
+| | UNASSIGN | ADMIN |
+| **Role** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| | ASSIGN | ADMIN |
+| | UNASSIGN | ADMIN |
+| **User** | CREATE | ADMIN |
+| | UPDATE | ADMIN |
+| | DELETE | ADMIN |
+| **UserTask** | ASSIGN | USER_TASKS |
+| | UPDATE | USER_TASKS |
+| | COMPLETE | USER_TASKS |
+| **Variable** | CREATE | DEPLOYED_RESOURCES |
+| | UPDATE | DEPLOYED_RESOURCES |
 
 
 ## Camunda 7 to Camunda 8 Migration Mapping
 
 This table shows which Camunda 7 audit log entities and operations can be migrated to Camunda 8.
 
-| Camunda 7 Entity | Camunda 7 Operation Type  | Camunda 8 Entity | Camunda 8 Operation Type | Can be Migrated |
-|------------------|---------------------------|------------------|--------------------------|-----------------|
-| **Task** | Assign                    | UserTask | ASSIGN | Yes |
-| | Claim                     | UserTask | ASSIGN | Yes |
-| | Complete                  | UserTask | COMPLETE | Yes |
-| | Create                    | UserTask | CREATE | Yes |
-| | Delegate                  | UserTask | ASSIGN | Yes |
-| | Delete                    | UserTask | DELETE | Yes |
-| | Resolve                   | UserTask | UPDATE | Yes |
-| | SetOwner                  | UserTask | ASSIGN | Yes |
-| | SetPriority               | UserTask | UPDATE | Yes |
-| | Update                    | UserTask | UPDATE | Yes |
-| | DeleteHistory             | UserTask | DELETE | Yes |
-| **ProcessInstance** | Create                    | ProcessInstance | CREATE | Yes |
-| | Activate                  | ProcessInstance | - | No |
-| | Delete                    | ProcessInstance | CANCEL | Yes |
-| | ModifyProcessInstance     | ProcessInstanceModification | MODIFY | Yes |
-| | Suspend                   | ProcessInstance | - | No |
-| | Migrate                   | ProcessInstanceMigration | MIGRATE | Yes |
-| | RestartProcessInstance    | ProcessInstance | - | No |
-| | DeleteHistory             | ProcessInstance | DELETE | Yes |
-| | CreateIncident            | Incident | CREATE | Yes |
-| | Resolve                   | Incident | RESOLVE | Yes |
-| | SetRemovalTime            | ProcessInstance | - | No |
-| | SetVariables              | Variable | CREATE/UPDATE | Yes |
-| | CorrelateMessage          | ProcessInstance | - | No |
-| **Incident** | SetAnnotation             | Incident | - | No |
-| | ClearAnnotation           | Incident | - | No |
-| **IdentityLink** | AddUserLink               | UserTask | - | No |
-| | DeleteUserLink            | UserTask | - | No |
-| | AddGroupLink              | UserTask | - | No |
-| | DeleteGroupLink           | UserTask | - | No |
-| **Attachment** | AddAttachment             | UserTask | - | No |
-| | DeleteAttachment          | UserTask | - | No |
-| **JobDefinition** | ActivateJobDefinition     | - | - | No |
-| | SetPriority               | - | - | No |
-| | SuspendJobDefinition      | - | - | No |
-| **ProcessDefinition** | ActivateProcessDefinition | Resource | - | No |
-| | SuspendProcessDefinition  | Resource | - | No |
-| | Delete                    | Resource | DELETE | Yes |
-| | UpdateHistoryTimeToLive   | Resource | - | No |
-| **DecisionDefinition** | UpdateHistoryTimeToLive   | Decision | - | No |
-| | Evaluate                  | DecisionEvaluation | EVALUATE | Yes |
-| **CaseDefinition** | UpdateHistoryTimeToLive   | - | - | No |
-| **Job** | ActivateJob               | - | - | No |
-| | SetPriority               | - | - | No |
-| | SetJobRetries             | - | - | No |
-| | SuspendJob                | - | - | No |
-| | Execute                   | - | - | No |
-| | Delete                    | - | - | No |
-| | SetDueDate                | - | - | No |
-| | RecalculateDueDate        | - | - | No |
-| | CreateHistoryCleanupJobs  | - | - | No |
-| **Variable** | ModifyVariable            | Variable | UPDATE | Yes |
-| | RemoveVariable            | Variable | DELETE | Yes |
-| | SetVariable               | Variable | CREATE/UPDATE | Yes |
-| | DeleteHistory             | Variable | DELETE | Yes |
-| **Deployment** | Create                    | Resource | CREATE | Yes |
-| | Delete                    | Resource | DELETE | Yes |
-| **Batch** | ActivateBatch             | BatchOperation | - | No |
-| | SuspendBatch              | BatchOperation | - | No |
-| | Delete                    | BatchOperation | CANCEL | Yes |
-| | DeleteHistory             | BatchOperation | DELETE | Yes |
-| | SetRemovalTime            | BatchOperation | - | No |
-| **ExternalTask** | SetExternalTaskRetries    | - | - | No |
-| | SetPriority               | - | - | No |
-| | Unlock                    | - | - | No |
-| **DecisionInstance** | DeleteHistory             | Decision | DELETE | Yes |
-| | SetRemovalTime            | Decision | - | No |
-| **CaseInstance** | DeleteHistory             | - | - | No |
-| **Metrics** | Delete                    | - | - | No |
-| **TaskMetrics** | Delete                    | - | - | No |
-| **OperationLog** | SetAnnotation             | - | - | No |
-| | ClearAnnotation           | - | - | No |
-| **Filter** | Create                    | - | - | No |
-| | Update                    | - | - | No |
-| | Delete                    | - | - | No |
-| **Comment** | Update                    | - | - | No |
-| | Delete                    | - | - | No |
-| **User** | Create                    | User | CREATE | Yes |
-| | Update                    | User | UPDATE | Yes |
-| | Delete                    | User | DELETE | Yes |
-| | Unlock                    | User | - | No |
-| **Group** | Create                    | Group | CREATE | Yes |
-| | Update                    | Group | UPDATE | Yes |
-| | Delete                    | Group | DELETE | Yes |
-| **Group membership** | Create                    | Group | ASSIGN | Yes |
-| | Delete                    | Group | UNASSIGN | Yes |
-| **TenantMembership** | Create                    | Tenant | ASSIGN | Yes |
-| | Delete                    | Tenant | UNASSIGN | Yes |
-| **Authorization** | Create                    | Authorization | CREATE | Yes |
-| | Update                    | Authorization | UPDATE | Yes |
-| | Delete                    | Authorization | DELETE | Yes |
-| **Property** | Create                    | - | - | No |
-| | Update                    | - | - | No |
-| | Delete                    | - | - | No |
+| Camunda 7 Entity | Camunda 7 Operation Type  | Camunda 8 Entity | Camunda 8 Operation Type | Camunda 8 Category | Can be Migrated |
+|------------------|---------------------------|------------------|--------------------------|--------------------|-----------------|
+| **Task** | Assign                    | UserTask | ASSIGN                   | USER_TASKS         | Yes             |
+| | Claim                     | UserTask | ASSIGN                   | USER_TASKS         | Yes             |
+| | Complete                  | UserTask | COMPLETE                 | USER_TASKS         | Yes             |
+| | Create                    | UserTask | CREATE                   | USER_TASKS         | Yes             |
+| | Delegate                  | UserTask | ASSIGN                   | USER_TASKS         | Yes             |
+| | Delete                    | UserTask | DELETE                   | USER_TASKS         | Yes             |
+| | Resolve                   | UserTask | UPDATE                   | USER_TASKS         | Yes             |
+| | SetOwner                  | UserTask | ASSIGN                   | USER_TASKS         | Yes             |
+| | SetPriority               | UserTask | UPDATE                   | USER_TASKS         | Yes             |
+| | Update                    | UserTask | UPDATE                   | USER_TASKS         | Yes             |
+| | DeleteHistory             | UserTask | DELETE                   | USER_TASKS         | Yes             |
+| **ProcessInstance** | Create                    | ProcessInstance | CREATE                   | DEPLOYED_RESOURCES | Yes             |
+| | Activate                  | ProcessInstance | -                        | -                  | No              |
+| | Delete                    | ProcessInstance | CANCEL                   | DEPLOYED_RESOURCES | Yes             |
+| | ModifyProcessInstance     | ProcessInstanceModification | MODIFY                   | DEPLOYED_RESOURCES | Yes             |
+| | Suspend                   | ProcessInstance | -                        | -                  | No              |
+| | Migrate                   | ProcessInstanceMigration | MIGRATE                  | DEPLOYED_RESOURCES | Yes             |
+| | RestartProcessInstance    | ProcessInstance | -                        | -                  | No              |
+| | DeleteHistory             | ProcessInstance | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| | CreateIncident            | Incident | -                        | -                  | No              |
+| | Resolve                   | Incident | RESOLVE                  | DEPLOYED_RESOURCES | Yes             |
+| | SetRemovalTime            | ProcessInstance | -                        | -                  | No              |
+| | SetVariables              | Variable | CREATE/UPDATE            | DEPLOYED_RESOURCES | Yes             |
+| | CorrelateMessage          | ProcessInstance | -                        | -                  | No              |
+| **Incident** | SetAnnotation             | Incident | -                        | -                  | No              |
+| | ClearAnnotation           | Incident | -                        | -                  | No              |
+| **IdentityLink** | AddUserLink               | UserTask | -                        | -                  | No              |
+| | DeleteUserLink            | UserTask | -                        | -                  | No              |
+| | AddGroupLink              | UserTask | -                        | -                  | No              |
+| | DeleteGroupLink           | UserTask | -                        | -                  | No              |
+| **Attachment** | AddAttachment             | UserTask | -                        | -                  | No              |
+| | DeleteAttachment          | UserTask | -                        | -                  | No              |
+| **JobDefinition** | ActivateJobDefinition     | - | -                        | -                  | No              |
+| | SetPriority               | - | -                        | -                  | No              |
+| | SuspendJobDefinition      | - | -                        | -                  | No              |
+| **ProcessDefinition** | ActivateProcessDefinition | Resource | -                        | -                  | No              |
+| | SuspendProcessDefinition  | Resource | -                        | -                  | No              |
+| | Delete                    | Resource | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| | UpdateHistoryTimeToLive   | Resource | -                        | -                  | No              |
+| **DecisionDefinition** | UpdateHistoryTimeToLive   | Decision | -                        | -                  | No              |
+| | Evaluate                  | DecisionEvaluation | EVALUATE                 | DEPLOYED_RESOURCES | Yes             |
+| **CaseDefinition** | UpdateHistoryTimeToLive   | - | -                        | -                  | No              |
+| **Job** | ActivateJob               | - | -                        | -                  | No              |
+| | SetPriority               | - | -                        | -                  | No              |
+| | SetJobRetries             | - | -                        | -                  | No              |
+| | SuspendJob                | - | -                        | -                  | No              |
+| | Execute                   | - | -                        | -                  | No              |
+| | Delete                    | - | -                        | -                  | No              |
+| | SetDueDate                | - | -                        | -                  | No              |
+| | RecalculateDueDate        | - | -                        | -                  | No              |
+| | CreateHistoryCleanupJobs  | - | -                        | -                  | No              |
+| **Variable** | ModifyVariable            | Variable | UPDATE                   | DEPLOYED_RESOURCES | Yes             |
+| | RemoveVariable            | Variable | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| | SetVariable               | Variable | CREATE/UPDATE            | DEPLOYED_RESOURCES | Yes             |
+| | DeleteHistory             | Variable | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| **Deployment** | Create                    | Resource | CREATE                   | DEPLOYED_RESOURCES | Yes             |
+| | Delete                    | Resource | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| **Batch** | ActivateBatch             | BatchOperation | -                        | -                  | No              |
+| | SuspendBatch              | BatchOperation | -                        | -                  | No              |
+| | Delete                    | BatchOperation | -                        | -                  | No              |
+| | DeleteHistory             | BatchOperation | -                        | -                  | No              |
+| | SetRemovalTime            | BatchOperation | -                        | -                  | No              |
+| **ExternalTask** | SetExternalTaskRetries    | - | -                        | -                  | No              |
+| | SetPriority               | - | -                        | -                  | No              |
+| | Unlock                    | - | -                        | -                  | No              |
+| **DecisionInstance** | DeleteHistory             | Decision | DELETE                   | DEPLOYED_RESOURCES | Yes             |
+| | SetRemovalTime            | Decision | -                        | -                  | No              |
+| **CaseInstance** | DeleteHistory             | - | -                        | -                  | No              |
+| **Metrics** | Delete                    | - | -                        | -                  | No              |
+| **TaskMetrics** | Delete                    | - | -                        | -                  | No              |
+| **OperationLog** | SetAnnotation             | - | -                        | -                  | No              |
+| | ClearAnnotation           | - | -                        | -                  | No              |
+| **Filter** | Create                    | - | -                        | -                  | No              |
+| | Update                    | - | -                        | -                  | No              |
+| | Delete                    | - | -                        | -                  | No              |
+| **Comment** | Update                    | - | -                        | -                  | No              |
+| | Delete                    | - | -                        | -                  | No              |
+| **User** | Create                    | User | CREATE                   | ADMIN              | Yes             |
+| | Update                    | User | UPDATE                   | ADMIN              | Yes             |
+| | Delete                    | User | DELETE                   | ADMIN              | Yes             |
+| | Unlock                    | User | -                        | -                  | No              |
+| **Group** | Create                    | Group | CREATE                   | ADMIN              | Yes             |
+| | Update                    | Group | UPDATE                   | ADMIN              | Yes             |
+| | Delete                    | Group | DELETE                   | ADMIN              | Yes             |
+| **Group membership** | Create                    | Group | ASSIGN                   | ADMIN              | Yes             |
+| | Delete                    | Group | UNASSIGN                 | ADMIN              | Yes             |
+| **TenantMembership** | Create                    | Tenant | ASSIGN                   | ADMIN              | Yes             |
+| | Delete                    | Tenant | UNASSIGN                 | ADMIN              | Yes             |
+| **Authorization** | Create                    | Authorization | CREATE                   | ADMIN              | Yes             |
+| | Update                    | Authorization | UPDATE                   | ADMIN              | Yes             |
+| | Delete                    | Authorization | DELETE                   | ADMIN              | Yes             |
+| **Property** | Create                    | - | -                        | -                  | No              |
+| | Update                    | - | -                        | -                  | No              |
+| | Delete                    | - | -                        | -                  | No              |
 
 ### Notes:
 - **Yes**: The entity and operation can be migrated to Camunda 8 with equivalent functionality
