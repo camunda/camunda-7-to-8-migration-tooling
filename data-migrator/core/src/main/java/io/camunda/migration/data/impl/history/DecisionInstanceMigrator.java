@@ -114,7 +114,6 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
             }
           }
 
-
           if (c7RootDecisionInstanceId != null && isMigrated(c7RootDecisionInstanceId, HISTORY_DECISION_INSTANCE)) {
             DecisionInstanceEntity parentDecision = findDecisionInstance(c7RootDecisionInstanceId);
             if (parentDecision != null && parentDecision.decisionDefinitionKey() != null) {
