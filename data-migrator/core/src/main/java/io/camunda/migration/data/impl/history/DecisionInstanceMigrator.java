@@ -97,7 +97,6 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
 
         // Check if this is a standalone decision (not triggered by a BPMN)
         boolean isStandaloneDecision = c7DecisionInstance.getProcessDefinitionKey() == null;
-
         String c7RootDecisionInstanceId = c7DecisionInstance.getRootDecisionInstanceId();
 
         if (isMigrated(c7DecisionInstance.getDecisionDefinitionId(), HISTORY_DECISION_DEFINITION)) {
@@ -109,6 +108,9 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
             }
             if (decisionDefinition.decisionRequirementsKey() != null) {
               decisionInstanceDbModelBuilder.decisionRequirementsKey(decisionDefinition.decisionRequirementsKey());
+            }
+            if (c7RootDecisionInstanceId == null) {
+              decisionInstanceDbModelBuilder.rootDecisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
             }
           }
 
@@ -167,7 +169,8 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
             .decisionType(determineDecisionType(dmnModelInstance, c7DecisionInstance.getDecisionDefinitionKey()));
 
         DecisionInstanceDbModel dbModel = convertDecisionInstance(context);
-        if (dbModel.decisionDefinitionKey() == null || dbModel.decisionRequirementsKey() == null) {
+        if (dbModel.decisionDefinitionKey() == null || dbModel.decisionRequirementsKey() == null
+            || dbModel.rootDecisionDefinitionKey() == null) {
           markSkipped(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE, c7DecisionInstance.getEvaluationTime(),
               SKIP_REASON_MISSING_DECISION_DEFINITION);
           HistoryMigratorLogs.skippingDecisionInstanceDueToMissingDecisionDefinition(c7DecisionInstanceId);
