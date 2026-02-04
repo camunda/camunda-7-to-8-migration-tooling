@@ -113,7 +113,7 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
     // when issue is fixed but migration is rerun without retry mode
     skippedAuth.setResourceId("*"); // fix issue
     authorizationService.saveAuthorization(skippedAuth);
-    identityMigrator.start();
+    identityMigrator.start(); // default mode is MIGRATE
 
     // then we have only two migrated authorizations (skipped remained skipped)
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(2, USERNAME);

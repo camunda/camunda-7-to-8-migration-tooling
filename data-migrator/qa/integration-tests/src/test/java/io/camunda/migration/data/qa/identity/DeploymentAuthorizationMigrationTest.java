@@ -29,7 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
+public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
   public static final String USERNAME = "tomsmith";
   public static final String USER_FIRST_NAME = "Tom";

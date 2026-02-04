@@ -41,7 +41,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     var t3 = identityTestHelper.createTenantInC7("tenantId3", "");
     identityMigrator.start();
 
-    // when issue is fixed (by setting valid names)
+    // when issue is fixed
     t1.setName("Tenant1");
     t2.setName("Tenant2");
     t3.setName("Tenant3");
@@ -66,7 +66,7 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     var t3 = identityTestHelper.createTenantInC7("tenantId3", "tenantName3");
     identityMigrator.start();
 
-    // when issue is fixed and migration is retried
+    // when issue is fixed
     t2.setName("Tenant2");
     identityService.saveTenant(t2);
 
