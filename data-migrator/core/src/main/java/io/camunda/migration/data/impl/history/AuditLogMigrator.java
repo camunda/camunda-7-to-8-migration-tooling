@@ -12,13 +12,11 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
 
-import io.camunda.db.rdbms.sql.AuditLogMapper.BatchInsertAuditLogsDto;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import java.util.List;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.springframework.stereotype.Service;
 
@@ -163,7 +161,7 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
    * @param c7AuditLogId the Camunda 7 audit log ID
    */
   protected void insertAuditLog(UserOperationLogEntry c7AuditLog, AuditLogDbModel dbModel, String c7AuditLogId) {
-    c8Client.insertAuditLog(new BatchInsertAuditLogsDto(List.of(dbModel)));
+    c8Client.insertAuditLog(dbModel);
     // Use hash code of the audit log key as the Long value for tracking
     Long trackingKey = (long) dbModel.auditLogKey().hashCode(); // TODO
     markMigrated(c7AuditLogId, trackingKey, c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);

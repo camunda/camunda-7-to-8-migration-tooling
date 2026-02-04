@@ -341,8 +341,8 @@ public class C8Client {
   /**
    * Inserts an AuditLog into the database.
    */
-  public void insertAuditLog(AuditLogMapper.BatchInsertAuditLogsDto dbModel) {
-    callApi(() -> auditLogMapper.insert(dbModel), FAILED_TO_INSERT_AUDIT_LOG);
+  public void insertAuditLog(AuditLogDbModel dbModel) {
+    callApi(() -> auditLogMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_AUDIT_LOG);
   }
 
   /**
