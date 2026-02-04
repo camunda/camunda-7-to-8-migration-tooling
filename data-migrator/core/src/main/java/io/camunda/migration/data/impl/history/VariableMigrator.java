@@ -17,8 +17,8 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 
-import io.camunda.db.rdbms.sql.VariableMapper.BatchInsertVariablesDto;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
@@ -143,7 +143,7 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance> {
   }
 
   protected void insertVariable(HistoricVariableInstance c7Variable, VariableDbModel dbModel, String c7VariableId) {
-    c8Client.insertVariable(new BatchInsertVariablesDto(List.of(dbModel)));
+    c8Client.insertVariable(dbModel);
     markMigrated(c7VariableId, dbModel.variableKey(), c7Variable.getCreateTime(), HISTORY_VARIABLE);
     HistoryMigratorLogs.migratingHistoricVariableCompleted(c7VariableId);
   }
