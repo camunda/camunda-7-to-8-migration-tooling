@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
@@ -43,7 +44,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import org.camunda.bpm.engine.ProcessEngine;
-import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.model.dmn.instance.Decision;
 import org.camunda.bpm.model.dmn.instance.LiteralExpression;
@@ -202,6 +202,14 @@ public abstract class BaseMigrator<T> {
     return !dbClient.checkExistsByC7IdAndType(id, type);
   }
 
+  protected void markMigrated(String c7Id, String c8Key, Date createTime, TYPE type) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      dbClient.updateC8KeyByC7IdAndType(c7Id, c8Key, type);
+    } else if (MIGRATE.equals(mode)) {
+      dbClient.insert(c7Id, c8Key, createTime, type, null);
+    }
+  }
+
   protected void markMigrated(String c7Id, Long c8Key, Date createTime, TYPE type) {
     saveRecord(c7Id, c8Key, type, createTime, null);
   }
@@ -241,9 +249,9 @@ public abstract class BaseMigrator<T> {
     }
 
     if (decision.getExpression() instanceof LiteralExpression) {
-      return DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION;
+      return DecisionDefinitionType.LITERAL_EXPRESSION;
     } else {
-      return DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE;
+      return DecisionDefinitionType.DECISION_TABLE;
     }
   }
 

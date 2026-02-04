@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -16,6 +17,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -96,8 +98,8 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
   protected AuditLogDbModel.Builder configureAuditLogBuilder(UserOperationLogEntry c7AuditLog) {
     AuditLogDbModel.Builder builder = new AuditLogDbModel.Builder();
 
-    String auditLogKey = c7AuditLog.getId();
-    builder.auditLogKey(auditLogKey);
+    String key = String.format("%s-%s", C7_HISTORY_PARTITION_ID, getNextKey());
+    builder.auditLogKey(key);
 
     resolveProcessInstanceAndDefinitionKeys(builder, c7AuditLog);
 
@@ -183,9 +185,7 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
    */
   protected void insertAuditLog(UserOperationLogEntry c7AuditLog, AuditLogDbModel dbModel, String c7AuditLogId) {
     c8Client.insertAuditLog(dbModel);
-    // Use hash code of the audit log key as the Long value for tracking
-    Long trackingKey = (long) dbModel.auditLogKey().hashCode(); // TODO
-    markMigrated(c7AuditLogId, trackingKey, c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
+    markMigrated(c7AuditLogId, dbModel.auditLogKey(), c7AuditLog.getTimestamp(), HISTORY_AUDIT_LOG);
     HistoryMigratorLogs.migratingHistoricAuditLogCompleted(c7AuditLogId);
   }
 

@@ -11,7 +11,7 @@
 
   <resultMap id="idKeyResultMap" type="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     <id property="c7Id" column="C7_ID" jdbcType="VARCHAR"/>
-    <result property="c8Key" column="C8_KEY" jdbcType="BIGINT"/>
+    <result property="c8Key" column="C8_KEY" jdbcType="VARCHAR"/>
     <result property="createTime" column="CREATE_TIME" jdbcType="TIMESTAMP"/>
     <result property="type" column="TYPE" jdbcType="VARCHAR"/>
     <result property="skipReason" column="SKIP_REASON" jdbcType="VARCHAR"/>
@@ -58,7 +58,7 @@
 
   <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
-    SET C8_KEY = #{c8Key, jdbcType=BIGINT}
+    SET C8_KEY = #{c8Key, jdbcType=VARCHAR}
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
   </update>
 
@@ -100,7 +100,7 @@
     parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel"
     flushCache="true">
     INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON)
-    VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=BIGINT}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})
+    VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=VARCHAR}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})
   </insert>
 
   <delete id="deleteByC7Id">

@@ -363,7 +363,7 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
       return invocation.callRealMethod();
     }).when(dbClient).insert(
         anyString(),
-        anyLong(),
+        anyString(),
         any(Date.class),
         any(IdKeyMapper.TYPE.class),
         any());
