@@ -19,11 +19,13 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
+import java.util.List;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.springframework.stereotype.Service;
 
