@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -37,6 +38,64 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     identityService.createTenantQuery().list().forEach(tenant -> {
       identityService.deleteTenant(tenant.getId());
     });
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForUser() {
+    // given
+    identityService.setAuthenticatedUserId("demo");
+    var user = identityService.newUser("newUserId");
+    identityService.saveUser(user);
+
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    assertThat(log.auditLogKey()).isNotNull();
+    assertThat(log.processInstanceKey()).isNull();
+    assertThat(log.rootProcessInstanceKey()).isNull();
+    assertThat(log.processDefinitionKey()).isNull();
+    assertThat(log.userTaskKey()).isNull();
+    assertThat(log.timestamp()).isNotNull();
+    assertThat(log.actorId()).isEqualTo("demo");
+    assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
+    assertThat(log.processDefinitionId()).isNull();
+    assertThat(log.annotation()).isNull(); // No annotation set in test
+    assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
+    assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.USER);
+    assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.CREATE);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForUserWithTenant() {
+    // given
+    identityService.setAuthentication("demo", null, List.of("tenantA"));
+    var user = identityService.newUser("newUserId");
+    identityService.saveUser(user);
+
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    assertThat(log.tenantId()).isEqualTo("tenantA");
+    assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.TENANT);
   }
 
   @Test

@@ -9,7 +9,6 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
@@ -66,6 +65,9 @@ public class AuditLogTransformer implements EntityInterceptor {
         .category(convertCategory(userOperationLog.getCategory()));
     // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, historyCleanupDate are set
     // externally in AuditLogMigrator
+
+    // TODO
+    // entityValueType, entityOperationIntent, elementInstanceKey, version
 
   }
 
@@ -129,13 +131,13 @@ public class AuditLogTransformer implements EntityInterceptor {
     // Task operations
     case UserOperationLogEntry.OPERATION_TYPE_ASSIGN,
          UserOperationLogEntry.OPERATION_TYPE_CLAIM,
-         UserOperationLogEntry.OPERATION_TYPE_DELEGATE,
-         UserOperationLogEntry.OPERATION_TYPE_SET_OWNER ->
+         UserOperationLogEntry.OPERATION_TYPE_DELEGATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.ASSIGN);
     case UserOperationLogEntry.OPERATION_TYPE_COMPLETE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.COMPLETE);
     case UserOperationLogEntry.OPERATION_TYPE_RESOLVE,
          UserOperationLogEntry.OPERATION_TYPE_SET_PRIORITY,
+         UserOperationLogEntry.OPERATION_TYPE_SET_OWNER,
          UserOperationLogEntry.OPERATION_TYPE_UPDATE ->
         builder.operationType(AuditLogEntity.AuditLogOperationType.UPDATE);
 
