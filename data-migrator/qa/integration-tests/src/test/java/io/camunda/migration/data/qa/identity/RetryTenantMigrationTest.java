@@ -1,5 +1,13 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
 package io.camunda.migration.data.qa.identity;
 
+import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -7,11 +15,19 @@ import static org.awaitility.Awaitility.await;
 
 import io.camunda.client.api.search.request.TenantsSearchRequest;
 import io.camunda.client.api.search.response.Tenant;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+@ExtendWith(OutputCaptureExtension.class)
 public class RetryTenantMigrationTest extends IdentityAbstractTest {
 
   @Autowired
@@ -82,6 +98,30 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     assertThat(camundaClient.newTenantsSearchRequest().filter(f -> f.tenantId(t2.getId())).execute().items()).hasSize(0);
   }
 
+  @Test
+  public void shouldListSkippedTenants(CapturedOutput output) {
+    // given skipped tenants (invalid IDs allowed in C7)
+    processEngineConfiguration.setTenantResourceWhitelistPattern(".+");
+    List<String> tenantIds = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      tenantIds.add(identityTestHelper.createTenantInC7("tenantId-" + i + "-!~^", "tenantName" + i).getId());
+    }
+    identityMigrator.migrate();
+
+    // when running migration with list skipped mode
+    identityMigrator.setMode(LIST_SKIPPED);
+    identityMigrator.migrate();
+
+    // then all skipped tenants were listed
+    String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.TENANT.getDisplayName() + "s\\]:";
+    String regex = expectedHeader + "\\R((?:.+\\R){9}.+)";
+    assertThat(output.getOut()).containsPattern(regex);
+    Pattern pattern = Pattern.compile(regex);
+    Matcher matcher = pattern.matcher(output.getOut());
+    final String capturedIds = matcher.find() ? matcher.group(1) : "";
+    tenantIds.forEach(id -> assertThat(capturedIds).contains(id));
+  }
+
   private static void assertThatTenantsContain(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<Tenant> tenants) {
     assertThat(tenants)
         .extracting(Tenant::getTenantId, Tenant::getName)
@@ -93,4 +133,3 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expected + 1) ; // +1 for default tenant
   }
 }
-

@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data;
 
+import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 
@@ -22,6 +23,7 @@ import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
+import io.camunda.migration.data.impl.util.PrintUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -52,11 +54,30 @@ public class IdentityMigrator {
   public void migrate() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
-      migrateTenants();
-      migrateAuthorizations();
+
+      if (LIST_SKIPPED.equals(mode)) {
+        listSkipped();
+      } else {
+        migrateTenants();
+        migrateAuthorizations();
+      }
     } finally {
       ExceptionUtils.clearContext();
     }
+  }
+
+  protected void listSkipped() {
+    // tenants
+    PrintUtils.printSkippedInstancesHeader(
+        dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT),
+        IdKeyMapper.TYPE.TENANT);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.TENANT);
+
+    // authorizations
+    PrintUtils.printSkippedInstancesHeader(
+        dbClient.countSkippedByType(IdKeyMapper.TYPE.AUTHORIZATION),
+        IdKeyMapper.TYPE.AUTHORIZATION);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
   }
 
   public void setMode(MigratorMode mode) {
