@@ -88,6 +88,15 @@ public class CleanupExtension implements Extension {
     return queryCleanupDate("PROCESS_INSTANCE", "PROCESS_INSTANCE_KEY", processInstanceKey);
   }
 
-
+  /**
+   * Query cleanup date for a decision instance.
+   * Note: For decision instances, endDate represents EVALUATION_DATE.
+   *
+   * @param decisionInstanceKey the decision instance key
+   * @return the history cleanup date, or null if not set
+   */
+  public OffsetDateTime getDecisionInstanceCleanupDate(Long decisionInstanceKey) {
+    return queryCleanupDate("DECISION_INSTANCE", "DECISION_INSTANCE_KEY", decisionInstanceKey);
+  }
 
 }
