@@ -17,6 +17,7 @@ import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETC
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
+import static org.camunda.bpm.engine.ActivityTypes.CALL_ACTIVITY;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
@@ -26,6 +27,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.camunda.bpm.engine.AuthorizationService;
@@ -159,6 +161,27 @@ public class C7Client {
   public HistoricActivityInstance getHistoricActivityInstance(String c7Id) {
     var query = historyService.createHistoricActivityInstanceQuery().activityInstanceId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricActivityInstance", c7Id));
+  }
+
+  /**
+   * Finds the activity that started a child process instance.
+   */
+  public HistoricActivityInstance findCallActivityByCalledProcessInstanceId(String parentProcessInstanceId,
+                                                                            String childProcessInstanceId) {
+    var query = historyService.createHistoricActivityInstanceQuery()
+        .processInstanceId(parentProcessInstanceId)
+        .activityType(CALL_ACTIVITY)
+        .orderByHistoricActivityInstanceStartTime()
+        .asc()
+        .orderByHistoricActivityInstanceId()
+        .asc();
+
+    return callApi(() -> Objects.requireNonNull(query.list()
+            .stream()
+            .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
+            .findFirst()
+            .orElse(null)),
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "Parent activity for child process instance", childProcessInstanceId));
   }
 
   /**

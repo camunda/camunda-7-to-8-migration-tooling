@@ -84,6 +84,30 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_INSTANCE, "process", c7ProcessInstanceId);
   }
 
+  public static void migratingProcessInstanceCompleted(String c7ProcessInstanceId) {
+    LOGGER.debug(MIGRATING_INSTANCE_COMPLETE, "process", c7ProcessInstanceId);
+  }
+
+  public static void skippingProcessInstanceDueToMissingParent(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_PARENT, "process", c7ProcessInstanceId);
+  }
+
+  public static void skippingProcessInstanceDueToMissingParentFlowNode(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIP_REASON_MISSING_PARENT_FLOW_NODE, "process", c7ProcessInstanceId);
+  }
+
+  public static void skippingProcessInstanceDueToMissingRoot(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_ROOT, "process", c7ProcessInstanceId);
+  }
+
+  public static void skippingProcessInstanceDueToMissingDefinition(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIPPING_INSTANCE_MISSING_DEFINITION, "process", c7ProcessInstanceId, "process");
+  }
+
+  public static void migratingDecisionInstances() {
+    LOGGER.info(MIGRATING_INSTANCES, "decision");
+  }
+
   public static void migratingDecisionInstance(String c7DecisionInstanceId) {
     LOGGER.debug(MIGRATING_INSTANCE, "decision", c7DecisionInstanceId);
   }

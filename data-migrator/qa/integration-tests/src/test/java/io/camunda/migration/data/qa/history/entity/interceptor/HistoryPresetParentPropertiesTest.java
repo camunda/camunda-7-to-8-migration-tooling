@@ -103,6 +103,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     assertThat(processInstanceEntity.processInstanceKey()).isEqualTo(88888L);
     assertThat(processInstanceEntity.processDefinitionKey()).isEqualTo(12345L);
     assertThat(processInstanceEntity.parentProcessInstanceKey()).isEqualTo(67890L);
+    assertThat(processInstanceEntity.parentFlowNodeInstanceKey()).isEqualTo(98765L);
   }
 
   @Test
