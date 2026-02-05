@@ -173,11 +173,17 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     if (c7TaskId != null && isMigrated(c7TaskId, HISTORY_USER_TASK)) {
       Long taskKey = dbClient.findC8KeyByC7IdAndType(c7TaskId,
           HISTORY_USER_TASK);
-      UserTaskDbModel userTaskDbModel = c8Client.searchUserTasks(
-          UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey)))).stream().findFirst().orElse(null);
+      UserTaskDbModel userTaskDbModel = searchUserTasksByKey(taskKey);
       builder.userTaskKey(taskKey)
           .elementInstanceKey(userTaskDbModel.elementInstanceKey());
     }
+  }
+
+  protected UserTaskDbModel searchUserTasksByKey(Long taskKey) {
+    return c8Client.searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey))))
+        .stream()
+        .findFirst()
+        .orElse(null);
   }
 
   /**
