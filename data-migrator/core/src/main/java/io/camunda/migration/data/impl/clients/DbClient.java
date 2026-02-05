@@ -122,7 +122,7 @@ public class DbClient {
   }
 
   /**
-   * Inserts a new process instance record into the mapping table.
+   * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type) {
     insert(c7Id, c8Key, createTime, type, null);
@@ -136,14 +136,14 @@ public class DbClient {
   }
 
   /**
-   * Inserts a new process instance record into the mapping table.
+   * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type, String skipReason) {
     insert(c7Id, (c8Key == null) ? null : c8Key.toString(), createTime, type, skipReason);
   }
 
   /**
-   * Inserts a new process instance record into the mapping table.
+   * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, String c8Key, Date createTime, TYPE type, String skipReason) {
     String finalSkipReason = properties.getSaveSkipReason() ? skipReason : null;

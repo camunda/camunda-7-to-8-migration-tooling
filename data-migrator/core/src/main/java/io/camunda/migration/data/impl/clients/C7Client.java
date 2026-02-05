@@ -501,7 +501,10 @@ public class C7Client {
   public void fetchAndHandleUserOperationLogEntries(Consumer<UserOperationLogEntry> callback, Date timestampAfter) {
     UserOperationLogQueryImpl query = (UserOperationLogQueryImpl) historyService.createUserOperationLogQuery()
         .orderByTimestamp()
-        .asc();
+        .asc()
+//        .orderbByOperationId()
+//        .asc()
+        ;
 
     if (timestampAfter != null) {
       query.afterTimestamp(timestampAfter);
