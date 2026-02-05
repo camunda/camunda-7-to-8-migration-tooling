@@ -17,7 +17,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
@@ -25,11 +24,8 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import java.time.OffsetDateTime;
-import java.time.Period;
 import java.util.Date;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
-import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.springframework.stereotype.Service;
 
 /**
@@ -87,8 +83,6 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
         EntityConversionContext<?, ?> context = createEntityConversionContext(
             c7AuditLog, UserOperationLogEntry.class, auditLogDbModelBuilder);
 
-        setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
-
         validateDependenciesAndInsert(c7AuditLog, context, c7AuditLogId);
       } catch (EntityInterceptorException e) {
         handleInterceptorException(c7AuditLogId, HISTORY_AUDIT_LOG, c7AuditLog.getTimestamp(), e);
@@ -98,6 +92,22 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
 
   /**
    * Configures the audit log builder with keys and relationships.
+   * <p>
+   * This method sets the following properties on the builder:
+   * <ul>
+   *   <li>auditLogKey - Generated unique key for the audit log entry</li>
+   *   <li>processInstanceKey - Resolved from C7 process instance ID</li>
+   *   <li>rootProcessInstanceKey - Resolved from C7 root process instance ID</li>
+   *   <li>processDefinitionKey - Resolved from C7 process definition ID</li>
+   *   <li>userTaskKey - Resolved from C7 task ID</li>
+   *   <li>timestamp - Converted from C7 timestamp</li>
+   *   <li>historyCleanupDate - Calculated based on TTL configuration</li>
+   * </ul>
+   * <p>
+   * Note: Other properties (actorId, actorType, processDefinitionId, annotation, tenantId,
+   * tenantScope, category, entityType, operationType, result, partitionId) are set by the
+   * AuditLogTransformer interceptor during entity conversion.
+   * </p>
    *
    * @param c7AuditLog the user operation log entry from Camunda 7
    * @return the configured builder
@@ -108,18 +118,31 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     String key = String.format("%s-%s", C7_HISTORY_PARTITION_ID, getNextKey());
     builder.auditLogKey(key);
 
-    resolveProcessInstanceAndDefinitionKeys(builder, c7AuditLog);
+    resolveEntityKeys(builder, c7AuditLog);
+
+    setHistoryCleanupDate(c7AuditLog, builder);
 
     return builder;
   }
 
   /**
    * Resolves and sets process instance and process definition keys on the builder.
+   * <p>
+   * This method looks up the Camunda 8 keys for related entities based on the
+   * Camunda 7 IDs from the audit log entry:
+   * <ul>
+   *   <li>processInstanceKey - from C7 process instance ID</li>
+   *   <li>rootProcessInstanceKey - from C7 root process instance ID</li>
+   *   <li>processDefinitionKey - from C7 process definition ID</li>
+   *   <li>userTaskKey - from C7 task ID</li>
+   * </ul>
+   * Keys are only set if the corresponding entity has already been migrated.
+   * </p>
    *
    * @param builder the audit log builder
    * @param c7AuditLog the user operation log entry from Camunda 7
    */
-  protected void resolveProcessInstanceAndDefinitionKeys(
+  protected void resolveEntityKeys(
       AuditLogDbModel.Builder builder,
       UserOperationLogEntry c7AuditLog) {
 
@@ -208,25 +231,22 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     return builder.build();
   }
 
-  protected OffsetDateTime calculateHistoryCleanupDate(OffsetDateTime endTime, Date c7RemovalTime) {
-    if (c7RemovalTime != null) {
-      return convertDate(c7RemovalTime);
-    }
-
-    Period ttl = getAutoCancelTtl();
-    if (ttl == null || ttl.isZero()) {
-      return null;
-    }
-    return endTime.plus(ttl);
-  }
-
-  protected OffsetDateTime calculateEndDate(Date c7EndDate) {
-    if (c7EndDate == null) {
-      return convertDate(ClockUtil.now());
-    }
-    return convertDate(c7EndDate);
-  }
-
+  /**
+   * Sets the history cleanup date and timestamp on the audit log builder.
+   * <p>
+   * This method:
+   * <ul>
+   *   <li>Converts the C7 timestamp to C8 format (OffsetDateTime)</li>
+   *   <li>Calculates the history cleanup date based on the configured TTL</li>
+   *   <li>Sets both timestamp and historyCleanupDate on the builder</li>
+   * </ul>
+   * The historyCleanupDate determines when the audit log entry will be eligible
+   * for cleanup/deletion in Camunda 8.
+   * </p>
+   *
+   * @param c7AuditLog the user operation log entry from Camunda 7
+   * @param auditLogDbModelBuilder the audit log builder to configure
+   */
   protected void setHistoryCleanupDate(UserOperationLogEntry c7AuditLog,
                                        AuditLogDbModel.Builder auditLogDbModelBuilder) {
     Date c7EndTime = c7AuditLog.getTimestamp();

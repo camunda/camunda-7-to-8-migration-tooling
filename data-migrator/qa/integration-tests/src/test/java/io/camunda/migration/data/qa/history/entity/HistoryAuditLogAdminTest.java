@@ -50,6 +50,8 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .count();
     assertThat(auditLogCount).isEqualTo(1);
+    String annotation = "anAnnotation";
+    historyService.setAnnotationForOperationLogById(historyService.createUserOperationLogQuery().singleResult().getOperationId(), annotation);
 
     // when
     historyMigrator.migrate();
@@ -68,34 +70,12 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(log.actorId()).isEqualTo("demo");
     assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
     assertThat(log.processDefinitionId()).isNull();
-    assertThat(log.annotation()).isNull(); // No annotation set in test
+    assertThat(log.annotation()).isEqualTo(annotation);
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
     assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.USER);
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.CREATE);
-  }
-
-  @Test
-  public void shouldMigrateAuditLogsForUserWithTenant() {
-    // given
-    identityService.setAuthentication("demo", null, List.of("tenantA"));
-    var user = identityService.newUser("newUserId");
-    identityService.saveUser(user);
-
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .count();
-    assertThat(auditLogCount).isEqualTo(1);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
-    assertThat(logs).hasSize(1);
-    AuditLogEntity log = logs.getFirst();
-
-    assertThat(log.tenantId()).isEqualTo("tenantA");
-    assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.TENANT);
+    assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
   }
 
   @Test
@@ -255,6 +235,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     var tenant = identityService.newTenant("newTenantId");
     identityService.saveTenant(tenant);
 
+    identityService.clearAuthentication();
     long auditLogCount = historyService.createUserOperationLogQuery()
         .count();
     assertThat(auditLogCount).isEqualTo(1);
@@ -280,6 +261,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     identityService.setAuthenticatedUserId("demo");
     tenant.setName("Updated Tenant");
     identityService.saveTenant(tenant);
+    identityService.clearAuthentication();
 
     long auditLogCount = historyService.createUserOperationLogQuery().count();
     assertThat(auditLogCount).isEqualTo(1);
@@ -305,6 +287,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     // Delete the tenant
     identityService.setAuthenticatedUserId("demo");
     identityService.deleteTenant("newTenantId");
+    identityService.clearAuthentication();
 
     long auditLogCount = historyService.createUserOperationLogQuery().count();
     assertThat(auditLogCount).isEqualTo(1);

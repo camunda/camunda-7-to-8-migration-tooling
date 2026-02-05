@@ -61,6 +61,8 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .count();
     assertThat(auditLogCount).isEqualTo(1);
+    String annotation = "anAnnotation";
+    historyService.setAnnotationForOperationLogById(historyService.createUserOperationLogQuery().singleResult().getOperationId(), annotation);
 
     // when
     historyMigrator.migrate();
@@ -81,9 +83,10 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(log.actorId()).isEqualTo("demo");
     assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
     assertThat(log.processDefinitionId()).isEqualTo(prefixDefinitionId("userTaskProcessId"));
-    assertThat(log.annotation()).isNull(); // No annotation set in test
+    assertThat(log.annotation()).isEqualTo(annotation);
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
+    assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
   }
 
   @Test

@@ -63,8 +63,8 @@ public class AuditLogTransformer implements EntityInterceptor {
         .tenantId(tenantId) // test
         .tenantScope(getAuditLogTenantScope(tenantId)) // test
         .category(convertCategory(userOperationLog.getCategory()));
-    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, historyCleanupDate are set
-    // externally in AuditLogMigrator
+    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, timestamp, historyCleanupDate
+    // are set externally in AuditLogMigrator
 
     // TODO
     // entityValueType, entityOperationIntent, elementInstanceKey, version

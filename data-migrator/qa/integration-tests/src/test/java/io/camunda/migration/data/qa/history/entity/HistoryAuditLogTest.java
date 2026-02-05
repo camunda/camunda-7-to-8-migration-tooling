@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
 
@@ -14,7 +16,6 @@ import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
-import java.util.Map;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.Deployment;
@@ -45,6 +46,76 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     }
   }
 
+  @Test
+  public void shouldMigrateAuditLogs() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    identityService.setAuthenticatedUserId("demo");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    // Verify audit logs exist in C7
+    UserOperationLogEntry userOperationLogEntry = historyService.createUserOperationLogQuery()
+        .processInstanceId(processInstance.getId())
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
+        .singleResult();
+    assertThat(userOperationLogEntry).isNotNull();
+    String annotation = "anAnnotation";
+    historyService.setAnnotationForOperationLogById(userOperationLogEntry.getOperationId(), annotation);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    assertThat(log.auditLogKey()).isNotNull();
+    assertThat(log.processInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
+    assertThat(log.rootProcessInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
+    assertThat(log.processDefinitionKey()).isNotNull();
+    assertThat(log.userTaskKey()).isNull();
+
+    assertThat(log.timestamp()).isNotNull();
+    assertThat(log.actorId()).isEqualTo("demo");
+    assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
+    assertThat(log.processDefinitionId()).isEqualTo(prefixDefinitionId("simpleProcess"));
+    assertThat(log.annotation()).isEqualTo(annotation);
+    assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
+    assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsWithTenant() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn", "tenantA");
+    identityService.setAuthentication("demo", null, List.of("tenantA"));
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    // Verify audit logs exist in C7
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .processInstanceId(processInstance.getId())
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    assertThat(log.tenantId()).isEqualTo("tenantA");
+    assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.TENANT);
+  }
+  
   @Test
   public void shouldMigrateAuditLogsForSetVariable() {
     // given
@@ -77,58 +148,6 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldSkipAuditLogsForActivateSuspend() {
-    // given
-    deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-
-    identityService.setAuthenticatedUserId("demo");
-    // Perform operations that generate audit log entries
-    runtimeService.suspendProcessInstanceById(processInstance.getId());
-    runtimeService.activateProcessInstanceById(processInstance.getId());
-    
-    // Verify audit logs exist in C7
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
-        .count();
-    assertThat(auditLogCount).isEqualTo(2);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    // Verify process instance was migrated
-    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
-    assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSize(0);
-  }
-
-  @Test
-  public void shouldSkipMigrationOfAuditLogsWithoutProcessInstance() {
-    // given
-    deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    
-    // Perform operation
-    identityService.setAuthenticatedUserId("demo");
-    runtimeService.suspendProcessInstanceById(processInstance.getId());
-    
-    // Get audit log entries before migration
-    long auditLogCountBefore = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
-        .count();
-    assertThat(auditLogCountBefore).isEqualTo(1);
-
-    // when
-    historyMigrator.migrateAuditLogs();
-
-    // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSize(0);
-  }
-
-  @Test
   public void shouldMigrateAuditLogsForCreateProcessInstance() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
@@ -149,7 +168,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.CREATE);
   }
@@ -171,7 +190,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .operationType(UserOperationLogEntry.OPERATION_TYPE_MODIFY_PROCESS_INSTANCE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -180,7 +199,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.MODIFY);
   }
@@ -209,10 +228,9 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // Verify audit logs exist in C7
     long auditLogCount = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
         .operationType(UserOperationLogEntry.OPERATION_TYPE_MIGRATE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(3); // 3 logs with same op log id  for the 3 properties
 
     // when
     historyMigrator.migrate();
@@ -221,7 +239,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.MIGRATE);
   }
@@ -233,6 +251,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     var processDefinition = repositoryService.createProcessDefinitionQuery()
         .processDefinitionKey("simpleProcess")
         .singleResult();
+    historyMigrator.migrate();  // Migrate before deletion to ensure process definition is available in C8
 
     identityService.setAuthenticatedUserId("demo");
     repositoryService.deleteProcessDefinition(processDefinition.getId());
@@ -241,14 +260,14 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .operationType(UserOperationLogEntry.OPERATION_TYPE_DELETE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
@@ -268,14 +287,14 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .operationType(UserOperationLogEntry.OPERATION_TYPE_EVALUATE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(2); // two properties with same op log id
 
     // when
     historyMigrator.migrate();
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.EVALUATE);
   }
@@ -283,14 +302,18 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   @Test
   public void shouldMigrateAuditLogsForDeleteDecisionHistory() {
     // given
-    deployer.deployCamunda7Decision("decision.dmn");
-    decisionService.evaluateDecisionByKey("decision")
-        .variables(Map.of("input", "test"))
+    deployer.deployCamunda7Decision("dish-decision.dmn");
+
+    identityService.setAuthenticatedUserId("demo");
+    decisionService.evaluateDecisionByKey("Dish")
+        .variables(createVariables()
+            .putValue("season", "Winter")
+            .putValue("guestCount", 5))
         .evaluate();
 
     // Get the historic decision instance
     var historicDecisionInstance = historyService.createHistoricDecisionInstanceQuery()
-        .decisionDefinitionKey("decision")
+        .decisionDefinitionKey("Dish")
         .singleResult();
 
     identityService.setAuthenticatedUserId("demo");
@@ -300,14 +323,14 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .operationType(UserOperationLogEntry.OPERATION_TYPE_DELETE_HISTORY)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(2); 
 
     // when
     historyMigrator.migrate();
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(2);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
@@ -321,14 +344,14 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.RESOURCE);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.CREATE);
   }
@@ -347,45 +370,15 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .operationType(UserOperationLogEntry.OPERATION_TYPE_DELETE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
-  }
-
-  @Test
-  public void shouldMigrateAuditLogsForModifyVariable() {
-    // given
-    deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
-    runtimeService.setVariable(processInstance.getId(), "testVar", "initialValue");
-
-    // Modify variable to generate audit logs
-    identityService.setAuthenticatedUserId("demo");
-    runtimeService.setVariable(processInstance.getId(), "testVar", "modifiedValue");
-
-    // Verify audit logs exist in C7
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .processInstanceId(processInstance.getId())
-        .operationType(UserOperationLogEntry.OPERATION_TYPE_MODIFY_VARIABLE)
-        .count();
-    assertThat(auditLogCount).isGreaterThan(0);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
-    assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
-    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.VARIABLE);
-    assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.UPDATE);
   }
 
   @Test
@@ -404,7 +397,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .operationType(UserOperationLogEntry.OPERATION_TYPE_REMOVE_VARIABLE)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -413,7 +406,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.VARIABLE);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
   }
@@ -439,7 +432,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .operationType(UserOperationLogEntry.OPERATION_TYPE_DELETE_HISTORY)
         .count();
-    assertThat(auditLogCount).isGreaterThan(0);
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -448,8 +441,61 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
     assertThat(c8ProcessInstance).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
-    assertThat(logs).hasSizeGreaterThanOrEqualTo(1);
+    assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.VARIABLE);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
+  }
+
+
+  @Test
+  public void shouldSkipAuditLogsForActivateSuspend() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    identityService.setAuthenticatedUserId("demo");
+    // Perform operations that generate audit log entries
+    runtimeService.suspendProcessInstanceById(processInstance.getId());
+    runtimeService.activateProcessInstanceById(processInstance.getId());
+
+    // Verify audit logs exist in C7
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .processInstanceId(processInstance.getId())
+        .count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    // Verify process instance was migrated
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("simpleProcess");
+    assertThat(logs).hasSize(0);
+  }
+
+  @Test
+  public void shouldSkipMigrationOfAuditLogsWithoutProcessInstance() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    // Perform operation
+    identityService.setAuthenticatedUserId("demo");
+    runtimeService.suspendProcessInstanceById(processInstance.getId());
+
+    // Get audit log entries before migration
+    long auditLogCountBefore = historyService.createUserOperationLogQuery()
+        .processInstanceId(processInstance.getId())
+        .count();
+    assertThat(auditLogCountBefore).isEqualTo(1);
+
+    // when
+    historyMigrator.migrateAuditLogs();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    assertThat(logs).hasSize(0);
   }
 }

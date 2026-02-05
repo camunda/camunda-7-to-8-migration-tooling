@@ -234,39 +234,5 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
     HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
   }
 
-  /**
-   * Calculates the history cleanup date for an entity.
-   * Only calculates a new cleanup date when C7 removalTime is null.
-   * For entities with existing removalTime, uses that value directly.
-   *
-   * @param endTime the C7 or auto-canceled end time
-   * @param c7RemovalTime the C7 removal time
-   * @return the calculated history cleanup date
-   */
-  protected OffsetDateTime calculateHistoryCleanupDate(OffsetDateTime endTime, Date c7RemovalTime) {
-    if (c7RemovalTime != null) {
-      return convertDate(c7RemovalTime);
-    }
-
-    Period ttl = getAutoCancelTtl();
-    if (ttl == null || ttl.isZero()) {
-      return null;
-    }
-    return endTime.plus(ttl);
-  }
-
-  /**
-   * Determines if the entity should have endDate set to now when converting to C8.
-   *
-   * @param c7EndDate the C7 end date
-   * @return the endDate to use (now if active, original if completed)
-   */
-  protected OffsetDateTime calculateEndDate(Date c7EndDate) {
-    if (c7EndDate == null) {
-      return convertDate(ClockUtil.now());
-    }
-    return convertDate(c7EndDate);
-  }
-
 }
 
