@@ -157,9 +157,7 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
       builder.processInstanceKey(processInstance.processInstanceKey());
       if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
         ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
-        if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-          builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
-        }
+        builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
       }
     }
 

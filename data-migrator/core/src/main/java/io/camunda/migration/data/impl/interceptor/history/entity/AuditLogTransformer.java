@@ -54,7 +54,7 @@ public class AuditLogTransformer implements EntityInterceptor {
     String tenantId = getTenantId(userOperationLog.getTenantId());
     builder
         .entityType(convertEntityType(userOperationLog))
-        .operationType(convertOperationType(userOperationLog, builder))
+        .operationType(convertOperationType(userOperationLog))
         .partitionId(C7_HISTORY_PARTITION_ID)
         .result(AuditLogEntity.AuditLogOperationResult.SUCCESS)
         .entityVersion(C7_AUDIT_LOG_ENTITY_VERSION)
@@ -74,7 +74,7 @@ public class AuditLogTransformer implements EntityInterceptor {
 
   protected AuditLogEntity.@NonNull AuditLogTenantScope getAuditLogTenantScope(String tenantId) {
     AuditLogEntity.AuditLogTenantScope tenantScope;
-    if ( tenantId.equals(C8_DEFAULT_TENANT)) {
+    if (tenantId.equals(C8_DEFAULT_TENANT)) {
       tenantScope = AuditLogEntity.AuditLogTenantScope.GLOBAL;
     } else {
       tenantScope = AuditLogEntity.AuditLogTenantScope.TENANT;
@@ -114,7 +114,7 @@ public class AuditLogTransformer implements EntityInterceptor {
     };
   }
 
-  protected AuditLogEntity.AuditLogOperationType convertOperationType(UserOperationLogEntry userOperationLog, AuditLogDbModel.Builder builder) {
+  protected AuditLogEntity.AuditLogOperationType convertOperationType(UserOperationLogEntry userOperationLog) {
     String operationType = userOperationLog.getOperationType();
 
     return switch (operationType) {
@@ -160,7 +160,6 @@ public class AuditLogTransformer implements EntityInterceptor {
       // Incident operations
       case UserOperationLogEntry.OPERATION_TYPE_RESOLVE -> {
         if (EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
-          builder.entityType(AuditLogEntity.AuditLogEntityType.INCIDENT);
           yield AuditLogEntity.AuditLogOperationType.RESOLVE;
         } else {
           yield AuditLogEntity.AuditLogOperationType.UPDATE;
