@@ -176,6 +176,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    *
    * @param builder the process instance builder
    * @param c7ProcessInstanceId the historic process instance ID from Camunda 7
+   * @param c7SuperProcessInstanceId the historic parent process instance ID from Camunda 7
    */
   protected void resolveParentFlowNodeInstanceKey(
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,
@@ -187,7 +188,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
     if (callActivity != null && isMigrated(callActivity.getId(), HISTORY_FLOW_NODE)) {
       Long parentFlowNodeInstanceKey = dbClient.findC8KeyByC7IdAndType(callActivity.getId(), HISTORY_FLOW_NODE);
       if (parentFlowNodeInstanceKey != null) {
-         builder.parentElementInstanceKey(parentFlowNodeInstanceKey);
+        builder.parentElementInstanceKey(parentFlowNodeInstanceKey);
       }
     }
   }
