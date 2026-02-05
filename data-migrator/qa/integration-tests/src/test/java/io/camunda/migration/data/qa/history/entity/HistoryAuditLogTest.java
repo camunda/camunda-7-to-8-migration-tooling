@@ -19,6 +19,7 @@ import java.util.List;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.Deployment;
+import org.camunda.bpm.engine.runtime.Incident;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -39,11 +40,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   @AfterEach
   public void cleanupData() {
     identityService.clearAuthentication();
-    List<UserOperationLogEntry> list = historyService.createUserOperationLogQuery().list();
-    // for each log entry, delete it
-    for (UserOperationLogEntry entry : list) {
-      historyService.deleteUserOperationLogEntry(entry.getId());
-    }
+    historyService.createUserOperationLogQuery().list().forEach(log ->
+        historyService.deleteUserOperationLogEntry(log.getId()));
   }
 
   @Test
@@ -446,6 +444,27 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
+  @Test
+  public void shouldMigrateAuditLogsForIncidentResolution() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+    Incident incident = runtimeService.createIncident("foo", processInstance.getId(), "userTask1", "bar");
+    identityService.setAuthenticatedUserId("demo");
+    runtimeService.resolveIncident(incident.getId());
+    assertThat(historyService.createUserOperationLogQuery().count()).isEqualTo(1L);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("simpleProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    assertThat(logs).hasSize(1);
+    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.INCIDENT);
+    assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.RESOLVE);
+  }
 
   @Test
   public void shouldSkipAuditLogsForActivateSuspend() {

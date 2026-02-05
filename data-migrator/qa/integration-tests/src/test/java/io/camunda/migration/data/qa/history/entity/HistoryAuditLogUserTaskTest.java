@@ -39,11 +39,8 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
   @AfterEach
   public void cleanupData() {
     identityService.clearAuthentication();
-    List<UserOperationLogEntry> list = historyService.createUserOperationLogQuery().list();
-    // for each log entry, delete it
-    for (UserOperationLogEntry entry : list) {
-      historyService.deleteUserOperationLogEntry(entry.getId());
-    }
+    historyService.createUserOperationLogQuery().list().forEach(log ->
+        historyService.deleteUserOperationLogEntry(log.getId()));
   }
 
   @Test

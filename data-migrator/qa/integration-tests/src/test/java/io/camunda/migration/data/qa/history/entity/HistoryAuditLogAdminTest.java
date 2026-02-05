@@ -26,18 +26,14 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
   @AfterEach
   public void cleanupData() {
     identityService.clearAuthentication();
-    historyService.createUserOperationLogQuery().list().forEach( log -> {
-      historyService.deleteUserOperationLogEntry(log.getId());
-    });
-    identityService.createUserQuery().list().forEach(user -> {
-      identityService.deleteUser(user.getId());
-    });
-    identityService.createGroupQuery().list().forEach(group -> {
-      identityService.deleteGroup(group.getId());
-    });
-    identityService.createTenantQuery().list().forEach(tenant -> {
-      identityService.deleteTenant(tenant.getId());
-    });
+    historyService.createUserOperationLogQuery().list().forEach(log ->
+        historyService.deleteUserOperationLogEntry(log.getId()));
+    identityService.createUserQuery().list().forEach(user ->
+        identityService.deleteUser(user.getId()));
+    identityService.createGroupQuery().list().forEach(group ->
+        identityService.deleteGroup(group.getId()));
+    identityService.createTenantQuery().list().forEach(tenant ->
+        identityService.deleteTenant(tenant.getId()));
   }
 
   @Test
