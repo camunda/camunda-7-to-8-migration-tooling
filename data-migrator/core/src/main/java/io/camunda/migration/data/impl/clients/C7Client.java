@@ -17,6 +17,7 @@ import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETC
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import static org.camunda.bpm.engine.ActivityTypes.CALL_ACTIVITY;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -167,7 +168,7 @@ public class C7Client {
    * Finds the activity that started a child process instance.
    */
   public HistoricActivityInstance findCallActivityByCalledProcessInstanceId(String parentProcessInstanceId,
-                                                                            String childProcessInstanceId) {
+                                                                                  String childProcessInstanceId) {
     var query = historyService.createHistoricActivityInstanceQuery()
         .processInstanceId(parentProcessInstanceId)
         .activityType(CALL_ACTIVITY)
@@ -175,13 +176,12 @@ public class C7Client {
         .asc()
         .orderByHistoricActivityInstanceId()
         .asc();
-
-    return callApi(() -> Objects.requireNonNull(query.list()
-            .stream()
-            .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
-            .findFirst()
-            .orElse(null)),
+    List<HistoricActivityInstance> result = callApi(query::list,
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "Parent activity for child process instance", childProcessInstanceId));
+    return result.stream()
+        .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
+        .findFirst()
+        .orElse(null);
   }
 
   /**
@@ -323,7 +323,7 @@ public class C7Client {
         .page(offset -> query.listPage(offset, properties.getPageSize())
             .stream()
             .map(hpi -> new IdKeyDbModel(hpi.getId(), hpi.getStartTime()))
-            .collect(Collectors.toList()))
+            .collect(toList()))
         .callback(callback);
   }
 
@@ -613,7 +613,7 @@ public class C7Client {
 
     return query.list().stream()
         .filter(decisionInstance -> decisionInstance.getRootDecisionInstanceId() != null)
-        .collect(Collectors.toList());
+        .collect(toList());
   }
 
 }
