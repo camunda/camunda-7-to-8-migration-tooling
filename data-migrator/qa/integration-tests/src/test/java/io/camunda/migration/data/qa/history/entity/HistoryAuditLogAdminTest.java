@@ -13,7 +13,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import java.util.List;
+import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.IdentityService;
+import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.authorization.Permissions;
+import org.camunda.bpm.engine.authorization.Resources;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
+import org.camunda.bpm.engine.identity.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +28,9 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected IdentityService identityService;
+
+  @Autowired
+  protected AuthorizationService authorizationService;
 
   @AfterEach
   public void cleanupData() {
@@ -34,6 +43,8 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
         identityService.deleteGroup(group.getId()));
     identityService.createTenantQuery().list().forEach(tenant ->
         identityService.deleteTenant(tenant.getId()));
+    authorizationService.createAuthorizationQuery().list().forEach(authorization ->
+        authorizationService.deleteAuthorization(authorization.getId()));
   }
 
   @Test
@@ -298,6 +309,102 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
     assertThat(logs).extracting(AuditLogEntity::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForCreateAuthorization() {
+    // given
+    createUser();
+    identityService.setAuthenticatedUserId("demo");
+    Authorization authorization = authorizationService.createNewAuthorization(Authorization.AUTH_TYPE_GRANT);
+    authorization.setUserId("testUser");
+    authorization.setResource(Resources.PROCESS_DEFINITION);
+    authorization.setResourceId("*");
+    authorization.addPermission(Permissions.READ);
+    authorizationService.saveAuthorization(authorization);
+
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(6); // there are 6 entries for the same log due to 6 properties
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForUpdateAuthorization() {
+    // given
+    createUser();
+    Authorization authorization = authorizationService.createNewAuthorization(Authorization.AUTH_TYPE_GRANT);
+    authorization.setUserId("testUser");
+    authorization.setResource(Resources.PROCESS_DEFINITION);
+    authorization.setResourceId("*");
+    authorization.addPermission(Permissions.READ);
+    authorizationService.saveAuthorization(authorization);
+
+    // Update the authorization
+    identityService.setAuthenticatedUserId("demo");
+    authorization.addPermission(Permissions.UPDATE);
+    authorizationService.saveAuthorization(authorization);
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(6); // there are 6 entries for the same log due to 6 properties
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForDeleteAuthorization() {
+    // given
+    createUser();
+    Authorization authorization = authorizationService.createNewAuthorization(Authorization.AUTH_TYPE_GRANT);
+    authorization.setUserId("testUser");
+    authorization.setResource(Resources.PROCESS_DEFINITION);
+    authorization.setResourceId("*");
+    authorization.addPermission(Permissions.READ);
+    authorizationService.saveAuthorization(authorization);
+
+    // Delete the authorization
+    identityService.setAuthenticatedUserId("demo");
+    authorizationService.deleteAuthorization(authorization.getId());
+    identityService.clearAuthentication();
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(6); // there are 6 entries for the same log due to 6 properties
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
+  }
+
+  protected void createUser() {
+    User testUser = identityService.newUser("testUser");
+    identityService.saveUser(testUser);
   }
 
 }

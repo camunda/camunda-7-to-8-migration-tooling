@@ -34,6 +34,7 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEAR
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 
@@ -57,6 +58,7 @@ import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
+import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
@@ -350,6 +352,13 @@ public class C8Client {
    */
   public List<FlowNodeInstanceDbModel> searchFlowNodeInstances(FlowNodeInstanceDbQuery query) {
     return callApi(() -> flowNodeInstanceMapper.search(query), FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
+  }
+
+  /**
+   * Searches for User tasks matching the query.
+   */
+  public List<UserTaskDbModel> searchUserTasks(UserTaskDbQuery query){
+    return callApi(() -> userTaskMapper.search(query), FAILED_TO_SEARCH_USER_TASKS);
   }
 
   /**

@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.entities.UserTaskEntity;
 import java.util.List;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
@@ -67,6 +68,8 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
+    List<UserTaskEntity> userTaskEntities = searchHistoricUserTasks(c8ProcessInstance.getFirst().processInstanceKey());
+    assertThat(userTaskEntities).hasSize(1);
     List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     AuditLogEntity log = logs.getFirst();
@@ -76,6 +79,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(log.rootProcessInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(log.processDefinitionKey()).isNotNull();
     assertThat(log.userTaskKey()).isNotNull();
+    assertThat(log.elementInstanceKey()).isEqualTo(userTaskEntities.getFirst().elementInstanceKey());
     assertThat(log.timestamp()).isNotNull();
     assertThat(log.actorId()).isEqualTo("demo");
     assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
@@ -374,7 +378,35 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.UPDATE);
   }
 
-  private static void assertAuditLogProperties(List<AuditLogEntity> logs, AuditLogEntity.AuditLogOperationType opType) {
+  @Test
+  public void shouldSkipAuditLogsWhenUserTasksAreNotMigrated() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    // Complete a user task to generate audit logs
+    identityService.setAuthenticatedUserId("demo");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // Verify audit logs exist in C7
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .processInstanceId(processInstance.getId())
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when user tasks are not migrated
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateAuditLogs();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
+    assertThat(logs).hasSize(0);
+  }
+
+  protected void assertAuditLogProperties(List<AuditLogEntity> logs, AuditLogEntity.AuditLogOperationType opType) {
     assertThat(logs.getFirst().category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
     assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(opType);

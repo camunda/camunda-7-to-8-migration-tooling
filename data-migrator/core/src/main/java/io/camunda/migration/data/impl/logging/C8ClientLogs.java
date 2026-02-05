@@ -39,6 +39,7 @@ public class C8ClientLogs {
   public static final String FAILED_TO_INSERT_USER_TASK = "Failed to insert user task";
   public static final String FAILED_TO_INSERT_FLOW_NODE_INSTANCE = "Failed to insert flow node instance";
   public static final String FAILED_TO_SEARCH_FLOW_NODE_INSTANCES = "Failed to search flow node instances";
+  public static final String FAILED_TO_SEARCH_USER_TASKS = "Failed to search user tasks";
   public static final String FAILED_TO_INSERT_AUDIT_LOG = "Failed to insert audit log";
   public static final String FAILED_TO_MIGRATE_AUTHORIZATION = "Failed to migrate authorization with legacy ID: ";
 }

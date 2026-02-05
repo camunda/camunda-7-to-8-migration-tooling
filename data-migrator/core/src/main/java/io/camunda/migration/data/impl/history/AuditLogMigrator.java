@@ -9,6 +9,8 @@ package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_AUDIT_LOG_MISSING_ROOT_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_AUDIT_LOG_MISSING_USER_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -19,7 +21,9 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
+import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
+import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
@@ -169,7 +173,10 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     if (c7TaskId != null && isMigrated(c7TaskId, HISTORY_USER_TASK)) {
       Long taskKey = dbClient.findC8KeyByC7IdAndType(c7TaskId,
           HISTORY_USER_TASK);
-        builder.userTaskKey(taskKey);
+      UserTaskDbModel userTaskDbModel = c8Client.searchUserTasks(
+          UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey)))).stream().findFirst().orElse(null);
+      builder.userTaskKey(taskKey)
+          .elementInstanceKey(userTaskDbModel.elementInstanceKey());
     }
   }
 
@@ -197,10 +204,10 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
       HistoryMigratorLogs.skippingAuditLogDueToMissingProcess(c7AuditLogId);
     } else if (c7AuditLog.getRootProcessInstanceId() != null && dbModel.rootProcessInstanceKey() == null) {
       markSkipped(c7AuditLogId, HISTORY_AUDIT_LOG, c7AuditLog.getTimestamp(), SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-      HistoryMigratorLogs.skippingHistoricAuditLog(SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE, c7AuditLogId);
+      HistoryMigratorLogs.skippingHistoricAuditLog(SKIPPING_AUDIT_LOG_MISSING_ROOT_INSTANCE, c7AuditLogId);
     } else if (c7AuditLog.getTaskId() != null && dbModel.userTaskKey() == null) {
       markSkipped(c7AuditLogId, HISTORY_AUDIT_LOG, c7AuditLog.getTimestamp(), SKIP_REASON_BELONGS_TO_SKIPPED_TASK);
-      HistoryMigratorLogs.skippingHistoricAuditLog(SKIP_REASON_BELONGS_TO_SKIPPED_TASK, c7AuditLogId);
+      HistoryMigratorLogs.skippingHistoricAuditLog(SKIPPING_AUDIT_LOG_MISSING_USER_TASK, c7AuditLogId);
     }  else {
       insertAuditLog(c7AuditLog, dbModel, c7AuditLogId);
     }
