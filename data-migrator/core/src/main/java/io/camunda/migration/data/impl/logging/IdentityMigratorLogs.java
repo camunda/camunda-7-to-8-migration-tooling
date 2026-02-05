@@ -31,6 +31,7 @@ public class IdentityMigratorLogs {
   public static final String STARTING_MIGRATION_OF_ENTITIES = "Starting migration of {} entities";
   public static final String FETCHING_LATEST_ID = "Fetching most recently migrated {} ID";
   public static final String LATEST_ID = "Latest migrated {} ID: {}";
+  public static final String MISSING_AUTHORIZATION = "Authorization with ID {} can no longer be found, it might have been removed";
 
   // Failure reasons constants
   public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
@@ -91,5 +92,9 @@ public class IdentityMigratorLogs {
 
   public static void logLatestId(IdKeyMapper.TYPE type, String id) {
     LOGGER.debug(LATEST_ID, type.name().toLowerCase(), Optional.ofNullable(id).orElse("none"));
+  }
+
+  public static void logMissingAuthorization(String authId) {
+    LOGGER.info(MISSING_AUTHORIZATION, authId);
   }
 }

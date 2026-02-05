@@ -37,7 +37,7 @@ public class IdentityMigrator {
 
   public static final long DEFAULT_TENANT_KEY = 1L;
 
-  protected MigratorMode mode = MigratorMode.MIGRATE;
+  protected MigratorMode mode = MIGRATE;
 
   @Autowired
   protected DbClient dbClient;
@@ -65,7 +65,7 @@ public class IdentityMigrator {
   }
 
   public void setMode(MigratorMode mode) {
-    this.mode = mode == null ? MigratorMode.MIGRATE : mode;
+    this.mode = mode == null ? MIGRATE : mode;
   }
 
   protected void migrate() {
@@ -154,7 +154,7 @@ public class IdentityMigrator {
   }
 
   protected void fetchTenantsToMigrate(Consumer<Tenant> tenantConsumer) {
-    if (mode == RETRY_SKIPPED) {
+    if (RETRY_SKIPPED.equals(mode)) {
       fetchAndHandleSkippedTenants(tenantConsumer);
     } else {
       IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.TENANT);
@@ -165,7 +165,7 @@ public class IdentityMigrator {
   }
 
   protected void fetchAuthorizationsToMigrate(Consumer<Authorization> authorizationConsumer) {
-    if (mode == MigratorMode.RETRY_SKIPPED) {
+    if (RETRY_SKIPPED.equals(mode)) {
       fetchAndHandleSkippedAuthorizations(authorizationConsumer);
     } else {
       IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.AUTHORIZATION);
@@ -181,6 +181,8 @@ public class IdentityMigrator {
       Authorization authorization = c7Client.getAuthorization(authorizationId);
       if (authorization != null) {
         callback.accept(authorization);
+      } else {
+        IdentityMigratorLogs.logMissingAuthorization(authorizationId);
       }
     });
   }
