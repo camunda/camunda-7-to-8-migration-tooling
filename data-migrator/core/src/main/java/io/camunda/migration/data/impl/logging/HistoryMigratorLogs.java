@@ -143,6 +143,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_PARENT, "process", c7ProcessInstanceId);
   }
 
+  public static void skippingProcessInstanceDueToMissingParentFlowNode(String c7ProcessInstanceId) {
+    LOGGER.debug(SKIP_REASON_MISSING_PARENT_FLOW_NODE, "process", c7ProcessInstanceId);
+  }
+
   public static void skippingProcessInstanceDueToMissingRoot(String c7ProcessInstanceId) {
     LOGGER.debug(SKIPPING_INSTANCE_MISSING_ROOT, "process", c7ProcessInstanceId);
   }

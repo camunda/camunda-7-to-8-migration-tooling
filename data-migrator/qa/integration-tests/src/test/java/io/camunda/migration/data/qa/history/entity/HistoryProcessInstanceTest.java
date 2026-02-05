@@ -103,6 +103,9 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
+    // need to run with retry to migrate child instances with flow node dependencies
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstance = searchHistoricProcessInstances("callingProcessId");
@@ -178,6 +181,9 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
+    // need to run with retry to migrate child instances with flow node dependencies
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
@@ -218,6 +224,34 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
           assertThat(variable.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey())
       );
     }
+  }
+
+  @Test
+  public void shouldPopulateParentFlowNodeInstanceKeyForCallActivity() {
+    // given
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    runtimeService.startProcessInstanceByKey("callingProcessId");
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+    // need to run with retry to migrate child instances with flow node dependencies
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> subProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");
+    assertThat(subProcessInstances).hasSize(1);
+    assertThat(parentProcessInstances).hasSize(1);
+    ProcessInstanceEntity parent = parentProcessInstances.getFirst();
+    ProcessInstanceEntity sub = subProcessInstances.getFirst();
+    List<FlowNodeInstanceEntity> parentCallActivities =
+        searchHistoricFlowNodesForType(parent.processInstanceKey(), FlowNodeInstanceEntity.FlowNodeType.CALL_ACTIVITY);
+    assertThat(parentCallActivities).hasSize(1);
+
+    assertThat(sub.parentFlowNodeInstanceKey()).isEqualTo(parentCallActivities.getFirst().flowNodeInstanceKey());
   }
 
   @Test
@@ -276,7 +310,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     if (hasParent) {
       assertThat(processInstance.parentProcessInstanceKey()).isNotNull();
-      assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
+      assertThat(processInstance.parentFlowNodeInstanceKey()).isNotNull();
     } else {
       assertThat(processInstance.parentProcessInstanceKey()).isNull();
       assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
@@ -285,7 +319,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(processInstance.hasIncident()).isEqualTo(hasIncidents);
     // https://github.com/camunda/camunda-bpm-platform/issues/5359
     assertThat(processInstance.treePath()).isNull();
-    assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
   }
 
 
