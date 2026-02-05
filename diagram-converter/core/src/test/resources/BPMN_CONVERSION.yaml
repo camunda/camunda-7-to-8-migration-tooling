@@ -762,6 +762,110 @@ categories:
           </bpmn:boundaryEvent>
         expectedMessages: |
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) with variable filter
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableName="otherVariable">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableNames="otherVariable"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) with variable and event filter
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableName="variable" camunda:variableEvents="update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="update" variableNames="variable"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on update
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="update"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on create and update
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="create,update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="create,update"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
   - category: Unsupported elements
     cases:
       - name: Transaction and Cancel Events are not supported
