@@ -20,7 +20,6 @@ import static java.lang.String.format;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
-import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -34,6 +33,7 @@ import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.delegate.Expression;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
@@ -51,6 +51,13 @@ import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.camunda.bpm.engine.impl.cmd.GetCamundaFormDefinitionCmd;
+import org.camunda.bpm.engine.impl.form.CamundaFormRefImpl;
+import org.camunda.bpm.engine.impl.form.FormDefinition;
+import org.camunda.bpm.engine.impl.interceptor.CommandExecutor;
+import org.camunda.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
+import org.camunda.bpm.engine.repository.CamundaFormDefinition;
+import org.camunda.bpm.engine.repository.CamundaFormDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -86,13 +93,13 @@ public class C7Client {
   protected ApplicationContext context;
 
   @Autowired
+  protected ProcessEngineConfigurationImpl processEngineConfiguration;
+
+  @Autowired
   protected IdentityService identityService;
 
   @Autowired
   protected AuthorizationService authorizationService;
-
-  @Autowired
-  protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
   /**
    * Gets a single process instance by ID.
@@ -259,6 +266,16 @@ public class C7Client {
     var query = repositoryService.createDeploymentQuery().deploymentId(definitionDeploymentId);
     return callApi(query::singleResult,
         FAILED_TO_FETCH_DEPLOYMENT_TIME + definitionDeploymentId).getDeploymentTime();
+  }
+
+  /**
+   * Gets the form definition by definition ID.
+   */
+  public CamundaFormDefinition getForm(String c7FormId) {
+    return processEngineConfiguration.getCommandExecutorTxRequiresNew()
+        .execute(commandContext ->
+            commandContext.getCamundaFormDefinitionManager()
+                .findLatestDefinitionById(c7FormId));
   }
 
   /**
@@ -518,6 +535,70 @@ public class C7Client {
             .asc()
             .list(),
         FAILED_TO_FETCH_AUTHORIZATIONS);
+  }
+
+  /**
+   * Processes historic flow node instances with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleForms(Consumer<CamundaFormDefinition> callback, Date deployedAfter) {
+    CamundaFormDefinitionQuery query = repositoryService.createCamundaFormDefinitionQuery()
+        .orderByDeploymentTime()
+        .asc()
+        .orderById()
+        .asc();
+
+    if (deployedAfter != null) {
+      query.deployedAfter(deployedAfter);
+    }
+
+    new Pagination<CamundaFormDefinition>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  public String getFormId(String processDefinitionId, String taskDefinitionKey) {
+    var c7ProcessDefinition = (ProcessDefinitionEntity) getProcessDefinition(processDefinitionId);
+    ProcessDefinitionEntity processDefinitionEntity = processEngineConfiguration.getDeploymentCache().resolveProcessDefinition(c7ProcessDefinition);
+    FormDefinition formDefinition = processDefinitionEntity.getTaskDefinitions().get(taskDefinitionKey).getFormDefinition();
+    Expression camundaFormDefinitionKey = formDefinition.getCamundaFormDefinitionKey();
+    String camundaFormDefinitionBinding = formDefinition.getCamundaFormDefinitionBinding();
+
+    Expression version = formDefinition.getCamundaFormDefinitionVersion();
+    if (camundaFormDefinitionKey != null && (camundaFormDefinitionBinding != null || version != null)) {
+      CamundaFormRefImpl camundaFormRef = new CamundaFormRefImpl(camundaFormDefinitionKey.getExpressionText(), camundaFormDefinitionBinding);
+      if (version != null) {
+        String camundaFormDefinitionVersion = version.getExpressionText();
+        camundaFormRef.setVersion(Integer.valueOf(camundaFormDefinitionVersion));
+      }
+
+      String deploymentId = c7ProcessDefinition.getDeploymentId();
+      CommandExecutor executor = processEngineConfiguration.getCommandExecutorTxRequiresNew();
+      CamundaFormDefinition camundaFormDefinition = executor.execute(new GetCamundaFormDefinitionCmd(camundaFormRef, deploymentId));
+      if (camundaFormDefinition != null) {
+        return camundaFormDefinition.getId();
+      } else  {
+        return null;
+      }
+
+    } else  {
+      return null;
+    }
+  }
+
+  public String getStartFormId(ProcessDefinition c7ProcessDefinition) {
+    FormDefinition startFormDefinition = ((ProcessDefinitionEntity) c7ProcessDefinition).getStartFormDefinition();
+    if (startFormDefinition != null) {
+      Expression camundaFormDefinitionKey = startFormDefinition.getCamundaFormDefinitionKey();
+      if (camundaFormDefinitionKey != null) {
+        return camundaFormDefinitionKey.getExpressionText();
+      } else {
+        return null;
+      }
+    } else  {
+      return null;
+    }
   }
 
   public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {

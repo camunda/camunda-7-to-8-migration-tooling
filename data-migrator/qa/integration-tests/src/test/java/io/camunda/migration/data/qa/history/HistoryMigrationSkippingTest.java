@@ -11,6 +11,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -570,5 +572,69 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // then
     assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
     logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+  }
+
+  @Test
+  public void shouldSkipUserTaskWhenFormNotMigrated() {
+    // given - deploy process with user task form
+    deployer.deployCamunda7Process("processWithForm.bpmn");
+
+    repositoryService.createDeployment()
+        .addClasspathResource("io/camunda/migration/data/form/simple-form.form")
+        .deploy();
+
+    // when - start process instance
+    runtimeService.startProcessInstanceByKey("processWithFormId");
+    var task = taskService.createTaskQuery().singleResult();
+
+    // and - migrate process definition and process instance, but NOT the form
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    // Note: historyMigrator.migrateForms() is NOT called here
+    historyMigrator.migrateUserTasks();
+
+    // then - user task should be skipped due to missing form
+    var processInstances = searchHistoricProcessInstances("processWithFormId");
+    assertThat(processInstances).hasSize(1);
+    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).isEmpty();
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
+  }
+
+  @Test
+  public void shouldMigrateUserTaskAfterFormIsMigrated() {
+    // given - deploy process with user task form
+    deployer.deployCamunda7Process("processWithForm.bpmn");
+
+    repositoryService.createDeployment()
+        .addClasspathResource("io/camunda/migration/data/form/simple-form.form")
+        .deploy();
+
+    // when - start process instance
+    runtimeService.startProcessInstanceByKey("processWithFormId");
+    var task = taskService.createTaskQuery().singleResult();
+
+    // and - first attempt: migrate without forms (should skip user task)
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks(); // Skips due to missing form
+
+    // then - user task should be skipped
+    var processInstances = searchHistoricProcessInstances("processWithFormId");
+    assertThat(processInstances).hasSize(1);
+    assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).isEmpty();
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
+
+    // when - second attempt: migrate forms and retry user tasks
+    historyMigrator.migrateForms();
+
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrateUserTasks(); // Should succeed now
+
+    // then - user task should be migrated successfully
+    var userTasks = searchHistoricUserTasks(processInstances.getFirst().processInstanceKey());
+    assertThat(userTasks).hasSize(1);
+    assertThat(userTasks.getFirst().formKey()).isNotNull();
   }
 }

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 2,
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.0.0"
+  },
+  "components": [
+    {
+      "text": "# Employee Information",
+      "type": "text",
+      "id": "Field_0w8tuuj"
+    },
+    {
+      "label": "Employee Name",
+      "type": "textfield",
+      "id": "employeeName",
+      "key": "employeeName",
+      "validate": {
+        "required": true
+      }
+    },
+    {
+      "label": "Department",
+      "type": "textfield",
+      "id": "department",
+      "key": "department"
+    }
+  ],
+  "type": "default",
+  "id": "simple-form",
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.18.0"
+}
+

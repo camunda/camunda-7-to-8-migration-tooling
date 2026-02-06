@@ -34,6 +34,7 @@ import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.FormEntity;
 import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -43,6 +44,7 @@ import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
+import io.camunda.search.query.FormQuery;
 import io.camunda.search.query.IncidentQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
@@ -209,6 +211,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.names(varName))))
+        .items();
+  }
+
+  public List<FormEntity> searchForms(String... formIds) {
+    return rdbmsService.getFormReader()
+        .search(FormQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.formIds(Arrays.stream(formIds).map(ConverterUtil::prefixDefinitionId).toList()))))
         .items();
   }
 
