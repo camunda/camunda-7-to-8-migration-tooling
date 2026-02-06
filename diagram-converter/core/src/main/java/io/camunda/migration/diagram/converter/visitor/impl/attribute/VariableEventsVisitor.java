@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.visitor.AbstractCurrentlyNotSupportedAttributeVisitor;
+import io.camunda.migration.diagram.converter.visitor.impl.eventDefinition.ConditionalEventDefinitionVisitor;
 
 public class VariableEventsVisitor extends AbstractCurrentlyNotSupportedAttributeVisitor {
   @Override
@@ -19,7 +20,8 @@ public class VariableEventsVisitor extends AbstractCurrentlyNotSupportedAttribut
   @Override
   protected boolean canVisit(DomElementVisitorContext context) {
     // Skip conditionalEventDefinition - handled by ConditionVisitor
-    if ("conditionalEventDefinition".equals(context.getElement().getLocalName())) {
+    if (ConditionalEventDefinitionVisitor.ELEMENT_LOCAL_NAME.equals(
+        context.getElement().getLocalName())) {
       return false;
     }
     return super.canVisit(context);
