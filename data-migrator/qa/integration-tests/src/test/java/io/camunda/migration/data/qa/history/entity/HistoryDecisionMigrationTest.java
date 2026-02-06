@@ -67,6 +67,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
       assertThat(decision.decisionRequirementsKey()).isNotNull();
       assertThat(decision.decisionRequirementsId()).isNull();
+      // For standalone decision (no DRD in C7), name and version should be from the decision itself
+      assertThat(decision.decisionRequirementsName()).isEqualTo("simpleDecisionName");
+      assertThat(decision.decisionRequirementsVersion()).isEqualTo(1);
     });
 
     List<DecisionRequirementsEntity> decisionReqs =
@@ -138,11 +141,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     assertThat(firstDecision).singleElement()
         .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs1Id", "simpleDmnWithReqs1Name", 1,
-            decisionReqsKey, "simpleDmnWithReqsId"));
+            decisionReqsKey, "simpleDmnWithReqsId", "simpleDmnWithReqsName", 1));
 
     assertThat(secondDecision).singleElement()
         .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs2Id", "simpleDmnWithReqs2Name", 1,
-            decisionReqsKey, "simpleDmnWithReqsId"));
+            decisionReqsKey, "simpleDmnWithReqsId", "simpleDmnWithReqsName", 1));
   }
 
   @Test
@@ -570,6 +573,30 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   private void assertDecisionDefinition(
+      DecisionDefinitionEntity decision,
+      String decisionId,
+      String decisionName,
+      int version,
+      Long decisionRequirementsKey,
+      String decisionRequirementsId) {
+    assertDecisionDefinitionBase(decision, decisionId, decisionName, version, decisionRequirementsKey, decisionRequirementsId);
+  }
+
+  private void assertDecisionDefinition(
+      DecisionDefinitionEntity decision,
+      String decisionId,
+      String decisionName,
+      int version,
+      Long decisionRequirementsKey,
+      String decisionRequirementsId,
+      String decisionRequirementsName,
+      Integer decisionRequirementsVersion) {
+    assertDecisionDefinitionBase(decision, decisionId, decisionName, version, decisionRequirementsKey, decisionRequirementsId);
+    assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
+    assertThat(decision.decisionRequirementsVersion()).isEqualTo(decisionRequirementsVersion);
+  }
+
+  private void assertDecisionDefinitionBase(
       DecisionDefinitionEntity decision,
       String decisionId,
       String decisionName,
