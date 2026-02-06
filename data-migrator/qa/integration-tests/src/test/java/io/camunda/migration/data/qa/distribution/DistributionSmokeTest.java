@@ -82,6 +82,7 @@ public class DistributionSmokeTest {
     assertThat(output).contains("--runtime");
     assertThat(output).contains("--history");
     assertThat(output).contains("--list-skipped");
+    assertThat(output).contains("--list-mappings");
     assertThat(output).contains("--retry-skipped");
   }
 
@@ -199,6 +200,42 @@ public class DistributionSmokeTest {
 
     assertThat(exitCode).isEqualTo(1);
     assertThat(output).contains("Conflicting flags: --list-skipped and --retry-skipped cannot be used together");
+    assertThat(output).contains("Usage: start.sh/bat");
+  }
+
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldShowUsageWhenListSkippedAndListMappingsAreProvided() throws Exception {
+    // given
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime", "--list-skipped", "--list-mappings");
+
+    // when
+    Process process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+    int exitCode = process.waitFor();
+
+    assertThat(exitCode).isEqualTo(1);
+    assertThat(output).contains("Conflicting flags: --list-skipped and --list-mappings cannot be used together");
+    assertThat(output).contains("Usage: start.sh/bat");
+  }
+
+  @Test
+  @Timeout(value = 30, unit = TimeUnit.SECONDS)
+  void shouldShowUsageWhenListMappingsAndRetrySkippedAreProvided() throws Exception {
+    // given
+    ProcessBuilder processBuilder = createProcessBuilder("--runtime", "--list-mappings", "--retry-skipped");
+
+    // when
+    Process process = processBuilder.start();
+
+    // then
+    String output = readProcessOutput(process);
+    int exitCode = process.waitFor();
+
+    assertThat(exitCode).isEqualTo(1);
+    assertThat(output).contains("Conflicting flags: --list-mappings and --retry-skipped cannot be used together");
     assertThat(output).contains("Usage: start.sh/bat");
   }
 
