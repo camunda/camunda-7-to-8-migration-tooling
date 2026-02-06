@@ -12,13 +12,15 @@ import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractEventDefinitionVisitor;
 
 public class ConditionalEventDefinitionVisitor extends AbstractEventDefinitionVisitor {
+  public static final String ELEMENT_LOCAL_NAME = "conditionalEventDefinition";
+
   @Override
   public String localName() {
-    return "conditionalEventDefinition";
+    return ELEMENT_LOCAL_NAME;
   }
 
   @Override
   protected SemanticVersion availableFrom(DomElementVisitorContext context) {
-    return null;
+    return SemanticVersion._8_9;
   }
 }
