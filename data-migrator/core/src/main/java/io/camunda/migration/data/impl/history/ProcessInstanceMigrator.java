@@ -13,7 +13,6 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
@@ -22,11 +21,8 @@ import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import java.time.OffsetDateTime;
-import java.time.Period;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
-import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.springframework.stereotype.Service;
 
 /**
@@ -232,40 +228,6 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
     c8Client.insertProcessInstance(dbModel);
     markMigrated(c7ProcessInstanceId, dbModel.processInstanceKey(), c7ProcessInstance.getStartTime(), HISTORY_PROCESS_INSTANCE);
     HistoryMigratorLogs.migratingProcessInstanceCompleted(c7ProcessInstanceId);
-  }
-
-  /**
-   * Calculates the history cleanup date for an entity.
-   * Only calculates a new cleanup date when C7 removalTime is null.
-   * For entities with existing removalTime, uses that value directly.
-   *
-   * @param endTime the C7 or auto-canceled end time
-   * @param c7RemovalTime the C7 removal time
-   * @return the calculated history cleanup date
-   */
-  protected OffsetDateTime calculateHistoryCleanupDate(OffsetDateTime endTime, Date c7RemovalTime) {
-    if (c7RemovalTime != null) {
-      return convertDate(c7RemovalTime);
-    }
-
-    Period ttl = getAutoCancelTtl();
-    if (ttl == null || ttl.isZero()) {
-      return null;
-    }
-    return endTime.plus(ttl);
-  }
-
-  /**
-   * Determines if the entity should have endDate set to now when converting to C8.
-   *
-   * @param c7EndDate the C7 end date
-   * @return the endDate to use (now if active, original if completed)
-   */
-  protected OffsetDateTime calculateEndDate(Date c7EndDate) {
-    if (c7EndDate == null) {
-      return convertDate(ClockUtil.now());
-    }
-    return convertDate(c7EndDate);
   }
 
 }

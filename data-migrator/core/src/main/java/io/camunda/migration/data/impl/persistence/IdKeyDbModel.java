@@ -14,7 +14,7 @@ import java.util.Objects;
 public class IdKeyDbModel {
 
   protected String c7Id;
-  protected Long c8Key;
+  protected String c8Key;
   protected TYPE type;
   protected Date createTime;
   protected String skipReason;
@@ -27,7 +27,7 @@ public class IdKeyDbModel {
     this.createTime = createTime;
   }
 
-  public Long getC8Key() {
+  public String getC8Key() {
     return c8Key;
   }
 
@@ -47,7 +47,7 @@ public class IdKeyDbModel {
     return skipReason;
   }
 
-  public void setC8Key(Long c8Key) {
+  public void setC8Key(String c8Key) {
     this.c8Key = c8Key;
   }
 

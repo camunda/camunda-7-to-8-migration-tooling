@@ -238,7 +238,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     historyMigrator.setMode(MigratorMode.MIGRATE);
 
     // Mark parent as skipped
-    dbClient.insert(parentInstance.getId(), null, new Date(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE, "test skip");
+    dbClient.insert(parentInstance.getId(), (Long) null, new Date(), IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE, "test skip");
 
     // when - attempt to migrate (sub should be skipped because parent is skipped)
     historyMigrator.migrate();

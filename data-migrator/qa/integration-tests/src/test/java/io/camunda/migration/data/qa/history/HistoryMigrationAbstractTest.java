@@ -30,6 +30,7 @@ import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.config.TestProcessEngineConfiguration;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
@@ -39,6 +40,7 @@ import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
+import io.camunda.search.query.AuditLogQuery;
 import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
@@ -137,6 +139,20 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId) {
     return searchHistoricProcessInstances(processDefinitionId, false);
+  }
+
+  public List<AuditLogEntity> searchAuditLogs(String processDefinitionId) {
+    return rdbmsService.getAuditLogReader()
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
+  }
+
+  public List<AuditLogEntity> searchAuditLogsByCategory(String name) {
+    return rdbmsService.getAuditLogReader()
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.categories(name))))
+        .items();
   }
 
   /**

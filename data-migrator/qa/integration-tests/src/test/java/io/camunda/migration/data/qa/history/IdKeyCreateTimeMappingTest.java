@@ -44,6 +44,6 @@ public class IdKeyCreateTimeMappingTest extends HistoryMigrationAbstractTest {
 
     assertThat(migratedInstance.getC7Id()).isEqualTo(processInstanceId);
     assertThat(migratedInstance.getCreateTime()).isNotNull().isBeforeOrEqualTo(beforeMigration); // Should be before we started the test
-    assertThat(migratedInstance.getC8Key()).isNotNull().isPositive();
+    assertThat(migratedInstance.getC8Key()).isNotNull().matches("^[1-9][0-9-]*$");
   }
 }

@@ -90,6 +90,17 @@ public class HistoryMigratorLogs {
       + "skipped. Missing parent flow node. Rerun migration for skipped flow nodes to ensure complete migration.";
   public static final String SKIPPING_FLOW_NODE_MISSING_ROOT = "Migration of historic flow nodes with C7 ID [{}] skipped. Root process instance yet not available.";
 
+  public static final String MIGRATING_AUDIT_LOGS = "Migrating historic audit logs";
+  public static final String MIGRATING_AUDIT_LOG = "Migrating historic audit log with C7 ID: [{}]";
+  public static final String MIGRATING_AUDIT_LOG_COMPLETED = "Migration of historic audit log with C7 ID [{}] completed.";
+  public static final String SKIPPING_AUDIT_LOG = "Migration of historic audit log with C7 ID [{}] skipped.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_DEFINITION = SKIPPING_AUDIT_LOG + " Process definition not yet available.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_PROCESS = SKIPPING_AUDIT_LOG + " Process instance not yet available.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_ROOT_INSTANCE = SKIPPING_AUDIT_LOG + " Root process instance not yet available.";
+  public static final String SKIPPING_AUDIT_LOG_MISSING_USER_TASK = SKIPPING_AUDIT_LOG + " User task not yet available.";
+  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Can't migrate audit log for entity type: ";
+  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Can't migrate audit log for operation type: ";
+
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
   public static final String MIGRATING_DECISION_REQUIREMENT_COMPLETED = "Migration of decision requirements with C7 ID [{}] completed.";
@@ -313,5 +324,29 @@ public class HistoryMigratorLogs {
 
   public static void creatingDecisionRequirementCompleted(String c7DecisionId) {
     LOGGER.debug(CREATING_DECISION_REQUIREMENT_COMPLETED, c7DecisionId);
+  }
+
+  public static void migratingHistoricAuditLogs() {
+    LOGGER.info(MIGRATING_AUDIT_LOGS);
+  }
+
+  public static void migratingHistoricAuditLog(String c7AuditLogId) {
+    LOGGER.debug(MIGRATING_AUDIT_LOG, c7AuditLogId);
+  }
+
+  public static void migratingHistoricAuditLogCompleted(String c7AuditLogId) {
+    LOGGER.debug(MIGRATING_AUDIT_LOG_COMPLETED, c7AuditLogId);
+  }
+
+  public static void skippingHistoricAuditLog(String reason, String c7AuditLogId) {
+    LOGGER.debug(reason, c7AuditLogId);
+  }
+
+  public static void skippingAuditLogDueToMissingDefinition(String c7AuditLogId) {
+    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_DEFINITION, c7AuditLogId);
+  }
+
+  public static void skippingAuditLogDueToMissingProcess(String c7AuditLogId) {
+    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_PROCESS, c7AuditLogId);
   }
 }

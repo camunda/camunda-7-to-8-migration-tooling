@@ -40,6 +40,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.identity.TenantQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
@@ -49,6 +50,7 @@ import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricProcessInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
+import org.camunda.bpm.engine.impl.UserOperationLogQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
@@ -493,6 +495,35 @@ public class C7Client {
         .query(query)
         .maxCount(query::count)
         .callback(callback);
+  }
+
+  /**
+   * Processes historic user operation log entries with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleUserOperationLogEntries(Consumer<UserOperationLogEntry> callback, Date timestampAfter) {
+    UserOperationLogQueryImpl query = (UserOperationLogQueryImpl) historyService.createUserOperationLogQuery()
+        .orderByTimestamp()
+        .asc()
+        .orderByOperationId()
+        .asc();
+
+    if (timestampAfter != null) {
+      query.afterTimestamp(timestampAfter);
+    }
+
+    new Pagination<UserOperationLogEntry>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
+   * Gets a single user operation log entry by ID.
+   */
+  public UserOperationLogEntry getUserOperationLogEntry(String c7Id) {
+    var query = historyService.createUserOperationLogQuery().operationId(c7Id);
+    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry", c7Id));
   }
 
   /**
