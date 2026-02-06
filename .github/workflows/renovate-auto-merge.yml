@@ -11,7 +11,7 @@ jobs:
       checks: read
       contents: read
     steps:
-      - uses: wechuli/allcheckspassed@v2.2.0
+      - uses: wechuli/allcheckspassed@v2.3.0
         with:
           delay: '50'
           retries: '3'
