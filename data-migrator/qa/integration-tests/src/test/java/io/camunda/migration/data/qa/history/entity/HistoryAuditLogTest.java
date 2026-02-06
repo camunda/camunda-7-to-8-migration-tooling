@@ -330,6 +330,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
     assertThat(logs).hasSize(2);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
+    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
   }
 
   @Test
@@ -377,6 +378,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
     assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
+    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.RESOURCE);
   }
 
   @Test

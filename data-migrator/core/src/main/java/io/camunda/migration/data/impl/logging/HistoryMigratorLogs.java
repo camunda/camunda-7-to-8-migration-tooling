@@ -98,8 +98,8 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING_AUDIT_LOG_MISSING_PROCESS = SKIPPING_AUDIT_LOG + " Process instance not yet available.";
   public static final String SKIPPING_AUDIT_LOG_MISSING_ROOT_INSTANCE = SKIPPING_AUDIT_LOG + " Root process instance not yet available.";
   public static final String SKIPPING_AUDIT_LOG_MISSING_USER_TASK = SKIPPING_AUDIT_LOG + " User task not yet available.";
-  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Can't migrate Audit log for entity type: ";
-  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Can't migrate Audit log for operation type: ";
+  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Can't migrate audit log for entity type: ";
+  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Can't migrate audit log for operation type: ";
 
   public static final String MIGRATING_DECISION_REQUIREMENTS = "Migrating decision requirements";
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";

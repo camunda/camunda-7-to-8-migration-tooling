@@ -182,7 +182,7 @@ public class MigratorResourceTest extends AbstractCockpitPluginTest {
         stmt.setString(4, String.valueOf(idKeyDbModel.getType()));
         stmt.setString(5, idKeyDbModel.getSkipReason());
         if (idKeyDbModel.getC8Key() == null) {
-          stmt.setNull(2, java.sql.Types.BIGINT);
+          stmt.setNull(2, java.sql.Types.VARCHAR);
         } else {
           stmt.setString(2, idKeyDbModel.getC8Key());
         }

@@ -192,7 +192,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .operationType(UserOperationLogEntry.OPERATION_TYPE_CLAIM)
         .count();
-    assertThat(auditLogCount).isEqualTo(1); // there are two UPDATE logs: for each property
+    assertThat(auditLogCount).isEqualTo(1);
 
     // when
     historyMigrator.migrate();
@@ -256,7 +256,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.USER_TASKS.name());
-    assertThat(logs).hasSize(1); // result is 0 since task is not linked to a process instance and can't be migrated
+    assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.DELETE);
   }
 

@@ -155,13 +155,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
-  public List<AuditLogEntity> searchAuditLogss(String processDefinitionId) {
-    return rdbmsService.getAuditLogReader()
-        .search(AuditLogQuery.of(q -> q.filter(f ->
-            f.processInstanceKeys(123L))))
-        .items();
-  }
-
   /**
    * When the built-in ProcessInstanceTransformer is disabled, the processDefinitionId
    * is NOT prefixed during migration. This method allows searching with or without prefixing.

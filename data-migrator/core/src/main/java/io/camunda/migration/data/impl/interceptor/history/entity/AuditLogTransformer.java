@@ -67,6 +67,7 @@ public class AuditLogTransformer implements EntityInterceptor {
         .category(convertCategory(userOperationLog.getCategory()));
     // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, timestamp, historyCleanupDate
     // are set externally in AuditLogMigrator
+    // not setting entityValueType and entityOperationIntent as they internal properties meant for future-proofing purposes
 
     updateEntityTypesThatDontMatchBetweenC7andC8(userOperationLog, builder);
 
@@ -181,40 +182,4 @@ public class AuditLogTransformer implements EntityInterceptor {
     }
   }
 
-
-  // entityValueType and entityOperationIntent are internal properties meant for future-proofing purposes
-  //  protected void convertValueType(UserOperationLogEntry userOperationLog, AuditLogDbModel.Builder builder) {
-  //      switch (userOperationLog.getEntityType()) {
-  //        case EntityTypes.PROCESS_INSTANCE -> {
-  //          switch (userOperationLog.getOperationType()) {
-  //            case UserOperationLogEntry.OPERATION_TYPE_CREATE ->
-  //                builder.entityValueType(ValueType.PROCESS_INSTANCE_CREATION.value());
-  //            case UserOperationLogEntry.OPERATION_TYPE_MODIFY_PROCESS_INSTANCE ->
-  //                builder.entityValueType(ValueType.PROCESS_INSTANCE_MODIFICATION.value());
-  //            case UserOperationLogEntry.OPERATION_TYPE_MIGRATE ->
-  //                builder.entityValueType(ValueType.PROCESS_INSTANCE_MIGRATION.value());
-  //            default -> builder.entityValueType(ValueType.PROCESS_INSTANCE.value());
-  //          }
-  //        }
-  //        case EntityTypes.VARIABLE -> builder.entityValueType(ValueType.VARIABLE.value());
-  //        case EntityTypes.TASK -> builder.entityValueType(ValueType.USER_TASK.value());
-  //        case EntityTypes.DECISION_INSTANCE, EntityTypes.DECISION_DEFINITION -> {
-  //          if (userOperationLog.getOperationType().equals(UserOperationLogEntry.OPERATION_TYPE_EVALUATE)) {
-  //            builder.entityValueType(ValueType.DECISION_EVALUATION.value());
-  //          } else {
-  //            builder.entityValueType(ValueType.DECISION.value());
-  //          }
-  //        }
-  //        case EntityTypes.DECISION_REQUIREMENTS_DEFINITION ->
-  //            builder.entityValueType(ValueType.DECISION_REQUIREMENTS.value());
-  //        case EntityTypes.USER -> builder.entityValueType(ValueType.USER.value());
-  //        case EntityTypes.GROUP -> builder.entityValueType(ValueType.GROUP.value());
-  //        case EntityTypes.TENANT -> builder.entityValueType(ValueType.TENANT.value());
-  //        case EntityTypes.AUTHORIZATION -> builder.entityValueType(ValueType.AUTHORIZATION.value());
-  //        case EntityTypes.PROCESS_DEFINITION -> builder.entityValueType(ValueType.PROCESS.value());
-  //        case EntityTypes.DEPLOYMENT -> builder.entityValueType(ValueType.RESOURCE.value());
-  //        case EntityTypes.INCIDENT -> builder.entityValueType(ValueType.INCIDENT.value());
-  //        default -> builder.entityValueType(ValueType.SBE_UNKNOWN.value());
-  //      }
-  //  }
 }
