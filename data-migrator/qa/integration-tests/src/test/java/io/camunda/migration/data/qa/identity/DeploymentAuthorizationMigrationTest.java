@@ -29,7 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
+public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
   public static final String USERNAME = "tomsmith";
   public static final String USER_FIRST_NAME = "Tom";
@@ -64,7 +64,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.ALL));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // One for each resource contained in the deployment
@@ -87,7 +87,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.CREATE));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
@@ -110,7 +110,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.DELETE));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
@@ -134,7 +134,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.READ));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
@@ -157,7 +157,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.READ));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME); // Two for each resource contained in the deployment (excluding CMMN)
@@ -173,7 +173,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, "*", Set.of(Permissions.READ));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(1, USERNAME);
@@ -187,7 +187,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, deployment.getId(), Set.of(Permissions.READ));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment (2 DD and 1 DRD)
@@ -205,7 +205,7 @@ public class DeploymentAuthMigrationTest extends IdentityAbstractTest {
     Authorization authorization = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.DEPLOYMENT, "unknownDeploymentId", Set.of(Permissions.ALL));
 
     // when
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then
     testHelper.verifySkippedViaLogs(authorization.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownDeploymentId", Resources.DEPLOYMENT.resourceName()), logs);
