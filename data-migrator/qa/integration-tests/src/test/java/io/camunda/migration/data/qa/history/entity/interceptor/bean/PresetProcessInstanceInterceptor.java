@@ -28,6 +28,7 @@ public class PresetProcessInstanceInterceptor implements EntityInterceptor {
     if (builder != null) {
       builder.processDefinitionKey(12345L)
           .parentProcessInstanceKey(67890L)
+          .parentElementInstanceKey(98765L)
           .rootProcessInstanceKey(55555L);
     }
   }
