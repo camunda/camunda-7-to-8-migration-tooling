@@ -502,9 +502,8 @@ public class C7Client {
     UserOperationLogQueryImpl query = (UserOperationLogQueryImpl) historyService.createUserOperationLogQuery()
         .orderByTimestamp()
         .asc()
-//        .orderbByOperationId()
-//        .asc()
-        ;
+        .orderByOperationId()
+        .asc();
 
     if (timestampAfter != null) {
       query.afterTimestamp(timestampAfter);
