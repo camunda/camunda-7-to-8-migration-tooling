@@ -1,7 +1,7 @@
 services:
   # Camunda 7 with Cockpit plugin
   camunda7:
-    image: registry.camunda.cloud/cambpm-ee/camunda-bpm-platform-ee:7.24.3
+    image: registry.camunda.cloud/cambpm-ee/camunda-bpm-platform-ee:7.24.1
     user: root
     ports:
       - "8090:8080"
