@@ -40,7 +40,7 @@
     <version.errorprone>2.46.0</version.errorprone>
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
-    <plugin.version.compiler>3.14.1</plugin.version.compiler>
+    <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
     <plugin.version.frontend-maven>2.0.0</plugin.version.frontend-maven>
     <plugin.version.surefire>3.5.4</plugin.version.surefire>
