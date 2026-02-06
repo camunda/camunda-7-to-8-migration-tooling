@@ -29,6 +29,7 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
+import org.camunda.bpm.engine.EntityTypes;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.springframework.stereotype.Service;
 
@@ -122,7 +123,9 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
     String key = String.format("%s-%s", C7_HISTORY_PARTITION_ID, getNextKey());
     builder.auditLogKey(key);
 
-    resolveEntityKeys(builder, c7AuditLog);
+    resolveProcessInstanceKeys(builder, c7AuditLog);
+    resolveProcessDefinitionKey(builder, c7AuditLog);
+    resolveUserTaskKey(builder, c7AuditLog);
 
     setHistoryCleanupDate(c7AuditLog, builder);
 
@@ -130,53 +133,106 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
   }
 
   /**
-   * Resolves and sets process instance and process definition keys on the builder.
+   * Resolves and sets process instance keys on the builder.
    * <p>
-   * This method looks up the Camunda 8 keys for related entities based on the
+   * This method looks up the Camunda 8 keys for process instances based on the
    * Camunda 7 IDs from the audit log entry:
    * <ul>
    *   <li>processInstanceKey - from C7 process instance ID</li>
    *   <li>rootProcessInstanceKey - from C7 root process instance ID</li>
-   *   <li>processDefinitionKey - from C7 process definition ID</li>
-   *   <li>userTaskKey - from C7 task ID</li>
    * </ul>
    * Keys are only set if the corresponding entity has already been migrated.
+   * If the entity type is PROCESS_INSTANCE, also sets the entityKey.
    * </p>
    *
    * @param builder the audit log builder
    * @param c7AuditLog the user operation log entry from Camunda 7
    */
-  protected void resolveEntityKeys(
+  protected void resolveProcessInstanceKeys(
       AuditLogDbModel.Builder builder,
       UserOperationLogEntry c7AuditLog) {
 
     String c7ProcessInstanceId = c7AuditLog.getProcessInstanceId();
     String c7RootProcessInstanceId = c7AuditLog.getRootProcessInstanceId();
     if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-      ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
-      builder.processInstanceKey(processInstance.processInstanceKey());
+      var processInstanceId = findProcessInstanceByC7Id(c7ProcessInstanceId).processInstanceKey();
+      builder.processInstanceKey(processInstanceId);
+      if (EntityTypes.PROCESS_INSTANCE.equals(c7AuditLog.getEntityType())){
+        builder.entityKey(String.valueOf(processInstanceId));
+      }
       if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
         ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
         builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
       }
     }
+  }
+
+  /**
+   * Resolves and sets process definition key on the builder.
+   * <p>
+   * This method looks up the Camunda 8 key for the process definition based on the
+   * Camunda 7 process definition ID from the audit log entry.
+   * The key is only set if the process definition has already been migrated.
+   * If the entity type is PROCESS_DEFINITION, also sets the entityKey.
+   * </p>
+   *
+   * @param builder the audit log builder
+   * @param c7AuditLog the user operation log entry from Camunda 7
+   */
+  protected void resolveProcessDefinitionKey(
+      AuditLogDbModel.Builder builder,
+      UserOperationLogEntry c7AuditLog) {
 
     String c7ProcessDefinitionId = c7AuditLog.getProcessDefinitionId();
     if (c7ProcessDefinitionId != null && isMigrated(c7ProcessDefinitionId, HISTORY_PROCESS_DEFINITION)) {
       Long processDefinitionKey = findProcessDefinitionKey(c7ProcessDefinitionId);
       builder.processDefinitionKey(processDefinitionKey);
+      if (EntityTypes.PROCESS_DEFINITION.equals(c7AuditLog.getEntityType())){
+        builder.entityKey(String.valueOf(processDefinitionKey));
+      }
     }
+  }
+
+  /**
+   * Resolves and sets user task key on the builder.
+   * <p>
+   * This method looks up the Camunda 8 key for the user task based on the
+   * Camunda 7 task ID from the audit log entry.
+   * The key is only set if the user task has already been migrated.
+   * Also retrieves the element instance key from the user task and sets it on the builder.
+   * If the entity type is TASK, also sets the entityKey.
+   * </p>
+   *
+   * @param builder the audit log builder
+   * @param c7AuditLog the user operation log entry from Camunda 7
+   */
+  protected void resolveUserTaskKey(
+      AuditLogDbModel.Builder builder,
+      UserOperationLogEntry c7AuditLog) {
 
     String c7TaskId = c7AuditLog.getTaskId();
     if (c7TaskId != null && isMigrated(c7TaskId, HISTORY_USER_TASK)) {
       Long taskKey = dbClient.findC8KeyByC7IdAndType(c7TaskId,
           HISTORY_USER_TASK);
+      if (EntityTypes.TASK.equals(c7AuditLog.getEntityType())){
+        builder.entityKey(String.valueOf(taskKey));
+      }
       UserTaskDbModel userTaskDbModel = searchUserTasksByKey(taskKey);
       builder.userTaskKey(taskKey)
           .elementInstanceKey(userTaskDbModel.elementInstanceKey());
     }
   }
 
+  /**
+   * Searches for a user task in Camunda 8 by its task key.
+   * <p>
+   * This method queries the Camunda 8 database to retrieve the user task details
+   * including the element instance key, which is needed for the audit log entry.
+   * </p>
+   *
+   * @param taskKey the Camunda 8 user task key
+   * @return the user task database model, or null if not found
+   */
   protected UserTaskDbModel searchUserTasksByKey(Long taskKey) {
     return c8Client.searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey))))
         .stream()
@@ -186,6 +242,17 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry> {
 
   /**
    * Validates dependencies and inserts the audit log or marks it as skipped.
+   * <p>
+   * This method performs the following validations:
+   * <ul>
+   *   <li>Checks if the process definition has been migrated when referenced</li>
+   *   <li>Checks if the process instance has been migrated when referenced</li>
+   *   <li>Checks if the root process instance has been migrated when referenced</li>
+   *   <li>Checks if the user task has been migrated when referenced</li>
+   * </ul>
+   * If any required dependency is missing, the audit log is marked as skipped with
+   * an appropriate reason. Otherwise, it is inserted into Camunda 8.
+   * </p>
    *
    * @param c7AuditLog the user operation log entry from Camunda 7
    * @param context the entity conversion context

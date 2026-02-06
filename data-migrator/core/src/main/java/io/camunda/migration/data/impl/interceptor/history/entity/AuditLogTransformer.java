@@ -43,6 +43,24 @@ public class AuditLogTransformer implements EntityInterceptor {
     return Set.of(UserOperationLogEntry.class);
   }
 
+  /**
+   * Executes the transformation of a Camunda 7 UserOperationLogEntry to Camunda 8 AuditLogDbModel.
+   * <p>
+   * This method:
+   * <ul>
+   *   <li>Converts entity type, operation type, and category to Camunda 8 equivalents</li>
+   *   <li>Sets actor information (user ID and actor type)</li>
+   *   <li>Maps tenant information and scope</li>
+   *   <li>Preserves annotations and other metadata</li>
+   *   <li>Handles special cases where entity types differ between C7 and C8</li>
+   * </ul>
+   * Note: Key properties like auditLogKey, processInstanceKey, processDefinitionKey, userTaskKey,
+   * timestamp, and historyCleanupDate are set externally by AuditLogMigrator.
+   * </p>
+   *
+   * @param context the entity conversion context containing the C7 entity and C8 builder
+   * @throws EntityInterceptorException if the C8 builder is null or conversion fails
+   */
   @Override
   public void execute(EntityConversionContext<?, ?> context) {
     UserOperationLogEntry userOperationLog = (UserOperationLogEntry) context.getC7Entity();
@@ -65,7 +83,7 @@ public class AuditLogTransformer implements EntityInterceptor {
         .tenantId(tenantId)
         .tenantScope(getAuditLogTenantScope(tenantId))
         .category(convertCategory(userOperationLog.getCategory()));
-    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, timestamp, historyCleanupDate
+    // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, entityKey, timestamp, historyCleanupDate
     // are set externally in AuditLogMigrator
     // not setting entityValueType and entityOperationIntent as they internal properties meant for future-proofing purposes
 
@@ -73,6 +91,16 @@ public class AuditLogTransformer implements EntityInterceptor {
 
   }
 
+  /**
+   * Determines the audit log tenant scope based on the tenant ID.
+   * <p>
+   * Returns {@link AuditLogEntity.AuditLogTenantScope#GLOBAL} if the tenant ID is the default tenant,
+   * otherwise returns {@link AuditLogEntity.AuditLogTenantScope#TENANT}.
+   * </p>
+   *
+   * @param tenantId the tenant ID to evaluate
+   * @return the appropriate tenant scope for the audit log entry
+   */
   protected AuditLogEntity.@NonNull AuditLogTenantScope getAuditLogTenantScope(String tenantId) {
     AuditLogEntity.AuditLogTenantScope tenantScope;
     if (tenantId.equals(C8_DEFAULT_TENANT)) {
@@ -83,6 +111,21 @@ public class AuditLogTransformer implements EntityInterceptor {
     return tenantScope;
   }
 
+  /**
+   * Converts a Camunda 7 operation category to a Camunda 8 AuditLogOperationCategory.
+   * <p>
+   * Mapping:
+   * <ul>
+   *   <li>CATEGORY_ADMIN → ADMIN</li>
+   *   <li>CATEGORY_OPERATOR → DEPLOYED_RESOURCES</li>
+   *   <li>CATEGORY_TASK_WORKER → USER_TASKS</li>
+   *   <li>Other categories → UNKNOWN</li>
+   * </ul>
+   * </p>
+   *
+   * @param category the Camunda 7 operation category
+   * @return the corresponding Camunda 8 audit log operation category
+   */
   protected AuditLogEntity.AuditLogOperationCategory convertCategory(String category) {
     return switch (category) {
       case UserOperationLogEntry.CATEGORY_ADMIN -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
@@ -91,6 +134,33 @@ public class AuditLogTransformer implements EntityInterceptor {
       default -> AuditLogEntity.AuditLogOperationCategory.UNKNOWN;
     };
   }
+  /**
+   * Converts a Camunda 7 entity type to a Camunda 8 AuditLogEntityType.
+   * <p>
+   * This method maps various Camunda 7 entity types to their Camunda 8 equivalents:
+   * <ul>
+   *   <li>PROCESS_INSTANCE → PROCESS_INSTANCE</li>
+   *   <li>VARIABLE → VARIABLE</li>
+   *   <li>TASK → USER_TASK</li>
+   *   <li>DECISION_INSTANCE, DECISION_DEFINITION, DECISION_REQUIREMENTS_DEFINITION → DECISION</li>
+   *   <li>USER → USER</li>
+   *   <li>GROUP → GROUP</li>
+   *   <li>TENANT → TENANT</li>
+   *   <li>AUTHORIZATION → AUTHORIZATION</li>
+   *   <li>INCIDENT → INCIDENT</li>
+   *   <li>PROCESS_DEFINITION, DEPLOYMENT → RESOURCE</li>
+   * </ul>
+   * </p>
+   * <p>
+   * Some Camunda 7 entity types are not currently converted (e.g., BATCH, IDENTITY_LINK,
+   * ATTACHMENT, JOB_DEFINITION, JOB, EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE, etc.).
+   * Attempting to convert unsupported types will throw an EntityInterceptorException.
+   * </p>
+   *
+   * @param userOperationLog the Camunda 7 user operation log entry
+   * @return the corresponding Camunda 8 audit log entity type
+   * @throws EntityInterceptorException if the entity type is not supported
+   */
   protected AuditLogEntity.AuditLogEntityType convertEntityType(UserOperationLogEntry userOperationLog) {
     return  switch (userOperationLog.getEntityType()) {
       case EntityTypes.PROCESS_INSTANCE -> AuditLogEntity.AuditLogEntityType.PROCESS_INSTANCE;
@@ -115,6 +185,43 @@ public class AuditLogTransformer implements EntityInterceptor {
     };
   }
 
+  /**
+   * Converts a Camunda 7 operation type to a Camunda 8 AuditLogOperationType.
+   * <p>
+   * This method handles the mapping of various operation types, with special handling
+   * for context-specific operations:
+   * </p>
+   * <h3>Task Operations:</h3>
+   * <ul>
+   *   <li>ASSIGN, CLAIM, DELEGATE → ASSIGN</li>
+   *   <li>COMPLETE → COMPLETE</li>
+   *   <li>SET_PRIORITY, SET_OWNER, UPDATE → UPDATE</li>
+   * </ul>
+   * <h3>Process Instance Operations:</h3>
+   * <ul>
+   *   <li>CREATE → CREATE</li>
+   *   <li>DELETE → CANCEL (for process instances) or DELETE (for other entities)</li>
+   *   <li>MODIFY_PROCESS_INSTANCE → MODIFY</li>
+   *   <li>MIGRATE → MIGRATE</li>
+   *   <li>DELETE_HISTORY, REMOVE_VARIABLE → DELETE</li>
+   * </ul>
+   * <h3>Variable Operations:</h3>
+   * <ul>
+   *   <li>MODIFY_VARIABLE, SET_VARIABLE, SET_VARIABLES → UPDATE</li>
+   * </ul>
+   * <h3>Decision Operations:</h3>
+   * <ul>
+   *   <li>EVALUATE → EVALUATE</li>
+   * </ul>
+   * <h3>Incident Operations:</h3>
+   * <ul>
+   *   <li>RESOLVE → RESOLVE (for process instances) or UPDATE (for other entities)</li>
+   * </ul>
+   *
+   * @param userOperationLog the Camunda 7 user operation log entry
+   * @return the corresponding Camunda 8 audit log operation type
+   * @throws EntityInterceptorException if the operation type is not supported
+   */
   protected AuditLogEntity.AuditLogOperationType convertOperationType(UserOperationLogEntry userOperationLog) {
     String operationType = userOperationLog.getOperationType();
 
@@ -172,6 +279,23 @@ public class AuditLogTransformer implements EntityInterceptor {
     };
   }
 
+  /**
+   * Updates entity types for special cases where C7 and C8 handle them differently.
+   * <p>
+   * This method corrects the entity type in cases where Camunda 7 and Camunda 8 use
+   * different entity types for the same operation:
+   * </p>
+   * <ul>
+   *   <li>RESOLVE operation on PROCESS_INSTANCE → entity type becomes INCIDENT
+   *       (because resolving incidents in C7 is logged as a process instance operation,
+   *       but in C8 it's an incident operation)</li>
+   *   <li>SET_VARIABLE or SET_VARIABLES operations → entity type becomes VARIABLE
+   *       (ensures variable operations are correctly typed as variable entities)</li>
+   * </ul>
+   *
+   * @param userOperationLog the Camunda 7 user operation log entry
+   * @param builder the audit log builder to update
+   */
   protected void updateEntityTypesThatDontMatchBetweenC7andC8(UserOperationLogEntry userOperationLog, AuditLogDbModel.Builder builder) {
     if (UserOperationLogEntry.OPERATION_TYPE_RESOLVE.equals(userOperationLog.getOperationType())
         && EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {

@@ -71,6 +71,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     AuditLogEntity log = logs.getFirst();
 
     assertThat(log.auditLogKey()).isNotNull();
+
+    assertThat(log.entityKey()).isEqualTo(String.valueOf(log.processInstanceKey()));
     assertThat(log.processInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(log.rootProcessInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(log.processDefinitionKey()).isNotNull();
@@ -267,6 +269,9 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
     assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
+    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.RESOURCE);
+    assertThat(logs).extracting(AuditLogEntity::entityKey).contains(
+        String.valueOf(logs.getFirst().processDefinitionKey()));
   }
 
   @Test

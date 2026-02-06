@@ -75,6 +75,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     AuditLogEntity log = logs.getFirst();
 
     assertThat(log.auditLogKey()).isNotNull();
+    assertThat(log.entityKey()).isEqualTo(String.valueOf(log.userTaskKey()));
     assertThat(log.processInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(log.rootProcessInstanceKey()).isEqualTo(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(log.processDefinitionKey()).isNotNull();
