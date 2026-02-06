@@ -103,7 +103,7 @@ services:
       - e2e-network
 
   camunda8: # Consolidated Zeebe + Operate + Tasklist - https://docs.camunda.io/docs/self-managed/setup/deploy/other/docker/#zeebe
-    image: camunda/camunda:SNAPSHOT
+    image: camunda/camunda:8.9.0-alpha4
     container_name: camunda8
     ports:
       - "26500:26500"
