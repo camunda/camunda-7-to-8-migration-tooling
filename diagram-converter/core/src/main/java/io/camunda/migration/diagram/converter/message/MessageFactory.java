@@ -503,6 +503,18 @@ public class MessageFactory {
         ContextBuilder.builder().entry("language", language).entry("script", script).build());
   }
 
+  public static Message resourceOnConditionalEvent(String resource) {
+    return INSTANCE.composeMessage(
+        "resource-on-conditional-event",
+        ContextBuilder.builder().entry("resource", resource).build());
+  }
+
+  public static Message scriptOnConditionalEvent(String language, String script) {
+    return INSTANCE.composeMessage(
+        "script-on-conditional-event",
+        ContextBuilder.builder().entry("language", language).entry("script", script).build());
+  }
+
   public static Message oldInAllHint() {
     return INSTANCE.staticMessage("old-in-all-hint");
   }

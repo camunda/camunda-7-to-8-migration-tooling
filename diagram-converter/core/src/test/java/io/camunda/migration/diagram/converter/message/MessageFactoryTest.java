@@ -461,6 +461,31 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildResourceOnConditionalEvent() {
+    String resource = random();
+    Message message = resourceOnConditionalEvent(resource);
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getMessage())
+        .isEqualTo("Please translate the content from '%s' to a valid FEEL expression.", resource);
+  }
+
+  @Test
+  void shouldBuildScriptOnConditionalEvent() {
+    String script = random();
+    String language = random();
+    Message message = scriptOnConditionalEvent(language, script);
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Please translate the %s script from '%s' to a valid FEEL expression.",
+            language, script);
+  }
+
+  @Test
   void shouldBuildDelegateExpressionAsJobType() {
     String jobType = random();
     String expression = random();
