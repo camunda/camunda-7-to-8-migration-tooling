@@ -13,6 +13,9 @@ import static io.camunda.migration.diagram.converter.NamespaceUri.ZEEBE;
 
 import io.camunda.migration.diagram.converter.BpmnElementFactory;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractBpmnElementVisitor;
@@ -22,21 +25,18 @@ import org.camunda.bpm.model.xml.instance.DomElement;
 /**
  * Visitor for {@code <bpmn:condition>} elements inside {@code <bpmn:conditionalEventDefinition>}.
  *
- * <p>This visitor handles conditional events by:
+ * <p>This visitor transforms JUEL expressions to FEEL expressions for conditional events. It only
+ * processes condition elements that are children of conditionalEventDefinition elements.
  *
- * <ul>
- *   <li>Adding a {@code <zeebe:conditionalFilter />} element when variableName/variableEvents are
- *       present
- *   <li>Processing FEEL expressions (adding the required '=' prefix)
- * </ul>
- *
- * <p>Note: JUEL to FEEL expression transformation will be added in a future iteration.
+ * <p>It also adds a {@code <zeebe:conditionalFilter />} element to the parent
+ * conditionalEventDefinition's extension elements.
  */
 public class ConditionVisitor extends AbstractBpmnElementVisitor {
+  public static final String ELEMENT_LOCAL_NAME = "condition";
 
   @Override
   public String localName() {
-    return "condition";
+    return ELEMENT_LOCAL_NAME;
   }
 
   @Override
@@ -63,18 +63,47 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
   @Override
   protected void visitBpmnElement(DomElementVisitorContext context) {
     String expression = context.getElement().getTextContent();
-    if (expression == null || expression.isBlank()) {
-      return;
-    }
 
     // Add zeebe:conditionalFilter to the parent conditionalEventDefinition
     addConditionalFilterElement(context);
 
-    // Check for language attribute - only process FEEL expressions for now
+    // Check for language attribute to determine expression type
     String language = context.getElement().getAttribute(BPMN, "language");
+    if (StringUtils.isBlank(language)) {
+      // JUEL expression - requires non-blank expression content
+      if (StringUtils.isNotBlank(expression)) {
+        handleJuelExpression(context, expression);
+      }
+    } else {
+      handleLanguage(context, language, expression);
+    }
+  }
+
+  private void handleJuelExpression(DomElementVisitorContext context, String expression) {
+    ExpressionTransformationResult transformationResult =
+        ExpressionTransformer.transformToFeel("Conditional event condition", expression);
+
+    // Update the condition element's text content with the transformed expression
+    context.getElement().setTextContent(transformationResult.result());
+
+    context.addMessage(
+        ExpressionTransformationResultMessageFactory.getMessage(
+            transformationResult, "https://docs.camunda.io/docs/components/modeler/bpmn/events/"));
+  }
+
+  private void handleLanguage(
+      DomElementVisitorContext context, String language, String expression) {
+    String resource = context.getElement().getAttribute(CAMUNDA, "resource");
+    if (StringUtils.isNotBlank(resource)) {
+      context.addMessage(MessageFactory.resourceOnConditionalEvent(resource));
+      return;
+    }
     if ("feel".equalsIgnoreCase(language)) {
       handleFeelExpression(context, expression);
+      return;
     }
+    // Other script languages (JavaScript, Groovy, etc.) - add warning
+    context.addMessage(MessageFactory.scriptOnConditionalEvent(language, expression));
   }
 
   private void handleFeelExpression(DomElementVisitorContext context, String expression) {
@@ -85,8 +114,6 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
 
   private void addConditionalFilterElement(DomElementVisitorContext context) {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
-    DomElement extensionElements =
-        BpmnElementFactory.getExtensionElements(conditionalEventDefinition);
     String variableName = conditionalEventDefinition.getAttribute(CAMUNDA, "variableName");
     String variableEvents = conditionalEventDefinition.getAttribute(CAMUNDA, "variableEvents");
 
@@ -94,6 +121,8 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
       return;
     }
 
+    DomElement extensionElements =
+        BpmnElementFactory.getExtensionElements(conditionalEventDefinition);
     DomElement conditionalFilter =
         context.getElement().getDocument().createElement(ZEEBE, "conditionalFilter");
 
