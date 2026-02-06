@@ -78,8 +78,6 @@ import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
-import io.camunda.db.rdbms.write.domain.VariableDbModel;
-import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -322,8 +320,8 @@ public class C8Client {
   /**
    * Inserts a Variable into the database.
    */
-  public void insertVariable(VariableDbModel dbModel) {
-    callApi(() -> variableMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
+  public void insertVariable(VariableMapper.BatchInsertVariablesDto dbModel) {
+    callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
@@ -337,7 +335,7 @@ public class C8Client {
    * Inserts a FlowNodeInstance into the database.
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
-    callApi(() -> flowNodeInstanceMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+    callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
   }
 
   /**
