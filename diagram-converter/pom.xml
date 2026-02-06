@@ -26,7 +26,7 @@
     <version.apache-poi>5.5.1</version.apache-poi>
     <version.feel-engine>1.20.0</version.feel-engine>
     <version.scala>2.13.18</version.scala>
-    <version.jakarta-xml-bind-api>4.0.4</version.jakarta-xml-bind-api>
+    <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
     <version.checker-qual>3.53.1</version.checker-qual>
     <version.commons-collections4>4.5.0</version.commons-collections4>
     <!-- Spring Boot 4 upgrade is blocked by C7 April Environment Release -->
