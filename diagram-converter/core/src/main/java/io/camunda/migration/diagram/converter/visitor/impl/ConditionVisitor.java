@@ -67,6 +67,7 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
   protected void visitBpmnElement(DomElementVisitorContext context) {
     String expression = context.getElement().getTextContent();
 
+    checkConditionalEventDefinitionId(context);
     // Add zeebe:conditionalFilter to the parent conditionalEventDefinition
     addConditionalFilterElement(context);
 
@@ -113,6 +114,17 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     String newExpression = "=" + expression;
     context.getElement().setTextContent(newExpression);
     context.addMessage(MessageFactory.conditionExpressionFeel(expression, newExpression));
+  }
+
+  private void checkConditionalEventDefinitionId(DomElementVisitorContext context) {
+    DomElement conditionalEventDefinition = context.getElement().getParentElement();
+    String id = conditionalEventDefinition.getAttribute(BPMN, "id");
+    if (StringUtils.isBlank(id)) {
+      DomElement parentEvent = conditionalEventDefinition.getParentElement();
+      String parentElementId =
+          parentEvent != null ? parentEvent.getAttribute(BPMN, "id") : "unknown";
+      context.addMessage(MessageFactory.missingIdOnConditionalEventDefinition(parentElementId));
+    }
   }
 
   private void addConditionalFilterElement(DomElementVisitorContext context) {
