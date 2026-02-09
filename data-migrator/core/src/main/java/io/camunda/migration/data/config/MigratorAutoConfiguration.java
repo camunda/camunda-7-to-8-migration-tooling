@@ -30,7 +30,7 @@ import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrato
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
-import io.camunda.migration.data.impl.history.AuditLogMigrator;
+import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;

@@ -232,16 +232,16 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         // Verify all expected entity types are present
         // Expected entity types from the LIST_SKIPPED output (using IdKeyMapper.TYPE display names)
         String[] expectedEntityTypes = {
-            IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_FLOW_NODE.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_AUDIT_LOG.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_INCIDENT.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName()
+            TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName(),
+            TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(),
+            TYPE.HISTORY_FLOW_NODE.getDisplayName(),
+            TYPE.HISTORY_USER_TASK.getDisplayName(),
+            TYPE.HISTORY_VARIABLE.getDisplayName(),
+            TYPE.HISTORY_AUDIT_LOG.getDisplayName(),
+            TYPE.HISTORY_INCIDENT.getDisplayName(),
+            TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
+            TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),
+            TYPE.HISTORY_DECISION_INSTANCE.getDisplayName()
         };
 
         assertThat(skippedEntitiesByType.keySet().toArray()).containsExactlyInAnyOrder(expectedEntityTypes);

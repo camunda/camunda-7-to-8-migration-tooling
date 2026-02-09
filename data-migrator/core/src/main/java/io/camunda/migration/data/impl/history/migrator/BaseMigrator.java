@@ -53,6 +53,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.ProcessEngine;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.repository.ResourceDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -207,11 +208,11 @@ public abstract class BaseMigrator<C7, C8> {
     return !dbClient.checkExistsByC7IdAndType(id, type);
   }
 
-  protected void markMigrated(String c7Id, String c8Key, Date createTime, TYPE type) {
+  protected void markMigrated(C7Entity<?> c7Entity, String c8Key) {
     if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.updateC8KeyByC7IdAndType(c7Id, c8Key, type);
+      dbClient.updateC8KeyByC7IdAndType(c7Entity.getId(), c8Key, c7Entity.getType());
     } else if (MIGRATE.equals(mode)) {
-      dbClient.insert(c7Id, c8Key, createTime, type, null);
+      dbClient.insert(c7Entity.getId(), c8Key, c7Entity.getCreationTime(), c7Entity.getType(), null);
     }
   }
 
@@ -268,7 +269,7 @@ public abstract class BaseMigrator<C7, C8> {
   @Transactional("c8TransactionManager")
   protected void migrateEntity(C7 entity) {
     C7Entity<C7> c7Entity = (C7Entity<C7>) getC7Entity(entity);
-    Long c8Key = tryMigrate(c7Entity);
+    String c8Key = tryMigrate(c7Entity);
     if (c8Key != null) {
       markMigrated(c7Entity, c8Key);
       logMigrationCompleted(c7Entity);
@@ -286,14 +287,15 @@ public abstract class BaseMigrator<C7, C8> {
     }
   }
 
-  protected Long tryMigrate(C7Entity<C7> c7Entity) {
+  protected String tryMigrate(C7Entity<C7> c7Entity) {
+    Object c8Key = null;
     try {
-      return migrateTransactionally(c7Entity.unwrap());
+      c8Key = migrateTransactionally(c7Entity.unwrap());
     } catch (EntitySkippedException e) {
       markSkipped(e);
     }
 
-    return null;
+    return c8Key == null ? null : c8Key.toString();
   }
 
   /**
@@ -433,7 +435,7 @@ public abstract class BaseMigrator<C7, C8> {
    *
    * @param entity the Camunda 7 entity to migrate
    */
-  abstract Long migrateTransactionally(C7 entity);
+  abstract Object migrateTransactionally(C7 entity);
 
   protected C8 convert(C7Entity<C7> c7Entity, ObjectBuilder<C8> builder) {
     EntityConversionContext<C7, ObjectBuilder<C8>> context = new EntityConversionContext<>(c7Entity.unwrap(), builder, processEngine);

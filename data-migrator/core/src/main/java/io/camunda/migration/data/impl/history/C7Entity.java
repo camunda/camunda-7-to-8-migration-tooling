@@ -16,6 +16,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -42,6 +43,7 @@ public class C7Entity<C7> {
       case HistoricProcessInstance c7ProcessInstance -> of(c7ProcessInstance);
       case HistoricTaskInstance c7TaskInstance -> of(c7TaskInstance);
       case HistoricVariableInstance c7VariableInstance -> of(c7VariableInstance);
+      case UserOperationLogEntry userOperationLogEntry -> of(userOperationLogEntry);
       default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + c7.getClass().getName());
     };
   }
@@ -65,6 +67,10 @@ public class C7Entity<C7> {
 
   public static C7Entity<ProcessDefinition> of(ProcessDefinition c7Entity, Date creationTime) {
     return new C7Entity<>(c7Entity.getId(), creationTime, c7Entity);
+  }
+
+  public static C7Entity<UserOperationLogEntry> of(UserOperationLogEntry c7Entity) {
+    return new C7Entity<>(c7Entity.getOperationId(), c7Entity.getTimestamp(), c7Entity);
   }
 
   public static C7Entity<HistoricDecisionInstance> of(HistoricDecisionInstance c7Entity) {

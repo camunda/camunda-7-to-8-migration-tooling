@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history;
 
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
@@ -14,6 +15,7 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 
 public class EntitySkippedException extends RuntimeException {
@@ -24,6 +26,10 @@ public class EntitySkippedException extends RuntimeException {
   public EntitySkippedException(C7Entity<?> c7Entity, String message) {
     this.c7Entity = c7Entity;
     this.message = message;
+  }
+
+  public EntitySkippedException(UserOperationLogEntry userOperationLogEntry, String message) {
+    this(C7Entity.of(userOperationLogEntry), message);
   }
 
   public EntitySkippedException(HistoricDecisionInstance c7DecisionInstance, String message) {

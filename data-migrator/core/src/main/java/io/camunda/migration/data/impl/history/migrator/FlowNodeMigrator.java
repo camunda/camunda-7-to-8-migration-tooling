@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -62,7 +63,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance, Flo
    *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
-   * @param c7Entity the historic activity instance from Camunda 7 to be migrated
+   * @param c7FlowNode the historic activity instance from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
@@ -102,8 +103,12 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance, Flo
 
       FlowNodeInstanceDbModel dbModel = convert(C7Entity.of(c7FlowNode), builder);
 
-      if (dbModel.processInstanceKey() == null || dbModel.processDefinitionKey() == null) {
+      if (dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7FlowNode, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      }
+
+      if (dbModel.processDefinitionKey() == null) {
+        throw new EntitySkippedException(c7FlowNode, SKIP_REASON_MISSING_PROCESS_DEFINITION);
       }
 
       if (dbModel.flowNodeScopeKey() == null) {

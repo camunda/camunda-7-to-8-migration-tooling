@@ -100,6 +100,9 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
           if (decisionDefinition.decisionRequirementsKey() != null) {
             builder.decisionRequirementsKey(decisionDefinition.decisionRequirementsKey());
           }
+          if (c7RootDecisionInstanceId == null) {
+            builder.rootDecisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
+          }
         }
 
         if (c7RootDecisionInstanceId != null && isMigrated(c7RootDecisionInstanceId, HISTORY_DECISION_INSTANCE)) {
@@ -168,12 +171,11 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
         throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_DEFINITION);
       }
 
-      if (!isStandaloneDecision) {
-        // For process-triggered decisions, re-validate that all process-related keys are set
-        if (c7RootDecisionInstanceId != null && dbModel.rootDecisionDefinitionKey() == null) {
-          throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE);
-        }
+      if (c7RootDecisionInstanceId != null && dbModel.rootDecisionDefinitionKey() == null) {
+        throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE);
+      }
 
+      if (!isStandaloneDecision) {
         if (dbModel.processDefinitionKey() == null) {
           throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_PROCESS_DEFINITION);
         }

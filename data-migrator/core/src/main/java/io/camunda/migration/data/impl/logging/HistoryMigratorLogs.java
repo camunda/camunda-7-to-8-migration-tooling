@@ -54,11 +54,15 @@ public class HistoryMigratorLogs {
 
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
 
+  public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
+
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
 
   public static final String SKIPPING_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
+  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type";
+  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
 
   public static void logMigrating(IdKeyMapper.TYPE type) {
     LOGGER.info(MIGRATING, type.getDisplayName());
@@ -96,6 +100,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_USER_TASK, c7UserTaskId);
   }
 
+  public static void logMigratingAuditLogs(String c7AuditLogId) {
+    LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
+  }
+
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
     LOGGER.debug(MIGRATING_FLOW_NODE, c7FlowNodeId);
   }
@@ -114,27 +122,4 @@ public class HistoryMigratorLogs {
     LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, HISTORY_TYPE_NAME_MAP.get(c7Entity.unwrap().getClass()), c7Entity.getId(), e.getMessage());
   }
 
-  public static void migratingHistoricAuditLogs() {
-    LOGGER.info(MIGRATING_AUDIT_LOGS);
-  }
-
-  public static void migratingHistoricAuditLog(String c7AuditLogId) {
-    LOGGER.debug(MIGRATING_AUDIT_LOG, c7AuditLogId);
-  }
-
-  public static void migratingHistoricAuditLogCompleted(String c7AuditLogId) {
-    LOGGER.debug(MIGRATING_AUDIT_LOG_COMPLETED, c7AuditLogId);
-  }
-
-  public static void skippingHistoricAuditLog(String reason, String c7AuditLogId) {
-    LOGGER.debug(reason, c7AuditLogId);
-  }
-
-  public static void skippingAuditLogDueToMissingDefinition(String c7AuditLogId) {
-    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_DEFINITION, c7AuditLogId);
-  }
-
-  public static void skippingAuditLogDueToMissingProcess(String c7AuditLogId) {
-    LOGGER.debug(SKIPPING_AUDIT_LOG_MISSING_PROCESS, c7AuditLogId);
-  }
 }

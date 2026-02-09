@@ -18,6 +18,7 @@ import org.apache.ibatis.annotations.Param;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
@@ -73,6 +74,7 @@ public interface IdKeyMapper {
         case HistoricDecisionInstanceEntity c7DecisionInstance -> TYPE.HISTORY_DECISION_INSTANCE;
         case DecisionDefinitionEntity c7DecisionDefinition -> TYPE.HISTORY_DECISION_DEFINITION;
         case DecisionRequirementsDefinitionEntity c7DecisionRequirements -> TYPE.HISTORY_DECISION_REQUIREMENT;
+        case UserOperationLogEntryEventEntity ignored -> TYPE.HISTORY_AUDIT_LOG;
         default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + entity.getClass().getName());
       };
     }
