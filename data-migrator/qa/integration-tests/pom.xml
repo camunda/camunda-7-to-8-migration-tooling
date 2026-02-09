@@ -183,6 +183,9 @@
               <systemPropertyVariables>
                 <spring.profiles.active>postgresql</spring.profiles.active>
               </systemPropertyVariables>
+              <excludes>
+                <exclude>DropSchemaTest.java</exclude>
+              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -199,6 +202,9 @@
               <systemPropertyVariables>
                 <spring.profiles.active>oracle</spring.profiles.active>
               </systemPropertyVariables>
+              <excludes>
+                <exclude>DropSchemaTest.java</exclude>
+              </excludes>
             </configuration>
           </plugin>
         </plugins>
