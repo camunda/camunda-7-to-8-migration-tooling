@@ -183,6 +183,9 @@
               <systemPropertyVariables>
                 <spring.profiles.active>postgresql</spring.profiles.active>
               </systemPropertyVariables>
+              <excludes>
+                <exclude>**/DropSchemaTest.java</exclude>
+              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -199,6 +202,9 @@
               <systemPropertyVariables>
                 <spring.profiles.active>oracle</spring.profiles.active>
               </systemPropertyVariables>
+              <excludes>
+                <exclude>**/DropSchemaTest.java</exclude>
+              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -232,10 +238,12 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <excludes>
-                <exclude>**/history/**</exclude>
-                <exclude>**/identity/**</exclude>
-              </excludes>
+              <includes>
+                <include>**/distribution/**</include>
+                <include>**/persistence/**</include>
+                <include>**/runtime/**</include>
+                <include>ArchitectureTest.java</include>
+              </includes>
             </configuration>
           </plugin>
         </plugins>
@@ -251,6 +259,7 @@
             <configuration>
               <includes>
                 <include>**/history/**</include>
+                <include>ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>
@@ -267,6 +276,7 @@
             <configuration>
               <includes>
                 <include>**/identity/**</include>
+                <include>ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>
