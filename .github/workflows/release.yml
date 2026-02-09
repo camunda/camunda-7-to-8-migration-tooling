@@ -169,25 +169,26 @@ jobs:
             -Pcentral-sonatype-publish,distro \
             -Darguments='-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}'
 
-      - name: Checkout Code
-        # Tag does not exist if dry run
-        if: ${{ !inputs.IS_DRY_RUN }}
-        uses: actions/checkout@v6
-        with:
-          # Checkout the release tag to perform a second deployment 
-          ref: ${{ env.RELEASE_VERSION }}
-          token: ${{ steps.github-token.outputs.token }}
-
-      - name: Maven Perform Release - Maven Central
-        id: maven-perform-release-maven-central
-        env:
-          SKIP_REPO_DEPLOY: ${{ inputs.IS_DRY_RUN }}
-        run: |
-          mvn deploy -B \
-            -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
-            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
-            -Pcentral-sonatype-publish,central-release \
-            -DskipTests=true -Dskip.central.release=${SKIP_REPO_DEPLOY} -Dskip.camunda.release=true
+#          Temporarily comment out steps due to snapshot dependencies in 0.3.0-alpha2 release
+#      - name: Checkout Code
+#        # Tag does not exist if dry run
+#        if: ${{ !inputs.IS_DRY_RUN }}
+#        uses: actions/checkout@v6
+#        with:
+#          # Checkout the release tag to perform a second deployment
+#          ref: ${{ env.RELEASE_VERSION }}
+#          token: ${{ steps.github-token.outputs.token }}
+#
+#      - name: Maven Perform Release - Maven Central
+#        id: maven-perform-release-maven-central
+#        env:
+#          SKIP_REPO_DEPLOY: ${{ inputs.IS_DRY_RUN }}
+#        run: |
+#          mvn deploy -B \
+#            -Dgpg.passphrase="${{ steps.secrets.outputs.MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE }}" \
+#            -DlocalCheckout=${{ inputs.IS_DRY_RUN }} \
+#            -Pcentral-sonatype-publish,central-release \
+#            -DskipTests=true -Dskip.central.release=${SKIP_REPO_DEPLOY} -Dskip.camunda.release=true
 
   docker-image:
     name: Build and Publish Docker Image
