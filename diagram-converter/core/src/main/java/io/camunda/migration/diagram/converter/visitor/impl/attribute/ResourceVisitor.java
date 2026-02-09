@@ -14,6 +14,8 @@ import io.camunda.migration.diagram.converter.convertible.AbstractDataMapperConv
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.visitor.AbstractSupportedAttributeVisitor;
+import io.camunda.migration.diagram.converter.visitor.impl.ConditionVisitor;
+import io.camunda.migration.diagram.converter.visitor.impl.eventDefinition.ConditionalEventDefinitionVisitor;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
 public class ResourceVisitor extends AbstractSupportedAttributeVisitor {
@@ -25,7 +27,7 @@ public class ResourceVisitor extends AbstractSupportedAttributeVisitor {
 
   @Override
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
-    if (isSequenceFlow(context.getElement())) {
+    if (isSequenceFlow(context.getElement()) || isConditionalEventCondition(context.getElement())) {
       return null;
     }
     context.addConversion(
@@ -44,5 +46,17 @@ public class ResourceVisitor extends AbstractSupportedAttributeVisitor {
     }
     return element.getLocalName().equals("sequenceFlow") && element.getNamespaceURI().equals(BPMN)
         || isSequenceFlow(element.getParentElement());
+  }
+
+  private boolean isConditionalEventCondition(DomElement element) {
+    if (element == null) {
+      return false;
+    }
+    DomElement parent = element.getParentElement();
+    return parent != null
+        && BPMN.equals(element.getNamespaceURI())
+        && ConditionVisitor.ELEMENT_LOCAL_NAME.equals(element.getLocalName())
+        && BPMN.equals(parent.getNamespaceURI())
+        && ConditionalEventDefinitionVisitor.ELEMENT_LOCAL_NAME.equals(parent.getLocalName());
   }
 }
