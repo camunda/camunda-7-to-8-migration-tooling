@@ -1005,7 +1005,7 @@ categories:
           </bpmn:startEvent>
         expectedMessages: |
           <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
-      - name: Missing conditionalEvent id on  Conditional start event (root-level)
+      - name: Missing conditionalEventDefinition id on Conditional start event (root-level)
         properties:
           platformVersion: "8.9"
         givenBpmn: |

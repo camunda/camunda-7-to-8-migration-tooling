@@ -570,7 +570,7 @@ public class MessageFactoryTest {
   }
 
   @Test
-  void shouldBuildMissingIdOnConditionalEventDefinitionMissing() {
+  void shouldBuildMissingIdOnConditionalEventDefinition() {
     String elementId = random();
     Message message = missingIdOnConditionalEventDefinition(elementId);
     assertThat(message).isNotNull();
