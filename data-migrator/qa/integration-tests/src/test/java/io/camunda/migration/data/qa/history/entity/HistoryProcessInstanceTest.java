@@ -285,7 +285,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     }
 
     assertThat(processInstance.hasIncident()).isEqualTo(hasIncidents);
-    // https://github.com/camunda/camunda-bpm-platform/issues/5359
     assertThat(processInstance.treePath()).isNull();
     assertThat(processInstance.parentFlowNodeInstanceKey()).isNull();
   }
