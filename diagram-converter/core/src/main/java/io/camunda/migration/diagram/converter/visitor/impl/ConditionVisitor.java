@@ -19,6 +19,8 @@ import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractBpmnElementVisitor;
+import io.camunda.migration.diagram.converter.visitor.impl.eventDefinition.ConditionalEventDefinitionVisitor;
+import java.util.Arrays;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
@@ -33,6 +35,7 @@ import org.camunda.bpm.model.xml.instance.DomElement;
  */
 public class ConditionVisitor extends AbstractBpmnElementVisitor {
   public static final String ELEMENT_LOCAL_NAME = "condition";
+  public static final String DELETE_VARIABLE_EVENT = "delete";
 
   @Override
   public String localName() {
@@ -57,7 +60,7 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     DomElement parent = context.getElement().getParentElement();
     return parent != null
         && BPMN.equals(parent.getNamespaceURI())
-        && "conditionalEventDefinition".equals(parent.getLocalName());
+        && ConditionalEventDefinitionVisitor.ELEMENT_LOCAL_NAME.equals(parent.getLocalName());
   }
 
   @Override
@@ -114,6 +117,7 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
 
   private void addConditionalFilterElement(DomElementVisitorContext context) {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
+    String elementId = conditionalEventDefinition.getAttribute(BPMN, "id");
     String variableName = conditionalEventDefinition.getAttribute(CAMUNDA, "variableName");
     String variableEvents = conditionalEventDefinition.getAttribute(CAMUNDA, "variableEvents");
 
@@ -132,10 +136,19 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     }
 
     if (StringUtils.isNotBlank(variableEvents)) {
+      if (containsDeleteEvent(variableEvents)) {
+        context.addMessage(MessageFactory.deleteEventFilterOnConditionalEvent(elementId));
+      }
       conditionalFilter.setAttribute("variableEvents", variableEvents);
       conditionalEventDefinition.removeAttribute(CAMUNDA, "variableEvents");
     }
 
     extensionElements.appendChild(conditionalFilter);
+  }
+
+  private boolean containsDeleteEvent(String variableEvents) {
+    return Arrays.stream(variableEvents.split(","))
+        .map(String::trim)
+        .anyMatch(DELETE_VARIABLE_EVENT::equalsIgnoreCase);
   }
 }

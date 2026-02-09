@@ -557,4 +557,15 @@ public class MessageFactoryTest {
     assertThat(message.getMessage())
         .isEqualTo("Propagating all variables into a signal event is not possible with Camunda 8.");
   }
+
+  @Test
+  void shouldBuildDeleteEventFilterOnConditionalEvent() {
+    String elementId = random();
+    Message message = deleteEventFilterOnConditionalEvent(elementId);
+    assertThat(message).isNotNull();
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Variable event 'delete' is not supported in conditional event filter on '%s'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).",
+            elementId);
+  }
 }
