@@ -74,7 +74,7 @@ public class AbstractConfiguration {
   protected MultiTenantSpringLiquibase createSchema(DataSource dataSource,
                                                     String tablePrefix,
                                                     String changeLogFile,
-                                                    String userCharColumnSize) {
+                                                    Map<String, String> additionalParameters) {
     String prefix = StringUtils.trimToEmpty(tablePrefix);
     ConfigurationLogs.logCreatingTableSchema(changeLogFile, prefix);
 
@@ -82,11 +82,11 @@ public class AbstractConfiguration {
     moduleConfig.setDataSource(dataSource);
     moduleConfig.setDatabaseChangeLogTable(prefix + "DATABASECHANGELOG");
     moduleConfig.setDatabaseChangeLogLockTable(prefix + "DATABASECHANGELOGLOCK");
-    if (StringUtils.isEmpty(userCharColumnSize)) {
-      moduleConfig.setParameters(Map.of("prefix", prefix));
-    } else {
-      moduleConfig.setParameters(Map.of("prefix", prefix, "userCharColumnSize", userCharColumnSize));
+    Map<String, String> parameters = new java.util.HashMap<>(Map.of("prefix", prefix));
+    if (additionalParameters != null && !additionalParameters.isEmpty()) {
+      parameters.putAll(additionalParameters);
     }
+    moduleConfig.setParameters(parameters);
     moduleConfig.setChangeLog(changeLogFile);
 
     return moduleConfig;
