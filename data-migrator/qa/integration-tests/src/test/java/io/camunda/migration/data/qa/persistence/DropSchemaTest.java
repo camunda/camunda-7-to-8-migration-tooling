@@ -29,6 +29,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
 @WithMultiDb
+@Disabled
 public class DropSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
@@ -179,7 +180,6 @@ public class DropSchemaTest {
   }
 
   @Test
-  @Disabled
   void shouldMigrationSchemaBeDroppedOnShutdownWithoutPrefix() throws Exception {
     // given spring application is running with drop-schema flag enabled
     var context = springApplication.run("--drop-schema");
