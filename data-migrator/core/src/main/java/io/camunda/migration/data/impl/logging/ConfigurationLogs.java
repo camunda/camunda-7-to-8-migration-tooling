@@ -23,7 +23,7 @@ public class ConfigurationLogs {
   public static final String ERROR_CLASS_NOT_IMPLEMENT_INTERFACE = "Class %s does not implement %s interface";
   public static final String ERROR_FAILED_TO_REGISTER = "Failed to register interceptor: ";
   public static final String ERROR_PARSING_CONFIGURATION = "An exception occurred while parsing interceptor configuration.";
-  public static final String ERROR_C8_RDBMS_USER_CHAR_COLUMN_SIZE = "Could not determine userCharColumnSize for C8 database schema creation.";
+  public static final String C8_SCHEMA_PROPERTY_ERROR = "Could not determine property for C8 database schema creation.";
 
   // Info Messages
   public static final String INFO_CONFIGURING_INTERCEPTORS = "Configuring {} interceptors";
@@ -181,8 +181,8 @@ public class ConfigurationLogs {
    *
    * @return the error message
    */
-  public static String getC8RdbmsUserCharColumnSizeError() {
-    return ERROR_C8_RDBMS_USER_CHAR_COLUMN_SIZE;
+  public static String getC8SchemaPropertyError() {
+    return C8_SCHEMA_PROPERTY_ERROR;
   }
 
 }
