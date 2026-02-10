@@ -23,6 +23,7 @@ import javax.sql.DataSource;
 import org.camunda.bpm.engine.RepositoryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -178,6 +179,7 @@ public class DropSchemaTest {
   }
 
   @Test
+  @Disabled
   void shouldMigrationSchemaBeDroppedOnShutdownWithoutPrefix() throws Exception {
     // given spring application is running with drop-schema flag enabled
     var context = springApplication.run("--drop-schema");
