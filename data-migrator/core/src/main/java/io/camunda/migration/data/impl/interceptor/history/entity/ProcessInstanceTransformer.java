@@ -39,7 +39,6 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
         .tenantId(getTenantId(entity.getTenantId()))
         .version(entity.getProcessDefinitionVersion())
         // parent and super process instance are used synonym (process instance that contained the call activity)
-        .parentElementInstanceKey(null)
         .treePath(null)
         .numIncidents(0)
         .partitionId(C7_HISTORY_PARTITION_ID);
