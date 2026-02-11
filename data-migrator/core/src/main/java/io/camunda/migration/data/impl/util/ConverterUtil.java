@@ -10,9 +10,7 @@ package io.camunda.migration.data.impl.util;
 import io.camunda.zeebe.protocol.Protocol;
 
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
 import org.apache.commons.lang3.StringUtils;
@@ -34,19 +32,21 @@ public class ConverterUtil {
   }
 
   /**
-   * C7 stores timestamps WITHOUT timezone (wall-clock time only).
-   * When JDBC reads these timestamps, it incorrectly interprets them as being in the JVM's timezone
-   * and converts them to UTC. We need to undo this interpretation to preserve the original wall-clock time.
-   * Example: C7 has "2024-01-15 10:30:00" (no timezone)
-   * - JDBC in Europe/Berlin (UTC+1) reads this as "2024-01-15 10:30:00+01:00"
-   * - Converts to Date representing instant "2024-01-15 09:30:00Z"
-   * - We need to get back to "2024-01-15 10:30:00" and store it as UTC in C8
-   * Solution: Extract the wall-clock time in JVM timezone, then treat it as UTC.
+   * Converts C7 Date to C8 OffsetDateTime in UTC.
+   * C7 stores timestamps without timezone. JDBC interprets them based on JVM timezone when reading.
+   * This method preserves the instant that JDBC provides, marking it explicitly as UTC.
+   * <p>
+   * Note: If migrator is not run with the same timezone as C7, timezone must be set before running the migrator to
+   * match the original C7 timezone and ensure correct timestamp migration.
+   * <p>
+   * Example:
+   * Original C7 timezone was Asia/Bangkok, and the migrator is now run in Europe/Berlin.
+   * To ensure correct timestamp migration, set the timezone to Asia/Bangkok before running the migrator:
+   * export TZ=Asia/Bangkok
+   * ./start.sh [--options]
    */
   public static OffsetDateTime convertDate(Date date) {
-    if (date == null) return null;
-    LocalDateTime localDateTime = LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
-    return localDateTime.atOffset(ZoneOffset.UTC);
+    return date == null ? null : date.toInstant().atOffset(ZoneOffset.UTC);
   }
 
   public static String getTenantId(String c7TenantId) {
