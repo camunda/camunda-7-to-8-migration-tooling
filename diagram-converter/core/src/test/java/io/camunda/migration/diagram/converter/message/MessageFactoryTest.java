@@ -565,7 +565,7 @@ public class MessageFactoryTest {
     assertThat(message).isNotNull();
     assertThat(message.getMessage())
         .isEqualTo(
-            "Variable event 'delete' is not supported in conditional event filter on '%s'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will NO LONGER trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).",
+            "Variable event 'delete' is not supported in conditional event filter on '%s'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).",
             elementId);
   }
 
