@@ -8,7 +8,7 @@ A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 f
 
 ## Online Availability
 
-The Diagram Converter is available online at [https://diagram-converter.camunda.io/](https://diagram-converter.camunda.io/), hosted by Camunda. Your diagrams are processed client-side in your browser - we don't store any of your data.
+The Diagram Converter is available online at [https://diagram-converter.camunda.io/](https://diagram-converter.camunda.io/), hosted by Camunda. Your diagrams are transiently processed - we don't store any of your data.
 
 ## Documentation
 
