@@ -402,6 +402,166 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
+  @Test
+  public void shouldMigrateAuditLogsForCreateGroupMembership() {
+    // given
+    var user = identityService.newUser("testUser");
+    identityService.saveUser(user);
+    var group = identityService.newGroup("testGroup");
+    identityService.saveGroup(group);
+
+    identityService.setAuthenticatedUserId("demo");
+    identityService.createMembership("testUser", "testGroup");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForDeleteGroupMembership() {
+    // given
+    var user = identityService.newUser("testUser");
+    identityService.saveUser(user);
+    var group = identityService.newGroup("testGroup");
+    identityService.saveGroup(group);
+    identityService.createMembership("testUser", "testGroup");
+
+    identityService.setAuthenticatedUserId("demo");
+    identityService.deleteMembership("testUser", "testGroup");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForCreateTenantUserMembership() {
+    // given
+    var user = identityService.newUser("testUser");
+    identityService.saveUser(user);
+    var tenant = identityService.newTenant("testTenant");
+    identityService.saveTenant(tenant);
+
+    identityService.setAuthentication("demo", null, List.of("testTenant"));
+    identityService.createTenantUserMembership("testTenant", "testUser");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForDeleteTenantUserMembership() {
+    // given
+    var user = identityService.newUser("testUser");
+    identityService.saveUser(user);
+    var tenant = identityService.newTenant("testTenant");
+    identityService.saveTenant(tenant);
+    identityService.createTenantUserMembership("testTenant", "testUser");
+
+    identityService.setAuthentication("demo", null, List.of("testTenant"));
+    identityService.deleteTenantUserMembership("testTenant", "testUser");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForCreateTenantGroupMembership() {
+    // given
+    var group = identityService.newGroup("testGroup");
+    identityService.saveGroup(group);
+    var tenant = identityService.newTenant("testTenant");
+    identityService.saveTenant(tenant);
+
+    identityService.setAuthentication("demo", null, List.of("testTenant"));
+    identityService.createTenantGroupMembership("testTenant", "testGroup");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForDeleteTenantGroupMembership() {
+    // given
+    var group = identityService.newGroup("testGroup");
+    identityService.saveGroup(group);
+    var tenant = identityService.newTenant("testTenant");
+    identityService.saveTenant(tenant);
+    identityService.createTenantGroupMembership("testTenant", "testGroup");
+
+
+    identityService.setAuthentication("demo", null, List.of("testTenant"));
+    identityService.deleteTenantGroupMembership("testTenant", "testGroup");
+
+    long auditLogCount = historyService.createUserOperationLogQuery().count();
+    assertThat(auditLogCount).isEqualTo(2);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogEntity::operationType)
+        .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
+  }
+
   protected void createUser() {
     User testUser = identityService.newUser("testUser");
     identityService.saveUser(testUser);
