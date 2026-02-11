@@ -9,9 +9,9 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.util.DateTimeAssert.assertThatDateTime;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.camunda.bpm.engine.variable.Variables.createVariables;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
@@ -24,8 +24,8 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
-import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.Period;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -571,9 +571,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     OffsetDateTime cleanupDate = cleanup.getDecisionInstanceCleanupDate(migratedDecision.decisionInstanceKey());
 
     // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
-    assertThat(cleanupDate)
+    assertThatDateTime(cleanupDate)
         .as("Cleanup date should be evaluation date + 180 days")
-        .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
+        .isEqualToLocalTimePlus(migratedDecision.evaluationDate(), Period.ofDays(180));
   }
 
   private void assertDecisionDefinition(
