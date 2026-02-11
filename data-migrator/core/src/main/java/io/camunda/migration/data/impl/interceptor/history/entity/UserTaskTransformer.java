@@ -42,7 +42,6 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
         .dueDate(convertDate(entity.getDueDate()))
         .followUpDate(convertDate(entity.getFollowUpDate()))
         .priority(entity.getPriority())
-        .formKey(null) // TODO  https://github.com/camunda/camunda-bpm-platform/issues/5347
         .candidateGroups(null) //TODO ?
         .candidateUsers(null) //TODO ?
         .externalFormReference(null) //TODO ?

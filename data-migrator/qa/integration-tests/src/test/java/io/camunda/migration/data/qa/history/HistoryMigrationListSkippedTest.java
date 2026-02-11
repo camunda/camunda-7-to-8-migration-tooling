@@ -241,7 +241,8 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             TYPE.HISTORY_INCIDENT.getDisplayName(),
             TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
             TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),
-            TYPE.HISTORY_DECISION_INSTANCE.getDisplayName()
+            TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
+            TYPE.HISTORY_FORM_DEFINITION.getDisplayName()
         };
 
         assertThat(skippedEntitiesByType.keySet().toArray()).containsExactlyInAnyOrder(expectedEntityTypes);

@@ -33,6 +33,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_BELONGS_TO_SKIPPED_TASK = "Belongs to a skipped task";
   public static final String SKIP_REASON_MISSING_SCOPE_KEY = "Missing scope key";
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
+  public static final String SKIP_REASON_MISSING_FORM = "Missing form";
   public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
@@ -51,6 +52,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_USER_TASK = "Migrating historic user task with C7 ID: [{}]";
 
   public static final String MIGRATING_FLOW_NODE = "Migrating historic flow nodes with C7 ID: [{}]";
+
+  public static final String MIGRATING_FORM = "Migrating form with C7 ID: [{}]";
 
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
 
@@ -76,7 +79,7 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATION_COMPLETED, entity.getType().getDisplayName(), entity.getId());
   }
 
-  public static void migratingProcessDefinition(String c7ProcessDefinitionId) {
+  public static void logMigratingProcessDefinition(String c7ProcessDefinitionId) {
     LOGGER.debug(MIGRATING_DEFINITION, "process", c7ProcessDefinitionId);
   }
 
@@ -96,7 +99,7 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_VARIABLE, c7VariableId);
   }
 
-  public static void migratingHistoricUserTask(String c7UserTaskId) {
+  public static void logMigratingHistoricUserTask(String c7UserTaskId) {
     LOGGER.debug(MIGRATING_USER_TASK, c7UserTaskId);
   }
 
@@ -122,4 +125,7 @@ public class HistoryMigratorLogs {
     LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, HISTORY_TYPE_NAME_MAP.get(c7Entity.unwrap().getClass()), c7Entity.getId(), e.getMessage());
   }
 
+  public static void logMigratingForm(String c7Id) {
+    LOGGER.debug(MIGRATING_FORM, c7Id);
+  }
 }

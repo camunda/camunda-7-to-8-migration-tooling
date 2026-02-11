@@ -16,6 +16,8 @@ import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
+import org.camunda.bpm.engine.repository.CamundaFormDefinition;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -53,6 +55,7 @@ public class C7Entity<C7> {
       case DecisionDefinition c7DecisionDefinition -> of(c7DecisionDefinition, creationTime);
       case DecisionRequirementsDefinition c7DecisionRequirements -> of(c7DecisionRequirements, creationTime);
       case ProcessDefinition c7ProcessDefinition -> of(c7ProcessDefinition, creationTime);
+      case CamundaFormDefinition c7FormDefinition -> of(c7FormDefinition, creationTime);
       default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + c7.getClass().getName());
     };
   }
@@ -66,6 +69,10 @@ public class C7Entity<C7> {
   }
 
   public static C7Entity<ProcessDefinition> of(ProcessDefinition c7Entity, Date creationTime) {
+    return new C7Entity<>(c7Entity.getId(), creationTime, c7Entity);
+  }
+
+  public static C7Entity<CamundaFormDefinition> of(CamundaFormDefinition c7Entity, Date creationTime) {
     return new C7Entity<>(c7Entity.getId(), creationTime, c7Entity);
   }
 

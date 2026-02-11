@@ -64,22 +64,22 @@ import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
 import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
+import io.camunda.db.rdbms.sql.FormMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
 import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
-import io.camunda.db.rdbms.write.domain.DbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FormDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
-import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -142,6 +142,9 @@ public class C8Client {
 
   @Autowired(required = false)
   protected AuditLogMapper auditLogMapper;
+
+  @Autowired(required = false)
+  protected FormMapper formMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -397,5 +400,11 @@ public class C8Client {
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
   }
 
+  /**
+   * Inserts a Form into the database.
+   */
+  public void insertForm(FormDbModel dbModel) {
+    callApi(() -> formMapper.insert(dbModel), "Failed to insert form");
+  }
 
 }

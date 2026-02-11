@@ -7,13 +7,14 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingProcessDefinition;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
-import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.stereotype.Service;
 
@@ -45,9 +46,15 @@ public class ProcessDefinitionMigrator extends BaseMigrator<ProcessDefinition, P
   public Long migrateTransactionally(ProcessDefinition c7ProcessDefinition) {
     var c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {
-      HistoryMigratorLogs.migratingProcessDefinition(c7Id);
+      logMigratingProcessDefinition(c7Id);
+
+      var builder = new ProcessDefinitionDbModelBuilder();
+
+      String startFormId = c7Client.getStartFormId(c7ProcessDefinition);
+      builder.formId(prefixDefinitionId(startFormId));
+
       var creationTime = c7Client.getDefinitionDeploymentTime(c7ProcessDefinition.getDeploymentId());
-      var dbModel = convert(C7Entity.of(c7ProcessDefinition, creationTime), new ProcessDefinitionDbModelBuilder());
+      var dbModel = convert(C7Entity.of(c7ProcessDefinition, creationTime), builder);
       c8Client.insertProcessDefinition(dbModel);
       return dbModel.processDefinitionKey();
     }
