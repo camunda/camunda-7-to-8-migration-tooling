@@ -9,13 +9,37 @@ package io.camunda.migration.data.impl.persistence;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.EnumSet;
 import java.util.stream.Collectors;
 import java.util.Arrays;
 import org.apache.ibatis.annotations.Param;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
 
 public interface IdKeyMapper {
+
+  Map<Class<?>, TYPE> HISTORY_TYPE_NAME_MAP = Map.of(
+      ProcessDefinitionEntity.class, TYPE.HISTORY_PROCESS_DEFINITION,
+      HistoricProcessInstanceEntity.class, TYPE.HISTORY_PROCESS_INSTANCE,
+      HistoricIncidentEntity.class, TYPE.HISTORY_INCIDENT,
+      HistoricVariableInstanceEntity.class, TYPE.HISTORY_VARIABLE,
+      HistoricTaskInstanceEntity.class, TYPE.HISTORY_USER_TASK,
+      HistoricActivityInstanceEntity.class, TYPE.HISTORY_FLOW_NODE,
+      HistoricDecisionInstanceEntity.class, TYPE.HISTORY_DECISION_INSTANCE,
+      DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION,
+      DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT,
+      UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG
+  );
 
   enum TYPE {
     HISTORY_PROCESS_DEFINITION("Historic Process Definition"),
@@ -38,6 +62,10 @@ public interface IdKeyMapper {
 
     TYPE(String displayName) {
       this.displayName = displayName;
+    }
+
+    public static <C7> TYPE of(C7 entity) {
+      return HISTORY_TYPE_NAME_MAP.get(entity.getClass());
     }
 
     public String getDisplayName() {

@@ -11,7 +11,7 @@ import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 
-public class UniversalEntityInterceptor implements EntityInterceptor {
+public class UniversalEntityInterceptor implements EntityInterceptor<Object, Object> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -19,7 +19,7 @@ public class UniversalEntityInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<Object, Object> context) {
     // Universal interceptor - processes all entity types
     // For testing purposes, this could log or track execution
   }

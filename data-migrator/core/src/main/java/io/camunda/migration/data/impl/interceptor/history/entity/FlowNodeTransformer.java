@@ -7,16 +7,16 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.*;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.*;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
-import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 @Order(3)
 @Component
-public class FlowNodeTransformer implements EntityInterceptor {
+public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -34,23 +34,15 @@ public class FlowNodeTransformer implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    HistoricActivityInstance flowNode = (HistoricActivityInstance) context.getC7Entity();
-    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
-        (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder == null) {
-      throw new EntityInterceptorException("C8 FlowNodeInstanceDbModel.Builder is null in context");
-    }
-
+  public void execute(HistoricActivityInstance entity, FlowNodeInstanceDbModelBuilder builder) {
     builder
-        .flowNodeId(flowNode.getActivityId())
-        .flowNodeName(flowNode.getActivityName())
-        .processDefinitionId(prefixDefinitionId(flowNode.getProcessDefinitionKey()))
-        .startDate(convertDate(flowNode.getStartTime()))
-        .type(convertType(flowNode.getActivityType()))
-        .tenantId(getTenantId(flowNode.getTenantId()))
-        .state(determineState(flowNode))
+        .flowNodeId(entity.getActivityId())
+        .flowNodeName(entity.getActivityName())
+        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .startDate(convertDate(entity.getStartTime()))
+        .type(convertType(entity.getActivityType()))
+        .tenantId(getTenantId(entity.getTenantId()))
+        .state(determineState(entity))
         .partitionId(C7_HISTORY_PARTITION_ID)
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
@@ -58,11 +50,11 @@ public class FlowNodeTransformer implements EntityInterceptor {
     // flowNodeInstanceKey, processInstanceKey, treePath, processDefinitionKey, historyCleanupDate, endDate, flowNodeScopeKey are set in io.camunda.migration.data.impl.history.FlowNodeMigrator
   }
 
-  protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance flowNode) {
-    if (flowNode.getEndTime() == null) {
+  protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance entity) {
+    if (entity.getEndTime() == null) {
       return FlowNodeInstanceEntity.FlowNodeState.TERMINATED; // Active nodes are auto-cancelled in C8
     }
-    return flowNode.isCanceled() ?
+    return entity.isCanceled() ?
         FlowNodeInstanceEntity.FlowNodeState.TERMINATED :
         FlowNodeInstanceEntity.FlowNodeState.COMPLETED;
   }

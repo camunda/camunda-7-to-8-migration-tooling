@@ -8,13 +8,15 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.MIGRATION_COMPLETED;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.search.entities.UserTaskEntity.UserTaskState.CANCELED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
@@ -349,7 +351,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
                                       ProcessInstanceEntity processInstance,
                                       String expectedElementId) {
     // Verify migration completed successfully via logs
-    logs.assertContains(formatMessage(HistoryMigratorLogs.MIGRATING_USER_TASK_COMPLETED, c7Task.getId()));
+    logs.assertContains(formatMessage(MIGRATION_COMPLETED, TYPE.HISTORY_USER_TASK.getDisplayName(), c7Task.getId()));
 
     // Basic identifiers
     assertThat(userTask.userTaskKey()).isNotNull();

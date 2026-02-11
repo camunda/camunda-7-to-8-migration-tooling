@@ -13,16 +13,16 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 
 import io.camunda.migration.data.config.C8DataSourceConfigured;
-import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
-import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
-import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
-import io.camunda.migration.data.impl.history.FlowNodeMigrator;
-import io.camunda.migration.data.impl.history.IncidentMigrator;
-import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
-import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
-import io.camunda.migration.data.impl.history.UserTaskMigrator;
-import io.camunda.migration.data.impl.history.VariableMigrator;
-import io.camunda.migration.data.impl.history.AuditLogMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
+import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
@@ -114,43 +114,43 @@ public class HistoryMigrator {
   }
 
   public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrate();
+    processDefinitionMigrator.migrateAll();
   }
 
   public void migrateProcessInstances() {
-    processInstanceMigrator.migrate();
+    processInstanceMigrator.migrateAll();
   }
 
   public void migrateFlowNodes() {
-    flowNodeMigrator.migrate();
+    flowNodeMigrator.migrateAll();
   }
 
   public void migrateUserTasks() {
-    userTaskMigrator.migrate();
+    userTaskMigrator.migrateAll();
   }
 
   public void migrateVariables() {
-    variableMigrator.migrate();
+    variableMigrator.migrateAll();
   }
 
   public void migrateIncidents() {
-    incidentMigrator.migrate();
+    incidentMigrator.migrateAll();
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrate();
+    decisionRequirementsMigrator.migrateAll();
   }
 
   public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrate();
+    decisionDefinitionMigrator.migrateAll();
   }
 
   public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrate();
+    decisionInstanceMigrator.migrateAll();
   }
 
   public void migrateAuditLogs() {
-    auditLogMigrator.migrate();
+    auditLogMigrator.migrateAll();
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {

@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.migration.data.qa.util.WhiteBox;
@@ -25,7 +26,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("entity-programmatic")
 @WhiteBox
-public class ProcessEngineAwareInterceptor implements EntityInterceptor {
+public class ProcessEngineAwareInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
   protected final AtomicInteger executionCount = new AtomicInteger(0);
   private String lastDeploymentId;
 
@@ -35,34 +36,32 @@ public class ProcessEngineAwareInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricProcessInstance, ProcessInstanceDbModelBuilder> context) {
     executionCount.incrementAndGet();
 
-    HistoricProcessInstance processInstance = (HistoricProcessInstance) context.getC7Entity();
-    ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder =
-        (ProcessInstanceDbModel.ProcessInstanceDbModelBuilder) context.getC8DbModelBuilder();
-    builder.processInstanceKey(getNextKey()).processDefinitionId(processInstance.getProcessDefinitionKey());;
+    HistoricProcessInstance processInstance = context.getC7Entity();
 
-    if (builder != null && context.getProcessEngine() != null) {
-      // Use ProcessEngine to retrieve deployment information from C7
-      ProcessEngine processEngine = context.getProcessEngine();
+    ProcessInstanceDbModelBuilder builder = context.getC8DbModelBuilder()
+        .processInstanceKey(getNextKey())
+        .processDefinitionId(processInstance.getProcessDefinitionKey());;
 
-      // Get process definition to retrieve deployment ID from C7
-      String deploymentId = processEngine.getRepositoryService()
-          .createProcessDefinitionQuery()
-          .processDefinitionKey(processInstance.getProcessDefinitionKey())
-          .singleResult()
-          .getDeploymentId();
+    // Use ProcessEngine to retrieve deployment information from C7
+    ProcessEngine processEngine = context.getProcessEngine();
 
-      if (deploymentId != null) {
-        lastDeploymentId = deploymentId;
+    // Get process definition to retrieve deployment ID from C7
+    String deploymentId = processEngine.getRepositoryService()
+        .createProcessDefinitionQuery()
+        .processDefinitionKey(processInstance.getProcessDefinitionKey())
+        .singleResult()
+        .getDeploymentId();
 
-        // Modify tenant ID by appending deployment ID with "C7_DEPLOY_" prefix
-        String originalTenantId = processInstance.getTenantId();
-        String modifiedTenantId = (originalTenantId != null ? originalTenantId : "<default>")
-            + "_C7_DEPLOY_" + deploymentId;
-        builder.tenantId(modifiedTenantId);
-      }
+    if (deploymentId != null) {
+      lastDeploymentId = deploymentId;
+
+      // Modify tenant ID by appending deployment ID with "C7_DEPLOY_" prefix
+      String originalTenantId = processInstance.getTenantId();
+      String modifiedTenantId = (originalTenantId != null ? originalTenantId : "<default>") + "_C7_DEPLOY_" + deploymentId;
+      builder.tenantId(modifiedTenantId);
     }
   }
 

@@ -10,14 +10,15 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_AUDIT_LOG_ENTITY_VERSION;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.AuditLogEntity;
 import java.util.Set;
 import org.camunda.bpm.engine.EntityTypes;
@@ -36,7 +37,7 @@ import org.springframework.stereotype.Component;
  */
 @Order(12)
 @Component
-public class AuditLogTransformer implements EntityInterceptor {
+public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEntry, AuditLogDbModel.Builder> {
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -62,13 +63,7 @@ public class AuditLogTransformer implements EntityInterceptor {
    * @throws EntityInterceptorException if the C8 builder is null or conversion fails
    */
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
-    UserOperationLogEntry userOperationLog = (UserOperationLogEntry) context.getC7Entity();
-    AuditLogDbModel.Builder builder = (AuditLogDbModel.Builder) context.getC8DbModelBuilder();
-
-    if (builder == null) {
-      throw new EntityInterceptorException("C8 AuditLogDbModel.Builder is null in context");
-    }
+  public void execute(UserOperationLogEntry userOperationLog, Builder builder) {
     String tenantId = getTenantId(userOperationLog.getTenantId());
     builder
         .entityType(convertEntityType(userOperationLog))
@@ -180,8 +175,7 @@ public class AuditLogTransformer implements EntityInterceptor {
       // EntityTypes.METRICS, EntityTypes.TASK_METRICS, EntityTypes.OPERATION_LOG, EntityTypes.FILTER,
       // EntityTypes.COMMENT, EntityTypes.PROPERTY
 
-      default -> throw new EntityInterceptorException(
-          HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE + userOperationLog.getEntityType());
+      default -> throw new EntityInterceptorException(UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE + userOperationLog.getEntityType());
     };
   }
 
@@ -296,7 +290,7 @@ public class AuditLogTransformer implements EntityInterceptor {
    * @param userOperationLog the Camunda 7 user operation log entry
    * @param builder the audit log builder to update
    */
-  protected void updateEntityTypesThatDontMatchBetweenC7andC8(UserOperationLogEntry userOperationLog, AuditLogDbModel.Builder builder) {
+  protected void updateEntityTypesThatDontMatchBetweenC7andC8(UserOperationLogEntry userOperationLog, Builder builder) {
     if (UserOperationLogEntry.OPERATION_TYPE_RESOLVE.equals(userOperationLog.getOperationType())
         && EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
       builder.entityType(AuditLogEntity.AuditLogEntityType.INCIDENT);
