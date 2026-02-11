@@ -42,14 +42,15 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
         .dueDate(convertDate(entity.getDueDate()))
         .followUpDate(convertDate(entity.getFollowUpDate()))
         .priority(entity.getPriority())
-        .formKey(null) // TODO  https://github.com/camunda/camunda-bpm-platform/issues/5347
-        .candidateGroups(null) //TODO ?
-        .candidateUsers(null) //TODO ?
-        .externalFormReference(null) //TODO ?
-        .customHeaders(null) //TODO ?
+        .formKey(null)
+        .externalFormReference(null)
+        .customHeaders(null)
+        .tags(null)
+        .candidateGroups(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
+        .candidateUsers(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
         .partitionId(C7_HISTORY_PARTITION_ID)
         .name(entity.getName());
-    // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
+        // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
   }
 
   // See TaskEntity.TaskState
