@@ -27,6 +27,7 @@ public class PresetProcessInstanceInterceptor implements EntityInterceptor<Histo
     context.getC8DbModelBuilder()
         .processDefinitionKey(12345L)
         .parentProcessInstanceKey(67890L)
+        .parentElementInstanceKey(98765L)
         .rootProcessInstanceKey(55555L);
   }
 
