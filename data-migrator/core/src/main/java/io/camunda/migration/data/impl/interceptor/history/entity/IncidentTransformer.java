@@ -46,20 +46,9 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         .errorMessageHash(null)
         .partitionId(C7_HISTORY_PARTITION_ID)
         .jobKey(null)
-        .state(getIncidentState((HistoricIncidentEventEntity) entity))
+        .state(IncidentEntity.IncidentState.RESOLVED)
         .tenantId(getTenantId(entity.getTenantId()));
         // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
-  }
-
-  private static IncidentEntity.IncidentState getIncidentState(HistoricIncidentEventEntity entity) {
-    int state = entity.getIncidentState();
-    if (state == IncidentState.DEFAULT.getStateCode()) {
-      return IncidentEntity.IncidentState.ACTIVE;
-    } else if (state == IncidentState.RESOLVED.getStateCode() || state == IncidentState.DELETED.getStateCode()) {
-      return IncidentEntity.IncidentState.RESOLVED;
-    } else {
-      throw new EntityInterceptorException("Could not determine incident state for state code: " + state);
-    }
   }
 
 }
