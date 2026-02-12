@@ -7,9 +7,11 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
@@ -26,6 +28,7 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
+import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.springframework.stereotype.Service;
@@ -93,6 +96,7 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
           if (parentInstance != null) {
             Long parentProcessInstanceKey = parentInstance.processInstanceKey();
             builder.parentProcessInstanceKey(parentProcessInstanceKey);
+            resolveParentFlowNodeInstanceKey(builder, c7SuperProcessInstanceId, c7ProcessInstanceId);
           }
         }
 
@@ -121,8 +125,13 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
         throw new EntitySkippedException(c7ProcessInstance, SKIP_REASON_MISSING_PROCESS_DEFINITION);
       }
 
-      if (c7ProcessInstance.getSuperProcessInstanceId() != null && dbModel.parentProcessInstanceKey() == null) {
-        throw new EntitySkippedException(c7ProcessInstance, SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+      if (c7ProcessInstance.getSuperProcessInstanceId() != null) {
+        if (dbModel.parentProcessInstanceKey() == null) {
+          throw new EntitySkippedException(c7ProcessInstance, SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE);
+        }
+        if (dbModel.parentElementInstanceKey() == null) {
+          throw new EntitySkippedException(c7ProcessInstance, SKIP_REASON_MISSING_PARENT_FLOW_NODE);
+        }
       }
 
       if (dbModel.rootProcessInstanceKey() == null) {
@@ -130,11 +139,31 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
       }
 
       c8Client.insertProcessInstance(dbModel);
-
       return dbModel.processInstanceKey();
     }
-
     return null;
+  }
+
+  /**
+   * Finds and sets the parent flow node instance key for a process instance.
+   *
+   * @param builder the process instance builder
+   * @param c7SuperProcessInstanceId the historic parent process instance ID from Camunda 7
+   * @param c7ProcessInstanceId the historic process instance ID from Camunda 7
+   */
+  protected void resolveParentFlowNodeInstanceKey(
+      ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,
+      String c7SuperProcessInstanceId,
+      String c7ProcessInstanceId) {
+    HistoricActivityInstance callActivity =
+        c7Client.findCallActivityByCalledProcessInstanceId(c7SuperProcessInstanceId, c7ProcessInstanceId);
+
+    if (callActivity != null && isMigrated(callActivity.getId(), HISTORY_FLOW_NODE)) {
+      Long parentFlowNodeInstanceKey = dbClient.findC8KeyByC7IdAndType(callActivity.getId(), HISTORY_FLOW_NODE);
+      if (parentFlowNodeInstanceKey != null) {
+        builder.parentElementInstanceKey(parentFlowNodeInstanceKey);
+      }
+    }
   }
 
 }
