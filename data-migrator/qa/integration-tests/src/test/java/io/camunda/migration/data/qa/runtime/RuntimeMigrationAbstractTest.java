@@ -69,7 +69,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     for (ProcessInstance i : items) {
       try {
         camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-      } catch (io.camunda.client.api.command.ClientStatusException e) {
+      } catch (io.camunda.client.api.command.ProblemException e) {
         if (!e.getMessage().contains("NOT_FOUND")) {
           throw e;
         }
