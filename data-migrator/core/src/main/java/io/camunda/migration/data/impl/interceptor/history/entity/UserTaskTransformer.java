@@ -42,7 +42,6 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
         .dueDate(convertDate(entity.getDueDate()))
         .followUpDate(convertDate(entity.getFollowUpDate()))
         .priority(entity.getPriority())
-        .formKey(null)
         .externalFormReference(null)
         .customHeaders(null)
         .tags(null)
