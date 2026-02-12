@@ -27,9 +27,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.IdentityService;
@@ -145,6 +143,25 @@ public class C7Client {
         .decisionInstanceId(c7Id);
 
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricDecisionInstance", c7Id));
+  }
+
+  /**
+   * Finds all child decision instances for a given root decision instance ID.
+   */
+  public List<HistoricDecisionInstance> getHistoricChildDecisionInstances(String rootDecisionInstanceId) {
+    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
+        .rootDecisionInstanceId(rootDecisionInstanceId)
+        .childrenDecisionInstancesOnly()
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .orderByEvaluationTime()
+        .asc()
+        .orderByDecisionInstanceId()
+        .asc();
+
+    return callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "child HistoricDecisionInstance with rootID", rootDecisionInstanceId));
   }
 
   /**
@@ -597,22 +614,6 @@ public class C7Client {
   public Authorization getAuthorization(String authorizationId) {
     AuthorizationQuery query = authorizationService.createAuthorizationQuery().authorizationId(authorizationId);
     return callApi(query::singleResult, FAILED_TO_FETCH_AUTHORIZATIONS);
-  }
-
-  public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {
-    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
-        .rootDecisionInstanceId(rootDecisionInstanceId)
-        .includeInputs()
-        .includeOutputs()
-        .disableCustomObjectDeserialization()
-        .orderByEvaluationTime()
-        .asc()
-        .orderByDecisionInstanceId()
-        .asc();
-
-    return query.list().stream()
-        .filter(decisionInstance -> decisionInstance.getRootDecisionInstanceId() != null)
-        .collect(toList());
   }
 
 }
