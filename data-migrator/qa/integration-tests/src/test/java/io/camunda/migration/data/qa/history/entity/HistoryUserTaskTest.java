@@ -381,12 +381,13 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Process definition version
     assertThat(userTask.processDefinitionVersion()).isEqualTo(processInstance.processDefinitionVersion());
 
-    // Fields that are currently null in converter (TODOs)
+    // Fields that are currently null in converter
     assertThat(userTask.formKey()).isNull();
-    assertThat(userTask.candidateGroups()).isEmpty();
-    assertThat(userTask.candidateUsers()).isEmpty();
     assertThat(userTask.externalFormReference()).isNull();
     assertThat(userTask.customHeaders()).isNull();
+    assertThat(userTask.tags()).isEmpty();
+    assertThat(userTask.candidateGroups()).isEmpty();
+    assertThat(userTask.candidateUsers()).isEmpty();
   }
 
 }
