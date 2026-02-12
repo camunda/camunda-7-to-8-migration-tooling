@@ -138,12 +138,9 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
         throw new EntitySkippedException(c7ProcessInstance, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
       }
 
-
       c8Client.insertProcessInstance(dbModel);
-
       return dbModel.processInstanceKey();
     }
-
     return null;
   }
 
@@ -151,8 +148,8 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
    * Finds and sets the parent flow node instance key for a process instance.
    *
    * @param builder the process instance builder
-   * @param c7ProcessInstanceId the historic process instance ID from Camunda 7
    * @param c7SuperProcessInstanceId the historic parent process instance ID from Camunda 7
+   * @param c7ProcessInstanceId the historic process instance ID from Camunda 7
    */
   protected void resolveParentFlowNodeInstanceKey(
       ProcessInstanceDbModel.ProcessInstanceDbModelBuilder builder,

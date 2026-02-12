@@ -22,7 +22,6 @@ import static org.camunda.bpm.engine.ActivityTypes.CALL_ACTIVITY;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
-import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import java.io.InputStream;
 import java.nio.charset.Charset;
