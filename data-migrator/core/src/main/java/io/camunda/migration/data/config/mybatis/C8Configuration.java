@@ -27,6 +27,7 @@ import io.camunda.db.rdbms.read.service.IncidentDbReader;
 import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByDefinitionDbReader;
 import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByErrorDbReader;
 import io.camunda.db.rdbms.read.service.JobDbReader;
+import io.camunda.db.rdbms.read.service.JobMetricsBatchDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
@@ -59,6 +60,7 @@ import io.camunda.db.rdbms.sql.GroupMapper;
 import io.camunda.db.rdbms.sql.HistoryDeletionMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
 import io.camunda.db.rdbms.sql.JobMapper;
+import io.camunda.db.rdbms.sql.JobMetricsBatchMapper;
 import io.camunda.db.rdbms.sql.MappingRuleMapper;
 import io.camunda.db.rdbms.sql.MessageSubscriptionMapper;
 import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
@@ -141,6 +143,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public MapperFactoryBean<JobMapper> jobMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, JobMapper.class);
+  }
+
+  @Bean
+  public MapperFactoryBean<JobMetricsBatchMapper> kobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, JobMetricsBatchMapper.class);
   }
 
   @Bean
@@ -402,6 +409,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public JobMetricsBatchDbReader jobMetricsBatchDbReader(JobMetricsBatchMapper jobMetricsBatchMapper) {
+    return new JobMetricsBatchDbReader(jobMetricsBatchMapper);
+  }
+
+  @Bean
   public SequenceFlowDbReader sequenceFlowReader(SequenceFlowMapper sequenceFlowMapper) {
     return new SequenceFlowDbReader(sequenceFlowMapper);
   }
@@ -550,6 +562,7 @@ public class C8Configuration extends AbstractConfiguration {
       SequenceFlowDbReader sequenceFlowReader,
       BatchOperationItemDbReader batchOperationItemReader,
       JobDbReader jobReader,
+      JobMetricsBatchDbReader jobMetricsBatchDbReader,
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
@@ -587,6 +600,7 @@ public class C8Configuration extends AbstractConfiguration {
         sequenceFlowReader,
         batchOperationItemReader,
         jobReader,
+        jobMetricsBatchDbReader,
         usageMetricsReader,
         usageMetricTUDbReader,
         messageSubscriptionDbReader,
