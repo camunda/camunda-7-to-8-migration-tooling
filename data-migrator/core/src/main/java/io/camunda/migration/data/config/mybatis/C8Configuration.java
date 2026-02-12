@@ -146,7 +146,7 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public MapperFactoryBean<JobMetricsBatchMapper> kobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+  public MapperFactoryBean<JobMetricsBatchMapper> jobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, JobMetricsBatchMapper.class);
   }
 
