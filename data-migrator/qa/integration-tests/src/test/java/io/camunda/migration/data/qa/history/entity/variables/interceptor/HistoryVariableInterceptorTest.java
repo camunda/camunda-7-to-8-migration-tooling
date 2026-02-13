@@ -69,7 +69,7 @@ public class HistoryVariableInterceptorTest extends AbstractMigratorTest {
 
     // successVar should be migrated
     assertThat(successVars).hasSize(1);
-    assertThat(successVars.getFirst().value()).isEqualTo("\"SUCCESS\"");
+    assertThat(successVars.getFirst().value()).isEqualTo("SUCCESS");
 
     // failingVar should be skipped
     assertThat(failingVars).isEmpty();
@@ -139,6 +139,6 @@ public class HistoryVariableInterceptorTest extends AbstractMigratorTest {
 
     // Should have 1 testVar from the second process instance only
     assertThat(variables1).hasSize(1);
-    assertThat(variables1.getFirst().value()).isEqualTo("\"SUCCESS\"");
+    assertThat(variables1.getFirst().value()).isEqualTo("SUCCESS");
   }
 }
