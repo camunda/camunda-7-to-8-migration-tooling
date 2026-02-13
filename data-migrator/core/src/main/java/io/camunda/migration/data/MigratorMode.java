@@ -9,6 +9,6 @@ package io.camunda.migration.data;
 
 public enum MigratorMode {
 
-  MIGRATE, LIST_SKIPPED, RETRY_SKIPPED;
+  MIGRATE, LIST_SKIPPED, LIST_MAPPINGS, RETRY_SKIPPED;
 
 }

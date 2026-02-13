@@ -24,6 +24,18 @@ public class PrintUtils {
     print(message);
   }
 
+  public static void printMigratedInstancesHeader(long count, TYPE entityType) {
+    String entityName = entityType.getDisplayName();
+    String message = count > 0
+        ? "Migration mappings for [" + entityName + "s]:"
+        : "No entities of type ["+ entityName +"] were migrated";
+    print(message);
+  }
+
+  public static void printMapping(String c7Id, Long c8Key) {
+    print(c7Id + " -> " + c8Key);
+  }
+
   public static void print(String message) {
     PRINTER.info(message);
   }

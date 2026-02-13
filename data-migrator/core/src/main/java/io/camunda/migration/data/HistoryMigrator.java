@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data;
 
+import static io.camunda.migration.data.MigratorMode.LIST_MAPPINGS;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
@@ -83,6 +84,8 @@ public class HistoryMigrator {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
       if (LIST_SKIPPED.equals(mode)) {
         printSkippedHistoryEntities();
+      } else if (LIST_MAPPINGS.equals(mode)) {
+        printMigratedHistoryEntities();
       } else {
         migrate();
       }
@@ -102,6 +105,19 @@ public class HistoryMigrator {
   protected void printSkippedEntitiesForType(TYPE type) {
     PrintUtils.printSkippedInstancesHeader(dbClient.countSkippedByType(type), type);
     dbClient.listSkippedEntitiesByType(type);
+  }
+
+  protected void printMigratedHistoryEntities() {
+    if(requestedEntityTypes == null ||  requestedEntityTypes.isEmpty()) {
+      getHistoryTypes().forEach(this::printMigratedEntitiesForType);
+    } else {
+      requestedEntityTypes.forEach(this::printMigratedEntitiesForType);
+    }
+  }
+
+  protected void printMigratedEntitiesForType(TYPE type) {
+    PrintUtils.printMigratedInstancesHeader(dbClient.countMigratedByType(type), type);
+    dbClient.listMigratedEntitiesByType(type);
   }
 
   public void migrate() {
