@@ -78,7 +78,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
-        .withReuse(true)
         .withConfigurationOverride("mysql-conf")
         .withExposedPorts(3306);
     mysql.setPortBindings(List.of(MYSQL_PORT + ":3306"));
@@ -90,7 +89,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
-        .withReuse(true)
         .withConfigurationOverride("mariadb-conf")
         .withExposedPorts(3306);
     mariadb.setPortBindings(List.of(MARIADB_PORT + ":3306"));
@@ -100,7 +98,6 @@ public class MultiDbExtension implements BeforeAllCallback {
   protected static MSSQLServerContainer<?> createSQLServerContainer() {
     MSSQLServerContainer<?> sqlserver = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
         .withPassword("Camunda123!")
-        .withReuse(true)
         .withExposedPorts(1433)
         .acceptLicense();
     sqlserver.setPortBindings(List.of(SQLSERVER_PORT + ":1433"));
