@@ -9,6 +9,7 @@ package io.camunda.migration.data.config;
 
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
+import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_FULL;
 
 import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.EntityConversionService;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.camunda.bpm.engine.impl.history.HistoryLevel;
 import org.camunda.bpm.engine.spring.ProcessEngineFactoryBean;
 import org.camunda.bpm.engine.spring.SpringProcessEngineConfiguration;
 import org.camunda.bpm.engine.spring.SpringProcessEngineServicesConfiguration;
@@ -122,6 +124,7 @@ public class MigratorAutoConfiguration {
     @Primary
     public DataSource c7DataSource() {
       DataSourceProperties props = migratorProperties.getC7().getDataSource();
+      props.setAutoCommit(false);
       if (props.getJdbcUrl() == null) {
         return createDefaultDataSource(props);
       }
@@ -129,7 +132,7 @@ public class MigratorAutoConfiguration {
     }
 
     @Bean
-    public PlatformTransactionManager c7TransactionManager(DataSource c7DataSource) {
+    public PlatformTransactionManager c7TransactionManager(@Qualifier("c7DataSource") DataSource c7DataSource) {
       return new DataSourceTransactionManager(c7DataSource);
     }
 
@@ -137,6 +140,7 @@ public class MigratorAutoConfiguration {
     @Conditional(C8DataSourceConfigured.class)
     public DataSource c8DataSource() {
       DataSourceProperties props = migratorProperties.getC8().getDataSource();
+      props.setAutoCommit(false);
       if (props.getJdbcUrl() == null) {
         return createDefaultDataSource(props);
       }
@@ -165,19 +169,18 @@ public class MigratorAutoConfiguration {
     }
   }
 
-  @Autowired
-  protected DataSource c7DataSource;
-
-  @Autowired
-  protected PlatformTransactionManager c7TransactionManager;
-
   @Bean
   @ConditionalOnMissingBean(ProcessEngineConfigurationImpl.class)
-  public ProcessEngineConfigurationImpl processEngineConfiguration() {
+  @DependsOn({"c7TransactionManager", "c7DataSource"})
+  public ProcessEngineConfigurationImpl processEngineConfiguration(@Qualifier("c7DataSource") DataSource c7DataSource, @Qualifier("c7TransactionManager") PlatformTransactionManager c7TransactionManager) {
     var config = new SpringProcessEngineConfiguration();
+
     config.setDataSource(c7DataSource);
     config.setTransactionManager(c7TransactionManager);
+
     config.setHistory(HISTORY_AUTO);
+    config.setHistoryLevel(HistoryLevel.HISTORY_LEVEL_FULL);
+
     config.setJobExecutorActivate(false);
     config.setMetricsEnabled(false);
 

@@ -1,0 +1,28 @@
+camunda:
+  migrator:
+    auto-ddl: true
+    c7:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:mysql://localhost:33061/process-engine
+        username: camunda
+        password: camunda
+        driver-class-name: com.mysql.cj.jdbc.Driver
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: history-level-full
+
+camunda:
+  migrator:
+    auto-ddl: true
+    c8:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:mysql://localhost:33061/process-engine
+        username: camunda
+        password: camunda
+        driver-class-name: com.mysql.cj.jdbc.Driver
