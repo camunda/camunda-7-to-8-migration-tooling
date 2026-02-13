@@ -14,14 +14,11 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
-import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
-import org.camunda.bpm.engine.history.IncidentState;
-import org.camunda.bpm.engine.impl.history.event.HistoricIncidentEventEntity;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 

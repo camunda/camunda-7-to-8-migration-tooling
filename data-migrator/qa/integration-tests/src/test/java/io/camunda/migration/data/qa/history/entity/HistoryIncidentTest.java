@@ -11,6 +11,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
 import java.util.List;
@@ -95,6 +96,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(c7ChildIncident).isNotNull();
 
     // when
+    historyMigrator.migrate();
+    // need to run with retry to migrate child instances with flow node dependencies
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrate();
 
     // then
