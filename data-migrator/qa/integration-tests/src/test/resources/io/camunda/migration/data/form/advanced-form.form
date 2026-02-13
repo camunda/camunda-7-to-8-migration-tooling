@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.0.0"
+  },
+  "components": [
+    {
+      "text": "# Advanced Form",
+      "type": "text",
+      "id": "Field_header"
+    },
+    {
+      "label": "Task Name",
+      "type": "textfield",
+      "id": "taskName",
+      "key": "taskName",
+      "validate": {
+        "required": true,
+        "minLength": 3
+      }
+    },
+    {
+      "label": "Priority",
+      "type": "select",
+      "id": "priority",
+      "key": "priority",
+      "values": [
+        {
+          "label": "Low",
+          "value": "low"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "High",
+          "value": "high"
+        }
+      ]
+    },
+    {
+      "label": "Due Date",
+      "type": "datetime",
+      "id": "dueDate",
+      "key": "dueDate"
+    }
+  ],
+  "type": "default",
+  "id": "advanced-form",
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.18.0"
+}
+

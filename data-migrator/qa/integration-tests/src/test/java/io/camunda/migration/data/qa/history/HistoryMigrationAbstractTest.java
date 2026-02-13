@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.read.service.FormDbReader;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.PurgeMapper;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -35,16 +36,20 @@ import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.FormEntity;
 import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
 import io.camunda.search.query.AuditLogQuery;
+import io.camunda.search.filter.FilterBuilders;
+import io.camunda.search.page.SearchQueryPage;
 import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
+import io.camunda.search.query.FormQuery;
 import io.camunda.search.query.IncidentQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
@@ -52,6 +57,7 @@ import io.camunda.search.query.UserTaskQuery;
 import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import io.camunda.search.result.DecisionRequirementsQueryResultConfig;
+import io.camunda.search.sort.SortOptionBuilders;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -110,6 +116,10 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
     // C8
     rdbmsPurger.purgeRdbms();
+  }
+
+  public ProcessDefinitionEntity searchHistoricProcessDefinition(String processDefinitionId) {
+    return searchHistoricProcessDefinitions(processDefinitionId).getFirst();
   }
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitions(String processDefinitionId) {
@@ -226,6 +236,18 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.names(varName))))
         .items();
+  }
+
+  public List<FormEntity> searchForms(String... formIds) {
+    FormDbReader formReader = rdbmsService.getFormReader();
+    if (formIds.length != 0) {
+      return formReader
+          .search(FormQuery.of(queryBuilder ->
+              queryBuilder.filter(filterBuilder ->
+                  filterBuilder.formIds(Arrays.stream(formIds).map(ConverterUtil::prefixDefinitionId).toList())))).items();
+    }
+
+    return formReader.search(new FormQuery(FilterBuilders.form().build(), SortOptionBuilders.form().build(), SearchQueryPage.of((b) -> b))).items();
   }
 
   @Configuration

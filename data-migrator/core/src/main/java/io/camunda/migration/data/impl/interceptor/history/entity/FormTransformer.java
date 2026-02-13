@@ -7,45 +7,44 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
+import io.camunda.db.rdbms.write.domain.FormDbModel;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.util.Set;
-import org.camunda.bpm.engine.repository.ProcessDefinition;
+import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
+import org.camunda.bpm.engine.repository.CamundaFormDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-@Order(1)
 @Component
-public class ProcessDefinitionTransformer implements EntityInterceptor<ProcessDefinition, ProcessDefinitionDbModelBuilder> {
+public class FormTransformer implements EntityInterceptor<CamundaFormDefinition, FormDbModel.FormDbModelBuilder> {
 
   @Autowired
   protected C7Client c7Client;
 
   @Override
   public Set<Class<?>> getTypes() {
-    return Set.of(ProcessDefinition.class);
+    return Set.of(CamundaFormDefinition.class);
   }
 
   @Override
-  public void execute(ProcessDefinition entity, ProcessDefinitionDbModelBuilder builder) {
-    var deploymentId = entity.getDeploymentId();
-    var resourceName = entity.getResourceName();
-    var bpmnXml = c7Client.getResourceAsString(deploymentId, resourceName);
+  public void execute(CamundaFormDefinition entity, FormDbModel.FormDbModelBuilder builder) {
+    String deploymentId = entity.getDeploymentId();
+    String resourceName = entity.getResourceName();
 
-    builder.processDefinitionKey(getNextKey())
-        .processDefinitionId(prefixDefinitionId(entity.getKey()))
-        .resourceName(resourceName)
-        .name(entity.getName())
+    String formJson = c7Client.getResourceAsString(deploymentId, resourceName);
+    builder.schema(formJson);
+
+    builder
+        .formKey(getNextKey())
+        .formId(prefixDefinitionId(entity.getKey()))
         .tenantId(getTenantId(entity.getTenantId()))
-        .versionTag(entity.getVersionTag())
-        .version(entity.getVersion())
-        .bpmnXml(bpmnXml);
+        .version((long) entity.getVersion())
+        .isDeleted(false);
   }
 
 }

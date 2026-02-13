@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.db.rdbms.write.domain.IncidentDbModel.*;
+import static io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;

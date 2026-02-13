@@ -28,6 +28,7 @@ import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinit
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionRequirementsDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.FormTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.IncidentTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
@@ -343,6 +344,11 @@ public class InterceptorConfiguration {
   @Bean
   public FlowNodeTransformer flowNodeTransformer() {
     return new FlowNodeTransformer();
+  }
+
+  @Bean
+  public FormTransformer formTransformer() {
+    return new FormTransformer();
   }
 
   @Bean
