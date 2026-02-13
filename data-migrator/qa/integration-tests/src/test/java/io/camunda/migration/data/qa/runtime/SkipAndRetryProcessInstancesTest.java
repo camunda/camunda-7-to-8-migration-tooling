@@ -41,7 +41,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.TestPropertySource;
 
 @ExtendWith(OutputCaptureExtension.class)
-@TestPropertySource(locations = "classpath:application-logging-test.properties")
+@TestPropertySource(locations = "classpath:application-warn.properties")
 class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
   @RegisterExtension
@@ -212,7 +212,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
     // then
     assertThat(output.getOut()).containsPattern(
-        "DEBUG(.*)" + PROCESS_INSTANCE_NOT_EXISTS.replace("{}", "[a-f0-9-]+").replace("?", "\\?"));
+        "WARN(.*)" + PROCESS_INSTANCE_NOT_EXISTS.replace("{}", "[a-f0-9-]+").replace("?", "\\?"));
   }
 
   @Test

@@ -52,7 +52,7 @@ public class RuntimeMigratorLogs {
   }
 
   public static void skippingProcessInstanceValidationError(String c7ProcessInstanceId, String message) {
-    LOGGER.debug(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7ProcessInstanceId, message);
+    LOGGER.warn(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR, c7ProcessInstanceId, message);
   }
 
   public static void fetchingProcessInstances() {
@@ -68,7 +68,7 @@ public class RuntimeMigratorLogs {
   }
 
   public static void processInstanceNotExists(String c7ProcessInstanceId) {
-    LOGGER.debug(PROCESS_INSTANCE_NOT_EXISTS, c7ProcessInstanceId);
+    LOGGER.warn(PROCESS_INSTANCE_NOT_EXISTS, c7ProcessInstanceId);
   }
 
   public static void activatingMigratorJobs() {
