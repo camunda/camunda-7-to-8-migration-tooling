@@ -169,6 +169,12 @@
       <artifactId>mysql-connector-j</artifactId>
       <version>${version.mysql}</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-java</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <!--MariaDB-->
     <dependency>
