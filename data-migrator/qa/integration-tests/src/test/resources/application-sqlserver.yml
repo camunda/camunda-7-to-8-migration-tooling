@@ -1,0 +1,28 @@
+camunda:
+  migrator:
+    auto-ddl: true
+    c7:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:sqlserver://localhost:14331;databaseName=master;encrypt=false;trustServerCertificate=true
+        username: sa
+        password: Camunda123!
+        driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: history-level-full
+
+camunda:
+  migrator:
+    auto-ddl: true
+    c8:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:sqlserver://localhost:14331;databaseName=master;encrypt=false;trustServerCertificate=true
+        username: sa
+        password: Camunda123!
+        driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
