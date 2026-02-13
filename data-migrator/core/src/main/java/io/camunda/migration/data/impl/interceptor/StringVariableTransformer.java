@@ -10,44 +10,28 @@ package io.camunda.migration.data.impl.interceptor;
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logEndExecution;
 import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStartExecution;
 
-import io.camunda.migration.data.interceptor.VariableInterceptor;
 import io.camunda.migration.data.interceptor.VariableContext;
+import io.camunda.migration.data.interceptor.VariableInterceptor;
 import java.util.Set;
-import org.camunda.bpm.engine.variable.value.BooleanValue;
-import org.camunda.bpm.engine.variable.value.DoubleValue;
-import org.camunda.bpm.engine.variable.value.IntegerValue;
-import org.camunda.bpm.engine.variable.value.LongValue;
-import org.camunda.bpm.engine.variable.value.ShortValue;
+import org.camunda.bpm.engine.variable.value.PrimitiveValue;
+import org.camunda.bpm.engine.variable.value.StringValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-/**
- * Transformer for primitive variables during migration from Camunda 7 to Camunda 8.
- * <p>
- * Handles primitive variable types (String, Integer, Boolean, etc.).
- * Can be disabled via the configuration file using the {@code enabled} property.
- */
-@Order(15)  // Transform primitives - runs after validators and complex type transformers
+@Order(16)  // Transform strings - runs after validators and complex type transformers
 @Component
-public class PrimitiveVariableTransformer implements VariableInterceptor {
+public class StringVariableTransformer implements VariableInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
-    return Set.of(
-        BooleanValue.class,
-        DoubleValue.class,
-        LongValue.class,
-        IntegerValue.class,
-        ShortValue.class
-    );
+    return Set.of(StringValue.class);
   }
 
   @Override
   public void execute(VariableContext context) {
     logStartExecution(this.getClass(), context.getName());
-
-    Object primitiveValue = context.getC7Value();
-    context.setC8Value(primitiveValue);
+    Object stringValue = context.getC7Value();
+    context.setC8Value(context.isHistory() ? String.format("\"%s\"", stringValue) : stringValue);
     logEndExecution(this.getClass(), context.getName());
   }
 }

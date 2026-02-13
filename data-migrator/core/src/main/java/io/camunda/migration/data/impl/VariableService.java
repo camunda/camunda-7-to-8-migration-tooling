@@ -221,11 +221,9 @@ public class VariableService {
     // Execute interceptors to transform the value (delegated to VariableService)
     executeInterceptors(variableContext);
 
-    // RDBMS requires primitive variables to be a string and strings wrapped in double-quotes
+    // C8 RDBMS requires variables to be a string
     Object c8Value = variableContext.getC8Value();
-    return c8Value instanceof String ?
-        String.format("\"%s\"", c8Value) :
-        String.valueOf(c8Value);
+    return String.valueOf(c8Value);
   }
 
 }
