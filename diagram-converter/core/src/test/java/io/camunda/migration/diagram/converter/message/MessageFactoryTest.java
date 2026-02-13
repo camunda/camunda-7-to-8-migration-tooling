@@ -570,13 +570,14 @@ public class MessageFactoryTest {
   }
 
   @Test
-  void shouldBuildMissingIdOnConditionalEventDefinition() {
-    String elementId = random();
-    Message message = missingIdOnConditionalEventDefinition(elementId);
+  void shouldBuildGeneratedIdOnConditionalEventDefinition() {
+    String parentElementId = random();
+    String generatedId = "ConditionalEventDefinition_" + random();
+    Message message = generatedIdOnConditionalEventDefinition(parentElementId, generatedId);
     assertThat(message).isNotNull();
     assertThat(message.getMessage())
         .isEqualTo(
-            "The conditionalEventDefinition on element '%s' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_%s').",
-            elementId, elementId);
+            "Generated id '%s' for conditionalEventDefinition on element '%s'. Camunda 8 requires an 'id' on conditionalEventDefinition elements.",
+            generatedId, parentElementId);
   }
 }
