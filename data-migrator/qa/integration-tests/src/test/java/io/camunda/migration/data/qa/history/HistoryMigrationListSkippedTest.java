@@ -178,7 +178,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
 
         // Incidents: SKIPPING_INCIDENT_GENERIC expects incidentId, reason
         for (String id : incidentIds) {
-            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+            String pattern = convertToRegex(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_DEFINITION));
             assertThat(logs.getEvents().stream()
                 .anyMatch(event -> event.getMessage().matches(pattern)))
                 .as("Incident %s should be logged as skipped", id)

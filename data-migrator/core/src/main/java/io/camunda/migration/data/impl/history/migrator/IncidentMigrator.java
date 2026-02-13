@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -21,6 +22,7 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.springframework.stereotype.Service;
 
 /**
@@ -71,14 +73,14 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
         var processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(),
-              c7Incident.getProcessInstanceId());
+          var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
-          Long jobDefinitionKey = null; // TODO jobs are not migrated yet
+//          Long jobDefinitionKey = null; // TODO when jobs are migrated
 
           builder.processDefinitionKey(processDefinitionKey)
-              .jobKey(jobDefinitionKey)
+//              .jobKey(jobDefinitionKey) // TODO when jobs are migrated
               .flowNodeInstanceKey(flowNodeInstanceKey);
+
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -92,33 +94,42 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
 
       IncidentDbModel dbModel = convert(C7Entity.of(c7Incident), builder);
 
-      if (dbModel.processInstanceKey() == null) {
+    if (dbModel.processDefinitionKey() == null) {
+      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_DEFINITION);
+    }
+
+    if (dbModel.rootProcessInstanceKey() == null) {
+      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+    }
+
+    if (dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_INSTANCE);
-        // TODO: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364
-        // check if flowNodeInstanceKey is resolved correctly
-        // } else if (dbModel.flowNodeInstanceKey() == null) {
-        //   markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_SCOPE_KEY);
-        //   HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-        // TODO: always null at the moment because jobs are not migrated yet
-        //  } else if (dbModel.jobKey() == null) {
-        //    markSkipped(c7IncidentId, HISTORY_INCIDENT, c7Incident.getCreateTime(), SKIP_REASON_MISSING_JOB_REFERENCE);
-        //    HistoryMigratorLogs.skippingHistoricIncident(c7IncidentId);
-      }
+    }
 
-      if (dbModel.processDefinitionKey() == null) {
-        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_DEFINITION);
+    if (dbModel.flowNodeInstanceKey() == null) {
+      if (!isServiceTask(c7Incident)) { // TODO fix missing flow node instance keys for service tasks
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
       }
+    }
 
-      if (dbModel.rootProcessInstanceKey() == null) {
-        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-      }
-
+    if (dbModel.jobKey() == null) {
+//      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
+    }
       c8Client.insertIncident(dbModel);
 
       return dbModel.incidentKey();
     }
 
     return null;
+  }
+
+  protected boolean isServiceTask(HistoricIncident c7Incident) {
+    return c7Client
+        .getBpmnModelInstance(c7Incident.getProcessDefinitionId())
+        .getModelElementById(c7Incident.getActivityId())
+        .getElementType()
+        .getInstanceType()
+        .isAssignableFrom(ServiceTask.class);
   }
 
 }

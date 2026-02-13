@@ -190,7 +190,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Incidents are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("failingServiceTaskProcessId")).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_DEFINITION));
   }
 
   @Test
@@ -231,7 +231,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // and verify logs don't contain any additional skip operations for this process instance
     assertThat(logs.getEvents()
         .stream()
-        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE)))
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_DEFINITION)))
         .toList()
         ).hasSize(1); // Only the first skip from phase 1
   }

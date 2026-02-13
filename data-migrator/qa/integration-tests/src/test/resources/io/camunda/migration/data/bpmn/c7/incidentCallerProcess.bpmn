@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  id="Definitions_caller"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.24.0"
+                  modeler:executionPlatform="Camunda Platform"
+                  modeler:executionPlatformVersion="7.24.0">
+
+  <!-- Parent process that calls incidentProcessId -->
+  <bpmn:process id="incidentCallerProcessId" name="incidentCallerProcess" isExecutable="true" camunda:historyTimeToLive="180">
+
+    <bpmn:startEvent id="CallerStartEvent" name="start">
+      <bpmn:outgoing>Flow_start_to_call</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:callActivity id="CallIncidentProcess"
+                       name="call incidentProcess"
+                       calledElement="incidentProcessId">
+      <bpmn:incoming>Flow_start_to_call</bpmn:incoming>
+      <bpmn:outgoing>Flow_call_to_end</bpmn:outgoing>
+    </bpmn:callActivity>
+
+    <bpmn:endEvent id="CallerEndEvent" name="end">
+      <bpmn:incoming>Flow_call_to_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_start_to_call"
+                       sourceRef="CallerStartEvent"
+                       targetRef="CallIncidentProcess" />
+    <bpmn:sequenceFlow id="Flow_call_to_end"
+                       sourceRef="CallIncidentProcess"
+                       targetRef="CallerEndEvent" />
+
+  </bpmn:process>
+
+</bpmn:definitions>
