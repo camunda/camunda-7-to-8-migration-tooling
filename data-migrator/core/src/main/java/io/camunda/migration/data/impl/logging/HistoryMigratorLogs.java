@@ -117,7 +117,7 @@ public class HistoryMigratorLogs {
 
   public static void logSkipping(EntitySkippedException e) {
     C7Entity<?> c7Entity = e.getC7Entity();
-    LOGGER.debug(SKIPPING, c7Entity.getType().getDisplayName(), c7Entity.getId(), e.getMessage());
+    LOGGER.warn(SKIPPING, c7Entity.getType().getDisplayName(), c7Entity.getId(), e.getMessage());
   }
 
   public static void skippingEntityDueToInterceptorError(EntitySkippedException e) {
