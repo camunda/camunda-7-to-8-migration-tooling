@@ -21,6 +21,7 @@ import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.RuntimeService;
@@ -116,7 +117,7 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
     // given - deploy and complete a process instance
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
-    Date startTime = new Date();
+    Date startTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(startTime);
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
@@ -144,14 +145,18 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
   @Test
   public void shouldCascadeEndDateToFlowNodesForActiveProcessInstance() {
     // given - deploy and start a process instance
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    deployer.deployCamunda7Process("twoUserTasksProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("twoUserTasksProcessId");
+
+    ClockUtil.offset(5_000L);
+
+    taskService.complete(taskService.createTaskQuery().singleResult().getId());
 
     // when - migrate history
     historyMigration.getMigrator().migrate();
 
-    // then - only cancelled/terminated flow nodes should inherit the process instance's end date
-    var processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
+    // then - only canceled/terminated flow nodes should inherit the process instance's end date
+    var processInstances = historyMigration.searchHistoricProcessInstances("twoUserTasksProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedInstance = processInstances.getFirst();
@@ -160,21 +165,20 @@ public class HistoryCleanupMigrationTest extends AbstractMigratorTest {
 
     assertThat(processInstanceEndDate).isNotNull();
 
-    // Check start event - should be COMPLETED with its own end date (not cascaded)
-    var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(startEvents).hasSize(1);
-    FlowNodeInstanceEntity startEvent = startEvents.getFirst();
-    assertThat(startEvent.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
-    assertThat(startEvent.endDate()).isNotEqualTo(processInstanceEndDate);
+    var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK)
+        .stream().sorted(Comparator.comparing(FlowNodeInstanceEntity::startDate)).toList();
+    assertThat(userTaskFlowNodes).hasSize(2);
+    FlowNodeInstanceEntity userTaskFlowNodeFirst = userTaskFlowNodes.getFirst();
+    assertThat(userTaskFlowNodeFirst.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
+    assertThat(userTaskFlowNodeFirst.endDate())
+        .as("User task should have its own completion endDate, not cascaded from process instance")
+        .isNotEqualTo(processInstanceEndDate);
 
-
-    // Check user task flow node - should be TERMINATED and inherit process instance end date
-    var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
-    assertThat(userTaskFlowNodes).hasSize(1);
-    FlowNodeInstanceEntity userTaskFlowNode = userTaskFlowNodes.getFirst();
-    assertThat(userTaskFlowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
-    assertThat(userTaskFlowNode.endDate()).isEqualTo(processInstanceEndDate);
-
+    FlowNodeInstanceEntity userTaskFlowNodeLast = userTaskFlowNodes.getLast();
+    assertThat(userTaskFlowNodeLast.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
+    assertThat(userTaskFlowNodeLast.endDate())
+        .as("Terminated user task flow node should have cascaded endDate from process instance")
+        .isEqualTo(processInstanceEndDate);
   }
 
   @Test

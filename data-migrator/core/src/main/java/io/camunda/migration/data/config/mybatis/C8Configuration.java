@@ -77,6 +77,7 @@ import io.camunda.db.rdbms.sql.VariableMapper;
 import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.logging.ConfigurationLogs;
@@ -100,8 +101,12 @@ import org.springframework.context.annotation.Configuration;
 public class C8Configuration extends AbstractConfiguration {
 
   @Autowired
-  @Qualifier("c8DataSource")
-  protected DataSource dataSource;
+  protected DataSourceRegistry dataSourceRegistry;
+
+  protected DataSource getC8DataSource() {
+    return dataSourceRegistry.getC8DataSource()
+        .orElseThrow(() -> new IllegalStateException("C8 DataSource not configured"));
+  }
 
   @Bean
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX
@@ -115,7 +120,7 @@ public class C8Configuration extends AbstractConfiguration {
     } catch (Exception e) {
       throw new MigratorException(ConfigurationLogs.getC8SchemaPropertyError(), e);
     }
-    return createSchema(dataSource, configProperties.getC8().getDataSource().getTablePrefix(),
+    return createSchema(getC8DataSource(), configProperties.getC8().getDataSource().getTablePrefix(),
         "db/changelog/rdbms-exporter/changelog-master.xml", parameters);
   }
 
@@ -127,7 +132,7 @@ public class C8Configuration extends AbstractConfiguration {
 
   @Bean
   public VendorDatabaseProperties vendorDatabaseProperties(DbVendorProvider dbVendorProvider) throws Exception {
-    String c8DbVendor = dbVendorProvider.getDatabaseId(dataSource);
+    String c8DbVendor = dbVendorProvider.getDatabaseId(getC8DataSource());
     String c8File = "db/vendor-properties/" + c8DbVendor + ".properties";
 
     return new VendorDatabaseProperties(loadPropertiesFile(c8DbVendor, c8File));
@@ -137,7 +142,7 @@ public class C8Configuration extends AbstractConfiguration {
   public SqlSessionFactory c8SqlSessionFactory(VendorDatabaseProperties vendorDatabaseProperties, DbVendorProvider dbVendorProvider) throws Exception {
     String tablePrefix = this.configProperties.getC8().getDataSource().getTablePrefix();
     Properties properties = vendorDatabaseProperties.properties();
-    return createSqlSessionFactory(dataSource, dbVendorProvider, properties, tablePrefix);
+    return createSqlSessionFactory(getC8DataSource(), dbVendorProvider, properties, tablePrefix);
   }
 
   @Bean

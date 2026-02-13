@@ -32,7 +32,7 @@ public class DecisionDefinitionMigrator extends BaseMigrator<DecisionDefinition,
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_DECISION_DEFINITION,
         c7Client::getDecisionDefinition,
         c7Client::fetchAndHandleDecisionDefinitions

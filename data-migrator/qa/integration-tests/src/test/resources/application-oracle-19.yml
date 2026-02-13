@@ -1,0 +1,28 @@
+camunda:
+  migrator:
+    auto-ddl: true
+    c7:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:oracle:thin:@localhost:15433/ORCLDB
+        username: camunda
+        password: camunda
+        driver-class-name: oracle.jdbc.OracleDriver
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: history-level-full
+
+camunda:
+  migrator:
+    auto-ddl: true
+    c8:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:oracle:thin:@localhost:15433/ORCLDB
+        username: camunda
+        password: camunda
+        driver-class-name: oracle.jdbc.OracleDriver

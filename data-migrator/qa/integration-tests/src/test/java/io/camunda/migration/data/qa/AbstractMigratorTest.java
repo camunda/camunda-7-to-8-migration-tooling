@@ -10,14 +10,20 @@ package io.camunda.migration.data.qa;
 
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.qa.util.ProcessDefinitionDeployer;
+import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.migration.data.qa.util.WithMultiDb;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import java.util.Calendar;
+import java.util.Date;
 import org.camunda.bpm.engine.ManagementService;
 import org.camunda.bpm.engine.DecisionService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.TaskService;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.runtime.Job;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -52,6 +58,22 @@ public class AbstractMigratorTest {
   @Autowired
   protected ManagementService managementService;
 
+  /**
+   * MySQL doesn't support millisecond precision by default, so we need to truncate
+   * milliseconds to 0 when running tests against MySQL to avoid timing comparison issues.
+   */
+  @BeforeEach
+  public void setupClockForMySql() {
+    if (isMySqlActive()) {
+      ClockUtil.setCurrentTime(truncateMilliseconds(new Date()));
+    }
+  }
+
+  @AfterEach
+  public void resetClockUtil() {
+    ClockUtil.reset();
+  }
+
   protected void triggerIncident(final String processInstanceId) {
     Job job = managementService.createJobQuery().processInstanceId(processInstanceId).singleResult();
     for (int i = 0; i < 3; i++) {
@@ -76,5 +98,23 @@ public class AbstractMigratorTest {
         }
       }
     }
+  }
+
+  /**
+   * Checks if MySQL is the active database profile.
+   */
+  protected static boolean isMySqlActive() {
+    return SpringProfileResolver.getActiveProfiles().contains("mysql");
+  }
+
+  /**
+   * Truncates milliseconds from a Date, setting them to 0.
+   * This is needed for MySQL which doesn't support millisecond precision by default.
+   */
+  protected static Date truncateMilliseconds(Date date) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    calendar.set(Calendar.MILLISECOND, 0);
+    return calendar.getTime();
   }
 }

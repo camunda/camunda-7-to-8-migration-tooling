@@ -32,7 +32,7 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_INCIDENT,
         c7Client::getHistoricIncident,
         c7Client::fetchAndHandleHistoricIncidents

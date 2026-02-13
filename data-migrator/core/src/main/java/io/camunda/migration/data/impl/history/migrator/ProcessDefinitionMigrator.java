@@ -26,7 +26,7 @@ public class ProcessDefinitionMigrator extends BaseMigrator<ProcessDefinition, P
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_PROCESS_DEFINITION,
         c7Client::getProcessDefinition,
         c7Client::fetchAndHandleProcessDefinitions

@@ -42,12 +42,14 @@
   <select id="findMigratedByType" resultMap="idKeyResultMap">
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NOT NULL
+    ORDER BY C7_ID
     <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </select>
 
   <sql id="findSkippedByQueryCriteriaSql">
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NULL
+    ORDER BY C7_ID
     <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </sql>
 
@@ -69,7 +71,7 @@
   </update>
 
   <select id="checkHasC8KeyByC7IdAndType" resultType="boolean">
-    SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END
+    SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END
     FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR}
     AND TYPE = #{type, jdbcType=VARCHAR}
@@ -77,7 +79,7 @@
   </select>
 
   <select id="checkExistsByC7IdAndType" resultType="boolean">
-    SELECT CASE WHEN COUNT(*) > 0 THEN TRUE ELSE FALSE END
+    SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END
     FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR}
     AND TYPE = #{type, jdbcType=VARCHAR}
@@ -92,6 +94,7 @@
   <select id="findC8KeyByC7IdAndType" resultType="java.lang.Long">
     SELECT C8_KEY FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
+    ORDER BY C7_ID
     <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 

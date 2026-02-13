@@ -11,15 +11,14 @@ import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
 import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.impl.EntityConversionService;
 import io.camunda.migration.data.impl.SchemaShutdownCleaner;
 import io.camunda.migration.data.impl.AutoDeployer;
-import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.mybatis.C8Configuration;
 import io.camunda.migration.data.config.mybatis.MigratorConfiguration;
-import io.camunda.migration.data.config.property.DataSourceProperties;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
@@ -40,26 +39,19 @@ import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 
 import io.camunda.migration.data.impl.identity.DefinitionLookupService;
-import java.util.Optional;
-import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.camunda.bpm.engine.impl.history.HistoryLevel;
 import org.camunda.bpm.engine.spring.ProcessEngineFactoryBean;
 import org.camunda.bpm.engine.spring.SpringProcessEngineConfiguration;
 import org.camunda.bpm.engine.spring.SpringProcessEngineServicesConfiguration;
 import org.camunda.spin.plugin.impl.SpinProcessEnginePlugin;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.transaction.PlatformTransactionManager;
 
 @Import({
     SpringProcessEngineServicesConfiguration.class,
@@ -90,7 +82,8 @@ import org.springframework.transaction.PlatformTransactionManager;
     UserTaskMigrator.class,
     VariableMigrator.class,
     AuditLogMigrator.class,
-    SchemaShutdownCleaner.class
+    SchemaShutdownCleaner.class,
+    DataSourceRegistry.class
 })
 @Configuration
 @EnableConfigurationProperties(MigratorProperties.class)
@@ -109,75 +102,17 @@ public class MigratorAutoConfiguration {
     return liquibase;
   }
 
-  @Configuration
-  static class DataSourcesConfiguration {
-
-    protected final MigratorProperties migratorProperties;
-
-    DataSourcesConfiguration(MigratorProperties migratorProperties) {
-      this.migratorProperties = migratorProperties;
-    }
-
-    @Bean
-    @Primary
-    public DataSource c7DataSource() {
-      DataSourceProperties props = migratorProperties.getC7().getDataSource();
-      if (props.getJdbcUrl() == null) {
-        return createDefaultDataSource(props);
-      }
-      return new HikariDataSource(props);
-    }
-
-    @Bean
-    public PlatformTransactionManager c7TransactionManager(DataSource c7DataSource) {
-      return new DataSourceTransactionManager(c7DataSource);
-    }
-
-    @Bean
-    @Conditional(C8DataSourceConfigured.class)
-    public DataSource c8DataSource() {
-      DataSourceProperties props = migratorProperties.getC8().getDataSource();
-      if (props.getJdbcUrl() == null) {
-        return createDefaultDataSource(props);
-      }
-      return new HikariDataSource(props);
-    }
-
-    @Bean
-    public DataSource migratorDataSource(@Qualifier("c7DataSource") DataSource c7DataSource,
-                                         @Qualifier("c8DataSource") Optional<DataSource> c8DataSource) {
-      // Always prefer C8 datasource when configured (for both runtime and history migration)
-      // This ensures the migration schema is on the same datasource as the migrated data,
-      // providing true single-transaction atomicity without cross-datasource coordination
-      return c8DataSource.orElse(c7DataSource);
-    }
-
-    @Bean
-    @Primary
-    @Conditional(C8DataSourceConfigured.class)
-    public PlatformTransactionManager c8TransactionManager(@Qualifier("migratorDataSource") DataSource migratorDataSource) {
-      return new DataSourceTransactionManager(migratorDataSource);
-    }
-
-    protected HikariDataSource createDefaultDataSource(DataSourceProperties props) {
-      props.setJdbcUrl("jdbc:h2:mem:migrator");
-      return new HikariDataSource(props);
-    }
-  }
-
-  @Autowired
-  protected DataSource c7DataSource;
-
-  @Autowired
-  protected PlatformTransactionManager c7TransactionManager;
-
   @Bean
   @ConditionalOnMissingBean(ProcessEngineConfigurationImpl.class)
-  public ProcessEngineConfigurationImpl processEngineConfiguration() {
+  public ProcessEngineConfigurationImpl processEngineConfiguration(DataSourceRegistry registry) {
     var config = new SpringProcessEngineConfiguration();
-    config.setDataSource(c7DataSource);
-    config.setTransactionManager(c7TransactionManager);
+
+    config.setDataSource(registry.getC7DataSource());
+    config.setTransactionManager(registry.getC7TxManager());
+
     config.setHistory(HISTORY_AUTO);
+    config.setHistoryLevel(HistoryLevel.HISTORY_LEVEL_FULL);
+
     config.setJobExecutorActivate(false);
     config.setMetricsEnabled(false);
 
@@ -201,7 +136,6 @@ public class MigratorAutoConfiguration {
     protected ProcessEngineConfigurationImpl processEngineConfiguration;
 
     @Bean
-    @DependsOn({"migratorDataSource", "c7DataSource"})
     public ProcessEngineFactoryBean processEngineFactoryBean() {
       final ProcessEngineFactoryBean factoryBean = new ProcessEngineFactoryBean();
       factoryBean.setProcessEngineConfiguration(processEngineConfiguration);

@@ -34,7 +34,7 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, Var
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_VARIABLE,
         c7Client::getHistoricVariableInstance,
         c7Client::fetchAndHandleHistoricVariables

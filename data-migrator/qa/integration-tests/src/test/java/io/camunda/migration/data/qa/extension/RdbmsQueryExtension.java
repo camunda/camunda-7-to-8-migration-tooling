@@ -7,8 +7,10 @@
  */
 package io.camunda.migration.data.qa.extension;
 
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -51,22 +53,22 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
 
   private static ApplicationContext applicationContext;
   private JdbcTemplate jdbcTemplate;
-  private final String dataSourceBeanName;
+  private final Function<DataSourceRegistry, DataSource> dataSourceSelector;
 
   /**
-   * Creates extension using the default C8 data source.
+   * Creates extension using the migrator data source (C8 when configured, otherwise C7).
    */
   public RdbmsQueryExtension() {
-    this("c8DataSource");
+    this(DataSourceRegistry::getMigratorDataSource);
   }
 
   /**
-   * Creates extension using a specific data source bean name.
+   * Creates extension using a specific data source from the registry.
    *
-   * @param dataSourceBeanName the name of the DataSource bean to use
+   * @param dataSourceSelector function to select the data source from the registry
    */
-  public RdbmsQueryExtension(String dataSourceBeanName) {
-    this.dataSourceBeanName = dataSourceBeanName;
+  public RdbmsQueryExtension(Function<DataSourceRegistry, DataSource> dataSourceSelector) {
+    this.dataSourceSelector = dataSourceSelector;
   }
 
   @Override
@@ -81,7 +83,8 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
     }
 
     if (jdbcTemplate == null && applicationContext != null) {
-      DataSource dataSource = applicationContext.getBean(dataSourceBeanName, DataSource.class);
+      DataSourceRegistry registry = applicationContext.getBean(DataSourceRegistry.class);
+      DataSource dataSource = dataSourceSelector.apply(registry);
       jdbcTemplate = new JdbcTemplate(dataSource);
     }
   }

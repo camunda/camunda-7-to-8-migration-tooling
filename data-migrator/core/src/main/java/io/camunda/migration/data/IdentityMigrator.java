@@ -12,6 +12,7 @@ import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 
 import io.camunda.client.api.response.CreateAuthorizationResponse;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
@@ -51,6 +52,9 @@ public class IdentityMigrator {
   @Autowired
   protected AuthorizationManager authorizationManager;
 
+  @Autowired
+  protected DataSourceRegistry dataSourceRegistry;
+
   public void start() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
@@ -87,12 +91,18 @@ public class IdentityMigrator {
 
   protected void migrateTenants() {
     IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.TENANT);
-    fetchTenantsToMigrate(this::migrateTenant);
+
+    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+    fetchTenantsToMigrate(tenant ->
+        txTemplate.executeWithoutResult(status -> migrateTenant(tenant)));
   }
 
   protected void migrateAuthorizations() {
     IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.AUTHORIZATION);
-    fetchAuthorizationsToMigrate(this::migrateAuthorization);
+
+    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+    fetchAuthorizationsToMigrate(authorization ->
+        txTemplate.executeWithoutResult(status -> migrateAuthorization(authorization)));
   }
 
   protected void migrateTenant(Tenant tenant) {

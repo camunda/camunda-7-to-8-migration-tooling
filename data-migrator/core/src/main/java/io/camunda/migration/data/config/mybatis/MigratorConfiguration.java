@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import java.util.Properties;
 import javax.sql.DataSource;
@@ -25,18 +26,18 @@ import org.springframework.context.annotation.Configuration;
 public class MigratorConfiguration extends AbstractConfiguration {
 
   @Autowired
-  @Qualifier("migratorDataSource")
-  protected DataSource dataSource;
+  protected DataSourceRegistry dataSourceRegistry;
 
   @Bean
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX, name = "auto-ddl", havingValue = "true")
   public MultiTenantSpringLiquibase createMigratorSchema() {
-    return createSchema(dataSource, configProperties.getTablePrefix(), "db/changelog/migrator/db.changelog-master.yaml",
+    return createSchema(dataSourceRegistry.getMigratorDataSource(), configProperties.getTablePrefix(), "db/changelog/migrator/db.changelog-master.yaml",
         null);
   }
 
   @Bean
   public SqlSessionFactory migratorSqlSessionFactory() throws Exception {
+    DataSource dataSource = dataSourceRegistry.getMigratorDataSource();
     DbVendorProvider dbVendorProvider = new DbVendorProvider(getC7OrC8DbVendor());
     String dbVendor = dbVendorProvider.getDatabaseId(dataSource);
     Properties properties = loadPropertiesFile(dbVendor, "db/properties/" + dbVendor + ".properties");
