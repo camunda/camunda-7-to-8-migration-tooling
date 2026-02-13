@@ -17,13 +17,9 @@ import java.util.List;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
-
-
-  // TODO test with completed and non completed user task (and resolved and unresolved inc)
 
   @Test
   public void shouldMigrateIncidentTenant() {
@@ -51,9 +47,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    Task task = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult();
-    String executionId = task.getExecutionId();
-    runtimeService.createIncident("foo", executionId, "bar");
+    createIncident("userTaskId");
 
     HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
         .processInstanceId(c7ProcessInstance.getId())
@@ -76,11 +70,11 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
     assertThat(incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
     assertThat(incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
+    assertThat(incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ProcessInstance.getProcessDefinitionKey()));
+    assertThat(incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ProcessInstance.getProcessDefinitionKey()));
 
     // non-null values
     assertThat(incident.incidentKey()).isNotNull();
-    assertThat(incident.processInstanceKey()).isNotNull();
-    assertThat(incident.rootProcessInstanceKey()).isNotNull();
     assertThat(incident.creationTime()).isNotNull();
     assertThat(incident.flowNodeInstanceKey()).isNotNull();
 
@@ -89,42 +83,52 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  @Disabled // TODO
   public void shouldMigrateIncidentForNestedProcessInstance() {
     // given nested processes with incident in child instance
-    deployer.deployCamunda7Process("incidentCallerProcess.bpmn");
-    deployer.deployCamunda7Process("incidentProcess.bpmn");
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    ProcessInstance parentProcess = runtimeService.startProcessInstanceByKey("callingProcessId");
+    ProcessInstance childProcess = runtimeService.createProcessInstanceQuery().processDefinitionKey("calledProcessInstanceId").singleResult();
+    createIncident("userTaskId"); // create incident in child's task
 
-    ProcessInstance instance = runtimeService.startProcessInstanceByKey("incidentProcessId");
-    triggerIncident(instance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery().singleResult();
-    assertThat(c7Incident).isNotNull();
+    HistoricIncident c7ChildIncident = historyService.createHistoricIncidentQuery().processInstanceId(childProcess.getProcessInstanceId()).singleResult();
+    assertThat(c7ChildIncident).isNotNull();
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
     assertThat(incidents).isNotEmpty();
 
     IncidentEntity incident = incidents.getFirst();
 
     // specific values
     assertThat(incident.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-    assertThat(incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7Incident.getProcessDefinitionKey()));
-    assertThat(incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
-    assertThat(incident.state()).isEqualTo(IncidentEntity.IncidentState.ACTIVE);
-    assertThat(incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    assertThat(incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ChildIncident.getProcessDefinitionKey()));
+    assertThat(incident.flowNodeId()).isEqualTo(c7ChildIncident.getActivityId());
+    assertThat(incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
+    assertThat(incident.errorMessage()).isEqualTo(c7ChildIncident.getIncidentMessage());
+    assertThat(incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(childProcess.getProcessDefinitionKey()));
+    assertThat(incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(parentProcess.getProcessDefinitionKey()));
+    assertThat(incident.flowNodeId()).isEqualTo(c7ChildIncident.getActivityId());
 
     // non-null values
     assertThat(incident.incidentKey()).isNotNull();
-    assertThat(incident.processInstanceKey()).isNotNull();
-    assertThat(incident.rootProcessInstanceKey()).isNotNull();
     assertThat(incident.creationTime()).isNotNull();
+    assertThat(incident.flowNodeInstanceKey()).isNotNull();
 
     // null values
-    assertThat(incident.jobKey()).isNull(); // TODO shouldn't be null?
-    assertThat(incident.flowNodeInstanceKey()).isNull(); // TODO shouldn't be null
+    assertThat(incident.jobKey()).isNull();
+  }
+
+  protected Long findMigratedProcessInstanceKey(String processDefinitionKey) {
+    return searchHistoricProcessInstances(processDefinitionKey).getFirst().processInstanceKey();
+  }
+
+  protected void createIncident(String taskId) {
+    Task task = taskService.createTaskQuery().taskDefinitionKey(taskId).singleResult();
+    String executionId = task.getExecutionId();
+    runtimeService.createIncident("foo", executionId, "bar");
   }
 }
