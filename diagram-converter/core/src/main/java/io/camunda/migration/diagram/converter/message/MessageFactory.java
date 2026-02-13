@@ -515,6 +515,18 @@ public class MessageFactory {
         ContextBuilder.builder().entry("language", language).entry("script", script).build());
   }
 
+  public static Message deleteEventFilterOnConditionalEvent(String elementId) {
+    return INSTANCE.composeMessage(
+        "delete-variable-event-not-supported",
+        ContextBuilder.builder().entry("elementId", elementId).build());
+  }
+
+  public static Message missingIdOnConditionalEventDefinition(String parentElementId) {
+    return INSTANCE.composeMessage(
+        "conditional-event-definition-missing-id",
+        ContextBuilder.builder().entry("parentElementId", parentElementId).build());
+  }
+
   public static Message oldInAllHint() {
     return INSTANCE.staticMessage("old-in-all-hint");
   }
