@@ -427,6 +427,8 @@ jobs:
   it-history-mysql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
@@ -467,6 +469,8 @@ jobs:
   it-history-mariadb:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
@@ -507,6 +511,8 @@ jobs:
   it-history-sqlserver:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
