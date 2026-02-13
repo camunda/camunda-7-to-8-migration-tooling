@@ -158,3 +158,5 @@ io.camunda.migration.diagram.converter.visitor.impl.dmn.LiteralExpressionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.OutputValuesVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.InputValuesVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.VariableVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.ModelerTemplateVersionVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.ModelerTemplateVisitor

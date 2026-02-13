@@ -55,7 +55,8 @@ public class DiagramConverterTest {
         "start-event-form-ref-deployment.bpmn",
         "task-listener-timeout.bpmn",
         "signal-throw-in.bpmn",
-        "subprocess-with-start-event.bpmn"
+        "subprocess-with-start-event.bpmn",
+        "element-template.bpmn"
       })
   public void shouldConvertBpmn(String bpmnFile) {
     DiagramConverter converter = DiagramConverterFactory.getInstance().get();
@@ -512,5 +513,13 @@ public class DiagramConverterTest {
                 .getAttribute("type"))
         .isEqualTo("=if legacyId != null then \"migrator\" else \"noop\"");
     assertThat(subprocessStartEvent.getChildElementsByNameNs(BPMN, "extensionElements")).isEmpty();
+  }
+
+  @Test
+  void shouldTransferModelerTemplateToZeebeNamespace() {
+    BpmnModelInstance bpmnModelInstance = loadAndConvert("element-template.bpmn");
+    DomElement templatedTask = bpmnModelInstance.getDocument().getElementById("templatedTask");
+    assertThat(templatedTask.getAttribute(ZEEBE, "modelerTemplate")).isEqualTo("test");
+    assertThat(templatedTask.getAttribute(ZEEBE, "modelerTemplateVersion")).isEqualTo("1");
   }
 }

@@ -8,10 +8,11 @@
 package io.camunda.migration.diagram.converter.conversion;
 
 import static io.camunda.migration.diagram.converter.BpmnElementFactory.*;
+import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 
-import io.camunda.migration.diagram.converter.NamespaceUri;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.BpmnMultiInstanceLoopCharacteristics;
+import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.ZeebeElementTemplate;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.ZeebeLoopCharacteristics;
 import org.camunda.bpm.model.xml.instance.DomDocument;
 import org.camunda.bpm.model.xml.instance.DomElement;
@@ -27,6 +28,20 @@ public class ActivityConversion extends AbstractTypedConversion<AbstractActivity
   public final void convertTyped(DomElement element, AbstractActivityConvertible convertible) {
     if (convertible.wasLoopCharacteristicsInitialized()) {
       createMultiInstance(element, convertible.getBpmnMultiInstanceLoopCharacteristics());
+    }
+    if (convertible.getZeebeElementTemplate() != null) {
+      createElementTemplate(element, convertible.getZeebeElementTemplate());
+    }
+  }
+
+  private void createElementTemplate(
+      DomElement element, ZeebeElementTemplate zeebeElementTemplate) {
+    if (zeebeElementTemplate.getModelerTemplate() != null) {
+      element.setAttribute(ZEEBE, "modelerTemplate", zeebeElementTemplate.getModelerTemplate());
+    }
+    if (zeebeElementTemplate.getModelerTemplateVersion() != null) {
+      element.setAttribute(
+          ZEEBE, "modelerTemplateVersion", zeebeElementTemplate.getModelerTemplateVersion());
     }
   }
 
@@ -49,8 +64,7 @@ public class ActivityConversion extends AbstractTypedConversion<AbstractActivity
   private DomElement createLoopCharacteristics(
       DomDocument document,
       BpmnMultiInstanceLoopCharacteristics bpmnMultiInstanceLoopCharacteristics) {
-    DomElement loopCharacteristics =
-        document.createElement(NamespaceUri.ZEEBE, "loopCharacteristics");
+    DomElement loopCharacteristics = document.createElement(ZEEBE, "loopCharacteristics");
     ZeebeLoopCharacteristics zbLoopCharacteristics =
         bpmnMultiInstanceLoopCharacteristics.getZeebeLoopCharacteristics();
     if (zbLoopCharacteristics.getInputCollection() != null) {

@@ -161,7 +161,7 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
 
       Date evaluationTime = c7DecisionInstance.getEvaluationTime();
       Date removalTime = c7DecisionInstance.getRemovalTime();
-      builder.historyCleanupDate(calculateHistoryCleanupDateForChild(convertDate(evaluationTime), removalTime));
+      builder.historyCleanupDate(calculateHistoryCleanupDateForChild(evaluationTime, removalTime));
 
       DecisionInstanceDbModel dbModel = convert(C7Entity.of(c7DecisionInstance), builder);
 

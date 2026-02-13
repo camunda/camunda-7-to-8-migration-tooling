@@ -8,13 +8,13 @@
 package io.camunda.migration.data.qa.history;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.qa.util.DateTimeAssert.*;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USER_TASK;
 import static io.camunda.search.entities.UserTaskEntity.UserTaskState.CANCELED;
 import static io.camunda.search.entities.UserTaskEntity.UserTaskState.COMPLETED;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
 
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
@@ -23,6 +23,7 @@ import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.RuntimeService;
@@ -442,13 +443,15 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     Long processInstanceKey = migratedInstance.processInstanceKey();
     OffsetDateTime processInstanceEndDate = migratedInstance.endDate();
 
-    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(processInstanceKey);
+    List<UserTaskEntity> userTasks = historyMigration.searchHistoricUserTasks(processInstanceKey)
+        .stream().sorted(Comparator.comparing(UserTaskEntity::completionDate)).toList();
     assertThat(userTasks).hasSize(2);
 
-    assertThat(userTasks).extracting("completionDate", "state").containsExactlyInAnyOrder(
-        tuple(convertDate(taskCompletionTime), COMPLETED),
-        tuple(processInstanceEndDate, CANCELED)
-    );
+    assertThatDateTime(userTasks.getFirst().completionDate()).isEqualToLocalTime(taskCompletionTime);
+    assertThat(userTasks.getFirst().state()).isEqualTo(COMPLETED);
+
+    assertThatDateTime(userTasks.getLast().completionDate()).isEqualToLocalTime(processInstanceEndDate);
+    assertThat(userTasks.getLast().state()).isEqualTo(CANCELED);
   }
 
 }
