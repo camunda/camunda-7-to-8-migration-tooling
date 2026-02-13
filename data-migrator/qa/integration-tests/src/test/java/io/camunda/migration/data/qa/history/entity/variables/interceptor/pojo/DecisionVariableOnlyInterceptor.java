@@ -27,7 +27,7 @@ public class DecisionVariableOnlyInterceptor implements VariableInterceptor {
 
   @Override
   public void execute(VariableContext context) {
-    context.setC8Value("DECISION_" + context.getC7Value());
+    context.setC8Value(String.format("\"DECISION_%s\"", context.getC7Value()));
   }
 }
 

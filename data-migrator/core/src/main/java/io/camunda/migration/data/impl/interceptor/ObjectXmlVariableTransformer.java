@@ -41,7 +41,7 @@ public class ObjectXmlVariableTransformer implements VariableInterceptor {
       logStartExecution(this.getClass(), context.getName());
 
       String xmlValue = objectValue.getValueSerialized();
-      context.setC8Value(xmlValue);
+      context.setC8Value(context.isHistory() ? String.format("\"%s\"", xmlValue) : xmlValue);
       logEndExecution(this.getClass(), context.getName());
     }
   }

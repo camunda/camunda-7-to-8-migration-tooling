@@ -54,8 +54,8 @@ public class HistoryMixedConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // then both interceptors should have executed
-    assertVariableExists("varIntercept", "\"Hello\""); // Transformed by Spring @Component interceptor
-    assertVariableExists("var", "\"transformedValue\""); // Transformed by declarative interceptor
+    assertVariableExists("varIntercept", "Hello"); // Transformed by Spring @Component interceptor
+    assertVariableExists("var", "transformedValue"); // Transformed by declarative interceptor
 
     // verify both interceptors logged their messages
     assertThat(output.getOut()).contains("Hello from interceptor"); // From ComplexVariableInterceptor
