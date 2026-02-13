@@ -18,7 +18,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
@@ -307,7 +306,7 @@ public abstract class BaseMigrator<C7, C8> {
    * @param c7RemovalTime the C7 removal time of the child entity
    * @return the calculated history cleanup date, or null if auto-cancel TTL is disabled
    */
-  protected OffsetDateTime calculateHistoryCleanupDateForChild(OffsetDateTime processInstanceEndDate, Date c7RemovalTime) {
+  protected OffsetDateTime calculateHistoryCleanupDateForChild(Date processInstanceEndDate, Date c7RemovalTime) {
     // If C7 already has a removalTime, use it directly
     if (c7RemovalTime != null) {
       return convertDate(c7RemovalTime);
@@ -318,7 +317,7 @@ public abstract class BaseMigrator<C7, C8> {
     if (ttl == null || ttl.isZero()) {
       return null;
     }
-    return processInstanceEndDate.plus(ttl);
+    return convertDate(processInstanceEndDate).plus(ttl);
   }
 
   /**

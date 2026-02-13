@@ -515,6 +515,18 @@ public class MessageFactory {
         ContextBuilder.builder().entry("language", language).entry("script", script).build());
   }
 
+  public static Message deleteEventFilterOnConditionalEvent(String elementId) {
+    return INSTANCE.composeMessage(
+        "delete-variable-event-not-supported",
+        ContextBuilder.builder().entry("elementId", elementId).build());
+  }
+
+  public static Message missingIdOnConditionalEventDefinition(String parentElementId) {
+    return INSTANCE.composeMessage(
+        "conditional-event-definition-missing-id",
+        ContextBuilder.builder().entry("parentElementId", parentElementId).build());
+  }
+
   public static Message oldInAllHint() {
     return INSTANCE.staticMessage("old-in-all-hint");
   }
@@ -631,6 +643,14 @@ public class MessageFactory {
 
   public static Message allInSignalEvent() {
     return INSTANCE.staticMessage("all-in-signal-event");
+  }
+
+  public static Message modelerTemplate() {
+    return INSTANCE.staticMessage("modeler-template");
+  }
+
+  public static Message modelerTemplateVersion() {
+    return INSTANCE.staticMessage("modeler-template-version");
   }
 
   private ComposedMessage composeMessage(String templateName, Map<String, String> context) {
