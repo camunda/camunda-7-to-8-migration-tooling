@@ -21,6 +21,7 @@ import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.history.migrator.BaseMigrator;
 import io.camunda.migration.data.impl.logging.RuntimeMigratorLogs;
 import io.camunda.migration.data.impl.model.FlowNode;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -35,7 +36,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class RuntimeMigrator {
@@ -58,6 +61,10 @@ public class RuntimeMigrator {
   @Autowired
   protected MigratorProperties migratorProperties;
 
+  @Autowired
+  @Lazy
+  protected RuntimeMigrator self;
+
   protected MigratorMode mode = MIGRATE;
 
   public void start() {
@@ -77,20 +84,24 @@ public class RuntimeMigrator {
 
   protected void migrate() {
     fetchProcessInstancesToMigrate(c7ProcessInstance -> {
-      String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
-      Date createTime = c7ProcessInstance.getCreateTime();
-
-      String skipReason = getSkipReason(c7ProcessInstanceId);
-      if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
-        startProcessInstance(c7ProcessInstanceId, createTime);
-      } else if (isUnknown(c7ProcessInstanceId)) {
-        dbClient.insert(c7ProcessInstanceId, (Long) null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
-      } else {
-        dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
-      }
+      self.migrateTransactionally(c7ProcessInstance);
     });
 
     activateMigratorJobs();
+  }
+
+  @Transactional("c8TransactionManager")
+  protected void migrateTransactionally(IdKeyDbModel c7ProcessInstance) {
+    String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
+    Date createTime = c7ProcessInstance.getCreateTime();
+    String skipReason = getSkipReason(c7ProcessInstanceId);
+    if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
+      startProcessInstance(c7ProcessInstanceId, createTime);
+    } else if (isUnknown(c7ProcessInstanceId)) {
+      dbClient.insert(c7ProcessInstanceId, (Long) null, createTime, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+    } else {
+      dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
+    }
   }
 
   protected String getSkipReason(String c7ProcessInstanceId) {
