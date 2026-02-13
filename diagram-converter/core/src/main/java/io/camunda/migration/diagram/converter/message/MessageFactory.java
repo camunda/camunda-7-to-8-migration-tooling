@@ -527,6 +527,16 @@ public class MessageFactory {
         ContextBuilder.builder().entry("parentElementId", parentElementId).build());
   }
 
+  public static Message generatedIdOnConditionalEventDefinition(
+      String parentElementId, String generatedId) {
+    return INSTANCE.composeMessage(
+        "conditional-event-definition-generated-id",
+        ContextBuilder.builder()
+            .entry("parentElementId", parentElementId)
+            .entry("generatedId", generatedId)
+            .build());
+  }
+
   public static Message oldInAllHint() {
     return INSTANCE.staticMessage("old-in-all-hint");
   }
