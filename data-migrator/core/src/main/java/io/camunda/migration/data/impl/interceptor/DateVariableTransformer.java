@@ -42,6 +42,13 @@ public class DateVariableTransformer implements VariableInterceptor {
     logConvertingDate(context.getName());
     String formattedDate = new SimpleDateFormat(DATE_FORMAT_PATTERN).format(dateValue.getValue());
     logConvertedDate(context.getName(), dateValue.getValue(), formattedDate);
-    context.setC8Value(formattedDate);
+
+    if (context.isHistory()) {
+      context.setC8Value(String.format("\"%s\"", formattedDate));
+
+    } else if (context.isRuntime()) {
+      context.setC8Value(formattedDate);
+
+    }
   }
 }

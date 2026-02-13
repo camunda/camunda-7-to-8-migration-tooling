@@ -23,6 +23,7 @@ import io.camunda.migration.data.impl.interceptor.ObjectXmlVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinJsonVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinXmlVariableTransformer;
+import io.camunda.migration.data.impl.interceptor.StringVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.AuditLogTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
@@ -312,6 +313,11 @@ public class InterceptorConfiguration {
   @Bean
   public PrimitiveVariableTransformer primitiveVariableTransformer() {
     return new PrimitiveVariableTransformer();
+  }
+
+  @Bean
+  public StringVariableTransformer stringVariableTransformer() {
+    return new StringVariableTransformer();
   }
 
   @Bean
