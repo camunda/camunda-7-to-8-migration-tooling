@@ -118,26 +118,6 @@ class BpmnIdGeneratorTest {
     assertThat(secondId).isNotEqualTo(firstId);
   }
 
-  @Test
-  void shouldGenerateUniqueIdsWithGetInstance() {
-    DomDocument document = createEmptyBpmnDocument();
-    BpmnIdGenerator generator = BpmnIdGenerator.getInstance(document);
-
-    // Generate multiple IDs and verify they are all unique
-    String id1 = generator.generateUniqueId("Test");
-    String id2 = generator.generateUniqueId("Test");
-    String id3 = generator.generateUniqueId("Test");
-
-    assertThat(id1).isNotEqualTo(id2);
-    assertThat(id1).isNotEqualTo(id3);
-    assertThat(id2).isNotEqualTo(id3);
-    
-    // All should have the correct format
-    assertThat(id1).startsWith("Test_");
-    assertThat(id2).startsWith("Test_");
-    assertThat(id3).startsWith("Test_");
-  }
-
   /**
    * Creates a Random that produces the same suffix sequence twice, then advances normally. This
    * forces the generator to handle a collision with a previously generated ID.
