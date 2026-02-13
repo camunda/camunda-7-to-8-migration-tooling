@@ -7,12 +7,12 @@
  */
 package io.camunda.migration.diagram.converter;
 
-import java.security.SecureRandom;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import org.camunda.bpm.model.xml.instance.DomDocument;
 
 /**
@@ -55,7 +55,8 @@ public final class BpmnIdGenerator {
    * @return the generator instance for this document
    */
   public static synchronized BpmnIdGenerator getInstance(DomDocument document) {
-    return INSTANCES.computeIfAbsent(document, doc -> new BpmnIdGenerator(doc, new SecureRandom()));
+    return INSTANCES.computeIfAbsent(
+        document, doc -> new BpmnIdGenerator(doc, ThreadLocalRandom.current()));
   }
 
   /**
