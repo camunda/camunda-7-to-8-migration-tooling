@@ -12,6 +12,7 @@ import static io.camunda.migration.diagram.converter.NamespaceUri.CAMUNDA;
 import static io.camunda.migration.diagram.converter.NamespaceUri.ZEEBE;
 
 import io.camunda.migration.diagram.converter.BpmnElementFactory;
+import io.camunda.migration.diagram.converter.BpmnIdGenerator;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
@@ -120,9 +121,13 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
     String id = conditionalEventDefinition.getAttribute("id");
     if (StringUtils.isBlank(id)) {
+      BpmnIdGenerator idGenerator = BpmnIdGenerator.getInstance(context.getElement().getDocument());
+      String generatedId = idGenerator.generateUniqueId("ConditionalEventDefinition");
+      conditionalEventDefinition.setAttribute("id", generatedId);
       DomElement parentEvent = conditionalEventDefinition.getParentElement();
       String parentElementId = parentEvent != null ? parentEvent.getAttribute("id") : "unknown";
-      context.addMessage(MessageFactory.missingIdOnConditionalEventDefinition(parentElementId));
+      context.addMessage(
+          MessageFactory.generatedIdOnConditionalEventDefinition(parentElementId, generatedId));
     }
   }
 
