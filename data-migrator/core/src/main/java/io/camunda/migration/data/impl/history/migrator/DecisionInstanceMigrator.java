@@ -202,7 +202,7 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
   }
 
   public void migrateChildDecisionInstances(HistoricDecisionInstance c7DecisionInstance, DecisionInstanceDbModel parentDbModel) {
-    var childDecisionInstances = c7Client.findChildDecisionInstances(c7DecisionInstance.getId());
+    var childDecisionInstances = c7Client.getHistoricChildDecisionInstances(c7DecisionInstance.getId());
     for (int i = 0; i < childDecisionInstances.size(); i++) {
       var childDecisionInstance = childDecisionInstances.get(i);
       if (shouldMigrate(childDecisionInstance.getId(), TYPE.HISTORY_DECISION_INSTANCE)) {
