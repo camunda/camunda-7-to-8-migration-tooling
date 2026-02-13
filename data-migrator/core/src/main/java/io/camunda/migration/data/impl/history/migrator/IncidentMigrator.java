@@ -22,6 +22,7 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.springframework.stereotype.Service;
 
 /**
@@ -74,10 +75,10 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
         if (processInstanceKey != null) {
           var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
-//          Long jobDefinitionKey = null; // TODO jobs are not migrated yet
+//          Long jobDefinitionKey = null; // TODO when jobs are migrated
 
           builder.processDefinitionKey(processDefinitionKey)
-//              .jobKey(jobDefinitionKey) // TODO
+//              .jobKey(jobDefinitionKey) // TODO when jobs are migrated
               .flowNodeInstanceKey(flowNodeInstanceKey);
 
 
@@ -106,11 +107,13 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
     }
 
     if (dbModel.flowNodeInstanceKey() == null) {
-      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
+      if (!isServiceTask(c7Incident)) { // TODO fix missing flow node instance keys for service tasks
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
+      }
     }
 
     if (dbModel.jobKey() == null) {
-//      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO
+//      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
     }
       c8Client.insertIncident(dbModel);
 
@@ -118,6 +121,15 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
     }
 
     return null;
+  }
+
+  protected boolean isServiceTask(HistoricIncident c7Incident) {
+    return c7Client
+        .getBpmnModelInstance(c7Incident.getProcessDefinitionId())
+        .getModelElementById(c7Incident.getActivityId())
+        .getElementType()
+        .getInstanceType()
+        .isAssignableFrom(ServiceTask.class);
   }
 
 }
