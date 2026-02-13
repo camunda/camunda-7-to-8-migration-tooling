@@ -79,7 +79,7 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withUsername("camunda")
         .withPassword("camunda")
         .withReuse(true)
-        .withUrlParam("sessionVariables", "transaction_isolation='READ-COMMITTED'")
+        .withConfigurationOverride("mysql-conf")
         .withExposedPorts(3306);
     mysql.setPortBindings(List.of(MYSQL_PORT + ":3306"));
     return mysql;
@@ -91,7 +91,7 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withUsername("camunda")
         .withPassword("camunda")
         .withReuse(true)
-        .withUrlParam("sessionVariables", "transaction_isolation='READ-COMMITTED'")
+        .withConfigurationOverride("mariadb-conf")
         .withExposedPorts(3306);
     mariadb.setPortBindings(List.of(MARIADB_PORT + ":3306"));
     return mariadb;
