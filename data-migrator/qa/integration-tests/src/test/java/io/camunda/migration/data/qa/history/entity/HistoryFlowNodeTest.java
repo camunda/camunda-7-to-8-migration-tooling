@@ -23,6 +23,7 @@ import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import java.util.Set;
+import org.camunda.bpm.engine.ActivityTypes;
 import org.junit.jupiter.api.Test;
 
 public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
@@ -274,6 +275,39 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
         .extracting(FlowNodeInstanceDbModel::flowNodeName)
         .containsExactlyInAnyOrder("Start", "UserTaskName", "End");
 
+  }
+
+  @Test
+  public void shouldRemoveMultiInstanceBodySuffixFromFlowNodeId() {
+    // given
+    deployer.deployCamunda7Process("miProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("miProcess");
+
+    // Verify that C7 creates activity instances with the #multiInstanceBody suffix
+    var c7Activities = historyService.createHistoricActivityInstanceQuery()
+        .activityType(ActivityTypes.MULTI_INSTANCE_BODY)
+        .list();
+    assertThat(c7Activities).hasSize(1);
+    assertThat(c7Activities.getFirst().getActivityId()).endsWith("#multiInstanceBody");
+    String activityIdWithSuffix = c7Activities.getFirst().getActivityId();
+    String expectedActivityIdWithoutSuffix = activityIdWithSuffix.replace("#multiInstanceBody", "");
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    // Verify multi-instance body flow node has suffix removed
+    List<FlowNodeInstanceEntity> multiInstanceFlowNodes =
+        searchHistoricFlowNodesForType(processInstanceKey, FlowNodeInstanceEntity.FlowNodeType.MULTI_INSTANCE_BODY);
+    assertThat(multiInstanceFlowNodes).hasSize(1);
+    FlowNodeInstanceEntity multiInstanceFlowNode = multiInstanceFlowNodes.getFirst();
+    assertThat(multiInstanceFlowNode.flowNodeId())
+        .isEqualTo(expectedActivityIdWithoutSuffix)
+        .doesNotContain("#multiInstanceBody");
   }
 
   private void deploySubprocessModel() {
