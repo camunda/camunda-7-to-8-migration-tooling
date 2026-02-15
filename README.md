@@ -15,7 +15,8 @@ This repository contains a collection of tools to help you migrate from Camunda 
 ### [Data Migrator](./data-migrator/)
 A tool for migrating Camunda 7 process instances and related data to Camunda 8. This migrator helps organizations seamlessly transition their process instances while preserving execution state and variables ensuring minimal disruption to ongoing business processes.
 
-Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/).
+Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/migration-tooling/data-migrator/).
+                                                                                         
 
 ### [Diagram Converter](./diagram-converter/)
 A tool for analyzing and converting Camunda 7 models (BPMN & DMN) to Camunda 8 format. The Diagram Converter identifies migration tasks and automatically converts process models, with support for custom extensions to accommodate special requirements.
