@@ -123,7 +123,8 @@ public class ExpressionTransformer {
             .toList();
     if (nonExpressions.size() == 1
         && juelExpression.trim().length() == nonExpressions.get(0).length()) {
-      return juelExpression;
+      // Static values in FEEL expressions must be prefixed with '='
+      return dmnMode ? juelExpression : "=" + juelExpression;
     }
     List<String> expressions =
         Arrays.stream(juelExpression.split("(#|\\$)\\{|}"))
