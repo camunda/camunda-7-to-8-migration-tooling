@@ -66,7 +66,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateIncidentForCompletedTask() {
+  public void shouldMigrateIncidentBasicFieldsForCompleteTask() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
