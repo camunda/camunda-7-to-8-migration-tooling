@@ -56,7 +56,8 @@ public class DiagramConverterTest {
         "task-listener-timeout.bpmn",
         "signal-throw-in.bpmn",
         "subprocess-with-start-event.bpmn",
-        "element-template.bpmn"
+        "element-template.bpmn",
+        "static-expression-input-output.bpmn"
       })
   public void shouldConvertBpmn(String bpmnFile) {
     DiagramConverter converter = DiagramConverterFactory.getInstance().get();
@@ -441,6 +442,34 @@ public class DiagramConverterTest {
             .filter(e -> e.getAttribute(ZEEBE, "target").equals("anotherReference"))
             .findFirst();
     assertThat(input).isEmpty();
+  }
+
+  @Test
+  void testStaticExpressionInputOutputShouldHaveEqualsPrefix() {
+    BpmnModelInstance modelInstance = loadAndConvert("static-expression-input-output.bpmn");
+    DomElement userTask = modelInstance.getDocument().getElementById("usertaskId");
+    assertThat(userTask).isNotNull();
+    DomElement extensionElements =
+        userTask.getChildElementsByNameNs(BPMN, "extensionElements").get(0);
+    assertThat(extensionElements).isNotNull();
+    DomElement ioMapping = extensionElements.getChildElementsByNameNs(ZEEBE, "ioMapping").get(0);
+    assertThat(ioMapping).isNotNull();
+    
+    // Verify input parameter has '=' prefix
+    DomElement input =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("inputMappingName"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(input.getAttribute(ZEEBE, "source")).isEqualTo("=\"inputValue\"");
+    
+    // Verify output parameter has '=' prefix
+    DomElement output =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "output").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("outputMappingName"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(output.getAttribute(ZEEBE, "source")).isEqualTo("=\"outputValue\"");
   }
 
   @Test
