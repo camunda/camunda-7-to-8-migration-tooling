@@ -21,11 +21,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@CamundaSpringProcessTest
 public class HistoryFormMigrationTest extends HistoryMigrationAbstractTest {
-
-  @Autowired
-  protected CamundaClient camundaClient;
 
   @Test
   public void shouldMigrateSingleForm() {
