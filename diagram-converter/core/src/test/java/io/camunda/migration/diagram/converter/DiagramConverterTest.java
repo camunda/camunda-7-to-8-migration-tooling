@@ -454,7 +454,6 @@ public class DiagramConverterTest {
     assertThat(extensionElements).isNotNull();
     DomElement ioMapping = extensionElements.getChildElementsByNameNs(ZEEBE, "ioMapping").get(0);
     assertThat(ioMapping).isNotNull();
-    
     // Verify input parameter has '=' prefix
     DomElement input =
         ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
@@ -462,7 +461,6 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(input.getAttribute(ZEEBE, "source")).isEqualTo("=\"inputValue\"");
-    
     // Verify output parameter has '=' prefix
     DomElement output =
         ioMapping.getChildElementsByNameNs(ZEEBE, "output").stream()
