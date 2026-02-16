@@ -521,12 +521,6 @@ public class MessageFactory {
         ContextBuilder.builder().entry("elementId", elementId).build());
   }
 
-  public static Message missingIdOnConditionalEventDefinition(String parentElementId) {
-    return INSTANCE.composeMessage(
-        "conditional-event-definition-missing-id",
-        ContextBuilder.builder().entry("parentElementId", parentElementId).build());
-  }
-
   public static Message generatedIdOnConditionalEventDefinition(
       String parentElementId, String generatedId) {
     return INSTANCE.composeMessage(
