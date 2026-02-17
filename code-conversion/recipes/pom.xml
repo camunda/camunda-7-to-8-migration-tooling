@@ -154,12 +154,12 @@
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-external-task-client-4</artifactId>
       <version>${version.camunda-7}</version>
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-test-4</artifactId>
       <version>${version.camunda-7}</version>
     </dependency>
     <dependency>
