@@ -145,8 +145,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>AUTHORIZATION → AUTHORIZATION</li>
    *   <li>INCIDENT → INCIDENT</li>
    *   <li>PROCESS_DEFINITION, DEPLOYMENT → RESOURCE</li>
-   *   <li>"Group membership" → GROUP (membership operations)</li>
-   *   <li>"Tenant membership" → TENANT (membership operations)</li>
+   *   <li>GROUP_MEMBERSHIP → GROUP (membership operations)</li>
+   *   <li>TENAT_MEMBERSHIP → TENANT (membership operations)</li>
    * </ul>
    * </p>
    * <p>
@@ -218,8 +218,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * </ul>
    * <h3>Membership Operations:</h3>
    * <ul>
-   *   <li>CREATE on "Group membership" or "Tenant membership" → ASSIGN</li>
-   *   <li>DELETE on "Group membership" or "Tenant membership" → UNASSIGN</li>
+   *   <li>CREATE on GROUP_MEMBERSHIP or TENANT_MEMBERSHIP → ASSIGN</li>
+   *   <li>DELETE on GROUP_MEMBERSHIP or TENANT_MEMBERSHIP → UNASSIGN</li>
    * </ul>
    *
    * @param userOperationLog the Camunda 7 user operation log entry
@@ -244,7 +244,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
 
       // ProcessInstance operations
       case UserOperationLogEntry.OPERATION_TYPE_CREATE -> {
-        // Group and Tenant membership creation maps to ASSIGN
         if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
             EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.ASSIGN;
@@ -254,11 +253,9 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       }
       case UserOperationLogEntry.OPERATION_TYPE_DELETE -> {
         if (EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
-          // ProcessInstance Delete maps to CANCEL
           yield AuditLogEntity.AuditLogOperationType.CANCEL;
         } else if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
             EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
-          // Group and Tenant membership creation maps to UNASSIGN
           yield AuditLogEntity.AuditLogOperationType.UNASSIGN;
         } else {
           yield AuditLogEntity.AuditLogOperationType.DELETE;
