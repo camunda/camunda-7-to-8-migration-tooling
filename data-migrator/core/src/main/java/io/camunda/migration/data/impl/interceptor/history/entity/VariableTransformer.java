@@ -42,7 +42,7 @@ public class VariableTransformer implements EntityInterceptor<HistoricVariableIn
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .tenantId(getTenantId(entity.getTenantId()))
         .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID);
-    // Note: processInstanceKey and scopeKey are set externally
+    // Note: processInstanceKey, scopeKey, and elementInstanceKey are set externally
   }
 
 }
