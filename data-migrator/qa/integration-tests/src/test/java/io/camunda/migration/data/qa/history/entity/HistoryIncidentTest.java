@@ -16,6 +16,7 @@ import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
@@ -110,10 +111,108 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // then
     List<IncidentEntity> incidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
-    assertThat(incidents).isNotEmpty();
+    assertThat(incidents).hasSize(1);
 
     IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7ChildIncident, childProcess, parentProcess);
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForActiveTaskWithAsyncBefore() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcessAsyncBefore.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    createIncident("userTaskId");
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    assertThat(incidents).hasSize(1);
+    IncidentEntity incident = incidents.getFirst();
+    assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForActiveTaskWithAsyncAfter() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcessAsyncAfter.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    executeJob(c7ProcessInstance);
+    createIncident("userTaskId");
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    assertThat(incidents).hasSize(1);
+    IncidentEntity incident = incidents.getFirst();
+    assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForCompleteTaskWithAsyncBefore() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcessAsyncBefore.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    createIncident("userTaskId");
+    String userTaskId = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult().getId();
+    taskService.complete(userTaskId);
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    assertThat(incidents).hasSize(1);
+    IncidentEntity incident = incidents.getFirst();
+    assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForCompleteTaskWithAsyncAfter() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcessAsyncAfter.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    executeJob(c7ProcessInstance);
+    createIncident("userTaskId");
+    String userTaskId = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult().getId();
+    taskService.complete(userTaskId);
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    assertThat(incidents).hasSize(1);
+    IncidentEntity incident = incidents.getFirst();
+    assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
   private void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {
@@ -134,6 +233,17 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // null values
     assertThat(c8Incident.jobKey()).isNull();
+  }
+
+  protected void executeJob(ProcessInstance c7ProcessInstance) {
+    Job job = managementService
+        .createJobQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+
+    if (job != null) {
+      managementService.executeJob(job.getId());
+    }
   }
 
   protected Long findMigratedProcessInstanceKey(String processDefinitionKey) {

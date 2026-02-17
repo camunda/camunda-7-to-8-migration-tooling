@@ -69,17 +69,15 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
       var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
 
       var builder = new Builder();
+      var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
+      builder.processDefinitionKey(processDefinitionKey);
       if (c7ProcessInstance != null) {
         var processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
           var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
-          var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
-//          Long jobDefinitionKey = null; // TODO when jobs are migrated
-
-          builder.processDefinitionKey(processDefinitionKey)
-//              .jobKey(jobDefinitionKey) // TODO when jobs are migrated
-              .flowNodeInstanceKey(flowNodeInstanceKey);
+          builder.flowNodeInstanceKey(flowNodeInstanceKey);
+//          .jobKey(jobDefinitionKey) // TODO when jobs are migrated
 
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();

@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
@@ -190,7 +191,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // then: Incidents are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("failingServiceTaskProcessId")).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_DEFINITION));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE));
   }
 
   @Test
@@ -231,7 +232,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // and verify logs don't contain any additional skip operations for this process instance
     assertThat(logs.getEvents()
         .stream()
-        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_DEFINITION)))
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE)))
         .toList()
         ).hasSize(1); // Only the first skip from phase 1
   }
