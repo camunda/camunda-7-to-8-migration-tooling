@@ -22,7 +22,6 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
-import org.camunda.bpm.model.bpmn.instance.ServiceTask;
 import org.springframework.stereotype.Service;
 
 /**
@@ -105,7 +104,7 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
     }
 
     if (dbModel.flowNodeInstanceKey() == null) {
-      if (!isServiceTask(c7Incident)) { // TODO fix missing flow node instance keys for service tasks
+      if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) { // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
         throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
       }
     }
@@ -119,15 +118,6 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
     }
 
     return null;
-  }
-
-  protected boolean isServiceTask(HistoricIncident c7Incident) {
-    return c7Client
-        .getBpmnModelInstance(c7Incident.getProcessDefinitionId())
-        .getModelElementById(c7Incident.getActivityId())
-        .getElementType()
-        .getInstanceType()
-        .isAssignableFrom(ServiceTask.class);
   }
 
 }

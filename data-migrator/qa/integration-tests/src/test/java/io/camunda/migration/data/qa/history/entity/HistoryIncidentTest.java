@@ -123,6 +123,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcessAsyncBefore.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
+    executeJob(c7ProcessInstance);
     createIncident("userTaskId");
 
     HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
@@ -146,7 +147,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcessAsyncAfter.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    executeJob(c7ProcessInstance);
     createIncident("userTaskId");
 
     HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
@@ -170,6 +170,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcessAsyncBefore.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
+    executeJob(c7ProcessInstance);
     createIncident("userTaskId");
     String userTaskId = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult().getId();
     taskService.complete(userTaskId);
@@ -195,7 +196,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcessAsyncAfter.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
-    executeJob(c7ProcessInstance);
     createIncident("userTaskId");
     String userTaskId = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult().getId();
     taskService.complete(userTaskId);
@@ -213,6 +213,45 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(incidents).hasSize(1);
     IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForServiceTask() {
+    // given
+    deployer.deployCamunda7Process("incidentProcess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("incidentProcessId");
+    triggerIncident(c7ProcessInstance.getId());
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
+    assertThat(incidents).hasSize(1);
+    IncidentEntity c8Incident = incidents.getFirst();
+
+    // specific values
+    assertThat(c8Incident.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(c8Incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ProcessInstance.getProcessDefinitionKey()));
+    assertThat(c8Incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
+    assertThat(c8Incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
+    assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    assertThat(c8Incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ProcessInstance.getProcessDefinitionKey()));
+    String expectedRootProcessKey = c7ProcessInstance.getProcessDefinitionKey();
+    assertThat(c8Incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(expectedRootProcessKey));
+
+    // non-null values
+    assertThat(c8Incident.incidentKey()).isNotNull();
+    assertThat(c8Incident.creationTime()).isNotNull();
+
+    // null values
+    assertThat(c8Incident.jobKey()).isNull();
+    assertThat(c8Incident.flowNodeInstanceKey()).isNull(); // service task's flow node hasn't been migrated so it doens't have a key
   }
 
   private void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {

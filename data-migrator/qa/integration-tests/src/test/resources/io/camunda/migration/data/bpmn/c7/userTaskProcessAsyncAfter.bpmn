@@ -9,7 +9,7 @@
       <bpmn:incoming>Flow_1ur86ut</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_1ur86ut" sourceRef="userTaskId" targetRef="Event_0togu4y" />
-    <bpmn:userTask id="userTaskId" name="UserTaskName" camunda:asyncBefore="true">
+    <bpmn:userTask id="userTaskId" name="UserTaskName" camunda:asyncAfter="true">
       <bpmn:incoming>Flow_0xg7od7</bpmn:incoming>
       <bpmn:outgoing>Flow_1ur86ut</bpmn:outgoing>
     </bpmn:userTask>
