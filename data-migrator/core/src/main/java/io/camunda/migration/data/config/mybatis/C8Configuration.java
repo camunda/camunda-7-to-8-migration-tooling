@@ -146,7 +146,7 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public MapperFactoryBean<JobMetricsBatchMapper> jobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+  public MapperFactoryBean<JobMetricsBatchMapper> JobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, JobMetricsBatchMapper.class);
   }
 
@@ -500,6 +500,7 @@ public class C8Configuration extends AbstractConfiguration {
       MeterRegistry meterRegistry,
       BatchOperationDbReader batchOperationReader,
       JobMapper jobMapper,
+      JobMetricsBatchMapper jobMetricsBatchMapper,
       SequenceFlowMapper sequenceFlowMapper,
       UsageMetricMapper usageMetricMapper,
       UsageMetricTUMapper usageMetricTUMapper,
@@ -524,6 +525,7 @@ public class C8Configuration extends AbstractConfiguration {
         meterRegistry,
         batchOperationReader,
         jobMapper,
+        jobMetricsBatchMapper,
         sequenceFlowMapper,
         usageMetricMapper,
         usageMetricTUMapper,
