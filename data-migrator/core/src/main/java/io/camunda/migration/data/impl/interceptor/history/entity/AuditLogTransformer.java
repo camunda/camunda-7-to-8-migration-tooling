@@ -59,7 +59,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * timestamp, and historyCleanupDate are set externally by AuditLogMigrator.
    * </p>
    *
-   * @param context the entity conversion context containing the C7 entity and C8 builder
+   * @param userOperationLog the Camunda 7 user operation log entry to transform
+   * @param builder the Camunda 8 audit log builder to populate with converted data
    * @throws EntityInterceptorException if the C8 builder is null or conversion fails
    */
   @Override
@@ -144,6 +145,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>AUTHORIZATION → AUTHORIZATION</li>
    *   <li>INCIDENT → INCIDENT</li>
    *   <li>PROCESS_DEFINITION, DEPLOYMENT → RESOURCE</li>
+   *   <li>GROUP_MEMBERSHIP → GROUP (membership operations)</li>
+   *   <li>TENAT_MEMBERSHIP → TENANT (membership operations)</li>
    * </ul>
    * </p>
    * <p>
@@ -168,6 +171,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       case EntityTypes.AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
       case EntityTypes.INCIDENT -> AuditLogEntity.AuditLogEntityType.INCIDENT;
       case EntityTypes.PROCESS_DEFINITION, EntityTypes.DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
+      case EntityTypes.GROUP_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.GROUP;
+      case EntityTypes.TENANT_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.TENANT;
 
       // Camunda 7 entity types that are currently NOT converted:
       // EntityTypes.BATCH, EntityTypes.IDENTITY_LINK, EntityTypes.ATTACHMENT, EntityTypes.JOB_DEFINITION,
@@ -193,8 +198,8 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * </ul>
    * <h3>Process Instance Operations:</h3>
    * <ul>
-   *   <li>CREATE → CREATE</li>
-   *   <li>DELETE → CANCEL (for process instances) or DELETE (for other entities)</li>
+   *   <li>CREATE → CREATE (or ASSIGN for group/tenant memberships)</li>
+   *   <li>DELETE → CANCEL (for process instances) or UNASSIGN (for group/tenant memberships) or DELETE (for other entities)</li>
    *   <li>MODIFY_PROCESS_INSTANCE → MODIFY</li>
    *   <li>MIGRATE → MIGRATE</li>
    *   <li>DELETE_HISTORY, REMOVE_VARIABLE → DELETE</li>
@@ -210,6 +215,11 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * <h3>Incident Operations:</h3>
    * <ul>
    *   <li>RESOLVE → RESOLVE (for process instances) or UPDATE (for other entities)</li>
+   * </ul>
+   * <h3>Membership Operations:</h3>
+   * <ul>
+   *   <li>CREATE on GROUP_MEMBERSHIP or TENANT_MEMBERSHIP → ASSIGN</li>
+   *   <li>DELETE on GROUP_MEMBERSHIP or TENANT_MEMBERSHIP → UNASSIGN</li>
    * </ul>
    *
    * @param userOperationLog the Camunda 7 user operation log entry
@@ -233,12 +243,20 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
           AuditLogEntity.AuditLogOperationType.UPDATE;
 
       // ProcessInstance operations
-      case UserOperationLogEntry.OPERATION_TYPE_CREATE ->
-          AuditLogEntity.AuditLogOperationType.CREATE;
+      case UserOperationLogEntry.OPERATION_TYPE_CREATE -> {
+        if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
+            EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
+          yield AuditLogEntity.AuditLogOperationType.ASSIGN;
+        } else {
+          yield AuditLogEntity.AuditLogOperationType.CREATE;
+        }
+      }
       case UserOperationLogEntry.OPERATION_TYPE_DELETE -> {
-        // ProcessInstance Delete maps to CANCEL, but other entity types map to DELETE
         if (EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.CANCEL;
+        } else if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
+            EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
+          yield AuditLogEntity.AuditLogOperationType.UNASSIGN;
         } else {
           yield AuditLogEntity.AuditLogOperationType.DELETE;
         }
