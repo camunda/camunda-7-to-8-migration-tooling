@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, VariableDbModel> {
 
-  @Autowired
+  @Autowired(required = false)
   protected VendorDatabaseProperties vendorDatabaseProperties;
 
   @Override
