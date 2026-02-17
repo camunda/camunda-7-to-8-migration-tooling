@@ -153,9 +153,11 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   // visit method invocations
                   modifiedDeclarations = super.visitVariableDeclarations(modifiedDeclarations, ctx);
 
-                  maybeRemoveImport(
-                      RecipeUtils.getGenericLongName(
-                          declarations.getTypeAsFullyQualified().toString()));
+                  JavaType.FullyQualified originalType = declarations.getTypeAsFullyQualified();
+                  if (originalType != null) {
+                    maybeRemoveImport(
+                        RecipeUtils.getGenericLongName(originalType.toString()));
+                  }
 
                   return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
                 }
@@ -195,7 +197,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               }
             }
 
-            maybeRemoveImport(declarations.getTypeAsFullyQualified());
+            JavaType.FullyQualified declaredType = declarations.getTypeAsFullyQualified();
+            if (declaredType != null) {
+              maybeRemoveImport(declaredType);
+            }
 
             return super.visitVariableDeclarations(declarations, ctx);
           }
@@ -390,6 +395,11 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // matching old identifier and method invocation
                 if (spec.matcher().matches(invocation)) {
+
+                  // skip transformation if return type cannot be resolved - requires manual migration
+                  if (returnTypeFqn == null) {
+                    return super.visitMethodInvocation(invocation, ctx);
+                  }
 
                   // create new identifier from new returnTypeFqn
                   J.Identifier newSelect =
