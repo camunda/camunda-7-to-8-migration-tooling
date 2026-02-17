@@ -69,12 +69,20 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
    * Verifies that the recipe does not crash when a Task query result is used as input to another
    * query. The task.getProcessInstanceId() call cannot be transformed because the return type for
    * 'task' cannot be resolved, but other transformations should still proceed.
+   *
+   * <p>This test requires two cycles because AllClientMigrateRecipes includes multiple sub-recipes
+   * that run sequentially. In the first cycle, ProcessInstance type imports are updated and
+   * UserTask imports are added by recipes detecting Task-related code. In the second cycle,
+   * additional import cleanup and optimization happens. Without expectedCyclesThatMakeChanges(2),
+   * the test would fail because OpenRewrite would detect that changes occurred in both cycles and
+   * would not match the expectation of a single-cycle transformation.
    */
   @Test
   void taskQueryResultUsedInProcessInstanceQuery() {
     rewriteRun(
         spec ->
-            // TODO: expectedCyclesThatMakeChanges(2) - see README.md for details
+            // Two cycles needed: Cycle 1 updates ProcessInstance imports and adds UserTask imports,
+            // Cycle 2 performs additional import optimization and cleanup.
             spec.expectedCyclesThatMakeChanges(2)
                 .recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         // language=java
