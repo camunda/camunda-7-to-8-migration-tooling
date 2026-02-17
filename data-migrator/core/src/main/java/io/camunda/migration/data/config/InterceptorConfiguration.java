@@ -23,10 +23,13 @@ import io.camunda.migration.data.impl.interceptor.ObjectXmlVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinJsonVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.SpinXmlVariableTransformer;
+import io.camunda.migration.data.impl.interceptor.StringVariableTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.AuditLogTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionRequirementsDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.FormTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.IncidentTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstanceTransformer;
@@ -94,7 +97,8 @@ public class InterceptorConfiguration {
    * @return List of configured entity interceptors
    */
   @Bean
-  public List<EntityInterceptor> configuredEntityInterceptors() {
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  public List<EntityInterceptor<?, ?>> configuredEntityInterceptors() {
     ConfigurationLogs.logConfiguringInterceptors(ENTITY);
 
     // Get interceptors from Spring context (annotated with @Component)
@@ -108,7 +112,7 @@ public class InterceptorConfiguration {
     AnnotationAwareOrderComparator.sort(contextInterceptors);
 
     ConfigurationLogs.logTotalInterceptorsConfigured(contextInterceptors.size(), ENTITY);
-    return contextInterceptors;
+    return (List) contextInterceptors;
   }
 
   /**
@@ -312,6 +316,11 @@ public class InterceptorConfiguration {
   }
 
   @Bean
+  public StringVariableTransformer stringVariableTransformer() {
+    return new StringVariableTransformer();
+  }
+
+  @Bean
   public SpinJsonVariableTransformer spinJsonVariableTransformer() {
     return new SpinJsonVariableTransformer();
   }
@@ -344,6 +353,11 @@ public class InterceptorConfiguration {
   }
 
   @Bean
+  public FormTransformer formTransformer() {
+    return new FormTransformer();
+  }
+
+  @Bean
   public IncidentTransformer incidentTransformer() {
     return new IncidentTransformer();
   }
@@ -366,5 +380,10 @@ public class InterceptorConfiguration {
   @Bean
   public VariableTransformer variableTransformer() {
     return new VariableTransformer();
+  }
+
+  @Bean
+  public AuditLogTransformer auditLogTransformer() {
+    return new AuditLogTransformer();
   }
 }

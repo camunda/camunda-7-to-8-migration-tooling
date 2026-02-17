@@ -42,13 +42,12 @@ public class EntityConversionService {
    * </p>
    *
    * @param c7Entity   the C7 historic entity
-   * @param entityType the entity type class
    * @param <C7>       the C7 entity type
    * @param <C8>       the C8 database model type
    * @return the conversion context with C8 database model set
    */
-  public <C7, C8> EntityConversionContext<C7, C8> convert(C7 c7Entity, Class<?> entityType) {
-    EntityConversionContext<C7, C8> context = new EntityConversionContext<>(c7Entity, entityType);
+  public <C7, C8> EntityConversionContext<C7, C8> convert(C7 c7Entity) {
+    EntityConversionContext<C7, C8> context = new EntityConversionContext<>(c7Entity);
     return convertWithContext(context);
   }
 
@@ -94,9 +93,9 @@ public class EntityConversionService {
    */
   protected void executeInterceptor(EntityInterceptor interceptor, EntityConversionContext<?, ?> context) {
     String interceptorName = interceptor.getClass().getSimpleName();
-    String entityType = context.getEntityType().getSimpleName();
+    String entityType = context.getC7Entity().getClass().getSimpleName();
     try {
-      EntityConversionServiceLogs.logExecutingInterceptor(interceptorName, entityType);
+      EntityConversionServiceLogs.logExecutingInterceptor(interceptorName, context.getC7Entity().getClass().getSimpleName());
       interceptor.execute(context);
     } catch (VariableInterceptorException vex) {
       // will be handled in variable interceptor
@@ -134,7 +133,7 @@ public class EntityConversionService {
       throw vex;
     } catch (Exception ex) {
       String interceptorName = ex.getClass().getSimpleName();
-      String entityType = context.getEntityType().getSimpleName();
+      String entityType = context.getC7Entity().getClass().getSimpleName();
       EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
 
       if (ex instanceof EntityInterceptorException) {

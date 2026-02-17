@@ -7,8 +7,6 @@
  */
 package io.camunda.migration.data.config;
 
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C7;
-import static io.camunda.migration.data.config.property.MigratorProperties.DataSource.C8;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE;
 import static org.camunda.bpm.engine.ProcessEngineConfiguration.HISTORY_AUTO;
 
@@ -28,17 +26,20 @@ import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.RuntimeValidator;
+import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.FormMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
-import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
-import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
-import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
-import io.camunda.migration.data.impl.history.FlowNodeMigrator;
-import io.camunda.migration.data.impl.history.IncidentMigrator;
-import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
-import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
-import io.camunda.migration.data.impl.history.UserTaskMigrator;
-import io.camunda.migration.data.impl.history.VariableMigrator;
+import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 
+import io.camunda.migration.data.impl.identity.DefinitionLookupService;
 import java.util.Optional;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
@@ -77,15 +78,18 @@ import org.springframework.transaction.PlatformTransactionManager;
     RuntimeMigrator.class,
     IdentityMigrator.class,
     AuthorizationManager.class,
+    DefinitionLookupService.class,
     DecisionDefinitionMigrator.class,
     DecisionInstanceMigrator.class,
     DecisionRequirementsMigrator.class,
     FlowNodeMigrator.class,
     IncidentMigrator.class,
+    FormMigrator.class,
     ProcessDefinitionMigrator.class,
     ProcessInstanceMigrator.class,
     UserTaskMigrator.class,
     VariableMigrator.class,
+    AuditLogMigrator.class,
     SchemaShutdownCleaner.class
 })
 @Configuration
@@ -142,16 +146,17 @@ public class MigratorAutoConfiguration {
     @Bean
     public DataSource migratorDataSource(@Qualifier("c7DataSource") DataSource c7DataSource,
                                          @Qualifier("c8DataSource") Optional<DataSource> c8DataSource) {
-      if (C7.equals(migratorProperties.getDataSource())) {
-        return c7DataSource;
+      // Always prefer C8 datasource when configured (for both runtime and history migration)
+      // This ensures the migration schema is on the same datasource as the migrated data,
+      // providing true single-transaction atomicity without cross-datasource coordination
+      return c8DataSource.orElse(c7DataSource);
+    }
 
-      } else if (C8.equals(migratorProperties.getDataSource())) {
-        if (c8DataSource.isPresent()) {
-          return c8DataSource.get();
-        }
-      }
-
-      return null;
+    @Bean
+    @Primary
+    @Conditional(C8DataSourceConfigured.class)
+    public PlatformTransactionManager c8TransactionManager(@Qualifier("migratorDataSource") DataSource migratorDataSource) {
+      return new DataSourceTransactionManager(migratorDataSource);
     }
 
     protected HikariDataSource createDefaultDataSource(DataSourceProperties props) {

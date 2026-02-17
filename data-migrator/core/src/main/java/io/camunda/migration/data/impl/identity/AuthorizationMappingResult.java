@@ -7,19 +7,21 @@
  */
 package io.camunda.migration.data.impl.identity;
 
+import java.util.List;
+
 public class AuthorizationMappingResult {
 
   protected final boolean success;
-  protected final C8Authorization c8authorization;
+  protected final List<C8Authorization> c8authorizations;
   protected final String reason;
 
-  protected AuthorizationMappingResult(boolean success, C8Authorization c8authorization, String reason) {
+  protected AuthorizationMappingResult(boolean success, List<C8Authorization> c8authorizations, String reason) {
     this.success = success;
-    this.c8authorization = c8authorization;
+    this.c8authorizations = c8authorizations;
     this.reason = reason;
   }
 
-  public static AuthorizationMappingResult success(C8Authorization c8authorization) {
+  public static AuthorizationMappingResult success(List<C8Authorization> c8authorization) {
     return new AuthorizationMappingResult(true, c8authorization, null);
   }
 
@@ -31,11 +33,15 @@ public class AuthorizationMappingResult {
     return success;
   }
 
-  public C8Authorization getC8Authorization() {
-    return c8authorization;
+  public List<C8Authorization> getC8Authorizations() {
+    return c8authorizations;
   }
 
   public String getReason() {
     return reason;
+  }
+
+  public boolean isSingleAuth() {
+    return c8authorizations.size() == 1;
   }
 }

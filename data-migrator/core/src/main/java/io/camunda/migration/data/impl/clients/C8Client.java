@@ -8,33 +8,35 @@
 package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_PROCESS_DEFINITION_XML;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_VARIABLE;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_REQUIREMENTS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_AUDIT_LOG;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_DEFINITION;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE_INPUT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_INCIDENT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_FLOW_NODE_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_INCIDENT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
@@ -56,24 +58,30 @@ import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
+import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
+import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
 import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
+import io.camunda.db.rdbms.sql.FormMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
 import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
 import io.camunda.db.rdbms.sql.ProcessInstanceMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FormDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
+import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -131,6 +139,12 @@ public class C8Client {
 
   @Autowired(required = false)
   protected DecisionRequirementsMapper decisionRequirementsMapper;
+
+  @Autowired(required = false)
+  protected AuditLogMapper auditLogMapper;
+
+  @Autowired(required = false)
+  protected FormMapper formMapper;
 
   /**
    * Creates a new process instance with the given BPMN process ID and variables.
@@ -314,7 +328,7 @@ public class C8Client {
    * Inserts a Variable into the database.
    */
   public void insertVariable(VariableDbModel dbModel) {
-    callApi(() -> variableMapper.insert(dbModel), FAILED_TO_INSERT_VARIABLE);
+    callApi(() -> variableMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
@@ -328,7 +342,14 @@ public class C8Client {
    * Inserts a FlowNodeInstance into the database.
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
-    callApi(() -> flowNodeInstanceMapper.insert(dbModel), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+    callApi(() -> flowNodeInstanceMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_FLOW_NODE_INSTANCE);
+  }
+
+  /**
+   * Inserts an AuditLog into the database.
+   */
+  public void insertAuditLog(AuditLogDbModel dbModel) {
+    callApi(() -> auditLogMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_AUDIT_LOG);
   }
 
   /**
@@ -336,6 +357,13 @@ public class C8Client {
    */
   public List<FlowNodeInstanceDbModel> searchFlowNodeInstances(FlowNodeInstanceDbQuery query) {
     return callApi(() -> flowNodeInstanceMapper.search(query), FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
+  }
+
+  /**
+   * Searches for User tasks matching the query.
+   */
+  public List<UserTaskDbModel> searchUserTasks(UserTaskDbQuery query){
+    return callApi(() -> userTaskMapper.search(query), FAILED_TO_SEARCH_USER_TASKS);
   }
 
   /**
@@ -372,5 +400,11 @@ public class C8Client {
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
   }
 
+  /**
+   * Inserts a Form into the database.
+   */
+  public void insertForm(FormDbModel dbModel) {
+    callApi(() -> formMapper.insert(dbModel), "Failed to insert form");
+  }
 
 }

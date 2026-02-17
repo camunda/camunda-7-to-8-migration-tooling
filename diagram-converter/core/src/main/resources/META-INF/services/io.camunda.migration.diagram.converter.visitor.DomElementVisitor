@@ -126,6 +126,7 @@ io.camunda.migration.diagram.converter.visitor.impl.CollaborationVisitor
 io.camunda.migration.diagram.converter.visitor.impl.ParticipantVisitor
 io.camunda.migration.diagram.converter.visitor.impl.SequenceFlowVisitor
 io.camunda.migration.diagram.converter.visitor.impl.ConditionExpressionVisitor
+io.camunda.migration.diagram.converter.visitor.impl.ConditionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.ScriptVisitor
 io.camunda.migration.diagram.converter.visitor.impl.element.FailedJobRetryTimeCycleVisitor$FailedJobRetryTimeCycleRemovalVisitor
 io.camunda.migration.diagram.converter.visitor.impl.LaneVisitor
@@ -157,3 +158,5 @@ io.camunda.migration.diagram.converter.visitor.impl.dmn.LiteralExpressionVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.OutputValuesVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.InputValuesVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.VariableVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.ModelerTemplateVersionVisitor
+io.camunda.migration.diagram.converter.visitor.impl.attribute.ModelerTemplateVisitor

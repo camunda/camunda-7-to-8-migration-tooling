@@ -13,7 +13,11 @@ import static io.camunda.migration.data.impl.logging.VariableServiceLogs.logStar
 import io.camunda.migration.data.interceptor.VariableInterceptor;
 import io.camunda.migration.data.interceptor.VariableContext;
 import java.util.Set;
-import org.camunda.bpm.engine.variable.value.PrimitiveValue;
+import org.camunda.bpm.engine.variable.value.BooleanValue;
+import org.camunda.bpm.engine.variable.value.DoubleValue;
+import org.camunda.bpm.engine.variable.value.IntegerValue;
+import org.camunda.bpm.engine.variable.value.LongValue;
+import org.camunda.bpm.engine.variable.value.ShortValue;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +33,13 @@ public class PrimitiveVariableTransformer implements VariableInterceptor {
 
   @Override
   public Set<Class<?>> getTypes() {
-    return Set.of(PrimitiveValue.class); // Only handle PrimitiveValue types
+    return Set.of(
+        BooleanValue.class,
+        DoubleValue.class,
+        LongValue.class,
+        IntegerValue.class,
+        ShortValue.class
+    );
   }
 
   @Override

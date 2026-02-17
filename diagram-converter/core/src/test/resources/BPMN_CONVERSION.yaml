@@ -639,6 +639,396 @@ categories:
           <conversion:message severity="TASK">Collection: Transformed expression: '${myInput.getAdresses().getAll()}' -&gt; '=myInput.getAdresses().getAll()'. Method invocation is not possible in FEEL.</conversion:message>
           <conversion:message severity="TASK">Completion condition: Transformed expression: '${myInput.getComplete()}' -&gt; '=myInput.getComplete()'. Method invocation is not possible in FEEL.</conversion:message>
           <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+  - category: Conditional events
+    cases:
+      - name: Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+                <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional start event (event subprocess)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:subProcess id="Activity_03xk83e" triggeredByEvent="true">
+            <bpmn:startEvent id="Event_03yov51">
+              <bpmn:outgoing>Flow_0v9pxud</bpmn:outgoing>
+              <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pwozb3">
+                <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+              </bpmn:conditionalEventDefinition>
+            </bpmn:startEvent>
+          </bpmn:subProcess>
+        expectedBpmn: |
+          <bpmn:subProcess completionQuantity="1" id="Activity_03xk83e" isForCompensation="false" startQuantity="1" triggeredByEvent="true">
+            <bpmn:startEvent id="Event_03yov51" isInterrupting="true" parallelMultiple="false">
+              <bpmn:extensionElements>
+                <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+              </bpmn:extensionElements>
+              <bpmn:outgoing>Flow_0v9pxud</bpmn:outgoing>
+              <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pwozb3">
+                <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+              </bpmn:conditionalEventDefinition>
+            </bpmn:startEvent>
+          </bpmn:subProcess>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional intermediate catch event
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:intermediateCatchEvent id="conditionalEvent1">
+            <bpmn:incoming>SequenceFlow_0ltxr2c</bpmn:incoming>
+            <bpmn:outgoing>SequenceFlow_0dfjrzp</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedBpmn: |
+          <bpmn:intermediateCatchEvent id="conditionalEvent1" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:incoming>SequenceFlow_0ltxr2c</bpmn:incoming>
+            <bpmn:outgoing>SequenceFlow_0dfjrzp</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1">
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:intermediateCatchEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (non-interrupting)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" cancelActivity="false" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1tbfwp3">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="false" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1tbfwp3">
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) with variable filter
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableName="otherVariable">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableNames="otherVariable"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) with variable and event filter
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableName="variable" camunda:variableEvents="update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="update" variableNames="variable"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on update
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="update"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on create and update
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="create,update">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="create,update"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on delete
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="delete">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="delete"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+          <conversion:message severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+      - name: Conditional boundary event (interrupting) event filter on create, update and delete
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:boundaryEvent id="Event_0xq3ibq" attachedToRef="Activity_12xgp4d">
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy" camunda:variableEvents="create,update,delete">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedBpmn: |
+          <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_0pmcqvy">
+              <bpmn:documentation/>
+              <bpmn:extensionElements>
+                <zeebe:conditionalFilter variableEvents="create,update,delete"/>
+              </bpmn:extensionElements>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:boundaryEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+          <conversion:message severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
+      - name: Juel expression in Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">${x &gt; 10}</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/conditional-events/" severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression">=x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
+      - name: Groovy expression in Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="groovy">x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+                <conversion:message severity="TASK">Please translate the groovy script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition language="groovy" xsi:type="bpmn:tFormalExpression">x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">Please translate the groovy script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
+      - name: JavaScript expression in Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="js">x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="TASK">Please translate the js script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition language="js" xsi:type="bpmn:tFormalExpression">x &gt; 10</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">Please translate the js script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
+      - name: Script resource in Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="js" camunda:resource="some-resource.js" />
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition id="ConditionalEventDefinition_1s8t6cr">
+              <bpmn:condition language="js" xsi:type="bpmn:tFormalExpression"/>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
+      - name: Missing conditionalEventDefinition id on Conditional start event (root-level)
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition>
+              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
+            <bpmn:extensionElements>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">The conditionalEventDefinition on element 'StartEvent_1' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_StartEvent_1').</conversion:message>
+              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
+            </bpmn:extensionElements>
+            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
+            <bpmn:conditionalEventDefinition>
+              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
+            </bpmn:conditionalEventDefinition>
+          </bpmn:startEvent>
+        expectedMessages: |
+          <conversion:message severity="TASK">The conditionalEventDefinition on element 'StartEvent_1' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_StartEvent_1').</conversion:message>
+          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
   - category: Unsupported elements
     cases:
       - name: Transaction and Cancel Events are not supported

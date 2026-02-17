@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.util.DateTimeAssert.assertThatDateTime;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.BUSINESS_RULE_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -22,8 +23,8 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
-import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.Period;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.event.Level;
@@ -62,6 +64,11 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
 
   @RegisterExtension
   CleanupExtension cleanup = new CleanupExtension(rdbmsQuery);
+
+  @AfterEach
+  public void resetClock() {
+    ClockUtil.reset();
+  }
 
   @Test
   public void shouldMigrateSingleHistoricDecision() {
@@ -222,6 +229,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             migratedProcessInstances.getFirst().processInstanceKey(),
             migratedProcessInstances.getFirst().processDefinitionKey(),
             migratedDecisions.getFirst().decisionDefinitionKey(),
+            migratedDecisions.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
@@ -253,6 +261,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             null,
             null,
             null,
+            migratedDecisions.getFirst().decisionDefinitionKey(),
             migratedDecisions.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
@@ -313,6 +322,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             migratedProcessInstances.getFirst().processInstanceKey(),
             migratedProcessInstances.getFirst().processDefinitionKey(),
             migratedDecisions1.getFirst().decisionDefinitionKey(),
+            migratedDecisions2.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
@@ -326,6 +336,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             migratedFlowNodeInstances.getFirst().flowNodeInstanceKey(),
             migratedProcessInstances.getFirst().processInstanceKey(),
             migratedProcessInstances.getFirst().processDefinitionKey(),
+            migratedDecisions2.getFirst().decisionDefinitionKey(),
             migratedDecisions2.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"C\"",
@@ -363,6 +374,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             null,
             null,
             migratedDecisions1.getFirst().decisionDefinitionKey(),
+            migratedDecisions2.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
@@ -376,6 +388,7 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
             null,
             null,
             null,
+            migratedDecisions2.getFirst().decisionDefinitionKey(),
             migratedDecisions2.getFirst().decisionDefinitionKey(),
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"C\"",
@@ -522,6 +535,29 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
         .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
   }
 
+  protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
+                                                                                               String decisionFileName) {
+    deployer.deployCamunda7Decision(decisionFileName);
+    deployBusinessRuleProcessReferencingDecision(decisionId);
+    Map<String, Object> variables = Variables.createVariables().putValue("input", stringValue("A"));
+    runtimeService.startProcessInstanceByKey(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), variables);
+
+    // when
+    historyMigrator.migrate();
+    return searchHistoricDecisionInstances(decisionId);
+  }
+
+  private void deployBusinessRuleProcessReferencingDecision(String decisionId) {
+    BpmnModelInstance c7BusinessRuleProcess = Bpmn.createExecutableProcess(
+            String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId))
+        .startEvent("startEvent")
+        .businessRuleTask("businessRuleTask")
+        .camundaDecisionRef(decisionId)
+        .endEvent("endEvent")
+        .done();
+    deployer.deployC7ModelInstance(String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, decisionId), c7BusinessRuleProcess);
+  }
+
   @Test
   public void shouldCalculateCleanupDateForStandaloneDecision() {
     // given - deploy and evaluate a standalone decision (not triggered by a process)
@@ -549,11 +585,12 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
     OffsetDateTime cleanupDate = cleanup.getDecisionInstanceCleanupDate(migratedDecision.decisionInstanceKey());
 
     // Verify cleanup date exists and is properly calculated (evaluationDate + 180 days from test property)
-    assertThat(cleanupDate)
+    assertThatDateTime(cleanupDate)
         .as("Cleanup date should be evaluation date + 180 days")
-        .isEqualTo(migratedDecision.evaluationDate().plus(Duration.ofDays(180)));
+        .isEqualToLocalTimePlus(migratedDecision.evaluationDate(), Period.ofDays(180));
   }
 
+<<<<<<< HEAD
   protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
                                                                                                String decisionFileName) {
     deployer.deployCamunda7Decision(decisionFileName);
@@ -578,6 +615,8 @@ public class HistoryDecisionMigrationTest extends AbstractMigratorTest {
   }
 
 
+=======
+>>>>>>> main
   private void assertDecisionDefinition(
       DecisionDefinitionEntity decision,
       String decisionId,

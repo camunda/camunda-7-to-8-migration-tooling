@@ -81,7 +81,7 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     // Since built-in is disabled, our universal and string only interceptor should have processed it
     assertThat(universalInterceptor.getExecutionCount()).isEqualTo(1);
 
-    assertVariableExists("primitiveVar", "\"STRING_originalValue\"");
+    assertVariableExists("primitiveVar", "STRING_originalValue");
   }
 
   @Test
@@ -104,9 +104,9 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     assertThat(universalInterceptor.getExecutionCount()).isEqualTo(3);
 
     // Verify the primitive-only interceptor processed the variables
-    assertVariableExists("stringVar", "\"STRING_testString\"");
-    assertVariableExists("intVar", "\"UNIVERSAL_42\"");
-    assertVariableExists("boolVar", "\"UNIVERSAL_true\"");
+    assertVariableExists("stringVar", "STRING_testString");
+    assertVariableExists("intVar", "UNIVERSAL_42");
+    assertVariableExists("boolVar", "UNIVERSAL_true");
   }
 
   @Test
@@ -155,7 +155,7 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
 
     // Verify the disabled interceptor did not execute
     // Variables should not have the "DISABLED_" prefix that would be added by DisablableCustomInterceptor
-    assertVariableExists("testVar", "\"STRING_value\"");
+    assertVariableExists("testVar", "STRING_value");
   }
 
   @Test
@@ -174,8 +174,8 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     // then
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("varIntercept");
     assertThat(variables).hasSize(2);
-    assertThat(variables.getFirst().value()).isEqualTo("\"Hello\"");
-    assertThat(variables.get(1).value()).isEqualTo("\"Hello\"");
+    assertThat(variables.getFirst().value()).isEqualTo("Hello");
+    assertThat(variables.get(1).value()).isEqualTo("Hello");
   }
 
   @Test
@@ -193,7 +193,7 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // then
-    assertVariableExists("exFlag", "\"UNIVERSAL_false\"");
+    assertVariableExists("exFlag", "UNIVERSAL_false");
   }
 
   protected void assertVariableExists(String varName, Object expectedValue) {

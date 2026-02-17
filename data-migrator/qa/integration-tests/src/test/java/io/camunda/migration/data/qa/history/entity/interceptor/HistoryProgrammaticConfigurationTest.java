@@ -164,9 +164,9 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     historyMigration.getMigrator().migrate();
 
     // Verify all interceptors were executed
-    assertThat(universalEntityInterceptor.getExecutionCount()).isGreaterThan(0);
-    assertThat(processInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
-    assertThat(activityInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
+    assertThat(universalEntityInterceptor.getExecutionCount()).isEqualTo(7);
+    assertThat(processInstanceInterceptor.getExecutionCount()).isEqualTo(1);
+    assertThat(activityInstanceInterceptor.getExecutionCount()).isEqualTo(3);
   }
 
   @Test

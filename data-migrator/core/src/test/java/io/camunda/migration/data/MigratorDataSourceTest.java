@@ -19,8 +19,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(properties = {
-    "camunda.migrator.data-source=C8",
-
     "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:c7;DB_CLOSE_DELAY=-1",
     "camunda.migrator.c7.data-source.username=c7-abc",
     "camunda.migrator.c7.data-source.password=c7-xyz",
@@ -47,7 +45,8 @@ public class MigratorDataSourceTest {
   protected DataSource c8DataSource;
 
   @Test
-  public void shouldChangeMigratorDataSource() {
+  public void shouldPreferC8AsMigratorDataSource() {
+    // C8 is automatically preferred when configured (data-source property is ignored)
     assertThat(c8DataSource).isEqualTo(migratorDataSource);
     assertThat(c7DataSource).isInstanceOf(HikariDataSource.class)
         .extracting("username", "password", "jdbcUrl", "driverClassName")

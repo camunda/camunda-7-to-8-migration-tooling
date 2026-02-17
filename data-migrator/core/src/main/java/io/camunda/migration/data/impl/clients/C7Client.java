@@ -12,11 +12,16 @@ import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETC
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_BPMN_XML;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DEPLOYMENT_TIME;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_DMN_XML;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM_FOR_PD;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM_FOR_PD_AND_TDK;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_HISTORIC_ELEMENT;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
+import static org.camunda.bpm.engine.ActivityTypes.CALL_ACTIVITY;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
@@ -26,20 +31,23 @@ import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.authorization.AuthorizationQuery;
+import org.camunda.bpm.engine.delegate.Expression;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.identity.Tenant;
+import org.camunda.bpm.engine.identity.TenantQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
@@ -49,7 +57,15 @@ import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
+import org.camunda.bpm.engine.impl.UserOperationLogQueryImpl;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.camunda.bpm.engine.impl.cmd.GetCamundaFormDefinitionCmd;
+import org.camunda.bpm.engine.impl.form.CamundaFormRefImpl;
+import org.camunda.bpm.engine.impl.form.FormDefinition;
+import org.camunda.bpm.engine.impl.interceptor.Command;
+import org.camunda.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
+import org.camunda.bpm.engine.repository.CamundaFormDefinition;
+import org.camunda.bpm.engine.repository.CamundaFormDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinitionQuery;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -113,8 +129,7 @@ public class C7Client {
    * Gets a single decision requirements definition by ID.
    */
   public DecisionRequirementsDefinition getDecisionRequirementsDefinition(String c7Id) {
-    var query = repositoryService.createDecisionRequirementsDefinitionQuery()
-        .decisionRequirementsDefinitionId(c7Id);
+    var query = repositoryService.createDecisionRequirementsDefinitionQuery().decisionRequirementsDefinitionId(c7Id);
     return callApi(query::singleResult,
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "DecisionRequirementsDefinition", c7Id));
   }
@@ -141,6 +156,25 @@ public class C7Client {
   }
 
   /**
+   * Finds all child decision instances for a given root decision instance ID.
+   */
+  public List<HistoricDecisionInstance> getHistoricChildDecisionInstances(String rootDecisionInstanceId) {
+    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
+        .rootDecisionInstanceId(rootDecisionInstanceId)
+        .childrenDecisionInstancesOnly()
+        .includeInputs()
+        .includeOutputs()
+        .disableCustomObjectDeserialization()
+        .orderByEvaluationTime()
+        .asc()
+        .orderByDecisionInstanceId()
+        .asc();
+
+    return callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "child HistoricDecisionInstance with rootID", rootDecisionInstanceId));
+  }
+
+  /**
    * Gets a single historic process instance by ID.
    */
   public HistoricProcessInstance getHistoricProcessInstance(String c7Id) {
@@ -154,6 +188,26 @@ public class C7Client {
   public HistoricActivityInstance getHistoricActivityInstance(String c7Id) {
     var query = historyService.createHistoricActivityInstanceQuery().activityInstanceId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricActivityInstance", c7Id));
+  }
+
+  /**
+   * Finds the activity that started a child process instance.
+   */
+  public HistoricActivityInstance findCallActivityByCalledProcessInstanceId(String parentProcessInstanceId,
+                                                                            String childProcessInstanceId) {
+    var query = historyService.createHistoricActivityInstanceQuery()
+        .processInstanceId(parentProcessInstanceId)
+        .activityType(CALL_ACTIVITY)
+        .orderByHistoricActivityInstanceStartTime()
+        .asc()
+        .orderByHistoricActivityInstanceId()
+        .asc();
+    List<HistoricActivityInstance> result = callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "Parent activity for child process instance", childProcessInstanceId));
+    return result.stream()
+        .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
+        .findFirst()
+        .orElse(null);
   }
 
   /**
@@ -198,10 +252,7 @@ public class C7Client {
         .disableCustomObjectDeserialization()
         .processInstanceIdIn(c7ProcessInstanceId);
 
-    return new Pagination<VariableInstance>()
-        .pageSize(properties.getPageSize())
-        .query(variableQuery)
-        .toList();
+    return new Pagination<VariableInstance>().pageSize(properties.getPageSize()).query(variableQuery).toList();
   }
 
   /**
@@ -212,10 +263,7 @@ public class C7Client {
         .disableCustomObjectDeserialization()
         .activityInstanceIdIn(activityInstanceId);
 
-    return new Pagination<VariableInstance>()
-        .pageSize(properties.getPageSize())
-        .query(variableQuery)
-        .toList();
+    return new Pagination<VariableInstance>().pageSize(properties.getPageSize()).query(variableQuery).toList();
   }
 
   /**
@@ -224,8 +272,8 @@ public class C7Client {
   public String getResourceAsString(String resourceId, String resourceName) {
     return callApi(() -> new String(processEngineConfiguration.getCommandExecutorTxRequiresNew()
         .execute(commandContext -> commandContext.getResourceManager()
-        .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
-        .getBytes()), Charset.defaultCharset()));
+            .findResourceByDeploymentIdAndResourceName(resourceId, resourceName)
+            .getBytes()), Charset.defaultCharset()));
   }
 
   /**
@@ -244,6 +292,15 @@ public class C7Client {
   }
 
   /**
+   * Gets the form definition by definition ID.
+   */
+  public CamundaFormDefinition getForm(String c7FormId) {
+    return callApi(() -> processEngineConfiguration.getCommandExecutorTxRequiresNew()
+            .execute(commandContext -> commandContext.getCamundaFormDefinitionManager().findLatestDefinitionById(c7FormId)),
+        FAILED_TO_FETCH_FORM + " with ID " + c7FormId);
+  }
+
+  /**
    * Gets the DMN model instance by decision definition ID.
    */
   public DmnModelInstance getDmnModelInstance(String decisionDefinitionId) {
@@ -256,8 +313,7 @@ public class C7Client {
    */
   public Date getDefinitionDeploymentTime(String definitionDeploymentId) {
     var query = repositoryService.createDeploymentQuery().deploymentId(definitionDeploymentId);
-    return callApi(query::singleResult,
-        FAILED_TO_FETCH_DEPLOYMENT_TIME + definitionDeploymentId).getDeploymentTime();
+    return callApi(query::singleResult, FAILED_TO_FETCH_DEPLOYMENT_TIME + definitionDeploymentId).getDeploymentTime();
   }
 
   /**
@@ -267,8 +323,7 @@ public class C7Client {
     ProcessInstanceQuery query = runtimeService.createProcessInstanceQuery()
         .rootProcessInstanceId(rootProcessInstanceId);
 
-    new Pagination<ProcessInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<ProcessInstance>().pageSize(properties.getPageSize())
         .maxCount(query::count)
         .query(query)
         .callback(callback);
@@ -289,13 +344,12 @@ public class C7Client {
         .orderByProcessInstanceId()
         .asc();
 
-    new Pagination<IdKeyDbModel>()
-        .pageSize(properties.getPageSize())
+    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
         .maxCount(query::count)
         .page(offset -> query.listPage(offset, properties.getPageSize())
             .stream()
             .map(hpi -> new IdKeyDbModel(hpi.getId(), hpi.getStartTime()))
-            .collect(Collectors.toList()))
+            .collect(toList()))
         .callback(callback);
   }
 
@@ -313,8 +367,7 @@ public class C7Client {
       query.startedAfter(startedAfter);
     }
 
-    new Pagination<HistoricProcessInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricProcessInstance>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -323,7 +376,8 @@ public class C7Client {
   /**
    * Processes historic decision instances with pagination using the provided callback consumer.
    */
-  public void fetchAndHandleHistoricDecisionInstances(Consumer<HistoricDecisionInstance> callback, Date evaluatedAfter) {
+  public void fetchAndHandleHistoricDecisionInstances(Consumer<HistoricDecisionInstance> callback,
+                                                      Date evaluatedAfter) {
     HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
         .includeInputs()
         .includeOutputs()
@@ -338,8 +392,7 @@ public class C7Client {
       query.evaluatedAfter(evaluatedAfter);
     }
 
-    new Pagination<HistoricDecisionInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricDecisionInstance>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -366,8 +419,7 @@ public class C7Client {
    * Processes process definitions with pagination using the provided callback consumer.
    */
   public void fetchAndHandleProcessDefinitions(ProcessDefinitionQueryImpl query, Consumer<ProcessDefinition> callback) {
-    new Pagination<ProcessDefinition>()
-        .pageSize(properties.getPageSize())
+    new Pagination<ProcessDefinition>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -387,8 +439,7 @@ public class C7Client {
       query.deployedAfter(deployedAfter);
     }
 
-    new Pagination<DecisionDefinition>()
-        .pageSize(properties.getPageSize())
+    new Pagination<DecisionDefinition>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -397,7 +448,8 @@ public class C7Client {
   /**
    * Processes decision requirements with pagination using the provided callback consumer.
    */
-  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback) {
+  public void fetchAndHandleDecisionRequirementsDefinitions(Consumer<DecisionRequirementsDefinition> callback,
+                                                            Date ignored) {
     DecisionRequirementsDefinitionQuery query = repositoryService.createDecisionRequirementsDefinitionQuery()
         .orderByDecisionRequirementsDefinitionId()
         .asc();
@@ -422,8 +474,7 @@ public class C7Client {
       query.createTimeAfter(createdAfter);
     }
 
-    new Pagination<HistoricIncident>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricIncident>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -444,8 +495,7 @@ public class C7Client {
       query.createdAfter(createdAfter);
     }
 
-    new Pagination<HistoricVariableInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricVariableInstance>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -465,8 +515,7 @@ public class C7Client {
       query.startedAfter(startedAfter);
     }
 
-    new Pagination<HistoricTaskInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricTaskInstance>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
@@ -486,53 +535,157 @@ public class C7Client {
       query.startedAfter(startedAfter);
     }
 
-    new Pagination<HistoricActivityInstance>()
-        .pageSize(properties.getPageSize())
+    new Pagination<HistoricActivityInstance>().pageSize(properties.getPageSize())
         .query(query)
         .maxCount(query::count)
         .callback(callback);
   }
 
   /**
-   * Fetches tenant entities
+   * Processes historic user operation log entries with pagination using the provided callback consumer.
    */
-  public List<Tenant> fetchTenants(String idAfter) {
-    return callApi(() -> (
-        (TenantQueryImpl) identityService.createTenantQuery())
-        .idAfter(idAfter)
-        .orderByTenantId()
+  public void fetchAndHandleUserOperationLogEntries(Consumer<UserOperationLogEntry> callback, Date timestampAfter) {
+    UserOperationLogQueryImpl query = (UserOperationLogQueryImpl) historyService.createUserOperationLogQuery()
+        .orderByTimestamp()
         .asc()
-        .list(),
-        FAILED_TO_FETCH_TENANTS);
+        .orderByOperationId()
+        .asc();
+
+    if (timestampAfter != null) {
+      query.afterTimestamp(timestampAfter);
+    }
+
+    new Pagination<UserOperationLogEntry>().pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
   }
 
   /**
-   * Fetches authorization entities
+   * Gets a single user operation log entry by ID.
    */
-  public List<Authorization> fetchAuthorizations(String idAfter) {
-    return callApi(() -> (
-            (AuthorizationQueryImpl) (((AuthorizationQueryImpl) authorizationService.createAuthorizationQuery()))
-            .idAfter(idAfter))
-            .orderByAuthorizationId()
-            .asc()
-            .list(),
-        FAILED_TO_FETCH_AUTHORIZATIONS);
+  public UserOperationLogEntry getUserOperationLogEntry(String c7Id) {
+    var query = historyService.createUserOperationLogQuery().operationId(c7Id);
+    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry", c7Id));
   }
 
-  public List<HistoricDecisionInstance> findChildDecisionInstances(String rootDecisionInstanceId) {
-    HistoricDecisionInstanceQueryImpl query = (HistoricDecisionInstanceQueryImpl) historyService.createHistoricDecisionInstanceQuery()
-        .rootDecisionInstanceId(rootDecisionInstanceId)
-        .includeInputs()
-        .includeOutputs()
-        .disableCustomObjectDeserialization()
-        .orderByEvaluationTime()
-        .asc()
-        .orderByDecisionInstanceId()
+  /**
+   * Processes tenant entities with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleTenants(Consumer<Tenant> callback, String idAfter) {
+    TenantQueryImpl query = (TenantQueryImpl) ((TenantQueryImpl) identityService.createTenantQuery()).idAfter(idAfter)
+        .orderByTenantId()
         .asc();
 
-    return query.list().stream()
-        .filter(decisionInstance -> decisionInstance.getRootDecisionInstanceId() != null)
-        .collect(Collectors.toList());
+    new Pagination<Tenant>().pageSize(properties.getPageSize()).query(query).maxCount(query::count).callback(callback);
   }
 
+  /**
+   * Gets a single tenant by ID.
+   */
+  public Tenant getTenant(String tenantId) {
+    TenantQuery query = identityService.createTenantQuery().tenantId(tenantId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_TENANTS);
+  }
+
+  /**
+   * Processes authorization entities with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleAuthorizations(Consumer<Authorization> callback, String idAfter) {
+    AuthorizationQueryImpl query = (AuthorizationQueryImpl) ((AuthorizationQueryImpl) (((AuthorizationQueryImpl) authorizationService.createAuthorizationQuery())).idAfter(
+        idAfter)).orderByAuthorizationId().asc();
+
+    new Pagination<Authorization>().pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
+   * Gets a single authorization by ID.
+   */
+  public Authorization getAuthorization(String authorizationId) {
+    AuthorizationQuery query = authorizationService.createAuthorizationQuery().authorizationId(authorizationId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_AUTHORIZATIONS);
+  }
+
+  /**
+   * Processes historic flow node instances with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleForms(Consumer<CamundaFormDefinition> callback, Date deployedAfter) {
+    CamundaFormDefinitionQuery query = repositoryService.createCamundaFormDefinitionQuery()
+        .orderByDeploymentTime()
+        .asc()
+        .orderById()
+        .asc();
+
+    if (deployedAfter != null) {
+      query.deployedAfter(deployedAfter);
+    }
+
+    new Pagination<CamundaFormDefinition>().pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  public String getFormId(String processDefinitionId, String taskDefinitionKey) {
+    Command<String> command = commandContext -> {
+      var c7ProcessDefinition = (ProcessDefinitionEntity) getProcessDefinition(processDefinitionId);
+      ProcessDefinitionEntity processDefinitionEntity = processEngineConfiguration.getDeploymentCache()
+          .resolveProcessDefinition(c7ProcessDefinition);
+      FormDefinition formDefinition = processDefinitionEntity.getTaskDefinitions()
+          .get(taskDefinitionKey)
+          .getFormDefinition();
+      Expression camundaFormDefinitionKey = formDefinition.getCamundaFormDefinitionKey();
+      String camundaFormDefinitionBinding = formDefinition.getCamundaFormDefinitionBinding();
+
+      Expression version = formDefinition.getCamundaFormDefinitionVersion();
+      if (camundaFormDefinitionKey != null && (camundaFormDefinitionBinding != null || version != null)) {
+        CamundaFormRefImpl camundaFormRef = new CamundaFormRefImpl(camundaFormDefinitionKey.getExpressionText(),
+            camundaFormDefinitionBinding);
+        if (version != null) {
+          String camundaFormDefinitionVersion = version.getExpressionText();
+          camundaFormRef.setVersion(Integer.valueOf(camundaFormDefinitionVersion));
+        }
+
+        String deploymentId = c7ProcessDefinition.getDeploymentId();
+        String tenantId = c7ProcessDefinition.getTenantId();
+        var camundaFormDefinition = new GetCamundaFormDefinitionCmd(camundaFormRef, deploymentId, tenantId).execute(
+            commandContext);
+        if (camundaFormDefinition != null) {
+          return camundaFormDefinition.getId();
+        } else {
+          return null;
+        }
+
+      } else {
+        return null;
+      }
+    };
+
+    return callApi(() -> processEngineConfiguration.getCommandExecutorTxRequiresNew().execute(command),
+        String.format(FAILED_TO_FETCH_FORM_FOR_PD_AND_TDK, processDefinitionId, taskDefinitionKey));
+  }
+
+  public String getStartFormId(ProcessDefinition c7ProcessDefinition) {
+    Command<String> command = commandContext -> {
+      var processDefinitionEntity = processEngineConfiguration.getDeploymentCache()
+          .resolveProcessDefinition((ProcessDefinitionEntity) c7ProcessDefinition);
+      FormDefinition startFormDefinition = processDefinitionEntity.getStartFormDefinition();
+      if (startFormDefinition != null) {
+        Expression camundaFormDefinitionKey = startFormDefinition.getCamundaFormDefinitionKey();
+        if (camundaFormDefinitionKey != null) {
+          return camundaFormDefinitionKey.getExpressionText();
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    };
+
+    return callApi(() -> processEngineConfiguration.getCommandExecutorTxRequiresNew().execute(command),
+        String.format(FAILED_TO_FETCH_FORM_FOR_PD, c7ProcessDefinition.getId()));
+  }
 }

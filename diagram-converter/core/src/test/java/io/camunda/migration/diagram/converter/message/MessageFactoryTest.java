@@ -461,6 +461,31 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildResourceOnConditionalEvent() {
+    String resource = random();
+    Message message = resourceOnConditionalEvent(resource);
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getMessage())
+        .isEqualTo("Please translate the content from '%s' to a valid FEEL expression.", resource);
+  }
+
+  @Test
+  void shouldBuildScriptOnConditionalEvent() {
+    String script = random();
+    String language = random();
+    Message message = scriptOnConditionalEvent(language, script);
+    assertNotNull(message);
+    assertNotNull(message.getMessage());
+    assertNotNull(message.getSeverity());
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Please translate the %s script from '%s' to a valid FEEL expression.",
+            language, script);
+  }
+
+  @Test
   void shouldBuildDelegateExpressionAsJobType() {
     String jobType = random();
     String expression = random();
@@ -531,5 +556,27 @@ public class MessageFactoryTest {
     assertThat(message).isNotNull();
     assertThat(message.getMessage())
         .isEqualTo("Propagating all variables into a signal event is not possible with Camunda 8.");
+  }
+
+  @Test
+  void shouldBuildDeleteEventFilterOnConditionalEvent() {
+    String elementId = random();
+    Message message = deleteEventFilterOnConditionalEvent(elementId);
+    assertThat(message).isNotNull();
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Variable event 'delete' is not supported in conditional event filter on '%s'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).",
+            elementId);
+  }
+
+  @Test
+  void shouldBuildMissingIdOnConditionalEventDefinition() {
+    String elementId = random();
+    Message message = missingIdOnConditionalEventDefinition(elementId);
+    assertThat(message).isNotNull();
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "The conditionalEventDefinition on element '%s' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_%s').",
+            elementId, elementId);
   }
 }

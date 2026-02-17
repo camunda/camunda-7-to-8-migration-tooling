@@ -266,7 +266,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("var");
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
-    assertVariableFields(variable, c7Variable, String.format("\"%s\"", json));
+    assertVariableFields(variable, c7Variable, json);
   }
 
   @Test
@@ -414,7 +414,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
     String expectedValue = c7Value.toString();
-    assertVariableFields(variable, c7Variable, String.format("\"%s\"", expectedValue));
+    assertVariableFields(variable, c7Variable, expectedValue);
   }
 
   @Test

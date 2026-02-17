@@ -13,15 +13,17 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 
 import io.camunda.migration.data.config.C8DataSourceConfigured;
-import io.camunda.migration.data.impl.history.DecisionDefinitionMigrator;
-import io.camunda.migration.data.impl.history.DecisionInstanceMigrator;
-import io.camunda.migration.data.impl.history.DecisionRequirementsMigrator;
-import io.camunda.migration.data.impl.history.FlowNodeMigrator;
-import io.camunda.migration.data.impl.history.IncidentMigrator;
-import io.camunda.migration.data.impl.history.ProcessDefinitionMigrator;
-import io.camunda.migration.data.impl.history.ProcessInstanceMigrator;
-import io.camunda.migration.data.impl.history.UserTaskMigrator;
-import io.camunda.migration.data.impl.history.VariableMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
+import io.camunda.migration.data.impl.history.migrator.FormMigrator;
+import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
+import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
+import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
+import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
+import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
@@ -35,6 +37,9 @@ import org.springframework.stereotype.Component;
 public class HistoryMigrator {
 
   // Migrator Services
+
+  @Autowired
+  protected FormMigrator formMigrator;
 
   @Autowired
   protected ProcessDefinitionMigrator processDefinitionMigrator;
@@ -62,6 +67,9 @@ public class HistoryMigrator {
 
   @Autowired
   protected DecisionInstanceMigrator decisionInstanceMigrator;
+
+  @Autowired
+  protected AuditLogMigrator auditLogMigrator;
 
   @Autowired
   protected DbClient dbClient;
@@ -97,6 +105,7 @@ public class HistoryMigrator {
   }
 
   public void migrate() {
+    migrateForms();
     migrateProcessDefinitions();
     migrateProcessInstances();
     migrateFlowNodes();
@@ -106,42 +115,51 @@ public class HistoryMigrator {
     migrateDecisionRequirementsDefinitions();
     migrateDecisionDefinitions();
     migrateDecisionInstances();
+    migrateAuditLogs();
+  }
+
+  public void migrateForms() {
+    formMigrator.migrateAll();
   }
 
   public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrateProcessDefinitions();
+    processDefinitionMigrator.migrateAll();
   }
 
   public void migrateProcessInstances() {
-    processInstanceMigrator.migrateProcessInstances();
+    processInstanceMigrator.migrateAll();
   }
 
   public void migrateFlowNodes() {
-    flowNodeMigrator.migrateFlowNodes();
+    flowNodeMigrator.migrateAll();
   }
 
   public void migrateUserTasks() {
-    userTaskMigrator.migrateUserTasks();
+    userTaskMigrator.migrateAll();
   }
 
   public void migrateVariables() {
-    variableMigrator.migrateVariables();
+    variableMigrator.migrateAll();
   }
 
   public void migrateIncidents() {
-    incidentMigrator.migrateIncidents();
+    incidentMigrator.migrateAll();
   }
 
   public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrateDecisionRequirementsDefinitions();
+    decisionRequirementsMigrator.migrateAll();
   }
 
   public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrateDecisionDefinitions();
+    decisionDefinitionMigrator.migrateAll();
   }
 
   public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrateDecisionInstances();
+    decisionInstanceMigrator.migrateAll();
+  }
+
+  public void migrateAuditLogs() {
+    auditLogMigrator.migrateAll();
   }
 
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
@@ -150,6 +168,7 @@ public class HistoryMigrator {
 
   public void setMode(MigratorMode mode) {
     this.mode = mode;
+    formMigrator.setMode(mode);
     decisionDefinitionMigrator.setMode(mode);
     decisionInstanceMigrator.setMode(mode);
     decisionRequirementsMigrator.setMode(mode);
@@ -159,5 +178,6 @@ public class HistoryMigrator {
     processInstanceMigrator.setMode(mode);
     userTaskMigrator.setMode(mode);
     variableMigrator.setMode(mode);
+    auditLogMigrator.setMode(mode);
   }
 }

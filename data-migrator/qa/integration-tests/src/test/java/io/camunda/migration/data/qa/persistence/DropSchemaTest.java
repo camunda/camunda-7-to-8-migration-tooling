@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.MigrationTestApplication;
-import io.camunda.migration.data.qa.util.WithMultiDb;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -27,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
-@WithMultiDb
 public class DropSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";

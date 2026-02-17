@@ -9,11 +9,15 @@ package io.camunda.migration.data.qa.identity;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
+import org.camunda.bpm.engine.AuthorizationService;
 import org.camunda.bpm.engine.IdentityService;
+import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
@@ -31,8 +35,23 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
   @Autowired
   protected DbClient dbClient;
 
+  @Autowired
+  protected AuthorizationService authorizationService;
+
+  @Autowired
+  protected IdentityTestHelper testHelper;
+
+  @Autowired
+  protected ProcessEngineConfiguration processEngineConfiguration;
+
+  @BeforeEach
+  public void setupOnce() {
+    processEngineConfiguration.setValidateAuthResourceIdExists(false);
+  }
+
   @AfterEach
   public void cleanup() {
+    identityMigrator.setMode(MigratorMode.MIGRATE);
     identityService.createTenantQuery().list().forEach(tenant -> identityService.deleteTenant(tenant.getId()));
     dbClient.deleteAllMappings();
   }

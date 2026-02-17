@@ -45,7 +45,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     var expectedTenants = List.of(tenant1, tenant2, tenant3);
 
     // when migrating
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then c8 has default tenant + the 3 migrated ones
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
@@ -64,7 +64,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     var expectedTenants = List.of(tenant1, tenant3);
 
     // when migrating
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then c8 has default, tenant1 and tenant3
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
@@ -80,14 +80,14 @@ public class TenantMigrationTest extends IdentityAbstractTest {
   public void shouldMigrateOnlyNonPreviouslyMigratedTenants() {
     // given 3 tenants in c7 but one was already marked as migrated
     var tenant1 = identityTestHelper.createTenantInC7("tenantId1", "tenantName1");
-    identityMigrator.migrate();
+    identityMigrator.start();
     camundaClient.newDeleteTenantCommand(tenant1.getId()).execute(); // To be able to assert that it doesn't get migrated again
     var tenant2 = identityTestHelper.createTenantInC7("tenantId2", "tenantName2");
     var tenant3 = identityTestHelper.createTenantInC7("tenantId3", "tenantName3");
     var expectedTenants = List.of(tenant2, tenant3);
 
     // when migrating
-    identityMigrator.migrate();
+    identityMigrator.start();
 
     // then c8 has default, tenant2 and tenant3
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();

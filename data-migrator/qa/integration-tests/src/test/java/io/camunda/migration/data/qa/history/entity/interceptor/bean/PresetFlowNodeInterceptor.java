@@ -7,13 +7,17 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
+import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.*;
+
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 
-public class PresetFlowNodeInterceptor implements EntityInterceptor {
+public class PresetFlowNodeInterceptor implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
+
+  protected boolean skipSettingScopeKey = false;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -21,20 +25,26 @@ public class PresetFlowNodeInterceptor implements EntityInterceptor {
   }
 
   @Override
-  public void presetParentProperties(EntityConversionContext<?, ?> context) {
-    FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder builder =
-        (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) context.getC8DbModelBuilder();
-
-    if (builder != null) {
-      builder.treePath("1/2/3/")
-          .processInstanceKey(1L)
-          .processDefinitionKey(2L)
-          .flowNodeScopeKey(1L);
+  public void presetParentProperties(HistoricActivityInstance c7Entity, FlowNodeInstanceDbModelBuilder builder) {
+    builder.treePath("1/2/3/")
+        .processInstanceKey(1L)
+        .processDefinitionKey(2L)
+        .rootProcessInstanceKey(1L);
+    if (!skipSettingScopeKey) {
+      builder.flowNodeScopeKey(1L);
     }
   }
 
   @Override
-  public void execute(EntityConversionContext<?, ?> context) {
+  public void execute(EntityConversionContext<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> context) {
     // This interceptor intentionally does not modify the flow node during execution.
+  }
+
+  public boolean isSkipSettingScopeKey() {
+    return skipSettingScopeKey;
+  }
+
+  public void setSkipSettingScopeKey(boolean skipSettingScopeKey) {
+    this.skipSettingScopeKey = skipSettingScopeKey;
   }
 }

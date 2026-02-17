@@ -7,15 +7,43 @@
  */
 package io.camunda.migration.data.impl.persistence;
 
+import static java.util.Map.entry;
+
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.EnumSet;
 import java.util.stream.Collectors;
 import java.util.Arrays;
 import org.apache.ibatis.annotations.Param;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
+import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
+import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.ProcessDefinitionEntity;
 
 public interface IdKeyMapper {
+
+  Map<Class<?>, TYPE> HISTORY_TYPE_NAME_MAP = Map.ofEntries(
+      entry(ProcessDefinitionEntity.class, TYPE.HISTORY_PROCESS_DEFINITION),
+      entry(HistoricProcessInstanceEntity.class, TYPE.HISTORY_PROCESS_INSTANCE),
+      entry(HistoricIncidentEntity.class, TYPE.HISTORY_INCIDENT),
+      entry(HistoricVariableInstanceEntity.class, TYPE.HISTORY_VARIABLE),
+      entry(HistoricTaskInstanceEntity.class, TYPE.HISTORY_USER_TASK),
+      entry(HistoricActivityInstanceEntity.class, TYPE.HISTORY_FLOW_NODE),
+      entry(HistoricDecisionInstanceEntity.class, TYPE.HISTORY_DECISION_INSTANCE),
+      entry(DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION),
+      entry(DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT),
+      entry(UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG),
+      entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION)
+  );
 
   enum TYPE {
     HISTORY_PROCESS_DEFINITION("Historic Process Definition"),
@@ -27,6 +55,8 @@ public interface IdKeyMapper {
     HISTORY_DECISION_INSTANCE("Historic Decision Instance"),
     HISTORY_DECISION_DEFINITION("Historic Decision Definition"),
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
+    HISTORY_AUDIT_LOG("Historic Audit Log"),
+    HISTORY_FORM_DEFINITION("Historic Form Definition"),
 
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
@@ -37,6 +67,10 @@ public interface IdKeyMapper {
 
     TYPE(String displayName) {
       this.displayName = displayName;
+    }
+
+    public static <C7> TYPE of(C7 entity) {
+      return HISTORY_TYPE_NAME_MAP.get(entity.getClass());
     }
 
     public String getDisplayName() {

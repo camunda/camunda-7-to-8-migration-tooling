@@ -27,6 +27,7 @@ import io.camunda.db.rdbms.read.service.IncidentDbReader;
 import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByDefinitionDbReader;
 import io.camunda.db.rdbms.read.service.IncidentProcessInstanceStatisticsByErrorDbReader;
 import io.camunda.db.rdbms.read.service.JobDbReader;
+import io.camunda.db.rdbms.read.service.JobMetricsBatchDbReader;
 import io.camunda.db.rdbms.read.service.MappingRuleDbReader;
 import io.camunda.db.rdbms.read.service.MessageSubscriptionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
@@ -59,6 +60,7 @@ import io.camunda.db.rdbms.sql.GroupMapper;
 import io.camunda.db.rdbms.sql.HistoryDeletionMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
 import io.camunda.db.rdbms.sql.JobMapper;
+import io.camunda.db.rdbms.sql.JobMetricsBatchMapper;
 import io.camunda.db.rdbms.sql.MappingRuleMapper;
 import io.camunda.db.rdbms.sql.MessageSubscriptionMapper;
 import io.camunda.db.rdbms.sql.ProcessDefinitionMapper;
@@ -74,13 +76,13 @@ import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
 import io.camunda.db.rdbms.sql.ClusterVariableMapper;
 import io.camunda.db.rdbms.write.RdbmsWriterFactory;
-import io.camunda.db.rdbms.write.RdbmsWriterMetrics;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.logging.ConfigurationLogs;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.Map;
 import java.util.Properties;
 import javax.sql.DataSource;
 import liquibase.integration.spring.MultiTenantSpringLiquibase;
@@ -105,14 +107,16 @@ public class C8Configuration extends AbstractConfiguration {
   @ConditionalOnProperty(prefix = MigratorProperties.PREFIX
       + ".c8.data-source", name = "auto-ddl", havingValue = "true")
   public MultiTenantSpringLiquibase createRdbmsExporterSchema(VendorDatabaseProperties vendorDatabaseProperties) {
-    String userCharColumnSize = "";
+    Map<String, String> parameters = new java.util.HashMap<>();
     try {
-      userCharColumnSize = String.valueOf(vendorDatabaseProperties.userCharColumnSize());
+      parameters.put("userCharColumnSize", String.valueOf(vendorDatabaseProperties.userCharColumnSize()));
+      parameters.put("treePathSize", String.valueOf(vendorDatabaseProperties.treePathSize()));
+      parameters.put("errorMessageSize", String.valueOf(vendorDatabaseProperties.errorMessageSize()));
     } catch (Exception e) {
-      throw new MigratorException(ConfigurationLogs.getC8RdbmsUserCharColumnSizeError(), e);
+      throw new MigratorException(ConfigurationLogs.getC8SchemaPropertyError(), e);
     }
     return createSchema(dataSource, configProperties.getC8().getDataSource().getTablePrefix(),
-        "db/changelog/rdbms-exporter/changelog-master.xml", userCharColumnSize);
+        "db/changelog/rdbms-exporter/changelog-master.xml", parameters);
   }
 
   @Bean
@@ -139,6 +143,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public MapperFactoryBean<JobMapper> jobMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, JobMapper.class);
+  }
+
+  @Bean
+  public MapperFactoryBean<JobMetricsBatchMapper> jobMetricsBatchMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, JobMetricsBatchMapper.class);
   }
 
   @Bean
@@ -287,11 +296,6 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public RdbmsWriterMetrics rdbmsWriterMetrics(MeterRegistry meterRegistry) {
-    return new RdbmsWriterMetrics(meterRegistry);
-  }
-
-  @Bean
   public VariableDbReader variableRdbmsReader(VariableMapper variableMapper) {
     return new VariableDbReader(variableMapper);
   }
@@ -405,6 +409,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public JobMetricsBatchDbReader jobMetricsBatchDbReader(JobMetricsBatchMapper jobMetricsBatchMapper) {
+    return new JobMetricsBatchDbReader(jobMetricsBatchMapper);
+  }
+
+  @Bean
   public SequenceFlowDbReader sequenceFlowReader(SequenceFlowMapper sequenceFlowMapper) {
     return new SequenceFlowDbReader(sequenceFlowMapper);
   }
@@ -484,12 +493,14 @@ public class C8Configuration extends AbstractConfiguration {
       FlowNodeInstanceMapper flowNodeInstanceMapper,
       IncidentMapper incidentMapper,
       ProcessInstanceMapper processInstanceMapper,
+      ProcessDefinitionMapper processDefinitionMapper,
       PurgeMapper purgeMapper,
       UserTaskMapper userTaskMapper,
       VariableMapper variableMapper,
-      RdbmsWriterMetrics rdbmsWriterMetrics,
+      MeterRegistry meterRegistry,
       BatchOperationDbReader batchOperationReader,
       JobMapper jobMapper,
+      JobMetricsBatchMapper jobMetricsBatchMapper,
       SequenceFlowMapper sequenceFlowMapper,
       UsageMetricMapper usageMetricMapper,
       UsageMetricTUMapper usageMetricTUMapper,
@@ -507,12 +518,14 @@ public class C8Configuration extends AbstractConfiguration {
         flowNodeInstanceMapper,
         incidentMapper,
         processInstanceMapper,
+        processDefinitionMapper,
         purgeMapper,
         userTaskMapper,
         variableMapper,
-        rdbmsWriterMetrics,
+        meterRegistry,
         batchOperationReader,
         jobMapper,
+        jobMetricsBatchMapper,
         sequenceFlowMapper,
         usageMetricMapper,
         usageMetricTUMapper,
@@ -551,6 +564,7 @@ public class C8Configuration extends AbstractConfiguration {
       SequenceFlowDbReader sequenceFlowReader,
       BatchOperationItemDbReader batchOperationItemReader,
       JobDbReader jobReader,
+      JobMetricsBatchDbReader jobMetricsBatchDbReader,
       UsageMetricsDbReader usageMetricsReader,
       UsageMetricTUDbReader usageMetricTUDbReader,
       MessageSubscriptionDbReader messageSubscriptionDbReader,
@@ -588,6 +602,7 @@ public class C8Configuration extends AbstractConfiguration {
         sequenceFlowReader,
         batchOperationItemReader,
         jobReader,
+        jobMetricsBatchDbReader,
         usageMetricsReader,
         usageMetricTUDbReader,
         messageSubscriptionDbReader,

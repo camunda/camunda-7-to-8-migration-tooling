@@ -46,7 +46,7 @@ class ArchitectureTest {
         .because("Tests should not access internal implementation details from io.camunda.migration.data.impl package. " +
             "Use log assertions and C8 API queries instead. " +
             "Exceptions: (1) Constants (static final fields) and enums from impl classes are allowed, including their methods (e.g., enum.getDisplayName()), " +
-            "(2) ConverterUtil.prefixDefinitionId and ConverterUtil.convertDate are allowed for data conversion in tests, " +
+            "(2) ConverterUtil.prefixDefinitionId and ConverterUtil.convertDate are allowed for data conversion in tests (including method references like ConverterUtil::prefixDefinitionId), " +
             "(3) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
             "(4) Classes or methods annotated with @WhiteBox are allowed to access impl classes for white-box testing.")
         .check(CLASSES);
@@ -230,10 +230,26 @@ class ArchitectureTest {
             }
 
             // Allow ConverterUtil.prefixDefinitionId and convertDate - utility methods for data conversion in tests
-            if (access instanceof com.tngtech.archunit.core.domain.JavaMethodCall methodCall) {
+            // This includes method calls, method references (e.g., ConverterUtil::prefixDefinitionId), and any other access types
+            if (targetClassName.equals("io.camunda.migration.data.impl.util.ConverterUtil")) {
+              // Check if this is accessing prefixDefinitionId or convertDate
+              if (access instanceof com.tngtech.archunit.core.domain.JavaMethodCall methodCall) {
+                String accessName = methodCall.getName();
+                if (accessName.equals("prefixDefinitionId") || accessName.equals("convertDate")) {
+                  return; // ConverterUtil.prefixDefinitionId and convertDate are allowed
+                }
+              } else if (access.getDescription().contains("prefixDefinitionId") ||
+                         access.getDescription().contains("convertDate")) {
+                // For method references or other access types, check the description
+                return; // ConverterUtil.prefixDefinitionId and convertDate are allowed in any form
+              }
+            }
+
+            // Allow ConverterUtil method references (e.g., ConverterUtil::prefixDefinitionId)
+            if (access instanceof com.tngtech.archunit.core.domain.JavaMethodReference methodReference) {
               if (targetClassName.equals("io.camunda.migration.data.impl.util.ConverterUtil") &&
-                  (methodCall.getName().equals("prefixDefinitionId") || methodCall.getName().equals("convertDate"))) {
-                return; // ConverterUtil.prefixDefinitionId and convertDate are allowed
+                  (methodReference.getName().equals("prefixDefinitionId") || methodReference.getName().equals("convertDate"))) {
+                return; // ConverterUtil method references are allowed
               }
             }
 

@@ -5,7 +5,7 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 ```
 <dependency>
 	<groupId>io.camunda</groupId>
-	<artifactId>spring-boot-starter-camunda-sdk</artifactId>
+	<artifactId>camunda-spring-boot-starter</artifactId>
 	<version>{version}</version>
 </dependency>
 ```
