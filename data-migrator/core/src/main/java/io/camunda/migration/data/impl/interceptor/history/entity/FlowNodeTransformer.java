@@ -7,9 +7,7 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
-import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.*;
+import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -28,6 +26,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityInstance, FlowNodeInstanceDbModelBuilder> {
 
+  protected static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(HistoricActivityInstance.class);
@@ -36,7 +36,7 @@ public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityIn
   @Override
   public void execute(HistoricActivityInstance entity, FlowNodeInstanceDbModelBuilder builder) {
     builder
-        .flowNodeId(entity.getActivityId())
+        .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .flowNodeName(entity.getActivityName())
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .startDate(convertDate(entity.getStartTime()))
@@ -48,6 +48,13 @@ public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityIn
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
 
     // flowNodeInstanceKey, processInstanceKey, treePath, processDefinitionKey, historyCleanupDate, endDate, flowNodeScopeKey are set in io.camunda.migration.data.impl.history.FlowNodeMigrator
+  }
+
+  /**
+   * Removes the multi-instance body suffix from the activity ID if present, as C8 does not use this convention for multi-instance activities.
+   */
+  protected String sanitizeFlowNodeId(String activityId) {
+    return activityId.replace(C7_MULTI_INSTANCE_BODY_SUFFIX, "");
   }
 
   protected FlowNodeInstanceEntity.FlowNodeState determineState(HistoricActivityInstance entity) {
