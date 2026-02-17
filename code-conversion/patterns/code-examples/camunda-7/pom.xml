@@ -37,12 +37,12 @@
   <dependencies>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-rest</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-rest-4</artifactId>
     </dependency>
 
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-webapp</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-webapp-4</artifactId>
     </dependency>
 
     <dependency>
@@ -67,7 +67,7 @@
 
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-external-task-client-4</artifactId>
       <version>7.24.0</version>
     </dependency>
 
