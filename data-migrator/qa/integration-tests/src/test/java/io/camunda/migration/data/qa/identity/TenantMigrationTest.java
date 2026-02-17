@@ -99,6 +99,11 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     assertThat(camundaClient.newTenantsSearchRequest().filter(f -> f.tenantId(tenant1.getId())).execute().items()).hasSize(0);
   }
 
+  @Test
+  public void shouldMigrateTenantMemberships() {
+    // TODO
+  }
+
   /**
    * Compares a list of {@link org.camunda.bpm.engine.identity.Tenant}
    * and a list of {@link io.camunda.client.api.search.response.Tenant}

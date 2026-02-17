@@ -380,11 +380,33 @@ public class C8Client {
     return callApi(() -> processDefinitionMapper.search(query), FAILED_TO_SEARCH_PROCESS_DEFINITIONS);
   }
 
+  /**
+   * Creates a new tenant in C8
+   */
   public void createTenant(Tenant tenant) {
     CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
     callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
 
+  /**
+   * Assigns a user to a tenant in C8, creating a tenant membership for the user
+   */
+  public void createUserTenantAssignment(String tenantId, String userId) {
+    var command = camundaClient.newAssignUserToTenantCommand().username(userId).tenantId(tenantId);
+    callApi(command::execute, String.format("Failed to create tenant membership for tenant %s and user %s", tenantId, userId)); // TODO log constant
+  }
+
+  /**
+   * Assigns a group to a tenant in C8, creating a tenant membership for the group
+   */
+  public void createGroupTenantAssignment(String tenantId, String groupId) {
+      var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
+      callApi(command::execute, String.format("Failed to create tenant membership for tenant %s and user %s", tenantId, groupId)); // TODO log constant
+  }
+
+  /**
+   * Creates a new authorization in C8
+   */
   public CreateAuthorizationResponse createAuthorization(String c7Id, C8Authorization c8Authorization) {
     CreateAuthorizationCommandStep1.CreateAuthorizationCommandStep6 command = camundaClient
         .newCreateAuthorizationCommand()
@@ -397,11 +419,17 @@ public class C8Client {
     return callApi(command::execute, FAILED_TO_MIGRATE_AUTHORIZATION + c7Id);
   }
 
+  /**
+   * Fetches a user by ID from C8
+   */
   public User getUser(String userId) {
     UserGetRequest userGetRequest = camundaClient.newUserGetRequest(userId);
     return callApi(userGetRequest::execute, "Failed to get user " + userId);
   }
 
+  /**
+   * Fetches a group by ID from C8
+   */
   public Group getGroup(String groupId) {
     GroupGetRequest groupGetRequest = camundaClient.newGroupGetRequest(groupId);
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);

@@ -46,6 +46,7 @@ public interface IdKeyMapper {
   );
 
   enum TYPE {
+    // history
     HISTORY_PROCESS_DEFINITION("Historic Process Definition"),
     HISTORY_PROCESS_INSTANCE("Historic Process Instance"),
     HISTORY_INCIDENT("Historic Incident"),
@@ -58,8 +59,10 @@ public interface IdKeyMapper {
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
 
+    // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
+    // identity
     TENANT("Tenant"),
     AUTHORIZATION("Authorization");
 
