@@ -8,13 +8,14 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
-import static io.camunda.search.entities.IncidentEntity.IncidentState.RESOLVED;
 
 import io.camunda.migration.data.interceptor.EntityInterceptor;
+import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
@@ -38,10 +39,13 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         .errorType(null) // TODO: does error type exist in C7?
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))
-        .state(RESOLVED) // Mark incident always as resolved
-        .treePath(null) //TODO ?
+        .treePath(null)
+        .errorMessageHash(null)
+        .partitionId(C7_HISTORY_PARTITION_ID)
+        .jobKey(null)
+        .state(IncidentEntity.IncidentState.RESOLVED)
         .tenantId(getTenantId(entity.getTenantId()));
-    // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
+        // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 
 }

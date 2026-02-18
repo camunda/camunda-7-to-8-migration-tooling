@@ -72,6 +72,8 @@ import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinitionQuery;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.camunda.bpm.engine.runtime.ActivityInstance;
+import org.camunda.bpm.engine.runtime.Execution;
+import org.camunda.bpm.engine.runtime.ExecutionQuery;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
 import org.camunda.bpm.engine.runtime.VariableInstance;
@@ -688,4 +690,19 @@ public class C7Client {
     return callApi(() -> processEngineConfiguration.getCommandExecutorTxRequiresNew().execute(command),
         String.format(FAILED_TO_FETCH_FORM_FOR_PD, c7ProcessDefinition.getId()));
   }
+
+  /**
+   * Checks if there is an active execution waiting in a specific activity of a process instance.
+   */
+  public boolean hasWaitingExecution(String processInstanceId, String activityId) {
+    ExecutionQuery query = runtimeService
+        .createExecutionQuery()
+        .processInstanceId(processInstanceId)
+        .activityId(activityId)
+        .active();
+
+    List<Execution> execution = callApi(query::list, format("Failed to retrieve executions for process instance [%s]", processInstanceId));
+    return !execution.isEmpty();
+  }
+
 }
