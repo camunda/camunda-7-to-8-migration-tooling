@@ -535,7 +535,9 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
     String fullValue = c7Value.toString();
-    assertVariableFields(variable, c7Variable, null, String.format("\"%s\"", fullValue));
+    // preview value starts with an opening quote, so we need to account for that when calculating the truncated value
+    String truncatedValue = String.format("\"%s", fullValue.substring(0, vendorDatabaseProperties.variableValuePreviewSize() - 1));
+    assertVariableFields(variable, c7Variable, truncatedValue, String.format("\"%s\"", fullValue));
   }
 
   @Test
