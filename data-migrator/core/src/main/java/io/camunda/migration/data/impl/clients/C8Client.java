@@ -10,6 +10,8 @@ package io.camunda.migration.data.impl.clients;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_PROCESS_DEFINITION_XML;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_VARIABLE;
@@ -393,7 +395,7 @@ public class C8Client {
    */
   public void createUserTenantAssignment(String tenantId, String userId) {
     var command = camundaClient.newAssignUserToTenantCommand().username(userId).tenantId(tenantId);
-    callApi(command::execute, String.format("Failed to create tenant membership for tenant %s and user %s", tenantId, userId)); // TODO log constant
+    callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
   }
 
   /**
@@ -401,7 +403,7 @@ public class C8Client {
    */
   public void createGroupTenantAssignment(String tenantId, String groupId) {
       var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
-      callApi(command::execute, String.format("Failed to create tenant membership for tenant %s and user %s", tenantId, groupId)); // TODO log constant
+      callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
   }
 
   /**

@@ -150,8 +150,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then
-    testHelper.verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.CREATE, Resources.GROUP_MEMBERSHIP.resourceName()), logs);
-    testHelper.verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE, Resources.TENANT_MEMBERSHIP.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.CREATE, Resources.GROUP_MEMBERSHIP.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE, Resources.TENANT_MEMBERSHIP.resourceName()), logs);
   }
 
   @Test
@@ -190,8 +190,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth1.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED, logs);
-    testHelper.verifySkippedViaLogs(auth2.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED, logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth1.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED, logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth2.getId(), FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED, logs);
   }
 
   @Test
@@ -204,8 +204,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth1.getId(), FAILURE_OWNER_NOT_EXISTS, logs);
-    testHelper.verifySkippedViaLogs(auth2.getId(), FAILURE_OWNER_NOT_EXISTS, logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth1.getId(), FAILURE_OWNER_NOT_EXISTS, logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth2.getId(), FAILURE_OWNER_NOT_EXISTS, logs);
   }
 
   @Test
@@ -217,7 +217,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth.getId(), FAILED_TO_MIGRATE_AUTHORIZATION, logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth.getId(), FAILED_TO_MIGRATE_AUTHORIZATION, logs);
   }
 
   @Test
@@ -229,7 +229,7 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, Resources.FILTER.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_TYPE, Resources.FILTER.resourceName()), logs);
   }
 
   @Test
@@ -243,9 +243,9 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, BatchPermissions.READ_HISTORY, Resources.BATCH.resourceName()), logs);
-    testHelper.verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE_HISTORY, Resources.DECISION_DEFINITION.resourceName()), logs);
-    testHelper.verifySkippedViaLogs(auth3.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, ProcessDefinitionPermissions.UPDATE, Resources.PROCESS_DEFINITION.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, BatchPermissions.READ_HISTORY, Resources.BATCH.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, Permissions.DELETE_HISTORY, Resources.DECISION_DEFINITION.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth3.getId(), format(FAILURE_UNSUPPORTED_PERMISSION_TYPE, ProcessDefinitionPermissions.UPDATE, Resources.PROCESS_DEFINITION.resourceName()), logs);
   }
 
   @Test
@@ -258,8 +258,8 @@ public class AuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then auths are skipped
-    testHelper.verifySkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, "authId", Resources.AUTHORIZATION.resourceName()), logs);
-    testHelper.verifySkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownApp", Resources.APPLICATION.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth1.getId(), format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, "authId", Resources.AUTHORIZATION.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(auth2.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownApp", Resources.APPLICATION.resourceName()), logs);
   }
 
   @Test

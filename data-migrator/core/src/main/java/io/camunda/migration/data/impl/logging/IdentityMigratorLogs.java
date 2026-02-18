@@ -19,7 +19,7 @@ public class IdentityMigratorLogs {
 
   // Event log constants
   public static final String MIGRATING_TENANT = "Migrating tenant [{}]";
-  public static final String MIGRATING_TENANT_MEMBERSHIPS = "Migrating tenant membership for tenant [{}]";
+  public static final String MIGRATING_TENANT_MEMBERSHIPS = "Migrating tenant memberships for tenant [{}]";
   public static final String MIGRATING_TENANT_MEMBERSHIP = "Migrating tenant membership for tenant [{}] and {} [{}]";
   public static final String MIGRATED_TENANT_MEMBERSHIP = "Successfully migrated tenant membership for tenant [{}] and {} [{}]";
   public static final String CANNOT_MIGRATE_TENANT_MEMBERSHIP = "There was an error while migrating tenant membership for tenant [{}] and {} [{}]: {}";
@@ -107,14 +107,14 @@ public class IdentityMigratorLogs {
   }
 
   public static void logMigratingTenantMembership(String tenantId, String type, String userOrGroupId) {
-    LOGGER.debug(MIGRATING_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId);
+    LOGGER.info(MIGRATING_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId);
   }
 
   public static void logMigratedTenantMembership(String tenantId, String type, String userOrGroupId) {
-    LOGGER.debug(MIGRATED_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId);
+    LOGGER.info(MIGRATED_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId);
   }
 
   public static void logCannotMigrateTenantMembership(String tenantId, String type, String userOrGroupId, String reason) {
-    LOGGER.info(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
+    LOGGER.warn(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
   }
 }
