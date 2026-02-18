@@ -13,7 +13,7 @@
 
   <groupId>io.camunda.conversion</groupId>
   <artifactId>camunda_7_code_examples</artifactId>
-  <name>Camunda 7 Code Exmpales</name>
+  <name>Camunda 7 Code Examples</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
