@@ -12,7 +12,7 @@
   </parent>
 
   <groupId>io.camunda.conversion</groupId>
-  <artifactId>camunda_7_code_examles</artifactId>
+  <artifactId>camunda_7_code_examples</artifactId>
   <name>Camunda 7 Code Exmpales</name>
 
   <properties>
