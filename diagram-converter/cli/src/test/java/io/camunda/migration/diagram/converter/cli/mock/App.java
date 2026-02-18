@@ -10,10 +10,11 @@ package io.camunda.migration.diagram.converter.cli.mock;
 import org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @EnableProcessApplication
 @SpringBootApplication
-public class App {
+public class App implements WebMvcConfigurer {
   public static void main(String[] args) {
     SpringApplication.run(App.class, args);
   }

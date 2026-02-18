@@ -28,7 +28,7 @@ recipeList:
       methodPattern: io.camunda.process.test.api.assertions.UserTaskSelectors byTaskName(..)
   - org.openrewrite.java.ReplaceAnnotation:
       annotationPatternToReplace: "@org.camunda.bpm.spring.boot.starter.annotation.EnableProcessApplication"
-      annotationTemplateToInsert: "@io.camunda.spring.client.annotation.Deployment(resources = \"classpath*:/bpmn/**/*.bpmn\")"
+      annotationTemplateToInsert: "@io.camunda.client.annotation.Deployment(resources = \"classpath*:/bpmn/**/*.bpmn\")"
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientCleanupRecipes

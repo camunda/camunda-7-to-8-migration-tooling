@@ -14,8 +14,24 @@
   <packaging>pom</packaging>
   <name>Camunda 7 to 8 Migration Tooling - Code</name>
 
-  <modules>
-    <module>recipes</module>
-  </modules>
+  <profiles>
+    <profile>
+      <id>distro</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>recipes</module>
+        <module>patterns/code-examples/camunda-7</module>
+        <module>patterns/code-examples/camunda-8</module>
+      </modules>
+    </profile>
 
+    <profile>
+      <id>central-release</id>
+      <modules>
+        <module>recipes</module>
+      </modules>
+    </profile>
+  </profiles>
 </project>

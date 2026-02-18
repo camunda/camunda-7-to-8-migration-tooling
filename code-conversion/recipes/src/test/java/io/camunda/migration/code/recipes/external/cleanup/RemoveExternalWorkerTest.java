@@ -87,7 +87,7 @@ public class RetrievePaymentAdapter {
 package org.camunda.conversion.java_delegates.handling_process_variables;
 
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
+import io.camunda.client.annotation.JobWorker;
 import org.camunda.bpm.engine.delegate.DelegateExecution;
 import org.camunda.bpm.engine.delegate.JavaDelegate;
 import org.camunda.bpm.engine.variable.Variables;
@@ -111,7 +111,7 @@ public class RetrievePaymentAdapterNotExtended  {
 package org.camunda.conversion.java_delegates.handling_process_variables;
 
 import io.camunda.client.api.response.ActivatedJob;
-import io.camunda.spring.client.annotation.JobWorker;
+import io.camunda.client.annotation.JobWorker;
 import org.camunda.bpm.engine.variable.Variables;
 import org.camunda.bpm.engine.variable.value.IntegerValue;
 import org.camunda.bpm.engine.variable.value.StringValue;
