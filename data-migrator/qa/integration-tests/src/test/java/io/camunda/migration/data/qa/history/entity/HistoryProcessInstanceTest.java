@@ -108,7 +108,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
     // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then
@@ -186,7 +186,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
     // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then
@@ -241,7 +241,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
     // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then
@@ -272,14 +272,12 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         .superProcessInstanceId(parentInstance.getProcessInstanceId())
         .singleResult();
 
-    // Manually configure migrator to MIGRATE mode
-    historyMigrator.setMode(MigratorMode.MIGRATE);
-
     // Mark parent as skipped
     dbClient.insert(parentInstance.getId(), (Long) null, new Date(), TYPE.HISTORY_PROCESS_INSTANCE, "test skip");
 
     // when - attempt to migrate (sub should be skipped because parent is skipped)
-    historyMigrator.migrate();
+    historyMigrator.migrateByType(TYPE.HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(TYPE.HISTORY_PROCESS_INSTANCE);
 
     // then - sub process should be skipped
     List<ProcessInstanceEntity> subProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");

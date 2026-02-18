@@ -39,7 +39,7 @@ public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrati
     runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processId);
@@ -63,7 +63,7 @@ public abstract class HistoryAbstractElementMigrationTest extends HistoryMigrati
     runtimeService.startProcessInstanceByKey(processId);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processId);

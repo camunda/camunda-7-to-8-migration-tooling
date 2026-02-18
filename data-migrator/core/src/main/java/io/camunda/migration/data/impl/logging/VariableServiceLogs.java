@@ -43,8 +43,8 @@ public class VariableServiceLogs {
    * @param interceptorName the name of the failed interceptor
    * @param variableName the name of the variable being processed
    */
-  public static void logInterceptorWarn(String interceptorName, String variableName) {
-    LOGGER.warn(formatInterceptorWarn(interceptorName, variableName));
+  public static void logInterceptorDebug(String interceptorName, String variableName) {
+    LOGGER.debug(formatInterceptor(interceptorName, variableName));
   }
 
   /**
@@ -54,7 +54,7 @@ public class VariableServiceLogs {
    * @param variableName the variable name
    * @return formatted error message
    */
-  public static String formatInterceptorWarn(String interceptorName, String variableName) {
+  public static String formatInterceptor(String interceptorName, String variableName) {
     return String.format(VARIABLE_INTERCEPTOR_FAILED_MSG, interceptorName, variableName);
   }
 

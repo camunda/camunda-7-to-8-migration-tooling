@@ -23,8 +23,12 @@ import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.springframework.stereotype.Service;
@@ -33,15 +37,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating process instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstance, ProcessInstanceDbModel> {
+public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProcessInstance, ProcessInstanceDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_PROCESS_INSTANCE,
-        c7Client::getHistoricProcessInstance,
-        c7Client::fetchAndHandleHistoricProcessInstances
-    );
+  public BiConsumer<Consumer<HistoricProcessInstance>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricProcessInstances;
+  }
+
+  @Override
+  public Function<String, HistoricProcessInstance> fetchForRetryHandler() {
+    return c7Client::getHistoricProcessInstance;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_PROCESS_INSTANCE;
   }
 
   /**

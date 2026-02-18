@@ -137,7 +137,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // causing the "start_insideSub" to be skipped
     historyMigrator.migrate();
     // retry the skipped ones to ensure all flow nodes are migrated
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then
@@ -183,7 +183,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
     // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then

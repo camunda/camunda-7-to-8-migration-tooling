@@ -56,7 +56,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
         Variables.createVariables().putValue("inputA", stringValue("FAIL")));
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("businessRuleProcessId");
@@ -75,7 +75,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
     runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
@@ -94,7 +94,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
     runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
@@ -114,7 +114,7 @@ public class HistoryTaskMigrationTest extends HistoryAbstractElementMigrationTes
     runtimeService.startProcessInstanceByKey("miProcess");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");

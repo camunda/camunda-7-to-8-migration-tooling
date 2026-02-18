@@ -24,6 +24,7 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
+import io.netty.handler.logging.LogLevel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -268,7 +269,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     var c7ProcDefKey = runtimeService.startProcessInstanceByKey("simpleProcess").getProcessDefinitionKey();
 
     // when running history migration first
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then verify history migration completed (we can't easily query history from runtime test)
     // History migration should not interfere with runtime migration

@@ -14,13 +14,22 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.util.Date;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.springframework.stereotype.Service;
 
@@ -28,15 +37,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating incidents from Camunda 7 to Camunda 8.
  */
 @Service
-public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbModel> {
+public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, IncidentDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_INCIDENT,
-        c7Client::getHistoricIncident,
-        c7Client::fetchAndHandleHistoricIncidents
-    );
+  public BiConsumer<Consumer<HistoricIncident>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricIncidents;
+  }
+
+  @Override
+  public Function<String, HistoricIncident> fetchForRetryHandler() {
+    return c7Client::getHistoricIncident;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_INCIDENT;
   }
 
   /**
@@ -118,6 +133,25 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
     }
 
     return null;
+  }
+
+  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
+    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
+    if (processInstanceKey == null) {
+      return null;
+    }
+
+    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(
+        FlowNodeInstanceDbQuery.of(builder -> builder.filter(
+            FlowNodeInstanceFilter.of(filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey))
+        ))
+    );
+
+    if (!flowNodes.isEmpty()) {
+      return flowNodes.getFirst().flowNodeInstanceKey();
+    } else {
+      return null;
+    }
   }
 
 }

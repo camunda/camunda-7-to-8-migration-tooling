@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.persistence;
 
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -124,7 +125,7 @@ public class DropSchemaTest {
 
       // Migrate instances without definitions - causes real-world skip
       var historyMigrator = context.getBean(HistoryMigrator.class);
-      historyMigrator.migrateProcessInstances();
+      historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
 
       // when application is shut down
       context.close();
@@ -161,7 +162,7 @@ public class DropSchemaTest {
 
       // Migrate instances without definitions - causes real-world skip
       var historyMigrator = context.getBean(HistoryMigrator.class);
-      historyMigrator.migrateProcessInstances();
+      historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
 
       // when application is shut down
       context.close();

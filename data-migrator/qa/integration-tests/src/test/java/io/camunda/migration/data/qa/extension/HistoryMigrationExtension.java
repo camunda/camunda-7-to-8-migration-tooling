@@ -140,12 +140,6 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
       dbClient.deleteAllMappings();
     }
 
-    HistoryMigrator historyMigrator = getHistoryMigratorBean();
-    if (historyMigrator != null) {
-      historyMigrator.setMode(MigratorMode.MIGRATE);
-      historyMigrator.setRequestedEntityTypes(null);
-    }
-
     RdbmsPurger rdbmsPurger = getRdbmsPurgerBean();
     if (rdbmsPurger != null) {
       // C8

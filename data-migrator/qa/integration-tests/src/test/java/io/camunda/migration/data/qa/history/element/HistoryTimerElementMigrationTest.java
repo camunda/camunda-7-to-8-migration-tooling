@@ -30,7 +30,7 @@ public class HistoryTimerElementMigrationTest extends HistoryAbstractElementMigr
     managementService.executeJob(jobs.getFirst().getId());
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("timerDurationBoundaryEventProcessId");

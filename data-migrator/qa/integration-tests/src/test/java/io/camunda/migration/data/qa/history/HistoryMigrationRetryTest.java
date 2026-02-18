@@ -7,9 +7,18 @@
  */
 package io.camunda.migration.data.qa.history;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.*;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +34,7 @@ import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
@@ -73,13 +83,13 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
     // First migration skipps with a real-world scenario due to missing process definition migration
-    historyMigrator.migrateProcessInstances(); // Skips because definition not migrated
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE); // Skips because definition not migrated
 
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
 
     // when: Now migrate definitions and retry skipped instances
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then: Process definition is migrated
@@ -92,14 +102,14 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // Migrate decision definitions
-    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
     assertThat(searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId")).hasSize(0);
 
     // Migrate dependency
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigrator.migrateByType(HISTORY_DECISION_REQUIREMENT);
 
     // when: Retry migration (should not duplicate)
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then: Decision requirements definition exists
@@ -118,16 +128,21 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
             .putValue("inputA", "A"));
 
     // Try to migrate decision instances without definitions (will skip)
-    historyMigrator.migrateDecisionInstances();
+    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE);
 
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
 
     // Migrate everything else
-    historyMigrator.migrate();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_DECISION_REQUIREMENT);
+    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE);
 
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
 
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.retry();
 
     // when
     historyMigrator.migrate();
@@ -160,11 +175,11 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     executeAllJobsWithRetry();
 
     // Create real-world skip scenario
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
-    historyMigrator.migrateVariables();
-    historyMigrator.migrateIncidents();
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
+    historyMigrator.migrateByType(HISTORY_VARIABLE);
+    historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(0);
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("allElementsProcessId");
@@ -180,9 +195,8 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     executeAllJobsWithRetry();
 
     // when: Retry skipped entities
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.retry();
 
     // then only previously skipped entities are migrated
     assertThat(searchHistoricProcessDefinitions("allElementsProcessId")).hasSize(1);
@@ -201,9 +215,9 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Try to migrate without process definition
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
-    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     assertThat(searchHistoricProcessDefinitions("userTaskProcessId")).hasSize(0);
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).hasSize(0);
@@ -215,7 +229,10 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate normally
-    historyMigrator.migrate();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // then only non skipped entities are migrated
     // Assert that 4 process instances were migrated, not 5
@@ -239,11 +256,11 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     }
 
     // First migration - these will be skipped because they have no process instance
-    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // Verify each standalone task was skipped exactly once
     for (String taskId : standaloneTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_UNSUPPORTED_SA_TASKS);
       List<String> matchingLogs = logs.getEvents().stream()
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
@@ -254,19 +271,17 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     }
 
     // when: Retry skipped entities
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.retry();
 
     // then: Each permanently skipped entity should only be retried once
     for (String taskId : standaloneTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_UNSUPPORTED_SA_TASKS);
       List<String> matchingLogs = logs.getEvents().stream()
+          .filter(e -> Level.WARN.equals(e.getLevel()))
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
           .toList();
-      assertThat(matchingLogs)
-          .as("Task %s should be skipped exactly twice (initial + one retry)", taskId)
-          .hasSize(2);
+      assertThat(matchingLogs).hasSize(1);
     }
   }
 
@@ -296,11 +311,11 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     assertThat(userTaskIds).hasSize(taskCount);
 
     // Migrate user tasks WITHOUT process definitions/instances first (will skip)
-    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // Verify all were skipped
     for (String taskId : userTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       assertThat(logs.getEvents().stream()
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
@@ -310,13 +325,13 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     }
 
     // Now migrate process definitions and instances so retry will succeed
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
 
     // when: Retry skipped user tasks - all should now succeed
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrateUserTasks();
+    historyMigrator.retry();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // then: All user tasks should be migrated (none skipped during retry)
     var processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -332,7 +347,7 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
     // Verify no additional skip logs during retry (all succeeded)
     for (String taskId : userTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       assertThat(logs.getEvents().stream()
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
@@ -370,16 +385,22 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
       standaloneTaskIds.add(task.getId());
     }
 
-    List<String> allTaskIds = new ArrayList<>();
-    allTaskIds.addAll(processTaskIds);
-    allTaskIds.addAll(standaloneTaskIds);
-
     // Migrate user tasks WITHOUT process definitions/instances first (all will skip)
-    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // Verify all 5 were skipped initially
-    for (String taskId : allTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+    for (String taskId : standaloneTaskIds) {
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_UNSUPPORTED_SA_TASKS);
+      assertThat(logs.getEvents().stream()
+          .map(LoggingEvent::getMessage)
+          .filter(message -> message.contains(expectedLogMessage))
+          .count())
+          .as("Task %s should be skipped during initial migration", taskId)
+          .isEqualTo(1);
+    }
+
+    for (String taskId : processTaskIds) {
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       assertThat(logs.getEvents().stream()
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
@@ -389,15 +410,15 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
     }
 
     // Now migrate process definitions and instances so process-bound tasks will succeed on retry
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
 
     // when: Retry skipped user tasks
     // 3 process-bound tasks should succeed (removed from skipped list)
     // 2 standalone tasks should fail again (remain in skipped list)
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrateUserTasks();
+    historyMigrator.retry();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // then: Process-bound tasks should be migrated
     var processInstances = searchHistoricProcessInstances("userTaskProcessId");
@@ -413,24 +434,23 @@ public class HistoryMigrationRetryTest extends HistoryMigrationAbstractTest {
 
     // Process-bound tasks: skipped once (initial), NOT skipped during retry (succeeded)
     for (String taskId : processTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       assertThat(logs.getEvents().stream()
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
           .count())
-          .as("Process-bound task %s should only be skipped once (initial), succeeded on retry", taskId)
           .isEqualTo(1);
     }
 
     // Standalone tasks: skipped twice (initial + retry)
     for (String taskId : standaloneTaskIds) {
-      String expectedLogMessage = formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      String expectedLogMessage = formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_UNSUPPORTED_SA_TASKS);
       assertThat(logs.getEvents().stream()
+          .filter(e -> Level.WARN.equals(e.getLevel()))
           .map(LoggingEvent::getMessage)
           .filter(message -> message.contains(expectedLogMessage))
           .count())
-          .as("Standalone task %s should be skipped twice (initial + retry)", taskId)
-          .isEqualTo(2);
+          .isEqualTo(1);
     }
   }
 

@@ -28,7 +28,7 @@ public class HistoryCallActivityMigrationTest extends HistoryMigrationAbstractTe
     runtimeService.startProcessInstanceByKey("callingProcessId");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> callingProcessInstances = searchHistoricProcessInstances("callingProcessId");

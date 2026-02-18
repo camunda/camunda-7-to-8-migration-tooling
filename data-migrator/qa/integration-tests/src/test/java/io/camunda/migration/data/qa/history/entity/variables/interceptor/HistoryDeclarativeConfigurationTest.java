@@ -310,9 +310,8 @@ public class HistoryDeclarativeConfigurationTest extends AbstractMigratorTest {
     // fix the variable to allow successful migration
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
-    // when run history migration again with RETRY_SKIPPED mode
-    historyMigration.getMigrator().setMode(RETRY_SKIPPED);
-    historyMigration.getMigrator().migrate();
+    // when retrying
+    historyMigration.getMigrator().retry();
 
     // then verify variable was migrated
     historyMigration.assertVariableExists("exFlag", "UNIVERSAL_false");

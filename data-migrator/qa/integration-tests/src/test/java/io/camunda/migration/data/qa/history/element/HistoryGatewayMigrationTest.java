@@ -44,7 +44,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
     runtimeService.startProcessInstanceByKey("eventGatewayProcessId", variables);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("eventGatewayProcessId");
@@ -64,7 +64,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
     runtimeService.startProcessInstanceByKey("ParallelGatewayProcess");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("ParallelGatewayProcess");
@@ -82,7 +82,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
     runtimeService.startProcessInstanceByKey(PROCESS, Variables.createVariables().putValue("testVar", "outputValue"));
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
@@ -101,7 +101,7 @@ public class HistoryGatewayMigrationTest extends HistoryAbstractElementMigration
     runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);

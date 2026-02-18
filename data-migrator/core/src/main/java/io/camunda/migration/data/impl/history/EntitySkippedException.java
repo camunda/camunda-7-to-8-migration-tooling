@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.impl.history;
 
-import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
@@ -68,4 +67,5 @@ public class EntitySkippedException extends RuntimeException {
   public C7Entity<?> getC7Entity() {
     return c7Entity;
   }
+
 }
