@@ -136,7 +136,7 @@ public class MultiDbExtension implements BeforeAllCallback {
   }
 
   protected static MSSQLServerContainer<?> createSQLServerContainer() {
-    MSSQLServerContainer<?> sqlserver = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2025-latest")
+    MSSQLServerContainer<?> sqlserver = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
         .withPassword("Camunda123!")
         .withExposedPorts(1433)
         .acceptLicense();

@@ -996,7 +996,7 @@ jobs:
     permissions:
       contents: read
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *') ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
     strategy:
