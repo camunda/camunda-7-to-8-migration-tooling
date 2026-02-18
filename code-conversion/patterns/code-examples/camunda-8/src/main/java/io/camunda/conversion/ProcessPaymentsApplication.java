@@ -12,7 +12,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-//@Deployment(resources = "classpath*:/bpmn/**/*.bpmn")
 public class ProcessPaymentsApplication {
 
 	public static void main(String[] args) {
