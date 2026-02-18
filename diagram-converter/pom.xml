@@ -29,8 +29,7 @@
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
     <version.checker-qual>3.53.1</version.checker-qual>
     <version.commons-collections4>4.5.0</version.commons-collections4>
-    <!-- Spring Boot 4 upgrade is blocked by C7 April Environment Release -->
-    <version.spring-boot>4.0.2</version.spring-boot>
+    <version.rest-assured>5.5.0</version.rest-assured>
     <plugin.version.spotless-maven-plugin>3.2.1</plugin.version.spotless-maven-plugin>
     <plugin.version.maven-site-plugin>3.21.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
@@ -180,6 +179,11 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-collections4</artifactId>
         <version>${version.commons-collections4}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.rest-assured</groupId>
+        <artifactId>rest-assured</artifactId>
+        <version>${version.rest-assured}</version>
       </dependency>
       <dependency>
         <groupId>io.camunda</groupId>

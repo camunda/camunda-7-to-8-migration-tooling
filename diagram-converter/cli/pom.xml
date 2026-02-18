@@ -43,7 +43,7 @@
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-rest-4</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-4-rest</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
