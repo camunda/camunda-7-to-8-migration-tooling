@@ -103,6 +103,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     HistoricIncident c7ChildIncident = historyService.createHistoricIncidentQuery().processInstanceId(childProcess.getProcessInstanceId()).singleResult();
     assertThat(c7ChildIncident).isNotNull();
 
+    HistoricIncident c7ParentIncident = historyService.createHistoricIncidentQuery().processInstanceId(parentProcess.getProcessInstanceId()).singleResult();
+    assertThat(c7ParentIncident).isNotNull();
+
     // when
     historyMigrator.migrate();
     // need to run with retry to migrate child instances with flow node dependencies
@@ -110,11 +113,16 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
-    assertThat(incidents).hasSize(1);
 
-    IncidentEntity incident = incidents.getFirst();
-    assertOnIncidentBasicFields(incident, c7ChildIncident, childProcess, parentProcess);
+    // child incident is migrated
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    assertThat(childIncidents).hasSize(1);
+    assertOnIncidentBasicFields(childIncidents.getFirst(), c7ChildIncident, childProcess, parentProcess);
+
+    // parent incident is migrated
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    assertThat(parentIncidents).hasSize(1);
+    assertOnIncidentBasicFields(parentIncidents.getFirst(), c7ParentIncident, parentProcess, parentProcess);
   }
 
   @Test
@@ -251,10 +259,10 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // null values
     assertThat(c8Incident.jobKey()).isNull();
-    assertThat(c8Incident.flowNodeInstanceKey()).isNull(); // service task's flow node hasn't been migrated so it doens't have a key
+    assertThat(c8Incident.flowNodeInstanceKey()).isNull(); // service task's flow node hasn't been migrated so it doesn't have a key
   }
 
-  private void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {
+  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {
     // specific values
     assertThat(c8Incident.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(c8Incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ChildInstance.getProcessDefinitionKey()));

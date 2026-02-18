@@ -95,12 +95,12 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
       throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_DEFINITION);
     }
 
-    if (dbModel.rootProcessInstanceKey() == null) {
-      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-    }
-
     if (dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+    }
+
+    if (dbModel.rootProcessInstanceKey() == null) {
+      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
     }
 
     if (dbModel.flowNodeInstanceKey() == null) {
