@@ -208,7 +208,7 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then
-    testHelper.verifySkippedViaLogs(authorization.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownDeploymentId", Resources.DEPLOYMENT.resourceName()), logs);
+    testHelper.verifyAuthorizationSkippedViaLogs(authorization.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "unknownDeploymentId", Resources.DEPLOYMENT.resourceName()), logs);
   }
 
 }

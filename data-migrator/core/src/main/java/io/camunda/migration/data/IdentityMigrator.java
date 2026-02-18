@@ -116,7 +116,7 @@ public class IdentityMigrator {
       saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY);
     } catch (MigratorException e) {
       markAsSkipped(IdKeyMapper.TYPE.TENANT, tenant.getId(), e.getMessage());
-      return;
+      return; // Only migrate memberships if tenant migration was successful
     }
     migrateTenantMemberships(tenant.getId());
   }
