@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.JSON;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.XML;
 
+import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
 import io.camunda.search.entities.VariableEntity;
@@ -33,6 +34,7 @@ import org.camunda.spin.plugin.variable.SpinValues;
 import org.camunda.spin.plugin.variable.value.JsonValue;
 import org.camunda.spin.plugin.variable.value.XmlValue;
 import org.camunda.spin.xml.SpinXmlElement;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -45,6 +47,9 @@ public class HistoryVariableTest extends AbstractMigratorTest {
 
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfiguration;
+
+  @Autowired
+  protected VendorDatabaseProperties vendorDatabaseProperties;
 
   @AfterEach
   public void tearDown() {
@@ -70,7 +75,12 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("myVariable");
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
-    assertVariableFields(variable, c7Variable, null);
+    assertThat(variable.variableKey()).isNotNull();
+    assertThat(variable.name()).isEqualTo(c7Variable.getName());
+    assertThat(variable.value()).isNull();
+    assertThat(variable.processInstanceKey()).isNotNull();
+    assertThat(variable.scopeKey()).isNotNull();
+    assertThat(variable.fullValue()).isNull();
   }
 
   @Test
@@ -86,7 +96,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     variables.putValue("shortVar", (short) 1);
     variables.putValue("longVar", 2_147_483_648L);
 
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess", variables);
+    runtimeService.startProcessInstanceByKey("simpleProcess", variables);
 
     // when
     historyMigration.getMigrator().migrate();
@@ -124,7 +134,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(stringVars).hasSize(1);
 
     VariableEntity variable = stringVars.getFirst();
-    assertVariableFields(variable, c7StringVar, "\"myStringVar\"");
+    assertVariableFields(variable, c7StringVar, "\"myStringVar\"", null);
     assertThat(variable.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
   }
 
@@ -152,7 +162,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(stringVars).hasSize(1);
 
     VariableEntity variable = stringVars.getFirst();
-    assertVariableFields(variable, c7StringVar, "\"myStringVar\"");
+    assertVariableFields(variable, c7StringVar, "\"myStringVar\"", null);
     assertThat(variable.tenantId()).isEqualTo("my-tenant1");
   }
 
@@ -202,7 +212,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
     String expectedDateValue = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(date);
-    assertVariableFields(variable, c7Variable, String.format("\"%s\"", expectedDateValue));
+    assertVariableFields(variable, c7Variable, String.format("\"%s\"", expectedDateValue), null);
   }
 
   @Test
@@ -237,7 +247,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("var");
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
-    assertVariableFields(variable, c7Variable, String.format("\"%s\"", xml));
+    assertVariableFields(variable, c7Variable, String.format("\"%s\"", xml), null);
   }
 
   @Test
@@ -266,7 +276,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("var");
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
-    assertVariableFields(variable, c7Variable, json);
+    assertVariableFields(variable, c7Variable, json, null);
   }
 
   @Test
@@ -332,8 +342,8 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variable1List).hasSize(1);
     assertThat(variable3List).hasSize(1);
 
-    assertVariableFields(variable1List.getFirst(), c7Variable1, "\"value1\"");
-    assertVariableFields(variable3List.getFirst(), c7Variable3, "\"value3\"");
+    assertVariableFields(variable1List.getFirst(), c7Variable1, "\"value1\"", null);
+    assertVariableFields(variable3List.getFirst(), c7Variable3, "\"value3\"", null);
     assertThat(variable1List.getFirst().scopeKey()).isEqualTo(variable1List.getFirst().processInstanceKey());
     assertThat(variable3List.getFirst().scopeKey()).isEqualTo(variable1List.getFirst().processInstanceKey());
   }
@@ -373,15 +383,14 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     VariableEntity globalVar = globalVars.getFirst();
     VariableEntity localVar = localVars.getFirst();
 
-    assertVariableFields(globalVar, c7GlobalVar, "\"globalValue\"");
-    assertVariableFields(localVar, c7LocalVar, "\"localValue\"");
+    assertVariableFields(globalVar, c7GlobalVar, "\"globalValue\"", null);
+    assertVariableFields(localVar, c7LocalVar, "\"localValue\"", null);
 
     // Local variable should have different scope than global variable
     assertThat(localVar.scopeKey()).isNotEqualTo(globalVar.scopeKey());
     var flowNode = historyMigration.searchHistoricFlowNodesById("usertaskActivity").getFirst();
     assertThat(localVar.scopeKey()).isEqualTo(flowNode.flowNodeInstanceKey());
   }
-
 
   @Test
   public void shouldMigrateSpinJsonVariable() {
@@ -414,7 +423,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
     String expectedValue = c7Value.toString();
-    assertVariableFields(variable, c7Variable, expectedValue);
+    assertVariableFields(variable, c7Variable, expectedValue, null);
   }
 
   @Test
@@ -451,7 +460,84 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     assertThat(variables).hasSize(1);
     VariableEntity variable = variables.getFirst();
     String expectedValue = c7Value.toString();
-    assertVariableFields(variable, c7Variable, String.format("\"%s\"", expectedValue));
+    assertVariableFields(variable, c7Variable, String.format("\"%s\"", expectedValue), null);
+  }
+
+  @Test
+  public void shouldMigrateLargeSpinJsonVariable() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    String largeString = getLargeString();
+
+    String json = "{\"name\" : \""  + largeString + "\","
+        + "\"address\" : {"
+        + "\"street\" : \"12 High Street\","
+        + "\"post code\" : 1234"
+        + "}"
+        + "}";
+    JsonValue jsonValue = SpinValues.jsonValue(json).create();
+
+    runtimeService.setVariable(processInstance.getId(), "var", jsonValue);
+
+    HistoricVariableInstance c7Variable = historyMigration.getHistoryService().createHistoricVariableInstanceQuery()
+        .processInstanceId(processInstance.getId())
+        .variableName("var")
+        .singleResult();
+
+    SpinJsonNode c7Value = (SpinJsonNode) c7Variable.getValue();
+
+    // when
+    historyMigration.getMigrator().migrate();
+
+    // then
+    List<VariableEntity> variables = historyMigration.searchHistoricVariables("var");
+    assertThat(variables).hasSize(1);
+    VariableEntity variable = variables.getFirst();
+    String expectedFullValue = c7Value.toString();
+    String truncatedValue = c7Value.toString().substring(0, vendorDatabaseProperties.variableValuePreviewSize());
+    assertVariableFields(variable, c7Variable, truncatedValue, expectedFullValue);
+  }
+
+  @Test
+  public void shouldMigrateLargeSpinXmlVariable() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    String largeString = getLargeString();
+    String street = "<street>" + largeString + "</street>";
+    String postcode = "<postCode>1234</postCode>";
+    String xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        + "<customer xmlns=\"http:\\/\\/camunda.org/example\" name=\"Jonny\">"
+        + "<address>"
+        + street
+        + postcode
+        + "</address>"
+        + "</customer>";
+    XmlValue xmlValue = SpinValues.xmlValue(xml).create();
+
+    runtimeService.setVariable(processInstance.getId(), "var", xmlValue);
+
+    HistoricVariableInstance c7Variable = historyMigration.getHistoryService().createHistoricVariableInstanceQuery()
+        .processInstanceId(processInstance.getId())
+        .variableName("var")
+        .singleResult();
+
+    SpinXmlElement c7Value = (SpinXmlElement) c7Variable.getValue();
+
+    // when
+    historyMigration.getMigrator().migrate();
+
+    // then
+    List<VariableEntity> variables = historyMigration.searchHistoricVariables("var");
+    assertThat(variables).hasSize(1);
+    VariableEntity variable = variables.getFirst();
+    String fullValue = c7Value.toString();
+    // preview value starts with an opening quote, so we need to account for that when calculating the truncated value
+    String truncatedValue = String.format("\"%s", fullValue.substring(0, vendorDatabaseProperties.variableValuePreviewSize() - 1));
+    assertVariableFields(variable, c7Variable, truncatedValue, String.format("\"%s\"", fullValue));
   }
 
   @Test
@@ -516,13 +602,24 @@ public class HistoryVariableTest extends AbstractMigratorTest {
 
   protected void assertVariableFields(VariableEntity variable,
                                       HistoricVariableInstance c7Variable,
-                                      Object expectedValue) {
+                                      Object expectedValue,
+                                      Object expectedFullValue) {
     assertThat(variable.variableKey()).isNotNull();
     assertThat(variable.name()).isEqualTo(c7Variable.getName());
-    assertThat(variable.value()).isEqualTo(expectedValue);
+    if (expectedValue != null) {
+      assertThat(variable.value()).isEqualTo(expectedValue);
+    }
     assertThat(variable.processInstanceKey()).isNotNull();
     assertThat(variable.scopeKey()).isNotNull();
-    assertThat(variable.isPreview()).isFalse();
+    if (expectedFullValue != null) {
+      assertThat(variable.isPreview()).isTrue();
+      assertThat(variable.fullValue()).isEqualTo(expectedFullValue);
+    } else {
+      assertThat(variable.isPreview()).isFalse();
+    }
   }
 
+  protected @NonNull String getLargeString() {
+    return "A".repeat(9000);
+  }
 }

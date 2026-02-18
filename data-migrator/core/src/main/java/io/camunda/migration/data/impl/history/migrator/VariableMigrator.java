@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 
+import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel.VariableDbModelBuilder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -24,6 +25,8 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
+import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -31,6 +34,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, VariableDbModel> {
+
+  @Autowired(required = false)
+  protected VendorDatabaseProperties vendorDatabaseProperties;
 
   @Override
   public void migrateAll() {
@@ -93,11 +99,12 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, Var
       if (isMigrated(activityInstanceId, HISTORY_FLOW_NODE) || isMigrated(activityInstanceId, HISTORY_PROCESS_INSTANCE)) {
         Long scopeKey = findScopeKey(activityInstanceId);
         if (scopeKey != null) {
-          builder.scopeKey(scopeKey);
+          builder.scopeKey(scopeKey)
+              .elementInstanceKey(scopeKey);
         }
       }
 
-      VariableDbModel dbModel = convert(C7Entity.of(c7Variable), builder);
+      VariableDbModel dbModel = convertAndTruncateDbModel(c7Variable, builder);
 
       if (dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7Variable, SKIP_REASON_MISSING_PROCESS_INSTANCE);
@@ -118,6 +125,13 @@ public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, Var
     }
 
     return null;
+  }
+
+  protected @NonNull VariableDbModel convertAndTruncateDbModel(HistoricVariableInstance c7Variable,
+                                                             VariableDbModelBuilder builder) {
+    VariableDbModel dbModel = convert(C7Entity.of(c7Variable), builder);
+    return dbModel.truncateValue(vendorDatabaseProperties.variableValuePreviewSize(),
+        vendorDatabaseProperties.charColumnMaxBytes());
   }
 
 }
