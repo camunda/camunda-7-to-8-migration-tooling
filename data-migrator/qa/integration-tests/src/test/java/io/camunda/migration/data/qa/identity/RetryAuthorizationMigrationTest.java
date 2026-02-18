@@ -73,7 +73,7 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
     // then all three authorizations are migrated successfully
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME);
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "operate", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
-    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "identity", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "admin", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
   }
 
