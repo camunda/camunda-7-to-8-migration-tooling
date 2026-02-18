@@ -147,13 +147,16 @@ public abstract class BaseMigrator<C7, C8> {
   }
 
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
-    if (key == null) {
+    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
+    if (processInstanceKey == null) {
       return null;
     }
 
-    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
-        b -> b.filter(FlowNodeInstanceFilter.of(f -> f.flowNodeIds(activityId).flowNodeInstanceKeys(key)))));
+    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(
+        FlowNodeInstanceDbQuery.of(builder -> builder.filter(
+            FlowNodeInstanceFilter.of(filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey))
+        ))
+    );
 
     if (!flowNodes.isEmpty()) {
       return flowNodes.getFirst().flowNodeInstanceKey();

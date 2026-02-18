@@ -50,7 +50,7 @@ public class HistoryMixedEntityTypeFilteringTest extends AbstractMigratorTest {
         .hasVariable("testVar", "MIXED_value1");
 
     assertThat(historyMigration.searchHistoricVariables("testVar").getFirst().value())
-        .isEqualTo("\"MIXED_value1\"");
+        .isEqualTo("MIXED_value1");
   }
 
 }

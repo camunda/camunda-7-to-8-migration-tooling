@@ -110,7 +110,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
       for (ProcessInstance i : items) {
         try {
           camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-        } catch (io.camunda.client.api.command.ProblemException e) {
+        } catch (io.camunda.client.api.command.ClientStatusException e) {
           if (!e.getMessage().contains("NOT_FOUND")) {
             throw e;
           }

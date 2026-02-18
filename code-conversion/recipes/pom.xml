@@ -154,12 +154,12 @@
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-external-task-client</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-4-external-task-client</artifactId>
       <version>${version.camunda-7}</version>
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-test</artifactId>
+      <artifactId>camunda-bpm-spring-boot-starter-4-test</artifactId>
       <version>${version.camunda-7}</version>
     </dependency>
     <dependency>
@@ -299,7 +299,7 @@
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
             <artifactId>rewrite-migrate-java</artifactId>
-            <version>3.27.0</version>
+            <version>3.27.1</version>
           </dependency>
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
