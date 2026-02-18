@@ -4,9 +4,16 @@
 
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>io.camunda</groupId>
+    <artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
+    <version>0.3.0-SNAPSHOT</version>
+    <relativePath>../../../</relativePath>
+  </parent>
+
   <groupId>io.camunda.conversion</groupId>
-  <artifactId>camunda_7_code_exmpales</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <artifactId>camunda_7_code_examles</artifactId>
+  <name>Camunda 7 Code Exmpales</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -27,7 +34,7 @@
       <dependency>
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-bom</artifactId>
-        <version>7.24.0</version>
+        <version>${version.camunda-7}</version>
         <scope>import</scope>
         <type>pom</type>
       </dependency>
@@ -68,7 +75,7 @@
     <dependency>
       <groupId>org.camunda.bpm.springboot</groupId>
       <artifactId>camunda-bpm-spring-boot-starter-4-external-task-client</artifactId>
-      <version>7.24.0</version>
+      <version>${version.camunda-7}</version>
     </dependency>
 
   </dependencies>

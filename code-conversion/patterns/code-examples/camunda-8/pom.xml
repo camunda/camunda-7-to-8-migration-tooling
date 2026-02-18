@@ -2,15 +2,29 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
+
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>${version.spring-boot}</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<groupId>io.camunda</groupId>
+		<artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
+		<version>0.3.0-SNAPSHOT</version>
+		<relativePath>../../../</relativePath>
 	</parent>
+
 	<groupId>io.camunda.conversion</groupId>
 	<artifactId>camunda_8_code_examples</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-dependencies</artifactId>
+				<version>${version.spring-boot}</version>
+				<scope>import</scope>
+				<type>pom</type>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<name>Camunda 8 Code Examples</name>
 	<description>Collection of examples created for the Camunda 7 to Camunda 8 Code Conversion Pattern Collection</description>
 	<url/>
@@ -38,7 +52,7 @@
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>camunda-spring-boot-starter</artifactId>
-			<version>8.8.11</version>
+			<version>${version.camunda-8}</version>
 		</dependency>
 
 		<dependency>
@@ -50,7 +64,7 @@
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>camunda-process-test-spring</artifactId>
-			<version>8.8.11</version>
+			<version>${version.camunda-8}</version>
 		</dependency>
 	</dependencies>
 
