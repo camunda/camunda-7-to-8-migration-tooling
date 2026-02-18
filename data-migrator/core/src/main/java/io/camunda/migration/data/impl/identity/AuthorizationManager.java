@@ -186,7 +186,7 @@ public class AuthorizationManager {
       case WILDCARD -> Set.of(WILDCARD);
       case "cockpit" -> Set.of("operate");
       case "tasklist" -> Set.of("tasklist");
-      case "admin" -> Set.of("identity");
+      case "admin" -> Set.of("admin");
       default -> Set.of();
     };
   }

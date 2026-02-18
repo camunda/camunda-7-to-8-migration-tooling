@@ -278,5 +278,26 @@ public class AuthorizationMigrationTest extends IdentityMigrationAbstractTest {
     assertAuthorizationsSatisfy(authorizations, ResourceType.DECISION_DEFINITION, "decDefKey", USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
     assertAuthorizationsSatisfy(authorizations, ResourceType.DECISION_DEFINITION, prefixDefinitionId("decDefKey"), USER, USERNAME,  getAllSupportedPerms(ResourceType.DECISION_DEFINITION));
   }
+
+  @Test
+  public void shouldMigrateApplicationAuthorizationsWithCorrectResourceId() {
+    // given
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ALL));
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "tasklist", Set.of(Permissions.ALL));
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "admin", Set.of(Permissions.ALL));
+    testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "*", Set.of(Permissions.ALL));
+    Authorization invalidAuth = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "invalid", Set.of(Permissions.ALL));
+
+    // when
+    identityMigrator.start();
+
+    // then
+    var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "operate", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "admin", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "*", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    testHelper.verifyAuthorizationSkippedViaLogs(invalidAuth.getId(), format(FAILURE_UNSUPPORTED_RESOURCE_ID, "invalid", Resources.APPLICATION.resourceName()), logs);
+  }
   
 }
