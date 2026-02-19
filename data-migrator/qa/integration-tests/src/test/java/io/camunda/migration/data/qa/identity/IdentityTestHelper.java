@@ -89,6 +89,15 @@ public class IdentityTestHelper {
     return newAuthorization;
   }
 
+  protected static PermissionType[] getAllSupportedPerms(ResourceType resourceType) {
+    return AuthorizationResourceType
+        .valueOf(resourceType.name())
+        .getSupportedPermissionTypes()
+        .stream()
+        .map(permissionType -> PermissionType.valueOf(permissionType.name()))
+        .toArray(PermissionType[]::new);
+  }
+
   /*
    * C8 helper methods
    */
@@ -128,17 +137,23 @@ public class IdentityTestHelper {
    * Assertion helper methods
    */
 
-  protected List<io.camunda.client.api.search.response.Authorization> awaitAuthorizationsCountAndGet(int size, String user) {
-    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(user));
-    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == size + 1); // incremented by 1 because C8 creates default auth when user is created
+  protected List<io.camunda.client.api.search.response.Authorization> awaitAuthorizationsCountAndGet(int expectedSize, String username) {
+    var request = camundaClient.newAuthorizationSearchRequest().filter(filter -> filter.ownerId(username));
+    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize + 1); // +1 because C8 creates default auth when user is created
     return request.execute().items();
   }
 
-  protected static void assertAuthorizationsContains(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, Set<PermissionType> perms) {
-    assertAuthorizationsContains(authorizations, resourceType, resourceId, ownerType, ownerId, perms.toArray(new PermissionType[0]));
+  protected List<io.camunda.client.api.search.response.Tenant> awaitTenantsCountAndGet(int expectedSize) {
+    TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
+    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize + 1) ; // +1 for default tenant
+    return request.execute().items();
   }
 
-  protected static void assertAuthorizationsContains(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, PermissionType[] perms) {
+  protected static void assertAuthorizationsSatisfy(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, Set<PermissionType> perms) {
+    assertAuthorizationsSatisfy(authorizations, resourceType, resourceId, ownerType, ownerId, perms.toArray(new PermissionType[0]));
+  }
+
+  protected static void assertAuthorizationsSatisfy(List<io.camunda.client.api.search.response.Authorization> authorizations, ResourceType resourceType, String resourceId, OwnerType ownerType, String ownerId, PermissionType[] perms) {
     assertThat(authorizations).anySatisfy(auth -> {
       assertThat(auth.getResourceType()).isEqualTo(resourceType);
       assertThat(auth.getResourceId()).isEqualTo(resourceId);
@@ -148,22 +163,14 @@ public class IdentityTestHelper {
     });
   }
 
-  protected static PermissionType[] getAllSupportedPerms(ResourceType resourceType) {
-    return AuthorizationResourceType
-        .valueOf(resourceType.name())
-        .getSupportedPermissionTypes()
-        .stream()
-        .map(permissionType -> PermissionType.valueOf(permissionType.name()))
-        .toArray(PermissionType[]::new);
+  protected void assertThatTenantsContain(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<io.camunda.client.api.search.response.Tenant> c8Tenants) {
+    assertThat(c8Tenants)
+        .extracting(io.camunda.client.api.search.response.Tenant::getTenantId, io.camunda.client.api.search.response.Tenant::getName)
+        .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
   }
 
   protected void verifyAuthorizationSkippedViaLogs(String authorizationId, String reason, LogCapturer logs) {
     logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, reason));
-  }
-
-  protected void awaitTenantsCount(int expected) {
-    TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
-    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expected + 1) ; // +1 for default tenant
   }
 
   protected void verifyTenantSkippedViaLogs(String tenantId, LogCapturer logs) {
@@ -178,12 +185,6 @@ public class IdentityTestHelper {
   protected void assertThatGroupsForTenantContainExactly(String tenantId, String... groupIds) {
     List<TenantGroup> groupsForTenant = camundaClient.newGroupsByTenantSearchRequest(tenantId).execute().items();
     assertThat(groupsForTenant).extracting(TenantGroup::getGroupId).containsExactlyInAnyOrder(groupIds);
-  }
-
-  protected void assertThatTenantsContain(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<io.camunda.client.api.search.response.Tenant> tenants) {
-    assertThat(tenants)
-        .extracting(io.camunda.client.api.search.response.Tenant::getTenantId, io.camunda.client.api.search.response.Tenant::getName)
-        .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
   }
 
 }

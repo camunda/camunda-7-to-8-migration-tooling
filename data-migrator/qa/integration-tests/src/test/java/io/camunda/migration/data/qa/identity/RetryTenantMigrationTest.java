@@ -11,6 +11,7 @@ import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.client.api.search.response.Tenant;
 import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -25,7 +26,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
-public class RetryTenantMigrationTest extends IdentityAbstractTest {
+public class RetryTenantMigrationTest extends IdentityMigrationAbstractTest {
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
@@ -51,8 +52,8 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then all three tenants are migrated successfully
-    testHelper.awaitTenantsCount(3);
-    testHelper.assertThatTenantsContain(List.of(t1, t2, t3), camundaClient.newTenantsSearchRequest().execute().items());
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(3);
+    testHelper.assertThatTenantsContain(List.of(t1, t2, t3), tenants);
   }
 
   @Test
@@ -72,8 +73,8 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then only the previously skipped tenant is additionally migrated
-    testHelper.awaitTenantsCount(3);
-    testHelper.assertThatTenantsContain(List.of(t1, t2, t3), camundaClient.newTenantsSearchRequest().execute().items());
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(3);
+    testHelper.assertThatTenantsContain(List.of(t1, t2, t3), tenants);
   }
 
   @Test
@@ -90,8 +91,8 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start(); // default mode is MIGRATE
 
     // then we the non migrated tenant is migrated but the previously skipped one is not
-    testHelper.awaitTenantsCount(2);
-    testHelper.assertThatTenantsContain(List.of(t1, t3), camundaClient.newTenantsSearchRequest().execute().items());
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(2);
+    testHelper.assertThatTenantsContain(List.of(t1, t3), tenants);
     assertThat(camundaClient.newTenantsSearchRequest().filter(f -> f.tenantId(t2.getId())).execute().items()).hasSize(0);
   }
 
@@ -143,8 +144,8 @@ public class RetryTenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the tenant is migrated successfully
-    testHelper.awaitTenantsCount(1);
-    testHelper.assertThatTenantsContain(List.of(t1), camundaClient.newTenantsSearchRequest().execute().items());
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(1);
+    testHelper.assertThatTenantsContain(List.of(t1), tenants);
     
     // and also the memberships
     testHelper.assertThatUsersForTenantContainExactly(t1.getId(), "userId1", "userId2");

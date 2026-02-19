@@ -21,7 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
-public class IdentityAbstractTest extends AbstractMigratorTest {
+public class IdentityMigrationAbstractTest extends AbstractMigratorTest {
 
   @Autowired
   protected IdentityMigrator identityMigrator;
