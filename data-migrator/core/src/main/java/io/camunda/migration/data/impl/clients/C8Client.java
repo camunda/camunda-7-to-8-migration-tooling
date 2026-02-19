@@ -153,6 +153,7 @@ public class C8Client {
   protected JobMapper jobMapper;
 
   /**
+   * Creates a new process instance with the given BPMN process ID and variables.
    */
   public ProcessInstanceEvent createProcessInstance(String bpmnProcessId, String tenantId,
                                                     Map<String, Object> variables) {
