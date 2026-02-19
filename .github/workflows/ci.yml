@@ -118,6 +118,12 @@ jobs:
           fi
           echo "✅ Pattern catalog is up-to-date!"
 
+      - name: Build api-mapping frontend
+        working-directory: code-conversion/api-mapping
+        run: |
+          npm ci
+          npm run build
+
       - name: Collect code-conversion artifacts
         id: code-conversion-artifacts
         if: github.ref == 'refs/heads/main'
