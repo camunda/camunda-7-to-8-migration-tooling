@@ -245,7 +245,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         ).hasSize(1); // Only the first skip from phase 1
   }
 
-  @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
   @WhiteBox
   @Test
   public void shouldNotMigrateIncidentsWhenJobIsSkipped() {
@@ -258,14 +257,16 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(jobs).hasSize(1);
     var job = jobs.getFirst();
 
-    try {
-      managementService.executeJob(job.getId());
-    } catch (Exception e) {
-      // expected - job will fail
+    for (int i = 0; i < 3; i++) {
+      try {
+        managementService.executeJob(job.getId());
+      } catch (Exception e) {
+        // expected - job will fail
+      }
     }
 
     // and manually mark the job as skipped
-    dbClient.insert(job.getId(), null, HISTORY_FLOW_NODE);
+    dbClient.insert(job.getId(), null, TYPE.HISTORY_JOB);
 
     // when history is migrated
     historyMigrator.migrate();

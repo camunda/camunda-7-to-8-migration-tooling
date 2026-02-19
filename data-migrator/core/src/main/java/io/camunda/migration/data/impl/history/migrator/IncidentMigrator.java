@@ -8,10 +8,12 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
@@ -66,11 +68,9 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    *   <li>Process instance key missing - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY}</li>
    *   <li>Process definition not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
    *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Referenced job explicitly skipped - skipped with {@code SKIP_REASON_MISSING_JOB_REFERENCE}</li>
    *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
-   *
-   * <p><strong>Note:</strong> Flow node instance and job reference validations are currently disabled
-   * pending resolution of known issues. See code comments for details.
    *
    * @param c7Incident the historic incident from Camunda 7 to be migrated
    * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
@@ -103,6 +103,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
           }
         }
       }
+
+      resolveJobKey(c7Incident, builder);
 
       IncidentDbModel dbModel = convert(C7Entity.of(c7Incident), builder);
 
@@ -152,6 +154,52 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     } else {
       return null;
     }
+  }
+
+  /**
+   * Resolves and sets the job key on the incident builder for {@code failedJob} incidents.
+   * <p>
+   * If the incident is a {@code failedJob} incident and the associated C7 job has been tracked
+   * in the migration table:
+   * <ul>
+   *   <li>If the job was migrated (has a C8 key), sets the {@code jobKey} on the builder.</li>
+   *   <li>If the job was explicitly skipped (null C8 key), throws an
+   *       {@link EntitySkippedException} to skip this incident as well.</li>
+   * </ul>
+   * If the job is not yet tracked (job migration may not have run or the job type is not
+   * tracked), the incident proceeds without a job key.
+   * </p>
+   *
+   * @param c7Incident the Camunda 7 incident
+   * @param builder    the incident builder to set the job key on
+   * @throws EntitySkippedException if the associated job was explicitly skipped
+   */
+  protected void resolveJobKey(final HistoricIncident c7Incident, final Builder builder) {
+    if (!isFailedJobIncident(c7Incident)) {
+      return;
+    }
+    final String c7JobId = c7Incident.getConfiguration();
+    if (c7JobId == null) {
+      return;
+    }
+    if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
+      final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
+      if (jobKey != null) {
+        builder.jobKey(jobKey);
+      } else {
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
+      }
+    }
+  }
+
+  /**
+   * Returns true if this incident was caused by a job failure.
+   *
+   * @param c7Incident the Camunda 7 incident
+   * @return true for {@code failedJob} incident type
+   */
+  protected boolean isFailedJobIncident(final HistoricIncident c7Incident) {
+    return "failedJob".equals(c7Incident.getIncidentType());
   }
 
 }
