@@ -42,4 +42,5 @@ public class C8ClientLogs {
   public static final String FAILED_TO_SEARCH_USER_TASKS = "Failed to search user tasks";
   public static final String FAILED_TO_INSERT_AUDIT_LOG = "Failed to insert audit log";
   public static final String FAILED_TO_MIGRATE_AUTHORIZATION = "Failed to migrate authorization with legacy ID: ";
+  public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
 }
