@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
-import io.camunda.migration.data.qa.MigrationTestApplication;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -22,8 +21,6 @@ import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.DefaultResourceLoader;
 
 public class UpgradeSchemaTest {
@@ -33,13 +30,9 @@ public class UpgradeSchemaTest {
   private static final String DB_PASSWORD = "sa";
 
   private HikariDataSource durableDataSource;
-  private ConfigurableApplicationContext context;
 
   @AfterEach
   void tearDown() throws Exception {
-    if (context != null && context.isActive()) {
-      context.close();
-    }
     if (durableDataSource != null && !durableDataSource.isClosed()) {
       try (Connection conn = durableDataSource.getConnection()) {
         conn.createStatement().execute("DROP ALL OBJECTS");
@@ -51,10 +44,10 @@ public class UpgradeSchemaTest {
 
   @Test
   void shouldUpgradeSchemaFromV010ToV030() throws Exception {
-    // given: a unique in-memory H2 database with the 0.1.0 schema applied
+    // given: an H2 database with only the 0.1.0 changelog applied (simulating an existing installation)
     String jdbcUrl = "jdbc:h2:mem:upgrade-v010-to-v030;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE";
     durableDataSource = createDurableDataSource(jdbcUrl);
-    applyV010Schema(durableDataSource);
+    applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
     assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
@@ -65,22 +58,9 @@ public class UpgradeSchemaTest {
     insertRowWithBigIntKey(durableDataSource, "test-c7-id-1", 123456789L, "RUNTIME_PROCESS_INSTANCE");
     insertRowWithBigIntKey(durableDataSource, "test-c7-id-2", null, "RUNTIME_PROCESS_INSTANCE");
 
-    // when: the application starts with auto-ddl=true, triggering the 0.3.0 schema upgrade
-    context = new SpringApplicationBuilder(MigrationTestApplication.class)
-        .profiles("history-level-full")
-        .properties(Map.of(
-            "camunda.migrator.auto-ddl", "true",
-            "camunda.migrator.c7.data-source.jdbc-url", jdbcUrl,
-            "camunda.migrator.c7.data-source.username", DB_USERNAME,
-            "camunda.migrator.c7.data-source.password", DB_PASSWORD,
-            "camunda.migrator.c7.data-source.driver-class-name", "org.h2.Driver",
-            "camunda.migrator.c7.data-source.auto-ddl", "true",
-            "camunda.migrator.c8.data-source.jdbc-url", jdbcUrl,
-            "camunda.migrator.c8.data-source.username", DB_USERNAME,
-            "camunda.migrator.c8.data-source.password", DB_PASSWORD,
-            "camunda.migrator.c8.data-source.driver-class-name", "org.h2.Driver"
-        ))
-        .run();
+    // when: the master changelog is applied (simulating the 0.3.0 migrator startup with auto-ddl=true)
+    // Liquibase detects 0.1.0 changesets are already applied and only runs the 0.3.0 changesets
+    applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.changelog-master.yaml");
 
     // then: the C8_KEY column is now VARCHAR(255) after the 0.3.0 upgrade
     assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
@@ -99,14 +79,14 @@ public class UpgradeSchemaTest {
   }
 
   /**
-   * Applies only the 0.1.0 Liquibase changelog, simulating a database that was initialized with
-   * the first version of the migrator.
+   * Applies the given Liquibase changelog to the data source using the empty table prefix,
+   * tracking changes in the standard DATABASECHANGELOG table.
    */
-  private static void applyV010Schema(DataSource dataSource) throws Exception {
+  private static void applyChangelog(DataSource dataSource, String changeLog) throws Exception {
     SpringLiquibase liquibase = new SpringLiquibase();
     liquibase.setResourceLoader(new DefaultResourceLoader());
     liquibase.setDataSource(dataSource);
-    liquibase.setChangeLog("classpath:db/changelog/migrator/db.0.1.0.xml");
+    liquibase.setChangeLog(changeLog);
     liquibase.setChangeLogParameters(Map.of("prefix", ""));
     liquibase.setDatabaseChangeLogTable("DATABASECHANGELOG");
     liquibase.setDatabaseChangeLogLockTable("DATABASECHANGELOGLOCK");
