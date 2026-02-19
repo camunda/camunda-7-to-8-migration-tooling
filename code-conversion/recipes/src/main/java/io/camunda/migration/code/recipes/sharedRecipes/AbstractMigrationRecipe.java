@@ -64,6 +64,40 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   .toList();
 
           /**
+           * Checks if a builder spec fully matches the method invocation chain.
+           * For builder specs, we need to verify that the methods in the chain match
+           * the expected methodNamesToExtractParameters, not just the terminal method.
+           */
+          private boolean builderSpecFullyMatches(
+              ReplacementUtils.ReplacementSpec spec, J.MethodInvocation invocation) {
+            if (!(spec instanceof ReplacementUtils.BuilderReplacementSpec builderSpec)) {
+              // Not a builder spec, just use the matcher
+              return spec.matcher().matches(invocation);
+            }
+
+            // First check the terminal matcher
+            if (!spec.matcher().matches(invocation)) {
+              return false;
+            }
+
+            // For builder specs, also check that the method chain matches
+            Map<String, Expression> collectedArgs = new HashMap<>();
+            Expression current = invocation.getSelect();
+
+            while (current instanceof J.MethodInvocation mi) {
+              String name = mi.getSimpleName();
+              if (!mi.getArguments().isEmpty()
+                  && !(mi.getArguments().get(0) instanceof J.Empty)) {
+                collectedArgs.put(name, mi.getArguments().get(0));
+              }
+              current = mi.getSelect();
+            }
+
+            // Check if collected args exactly match the spec's requirements
+            return collectedArgs.keySet().equals(builderSpec.methodNamesToExtractParameters());
+          }
+
+          /**
            * Variable declarations are visited. Types are adjusted appropriately. Initializers are
            * replaced by wrapper methods + class methods.
            */
@@ -89,7 +123,8 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // if match is found for the invocation, check returnTypeFqn to adjust variable
                 // declaration type
-                if (spec.matcher().matches(invocation)) {
+                // For builder specs, also verify the full method chain matches
+                if (builderSpecFullyMatches(spec, invocation)) {
 
                   // nothing to do if type stays the same
                   if (spec.returnTypeStrategy()
@@ -114,6 +149,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                   String shortName = RecipeUtils.getShortName(resolvedFqn);
                   String genericLongName = RecipeUtils.getGenericLongName(resolvedFqn);
+                  String outerType = RecipeUtils.getOuterType(resolvedFqn);
+
+                  // Build imports array - include both inner type and outer type (e.g., java.util.List)
+                  // so the template properly attributes all types in the AST
+                  String[] templateImports = outerType != null
+                      ? new String[] { genericLongName, outerType }
+                      : new String[] { genericLongName };
 
                   J.VariableDeclarations modifiedDeclarations =
                       RecipeUtils.createSimpleJavaTemplate(
@@ -126,10 +168,15 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                                   + " "
                                   + originalName.getSimpleName()
                                   + " = #{any(java.lang.Object)}",
-                              genericLongName)
+                              templateImports)
                           .apply(getCursor(), declarations.getCoordinates().replace(), invocation);
 
                   maybeAddImport(genericLongName);
+
+                  // Also add import for the outer type (e.g., java.util.List) if it's a generic type
+                  if (outerType != null) {
+                    maybeAddImport(outerType);
+                  }
 
                   // ensure comments are added here, not on method invocation
                   getCursor().putMessage(invocation.getId().toString(), "comments added");
@@ -199,10 +246,29 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
             JavaType.FullyQualified declaredType = declarations.getTypeAsFullyQualified();
             if (declaredType != null) {
-              maybeRemoveImport(declaredType);
+              // Don't remove common collection types like java.util.List, Set, Map, etc.
+              // These may still be used even after generic type parameters are transformed
+              String typeFqn = declaredType.getFullyQualifiedName();
+              if (!isCommonCollectionType(typeFqn)) {
+                maybeRemoveImport(declaredType);
+              }
             }
 
             return super.visitVariableDeclarations(declarations, ctx);
+          }
+
+          /** Check if the type is a common collection type that should not be automatically removed */
+          private boolean isCommonCollectionType(String fqn) {
+            return fqn != null && (
+                fqn.equals("java.util.List") ||
+                fqn.equals("java.util.Set") ||
+                fqn.equals("java.util.Map") ||
+                fqn.equals("java.util.Collection") ||
+                fqn.equals("java.util.Optional") ||
+                fqn.equals("java.util.ArrayList") ||
+                fqn.equals("java.util.HashSet") ||
+                fqn.equals("java.util.HashMap")
+            );
           }
 
           /** Replace initializers of assignments */
@@ -316,6 +382,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
 
+                // Automatically add import for outer type if return type is generic (e.g., List<...>)
+                String outerType = RecipeUtils.getOuterType(spec.returnTypeFqn());
+                if (outerType != null) {
+                  maybeAddImport(outerType);
+                }
+
                 J.MethodInvocation modifiedInvocation =
                     (J.MethodInvocation)
                         RecipeUtils.applyTemplate(
@@ -357,6 +429,12 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);
+
+                    // Automatically add import for outer type if return type is generic (e.g., List<...>)
+                    String outerType = RecipeUtils.getOuterType(spec.returnTypeFqn());
+                    if (outerType != null) {
+                      maybeAddImport(outerType);
+                    }
 
                     Object[] args =
                         ReplacementUtils.prependBaseIdentifier(

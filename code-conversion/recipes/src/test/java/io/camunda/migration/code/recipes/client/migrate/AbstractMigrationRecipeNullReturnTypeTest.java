@@ -69,13 +69,16 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
    * Verifies that the recipe does not crash when a Task query result is used as input to another
    * query. The task.getProcessInstanceId() call cannot be transformed because the return type for
    * 'task' cannot be resolved, but other transformations should still proceed.
+   *
+   * Note: Since processInstanceId() is not a handled method in MigrateProcessInstanceQueryMethodsRecipe,
+   * the ProcessInstance type remains as C7 (org.camunda.bpm.engine.runtime.ProcessInstance).
+   * Only the CamundaClient field is added by the prepare recipe.
    */
   @Test
   void taskQueryResultUsedInProcessInstanceQuery() {
     rewriteRun(
         spec ->
-            // TODO: expectedCyclesThatMakeChanges(2) - see README.md for details
-            spec.expectedCyclesThatMakeChanges(2)
+            spec
                 .recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         // language=java
         java(
@@ -110,41 +113,6 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                             .createProcessInstanceQuery()
                             .processInstanceId(task.getProcessInstanceId())
                             .list();
-                    }
-                }
-                """,
-            // ProcessInstance type is transformed, but task.getProcessInstanceId() remains unchanged
-            """
-                package org.camunda.community.migration.example;
-                import io.camunda.client.api.search.response.ProcessInstance;
-                import io.camunda.client.api.search.response.UserTask;
-                import org.camunda.bpm.engine.RuntimeService;
-                import org.camunda.bpm.engine.TaskService;
-                import org.camunda.bpm.engine.task.Task;
-                import io.camunda.client.CamundaClient;
-                import org.springframework.beans.factory.annotation.Autowired;
-                import org.springframework.stereotype.Component;
-
-                import java.util.List;
-
-                @Component
-                public class TaskQueryInProcessQueryTestClass {
-
-                    @Autowired
-                    private RuntimeService runtimeService;
-
-                    @Autowired
-                    private TaskService taskService;
-
-                    @Autowired
-                    private CamundaClient camundaClient;
-
-                    public void findProcessInstanceByTaskId(String taskId) {
-                        final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-                        List<ProcessInstance> processInstances = runtimeService
-                                .createProcessInstanceQuery()
-                                .processInstanceId(task.getProcessInstanceId())
-                                .list();
                     }
                 }
                 """));
@@ -213,6 +181,166 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                                 .newCompleteUserTaskCommand(Long.valueOf(task.getId()))
                                 .send()
                                 .join();
+                    }
+                }
+                """));
+  }
+
+  @Test
+  void testSampleMessageStartEvent() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources("io.camunda.migration.code.recipes.AllDelegateRecipes"),
+        // language=java
+        java(
+          """
+            package io.camunda.migration.code.example;
+
+            import org.camunda.bpm.engine.RuntimeService;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.camunda.bpm.engine.runtime.MessageCorrelationResult;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+            import java.util.Map;
+
+            @Component("SampleMessageStartEvent")
+            public class SampleMessageStartEvent implements JavaDelegate {
+                @Override
+                public void execute(DelegateExecution execution) {
+                    final String messageName = (String) execution.getVariable("messageName");
+                    final String processInstanceId = execution.getProcessInstanceId();
+                    final String parameter = (String) execution.getVariable("parameter");
+
+                    // the following lines needs to be filtered out by visiting blocks (if all references have been eliminated)
+                    RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
+                    final Map<String, Object> processVariables = Map.of("parameter", parameter);
+
+                    final List<MessageCorrelationResult> triggeredProcesses =
+                            runtimeService.createMessageCorrelation(messageName)
+                                    .processInstanceId(processInstanceId)
+                                    .setVariables(processVariables)
+                                    .correlateAllWithResult();
+                }
+            }
+            """,
+              """
+            package io.camunda.migration.code.example;
+
+            import io.camunda.client.annotation.JobWorker;
+            import io.camunda.client.api.response.ActivatedJob;
+            import org.camunda.bpm.engine.RuntimeService;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.runtime.MessageCorrelationResult;
+            import org.springframework.stereotype.Component;
+
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+
+            @Component("SampleMessageStartEvent")
+            public class SampleMessageStartEvent {
+
+                @JobWorker(type = "sampleMessageStartEvent", autoComplete = true)
+                public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {
+                    Map<String, Object> resultMap = new HashMap<>();
+                    final String messageName = (String) job.getVariable("messageName");
+                    final String processInstanceId = String.valueOf(job.getProcessInstanceKey());
+                    final String parameter = (String) job.getVariable("parameter");
+
+                    // the following lines needs to be filtered out by visiting blocks (if all references have been eliminated)
+                    RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
+                    final Map<String, Object> processVariables = Map.of("parameter", parameter);
+
+                    final List<MessageCorrelationResult> triggeredProcesses =
+                            runtimeService.createMessageCorrelation(messageName)
+                                    .processInstanceId(processInstanceId)
+                                    .setVariables(processVariables)
+                                    .correlateAllWithResult();
+                    return resultMap;
+                }
+            }
+                """));
+    }
+
+  /**
+   * Verifies that running the full AllClientRecipes (including cleanup with RemoveUnusedImports)
+   * preserves the java.util.List import when it's still used in the code.
+   *
+   * Since processInstanceId() is not handled, the ProcessInstance type stays as C7.
+   * The code remains compilable because we don't partially transform.
+   */
+  @Test
+  void taskQueryResultWithFullClientRecipesPreservesListImport() {
+    rewriteRun(
+        spec ->
+            spec.expectedCyclesThatMakeChanges(1)
+                .recipeFromResources("io.camunda.migration.code.recipes.AllClientRecipes"),
+        // language=java
+        java(
+            """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.RuntimeService;
+                import org.camunda.bpm.engine.TaskService;
+                import org.camunda.bpm.engine.runtime.ProcessInstance;
+                import org.camunda.bpm.engine.task.Task;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import org.springframework.stereotype.Component;
+
+                import java.util.List;
+
+                @Component
+                public class TaskQueryWithFullRecipesTestClass {
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    @Autowired
+                    private TaskService taskService;
+
+                    public void findProcessInstanceByTaskId(String taskId) {
+                        final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+                        List<ProcessInstance> processInstances = runtimeService
+                            .createProcessInstanceQuery()
+                            .processInstanceId(task.getProcessInstanceId())
+                            .list();
+                    }
+                }
+                """,
+            // ProcessInstance stays as C7, List import preserved, CamundaClient added
+            """
+                package org.camunda.community.migration.example;
+
+                import io.camunda.client.CamundaClient;
+                import org.camunda.bpm.engine.RuntimeService;
+                import org.camunda.bpm.engine.TaskService;
+                import org.camunda.bpm.engine.runtime.ProcessInstance;
+                import org.camunda.bpm.engine.task.Task;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import org.springframework.stereotype.Component;
+
+                import java.util.List;
+
+                @Component
+                public class TaskQueryWithFullRecipesTestClass {
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    @Autowired
+                    private RuntimeService runtimeService;
+
+                    @Autowired
+                    private TaskService taskService;
+
+                    public void findProcessInstanceByTaskId(String taskId) {
+                        final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+                        List<ProcessInstance> processInstances = runtimeService
+                            .createProcessInstanceQuery()
+                            .processInstanceId(task.getProcessInstanceId())
+                            .list();
                     }
                 }
                 """));

@@ -153,4 +153,42 @@ public class RecipeUtils {
 
     return joiner + "";
   }
+
+  /**
+   * Extracts the outer type from a generic type string.
+   * For example, "List&lt;ProcessInstance&gt;" returns "java.util.List",
+   * and "java.util.List&lt;ProcessInstance&gt;" returns "java.util.List".
+   * If no generic part exists, returns null.
+   *
+   * @param fqn the fully qualified name potentially containing generics
+   * @return the outer type without generics (fully qualified), or null if not a generic type
+   */
+  public static String getOuterType(String fqn) {
+    if (fqn == null || fqn.isEmpty()) {
+      return null;
+    }
+
+    int genericStart = fqn.indexOf('<');
+    if (genericStart == -1) {
+      // No generics
+      return null;
+    }
+
+    String outerType = fqn.substring(0, genericStart);
+
+    // Handle common types that may not be fully qualified
+    if (outerType.equals("List")) {
+      return "java.util.List";
+    } else if (outerType.equals("Set")) {
+      return "java.util.Set";
+    } else if (outerType.equals("Map")) {
+      return "java.util.Map";
+    } else if (outerType.equals("Collection")) {
+      return "java.util.Collection";
+    } else if (outerType.equals("Optional")) {
+      return "java.util.Optional";
+    }
+
+    return outerType;
+  }
 }
