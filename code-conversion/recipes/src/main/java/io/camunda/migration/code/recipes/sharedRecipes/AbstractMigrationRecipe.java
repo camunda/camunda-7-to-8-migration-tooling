@@ -54,6 +54,22 @@ public abstract class AbstractMigrationRecipe extends Recipe {
         preconditions(),
         new JavaIsoVisitor<>() {
 
+          // Tracks whether a null return type was encountered during the current file's traversal.
+          // When true, all changes to the file are aborted to prevent partial conversion.
+          private boolean nullReturnTypeEncountered = false;
+
+          @Override
+          public J.CompilationUnit visitCompilationUnit(
+              J.CompilationUnit cu, ExecutionContext ctx) {
+            nullReturnTypeEncountered = false;
+            J.CompilationUnit original = cu;
+            J.CompilationUnit result = super.visitCompilationUnit(cu, ctx);
+            if (nullReturnTypeEncountered) {
+              return original;
+            }
+            return result;
+          }
+
           // join specs - possible because we don't touch the method invocations
           final List<ReplacementUtils.ReplacementSpec> commonSpecs =
               Stream.concat(
@@ -474,9 +490,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                 // matching old identifier and method invocation
                 if (spec.matcher().matches(invocation)) {
 
-                  // skip transformation if return type cannot be resolved - requires manual migration
+                  // abort file transformation: partial conversion leads to ambiguous imports
                   if (returnTypeFqn == null) {
-                    return super.visitMethodInvocation(invocation, ctx);
+                    nullReturnTypeEncountered = true;
+                    return invocation;
                   }
 
                   // create new identifier from new returnTypeFqn
