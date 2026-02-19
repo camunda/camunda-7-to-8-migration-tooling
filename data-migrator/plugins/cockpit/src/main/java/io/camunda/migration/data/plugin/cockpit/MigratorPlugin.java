@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.plugin.cockpit;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +33,6 @@ public class MigratorPlugin extends AbstractCockpitPlugin {
 
   @Override
   public List<String> getMappingFiles() {
-    return Arrays.asList("mapper/IdKey.xml", "mapper/Commons.xml");
+    return List.of("mapper/IdKey.xml");
   }
 }
