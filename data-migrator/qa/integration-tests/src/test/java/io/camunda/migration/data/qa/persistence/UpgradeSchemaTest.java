@@ -25,14 +25,14 @@ import org.springframework.core.io.DefaultResourceLoader;
 
 public class UpgradeSchemaTest {
 
-  private static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
-  private static final String DB_USERNAME = "sa";
-  private static final String DB_PASSWORD = "sa";
+  protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
+  protected static final String DB_USERNAME = "sa";
+  protected static final String DB_PASSWORD = "sa";
 
-  private HikariDataSource durableDataSource;
+  protected HikariDataSource durableDataSource;
 
   @AfterEach
-  void tearDown() throws Exception {
+  public void tearDown() {
     if (durableDataSource != null && !durableDataSource.isClosed()) {
       try (Connection conn = durableDataSource.getConnection()) {
         conn.createStatement().execute("DROP ALL OBJECTS");
@@ -43,7 +43,7 @@ public class UpgradeSchemaTest {
   }
 
   @Test
-  void shouldUpgradeSchemaFromV010ToV030() throws Exception {
+  public void shouldUpgradeSchemaFromV010ToV030() throws Exception {
     // given: an H2 database with only the 0.1.0 changelog applied (simulating an existing installation)
     String jdbcUrl = "jdbc:h2:mem:upgrade-v010-to-v030;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE";
     durableDataSource = createDurableDataSource(jdbcUrl);
@@ -81,8 +81,12 @@ public class UpgradeSchemaTest {
   /**
    * Applies the given Liquibase changelog to the data source using the empty table prefix,
    * tracking changes in the standard DATABASECHANGELOG table.
+   *
+   * @param dataSource the data source to apply the changelog to
+   * @param changeLog the classpath location of the Liquibase changelog file
+   * @throws Exception if an error occurs while applying the changelog
    */
-  private static void applyChangelog(DataSource dataSource, String changeLog) throws Exception {
+  protected static void applyChangelog(DataSource dataSource, String changeLog) throws Exception {
     SpringLiquibase liquibase = new SpringLiquibase();
     liquibase.setResourceLoader(new DefaultResourceLoader());
     liquibase.setDataSource(dataSource);
@@ -95,8 +99,14 @@ public class UpgradeSchemaTest {
 
   /**
    * Inserts a row into the 0.1.0-era MIGRATION_MAPPING table using BIGINT for the C8_KEY column.
+   *
+   * @param dataSource the data source to insert the row into
+   * @param c7Id the Camunda 7 ID
+   * @param c8Key the Camunda 8 key as a Long (may be null)
+   * @param type the migration mapping type
+   * @throws SQLException if a database access error occurs
    */
-  private static void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
+  protected void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
       throws SQLException {
     String sql = "INSERT INTO MIGRATION_MAPPING (C7_ID, C8_KEY, TYPE, CREATE_TIME) VALUES (?, ?, ?, ?)";
     try (Connection conn = dataSource.getConnection();
@@ -116,8 +126,15 @@ public class UpgradeSchemaTest {
   /**
    * Returns the JDBC type code of the given column in the given table.
    * Handles H2's uppercase column/table name convention.
+   *
+   * @param dataSource the data source to query
+   * @param tableName the name of the table
+   * @param columnName the name of the column
+   * @return the JDBC type code as defined in {@link java.sql.Types}
+   * @throws SQLException if a database access error occurs
+   * @throws RuntimeException if the column is not found in the table
    */
-  private static int getColumnJdbcType(DataSource dataSource, String tableName, String columnName)
+  protected int getColumnJdbcType(DataSource dataSource, String tableName, String columnName)
       throws SQLException {
     try (Connection conn = dataSource.getConnection()) {
       DatabaseMetaData meta = conn.getMetaData();
@@ -132,8 +149,15 @@ public class UpgradeSchemaTest {
 
   /**
    * Returns true if a row exists with the given C7 ID, C8 key (as VARCHAR), and type.
+   *
+   * @param dataSource the data source to query
+   * @param c7Id the Camunda 7 ID to search for
+   * @param c8Key the Camunda 8 key as a String to search for
+   * @param type the migration mapping type to search for
+   * @return true if a matching row exists, false otherwise
+   * @throws SQLException if a database access error occurs
    */
-  private static boolean rowExists(DataSource dataSource, String c7Id, String c8Key, String type)
+  protected static boolean rowExists(DataSource dataSource, String c7Id, String c8Key, String type)
       throws SQLException {
     String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY = ? AND TYPE = ?";
     try (Connection conn = dataSource.getConnection();
@@ -149,8 +173,14 @@ public class UpgradeSchemaTest {
 
   /**
    * Returns true if a row exists with the given C7 ID, a null C8 key, and the given type.
+   *
+   * @param dataSource the data source to query
+   * @param c7Id the Camunda 7 ID to search for
+   * @param type the migration mapping type to search for
+   * @return true if a matching row with null C8 key exists, false otherwise
+   * @throws SQLException if a database access error occurs
    */
-  private static boolean rowExistsWithNullKey(DataSource dataSource, String c7Id, String type)
+  protected static boolean rowExistsWithNullKey(DataSource dataSource, String c7Id, String type)
       throws SQLException {
     String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY IS NULL AND TYPE = ?";
     try (Connection conn = dataSource.getConnection();
@@ -163,7 +193,13 @@ public class UpgradeSchemaTest {
     }
   }
 
-  private static HikariDataSource createDurableDataSource(String jdbcUrl) {
+  /**
+   * Creates a durable HikariCP data source with the given JDBC URL.
+   *
+   * @param jdbcUrl the JDBC URL for the database connection
+   * @return a configured HikariDataSource instance
+   */
+  protected static HikariDataSource createDurableDataSource(String jdbcUrl) {
     HikariDataSource ds = new HikariDataSource();
     ds.setJdbcUrl(jdbcUrl);
     ds.setUsername(DB_USERNAME);
