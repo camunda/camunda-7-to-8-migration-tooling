@@ -7,48 +7,34 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor.bean;
 
-import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-
-import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
+import io.camunda.db.rdbms.write.domain.UserTaskDbModel.Builder;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.util.WhiteBox;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-@Order(100)
+@Order(101)
 @Component
 @Profile("entity-programmatic")
 @WhiteBox
-public class ProcessInstanceInterceptor implements EntityInterceptor<HistoricProcessInstance, ProcessInstanceDbModelBuilder> {
+public class UserTaskInterceptor implements EntityInterceptor<HistoricTaskInstance, Builder> {
   protected final AtomicInteger executionCount = new AtomicInteger(0);
 
   @Override
   public Set<Class<?>> getTypes() {
-    return Set.of(HistoricProcessInstance.class);
+    return Set.of(HistoricTaskInstance.class);
   }
 
   @Override
-  public void execute(HistoricProcessInstance processInstance, ProcessInstanceDbModelBuilder builder) {
+  public void execute(HistoricTaskInstance entity, Builder builder) {
     executionCount.incrementAndGet();
 
-    // Add "BEAN_" prefix to tenant ID
-    String originalTenantId = processInstance.getTenantId();
-    String modifiedTenantId = originalTenantId != null
-        ? "BEAN_" + originalTenantId
-        : "BEAN_DEFAULT";
-
-    Set<String> tags = new HashSet<>(Set.of("tag1", "tag2"));
-    if (processInstance.getBusinessKey() != null) {
-      tags.add(processInstance.getBusinessKey());
-    }
-    builder.processInstanceKey(getNextKey())
-        .processDefinitionId(processInstance.getProcessDefinitionKey())
-        .tenantId(modifiedTenantId)
+    Set<String> tags = Set.of("custom-tag", "tag1");
+    builder
         .tags(tags);
   }
 

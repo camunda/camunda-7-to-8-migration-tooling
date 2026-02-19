@@ -115,6 +115,9 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance, UserTas
       }
 
       c8Client.insertUserTask(dbModel);
+      if (dbModel.tags() != null && !dbModel.tags().isEmpty()) {
+        c8Client.insertUserTaskTags(dbModel);
+      }
 
       return dbModel.userTaskKey();
     }

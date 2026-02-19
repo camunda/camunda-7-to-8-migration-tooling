@@ -262,6 +262,13 @@ public class C8Client {
   }
 
   /**
+   * Inserts Process Instance tags into the database.
+   */
+  public void insertProcessInstanceTags(ProcessInstanceDbModel dbModel) {
+    callApi(() -> processInstanceMapper.insertTags(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
+  }
+
+  /**
    * Finds a ProcessInstance by key.
    */
   public ProcessInstanceEntity findProcessInstance(Long key) {
@@ -329,6 +336,13 @@ public class C8Client {
    */
   public void insertUserTask(UserTaskDbModel dbModel) {
     callApi(() -> userTaskMapper.insert(dbModel), FAILED_TO_INSERT_USER_TASK);
+  }
+
+  /**
+   * Inserts User Task tags into the database.
+   */
+  public void insertUserTaskTags(UserTaskDbModel dbModel) {
+    callApi(() -> userTaskMapper.insertTags(dbModel), FAILED_TO_INSERT_USER_TASK);
   }
 
   /**
