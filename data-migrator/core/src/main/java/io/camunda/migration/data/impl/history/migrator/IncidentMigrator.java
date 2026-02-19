@@ -49,17 +49,14 @@ public class IncidentMigrator extends BaseMigrator<HistoricIncident, IncidentDbM
    *
    * <p>Skip scenarios:
    * <ul>
-   *   <li>Process instance key missing - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE_KEY}</li>
+   *   <li>Process instance key missing - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    *   <li>Process definition not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
    *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Referenced job explicitly skipped - skipped with {@code SKIP_REASON_MISSING_JOB_REFERENCE}</li>
    *   <li>Interceptor error during conversion - skipped with the exception message</li>
    * </ul>
    *
-   * <p><strong>Note:</strong> Flow node instance and job reference validations are currently disabled
-   * pending resolution of known issues. See code comments for details.
-   *
    * @param c7Incident the historic incident from Camunda 7 to be migrated
-   * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
   public Long migrateTransactionally(HistoricIncident c7Incident) {
