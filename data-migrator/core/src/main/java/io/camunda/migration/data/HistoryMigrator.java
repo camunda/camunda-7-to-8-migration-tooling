@@ -18,6 +18,7 @@ import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigra
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
@@ -63,6 +64,9 @@ public class HistoryMigrator {
   protected IncidentMigrator incidentMigrator;
 
   @Autowired
+  protected JobMigrator jobMigrator;
+
+  @Autowired
   protected DecisionRequirementsMigrator decisionRequirementsMigrator;
 
   @Autowired
@@ -85,6 +89,7 @@ public class HistoryMigrator {
         flowNodeMigrator,
         userTaskMigrator,
         variableMigrator,
+        jobMigrator,
         incidentMigrator,
         decisionRequirementsMigrator,
         decisionDefinitionMigrator,
