@@ -52,7 +52,7 @@ public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry, AuditL
    */
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_AUDIT_LOG,
         c7Client::getUserOperationLogEntry,
         c7Client::fetchAndHandleUserOperationLogEntries

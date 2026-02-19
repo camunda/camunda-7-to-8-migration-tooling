@@ -32,7 +32,7 @@ public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance, Flo
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_FLOW_NODE,
         c7Client::getHistoricActivityInstance,
         c7Client::fetchAndHandleHistoricFlowNodes

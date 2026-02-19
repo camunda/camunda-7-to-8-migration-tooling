@@ -94,7 +94,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // Complete the user task at a later time
-    Date completionTime = new Date();
+    Date completionTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(completionTime);
     Task task = taskService.createTaskQuery().singleResult();
     taskService.complete(task.getId());
@@ -117,14 +117,18 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
   @Test
   public void shouldCascadeEndDateToTerminatedFlowNodes() {
     // given - deploy and start a process instance
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    deployer.deployCamunda7Process("twoUserTasksProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("twoUserTasksProcessId");
+
+    ClockUtil.offset(5_000L);
+
+    taskService.complete(taskService.createTaskQuery().singleResult().getId());
 
     // when - migrate history
     historyMigration.getMigrator().migrate();
 
     // then - terminated flow nodes should inherit the process instance's end date
-    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("twoUserTasksProcessId");
     assertThat(processInstances).hasSize(1);
 
     ProcessInstanceEntity migratedInstance = processInstances.getFirst();
@@ -133,21 +137,19 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
 
     assertThat(processInstanceEndDate).isNotNull();
 
-    // Check start event - should NOT have cascaded end date (it's COMPLETED)
-    var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-    assertThat(startEvents).hasSize(1);
-    FlowNodeInstanceEntity startEvent = startEvents.getFirst();
-    assertThat(startEvent.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
-    assertThat(startEvent.endDate())
-        .as("Start event should have its own completion endDate, not cascaded from process instance")
+    // Check user task flow node - should have cascaded end date (it's TERMINATED)
+    var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK)
+        .stream().sorted(Comparator.comparing(FlowNodeInstanceEntity::startDate)).toList();
+    assertThat(userTaskFlowNodes).hasSize(2);
+    FlowNodeInstanceEntity userTaskFlowNodeFirst = userTaskFlowNodes.getFirst();
+    assertThat(userTaskFlowNodeFirst.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
+    assertThat(userTaskFlowNodeFirst.endDate())
+        .as("User task should have its own completion endDate, not cascaded from process instance")
         .isNotEqualTo(processInstanceEndDate);
 
-    // Check user task flow node - should have cascaded end date (it's TERMINATED)
-    var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
-    assertThat(userTaskFlowNodes).hasSize(1);
-    FlowNodeInstanceEntity userTaskFlowNode = userTaskFlowNodes.getFirst();
-    assertThat(userTaskFlowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
-    assertThat(userTaskFlowNode.endDate())
+    FlowNodeInstanceEntity userTaskFlowNodeLast = userTaskFlowNodes.getLast();
+    assertThat(userTaskFlowNodeLast.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
+    assertThat(userTaskFlowNodeLast.endDate())
         .as("Terminated user task flow node should have cascaded endDate from process instance")
         .isEqualTo(processInstanceEndDate);
   }
@@ -208,7 +210,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     // given - deploy and complete a process instance
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
-    Date startTime = new Date();
+    Date startTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(startTime);
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
@@ -280,16 +282,18 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
   @Test
   public void shouldCascadeEndDateToAllChildEntitiesConsistently() {
     // given - deploy and start multiple active process instances
-    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    deployer.deployCamunda7Process("twoUserTasksProcess.bpmn");
     for (int i = 0; i < 5; i++) {
-      runtimeService.startProcessInstanceByKey("userTaskProcessId");
+      ClockUtil.offset(5_000L);
+      String id = runtimeService.startProcessInstanceByKey("twoUserTasksProcessId").getId();
+      taskService.complete(taskService.createTaskQuery().processInstanceId(id).singleResult().getId());
     }
 
     // when - migrate history
     historyMigration.getMigrator().migrate();
 
     // then - all instances and their cancelled children should have cascaded end dates
-    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("userTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = historyMigration.searchHistoricProcessInstances("twoUserTasksProcessId");
     assertThat(processInstances).hasSize(5);
 
     for (ProcessInstanceEntity instance : processInstances) {
@@ -299,23 +303,19 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
       // Verify only TERMINATED child flow nodes have cascaded end dates
       Long processInstanceKey = instance.processInstanceKey();
 
-      // Start events should be COMPLETED with their own end dates
-      var startEvents = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, START_EVENT);
-      for (FlowNodeInstanceEntity flowNode : startEvents) {
-        assertThat(flowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
-        assertThat(flowNode.endDate())
-            .as("Completed start event should have its own endDate, not cascaded")
-            .isNotEqualTo(instance.endDate());
-      }
+      // User task should be COMPLETED with their own end dates
+      var userTaskFlowNodeCompleted = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK)
+          .stream().filter(u -> u.state() == FlowNodeInstanceEntity.FlowNodeState.COMPLETED).toList().getFirst();
+      assertThat(userTaskFlowNodeCompleted.endDate())
+          .as("Completed user task should have its own endDate, not cascaded")
+          .isNotEqualTo(instance.endDate());
 
       // User task flow nodes should be TERMINATED with cascaded end dates
-      var userTaskFlowNodes = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK);
-      for (FlowNodeInstanceEntity flowNode : userTaskFlowNodes) {
-        assertThat(flowNode.state()).isEqualTo(FlowNodeInstanceEntity.FlowNodeState.TERMINATED);
-        assertThat(flowNode.endDate())
-            .as("Terminated flow node should have cascaded endDate")
-            .isEqualTo(instance.endDate());
-      }
+      var userTaskFlowNodeCancelled = historyMigration.searchHistoricFlowNodesForType(processInstanceKey, USER_TASK)
+          .stream().filter(u -> u.state() == FlowNodeInstanceEntity.FlowNodeState.TERMINATED).toList().getFirst();
+      assertThat(userTaskFlowNodeCancelled.endDate())
+          .as("Terminated flow node should have cascaded endDate")
+          .isEqualTo(instance.endDate());
     }
   }
 
@@ -324,7 +324,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     // given - deploy and start mixed process instances (some active, some completed)
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
-    Date startTime = new Date();
+    Date startTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(startTime);
 
     // Start 3 active instances
@@ -376,7 +376,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
 
-    Date initialTime = new Date();
+    Date initialTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(initialTime);
 
     // Start process instance at T0
@@ -424,7 +424,7 @@ public class HistoryAutoCancelMigrationTest extends AbstractMigratorTest {
     deployer.deployCamunda7Process("twoUserTasksProcess.bpmn");
     runtimeService.startProcessInstanceByKey("twoUserTasksProcessId");
 
-    Date taskCompletionTime = new Date();
+    Date taskCompletionTime = ClockUtil.getCurrentTime();
     ClockUtil.setCurrentTime(taskCompletionTime);
     var tasks = taskService.createTaskQuery().list();
     taskService.complete(tasks.getFirst().getId());

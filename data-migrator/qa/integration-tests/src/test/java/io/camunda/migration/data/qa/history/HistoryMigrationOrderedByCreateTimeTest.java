@@ -41,6 +41,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     assertThat(definitionSupplier.get()).singleElement();
 
     // given
+    ClockUtil.offset(5_000L);
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
 
     // when
@@ -54,7 +55,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   public void shouldMigrateProcessDefinitionsWithSameDeploymentDate() {
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    ClockUtil.setCurrentTime(new Date());
+    ClockUtil.setCurrentTime(ClockUtil.getCurrentTime());
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
     ClockUtil.offset(1_000 * 4L);
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
@@ -80,6 +81,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     assertThat(definitionSupplier.get()).singleElement();
 
     // given
+    ClockUtil.offset(5_000L);
     deployer.deployCamunda7Decision("simpleDmn.dmn");
 
     // when
@@ -275,6 +277,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     assertThat(incidentSupplier.get()).singleElement();
 
     // given
+    ClockUtil.offset(5_000L);
     instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
     triggerIncident(instanceId);
 

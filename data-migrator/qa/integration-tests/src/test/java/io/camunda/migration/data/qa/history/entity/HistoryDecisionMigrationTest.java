@@ -97,6 +97,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     // given
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     historyMigrator.migrate();
+    ClockUtil.offset(5_000L);
     deployer.deployCamunda7Decision("simpleDmn.dmn");
     historyMigrator.migrate();
 

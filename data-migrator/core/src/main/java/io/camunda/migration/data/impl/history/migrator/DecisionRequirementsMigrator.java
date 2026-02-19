@@ -27,7 +27,7 @@ public class DecisionRequirementsMigrator extends BaseMigrator<DecisionRequireme
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_DECISION_REQUIREMENT,
         c7Client::getDecisionRequirementsDefinition,
         c7Client::fetchAndHandleDecisionRequirementsDefinitions

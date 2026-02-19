@@ -1,0 +1,28 @@
+camunda:
+  migrator:
+    auto-ddl: true
+    c7:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:postgresql://localhost:55433/process-engine
+        username: camunda
+        password: camunda
+        driver-class-name: org.postgresql.Driver
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: history-level-full
+
+camunda:
+  migrator:
+    auto-ddl: true
+    c8:
+      data-source:
+        auto-ddl: true
+        jdbc-url: jdbc:postgresql://localhost:55433/process-engine
+        username: camunda
+        password: camunda
+        driver-class-name: org.postgresql.Driver

@@ -12,10 +12,8 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 
 import io.camunda.db.rdbms.write.domain.FormDbModel;
 import io.camunda.db.rdbms.write.domain.FormDbModel.FormDbModelBuilder;
-import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import java.util.Date;
-import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
 import org.camunda.bpm.engine.repository.CamundaFormDefinition;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +25,7 @@ public class FormMigrator extends BaseMigrator<CamundaFormDefinition, FormDbMode
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(HISTORY_FORM_DEFINITION,
+    fetchMigrateOrRetry(HISTORY_FORM_DEFINITION,
         c7Client::getForm,
         c7Client::fetchAndHandleForms
     );

@@ -11,15 +11,13 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinition
 import static java.util.Map.of;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.client.CamundaClient;
 import io.camunda.migration.data.constants.MigratorConstants;
-import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.camunda.search.entities.FormEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Comparator;
 import java.util.List;
+import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryFormMigrationTest extends HistoryMigrationAbstractTest {
 
@@ -127,6 +125,7 @@ public class HistoryFormMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(forms.getFirst().version()).isEqualTo(1L);
 
     // given - deploy second form version
+    ClockUtil.offset(5_000L);
     repositoryService.createDeployment()
         .addClasspathResource("io/camunda/migration/data/bpmn/c7/processWithForm.bpmn")
         .addClasspathResource("io/camunda/migration/data/form/simple-form.form")
@@ -1492,6 +1491,7 @@ public class HistoryFormMigrationTest extends HistoryMigrationAbstractTest {
     var formAfterFirstMigration = searchForms("simple-form").getFirst();
 
     // when - deploy form version 2 and start another instance
+    ClockUtil.offset(5_000L);
     repositoryService.createDeployment()
         .addClasspathResource("io/camunda/migration/data/bpmn/c7/processWithForm.bpmn")
         .addClasspathResource("io/camunda/migration/data/form/simple-form.form")

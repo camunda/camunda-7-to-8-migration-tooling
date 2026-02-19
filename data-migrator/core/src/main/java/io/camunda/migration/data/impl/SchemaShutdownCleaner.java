@@ -27,7 +27,6 @@ import liquibase.resource.ClassLoaderResourceAccessor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.exceptions.PersistenceException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
@@ -40,8 +39,7 @@ import org.springframework.stereotype.Component;
 public class SchemaShutdownCleaner {
 
   @Autowired
-  @Qualifier("migratorDataSource")
-  protected DataSource dataSource;
+  protected DataSourceRegistry dataSourceRegistry;
 
   @Autowired
   protected MigratorProperties configProperties;
@@ -71,6 +69,7 @@ public class SchemaShutdownCleaner {
   }
 
   protected void rollbackTableCreation(String prefix) {
+    DataSource dataSource = dataSourceRegistry.getMigratorDataSource();
     try (Connection conn = dataSource.getConnection()) {
       Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(conn));
       Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.1.0.xml", new ClassLoaderResourceAccessor(), database);

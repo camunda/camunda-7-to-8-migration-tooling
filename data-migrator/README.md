@@ -26,12 +26,12 @@ Please see the official documentation for more details: [Camunda 7 to 8 Migratio
 
 ## Key Features
 
-- **State-preserving migration**: Maintains exact execution state of running process instances
+- **State-preserving migration**: Maintains the exact execution state of running process instances
 - **Variable data migration**: Converts and migrates process variables with proper type handling
 - **Validation and verification**: Pre-migration validation to ensure successful migration
 - **Skip and retry capabilities**: Handle problematic instances gracefully with retry options
 - **Detailed logging and reporting**: Comprehensive logging for monitoring migration progress
-- **Database flexibility**: Support for multiple database vendors (H2, PostgreSQL, Oracle)
+- **Database flexibility**: Support for multiple database vendors (H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server)
 
 ## Prerequisites
 
@@ -119,6 +119,24 @@ mvn integration-test
 mvn test -Dtest=ArchitectureTest
 ```
 
+Run tests with specific databases:
+```bash
+# Tests with PostgreSQL 18
+mvn verify -Ppostgresql
+
+# Tests with Oracle 23ai
+mvn verify -Poracle
+
+# Tests with MySQL 8.0
+mvn verify -Pmysql
+
+# Tests with MariaDB 11.8
+mvn verify -Pmariadb
+
+# Tests with SQL Server 2022
+mvn verify -Psqlserver
+```
+
 ### Testing Guidelines
 
 We follow a **black-box testing approach** where tests verify behavior through observable outputs rather than internal implementation details. 
@@ -180,7 +198,23 @@ void shouldSkipInstanceWhenDefinitionMissing() {
      -e POSTGRES_DB=camunda7 \
      -e POSTGRES_USER=camunda \
      -e POSTGRES_PASSWORD=camunda \
-     -p 5432:5432 -d postgres:17
+     -p 5432:5432 -d postgres:18
+
+   # Or use MySQL
+   docker run --name mysql-dev \
+     -e MYSQL_DATABASE=camunda7 \
+     -e MYSQL_USER=camunda \
+     -e MYSQL_PASSWORD=camunda \
+     -e MYSQL_ROOT_PASSWORD=root \
+     -p 3306:3306 -d mysql:8.0
+
+   # Or use MariaDB
+   docker run --name mariadb-dev \
+     -e MYSQL_DATABASE=camunda7 \
+     -e MYSQL_USER=camunda \
+     -e MYSQL_PASSWORD=camunda \
+     -e MYSQL_ROOT_PASSWORD=root \
+     -p 3306:3306 -d mariadb:11.8
    ```
 
 ## Contributing

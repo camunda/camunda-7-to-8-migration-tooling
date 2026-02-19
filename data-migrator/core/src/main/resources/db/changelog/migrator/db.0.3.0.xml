@@ -17,9 +17,19 @@
   </changeSet>
 
   <changeSet id="modify_c8_key_column_to_varchar" author="Camunda">
+    <!-- Drop index first as SQL Server doesn't allow modifying indexed columns -->
+    <dropIndex tableName="${prefix}MIGRATION_MAPPING"
+               indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY"/>
+
     <modifyDataType tableName="${prefix}MIGRATION_MAPPING"
                     columnName="C8_KEY"
                     newDataType="VARCHAR(255)"/>
+
+    <!-- Recreate the index after column modification -->
+    <createIndex tableName="${prefix}MIGRATION_MAPPING"
+                 indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY">
+      <column name="C8_KEY"/>
+    </createIndex>
   </changeSet>
 
 </databaseChangeLog>

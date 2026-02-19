@@ -269,13 +269,6 @@ public class C8Client {
   }
 
   /**
-   * Searches for ProcessInstances matching the query.
-   */
-  public List<ProcessInstanceEntity> searchProcessInstances(ProcessInstanceDbQuery query) {
-    return callApi(() -> processInstanceMapper.search(query), FAILED_TO_SEARCH_PROCESS_INSTANCE);
-  }
-
-  /**
    * Inserts a DecisionRequirementsDefinition into the database.
    */
   public void insertDecisionRequirements(DecisionRequirementsDbModel dbModel) {

@@ -15,6 +15,7 @@ import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
@@ -36,6 +37,8 @@ import io.camunda.search.query.VariableQuery;
 import io.camunda.search.result.DecisionInstanceQueryResultConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.RepositoryService;
@@ -43,6 +46,7 @@ import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
@@ -64,7 +68,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
  * </pre>
  */
 @Component
-public class HistoryMigrationExtension implements AfterEachCallback, ApplicationContextAware {
+public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachCallback, ApplicationContextAware {
 
   public static final String USER_TASK_ID = "userTaskId";
 
@@ -103,9 +107,21 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     return applicationContext != null ? applicationContext.getBean(DbClient.class) : null;
   }
 
+  /**
+   * MySQL doesn't support millisecond precision by default, so we need to truncate
+   * milliseconds to 0 when running tests against MySQL to avoid timing comparison issues.
+   */
+  @Override
+  public void beforeEach(ExtensionContext context) {
+    if (isMySqlActive()) {
+      ClockUtil.setCurrentTime(truncateMilliseconds(new Date()));
+    }
+  }
 
   @Override
   public void afterEach(ExtensionContext context) {
+    ClockUtil.reset();
+
     // Get ApplicationContext from Spring's ExtensionContext store if not already set
     if (applicationContext == null) {
       applicationContext = SpringExtension.getApplicationContext(context);
@@ -114,7 +130,6 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     RepositoryService repositoryService = getRepositoryServiceBean();
     if (repositoryService != null) {
       // C7
-      ClockUtil.reset();
       repositoryService.createDeploymentQuery().list()
           .forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
     }
@@ -292,6 +307,24 @@ public class HistoryMigrationExtension implements AfterEachCallback, Application
     VariableEntity variable = variables.getFirst();
     assertThat(variable.name()).isEqualTo(varName);
     assertThat(variable.value()).isEqualTo(expectedValue);
+  }
+
+  /**
+   * Checks if MySQL is the active database profile.
+   */
+  private static boolean isMySqlActive() {
+    return SpringProfileResolver.getActiveProfiles().contains("mysql");
+  }
+
+  /**
+   * Truncates milliseconds from a Date, setting them to 0.
+   * This is needed for MySQL which doesn't support millisecond precision by default.
+   */
+  private static Date truncateMilliseconds(Date date) {
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    calendar.set(Calendar.MILLISECOND, 0);
+    return calendar.getTime();
   }
 
 }

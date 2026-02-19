@@ -23,9 +23,9 @@ import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
@@ -47,7 +47,6 @@ import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,8 +54,7 @@ import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.repository.ResourceDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Base class for all history entity migrators.
@@ -82,11 +80,10 @@ public abstract class BaseMigrator<C7, C8> {
   @Autowired
   protected ProcessEngine processEngine;
 
-  protected MigratorMode mode = MIGRATE;
-
   @Autowired
-  @Lazy
-  protected BaseMigrator<C7, C8> self;
+  protected DataSourceRegistry dataSourceRegistry;
+
+  protected MigratorMode mode = MIGRATE;
 
   protected Long findProcessDefinitionKey(String processDefinitionId) {
     Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
@@ -166,21 +163,7 @@ public abstract class BaseMigrator<C7, C8> {
   }
 
   protected Long findFlowNodeInstanceKey(String activityInstanceId) {
-    return Optional.ofNullable(findFlowNodeInstance(activityInstanceId))
-        .map(FlowNodeInstanceDbModel::flowNodeInstanceKey)
-        .orElse(null);
-  }
-
-  protected FlowNodeInstanceDbModel findFlowNodeInstance(String activityInstanceId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(activityInstanceId, HISTORY_FLOW_NODE);
-    if (key == null) {
-      return null;
-    }
-
-    return c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.flowNodeInstanceKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
+    return dbClient.findC8KeyByC7IdAndType(activityInstanceId, HISTORY_FLOW_NODE);
   }
 
   protected Long findScopeKey(String instanceId) {
@@ -189,14 +172,7 @@ public abstract class BaseMigrator<C7, C8> {
       return key;
     }
 
-    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(instanceId, HISTORY_PROCESS_INSTANCE);
-    if (processInstanceKey == null) {
-      return null;
-    }
-
-    List<ProcessInstanceEntity> processInstances = c8Client.searchProcessInstances(
-        ProcessInstanceDbQuery.of(b -> b.filter(value -> value.processInstanceKeys(processInstanceKey))));
-    return processInstances.isEmpty() ? null : processInstanceKey;
+    return dbClient.findC8KeyByC7IdAndType(instanceId, HISTORY_PROCESS_INSTANCE);
   }
 
   protected boolean isMigrated(String id, TYPE type) {
@@ -254,21 +230,24 @@ public abstract class BaseMigrator<C7, C8> {
    * @param c7Fetcher fetches a specific entity from C7 by its ID (for retry mode)
    * @param c7BatchHandler fetches and processes entities from C7 in batches (for normal mode)
    */
-  protected void fetchAndRetry(TYPE type, Function<String, C7> c7Fetcher, BiConsumer<Consumer<C7>, Date> c7BatchHandler) {
+  protected void fetchMigrateOrRetry(TYPE type, Function<String, C7> c7Fetcher, BiConsumer<Consumer<C7>, Date> c7BatchHandler) {
     logMigrating(type);
+
+    TransactionTemplate txTemplate = dataSourceRegistry.getMigratorTxTemplate();
 
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.fetchAndHandleSkippedForType(type, idKeyDbModel -> {
         C7 c7Entity = c7Fetcher.apply(idKeyDbModel.getC7Id());
-        self.migrateEntity(c7Entity);
+        txTemplate.executeWithoutResult(status -> migrateEntity(c7Entity));
       });
     } else {
-      c7BatchHandler.accept(self::migrateEntity, dbClient.findLatestCreateTimeByType(type));
+      c7BatchHandler.accept(
+          entity -> txTemplate.executeWithoutResult(status -> migrateEntity(entity)),
+          dbClient.findLatestCreateTimeByType(type));
     }
   }
 
   @SuppressWarnings("unchecked")
-  @Transactional("c8TransactionManager")
   protected void migrateEntity(C7 entity) {
     C7Entity<C7> c7Entity = (C7Entity<C7>) getC7Entity(entity);
     String c8Key = tryMigrate(c7Entity);

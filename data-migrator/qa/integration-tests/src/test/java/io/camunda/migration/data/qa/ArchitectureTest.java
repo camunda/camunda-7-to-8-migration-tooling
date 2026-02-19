@@ -497,6 +497,11 @@ class ArchitectureTest {
           return;
         }
 
+        // Allow config package for Spring configuration classes (DataSourceRegistry, etc.)
+        if (packageName.startsWith("io.camunda.migration.data.config")) {
+          return;
+        }
+
         // Require impl package (either directly or in subpackages) for all other components
         // This matches: io.camunda.migration.data.impl, io.camunda.migration.data.impl.clients, etc.
         if (!packageName.startsWith("io.camunda.migration.data.impl")) {

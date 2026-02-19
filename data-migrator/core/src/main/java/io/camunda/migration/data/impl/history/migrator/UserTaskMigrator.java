@@ -33,7 +33,7 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance, UserTas
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_USER_TASK,
         c7Client::getHistoricTaskInstance,
         c7Client::fetchAndHandleHistoricUserTasks

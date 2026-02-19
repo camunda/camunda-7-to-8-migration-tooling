@@ -20,15 +20,17 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.model.dmn.instance.Decision;
@@ -43,7 +45,7 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
 
   @Override
   public void migrateAll() {
-    fetchAndRetry(
+    fetchMigrateOrRetry(
         HISTORY_DECISION_INSTANCE,
         c7Client::getHistoricDecisionInstance,
         c7Client::fetchAndHandleHistoricDecisionInstances
@@ -136,8 +138,9 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
           }
 
           if (isMigrated(c7DecisionInstance.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
-            var flowNode = findFlowNodeInstance(c7DecisionInstance.getActivityInstanceId());
-            if (flowNode != null) {
+            var flowNodeInstanceKey = findFlowNodeInstanceKey(c7DecisionInstance.getActivityInstanceId());
+            if (flowNodeInstanceKey != null) {
+              var flowNode = findFlowNode(flowNodeInstanceKey);
               if (flowNode.flowNodeInstanceKey() != null) {
                 builder.flowNodeInstanceKey(flowNode.flowNodeInstanceKey());
               }
@@ -243,6 +246,10 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
     } else {
       return DecisionDefinitionType.DECISION_TABLE;
     }
+  }
+
+  protected FlowNodeInstanceDbModel findFlowNode(Long flowNodeInstanceKey) {
+    return c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(b -> b.filter(FlowNodeInstanceFilter.of(f -> f.flowNodeInstanceKeys(flowNodeInstanceKey))))).getFirst();
   }
 
 }

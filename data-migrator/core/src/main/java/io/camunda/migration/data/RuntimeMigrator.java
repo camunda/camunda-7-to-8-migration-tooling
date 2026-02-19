@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE;
 
 import io.camunda.client.api.response.ActivatedJob;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.RuntimeValidator;
@@ -36,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 public class RuntimeMigrator {
@@ -58,6 +60,9 @@ public class RuntimeMigrator {
   @Autowired
   protected MigratorProperties migratorProperties;
 
+  @Autowired
+  protected DataSourceRegistry dataSourceRegistry;
+
   protected MigratorMode mode = MIGRATE;
 
   public void start() {
@@ -76,10 +81,11 @@ public class RuntimeMigrator {
   }
 
   protected void migrate() {
-    fetchProcessInstancesToMigrate(c7ProcessInstance -> {
+    TransactionTemplate txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+
+    fetchProcessInstancesToMigrate(c7ProcessInstance -> txTemplate.executeWithoutResult(status -> {
       String c7ProcessInstanceId = c7ProcessInstance.getC7Id();
       Date createTime = c7ProcessInstance.getCreateTime();
-
       String skipReason = getSkipReason(c7ProcessInstanceId);
       if (skipReason == null && shouldStartProcessInstance(c7ProcessInstanceId)) {
         startProcessInstance(c7ProcessInstanceId, createTime);
@@ -88,7 +94,7 @@ public class RuntimeMigrator {
       } else {
         dbClient.updateSkipReason(c7ProcessInstanceId, TYPE.RUNTIME_PROCESS_INSTANCE, skipReason);
       }
-    });
+    }));
 
     activateMigratorJobs();
   }
