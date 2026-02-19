@@ -24,7 +24,7 @@
     <version.java-jwt>4.5.1</version.java-jwt>
     <version.archunit>1.4.1</version.archunit>
     <version.apache-poi>5.5.1</version.apache-poi>
-    <version.feel-engine>1.20.0</version.feel-engine>
+    <version.feel-engine>1.20.2</version.feel-engine>
     <version.scala>3.8.1</version.scala>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
     <version.checker-qual>3.53.1</version.checker-qual>
