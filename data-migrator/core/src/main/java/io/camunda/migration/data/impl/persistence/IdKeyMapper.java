@@ -111,7 +111,9 @@ public interface IdKeyMapper {
 
   void insert(IdKeyDbModel idKeyDbModel);
 
-  List<IdKeyDbModel> findSkippedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
+  List<IdKeyDbModel> findSkippedByTypeWithOffset(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
+
+  List<IdKeyDbModel> findSkippedByTypeWithCursor(@Param("type") TYPE type, @Param("lastId") String lastId, @Param("limit") int limit);
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 

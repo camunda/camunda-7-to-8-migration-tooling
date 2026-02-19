@@ -37,7 +37,7 @@ public class MigratorResource extends AbstractCockpitPluginResource {
     parameters.put("limit", limit);
     return getCommandExecutor().executeCommand(new MigratorQueryService<>(parameters,
         (params, commandContext) -> (List<IdKeyDbModel>) commandContext.getDbSqlSession()
-            .selectList("io.camunda.migration.data.impl.persistence.IdKeyMapper.findSkippedByType", params)));
+            .selectList("io.camunda.migration.data.impl.persistence.IdKeyMapper.findSkippedByTypeWithOffset", params)));
   }
 
   @GET
