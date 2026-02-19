@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.identity;
 
 import io.camunda.client.api.search.enums.OwnerType;
+import io.camunda.client.api.search.response.Tenant;
 import io.camunda.migration.data.IdentityMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
@@ -23,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class TenantMigrationTest extends IdentityAbstractTest {
+public class TenantMigrationTest extends IdentityMigrationAbstractTest {
 
   @RegisterExtension
   protected final LogCapturer logs = LogCapturer.create().captureForType(IdentityMigrator.class);
@@ -43,8 +44,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the 3 tenants exist in c8
-    testHelper.awaitTenantsCount(3);
-    var tenants = camundaClient.newTenantsSearchRequest().execute().items();
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(3);
     testHelper.assertThatTenantsContain(expectedTenants, tenants);
   }
 
@@ -61,8 +61,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the 2 tenants exist in c8
-    testHelper.awaitTenantsCount(2);
-    var tenants = camundaClient.newTenantsSearchRequest().execute().items();
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(2);
     testHelper.assertThatTenantsContain(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
@@ -83,8 +82,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the 2 tenants exist in c8
-    testHelper.awaitTenantsCount(2);
-    var tenants = camundaClient.newTenantsSearchRequest().execute().items();
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(2);
     testHelper.assertThatTenantsContain(expectedTenants, tenants);
 
     // but not tenant1
@@ -115,8 +113,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the 2 tenants exist in c8
-    testHelper.awaitTenantsCount(2);
-    var tenants = camundaClient.newTenantsSearchRequest().execute().items();
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(2);
     testHelper.assertThatTenantsContain(List.of(tenant1, tenant2), tenants);
 
     // and tenant memberships are migrated
@@ -146,8 +143,7 @@ public class TenantMigrationTest extends IdentityAbstractTest {
     identityMigrator.start();
 
     // then the tenant exists in c8
-    testHelper.awaitTenantsCount(1);
-    var tenants = camundaClient.newTenantsSearchRequest().execute().items();
+    List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(1);
     testHelper.assertThatTenantsContain(List.of(tenant1), tenants);
 
     // and 2 tenant memberships are migrated

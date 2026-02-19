@@ -10,7 +10,7 @@ package io.camunda.migration.data.qa.identity;
 import static io.camunda.client.api.search.enums.OwnerType.USER;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
-import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsContains;
+import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsSatisfy;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.getAllSupportedPerms;
 import static java.lang.String.format;
 import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_GRANT;
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
+public class DeploymentAuthorizationMigrationTest extends IdentityMigrationAbstractTest {
 
   public static final String USERNAME = "tomsmith";
   public static final String USER_FIRST_NAME = "Tom";
@@ -68,12 +68,12 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // One for each resource contained in the deployment
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  getAllSupportedPerms(ResourceType.RESOURCE));
   }
 
   @Test
@@ -91,12 +91,12 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.CREATE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.CREATE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.CREATE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.CREATE));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.CREATE));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.CREATE));
   }
 
   @Test
@@ -115,12 +115,12 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
     var expectedPermissions = Set.of(PermissionType.DELETE_RESOURCE, PermissionType.DELETE_PROCESS, PermissionType.DELETE_DRD, PermissionType.DELETE_FORM);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, expectedPermissions);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, expectedPermissions);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  expectedPermissions);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  expectedPermissions);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  expectedPermissions);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  expectedPermissions);
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  expectedPermissions);
   }
 
   @Test
@@ -138,12 +138,12 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleFormId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleFormId"), USER, USERNAME,  Set.of(PermissionType.READ));
   }
 
   @Test
@@ -161,10 +161,10 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(4, USERNAME); // Two for each resource contained in the deployment (excluding CMMN)
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "userTaskProcessId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("userTaskProcessId"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDecisionId", USER, USERNAME,  Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDecisionId"), USER, USERNAME,  Set.of(PermissionType.READ));
   }
 
   @Test
@@ -177,7 +177,7 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(1, USERNAME);
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "*", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "*", USER, USERNAME, Set.of(PermissionType.READ));
   }
 
   @Test
@@ -191,12 +191,12 @@ public class DeploymentAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(6, USERNAME); // Two for each resource contained in the deployment (2 DD and 1 DRD)
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqsId", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqsId"), USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs2Id", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs2Id"), USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs1Id", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs1Id"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqsId", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqsId"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs2Id", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs2Id"), USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, "simpleDmnWithReqs1Id", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.RESOURCE, prefixDefinitionId("simpleDmnWithReqs1Id"), USER, USERNAME, Set.of(PermissionType.READ));
   }
 
   @Test
