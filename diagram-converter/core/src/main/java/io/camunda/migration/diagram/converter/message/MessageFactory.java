@@ -521,10 +521,14 @@ public class MessageFactory {
         ContextBuilder.builder().entry("elementId", elementId).build());
   }
 
-  public static Message missingIdOnConditionalEventDefinition(String parentElementId) {
+  public static Message generatedIdOnConditionalEventDefinition(
+      String parentElementId, String generatedId) {
     return INSTANCE.composeMessage(
-        "conditional-event-definition-missing-id",
-        ContextBuilder.builder().entry("parentElementId", parentElementId).build());
+        "conditional-event-definition-generated-id",
+        ContextBuilder.builder()
+            .entry("parentElementId", parentElementId)
+            .entry("generatedId", generatedId)
+            .build());
   }
 
   public static Message oldInAllHint() {

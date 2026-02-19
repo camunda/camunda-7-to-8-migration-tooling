@@ -522,4 +522,51 @@ public class DiagramConverterTest {
     assertThat(templatedTask.getAttribute(ZEEBE, "modelerTemplate")).isEqualTo("test");
     assertThat(templatedTask.getAttribute(ZEEBE, "modelerTemplateVersion")).isEqualTo("1");
   }
+
+  @Test
+  void shouldGenerateIdForConditionalEventDefinitionWithMissingId() {
+    DefaultConverterProperties properties = new DefaultConverterProperties();
+    properties.setPlatformVersion("8.9");
+    ConverterProperties converterProperties =
+        ConverterPropertiesFactory.getInstance().merge(properties);
+    BpmnModelInstance bpmnModelInstance =
+        loadAndConvert("conditional-event-missing-id.bpmn", converterProperties);
+
+    // Verify the conditionalEventDefinition now has an ID
+    DomElement startEvent = bpmnModelInstance.getDocument().getElementById("StartEvent_1");
+    DomElement conditionalEventDef =
+        startEvent.getChildElementsByNameNs(BPMN, "conditionalEventDefinition").get(0);
+    String generatedId = conditionalEventDef.getAttribute("id");
+
+    assertThat(generatedId).isNotNull();
+    assertThat(generatedId).startsWith("ConditionalEventDefinition_");
+    assertThat(generatedId)
+        .hasSize("ConditionalEventDefinition_".length() + BpmnIdGenerator.SUFFIX_LENGTH);
+  }
+
+  @Test
+  void shouldGenerateReviewMessageForConditionalEventDefinitionWithGeneratedId() {
+    DefaultConverterProperties properties = new DefaultConverterProperties();
+    properties.setPlatformVersion("8.9");
+    ConverterProperties converterProperties =
+        ConverterPropertiesFactory.getInstance().merge(properties);
+
+    DiagramCheckResult result =
+        loadAndCheck("conditional-event-missing-id.bpmn", converterProperties);
+
+    ElementCheckResult startEventResult = result.getResult("StartEvent_1");
+    assertThat(startEventResult).isNotNull();
+
+    // Find the message about generated ID
+    Optional<ElementCheckMessage> generatedIdMessage =
+        startEventResult.getMessages().stream()
+            .filter(m -> m.getMessage().contains("Generated id"))
+            .findFirst();
+
+    assertThat(generatedIdMessage).isPresent();
+    assertThat(generatedIdMessage.get().getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(generatedIdMessage.get().getMessage())
+        .contains("ConditionalEventDefinition_")
+        .contains("for conditionalEventDefinition on element 'StartEvent_1'");
+  }
 }

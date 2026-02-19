@@ -1005,30 +1005,6 @@ categories:
           </bpmn:startEvent>
         expectedMessages: |
           <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
-      - name: Missing conditionalEventDefinition id on Conditional start event (root-level)
-        properties:
-          platformVersion: "8.9"
-        givenBpmn: |
-          <bpmn:startEvent id="StartEvent_1">
-            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
-            <bpmn:conditionalEventDefinition>
-              <bpmn:condition xsi:type="bpmn:tFormalExpression" language="feel">variable = 1</bpmn:condition>
-            </bpmn:conditionalEventDefinition>
-          </bpmn:startEvent>
-        expectedBpmn: |
-          <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
-            <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">The conditionalEventDefinition on element 'StartEvent_1' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_StartEvent_1').</conversion:message>
-              <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
-            </bpmn:extensionElements>
-            <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
-            <bpmn:conditionalEventDefinition>
-              <bpmn:condition language="feel" xsi:type="bpmn:tFormalExpression">=variable = 1</bpmn:condition>
-            </bpmn:conditionalEventDefinition>
-          </bpmn:startEvent>
-        expectedMessages: |
-          <conversion:message severity="TASK">The conditionalEventDefinition on element 'StartEvent_1' is missing an 'id' attribute. Camunda 8 requires an 'id' on conditionalEventDefinition elements. Please add a unique id (e.g., 'ConditionalEventDefinition_StartEvent_1').</conversion:message>
-          <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
   - category: Unsupported elements
     cases:
       - name: Transaction and Cancel Events are not supported
