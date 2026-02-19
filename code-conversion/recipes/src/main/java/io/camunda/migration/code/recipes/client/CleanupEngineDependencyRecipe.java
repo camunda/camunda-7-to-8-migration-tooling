@@ -62,35 +62,38 @@ public class CleanupEngineDependencyRecipe extends Recipe {
               J.ClassDeclaration classDeclaration, ExecutionContext ctx) {
 
             List<Statement> newStatements = new ArrayList<>();
-            Set<String> removedVariableNames = new HashSet<>();
+            Set<String> removedTypes = new HashSet<>();
 
             for (Statement statement : classDeclaration.getBody().getStatements()) {
-              if (statement instanceof J.VariableDeclarations varDecls
-                  && (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)
-                      || TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE))) {
-                // Check if the variable is still used in the class before removing
-                String varName = varDecls.getVariables().get(0).getSimpleName();
-                if (isVariableUsedInMethods(classDeclaration, varName)) {
-                  // Variable is still in use, keep it
-                  newStatements.add(statement);
-                } else {
-                  // Variable is not used, mark for removal
-                  removedVariableNames.add(varName);
+              if (statement instanceof J.VariableDeclarations varDecls) {
+                String matchedType = null;
+                if (TypeUtils.isOfClassType(varDecls.getType(), PROCESS_ENGINE)) {
+                  matchedType = PROCESS_ENGINE;
+                } else if (TypeUtils.isOfClassType(varDecls.getType(), RUNTIME_SERVICE)) {
+                  matchedType = RUNTIME_SERVICE;
+                } else if (TypeUtils.isOfClassType(varDecls.getType(), TASK_SERVICE)) {
+                  matchedType = TASK_SERVICE;
+                } else if (TypeUtils.isOfClassType(varDecls.getType(), REPOSITORY_SERVICE)) {
+                  matchedType = REPOSITORY_SERVICE;
                 }
-                continue;
+                if (matchedType != null) {
+                  // Check if the variable is still used in the class before removing
+                  String varName = varDecls.getVariables().get(0).getSimpleName();
+                  if (isVariableUsedInMethods(classDeclaration, varName)) {
+                    // Variable is still in use, keep it
+                    newStatements.add(statement);
+                  } else {
+                    // Variable is not used, track the specific type removed
+                    removedTypes.add(matchedType);
+                  }
+                  continue;
+                }
               }
               newStatements.add(statement);
             }
 
-            // Only remove imports if the corresponding fields were actually removed
-            if (!removedVariableNames.isEmpty()) {
-              maybeRemoveImport(PROCESS_ENGINE);
-              maybeRemoveImport(RUNTIME_SERVICE);
-              maybeRemoveImport(TASK_SERVICE);
-              maybeRemoveImport(REPOSITORY_SERVICE);
-            }
+            // Only remove imports for types whose fields were actually removed
+            removedTypes.forEach(this::maybeRemoveImport);
 
             return classDeclaration.withBody(
                 classDeclaration.getBody().withStatements(newStatements));

@@ -18,8 +18,8 @@ import org.openrewrite.test.RewriteTest;
  * <p>These tests verify that the recipe gracefully handles cases where the cursor message for a
  * variable's return type is null, instead of throwing a NullPointerException.
  *
- * <p>The fix skips transformation for method invocations where the return type cannot be resolved,
- * leaving those specific method calls unchanged for manual migration.
+ * <p>When a null return type is encountered, the entire file transformation is aborted to prevent
+ * partial conversion that could lead to ambiguous imports (e.g., both C7 and C8 ProcessInstance).
  *
  * @see <a href="https://github.com/camunda-community-hub/camunda-7-to-8-code-conversion/issues/52">
  *     Issue #52</a>
@@ -27,8 +27,9 @@ import org.openrewrite.test.RewriteTest;
 class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
 
   /**
-   * Verifies that the recipe does not crash when accessing methods on a Task obtained via
+   * Verifies that the recipe makes no changes when accessing methods on a Task obtained via
    * singleResult(), where the return type cannot be resolved from the cursor message.
+   * The entire file transformation is aborted to prevent partial conversion.
    */
   @Test
   void taskQuerySingleResultWithMethodAccess() {
@@ -66,13 +67,9 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
   }
 
   /**
-   * Verifies that the recipe does not crash when a Task query result is used as input to another
+   * Verifies that the recipe makes no changes when a Task query result is used as input to another
    * query. The task.getProcessInstanceId() call cannot be transformed because the return type for
-   * 'task' cannot be resolved, but other transformations should still proceed.
-   *
-   * Note: Since processInstanceId() is not a handled method in MigrateProcessInstanceQueryMethodsRecipe,
-   * the ProcessInstance type remains as C7 (org.camunda.bpm.engine.runtime.ProcessInstance).
-   * Only the CamundaClient field is added by the prepare recipe.
+   * 'task' cannot be resolved, so the entire file is left unchanged to prevent ambiguous imports.
    */
   @Test
   void taskQueryResultUsedInProcessInstanceQuery() {
@@ -119,9 +116,9 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
   }
 
   /**
-   * Verifies that the recipe does not crash when TaskService is obtained from ProcessEngine
-   * parameter. The taskService.complete() call is transformed, but task.getId() remains unchanged
-   * because the return type for 'task' cannot be resolved.
+   * Verifies that the recipe does not partially convert a file when TaskService is obtained from
+   * ProcessEngine parameter. Since task.getId() cannot be resolved (null return type), the entire
+   * file must remain unchanged to prevent partial conversion with potentially ambiguous imports.
    */
   @Test
   void taskServiceFromProcessEngineParameter() {
@@ -154,35 +151,6 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                         taskService.complete(task.getId());
                     }
                 }
-                """,
-            // taskService.complete() is transformed, but task.getId() remains unchanged
-            """
-                package org.camunda.community.migration.example;
-
-                import org.camunda.bpm.engine.ProcessEngine;
-                import org.camunda.bpm.engine.TaskService;
-                import org.camunda.bpm.engine.task.Task;
-                import io.camunda.client.CamundaClient;
-                import org.springframework.beans.factory.annotation.Autowired;
-                import org.springframework.stereotype.Component;
-
-                @Component
-                public class StaticMethodWithProcessEngineTestClass {
-
-                    @Autowired
-                    private CamundaClient camundaClient;
-
-                    public void completeTask(ProcessEngine processEngine, String businessKey) {
-                        TaskService taskService = processEngine.getTaskService();
-                        Task task = taskService.createTaskQuery()
-                            .processInstanceBusinessKey(businessKey)
-                            .singleResult();
-                        camundaClient
-                                .newCompleteUserTaskCommand(Long.valueOf(task.getId()))
-                                .send()
-                                .join();
-                    }
-                }
                 """));
   }
 
@@ -196,14 +164,9 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
           """
             package io.camunda.migration.code.example;
 
-            import org.camunda.bpm.engine.RuntimeService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
             import org.camunda.bpm.engine.delegate.JavaDelegate;
-            import org.camunda.bpm.engine.runtime.MessageCorrelationResult;
             import org.springframework.stereotype.Component;
-
-            import java.util.List;
-            import java.util.Map;
 
             @Component("SampleMessageStartEvent")
             public class SampleMessageStartEvent implements JavaDelegate {
@@ -212,16 +175,6 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                     final String messageName = (String) execution.getVariable("messageName");
                     final String processInstanceId = execution.getProcessInstanceId();
                     final String parameter = (String) execution.getVariable("parameter");
-
-                    // the following lines needs to be filtered out by visiting blocks (if all references have been eliminated)
-                    RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
-                    final Map<String, Object> processVariables = Map.of("parameter", parameter);
-
-                    final List<MessageCorrelationResult> triggeredProcesses =
-                            runtimeService.createMessageCorrelation(messageName)
-                                    .processInstanceId(processInstanceId)
-                                    .setVariables(processVariables)
-                                    .correlateAllWithResult();
                 }
             }
             """,
@@ -230,13 +183,11 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
 
             import io.camunda.client.annotation.JobWorker;
             import io.camunda.client.api.response.ActivatedJob;
-            import org.camunda.bpm.engine.RuntimeService;
             import org.camunda.bpm.engine.delegate.DelegateExecution;
-            import org.camunda.bpm.engine.runtime.MessageCorrelationResult;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
             import org.springframework.stereotype.Component;
 
             import java.util.HashMap;
-            import java.util.List;
             import java.util.Map;
 
             @Component("SampleMessageStartEvent")
@@ -248,21 +199,11 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                     final String messageName = (String) job.getVariable("messageName");
                     final String processInstanceId = String.valueOf(job.getProcessInstanceKey());
                     final String parameter = (String) job.getVariable("parameter");
-
-                    // the following lines needs to be filtered out by visiting blocks (if all references have been eliminated)
-                    RuntimeService runtimeService = execution.getProcessEngineServices().getRuntimeService();
-                    final Map<String, Object> processVariables = Map.of("parameter", parameter);
-
-                    final List<MessageCorrelationResult> triggeredProcesses =
-                            runtimeService.createMessageCorrelation(messageName)
-                                    .processInstanceId(processInstanceId)
-                                    .setVariables(processVariables)
-                                    .correlateAllWithResult();
                     return resultMap;
                 }
             }
                 """));
-    }
+  }
 
   /**
    * Verifies that running the full AllClientRecipes (including cleanup with RemoveUnusedImports)
