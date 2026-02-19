@@ -1,0 +1,194 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.data.qa.persistence;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.zaxxer.hikari.HikariDataSource;
+import io.camunda.migration.data.qa.MigrationTestApplication;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Map;
+import javax.sql.DataSource;
+import liquibase.integration.spring.SpringLiquibase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.io.DefaultResourceLoader;
+
+public class UpgradeSchemaTest {
+
+  private static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
+  private static final String DB_USERNAME = "sa";
+  private static final String DB_PASSWORD = "sa";
+
+  private HikariDataSource durableDataSource;
+  private ConfigurableApplicationContext context;
+
+  @AfterEach
+  void tearDown() throws Exception {
+    if (context != null && context.isActive()) {
+      context.close();
+    }
+    if (durableDataSource != null && !durableDataSource.isClosed()) {
+      try (Connection conn = durableDataSource.getConnection()) {
+        conn.createStatement().execute("DROP ALL OBJECTS");
+      } catch (Exception ignored) {
+      }
+      durableDataSource.close();
+    }
+  }
+
+  @Test
+  void shouldUpgradeSchemaFromV010ToV030() throws Exception {
+    // given: a unique in-memory H2 database with the 0.1.0 schema applied
+    String jdbcUrl = "jdbc:h2:mem:upgrade-v010-to-v030;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE";
+    durableDataSource = createDurableDataSource(jdbcUrl);
+    applyV010Schema(durableDataSource);
+
+    // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
+    assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
+        .as("C8_KEY should be BIGINT in schema version 0.1.0")
+        .isEqualTo(Types.BIGINT);
+
+    // and: existing data is inserted using the 0.1.0 BIGINT format for C8_KEY
+    insertRowWithBigIntKey(durableDataSource, "test-c7-id-1", 123456789L, "RUNTIME_PROCESS_INSTANCE");
+    insertRowWithBigIntKey(durableDataSource, "test-c7-id-2", null, "RUNTIME_PROCESS_INSTANCE");
+
+    // when: the application starts with auto-ddl=true, triggering the 0.3.0 schema upgrade
+    context = new SpringApplicationBuilder(MigrationTestApplication.class)
+        .profiles("history-level-full")
+        .properties(Map.of(
+            "camunda.migrator.auto-ddl", "true",
+            "camunda.migrator.c7.data-source.jdbc-url", jdbcUrl,
+            "camunda.migrator.c7.data-source.username", DB_USERNAME,
+            "camunda.migrator.c7.data-source.password", DB_PASSWORD,
+            "camunda.migrator.c7.data-source.driver-class-name", "org.h2.Driver",
+            "camunda.migrator.c7.data-source.auto-ddl", "true",
+            "camunda.migrator.c8.data-source.jdbc-url", jdbcUrl,
+            "camunda.migrator.c8.data-source.username", DB_USERNAME,
+            "camunda.migrator.c8.data-source.password", DB_PASSWORD,
+            "camunda.migrator.c8.data-source.driver-class-name", "org.h2.Driver"
+        ))
+        .run();
+
+    // then: the C8_KEY column is now VARCHAR(255) after the 0.3.0 upgrade
+    assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
+        .as("C8_KEY should be VARCHAR after schema upgrade to 0.3.0")
+        .isEqualTo(Types.VARCHAR);
+
+    // and: pre-existing data with a numeric C8_KEY is preserved as its string representation
+    assertThat(rowExists(durableDataSource, "test-c7-id-1", "123456789", "RUNTIME_PROCESS_INSTANCE"))
+        .as("Pre-existing data should be preserved after schema upgrade from 0.1.0 to 0.3.0")
+        .isTrue();
+
+    // and: pre-existing data with a null C8_KEY is also preserved
+    assertThat(rowExistsWithNullKey(durableDataSource, "test-c7-id-2", "RUNTIME_PROCESS_INSTANCE"))
+        .as("Pre-existing data with null C8_KEY should be preserved after schema upgrade")
+        .isTrue();
+  }
+
+  /**
+   * Applies only the 0.1.0 Liquibase changelog, simulating a database that was initialized with
+   * the first version of the migrator.
+   */
+  private static void applyV010Schema(DataSource dataSource) throws Exception {
+    SpringLiquibase liquibase = new SpringLiquibase();
+    liquibase.setResourceLoader(new DefaultResourceLoader());
+    liquibase.setDataSource(dataSource);
+    liquibase.setChangeLog("classpath:db/changelog/migrator/db.0.1.0.xml");
+    liquibase.setChangeLogParameters(Map.of("prefix", ""));
+    liquibase.setDatabaseChangeLogTable("DATABASECHANGELOG");
+    liquibase.setDatabaseChangeLogLockTable("DATABASECHANGELOGLOCK");
+    liquibase.afterPropertiesSet();
+  }
+
+  /**
+   * Inserts a row into the 0.1.0-era MIGRATION_MAPPING table using BIGINT for the C8_KEY column.
+   */
+  private static void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
+      throws SQLException {
+    String sql = "INSERT INTO MIGRATION_MAPPING (C7_ID, C8_KEY, TYPE, CREATE_TIME) VALUES (?, ?, ?, ?)";
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, c7Id);
+      if (c8Key != null) {
+        stmt.setLong(2, c8Key);
+      } else {
+        stmt.setNull(2, Types.BIGINT);
+      }
+      stmt.setString(3, type);
+      stmt.setTimestamp(4, new java.sql.Timestamp(System.currentTimeMillis()));
+      stmt.executeUpdate();
+    }
+  }
+
+  /**
+   * Returns the JDBC type code of the given column in the given table.
+   * Handles H2's uppercase column/table name convention.
+   */
+  private static int getColumnJdbcType(DataSource dataSource, String tableName, String columnName)
+      throws SQLException {
+    try (Connection conn = dataSource.getConnection()) {
+      DatabaseMetaData meta = conn.getMetaData();
+      try (ResultSet rs = meta.getColumns(null, null, tableName.toUpperCase(), columnName.toUpperCase())) {
+        if (rs.next()) {
+          return rs.getInt("DATA_TYPE");
+        }
+        throw new RuntimeException("Column " + columnName + " not found in table " + tableName);
+      }
+    }
+  }
+
+  /**
+   * Returns true if a row exists with the given C7 ID, C8 key (as VARCHAR), and type.
+   */
+  private static boolean rowExists(DataSource dataSource, String c7Id, String c8Key, String type)
+      throws SQLException {
+    String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY = ? AND TYPE = ?";
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, c7Id);
+      stmt.setString(2, c8Key);
+      stmt.setString(3, type);
+      try (ResultSet rs = stmt.executeQuery()) {
+        return rs.next() && rs.getInt(1) > 0;
+      }
+    }
+  }
+
+  /**
+   * Returns true if a row exists with the given C7 ID, a null C8 key, and the given type.
+   */
+  private static boolean rowExistsWithNullKey(DataSource dataSource, String c7Id, String type)
+      throws SQLException {
+    String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY IS NULL AND TYPE = ?";
+    try (Connection conn = dataSource.getConnection();
+        PreparedStatement stmt = conn.prepareStatement(sql)) {
+      stmt.setString(1, c7Id);
+      stmt.setString(2, type);
+      try (ResultSet rs = stmt.executeQuery()) {
+        return rs.next() && rs.getInt(1) > 0;
+      }
+    }
+  }
+
+  private static HikariDataSource createDurableDataSource(String jdbcUrl) {
+    HikariDataSource ds = new HikariDataSource();
+    ds.setJdbcUrl(jdbcUrl);
+    ds.setUsername(DB_USERNAME);
+    ds.setPassword(DB_PASSWORD);
+    ds.setAutoCommit(true);
+    return ds;
+  }
+}
