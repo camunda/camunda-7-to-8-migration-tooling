@@ -86,6 +86,10 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
     assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
+    assertThat(log.agentElementId()).isNull();
+    assertThat(log.relatedEntityKey()).isNull();
+    assertThat(log.relatedEntityType()).isNull();
+
   }
 
   @Test
@@ -449,6 +453,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.VARIABLE);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
+    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("testVar");
   }
 
   @Test
