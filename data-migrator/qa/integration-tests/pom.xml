@@ -233,7 +233,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -253,7 +252,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -273,7 +271,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -293,7 +290,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -313,7 +309,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -333,7 +328,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -353,7 +347,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>
@@ -373,7 +366,6 @@
               </systemPropertyVariables>
               <excludes>
                 <exclude>**/DropSchemaTest.java</exclude>
-                <exclude>**/UpgradeSchemaTest.java</exclude>
               </excludes>
             </configuration>
           </plugin>

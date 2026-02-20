@@ -8,7 +8,6 @@
 package io.camunda.migration.data.qa.persistence;
 
 import static io.camunda.migration.data.qa.persistence.UpgradeSchemaTest.applyChangelog;
-import static io.camunda.migration.data.qa.persistence.UpgradeSchemaTest.createDurableDataSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -64,6 +63,21 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     assertThat(processInstances.getFirst().processInstanceKey()).isNotNull();
+  }
+
+  /**
+   * Creates a durable HikariCP data source with the given JDBC URL.
+   *
+   * @param jdbcUrl the JDBC URL for the database connection
+   * @return a configured HikariDataSource instance
+   */
+  protected static HikariDataSource createDurableDataSource(String jdbcUrl) {
+    HikariDataSource ds = new HikariDataSource();
+    ds.setJdbcUrl(jdbcUrl);
+    ds.setUsername("sa");
+    ds.setPassword("sa");
+    ds.setAutoCommit(true);
+    return ds;
   }
 
 }

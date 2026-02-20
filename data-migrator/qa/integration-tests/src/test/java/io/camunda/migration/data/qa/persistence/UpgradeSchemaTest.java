@@ -10,43 +10,192 @@ package io.camunda.migration.data.qa.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.camunda.migration.data.qa.util.MultiDbExtension;
+import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 public class UpgradeSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
-  protected static final String DB_USERNAME = "sa";
-  protected static final String DB_PASSWORD = "sa";
+
+  protected static String activeProfile;
+  protected static DatabaseConfig dbConfig;
 
   protected HikariDataSource durableDataSource;
+
+  @BeforeAll
+  public static void setupDatabase() {
+    List<String> profiles = SpringProfileResolver.getActiveProfiles();
+    activeProfile = profiles.stream()
+        .filter(p -> List.of("postgresql", "postgresql-15", "oracle", "oracle-19", "mysql", "mariadb", "mariadb-10", "sqlserver")
+            .contains(p))
+        .findFirst()
+        .orElse("h2");
+
+    // Configure database connection based on active profile
+    // For non-H2 databases, use the ports exposed by MultiDbExtension
+    switch (activeProfile) {
+      case "postgresql":
+        dbConfig = new DatabaseConfig(
+            "jdbc:postgresql://localhost:" + MultiDbExtension.POSTGRESQL_PORT + "/process-engine",
+            "camunda",
+            "camunda",
+            "org.postgresql.Driver"
+        );
+        break;
+      case "postgresql-15":
+        dbConfig = new DatabaseConfig(
+            "jdbc:postgresql://localhost:" + MultiDbExtension.POSTGRESQL_15_PORT + "/process-engine",
+            "camunda",
+            "camunda",
+            "org.postgresql.Driver"
+        );
+        break;
+      case "oracle":
+        dbConfig = new DatabaseConfig(
+            "jdbc:oracle:thin:@localhost:" + MultiDbExtension.ORACLE_PORT + ":ORCLDB",
+            "camunda",
+            "camunda",
+            "oracle.jdbc.OracleDriver"
+        );
+        break;
+      case "oracle-19":
+        dbConfig = new DatabaseConfig(
+            "jdbc:oracle:thin:@localhost:" + MultiDbExtension.ORACLE_19_PORT + ":ORCLDB",
+            "camunda",
+            "camunda",
+            "oracle.jdbc.OracleDriver"
+        );
+        break;
+      case "mysql":
+        dbConfig = new DatabaseConfig(
+            "jdbc:mysql://localhost:" + MultiDbExtension.MYSQL_PORT + "/process-engine",
+            "camunda",
+            "camunda",
+            "com.mysql.cj.jdbc.Driver"
+        );
+        break;
+      case "mariadb":
+        dbConfig = new DatabaseConfig(
+            "jdbc:mariadb://localhost:" + MultiDbExtension.MARIADB_PORT + "/process-engine",
+            "camunda",
+            "camunda",
+            "org.mariadb.jdbc.Driver"
+        );
+        break;
+      case "mariadb-10":
+        dbConfig = new DatabaseConfig(
+            "jdbc:mariadb://localhost:" + MultiDbExtension.MARIADB_10_PORT + "/process-engine",
+            "camunda",
+            "camunda",
+            "org.mariadb.jdbc.Driver"
+        );
+        break;
+      case "sqlserver":
+        dbConfig = new DatabaseConfig(
+            "jdbc:sqlserver://localhost:" + MultiDbExtension.SQLSERVER_PORT,
+            "sa",
+            "Camunda123!",
+            "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+        );
+        break;
+      default: // h2
+        dbConfig = new DatabaseConfig(
+            "jdbc:h2:mem:upgrade-test-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+            "sa",
+            "sa",
+            "org.h2.Driver"
+        );
+    }
+  }
 
   @AfterEach
   public void tearDown() {
     if (durableDataSource != null && !durableDataSource.isClosed()) {
-      try (Connection conn = durableDataSource.getConnection()) {
-        conn.createStatement().execute("DROP ALL OBJECTS");
-      } catch (Exception ignored) {
+      try {
+        cleanupDatabase(durableDataSource);
+      } catch (Exception e) {
+        // Log but don't fail on cleanup errors
+        System.err.println("Error during database cleanup: " + e.getMessage());
+      } finally {
+        durableDataSource.close();
       }
-      durableDataSource.close();
     }
   }
 
+  /**
+   * Cleans up the database in a database-agnostic way.
+   */
+  protected void cleanupDatabase(DataSource dataSource) throws SQLException {
+    try (Connection conn = dataSource.getConnection();
+         Statement stmt = conn.createStatement()) {
+
+      switch (activeProfile) {
+        case "h2":
+          stmt.execute("DROP ALL OBJECTS");
+          break;
+        case "postgresql":
+        case "postgresql-15":
+          stmt.execute("DROP TABLE IF EXISTS MIGRATION_MAPPING CASCADE");
+          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOG CASCADE");
+          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOGLOCK CASCADE");
+          break;
+        case "oracle":
+        case "oracle-19":
+          // Oracle requires dropping tables individually
+          dropTableIfExists(stmt, "MIGRATION_MAPPING");
+          dropTableIfExists(stmt, "DATABASECHANGELOG");
+          dropTableIfExists(stmt, "DATABASECHANGELOGLOCK");
+          break;
+        case "mysql":
+        case "mariadb":
+        case "mariadb-10":
+          stmt.execute("DROP TABLE IF EXISTS MIGRATION_MAPPING");
+          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOG");
+          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOGLOCK");
+          break;
+        case "sqlserver":
+          stmt.execute("IF OBJECT_ID('MIGRATION_MAPPING', 'U') IS NOT NULL DROP TABLE MIGRATION_MAPPING");
+          stmt.execute("IF OBJECT_ID('DATABASECHANGELOG', 'U') IS NOT NULL DROP TABLE DATABASECHANGELOG");
+          stmt.execute("IF OBJECT_ID('DATABASECHANGELOGLOCK', 'U') IS NOT NULL DROP TABLE DATABASECHANGELOGLOCK");
+          break;
+        default:
+          throw new IllegalStateException("Unsupported database profile: " + activeProfile);
+      }
+    }
+  }
+
+  /**
+   * Helper method to drop a table if it exists in Oracle.
+   */
+  protected void dropTableIfExists(Statement stmt, String tableName) {
+    try {
+      stmt.execute("DROP TABLE " + tableName + " CASCADE CONSTRAINTS");
+    } catch (SQLException e) {
+      // Table doesn't exist, which is fine
+    }
+  }
+
+
   @Test
   public void shouldUpgradeSchemaFromV010ToV030() throws Exception {
-    // given: an H2 database with only the 0.1.0 changelog applied (simulating an existing installation)
-    String jdbcUrl = "jdbc:h2:mem:upgrade-v010-to-v030;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE";
-    durableDataSource = createDurableDataSource(jdbcUrl);
+    // given: a database with only the 0.1.0 changelog applied (simulating an existing installation)
+    durableDataSource = createDurableDataSource();
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
@@ -125,7 +274,7 @@ public class UpgradeSchemaTest {
 
   /**
    * Returns the JDBC type code of the given column in the given table.
-   * Handles H2's uppercase column/table name convention.
+   * Handles different database naming conventions for metadata queries.
    *
    * @param dataSource the data source to query
    * @param tableName the name of the table
@@ -138,13 +287,30 @@ public class UpgradeSchemaTest {
       throws SQLException {
     try (Connection conn = dataSource.getConnection()) {
       DatabaseMetaData meta = conn.getMetaData();
-      try (ResultSet rs = meta.getColumns(null, null, tableName.toUpperCase(), columnName.toUpperCase())) {
-        if (rs.next()) {
-          return rs.getInt("DATA_TYPE");
+
+      // Try different case variations based on database type
+      String[] tableNameVariations = getNameVariations(tableName);
+      String[] columnNameVariations = getNameVariations(columnName);
+
+      for (String tableVariation : tableNameVariations) {
+        for (String columnVariation : columnNameVariations) {
+          try (ResultSet rs = meta.getColumns(null, null, tableVariation, columnVariation)) {
+            if (rs.next()) {
+              return rs.getInt("DATA_TYPE");
+            }
+          }
         }
-        throw new RuntimeException("Column " + columnName + " not found in table " + tableName);
       }
+
+      throw new RuntimeException("Column " + columnName + " not found in table " + tableName);
     }
+  }
+
+  /**
+   * Returns name variations (original, uppercase, lowercase) to handle different database metadata conventions.
+   */
+  protected String[] getNameVariations(String name) {
+    return new String[]{name, name.toUpperCase(), name.toLowerCase()};
   }
 
   /**
@@ -194,17 +360,34 @@ public class UpgradeSchemaTest {
   }
 
   /**
-   * Creates a durable HikariCP data source with the given JDBC URL.
+   * Creates a durable HikariCP data source using the configured database settings.
    *
-   * @param jdbcUrl the JDBC URL for the database connection
    * @return a configured HikariDataSource instance
    */
-  protected static HikariDataSource createDurableDataSource(String jdbcUrl) {
+  protected static HikariDataSource createDurableDataSource() {
     HikariDataSource ds = new HikariDataSource();
-    ds.setJdbcUrl(jdbcUrl);
-    ds.setUsername(DB_USERNAME);
-    ds.setPassword(DB_PASSWORD);
+    ds.setJdbcUrl(dbConfig.jdbcUrl);
+    ds.setUsername(dbConfig.username);
+    ds.setPassword(dbConfig.password);
+    ds.setDriverClassName(dbConfig.driverClassName);
     ds.setAutoCommit(true);
     return ds;
+  }
+
+  /**
+   * Simple data class to hold database configuration.
+   */
+  protected static class DatabaseConfig {
+    final String jdbcUrl;
+    final String username;
+    final String password;
+    final String driverClassName;
+
+    DatabaseConfig(String jdbcUrl, String username, String password, String driverClassName) {
+      this.jdbcUrl = jdbcUrl;
+      this.username = username;
+      this.password = password;
+      this.driverClassName = driverClassName;
+    }
   }
 }
