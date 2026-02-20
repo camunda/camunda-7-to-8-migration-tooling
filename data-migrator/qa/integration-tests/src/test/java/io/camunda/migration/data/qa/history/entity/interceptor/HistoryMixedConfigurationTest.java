@@ -14,7 +14,9 @@ import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.history.entity.interceptor.bean.ProcessInstanceInterceptor;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.entities.UserTaskEntity;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ActiveProfiles;
@@ -67,6 +69,55 @@ public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest 
     // Both interceptors modify tenant ID, so we verify at least one worked
     ProcessInstanceEntity migratedInstance = migratedProcessInstances.getFirst();
     assertThat(migratedInstance.tenantId()).isNotNull();
+  }
+
+  @Test
+  public void shouldMigrateProcessInstanceTags() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+
+    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess", "customBusinessKey");
+
+    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    if (task != null) {
+      taskService.complete(task.getId());
+    }
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances("simpleProcess", true);
+    assertThat(migratedProcessInstances).isNotEmpty();
+
+    assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(processInstance.getBusinessKey(), "tag1", "tag2");
+  }
+
+  @Test
+  public void shouldMigrateUserTaskTags() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+
+    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    if (task != null) {
+      taskService.complete(task.getId());
+    }
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances("simpleProcess", true);
+    assertThat(migratedProcessInstances).isNotEmpty();
+    List<UserTaskEntity> userTaskEntities = searchHistoricUserTasks(migratedProcessInstances.getFirst().processInstanceKey());
+
+    assertThat(userTaskEntities).hasSize(2)
+        .extracting(UserTaskEntity::tags)
+        .containsExactly(Set.of("custom-tag", "tag1"), Set.of("custom-tag", "tag1"));
   }
 }
 

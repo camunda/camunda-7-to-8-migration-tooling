@@ -135,6 +135,10 @@ public class ProcessInstanceMigrator extends BaseMigrator<HistoricProcessInstanc
       }
 
       c8Client.insertProcessInstance(dbModel);
+      if (dbModel.tags() != null && !dbModel.tags().isEmpty()) {
+        c8Client.insertProcessInstanceTags(dbModel);
+      }
+
       return dbModel.processInstanceKey();
     }
     return null;
