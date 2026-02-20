@@ -332,7 +332,7 @@ public class UpgradeSchemaTest {
    */
   protected static DatabaseConfig createOracleConfig(int port) {
     return new DatabaseConfig(
-        "jdbc:oracle:thin:@localhost:" + port + ":ORCLDB",
+        "jdbc:oracle:thin:@localhost:" + port + "/ORCLDB",
         "camunda",
         "camunda",
         "oracle.jdbc.OracleDriver"
@@ -377,7 +377,7 @@ public class UpgradeSchemaTest {
    */
   protected static DatabaseConfig createSqlServerConfig(int port) {
     return new DatabaseConfig(
-        "jdbc:sqlserver://localhost:" + port,
+        "jdbc:sqlserver://localhost:" + port + ";encrypt=true;trustServerCertificate=true",
         "sa",
         "Camunda123!",
         "com.microsoft.sqlserver.jdbc.SQLServerDriver"
