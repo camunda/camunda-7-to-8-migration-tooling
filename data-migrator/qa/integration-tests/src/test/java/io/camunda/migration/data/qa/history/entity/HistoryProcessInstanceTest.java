@@ -349,6 +349,29 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateProcessInstanceTagsWithEmptyBusinessKey() {
+    // given
+    deployer.deployCamunda7Process("simpleProcess.bpmn");
+
+    var processInstance = runtimeService.startProcessInstanceByKey("simpleProcess", "");
+
+    var task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+    if (task != null) {
+      taskService.complete(task.getId());
+    }
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> migratedProcessInstances =
+        searchHistoricProcessInstances("simpleProcess");
+    assertThat(migratedProcessInstances).isNotEmpty();
+
+    assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(C7_LEGACY_ID_PREFIX + processInstance.getId());
+  }
+
+  @Test
   public void shouldMigrateProcessInstanceTags() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");

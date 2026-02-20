@@ -19,6 +19,7 @@ import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceSt
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.Order;
@@ -68,7 +69,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
   protected @NonNull Set<String> getDefaultTags(HistoricProcessInstance entity) {
     Set<String> tags = new HashSet<>();
     tags.add(C7_LEGACY_ID_PREFIX + entity.getId());
-    if (entity.getBusinessKey() != null) {
+    if (!StringUtils.isEmpty(entity.getBusinessKey())) {
       tags.add(BUSINESS_KEY_PREFIX + entity.getBusinessKey());
     }
     return tags;
