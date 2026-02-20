@@ -48,7 +48,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
+    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByTypeWithOffset(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
     assertThat(skippedInstances).hasSize(1);
 
     IdKeyDbModel savedInstance = skippedInstances.getFirst();
@@ -70,7 +70,7 @@ public class SaveSkipReasonTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
+    List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByTypeWithOffset(TYPE.RUNTIME_PROCESS_INSTANCE, 0, 100);
     assertThat(skippedInstances).hasSize(1);
 
     IdKeyDbModel savedInstance = skippedInstances.getFirst();

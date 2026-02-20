@@ -11,7 +11,6 @@ import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_CHEC
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_CHECK_KEY;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_DELETE;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_ALL;
-import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_ALL_SKIPPED;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_KEY_BY_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_C7_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_CREATE_TIME;
@@ -107,7 +106,7 @@ public class DbClient {
    */
   public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
-    var model = createIdKeyDbModel(c7Id, null, c8Key, type);
+    var model = createIdKeyDbModel(c7Id, c8Key, type);
     callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
   }
 
@@ -158,7 +157,7 @@ public class DbClient {
   public void listSkippedEntitiesByType(TYPE type) {
     new Pagination<String>().pageSize(properties.getPageSize())
         .maxCount(() -> idKeyMapper.countSkippedByType(type))
-        .page(offset -> idKeyMapper.findSkippedByType(type, offset, properties.getPageSize())
+        .page(offset -> idKeyMapper.findSkippedByTypeWithOffset(type, offset, properties.getPageSize())
             .stream()
             .map(IdKeyDbModel::getC7Id)
             .collect(Collectors.toList()))
@@ -166,14 +165,28 @@ public class DbClient {
   }
 
   /**
-   * Processes skipped entities with pagination.
+   * Processes skipped entities of the given type with pagination.
+   * Performs a single pass through all skipped entities.
+   *
+   * <p>Uses cursor-based pagination with lastId to reliably iterate through all
+   * skipped entities, even when some are migrated (removed from skipped list) during processing.
+   *
+   * @param type the entity type to process
+   * @param callback function that processes an entity and returns true if migrated, false if skipped
    */
   public void fetchAndHandleSkippedForType(TYPE type, Consumer<IdKeyDbModel> callback) {
-    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
-        .maxCount(() -> idKeyMapper.countSkippedByType(type))
-        // Hardcode offset to 0 since each callback updates the database and leads to fresh results.
-        .page(offset -> idKeyMapper.findSkippedByType(type, 0, properties.getPageSize()))
-        .callback(callback);
+    int pageSize = properties.getPageSize();
+    String lastId = null;
+
+    List<IdKeyDbModel> fetched;
+    do {
+      fetched = idKeyMapper.findSkippedByTypeWithCursor(type, lastId, pageSize);
+
+      for (IdKeyDbModel entity : fetched) {
+        callback.accept(entity);
+        lastId = entity.getC7Id();
+      }
+    } while (!fetched.isEmpty());
   }
 
   /**
@@ -188,14 +201,6 @@ public class DbClient {
    */
   public Long countSkippedByType(TYPE type) {
     return callApi(() -> idKeyMapper.countSkippedByType(type), FAILED_TO_FIND_SKIPPED_COUNT);
-  }
-
-  /**
-   * Finds the Ids of all skipped process instances.
-   */
-  public List<IdKeyDbModel> findSkippedProcessInstances() {
-    return callApi(() -> idKeyMapper.findSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE, 0, properties.getPageSize()),
-        FAILED_TO_FIND_ALL_SKIPPED);
   }
 
   /**
@@ -228,7 +233,7 @@ public class DbClient {
   /**
    * Creates a new IdKeyDbModel instance with the provided parameters.
    */
-  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, String c8Key, TYPE type) {
-    return createIdKeyDbModel(c7Id, createTime, c8Key, type, null);
+  protected IdKeyDbModel createIdKeyDbModel(String c7Id, String c8Key, TYPE type) {
+    return createIdKeyDbModel(c7Id, null, c8Key, type, null);
   }
 }
