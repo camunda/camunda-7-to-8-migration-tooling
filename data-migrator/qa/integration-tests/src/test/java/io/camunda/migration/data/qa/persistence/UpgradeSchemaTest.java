@@ -103,9 +103,15 @@ public class UpgradeSchemaTest {
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
-    assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
-        .as("C8_KEY should be BIGINT in schema version 0.1.0")
-        .isEqualTo(Types.BIGINT);
+    if (!activeProfile.equals("oracle") && !activeProfile.equals("oracle-19")) {
+      assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY")).as(
+          "C8_KEY should be BIGINT in schema version 0.1.0").isEqualTo(Types.BIGINT);
+    } else {
+      // Oracle's metadata reports NUMBER(19,0) as Types.NUMERIC
+      assertThat(getColumnJdbcType(durableDataSource, MIGRATION_MAPPING_TABLE, "C8_KEY"))
+          .as("C8_KEY should be NUMERIC in Oracle for schema version 0.1.0")
+          .isEqualTo(Types.NUMERIC);
+    }
 
     // and: existing data is inserted using the 0.1.0 BIGINT format for C8_KEY
     insertRowWithBigIntKey(durableDataSource, "test-c7-id-1", 123456789L, "RUNTIME_PROCESS_INSTANCE");

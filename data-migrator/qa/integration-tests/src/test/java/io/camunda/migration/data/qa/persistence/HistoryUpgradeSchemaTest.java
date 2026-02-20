@@ -56,6 +56,7 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
   public void cleanup() {
     historyMigrator.setMode(MigratorMode.MIGRATE);
     UpgradeSchemaTest.closeAndCleanupDataSource(durableDataSource);
+    rdbmsPurger.purgeRdbms();
   }
 
   @Test
