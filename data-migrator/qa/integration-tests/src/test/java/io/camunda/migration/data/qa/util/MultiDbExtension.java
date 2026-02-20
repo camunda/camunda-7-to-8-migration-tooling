@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.util;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,7 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withUsername("camunda")
         .withPassword("camunda")
         .withReuse(true)
+        .withStartupTimeout(Duration.ofMinutes(3))
         .withExposedPorts(1521);
     oracle.setPortBindings(List.of(ORACLE_19_PORT + ":1521"));
     return oracle;
