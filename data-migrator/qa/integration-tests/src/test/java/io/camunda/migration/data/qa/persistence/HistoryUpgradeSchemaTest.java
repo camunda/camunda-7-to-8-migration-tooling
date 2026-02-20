@@ -19,9 +19,23 @@ import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+/**
+ * Integration test for history migration after upgrading the migration schema from 0.1.0 to 0.3.0.
+ *
+ * <p>This test verifies that the history migrator can successfully migrate process instances
+ * after the schema upgrade from 0.1.0 (where C8_KEY is BIGINT) to 0.3.0 (where C8_KEY is VARCHAR).
+ * It specifically tests the scenario where process instances are initially skipped due to the
+ * schema mismatch, the schema is upgraded, and then the skipped instances are successfully
+ * retried and migrated.
+ *
+ * <p>The test is database-independent and leverages {@link UpgradeSchemaTest} for database
+ * configuration. It runs on all supported databases including H2, PostgreSQL, Oracle, MySQL,
+ * MariaDB, and SQL Server.
+ */
 public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
 
   @Autowired
@@ -29,17 +43,24 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
 
   protected HikariDataSource durableDataSource;
 
+  @BeforeAll
+  public static void setupDatabase() {
+    // Ensure UpgradeSchemaTest's database configuration is initialized
+    UpgradeSchemaTest.setupDatabase();
+  }
+
   @AfterEach
-  public void tearDown() {
+  @Override
+  public void cleanup() {
     historyMigrator.setMode(MigratorMode.MIGRATE);
+    UpgradeSchemaTest.closeAndCleanupDataSource(durableDataSource);
   }
 
   @Test
   @WhiteBox
-  public void shouldMigrateFromV010ToV030() throws Exception {
-    // given: an H2 database with only the 0.1.0 changelog applied (simulating an existing installation)
-    String jdbcUrl = "jdbc:h2:mem:upgrade-v010-to-v030;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE";
-    durableDataSource = createDurableDataSource(jdbcUrl);
+  public void shouldMigrateProcessInstanceAfterUpgradeFromV010ToV030() throws Exception {
+    // given: a database with only the 0.1.0 changelog applied (simulating an existing installation)
+    durableDataSource = UpgradeSchemaTest.createDurableDataSource();
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
@@ -59,25 +80,10 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
     historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrateProcessInstances();
 
-    // then
+    // then process instance has been successfully migrated
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     assertThat(processInstances.getFirst().processInstanceKey()).isNotNull();
-  }
-
-  /**
-   * Creates a durable HikariCP data source with the given JDBC URL.
-   *
-   * @param jdbcUrl the JDBC URL for the database connection
-   * @return a configured HikariDataSource instance
-   */
-  protected static HikariDataSource createDurableDataSource(String jdbcUrl) {
-    HikariDataSource ds = new HikariDataSource();
-    ds.setJdbcUrl(jdbcUrl);
-    ds.setUsername("sa");
-    ds.setPassword("sa");
-    ds.setAutoCommit(true);
-    return ds;
   }
 
 }

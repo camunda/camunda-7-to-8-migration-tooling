@@ -29,6 +29,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
+/**
+ * Tests for upgrading the migration schema from version 0.1.0 to 0.3.0.
+ *
+ * <p>This test verifies that existing migration mappings are properly preserved when upgrading
+ * from the 0.1.0 schema (where C8_KEY is BIGINT) to the 0.3.0 schema (where C8_KEY is VARCHAR).
+ *
+ * <p>The test is database-independent and runs on all supported databases including H2, PostgreSQL,
+ * Oracle, MySQL, MariaDB, and SQL Server. The database configuration is determined by the active
+ * Maven profile.
+ */
 public class UpgradeSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
@@ -51,146 +61,38 @@ public class UpgradeSchemaTest {
     // For non-H2 databases, use the ports exposed by MultiDbExtension
     switch (activeProfile) {
       case "postgresql":
-        dbConfig = new DatabaseConfig(
-            "jdbc:postgresql://localhost:" + MultiDbExtension.POSTGRESQL_PORT + "/process-engine",
-            "camunda",
-            "camunda",
-            "org.postgresql.Driver"
-        );
+        dbConfig = createPostgreSqlConfig(MultiDbExtension.POSTGRESQL_PORT);
         break;
       case "postgresql-15":
-        dbConfig = new DatabaseConfig(
-            "jdbc:postgresql://localhost:" + MultiDbExtension.POSTGRESQL_15_PORT + "/process-engine",
-            "camunda",
-            "camunda",
-            "org.postgresql.Driver"
-        );
+        dbConfig = createPostgreSqlConfig(MultiDbExtension.POSTGRESQL_15_PORT);
         break;
       case "oracle":
-        dbConfig = new DatabaseConfig(
-            "jdbc:oracle:thin:@localhost:" + MultiDbExtension.ORACLE_PORT + ":ORCLDB",
-            "camunda",
-            "camunda",
-            "oracle.jdbc.OracleDriver"
-        );
+        dbConfig = createOracleConfig(MultiDbExtension.ORACLE_PORT);
         break;
       case "oracle-19":
-        dbConfig = new DatabaseConfig(
-            "jdbc:oracle:thin:@localhost:" + MultiDbExtension.ORACLE_19_PORT + ":ORCLDB",
-            "camunda",
-            "camunda",
-            "oracle.jdbc.OracleDriver"
-        );
+        dbConfig = createOracleConfig(MultiDbExtension.ORACLE_19_PORT);
         break;
       case "mysql":
-        dbConfig = new DatabaseConfig(
-            "jdbc:mysql://localhost:" + MultiDbExtension.MYSQL_PORT + "/process-engine",
-            "camunda",
-            "camunda",
-            "com.mysql.cj.jdbc.Driver"
-        );
+        dbConfig = createMySqlConfig(MultiDbExtension.MYSQL_PORT);
         break;
       case "mariadb":
-        dbConfig = new DatabaseConfig(
-            "jdbc:mariadb://localhost:" + MultiDbExtension.MARIADB_PORT + "/process-engine",
-            "camunda",
-            "camunda",
-            "org.mariadb.jdbc.Driver"
-        );
+        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_PORT);
         break;
       case "mariadb-10":
-        dbConfig = new DatabaseConfig(
-            "jdbc:mariadb://localhost:" + MultiDbExtension.MARIADB_10_PORT + "/process-engine",
-            "camunda",
-            "camunda",
-            "org.mariadb.jdbc.Driver"
-        );
+        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_10_PORT);
         break;
       case "sqlserver":
-        dbConfig = new DatabaseConfig(
-            "jdbc:sqlserver://localhost:" + MultiDbExtension.SQLSERVER_PORT,
-            "sa",
-            "Camunda123!",
-            "com.microsoft.sqlserver.jdbc.SQLServerDriver"
-        );
+        dbConfig = createSqlServerConfig(MultiDbExtension.SQLSERVER_PORT);
         break;
       default: // h2
-        dbConfig = new DatabaseConfig(
-            "jdbc:h2:mem:upgrade-test-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-            "sa",
-            "sa",
-            "org.h2.Driver"
-        );
+        dbConfig = createH2Config();
     }
   }
 
   @AfterEach
   public void tearDown() {
-    if (durableDataSource != null && !durableDataSource.isClosed()) {
-      try {
-        cleanupDatabase(durableDataSource);
-      } catch (Exception e) {
-        // Log but don't fail on cleanup errors
-        System.err.println("Error during database cleanup: " + e.getMessage());
-      } finally {
-        durableDataSource.close();
-      }
-    }
+    closeAndCleanupDataSource(durableDataSource);
   }
-
-  /**
-   * Cleans up the database in a database-agnostic way.
-   */
-  protected void cleanupDatabase(DataSource dataSource) throws SQLException {
-    try (Connection conn = dataSource.getConnection();
-         Statement stmt = conn.createStatement()) {
-
-      switch (activeProfile) {
-        case "h2":
-          stmt.execute("DROP ALL OBJECTS");
-          break;
-        case "postgresql":
-        case "postgresql-15":
-          stmt.execute("DROP TABLE IF EXISTS MIGRATION_MAPPING CASCADE");
-          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOG CASCADE");
-          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOGLOCK CASCADE");
-          break;
-        case "oracle":
-        case "oracle-19":
-          // Oracle requires dropping tables individually
-          dropTableIfExists(stmt, "MIGRATION_MAPPING");
-          dropTableIfExists(stmt, "DATABASECHANGELOG");
-          dropTableIfExists(stmt, "DATABASECHANGELOGLOCK");
-          break;
-        case "mysql":
-        case "mariadb":
-        case "mariadb-10":
-          stmt.execute("DROP TABLE IF EXISTS MIGRATION_MAPPING");
-          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOG");
-          stmt.execute("DROP TABLE IF EXISTS DATABASECHANGELOGLOCK");
-          break;
-        case "sqlserver":
-          stmt.execute("IF OBJECT_ID('MIGRATION_MAPPING', 'U') IS NOT NULL DROP TABLE MIGRATION_MAPPING");
-          stmt.execute("IF OBJECT_ID('DATABASECHANGELOG', 'U') IS NOT NULL DROP TABLE DATABASECHANGELOG");
-          stmt.execute("IF OBJECT_ID('DATABASECHANGELOGLOCK', 'U') IS NOT NULL DROP TABLE DATABASECHANGELOGLOCK");
-          break;
-        default:
-          throw new IllegalStateException("Unsupported database profile: " + activeProfile);
-      }
-    }
-  }
-
-  /**
-   * Helper method to drop a table if it exists in Oracle.
-   */
-  protected void dropTableIfExists(Statement stmt, String tableName) {
-    try {
-      stmt.execute("DROP TABLE " + tableName + " CASCADE CONSTRAINTS");
-    } catch (SQLException e) {
-      // Table doesn't exist, which is fine
-    }
-  }
-
 
   @Test
   public void shouldUpgradeSchemaFromV010ToV030() throws Exception {
@@ -308,6 +210,12 @@ public class UpgradeSchemaTest {
 
   /**
    * Returns name variations (original, uppercase, lowercase) to handle different database metadata conventions.
+   *
+   * <p>Different databases store metadata differently - some use uppercase (e.g., Oracle, H2),
+   * some use lowercase (e.g., PostgreSQL), and some preserve the original case.
+   *
+   * @param name the original name
+   * @return an array containing the original name, uppercase version, and lowercase version
    */
   protected String[] getNameVariations(String name) {
     return new String[]{name, name.toUpperCase(), name.toLowerCase()};
@@ -362,7 +270,11 @@ public class UpgradeSchemaTest {
   /**
    * Creates a durable HikariCP data source using the configured database settings.
    *
+   * <p>The database configuration must be initialized by calling {@link #setupDatabase()} before
+   * calling this method.
+   *
    * @return a configured HikariDataSource instance
+   * @throws NullPointerException if setupDatabase() has not been called
    */
   protected static HikariDataSource createDurableDataSource() {
     HikariDataSource ds = new HikariDataSource();
@@ -376,6 +288,9 @@ public class UpgradeSchemaTest {
 
   /**
    * Simple data class to hold database configuration.
+   *
+   * <p>This class stores the JDBC connection parameters needed to create a datasource
+   * for the configured database type.
    */
   protected static class DatabaseConfig {
     final String jdbcUrl;
@@ -390,4 +305,186 @@ public class UpgradeSchemaTest {
       this.driverClassName = driverClassName;
     }
   }
+
+
+  /**
+   * Creates a PostgreSQL database configuration.
+   *
+   * @param port the port number for the PostgreSQL instance
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createPostgreSqlConfig(int port) {
+    return new DatabaseConfig(
+        "jdbc:postgresql://localhost:" + port + "/process-engine",
+        "camunda",
+        "camunda",
+        "org.postgresql.Driver"
+    );
+  }
+
+  /**
+   * Creates an Oracle database configuration.
+   *
+   * @param port the port number for the Oracle instance
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createOracleConfig(int port) {
+    return new DatabaseConfig(
+        "jdbc:oracle:thin:@localhost:" + port + ":ORCLDB",
+        "camunda",
+        "camunda",
+        "oracle.jdbc.OracleDriver"
+    );
+  }
+
+  /**
+   * Creates a MySQL database configuration.
+   *
+   * @param port the port number for the MySQL instance
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createMySqlConfig(int port) {
+    return new DatabaseConfig(
+        "jdbc:mysql://localhost:" + port + "/process-engine",
+        "camunda",
+        "camunda",
+        "com.mysql.cj.jdbc.Driver"
+    );
+  }
+
+  /**
+   * Creates a MariaDB database configuration.
+   *
+   * @param port the port number for the MariaDB instance
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createMariaDbConfig(int port) {
+    return new DatabaseConfig(
+        "jdbc:mariadb://localhost:" + port + "/process-engine",
+        "camunda",
+        "camunda",
+        "org.mariadb.jdbc.Driver"
+    );
+  }
+
+  /**
+   * Creates a SQL Server database configuration.
+   *
+   * @param port the port number for the SQL Server instance
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createSqlServerConfig(int port) {
+    return new DatabaseConfig(
+        "jdbc:sqlserver://localhost:" + port,
+        "sa",
+        "Camunda123!",
+        "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    );
+  }
+
+  /**
+   * Creates an H2 database configuration with a unique in-memory database.
+   *
+   * @return the database configuration
+   */
+  protected static DatabaseConfig createH2Config() {
+    return new DatabaseConfig(
+        "jdbc:h2:mem:upgrade-test-" + UUID.randomUUID() + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+        "sa",
+        "sa",
+        "org.h2.Driver"
+    );
+  }
+
+  /**
+   * Cleans up the database in a database-agnostic way.
+   * Uses database-specific SQL syntax for dropping tables.
+   *
+   * @param dataSource the data source to clean up
+   * @throws SQLException if a database access error occurs
+   */
+  protected static void cleanupDatabase(DataSource dataSource) throws SQLException {
+    try (Connection conn = dataSource.getConnection();
+        Statement stmt = conn.createStatement()) {
+
+      switch (activeProfile) {
+      case "h2":
+        stmt.execute("DROP ALL OBJECTS");
+        break;
+      case "postgresql":
+      case "postgresql-15":
+        dropMigrationTables(stmt, "DROP TABLE IF EXISTS %s CASCADE");
+        break;
+      case "oracle":
+      case "oracle-19":
+        // Oracle requires dropping tables individually
+        dropTableIfExists(stmt, "MIGRATION_MAPPING");
+        dropTableIfExists(stmt, "DATABASECHANGELOG");
+        dropTableIfExists(stmt, "DATABASECHANGELOGLOCK");
+        break;
+      case "mysql":
+      case "mariadb":
+      case "mariadb-10":
+        dropMigrationTables(stmt, "DROP TABLE IF EXISTS %s");
+        break;
+      case "sqlserver":
+        dropMigrationTables(stmt, "IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s");
+        break;
+      default:
+        throw new IllegalStateException("Unsupported database profile: " + activeProfile);
+      }
+    }
+  }
+
+  /**
+   * Drops the migration-related tables using the specified SQL template.
+   *
+   * @param stmt the SQL statement to use
+   * @param sqlTemplate the SQL template with placeholders for table names
+   * @throws SQLException if a database access error occurs
+   */
+  protected static void dropMigrationTables(Statement stmt, String sqlTemplate) throws SQLException {
+    String[] tables = {"MIGRATION_MAPPING", "DATABASECHANGELOG", "DATABASECHANGELOGLOCK"};
+    for (String table : tables) {
+      String sql = sqlTemplate.contains("%s") && sqlTemplate.indexOf("%s") != sqlTemplate.lastIndexOf("%s")
+          ? String.format(sqlTemplate, table, table)  // For SQL Server: two placeholders
+          : String.format(sqlTemplate, table);        // For others: one placeholder
+      stmt.execute(sql);
+    }
+  }
+
+  /**
+   * Closes and cleans up the given datasource.
+   * Silently handles cleanup errors without failing the test.
+   *
+   * @param dataSource the datasource to close and clean up
+   */
+  protected static void closeAndCleanupDataSource(HikariDataSource dataSource) {
+    if (dataSource != null && !dataSource.isClosed()) {
+      try {
+        cleanupDatabase(dataSource);
+      } catch (Exception e) {
+        // Log but don't fail on cleanup errors
+        System.err.println("Error during database cleanup: " + e.getMessage());
+      } finally {
+        dataSource.close();
+      }
+    }
+  }
+
+  /**
+   * Helper method to drop a table if it exists in Oracle.
+   * Silently ignores errors if the table doesn't exist.
+   *
+   * @param stmt the SQL statement to use
+   * @param tableName the name of the table to drop
+   */
+  protected static void dropTableIfExists(Statement stmt, String tableName) {
+    try {
+      stmt.execute("DROP TABLE " + tableName + " CASCADE CONSTRAINTS");
+    } catch (SQLException e) {
+      // Table doesn't exist, which is fine
+    }
+  }
+
 }
