@@ -166,6 +166,16 @@ public class DbClient {
   }
 
   /**
+   * Lists migrated entities by type with pagination and prints them.
+   */
+  public void listMigratedEntitiesByType(TYPE type) {
+    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
+        .maxCount(() -> idKeyMapper.countMigratedByType(type))
+        .page(offset -> idKeyMapper.findMigratedByType(type, offset, properties.getPageSize()))
+        .callback(mapping -> PrintUtils.printMapping(mapping.getC7Id(), mapping.getC8Key()));
+  }
+
+  /**
    * Processes skipped entities with pagination.
    */
   public void fetchAndHandleSkippedForType(TYPE type, Consumer<IdKeyDbModel> callback) {
@@ -188,6 +198,13 @@ public class DbClient {
    */
   public Long countSkippedByType(TYPE type) {
     return callApi(() -> idKeyMapper.countSkippedByType(type), FAILED_TO_FIND_SKIPPED_COUNT);
+  }
+
+  /**
+   * Finds the count of migrated entities for the given type
+   */
+  public Long countMigratedByType(TYPE type) {
+    return callApi(() -> idKeyMapper.countMigratedByType(type), "Failed to find migrated count");
   }
 
   /**
