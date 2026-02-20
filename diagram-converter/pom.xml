@@ -29,7 +29,7 @@
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
     <version.checker-qual>3.53.1</version.checker-qual>
     <version.commons-collections4>4.5.0</version.commons-collections4>
-    <version.rest-assured>5.5.7</version.rest-assured>
+    <version.rest-assured>6.0.0</version.rest-assured>
     <plugin.version.spotless-maven-plugin>3.2.1</plugin.version.spotless-maven-plugin>
     <plugin.version.maven-site-plugin>3.21.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
