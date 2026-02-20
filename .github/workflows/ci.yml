@@ -378,7 +378,7 @@ jobs:
 
       - name: Run runtime tests with Oracle
         working-directory: data-migrator
-        run: mvn verify -Poracle,integration,runtime-only
+        run: mvn verify -Poracle-19,integration,runtime-only
 
   it-runtime-mysql:
     runs-on: ubuntu-latest
@@ -536,7 +536,7 @@ jobs:
 
       - name: Run history tests with Oracle
         working-directory: data-migrator
-        run: mvn verify -Poracle,integration,history-only
+        run: mvn verify -Poracle-19,integration,history-only
 
   it-history-mysql:
     runs-on: ubuntu-latest
@@ -814,7 +814,7 @@ jobs:
 
       - name: Run identity tests with Oracle
         working-directory: data-migrator
-        run: mvn verify -Poracle,integration,identity-only
+        run: mvn verify -Poracle-19,integration,identity-only
 
   it-identity-mysql:
     runs-on: ubuntu-latest
