@@ -22,7 +22,7 @@ public class SampleSpinJsonDelegate implements JavaDelegate {
         final Bar bar = jsonVarInput.mapTo(Bar.class);
         
         Foo foo = new Foo(bar.bar1(), bar.bar2(), bar.bar3(), bar.bar4(), bar);
-        
+
         // the following two lines should be transformed to
         // execution.setVariable("jsonVar", foo);
         final SpinJsonNode jsonVarOutput = JSON(foo);

@@ -291,7 +291,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                       (J.VariableDeclarations)
                           super.visitVariableDeclarations(modifiedDeclarations, ctx);
 
-                  maybeRemoveImport(declarations.getTypeAsFullyQualified());
+                  JavaType.FullyQualified typeToRemove = declarations.getTypeAsFullyQualified();
+                  if (typeToRemove != null && !isCommonCollectionType(typeToRemove.getFullyQualifiedName())) {
+                    maybeRemoveImport(typeToRemove);
+                  }
 
                   return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
                 }
@@ -458,7 +461,10 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
                     .dropParentUntil(parent -> parent instanceof J.Block)
                     .putMessage(originalName.toString(), newFqn);
 
-                maybeRemoveImport(declarations.getTypeAsFullyQualified());
+                JavaType.FullyQualified typeToRemove = declarations.getTypeAsFullyQualified();
+                if (typeToRemove != null && !isCommonCollectionType(typeToRemove.getFullyQualifiedName())) {
+                  maybeRemoveImport(typeToRemove);
+                }
 
                 return maybeAutoFormat(
                     declarations,
@@ -728,6 +734,20 @@ public class ReplaceTypedValueAPIRecipe extends Recipe {
           public J.Identifier visitIdentifier(J.Identifier identifier, ExecutionContext ctx) {
 
             return (J.Identifier) RecipeUtils.updateType(getCursor(), identifier);
+          }
+
+          /** Check if the type is a common collection type that should not be automatically removed */
+          private boolean isCommonCollectionType(String fqn) {
+            return fqn != null && (
+                fqn.equals("java.util.List") ||
+                fqn.equals("java.util.Set") ||
+                fqn.equals("java.util.Map") ||
+                fqn.equals("java.util.Collection") ||
+                fqn.equals("java.util.Optional") ||
+                fqn.equals("java.util.ArrayList") ||
+                fqn.equals("java.util.HashSet") ||
+                fqn.equals("java.util.HashMap")
+            );
           }
 
           /**
