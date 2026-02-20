@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.Objects;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.springframework.stereotype.Service;
@@ -123,7 +124,8 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
 
       builder
           .historyCleanupDate(c8HistoryCleanupDate)
-          .endDate(c8EndTime);
+          .endDate(c8EndTime)
+          .treePath(generateTreepath(builder.build().rootProcessInstanceKey(), processInstanceKey));
 
       ProcessInstanceDbModel dbModel = convert(C7Entity.of(c7ProcessInstance), builder);
 
@@ -174,6 +176,21 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         builder.parentElementInstanceKey(parentFlowNodeInstanceKey);
       }
     }
+  }
+
+  /**
+   * Generates a tree path for process instances in the format:
+   *    PI_rootProcessInstanceKey/processInstanceKey or
+   *    PI_processInstanceKey if this instance is the root of the hierarchy
+   *
+   * @param rootProcessInstanceKey the root process instance key
+   * @param processInstanceKey the process instance key
+   * @return the tree path string
+   */
+  public static String generateTreepath(Long rootProcessInstanceKey, Long processInstanceKey) {
+    return Objects.equals(rootProcessInstanceKey, processInstanceKey) ?
+        "PI_" + processInstanceKey :
+        "PI_" + rootProcessInstanceKey + "/PI_" + processInstanceKey;
   }
 
 }
