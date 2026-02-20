@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.qa.util.MultiDbExtension;
 import io.camunda.migration.data.qa.util.SpringProfileResolver;
+import io.camunda.migration.data.qa.util.WithMultiDb;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -39,6 +40,7 @@ import org.springframework.core.io.DefaultResourceLoader;
  * Oracle, MySQL, MariaDB, and SQL Server. The database configuration is determined by the active
  * Maven profile.
  */
+@WithMultiDb
 public class UpgradeSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";

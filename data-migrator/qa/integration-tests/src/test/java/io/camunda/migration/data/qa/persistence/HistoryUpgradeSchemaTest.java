@@ -16,6 +16,7 @@ import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WhiteBox;
+import io.camunda.migration.data.qa.util.WithMultiDb;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * configuration. It runs on all supported databases including H2, PostgreSQL, Oracle, MySQL,
  * MariaDB, and SQL Server.
  */
+@WithMultiDb
 public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
 
   @Autowired
@@ -63,7 +65,6 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
     durableDataSource = UpgradeSchemaTest.createDurableDataSource();
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
-    // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("userTaskProcessId");
     completeAllUserTasksWithDefaultUserTaskId();
