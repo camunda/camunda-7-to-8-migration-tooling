@@ -11,6 +11,7 @@ import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
@@ -58,6 +59,10 @@ public class EntitySkippedException extends RuntimeException {
 
   public EntitySkippedException(HistoricVariableInstance c7Variable, String message) {
     this(C7Entity.of(c7Variable), message);
+  }
+
+  public EntitySkippedException(HistoricExternalTaskLog c7ExternalTaskLog, String message) {
+    this(C7Entity.of(c7ExternalTaskLog), message);
   }
 
   @Override

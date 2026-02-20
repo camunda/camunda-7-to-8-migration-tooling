@@ -20,6 +20,7 @@ import org.apache.ibatis.annotations.Param;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionDefinitionEntity;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.impl.history.event.HistoricDecisionInstanceEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricExternalTaskLogEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
 import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
@@ -42,7 +43,8 @@ public interface IdKeyMapper {
       entry(DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION),
       entry(DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT),
       entry(UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG),
-      entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION)
+      entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION),
+      entry(HistoricExternalTaskLogEntity.class, TYPE.HISTORY_EXTERNAL_TASK)
   );
 
   enum TYPE {
@@ -57,6 +59,7 @@ public interface IdKeyMapper {
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
+    HISTORY_EXTERNAL_TASK("Historic External Task"),
 
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 

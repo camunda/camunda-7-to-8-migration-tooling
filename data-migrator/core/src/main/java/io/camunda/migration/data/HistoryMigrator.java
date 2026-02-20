@@ -16,6 +16,7 @@ import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
@@ -72,6 +73,9 @@ public class HistoryMigrator {
   protected AuditLogMigrator auditLogMigrator;
 
   @Autowired
+  protected ExternalTaskMigrator externalTaskMigrator;
+
+  @Autowired
   protected DbClient dbClient;
 
   protected MigratorMode mode = MIGRATE;
@@ -111,6 +115,7 @@ public class HistoryMigrator {
     migrateFlowNodes();
     migrateUserTasks();
     migrateVariables();
+    migrateExternalTasks();
     migrateIncidents();
     migrateDecisionRequirementsDefinitions();
     migrateDecisionDefinitions();
@@ -162,6 +167,10 @@ public class HistoryMigrator {
     auditLogMigrator.migrateAll();
   }
 
+  public void migrateExternalTasks() {
+    externalTaskMigrator.migrateAll();
+  }
+
   public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
     this.requestedEntityTypes = requestedEntityTypes;
   }
@@ -179,5 +188,6 @@ public class HistoryMigrator {
     userTaskMigrator.setMode(mode);
     variableMigrator.setMode(mode);
     auditLogMigrator.setMode(mode);
+    externalTaskMigrator.setMode(mode);
   }
 }

@@ -38,6 +38,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE = "Missing root decision instance";
+  public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";
@@ -58,6 +59,7 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
 
   public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
+  public static final String MIGRATING_EXTERNAL_TASK = "Migrating historic external task log with C7 ID: [{}]";
 
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
@@ -105,6 +107,10 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingAuditLogs(String c7AuditLogId) {
     LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
+  }
+
+  public static void logMigratingExternalTask(String c7ExternalTaskLogId) {
+    LOGGER.debug(MIGRATING_EXTERNAL_TASK, c7ExternalTaskLogId);
   }
 
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {

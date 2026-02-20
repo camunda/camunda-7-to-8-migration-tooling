@@ -37,6 +37,7 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.FormEntity;
 import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
@@ -50,6 +51,7 @@ import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.FormQuery;
 import io.camunda.search.query.IncidentQuery;
+import io.camunda.search.query.JobQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
@@ -225,6 +227,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
+  }
+
+  public List<JobEntity> searchHistoricJobs(long processInstanceKey) {
+    return rdbmsService.getJobReader()
+        .search(JobQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
         .items();
   }
 
