@@ -16,7 +16,6 @@ import static io.camunda.search.entities.UserTaskEntity.UserTaskState.CANCELED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
@@ -147,7 +146,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     Task task1 = taskService.createTaskQuery().processInstanceId(processInstance1.getId()).singleResult();
     taskService.complete(task1.getId());
 
-    ProcessInstance processInstance2 = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // when
     historyMigrator.migrate();
@@ -210,7 +209,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
   public void shouldMigrateMultipleTasks() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("simpleProcess");
+    runtimeService.startProcessInstanceByKey("simpleProcess");
 
     // Complete first user task
     Task task1 = taskService.createTaskQuery().taskDefinitionKey("userTask1").singleResult();
@@ -384,7 +383,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Fields that are currently null in converter
     assertThat(userTask.formKey()).isNull();
     assertThat(userTask.externalFormReference()).isNull();
-    assertThat(userTask.customHeaders()).isNull();
+    assertThat(userTask.customHeaders()).isEmpty();
     assertThat(userTask.tags()).isEmpty();
     assertThat(userTask.candidateGroups()).isEmpty();
     assertThat(userTask.candidateUsers()).isEmpty();
