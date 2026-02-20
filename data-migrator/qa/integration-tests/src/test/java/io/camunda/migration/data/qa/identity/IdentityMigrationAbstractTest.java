@@ -21,7 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
-public class IdentityAbstractTest extends AbstractMigratorTest {
+public class IdentityMigrationAbstractTest extends AbstractMigratorTest {
 
   @Autowired
   protected IdentityMigrator identityMigrator;
@@ -51,8 +51,16 @@ public class IdentityAbstractTest extends AbstractMigratorTest {
 
   @AfterEach
   public void cleanup() {
+    // reset migrator mode
     identityMigrator.setMode(MigratorMode.MIGRATE);
+
+    // delete identities and authorizations
+    identityService.createUserQuery().list().forEach(user -> identityService.deleteUser(user.getId()));
+    identityService.createGroupQuery().list().forEach(group -> identityService.deleteGroup(group.getId()));
     identityService.createTenantQuery().list().forEach(tenant -> identityService.deleteTenant(tenant.getId()));
+    authorizationService.createAuthorizationQuery().list().forEach(auth -> authorizationService.deleteAuthorization(auth.getId()));
+
+    // clean mapping table
     dbClient.deleteAllMappings();
   }
 
