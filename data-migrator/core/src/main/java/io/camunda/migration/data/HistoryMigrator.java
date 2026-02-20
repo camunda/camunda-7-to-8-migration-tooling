@@ -19,6 +19,7 @@ import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigra
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
@@ -58,6 +59,9 @@ public class HistoryMigrator {
 
   @Autowired
   protected IncidentMigrator incidentMigrator;
+
+  @Autowired
+  protected JobMigrator jobMigrator;
 
   @Autowired
   protected DecisionRequirementsMigrator decisionRequirementsMigrator;
@@ -111,6 +115,7 @@ public class HistoryMigrator {
     migrateFlowNodes();
     migrateUserTasks();
     migrateVariables();
+    migrateJobs();
     migrateIncidents();
     migrateDecisionRequirementsDefinitions();
     migrateDecisionDefinitions();
@@ -146,6 +151,10 @@ public class HistoryMigrator {
     incidentMigrator.migrateAll();
   }
 
+  public void migrateJobs() {
+    jobMigrator.migrateAll();
+  }
+
   public void migrateDecisionRequirementsDefinitions() {
     decisionRequirementsMigrator.migrateAll();
   }
@@ -174,6 +183,7 @@ public class HistoryMigrator {
     decisionRequirementsMigrator.setMode(mode);
     flowNodeMigrator.setMode(mode);
     incidentMigrator.setMode(mode);
+    jobMigrator.setMode(mode);
     processDefinitionMigrator.setMode(mode);
     processInstanceMigrator.setMode(mode);
     userTaskMigrator.setMode(mode);
