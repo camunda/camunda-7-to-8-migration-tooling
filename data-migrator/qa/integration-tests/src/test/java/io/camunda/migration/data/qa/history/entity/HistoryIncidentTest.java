@@ -9,6 +9,8 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.search.entities.IncidentEntity.ErrorType.JOB_NO_RETRIES;
+import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.MigratorMode;
@@ -252,6 +254,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(c8Incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ProcessInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ProcessInstance.getProcessDefinitionKey();
     assertThat(c8Incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(expectedRootProcessKey));
+    assertThat(c8Incident.errorType()).isEqualTo(JOB_NO_RETRIES);
 
     // non-null values
     assertThat(c8Incident.incidentKey()).isNotNull();
@@ -272,6 +275,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(c8Incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ChildInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ParentInstance != null ? c7ParentInstance.getProcessDefinitionKey() : c7ChildInstance.getProcessDefinitionKey();
     assertThat(c8Incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(expectedRootProcessKey));
+    assertThat(c8Incident.errorType()).isEqualTo(UNKNOWN);
 
     // non-null values
     assertThat(c8Incident.incidentKey()).isNotNull();

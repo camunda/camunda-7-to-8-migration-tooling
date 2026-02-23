@@ -13,12 +13,15 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.search.entities.IncidentEntity.ErrorType.JOB_NO_RETRIES;
+import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
 
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
+import org.camunda.bpm.engine.runtime.Incident;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +39,7 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
     builder.incidentKey(getNextKey())
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .flowNodeId(entity.getActivityId())
-        .errorType(null) // TODO: does error type exist in C7?
+        .errorType(determineErrorType(entity))
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))
         .treePath(null)
@@ -48,4 +51,11 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 
+  protected IncidentEntity.ErrorType determineErrorType(HistoricIncident incident) {
+    return switch (incident.getIncidentType()) {
+      case Incident.FAILED_JOB_HANDLER_TYPE,
+           Incident.EXTERNAL_TASK_HANDLER_TYPE -> JOB_NO_RETRIES;
+      default -> UNKNOWN;
+    };
+  }
 }
