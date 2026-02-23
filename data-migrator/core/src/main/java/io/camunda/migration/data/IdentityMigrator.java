@@ -13,6 +13,7 @@ import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 
 import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.migration.data.impl.DataSourceRegistry;
+import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
@@ -29,14 +30,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.identity.Group;
 import org.camunda.bpm.engine.identity.Tenant;
+import org.camunda.bpm.engine.identity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class IdentityMigrator {
 
-  public static final long DEFAULT_TENANT_KEY = 1L;
+  public static final long DEFAULT_TENANT_KEY = 1L; // Tenants do not have keys, we need a value different from null to mark them as migrated
 
   protected MigratorMode mode = MIGRATE;
 
@@ -110,10 +113,12 @@ public class IdentityMigrator {
       IdentityMigratorLogs.logMigratingTenant(tenant.getId());
       c8Client.createTenant(tenant);
       IdentityMigratorLogs.logMigratedTenant(tenant.getId());
-      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY); // Tenants do not have keys, we need a value different from null
+      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY);
     } catch (MigratorException e) {
       markAsSkipped(IdKeyMapper.TYPE.TENANT, tenant.getId(), e.getMessage());
+      return; // Only migrate memberships if tenant migration was successful
     }
+    migrateTenantMemberships(tenant.getId());
   }
 
   protected void migrateAuthorization(Authorization authorization) {
@@ -144,13 +149,40 @@ public class IdentityMigrator {
     }
   }
 
+  protected void migrateTenantMemberships(String tenantId) {
+    IdentityMigratorLogs.logMigratingTenantMemberships(tenantId);
+
+    // migrate user tenant memberships
+    List<User> userMemberships = c7Client.findUsersForTenant(tenantId);
+    for (User user : userMemberships) {
+      IdentityMigratorLogs.logMigratingTenantMembership(tenantId, OwnerType.USER.name(), user.getId());
+      try {
+        c8Client.createUserTenantAssignment(tenantId, user.getId());
+        IdentityMigratorLogs.logMigratedTenantMembership(tenantId, OwnerType.USER.name(), user.getId());
+      } catch (MigratorException e) {
+        IdentityMigratorLogs.logCannotMigrateTenantMembership(tenantId, OwnerType.USER.name(), user.getId(), e.getMessage());
+      }
+    }
+
+    // migrate group tenant memberships
+    List<Group> groupMemberships = c7Client.findGroupsForTenant(tenantId);
+    for (Group group : groupMemberships) {
+      IdentityMigratorLogs.logMigratingTenantMembership(tenantId, OwnerType.GROUP.name(), group.getId());
+      try {
+        c8Client.createGroupTenantAssignment(tenantId, group.getId());
+        IdentityMigratorLogs.logMigratedTenantMembership(tenantId, OwnerType.GROUP.name(), group.getId());
+      } catch (MigratorException e) {
+        IdentityMigratorLogs.logCannotMigrateTenantMembership(tenantId, OwnerType.USER.name(), group.getId(), e.getMessage());
+      }
+    }
+  }
+
   protected void markAsSkipped(IdKeyMapper.TYPE type, String id, String reason) {
     switch (type) {
       case TENANT -> IdentityMigratorLogs.logSkippedTenant(id);
       case AUTHORIZATION -> IdentityMigratorLogs.logSkippedAuthorization(id, reason);
     }
-
-    if (MIGRATE.equals(mode)) { // only mark as skipped in MIGRATE mode, if it's RETRY_SKIPPED, it's already marked as skipped
+    if (MIGRATE.equals(mode)) {
       saveRecord(type, id, null);
     }
   }

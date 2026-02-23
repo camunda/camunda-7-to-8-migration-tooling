@@ -10,7 +10,7 @@ package io.camunda.migration.data.qa.identity;
 import static io.camunda.client.api.search.enums.OwnerType.USER;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
-import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsContains;
+import static io.camunda.migration.data.qa.identity.IdentityTestHelper.assertAuthorizationsSatisfy;
 import static io.camunda.migration.data.qa.identity.IdentityTestHelper.getAllSupportedPerms;
 import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_GRANT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +33,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
-public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
+public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTest {
 
   public static final String USERNAME = "tomsmith";
   public static final String USER_FIRST_NAME = "Tom";
@@ -72,9 +72,9 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then all three authorizations are migrated successfully
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME);
-    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "operate", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
-    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "identity", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
-    assertAuthorizationsContains(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "operate", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "identity", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
   }
 
   @Test
@@ -96,9 +96,9 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then we have three migrated authorizations
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(3, USERNAME);
-    assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.BATCH, "*", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_PROCESS_DEFINITION));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.BATCH, "*", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_PROCESS_DEFINITION));
   }
 
   @Test
@@ -117,8 +117,8 @@ public class RetryAuthorizationMigrationTest extends IdentityAbstractTest {
 
     // then we have only two migrated authorizations (skipped remained skipped)
     var authorizations = testHelper.awaitAuthorizationsCountAndGet(2, USERNAME);
-    assertAuthorizationsContains(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ));
-    assertAuthorizationsContains(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_PROCESS_DEFINITION));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.AUTHORIZATION, "*", USER, USERNAME, Set.of(PermissionType.READ));
+    assertAuthorizationsSatisfy(authorizations, ResourceType.PROCESS_DEFINITION, "*", USER, USERNAME, Set.of(PermissionType.READ_PROCESS_DEFINITION));
   }
 
   @Test

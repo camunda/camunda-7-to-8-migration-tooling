@@ -46,8 +46,12 @@ import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
+import org.camunda.bpm.engine.identity.Group;
+import org.camunda.bpm.engine.identity.GroupQuery;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.identity.TenantQuery;
+import org.camunda.bpm.engine.identity.User;
+import org.camunda.bpm.engine.identity.UserQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
@@ -705,4 +709,29 @@ public class C7Client {
     return !execution.isEmpty();
   }
 
+  /**
+   * Fetches user members for a given tenant
+   */
+  public List<User> findUsersForTenant(String tenantId) {
+    UserQuery query = identityService.createUserQuery().memberOfTenant(tenantId);
+
+    return new Pagination<User>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .toList();
+  }
+
+  /**
+   * Fetches group members for a given tenant
+   */
+  public List<Group> findGroupsForTenant(String tenantId) {
+    GroupQuery query = identityService.createGroupQuery().memberOfTenant(tenantId);
+
+    return new Pagination<Group>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .toList();
+  }
 }
