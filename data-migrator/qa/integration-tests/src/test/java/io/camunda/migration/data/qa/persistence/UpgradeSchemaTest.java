@@ -165,7 +165,7 @@ public class UpgradeSchemaTest {
    * @param type the migration mapping type
    * @throws SQLException if a database access error occurs
    */
-  protected void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
+  protected static void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
       throws SQLException {
     String sql = "INSERT INTO MIGRATION_MAPPING (C7_ID, C8_KEY, TYPE, CREATE_TIME) VALUES (?, ?, ?, ?)";
     try (Connection conn = dataSource.getConnection();

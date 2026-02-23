@@ -8,10 +8,12 @@
 package io.camunda.migration.data.qa.persistence;
 
 import static io.camunda.migration.data.qa.persistence.UpgradeSchemaTest.applyChangelog;
+import static io.camunda.migration.data.qa.persistence.UpgradeSchemaTest.insertRowWithBigIntKey;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -43,6 +45,9 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
   @Autowired
   protected IdKeyMapper idKeyMapper;
 
+  @Autowired
+  protected DataSourceRegistry dataSourceRegistry;
+
   protected HikariDataSource durableDataSource;
 
   @BeforeAll
@@ -56,7 +61,9 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
   public void cleanup() {
     historyMigrator.setMode(MigratorMode.MIGRATE);
     UpgradeSchemaTest.closeAndCleanupDataSource(durableDataSource);
-    rdbmsPurger.purgeRdbms();
+    if (dataSourceRegistry != null) {
+      dataSourceRegistry.close();
+    }
   }
 
   @Test
@@ -67,11 +74,11 @@ public class HistoryUpgradeSchemaTest extends HistoryMigrationAbstractTest {
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    var processInstanceId = runtimeService.startProcessInstanceByKey("userTaskProcessId").getId();
     completeAllUserTasksWithDefaultUserTaskId();
 
     // skip process instances
-    historyMigrator.migrateProcessInstances();
+    insertRowWithBigIntKey(durableDataSource, processInstanceId, null, "HISTORY_PROCESS_INSTANCE");
     List<IdKeyDbModel> skippedInstances = idKeyMapper.findSkippedByType(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE, 0, 100);
     assertThat(skippedInstances).hasSize(1);
 
