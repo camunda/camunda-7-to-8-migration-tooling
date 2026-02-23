@@ -30,6 +30,10 @@
                  indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY">
       <column name="C8_KEY"/>
     </createIndex>
+
+    <modifySql dbms="oracle">
+      <replace replace="VARCHAR(255)" with="VARCHAR2(255)"/>
+    </modifySql>
   </changeSet>
 
 </databaseChangeLog>
