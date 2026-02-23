@@ -4,8 +4,8 @@
 
   <parent>
     <groupId>io.camunda</groupId>
-    <artifactId>camunda-7-to-8-rewrite-recipes-root</artifactId>
-    <version>0.2.0-alpha1</version>
+    <artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
+    <version>0.3.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -22,34 +22,43 @@
   </properties>
 
   <dependencies>
-    <!-- Minimal dependencies to compile the delegates -->
+<!-- Camunda 8 dependencies -->
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>spring-boot-starter-camunda-sdk</artifactId>
-      <version>8.8.0-alpha4.1</version>
+      <artifactId>camunda-client-java</artifactId>
+			<version>${version.camunda-8}</version>
+      <scope>provided</scope>
     </dependency>
+
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-spring-boot-starter</artifactId>
+			<version>${version.camunda-8}</version>
+    </dependency>
+
+    <!-- Camunda 7 dependencies -->
     <dependency>
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-engine</artifactId>
-      <version>7.22.0</version>
+      <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-engine-plugin-spin</artifactId>
-      <version>7.23.0</version>
+      <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.camunda.spin</groupId>
       <artifactId>camunda-spin-dataformat-all</artifactId>
-      <version>7.23.0</version>
+      <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-external-task-client</artifactId>
-      <version>7.22.0</version>
+      <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
 
@@ -100,12 +109,11 @@
           <!-- Pull in the recipes module that contains the actual migration logic -->
           <dependency>
             <groupId>io.camunda</groupId>
-            <artifactId>camunda-7-to-8-rewrite-recipes</artifactId>
-            <version>0.2.0-SNAPSHOT</version>
+            <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
+            <version>${project.parent.version}</version>
           </dependency>
         </dependencies>
       </plugin>
     </plugins>
   </build>
 </project>
-
