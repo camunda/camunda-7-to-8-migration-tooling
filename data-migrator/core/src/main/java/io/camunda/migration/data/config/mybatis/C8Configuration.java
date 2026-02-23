@@ -20,6 +20,7 @@ import io.camunda.db.rdbms.read.service.DecisionInstanceDbReader;
 import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
 import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
 import io.camunda.db.rdbms.read.service.FormDbReader;
+import io.camunda.db.rdbms.read.service.GlobalListenerDbReader;
 import io.camunda.db.rdbms.read.service.GroupDbReader;
 import io.camunda.db.rdbms.read.service.GroupMemberDbReader;
 import io.camunda.db.rdbms.read.service.HistoryDeletionDbReader;
@@ -56,6 +57,7 @@ import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
 import io.camunda.db.rdbms.sql.ExporterPositionMapper;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.FormMapper;
+import io.camunda.db.rdbms.sql.GlobalListenerMapper;
 import io.camunda.db.rdbms.sql.GroupMapper;
 import io.camunda.db.rdbms.sql.HistoryDeletionMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
@@ -246,6 +248,11 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
+  public MapperFactoryBean<GlobalListenerMapper> globalListenerMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
+    return createMapperFactoryBean(c8SqlSessionFactory, GlobalListenerMapper.class);
+  }
+
+  @Bean
   public MapperFactoryBean<MappingRuleMapper> mappingMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, MappingRuleMapper.class);
   }
@@ -389,6 +396,11 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public FormDbReader formRdbmsReader(FormMapper formMapper) {
     return new FormDbReader(formMapper);
+  }
+
+  @Bean
+  public GlobalListenerDbReader globalListenerReader(GlobalListenerMapper globalListenerMapper) {
+    return new GlobalListenerDbReader(globalListenerMapper);
   }
 
   @Bean
@@ -583,7 +595,8 @@ public class C8Configuration extends AbstractConfiguration {
       ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
       HistoryDeletionDbReader historyDeletionReader,
       IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
-      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader) {
+      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader,
+      GlobalListenerDbReader globalListenerReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         auditLogReader,
@@ -621,7 +634,8 @@ public class C8Configuration extends AbstractConfiguration {
         processDefinitionInstanceVersionStatisticsDbReader,
         historyDeletionReader,
         incidentProcessInstanceStatisticsByErrorDbReader,
-        incidentProcessInstanceStatisticsByDefinitionDbReader);
+        incidentProcessInstanceStatisticsByDefinitionDbReader,
+        globalListenerReader);
   }
 
 }
