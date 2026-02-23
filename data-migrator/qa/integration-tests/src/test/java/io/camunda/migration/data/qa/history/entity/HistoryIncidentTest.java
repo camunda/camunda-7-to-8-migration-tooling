@@ -16,12 +16,19 @@ import static io.camunda.search.entities.IncidentEntity.ErrorType.JOB_NO_RETRIES
 import static io.camunda.search.entities.IncidentEntity.ErrorType.RESOURCE_NOT_FOUND;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.UNHANDLED_ERROR_EVENT;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.START_EVENT;
+import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USER_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.IncidentEntity;
 import java.util.Collections;
+import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
@@ -366,6 +373,39 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(incidents).hasSize(1);
     IncidentEntity c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, JOB_NO_RETRIES, true);
+  }
+
+  @Test
+  public void shouldGenerateTreePathForIncidents() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcessAsyncAfter.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    createIncident("userTaskId");
+    String userTaskId = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult().getId();
+    taskService.complete(userTaskId);
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByName("UserTaskName");
+    assertThat(flowNodes).hasSize(1);
+    Long flownodeInstanceKey = flowNodes.getFirst().flowNodeInstanceKey();
+
+    List<IncidentDbModel> incidents = searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+    assertThat(incidents).singleElement()
+        .extracting(IncidentDbModel::treePath)
+        .isNotNull()
+        .isEqualTo("PI_" + processInstanceKey + "/FNI_" + flownodeInstanceKey);
   }
 
   protected void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {

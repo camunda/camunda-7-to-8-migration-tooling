@@ -47,7 +47,6 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         .errorType(determineErrorType(entity))
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))
-        .treePath(null)
         .errorMessageHash(null)
         .partitionId(C7_HISTORY_PARTITION_ID)
         .jobKey(null)

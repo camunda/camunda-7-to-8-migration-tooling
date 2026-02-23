@@ -81,18 +81,19 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
+      Long processInstanceKey = null;
+      Long flowNodeInstanceKey = null;
 
       var builder = new Builder();
       var processDefinitionKey = findProcessDefinitionKey(c7Incident.getProcessDefinitionId());
       builder.processDefinitionKey(processDefinitionKey);
       if (c7ProcessInstance != null) {
-        var processInstanceKey = c7ProcessInstance.processInstanceKey();
+        processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
+          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
-//          .jobKey(jobDefinitionKey) // TODO when jobs are migrated
-
+          //          .jobKey(jobDefinitionKey) // TODO when jobs are migrated
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -101,32 +102,34 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
               builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
             }
           }
+          builder.treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey));
         }
       }
 
       IncidentDbModel dbModel = convert(C7Entity.of(c7Incident), builder);
 
-    if (dbModel.processDefinitionKey() == null) {
-      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_DEFINITION);
-    }
-
-    if (dbModel.processInstanceKey() == null) {
-        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_INSTANCE);
-    }
-
-    if (dbModel.rootProcessInstanceKey() == null) {
-      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-    }
-
-    if (dbModel.flowNodeInstanceKey() == null) {
-      if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) { // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
-        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
+      if (dbModel.processDefinitionKey() == null) {
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_DEFINITION);
       }
-    }
 
-    if (dbModel.jobKey() == null) {
-//      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
-    }
+      if (dbModel.processInstanceKey() == null) {
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      }
+
+      if (dbModel.rootProcessInstanceKey() == null) {
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+      }
+
+      if (dbModel.flowNodeInstanceKey() == null) {
+        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
+          // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
+          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
+        }
+      }
+
+      if (dbModel.jobKey() == null) {
+        //      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
+      }
       c8Client.insertIncident(dbModel);
 
       return dbModel.incidentKey();
@@ -141,11 +144,9 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       return null;
     }
 
-    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(
-        FlowNodeInstanceDbQuery.of(builder -> builder.filter(
-            FlowNodeInstanceFilter.of(filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey))
-        ))
-    );
+    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
+        builder -> builder.filter(FlowNodeInstanceFilter.of(
+            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
 
     if (!flowNodes.isEmpty()) {
       return flowNodes.getFirst().flowNodeInstanceKey();
@@ -154,5 +155,17 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     }
   }
 
+  /**
+   * Generates a tree path for incidents in the format: processInstanceKey/elementInstanceKey (if exists)
+   *
+   * @param processInstanceKey the process instance key
+   * @param elementInstanceKey the flow node instance key
+   * @return the tree path string
+   */
+  public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
+    return elementInstanceKey == null ?
+        "PI_" + processInstanceKey.toString() :
+        "PI_" + processInstanceKey + "/FNI_" + elementInstanceKey;
+  }
 }
 
