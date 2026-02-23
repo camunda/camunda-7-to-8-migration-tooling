@@ -4,12 +4,12 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-diagram-converter-parent</artifactId>
-    <version>0.2.1-SNAPSHOT</version>
+    <version>0.2.1</version>
     <relativePath>../</relativePath>
   </parent>
 
   <artifactId>camunda-7-to-8-diagram-converter-extension-example</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.2.1</version>
   <name>camunda-7-to-8-diagram-converter-extension-example</name>
 
   <properties>
