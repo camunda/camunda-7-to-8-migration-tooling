@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.camunda.migration.code.recipes.utils.MigrationMessages;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
@@ -398,7 +399,24 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                   // skip transformation if return type cannot be resolved - requires manual migration
                   if (returnTypeFqn == null) {
-                    return super.visitMethodInvocation(invocation, ctx);
+                    String variableName = currentSelect.getSimpleName();
+                    String todoComment = MigrationMessages.formatUnresolvedReturnType(variableName);
+                    // check if comment was already added to avoid duplicates on multiple visits
+                    boolean alreadyHasComment =
+                        invocation.getComments().stream()
+                            .anyMatch(
+                                c ->
+                                    c instanceof TextComment tc
+                                        && MigrationMessages.containsUnresolvedTypeMessage(
+                                            tc.getText(), variableName));
+                    if (alreadyHasComment) {
+                      return invocation;
+                    }
+                    return invocation.withComments(
+                        Stream.concat(
+                                invocation.getComments().stream(),
+                                Stream.of(RecipeUtils.createSimpleComment(invocation, todoComment)))
+                            .toList());
                   }
 
                   // create new identifier from new returnTypeFqn

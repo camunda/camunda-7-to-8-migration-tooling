@@ -62,6 +62,33 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                         return task.getName();
                     }
                 }
+                """,
+                """
+                package org.camunda.community.migration.example;
+
+                import org.camunda.bpm.engine.TaskService;
+                import org.camunda.bpm.engine.task.Task;
+                import io.camunda.client.CamundaClient;
+                import org.springframework.beans.factory.annotation.Autowired;
+                import org.springframework.stereotype.Component;
+
+                @Component
+                public class TaskQuerySingleResultTestClass {
+
+                    @Autowired
+                    private TaskService taskService;
+
+                    @Autowired
+                    private CamundaClient camundaClient;
+
+                    public String getTaskName(String taskId) {
+                        Task task = taskService.createTaskQuery()
+                            .taskId(taskId)
+                            .singleResult();
+                        return //TODO: Manual migration required - could not resolve return type for: task
+                 task.getName();
+                    }
+                }
                 """));
   }
 
@@ -74,7 +101,6 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
   void taskQueryResultUsedInProcessInstanceQuery() {
     rewriteRun(
         spec ->
-            // TODO: expectedCyclesThatMakeChanges(2) - see README.md for details
             spec.expectedCyclesThatMakeChanges(2)
                 .recipeFromResources("io.camunda.migration.code.recipes.AllClientMigrateRecipes"),
         // language=java
@@ -108,7 +134,8 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                         final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
                         List<ProcessInstance> processInstances = runtimeService
                             .createProcessInstanceQuery()
-                            .processInstanceId(task.getProcessInstanceId())
+                            .processInstanceId(//TODO: Manual migration required - could not resolve return type for: task
+                                task.getProcessInstanceId())
                             .list();
                     }
                 }
@@ -143,7 +170,8 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                         final Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
                         List<ProcessInstance> processInstances = runtimeService
                                 .createProcessInstanceQuery()
-                                .processInstanceId(task.getProcessInstanceId())
+                                .processInstanceId(//TODO: Manual migration required - could not resolve return type for: task
+                                        task.getProcessInstanceId())
                                 .list();
                     }
                 }
@@ -210,7 +238,8 @@ class AbstractMigrationRecipeNullReturnTypeTest implements RewriteTest {
                             .processInstanceBusinessKey(businessKey)
                             .singleResult();
                         camundaClient
-                                .newCompleteUserTaskCommand(Long.valueOf(task.getId()))
+                                .newCompleteUserTaskCommand(Long.valueOf(//TODO: Manual migration required - could not resolve return type for: task
+                                        task.getId()))
                                 .send()
                                 .join();
                     }
