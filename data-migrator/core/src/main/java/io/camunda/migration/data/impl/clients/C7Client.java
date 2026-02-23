@@ -723,7 +723,7 @@ public class C7Client {
   }
 
   /**
-   * Fetches groups members for a given tenant
+   * Fetches group members for a given tenant
    */
   public List<Group> findGroupsForTenant(String tenantId) {
     GroupQuery query = identityService.createGroupQuery().memberOfTenant(tenantId);
