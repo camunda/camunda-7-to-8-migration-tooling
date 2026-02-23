@@ -16,7 +16,8 @@
     <tagDatabase tag="tag_before_modify_c8_key_column"/>
   </changeSet>
 
-  <changeSet id="modify_c8_key_column_to_varchar" author="Camunda">
+  <!-- Non-Oracle databases: modify data type directly -->
+  <changeSet id="modify_c8_key_column_to_varchar" author="Camunda" dbms="!oracle">
     <!-- Drop index first as SQL Server doesn't allow modifying indexed columns -->
     <dropIndex tableName="${prefix}MIGRATION_MAPPING"
                indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY"/>
@@ -30,10 +31,33 @@
                  indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY">
       <column name="C8_KEY"/>
     </createIndex>
+  </changeSet>
 
-    <modifySql dbms="oracle">
-      <replace replace="VARCHAR(255)" with="VARCHAR2(255)"/>
-    </modifySql>
+  <!-- Oracle: use temp column to work around ORA-01439
+       (cannot change datatype of a non-empty column) -->
+  <changeSet id="modify_c8_key_column_to_varchar" author="Camunda" dbms="oracle">
+
+  <addColumn tableName="${prefix}MIGRATION_MAPPING">
+      <column name="C8_KEY_TMP" type="VARCHAR2(255)"/>
+    </addColumn>
+
+    <sql>UPDATE MIGRATION_MAPPING
+         SET C8_KEY_TMP = C8_KEY</sql>
+
+    <dropIndex tableName="${prefix}MIGRATION_MAPPING"
+               indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY"/>
+
+    <dropColumn tableName="${prefix}MIGRATION_MAPPING" columnName="C8_KEY"/>
+
+    <renameColumn tableName="${prefix}MIGRATION_MAPPING"
+                  oldColumnName="C8_KEY_TMP"
+                  newColumnName="C8_KEY"
+                  columnDataType="VARCHAR2(255)"/>
+
+    <createIndex tableName="${prefix}MIGRATION_MAPPING"
+                 indexName="${prefix}IDX_MIGRATION_MAPPING_C8_KEY">
+      <column name="C8_KEY"/>
+    </createIndex>
   </changeSet>
 
 </databaseChangeLog>
