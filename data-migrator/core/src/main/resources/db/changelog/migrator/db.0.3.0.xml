@@ -41,7 +41,7 @@
       <column name="C8_KEY_TMP" type="VARCHAR2(255)"/>
     </addColumn>
 
-    <sql>UPDATE MIGRATION_MAPPING
+    <sql>UPDATE ${prefix}MIGRATION_MAPPING
          SET C8_KEY_TMP = C8_KEY</sql>
 
     <dropIndex tableName="${prefix}MIGRATION_MAPPING"
