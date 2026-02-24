@@ -34,7 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
   @Autowired
-  private ProcessEngineConfigurationImpl processEngineConfigurationImpl;
+  protected ProcessEngineConfigurationImpl processEngineConfigurationImpl;
 
   @Test
   public void shouldMigrateIncidentTenant() {
