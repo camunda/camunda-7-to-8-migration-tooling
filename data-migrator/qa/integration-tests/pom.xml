@@ -423,7 +423,6 @@
               <includes>
                 <include>**/history/**</include>
                 <include>ArchitectureTest.java</include>
-                <include>HistoryUpgradeSchemaTest.java</include>
                 <include>UpgradeSchemaTest.java</include>
               </includes>
             </configuration>

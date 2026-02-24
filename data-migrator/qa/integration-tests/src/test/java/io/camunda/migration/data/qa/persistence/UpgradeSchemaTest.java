@@ -145,7 +145,7 @@ public class UpgradeSchemaTest {
    * @param changeLog the classpath location of the Liquibase changelog file
    * @throws Exception if an error occurs while applying the changelog
    */
-  protected static void applyChangelog(DataSource dataSource, String changeLog) throws Exception {
+  protected void applyChangelog(DataSource dataSource, String changeLog) throws Exception {
     SpringLiquibase liquibase = new SpringLiquibase();
     liquibase.setResourceLoader(new DefaultResourceLoader());
     liquibase.setDataSource(dataSource);
@@ -165,7 +165,7 @@ public class UpgradeSchemaTest {
    * @param type the migration mapping type
    * @throws SQLException if a database access error occurs
    */
-  protected static void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
+  protected void insertRowWithBigIntKey(DataSource dataSource, String c7Id, Long c8Key, String type)
       throws SQLException {
     String sql = "INSERT INTO MIGRATION_MAPPING (C7_ID, C8_KEY, TYPE, CREATE_TIME) VALUES (?, ?, ?, ?)";
     try (Connection conn = dataSource.getConnection();
@@ -239,7 +239,7 @@ public class UpgradeSchemaTest {
    * @return true if a matching row exists, false otherwise
    * @throws SQLException if a database access error occurs
    */
-  protected static boolean rowExists(DataSource dataSource, String c7Id, String c8Key, String type)
+  protected boolean rowExists(DataSource dataSource, String c7Id, String c8Key, String type)
       throws SQLException {
     String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY = ? AND TYPE = ?";
     try (Connection conn = dataSource.getConnection();
@@ -262,7 +262,7 @@ public class UpgradeSchemaTest {
    * @return true if a matching row with null C8 key exists, false otherwise
    * @throws SQLException if a database access error occurs
    */
-  protected static boolean rowExistsWithNullKey(DataSource dataSource, String c7Id, String type)
+  protected boolean rowExistsWithNullKey(DataSource dataSource, String c7Id, String type)
       throws SQLException {
     String sql = "SELECT COUNT(*) FROM MIGRATION_MAPPING WHERE C7_ID = ? AND C8_KEY IS NULL AND TYPE = ?";
     try (Connection conn = dataSource.getConnection();
@@ -284,7 +284,7 @@ public class UpgradeSchemaTest {
    * @return a configured HikariDataSource instance
    * @throws NullPointerException if setupDatabase() has not been called
    */
-  protected static HikariDataSource createDurableDataSource() {
+  protected HikariDataSource createDurableDataSource() {
     HikariDataSource ds = new HikariDataSource();
     ds.setJdbcUrl(dbConfig.jdbcUrl);
     ds.setUsername(dbConfig.username);
@@ -411,7 +411,7 @@ public class UpgradeSchemaTest {
    * @param dataSource the data source to clean up
    * @throws SQLException if a database access error occurs
    */
-  protected static void cleanupDatabase(DataSource dataSource) throws SQLException {
+  protected void cleanupDatabase(DataSource dataSource) throws SQLException {
     try (Connection conn = dataSource.getConnection();
         Statement stmt = conn.createStatement()) {
 
@@ -451,7 +451,7 @@ public class UpgradeSchemaTest {
    * @param sqlTemplate the SQL template with placeholders for table names
    * @throws SQLException if a database access error occurs
    */
-  protected static void dropMigrationTables(Statement stmt, String sqlTemplate) throws SQLException {
+  protected void dropMigrationTables(Statement stmt, String sqlTemplate) throws SQLException {
     String[] tables = {"MIGRATION_MAPPING", "DATABASECHANGELOG", "DATABASECHANGELOGLOCK"};
     for (String table : tables) {
       String sql = sqlTemplate.contains("%s") && sqlTemplate.indexOf("%s") != sqlTemplate.lastIndexOf("%s")
@@ -467,15 +467,13 @@ public class UpgradeSchemaTest {
    *
    * @param dataSource the datasource to close and clean up
    */
-  protected static void closeAndCleanupDataSource(HikariDataSource dataSource) {
+  protected void closeAndCleanupDataSource(HikariDataSource dataSource) {
     if (dataSource != null && !dataSource.isClosed()) {
-      try {
+      try (dataSource) {
         cleanupDatabase(dataSource);
       } catch (Exception e) {
         // Log but don't fail on cleanup errors
         System.err.println("Error during database cleanup: " + e.getMessage());
-      } finally {
-        dataSource.close();
       }
     }
   }
@@ -487,7 +485,7 @@ public class UpgradeSchemaTest {
    * @param stmt the SQL statement to use
    * @param tableName the name of the table to drop
    */
-  protected static void dropTableIfExists(Statement stmt, String tableName) {
+  protected void dropTableIfExists(Statement stmt, String tableName) {
     try {
       stmt.execute("DROP TABLE " + tableName + " CASCADE CONSTRAINTS");
     } catch (SQLException e) {
