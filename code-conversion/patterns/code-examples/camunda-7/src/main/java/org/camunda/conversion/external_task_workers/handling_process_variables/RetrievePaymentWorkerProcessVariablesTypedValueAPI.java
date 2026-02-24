@@ -18,7 +18,7 @@ import org.camunda.bpm.engine.variable.value.StringValue;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ExternalTaskSubscription("retrievePaymentAdapter")
+@ExternalTaskSubscription("retrievePaymentAdapterProcessVarsTypedValueAPI")
 public class RetrievePaymentWorkerProcessVariablesTypedValueAPI implements ExternalTaskHandler {
 
     @Override

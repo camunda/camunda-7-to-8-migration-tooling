@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.Map;
 
 @Configuration
-@ExternalTaskSubscription("retrievePaymentAdapter")
+@ExternalTaskSubscription("retrievePaymentAdapterBpmnErrorJavaObjectAPI")
 public class RetrievePaymentWorkerBPMNErrorJavaObjectAPI implements ExternalTaskHandler {
 
     @Override
