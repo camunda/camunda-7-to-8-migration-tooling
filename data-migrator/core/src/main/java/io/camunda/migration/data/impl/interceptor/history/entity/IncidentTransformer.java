@@ -56,9 +56,9 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 
-  protected IncidentEntity.ErrorType determineErrorType(HistoricIncident c7) {
-    String type = c7.getIncidentType();
-    String msg  = c7.getIncidentMessage();
+  protected IncidentEntity.ErrorType determineErrorType(HistoricIncident c7Incident) {
+    String type = c7Incident.getIncidentType();
+    String msg  = c7Incident.getIncidentMessage();
 
     if (msg == null) {
       // fall back to job‑retries semantics
