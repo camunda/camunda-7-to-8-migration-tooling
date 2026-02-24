@@ -3,7 +3,7 @@ camunda:
   # Warning: For self-managed mode, the default URLs use an HTTP connection. For production environments, it's suggested to configure HTTPS.
   # For more security related recommendations, please check https://docs.camunda.io/docs/next/self-managed/components/orchestration-cluster/zeebe/security/
   client:
-    ## Operation mode of the client ('self-managed' or 'cloud')
+    ## Operation mode of the client ('self-managed' or 'saas')
     #mode: self-managed
     ## The gRPC API endpoint for Camunda 8 Platform
     #grpc-address: https://your-camunda-host:26500
