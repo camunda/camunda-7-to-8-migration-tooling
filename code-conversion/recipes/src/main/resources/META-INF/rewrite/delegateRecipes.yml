@@ -24,6 +24,7 @@ displayName: Runs all delegate cleanup recipes
 description: Removes delegate code and unused imports.
 recipeList:
   - io.camunda.migration.code.recipes.delegate.CleanupDelegateRecipe
+  - io.camunda.migration.code.recipes.delegate.CleanupExecutionListenerRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe
