@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_UnhandledErrorEvent"
+                  targetNamespace="http://camunda.org/examples">
+
+  <bpmn:process id="unhandledErrorProcessId"
+                name="Unhandled Error Event Incident Test"
+                isExecutable="true"
+                camunda:historyTimeToLive="1">
+
+    <bpmn:startEvent id="start">
+      <bpmn:outgoing>flow_start_task</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="flow_start_task"
+                       sourceRef="start"
+                       targetRef="errorTask"/>
+
+    <!-- Async service task that throws a BpmnError without any catcher -->
+    <bpmn:serviceTask id="errorTask"
+                      name="Throw Unhandled BpmnError"
+                      camunda:class="io.camunda.migration.data.qa.history.entity.delegate.UnhandledErrorDelegate"
+                      camunda:asyncBefore="true">
+      <bpmn:incoming>flow_start_task</bpmn:incoming>
+      <bpmn:outgoing>flow_task_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="flow_task_end"
+                       sourceRef="errorTask"
+                       targetRef="end"/>
+
+    <bpmn:endEvent id="end">
+      <bpmn:incoming>flow_task_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_UnhandledErrorEvent">
+    <bpmndi:BPMNPlane id="BPMNPlane_UnhandledErrorEvent" bpmnElement="unhandledErrorEventProcess"/>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>
