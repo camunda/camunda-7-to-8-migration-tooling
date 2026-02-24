@@ -46,7 +46,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
+			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
 		<dependency>
@@ -65,6 +65,7 @@
 			<groupId>io.camunda</groupId>
 			<artifactId>camunda-process-test-spring</artifactId>
 			<version>${version.camunda-8}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
