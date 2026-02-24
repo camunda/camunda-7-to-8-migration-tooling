@@ -23,6 +23,7 @@ import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -98,7 +99,7 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withUsername("camunda")
         .withPassword("camunda")
         .withReuse(true)
-        .withStartupTimeout(Duration.ofMinutes(3))
+        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*100% complete.*\\s").withTimes(1).withStartupTimeout(Duration.ofMinutes(10)))
         .withExposedPorts(1521);
     oracle.setPortBindings(List.of(ORACLE_19_PORT + ":1521"));
     return oracle;
