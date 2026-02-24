@@ -61,13 +61,18 @@ public class CleanupExecutionListenerRecipe extends Recipe {
                                 id.getType(), "org.camunda.bpm.engine.delegate.ExecutionListener"))
                     .collect(Collectors.toList());
 
-            // Filter out the notify method
+            // Filter out the notify method with DelegateExecution signature only
             List<Statement> filteredStatements =
                 classDecl.getBody().getStatements().stream()
                     .filter(
                         (statement ->
                             !(statement instanceof J.MethodDeclaration methDecl
-                                && methDecl.getSimpleName().equals("notify"))))
+                                && methDecl.getSimpleName().equals("notify")
+                                && methDecl.getParameters().size() == 1
+                                && methDecl.getParameters().get(0) instanceof J.VariableDeclarations varDecl
+                                && TypeUtils.isOfClassType(
+                                    varDecl.getType(),
+                                    "org.camunda.bpm.engine.delegate.DelegateExecution"))))
                     .toList();
 
             maybeRemoveImport("org.camunda.bpm.engine.delegate.ExecutionListener");

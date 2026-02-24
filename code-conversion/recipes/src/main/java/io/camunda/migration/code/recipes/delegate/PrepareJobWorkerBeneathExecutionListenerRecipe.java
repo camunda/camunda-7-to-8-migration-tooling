@@ -46,6 +46,19 @@ public class PrepareJobWorkerBeneathExecutionListenerRecipe extends Recipe {
               return classDecl;
             }
 
+            boolean implementsExecutionListener =
+                classDecl.getImplements() != null
+                    && classDecl.getImplements().stream()
+                        .anyMatch(
+                            impl ->
+                                TypeUtils.isOfClassType(
+                                    impl.getType(),
+                                    "org.camunda.bpm.engine.delegate.ExecutionListener"));
+
+            if (!implementsExecutionListener) {
+              return super.visitClassDeclaration(classDecl, ctx);
+            }
+
             List<Statement> statements = classDecl.getBody().getStatements();
 
             for (Statement stmt : statements) {
