@@ -20,8 +20,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
@@ -201,8 +203,8 @@ public class UpgradeSchemaTest {
       DatabaseMetaData meta = conn.getMetaData();
 
       // Try different case variations based on database type
-      String[] tableNameVariations = getNameVariations(tableName);
-      String[] columnNameVariations = getNameVariations(columnName);
+      Set<String> tableNameVariations = getNameVariations(tableName);
+      Set<String> columnNameVariations = getNameVariations(columnName);
 
       for (String tableVariation : tableNameVariations) {
         for (String columnVariation : columnNameVariations) {
@@ -225,10 +227,14 @@ public class UpgradeSchemaTest {
    * some use lowercase (e.g., PostgreSQL), and some preserve the original case.
    *
    * @param name the original name
-   * @return an array containing the original name, uppercase version, and lowercase version
+   * @return a set containing the unique case variations of the name
    */
-  protected String[] getNameVariations(String name) {
-    return new String[]{name, name.toUpperCase(), name.toLowerCase()};
+  protected Set<String> getNameVariations(String name) {
+    Set<String> variations = new LinkedHashSet<>();
+    variations.add(name);
+    variations.add(name.toUpperCase());
+    variations.add(name.toLowerCase());
+    return variations;
   }
 
   /**
