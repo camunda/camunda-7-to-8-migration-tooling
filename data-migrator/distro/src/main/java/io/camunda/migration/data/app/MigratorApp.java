@@ -38,6 +38,7 @@ public class MigratorApp {
   protected static final String ARG_IDENTITY_MIGRATION = "identity";
   protected static final String ARG_RETRY_SKIPPED = "retry-skipped";
   protected static final String ARG_LIST_SKIPPED = "list-skipped";
+  protected static final String ARG_LIST_MAPPINGS = "list-mappings";
   protected static final String ARG_DROP_SCHEMA = "drop-schema";
   protected static final String ARG_FORCE = "force";
 
@@ -46,6 +47,7 @@ public class MigratorApp {
       "--" + ARG_HISTORY_MIGRATION,
       "--" + ARG_IDENTITY_MIGRATION,
       "--" + ARG_LIST_SKIPPED,
+      "--" + ARG_LIST_MAPPINGS,
       "--" + ARG_RETRY_SKIPPED,
       "--" + ARG_DROP_SCHEMA,
       "--" + ARG_FORCE,
@@ -108,11 +110,22 @@ public class MigratorApp {
     }
 
     boolean hasListSkipped = hasArg(ARG_LIST_SKIPPED);
+    boolean hasListMappings = hasArg(ARG_LIST_MAPPINGS);
     boolean hasRetrySkipped = hasArg(ARG_RETRY_SKIPPED);
 
     if (hasListSkipped && hasRetrySkipped) {
       throw new IllegalArgumentException(
           "Conflicting flags: --list-skipped and --retry-skipped cannot be used together. Please specify only one of them.");
+    }
+
+    if (hasListSkipped && hasListMappings) {
+      throw new IllegalArgumentException(
+          "Conflicting flags: --list-skipped and --list-mappings cannot be used together. Please specify only one of them.");
+    }
+
+    if (hasListMappings && hasRetrySkipped) {
+      throw new IllegalArgumentException(
+          "Conflicting flags: --list-mappings and --retry-skipped cannot be used together. Please specify only one of them.");
     }
 
     boolean dropSchema = hasArg(ARG_DROP_SCHEMA);
@@ -124,13 +137,14 @@ public class MigratorApp {
     }
 
     boolean listSkippedHistoryFound = hasListSkipped && hasArg(ARG_HISTORY_MIGRATION);
+    boolean listMappingsHistoryFound = hasListMappings && hasArg(ARG_HISTORY_MIGRATION);
     int flagCount = 0;
 
     for (String arg : args) {
       if (VALID_FLAGS.contains(arg)) {
         flagCount++;
-      } else if (listSkippedHistoryFound && VALID_ENTITY_TYPES.contains(arg)) {
-        // Valid entity type parameter following --list-skipped with --history
+      } else if ((listSkippedHistoryFound || listMappingsHistoryFound) && VALID_ENTITY_TYPES.contains(arg)) {
+        // Valid entity type parameter following --list-skipped or --list-mappings with --history
         continue;
       } else {
         throw new IllegalArgumentException("Invalid flag: " + arg);
@@ -149,7 +163,7 @@ public class MigratorApp {
 
   protected static void printUsage() {
     System.out.println();
-    System.out.println("Usage: start.sh/bat [--help] [--runtime] [--history] [--identity] [--list-skipped [ENTITY_TYPES...]|--retry-skipped] [--drop-schema|--drop-schema --force]");
+    System.out.println("Usage: start.sh/bat [--help] [--runtime] [--history] [--identity] [--list-skipped [ENTITY_TYPES...]|--list-mappings [ENTITY_TYPES...]|--retry-skipped] [--drop-schema|--drop-schema --force]");
     System.out.println("Options:");
     System.out.println("  --help              - Show this help message");
     System.out.println("  --runtime           - Migrate runtime data only");
@@ -162,17 +176,25 @@ public class MigratorApp {
     System.out.println("                      HISTORY_PROCESS_DEFINITION, HISTORY_PROCESS_INSTANCE, HISTORY_INCIDENT,");
     System.out.println("                      HISTORY_VARIABLE, HISTORY_USER_TASK, HISTORY_FLOW_NODE,");
     System.out.println("                      HISTORY_DECISION_INSTANCE, HISTORY_DECISION_DEFINITION");
+    System.out.println("  --list-mappings [ENTITY_TYPES...]");
+    System.out.println("                    - List migration mappings (C7 ID -> C8 Key). For history data, optionally specify entity types to filter.");
+    System.out.println("                      Filter only applicable with history migration. Available entity types:");
+    System.out.println("                      HISTORY_PROCESS_DEFINITION, HISTORY_PROCESS_INSTANCE, HISTORY_INCIDENT,");
+    System.out.println("                      HISTORY_VARIABLE, HISTORY_USER_TASK, HISTORY_FLOW_NODE,");
+    System.out.println("                      HISTORY_DECISION_INSTANCE, HISTORY_DECISION_DEFINITION");
     System.out.println("  --retry-skipped   - Retry only previously skipped history data");
     System.out.println("  --drop-schema     - Drop the migrator schema on shutdown if migration was successful");
     System.out.println("  --force           - Force the dropping of the migrator schema in all cases, to be used in combination with --drop-schema");
     System.out.println();
     System.out.println("Mutually exclusive options:");
-    System.out.println("  --list-skipped and --retry-skipped cannot be used together");
+    System.out.println("  --list-skipped, --list-mappings and --retry-skipped cannot be used together");
     System.out.println("  --force can only be used with --drop-schema");
     System.out.println("  --help cannot be used with any other flag");
     System.out.println("Examples:");
     System.out.println("  start.sh --history --list-skipped");
     System.out.println("  start.sh --history --list-skipped HISTORY_PROCESS_INSTANCE HISTORY_USER_TASK");
+    System.out.println("  start.sh --runtime --list-mappings");
+    System.out.println("  start.sh --history --list-mappings HISTORY_PROCESS_INSTANCE");
   }
 
   protected static boolean hasMigrationFlags(ApplicationArguments appArgs) {
@@ -218,8 +240,8 @@ public class MigratorApp {
 
     historyMigrator.setMode(mode);
 
-    // Extract entity type filters if --list-skipped is used
-    if (mode == MigratorMode.LIST_SKIPPED) {
+    // Extract entity type filters if --list-skipped or --list-mappings is used
+    if (mode == MigratorMode.LIST_SKIPPED || mode == MigratorMode.LIST_MAPPINGS) {
       List<IdKeyMapper.TYPE> entityTypeFilters = extractEntityTypeFilters(appArgs);
       if (!entityTypeFilters.isEmpty()) {
         historyMigrator.setRequestedEntityTypes(entityTypeFilters);
@@ -247,6 +269,8 @@ public class MigratorApp {
   protected static MigratorMode getMigratorMode(ApplicationArguments appArgs) {
     if (appArgs.containsOption(ARG_LIST_SKIPPED)) {
       return MigratorMode.LIST_SKIPPED;
+    } else if (appArgs.containsOption(ARG_LIST_MAPPINGS)) {
+      return MigratorMode.LIST_MAPPINGS;
     } else if (appArgs.containsOption(ARG_RETRY_SKIPPED)) {
       return MigratorMode.RETRY_SKIPPED;
     } else {
