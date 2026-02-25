@@ -181,27 +181,19 @@ public class MigrateExecutionRecipe extends Recipe {
                       && "executeJob".equals(m.getSimpleName())) {
 
                     J.Block jobBody = m.getBody();
-                    if (jobBody != null) {
-                      List<Statement> jobStmts = jobBody.getStatements();
-                      if (jobStmts != null && jobStmts.size() >= 2) {
-                        List<Statement> listenerStmts =
-                            new ArrayList<>(notifyBody.getStatements());
+                    List<Statement> jobStmts = jobBody.getStatements();
+                    List<Statement> listenerStmts =
+                        new ArrayList<>(notifyBody.getStatements());
 
-                        // keep resultMap init + return, wrap listener logic in between
-                        listenerStmts.add(0, jobStmts.get(0));
-                        listenerStmts.add(jobStmts.get(jobStmts.size() - 1));
+                    // keep resultMap init + return, wrap listener logic in between
+                    listenerStmts.add(0, jobStmts.get(0));
+                    listenerStmts.add(jobStmts.get(jobStmts.size() - 1));
 
-                        updated.add(
-                            m.withBody(jobBody.withStatements(listenerStmts))
-                                .withName(m.getName().withSimpleName("executeJobMigrated"))
-                                .withMethodType(
-                                    m.getMethodType().withName("executeJobMigrated")));
-                      } else {
-                        updated.add(stmt);
-                      }
-                    } else {
-                      updated.add(stmt);
-                    }
+                    updated.add(
+                        m.withBody(jobBody.withStatements(listenerStmts))
+                            .withName(m.getName().withSimpleName("executeJobMigrated"))
+                            .withMethodType(
+                                m.getMethodType().withName("executeJobMigrated")));
                   } else {
                     updated.add(stmt);
                   }
