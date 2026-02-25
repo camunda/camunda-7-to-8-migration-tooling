@@ -24,6 +24,7 @@
         <module>recipes</module>
         <module>patterns/code-examples/camunda-7</module>
         <module>patterns/code-examples/camunda-8</module>
+        <module>examples/process-solution-camunda-7</module>
       </modules>
     </profile>
 
