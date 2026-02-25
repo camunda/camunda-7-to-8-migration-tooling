@@ -203,17 +203,12 @@ public class C7Client {
                                                                             String childProcessInstanceId) {
     var query = historyService.createHistoricActivityInstanceQuery()
         .processInstanceId(parentProcessInstanceId)
+        .calledProcessInstanceId(childProcessInstanceId)
         .activityType(CALL_ACTIVITY)
-        .orderByHistoricActivityInstanceStartTime()
-        .asc()
         .orderByHistoricActivityInstanceId()
         .asc();
-    List<HistoricActivityInstance> result = callApi(query::list,
+    return callApi(query::singleResult,
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "Parent activity for child process instance", childProcessInstanceId));
-    return result.stream()
-        .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
-        .findFirst()
-        .orElse(null);
   }
 
   /**
