@@ -77,7 +77,7 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     VariableEntity variable = variables.getFirst();
     assertThat(variable.variableKey()).isNotNull();
     assertThat(variable.name()).isEqualTo(c7Variable.getName());
-    assertThat(variable.value()).isNull();
+    assertThat(variable.value()).isEqualTo("null");
     assertThat(variable.processInstanceKey()).isNotNull();
     assertThat(variable.scopeKey()).isNotNull();
     assertThat(variable.fullValue()).isNull();
