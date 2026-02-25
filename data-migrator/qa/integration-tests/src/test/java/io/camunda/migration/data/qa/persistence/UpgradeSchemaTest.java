@@ -27,6 +27,7 @@ import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
@@ -50,8 +51,8 @@ public class UpgradeSchemaTest {
 
   protected HikariDataSource durableDataSource;
 
-  @BeforeAll
-  public static void setupDatabase() {
+  @BeforeEach
+  public void setupDatabase() throws SQLException {
     List<String> profiles = SpringProfileResolver.getActiveProfiles();
     activeProfile = profiles.stream()
         .filter(p -> List.of("postgresql", "postgresql-15", "oracle", "oracle-19", "mysql", "mariadb", "mariadb-10", "sqlserver")
@@ -89,6 +90,8 @@ public class UpgradeSchemaTest {
       default: // h2
         dbConfig = createH2Config();
     }
+    durableDataSource = createDurableDataSource();
+    cleanupDatabase(durableDataSource);
   }
 
   @AfterEach
@@ -99,7 +102,7 @@ public class UpgradeSchemaTest {
   @Test
   public void shouldUpgradeSchemaFromV010ToV030() throws Exception {
     // given: a database with only the 0.1.0 changelog applied (simulating an existing installation)
-    durableDataSource = createDurableDataSource();
+
     applyChangelog(durableDataSource, "classpath:db/changelog/migrator/db.0.1.0.xml");
 
     // and: the C8_KEY column is BIGINT (confirming the 0.1.0 schema state)
@@ -416,9 +419,6 @@ public class UpgradeSchemaTest {
         Statement stmt = conn.createStatement()) {
 
       switch (activeProfile) {
-      case "h2":
-        stmt.execute("DROP ALL OBJECTS");
-        break;
       case "postgresql":
       case "postgresql-15":
         dropMigrationTables(stmt, "DROP TABLE IF EXISTS %s CASCADE");
@@ -438,8 +438,8 @@ public class UpgradeSchemaTest {
       case "sqlserver":
         dropMigrationTables(stmt, "IF OBJECT_ID('%s', 'U') IS NOT NULL DROP TABLE %s");
         break;
-      default:
-        throw new IllegalStateException("Unsupported database profile: " + activeProfile);
+      default: // h2
+        stmt.execute("DROP ALL OBJECTS");
       }
     }
   }
