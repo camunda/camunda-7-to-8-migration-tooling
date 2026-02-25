@@ -177,7 +177,9 @@ public class DbClient {
    * skipped entities, even when some are migrated (removed from skipped list) during processing.
    *
    * @param type the entity type to process
-   * @param callback function that processes an entity and returns true if migrated, false if skipped
+   * @param callback function that processes a skipped entity and returns {@code null} if it was
+   *     successfully migrated, or an {@link EntitySkippedException} if the entity remains skipped
+   * @return a list of {@link EntitySkippedException}s for all entities that could not be migrated
    */
   public List<EntitySkippedException> fetchAndHandleSkippedForType(TYPE type, Function<IdKeyDbModel, EntitySkippedException> callback) {
     int pageSize = properties.getPageSize();

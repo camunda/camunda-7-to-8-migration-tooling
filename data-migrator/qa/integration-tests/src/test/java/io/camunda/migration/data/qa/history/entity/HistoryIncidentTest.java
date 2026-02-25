@@ -108,9 +108,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
-    // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.retry();
-    historyMigrator.migrate();
 
     // then
 

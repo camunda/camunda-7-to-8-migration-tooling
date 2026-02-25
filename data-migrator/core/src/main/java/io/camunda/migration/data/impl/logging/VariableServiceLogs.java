@@ -38,7 +38,7 @@ public class VariableServiceLogs {
   public static final String JSON_DESERIALIZATION_ERROR = "Error while deserializing JSON into Map type.";
 
   /**
-   * Logs a warning message for variable interceptor failure.
+   * Logs a debug message for variable interceptor failure.
    *
    * @param interceptorName the name of the failed interceptor
    * @param variableName the name of the variable being processed

@@ -107,9 +107,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
-    // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.retry();
-    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstance = searchHistoricProcessInstances("callingProcessId");
@@ -185,9 +182,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
-    // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.retry();
-    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
@@ -239,9 +233,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
-    // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.retry();
     historyMigrator.migrate();
 
     // then

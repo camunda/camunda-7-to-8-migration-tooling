@@ -24,7 +24,6 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
-import io.netty.handler.logging.LogLevel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;

@@ -219,9 +219,7 @@ public class MigratorApp {
     // Extract entity type filters if --list-skipped is used
     if (mode == MigratorMode.LIST_SKIPPED) {
       List<IdKeyMapper.TYPE> entityTypeFilters = extractEntityTypeFilters(appArgs);
-      if (!entityTypeFilters.isEmpty()) {
-        historyMigrator.printSkippedHistoryEntities(entityTypeFilters);
-      }
+      historyMigrator.printSkippedHistoryEntities(entityTypeFilters);
     } else if (mode == MigratorMode.RETRY_SKIPPED) {
       historyMigrator.retry();
 
