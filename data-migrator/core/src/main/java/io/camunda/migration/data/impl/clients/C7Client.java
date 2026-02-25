@@ -205,7 +205,6 @@ public class C7Client {
         .processInstanceId(parentProcessInstanceId)
         .calledProcessInstanceId(childProcessInstanceId)
         .activityType(CALL_ACTIVITY)
-        .orderByHistoricActivityInstanceStartTime()
         .asc()
         .orderByHistoricActivityInstanceId()
         .asc();
