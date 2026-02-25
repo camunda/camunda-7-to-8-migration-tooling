@@ -1,7 +1,7 @@
 services:
   # Camunda 7 with Cockpit plugin
   camunda7:
-    image: registry.camunda.cloud/cambpm-ee/camunda-bpm-platform-ee:7.24.1
+    image: registry.camunda.cloud/cambpm-ee/camunda-bpm-platform-ee:7.24.2
     user: root
     ports:
       - "8090:8080"
@@ -95,7 +95,7 @@ services:
       - e2e-network
 
   camunda8: # Consolidated Zeebe + Operate + Tasklist - https://docs.camunda.io/docs/self-managed/setup/deploy/other/docker/#zeebe
-    image: camunda/camunda:8.9.0-alpha1
+    image: camunda/camunda:8.8.14
     container_name: camunda8
     ports:
       - "26500:26500"
