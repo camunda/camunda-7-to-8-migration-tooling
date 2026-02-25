@@ -95,7 +95,7 @@ public class MultiDbExtension implements BeforeAllCallback {
     DockerImageName oracleImage = DockerImageName.parse("doctorkirk/oracle-19c:latest")
         .asCompatibleSubstituteFor("gvenzl/oracle-free");
     OracleContainer oracle = new OracleContainer(oracleImage)
-        .withDatabaseName("XE")
+        .withDatabaseName("ORCLCDB")
         .withUsername("camunda")
         .withPassword("camunda")
         .withReuse(true)

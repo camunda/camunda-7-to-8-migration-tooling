@@ -4,7 +4,7 @@ camunda:
     c7:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:oracle:thin:@localhost:15433:XE
+        jdbc-url: jdbc:oracle:thin:@//localhost:15433/ORCLCDB
         username: camunda
         password: camunda
         driver-class-name: oracle.jdbc.OracleDriver
@@ -22,7 +22,7 @@ camunda:
     c8:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:oracle:thin:@localhost:15433:XE
+        jdbc-url: jdbc:oracle:thin:@//localhost:15433/ORCLCDB
         username: camunda
         password: camunda
         driver-class-name: oracle.jdbc.OracleDriver
