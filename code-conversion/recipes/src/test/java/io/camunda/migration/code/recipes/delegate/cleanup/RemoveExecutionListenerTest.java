@@ -68,5 +68,40 @@ public class MyExecutionListener {
 }
 """));
   }
+
+  @Test
+  void RemoveExecutionListenerNotExtendedTest() {
+    rewriteRun(
+        spec -> spec.recipe(new CleanupExecutionListenerRecipe()),
+        java(
+"""
+package org.camunda.conversion.execution_listeners;
+
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+import org.camunda.bpm.engine.delegate.DelegateExecution;
+import org.camunda.bpm.engine.delegate.ExecutionListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyExecutionListenerNotExtended {
+
+    public void notify(DelegateExecution execution) {
+        String someVar = (String) execution.getVariable("foo");
+    }
+}
+""",
+"""
+package org.camunda.conversion.execution_listeners;
+
+import io.camunda.client.annotation.JobWorker;
+import io.camunda.client.api.response.ActivatedJob;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyExecutionListenerNotExtended {
+}
+"""));
+  }
 }
 
