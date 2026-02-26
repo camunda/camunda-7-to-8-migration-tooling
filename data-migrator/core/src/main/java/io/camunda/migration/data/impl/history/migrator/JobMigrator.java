@@ -30,7 +30,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricJobLog;
-import org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration;
 import org.springframework.stereotype.Service;
 
 /**
@@ -86,10 +85,10 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
     final String c7JobId = c7JobLog.getJobId();
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
+      logMigratingJob(c7JobId);
       if (ASYNC_BEFORE.equals(jobDefinitionConfiguration) && ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS); //TODO test case for non-async jobs
       }
-      logMigratingJob(c7JobId);
 
       final var jobKey = getNextKey();
       final var builder = new JobDbModel.Builder().jobKey(jobKey);

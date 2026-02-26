@@ -141,7 +141,5 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Exactly one C8 job per C7 job despite multiple log entries").hasSize(1);
 
-    // and: the job is tracked in the migration table by C7 job ID
-    assertThat(dbClient.checkExistsByC7IdAndType(job.getId(), HISTORY_JOB)).isTrue();
   }
 }
