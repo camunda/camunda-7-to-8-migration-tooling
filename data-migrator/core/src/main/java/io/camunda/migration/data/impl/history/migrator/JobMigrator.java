@@ -86,8 +86,8 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
       logMigratingJob(c7JobId);
-      if (ASYNC_BEFORE.equals(jobDefinitionConfiguration) && ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
-        throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS); //TODO test case for non-async jobs
+      if (!ASYNC_BEFORE.equals(jobDefinitionConfiguration) || !ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS);
       }
 
       final var jobKey = getNextKey();

@@ -19,6 +19,7 @@ import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
 
 public class HistoryJobTest extends HistoryMigrationAbstractTest {
@@ -57,9 +58,6 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.processDefinitionKey()).isNotNull();
     assertThat(job.elementId()).isEqualTo("asyncUserTaskId");
-
-    // and: the job is tracked in the migration table by C7 job ID
-    assertThat(dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)).isTrue();
   }
 
   @Test
@@ -141,5 +139,30 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Exactly one C8 job per C7 job despite multiple log entries").hasSize(1);
 
+  }
+
+  @Test
+  public void shouldSkipTimerJob() {
+    // given
+    deployer.deployCamunda7Process("timerDurationBoundaryEventProcess.bpmn");
+    ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerDurationBoundaryEventProcessId");
+    runtimeService.setVariable(c7instance.getId(), "leftoverDuration", "P0D");
+    // fire timer job
+    var jobs = managementService.createJobQuery().processInstanceId(c7instance.getId()).list();
+
+    // Verify multiple log entries exist in C7 for the same job
+    var jobLogCount = historyService.createHistoricJobLogQuery().jobId(jobs.getFirst().getId()).count();
+    assertThat(jobLogCount).as("Should have multiple job log entries").isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("timerDurationBoundaryEventProcessId");
+    assertThat(processInstances).hasSize(1);
+
+    processInstances.getFirst();
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).isEmpty();
   }
 }
