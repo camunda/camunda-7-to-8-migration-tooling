@@ -17,7 +17,7 @@ import org.camunda.bpm.engine.variable.value.StringValue;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ExternalTaskSubscription("retrievePaymentAdapter")
+@ExternalTaskSubscription("retrievePaymentAdapterBpmnErrorTypedValueAPI")
 public class RetrievePaymentWorkerBPMNErrorTypedValueAPI implements ExternalTaskHandler {
 
     @Override
