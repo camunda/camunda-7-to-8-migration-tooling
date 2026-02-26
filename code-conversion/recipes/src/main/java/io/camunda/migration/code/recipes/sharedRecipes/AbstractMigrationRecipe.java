@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import io.camunda.migration.code.recipes.utils.MigrationMessages;
 import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import io.camunda.migration.code.recipes.utils.ReplacementUtils;
 import org.openrewrite.*;
@@ -153,9 +154,11 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                   // visit method invocations
                   modifiedDeclarations = super.visitVariableDeclarations(modifiedDeclarations, ctx);
 
-                  maybeRemoveImport(
-                      RecipeUtils.getGenericLongName(
-                          declarations.getTypeAsFullyQualified().toString()));
+                  JavaType.FullyQualified originalType = declarations.getTypeAsFullyQualified();
+                  if (originalType != null) {
+                    maybeRemoveImport(
+                        RecipeUtils.getGenericLongName(originalType.toString()));
+                  }
 
                   return maybeAutoFormat(declarations, modifiedDeclarations, ctx);
                 }
@@ -195,7 +198,10 @@ public abstract class AbstractMigrationRecipe extends Recipe {
               }
             }
 
-            maybeRemoveImport(declarations.getTypeAsFullyQualified());
+            JavaType.FullyQualified declaredType = declarations.getTypeAsFullyQualified();
+            if (declaredType != null) {
+              maybeRemoveImport(declaredType);
+            }
 
             return super.visitVariableDeclarations(declarations, ctx);
           }
@@ -390,6 +396,28 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // matching old identifier and method invocation
                 if (spec.matcher().matches(invocation)) {
+
+                  // skip transformation if return type cannot be resolved - requires manual migration
+                  if (returnTypeFqn == null) {
+                    String variableName = currentSelect.getSimpleName();
+                    String todoComment = MigrationMessages.formatUnresolvedReturnType(variableName);
+                    // check if comment was already added to avoid duplicates on multiple visits
+                    boolean alreadyHasComment =
+                        invocation.getComments().stream()
+                            .anyMatch(
+                                c ->
+                                    c instanceof TextComment tc
+                                        && MigrationMessages.containsUnresolvedTypeMessage(
+                                            tc.getText(), variableName));
+                    if (alreadyHasComment) {
+                      return invocation;
+                    }
+                    return invocation.withComments(
+                        Stream.concat(
+                                invocation.getComments().stream(),
+                                Stream.of(RecipeUtils.createSimpleComment(invocation, todoComment)))
+                            .toList());
+                  }
 
                   // create new identifier from new returnTypeFqn
                   J.Identifier newSelect =
