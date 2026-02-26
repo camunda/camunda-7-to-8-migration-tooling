@@ -515,6 +515,12 @@ public class MessageFactory {
         ContextBuilder.builder().entry("language", language).entry("script", script).build());
   }
 
+  public static Message variableNameFilterOnConditionalEvent(String elementId) {
+    return INSTANCE.composeMessage(
+        "variable-name-filter-not-supported",
+        ContextBuilder.builder().entry("elementId", elementId).build());
+  }
+
   public static Message deleteEventFilterOnConditionalEvent(String elementId) {
     return INSTANCE.composeMessage(
         "delete-variable-event-not-supported",
