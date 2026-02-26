@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions id="taskAssigneeExample"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+             targetNamespace="Examples">
+
+  <process id="ruleTaskProcessId" isExecutable="true" camunda:historyTimeToLive="1">
+
+    <startEvent id="start">
+      <outgoing>flow_start_rule</outgoing>
+    </startEvent>
+
+    <sequenceFlow id="flow_start_rule" sourceRef="start" targetRef="ruleTask"/>
+
+    <businessRuleTask id="ruleTask"
+                      camunda:decisionRef="mappingFailureDmn"
+                      camunda:mapDecisionResult="singleEntry"
+                      camunda:resultVariable="result"
+                      camunda:asyncBefore="true">
+      <incoming>flow_start_rule</incoming>
+      <outgoing>flow_rule_end</outgoing>
+    </businessRuleTask>
+
+    <sequenceFlow id="flow_rule_end" sourceRef="ruleTask" targetRef="end"/>
+
+    <endEvent id="end">
+      <incoming>flow_rule_end</incoming>
+    </endEvent>
+
+  </process>
+
+</definitions>

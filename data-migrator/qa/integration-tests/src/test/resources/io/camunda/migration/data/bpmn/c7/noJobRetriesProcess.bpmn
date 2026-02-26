@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_JobNoRetries"
+                  targetNamespace="http://camunda.org/examples">
+
+  <bpmn:process id="noJobRetriesProcessId"
+                name="Job No Retries Incident Test"
+                isExecutable="true"
+                camunda:historyTimeToLive="1">
+
+    <bpmn:startEvent id="start">
+      <bpmn:outgoing>flow_start_task</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:sequenceFlow id="flow_start_task"
+                       sourceRef="start"
+                       targetRef="failingTask"/>
+
+    <!-- Async service task that always fails with a null-message ProcessEngineException -->
+    <bpmn:serviceTask id="failingTask"
+                      name="Failing Task"
+                      camunda:class="io.camunda.migration.data.qa.history.entity.delegate.NullMessageFailureDelegate"
+                      camunda:asyncBefore="true">
+      <bpmn:incoming>flow_start_task</bpmn:incoming>
+      <bpmn:outgoing>flow_task_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:sequenceFlow id="flow_task_end"
+                       sourceRef="failingTask"
+                       targetRef="end"/>
+
+    <bpmn:endEvent id="end">
+      <bpmn:incoming>flow_task_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_JobNoRetries">
+    <bpmndi:BPMNPlane id="BPMNPlane_JobNoRetries" bpmnElement="jobNoRetriesProcess"/>
+  </bpmndi:BPMNDiagram>
+
+</bpmn:definitions>
