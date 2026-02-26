@@ -141,6 +141,8 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     if (StringUtils.isNotBlank(variableName)) {
       conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
       context.addMessage(MessageFactory.variableNameFilterOnConditionalEvent(elementId));
+    } else {
+      context.addMessage(MessageFactory.conditionalEventExpressionEvaluation(elementId));
     }
 
     if (StringUtils.isBlank(variableEvents)) {
