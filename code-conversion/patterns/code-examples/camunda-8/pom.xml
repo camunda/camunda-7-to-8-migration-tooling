@@ -12,6 +12,8 @@
 
 	<groupId>io.camunda.conversion</groupId>
 	<artifactId>camunda_8_code_examples</artifactId>
+	<name>Camunda 8 Code Examples</name>
+	<description>Collection of examples created for the Camunda 7 to Camunda 8 Code Conversion Pattern Collection</description>
 
 	<dependencyManagement>
 		<dependencies>
@@ -25,24 +27,6 @@
 		</dependencies>
 	</dependencyManagement>
 
-	<name>Camunda 8 Code Examples</name>
-	<description>Collection of examples created for the Camunda 7 to Camunda 8 Code Conversion Pattern Collection</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
-	<properties>
-		<java.version>17</java.version>
-	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
