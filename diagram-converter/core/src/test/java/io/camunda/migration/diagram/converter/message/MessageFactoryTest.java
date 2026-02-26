@@ -581,17 +581,6 @@ public class MessageFactoryTest {
   }
 
   @Test
-  void shouldBuildConditionalEventExpressionEvaluation() {
-    String elementId = random();
-    Message message = conditionalEventExpressionEvaluation(elementId);
-    assertThat(message).isNotNull();
-    assertThat(message.getMessage())
-        .isEqualTo(
-            "The condition expression on conditional event '%s' will be evaluated on variable events present in the expression.",
-            elementId);
-  }
-
-  @Test
   void shouldBuildGeneratedIdOnConditionalEventDefinition() {
     String parentElementId = random();
     String generatedId = "ConditionalEventDefinition_" + random();

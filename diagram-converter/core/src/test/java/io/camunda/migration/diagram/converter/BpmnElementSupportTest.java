@@ -70,23 +70,6 @@ public class BpmnElementSupportTest {
     };
   }
 
-  private Executable isSupportedConditionalEvent(DiagramCheckResult result, String elementId) {
-    return () -> {
-      LOG.info("Complete Result: {}", result);
-      LOG.info("Element Result: {}", result.getResult(elementId));
-      assertThat(result.getResult(elementId))
-          .isNotNull()
-          .extracting(ElementCheckResult::getMessages)
-          .asList()
-          .filteredOn(
-              m ->
-                  !((ElementCheckMessage) m)
-                      .getMessage()
-                      .contains("will be evaluated on variable events present in the expression"))
-          .isEmpty();
-    };
-  }
-
   private Executable isNotSupported(
       DiagramCheckResult result, String elementId, String elementType) {
     return () -> {
@@ -172,15 +155,14 @@ public class BpmnElementSupportTest {
     DiagramCheckResult result = loadAndCheck("conditional-events.bpmn");
     return eventTypeTest(
         "Conditional",
-        isSupportedConditionalEvent(result, "ConditionalStartStartEvent"),
+        isSupported(result, "ConditionalStartStartEvent"),
         null,
-        isSupportedConditionalEvent(result, "ConditionalCatchEvent"),
+        isSupported(result, "ConditionalCatchEvent"),
         null,
-        isSupportedConditionalEvent(result, "ConditionalAttachedBoundaryEvent"),
-        isSupportedConditionalEvent(result, "ConditionalAttachedNoninterruptingBoundaryEvent"),
-        isSupportedConditionalEvent(result, "ConditionalEventSubprocesStartStartEvent"),
-        isSupportedConditionalEvent(
-            result, "ConditionalEventSubprocessStartNoninterruptingStartEvent"));
+        isSupported(result, "ConditionalAttachedBoundaryEvent"),
+        isSupported(result, "ConditionalAttachedNoninterruptingBoundaryEvent"),
+        isSupported(result, "ConditionalEventSubprocesStartStartEvent"),
+        isSupported(result, "ConditionalEventSubprocessStartNoninterruptingStartEvent"));
   }
 
   @TestFactory

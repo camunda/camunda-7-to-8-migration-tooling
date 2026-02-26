@@ -521,12 +521,6 @@ public class MessageFactory {
         ContextBuilder.builder().entry("elementId", elementId).build());
   }
 
-  public static Message conditionalEventExpressionEvaluation(String elementId) {
-    return INSTANCE.composeMessage(
-        "conditional-event-expression-evaluation",
-        ContextBuilder.builder().entry("elementId", elementId).build());
-  }
-
   public static Message deleteEventFilterOnConditionalEvent(String elementId) {
     return INSTANCE.composeMessage(
         "delete-variable-event-not-supported",

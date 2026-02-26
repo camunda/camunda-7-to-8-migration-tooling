@@ -654,7 +654,6 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
-                <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
                 <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
@@ -663,7 +662,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional start event (event subprocess)
         properties:
@@ -681,7 +679,6 @@ categories:
           <bpmn:subProcess completionQuantity="1" id="Activity_03xk83e" isForCompensation="false" startQuantity="1" triggeredByEvent="true">
             <bpmn:startEvent id="Event_03yov51" isInterrupting="true" parallelMultiple="false">
               <bpmn:extensionElements>
-                <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pwozb3' will be evaluated on variable events present in the expression.</conversion:message>
                 <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
               </bpmn:extensionElements>
               <bpmn:outgoing>Flow_0v9pxud</bpmn:outgoing>
@@ -691,7 +688,6 @@ categories:
             </bpmn:startEvent>
           </bpmn:subProcess>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pwozb3' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional intermediate catch event
         properties:
@@ -707,7 +703,6 @@ categories:
         expectedBpmn: |
           <bpmn:intermediateCatchEvent id="conditionalEvent1" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:incoming>SequenceFlow_0ltxr2c</bpmn:incoming>
@@ -717,7 +712,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:intermediateCatchEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting)
         properties:
@@ -732,7 +726,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -741,7 +734,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (non-interrupting)
         properties:
@@ -756,7 +748,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="false" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1tbfwp3' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -765,7 +756,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1tbfwp3' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting) with variable filter
         properties:
@@ -832,7 +822,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -845,7 +834,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting) event filter on create and update
         properties:
@@ -860,7 +848,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -873,7 +860,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting) event filter on delete
         properties:
@@ -888,7 +874,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
@@ -902,7 +887,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
           <conversion:message severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
       - name: Conditional boundary event (interrupting) event filter on create, update and delete
@@ -918,7 +902,6 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
@@ -932,7 +915,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_0pmcqvy' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
           <conversion:message severity="TASK">Variable event 'delete' is not supported in conditional event filter on 'ConditionalEventDefinition_0pmcqvy'. C8 only supports 'create' and 'update'. IMPORTANT: The condition will no longer trigger when variables are deleted. Please redesign if your process relies on delete events (e.g., set variables to null instead of deleting them).</conversion:message>
       - name: Juel expression in Conditional start event (root-level)
@@ -948,7 +930,6 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/conditional-events/" severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
@@ -957,7 +938,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="REVIEW">Conditional event condition: Please review transformed expression: '${x &gt; 10}' -&gt; '=x &gt; 10'.</conversion:message>
       - name: Groovy expression in Conditional start event (root-level)
         properties:
@@ -972,7 +952,6 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
-                <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
                 <conversion:message severity="TASK">Please translate the groovy script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
@@ -981,7 +960,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="TASK">Please translate the groovy script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
       - name: JavaScript expression in Conditional start event (root-level)
         properties:
@@ -996,7 +974,6 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="TASK">Please translate the js script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
@@ -1005,7 +982,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="TASK">Please translate the js script from 'x &gt; 10' to a valid FEEL expression.</conversion:message>
       - name: Script resource in Conditional start event (root-level)
         properties:
@@ -1020,7 +996,6 @@ categories:
         expectedBpmn: |
           <bpmn:startEvent id="StartEvent_1" isInterrupting="true" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events" severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
               <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_0gehdl8</bpmn:outgoing>
@@ -1029,7 +1004,6 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:startEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">The condition expression on conditional event 'ConditionalEventDefinition_1s8t6cr' will be evaluated on variable events present in the expression.</conversion:message>
           <conversion:message severity="TASK">Please translate the content from 'some-resource.js' to a valid FEEL expression.</conversion:message>
   - category: Unsupported elements
     cases:
