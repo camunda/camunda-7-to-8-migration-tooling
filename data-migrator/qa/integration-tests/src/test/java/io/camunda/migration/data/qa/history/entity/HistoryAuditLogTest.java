@@ -8,10 +8,13 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
 
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -523,7 +526,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(auditLogCountBefore).isEqualTo(1);
 
     // when
-    historyMigrator.migrateAuditLogs();
+    historyMigrator.migrateByType(HISTORY_AUDIT_LOG);
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());

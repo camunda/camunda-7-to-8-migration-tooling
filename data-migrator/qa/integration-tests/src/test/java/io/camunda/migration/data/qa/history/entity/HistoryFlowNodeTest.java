@@ -136,9 +136,6 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     // the flow node of start event ("start_insideSub") in subprocess can be processed before its parent flow node ("subprocess"),
     // causing the "start_insideSub" to be skipped
     historyMigrator.migrate();
-    // retry the skipped ones to ensure all flow nodes are migrated
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("subProcess");
@@ -181,9 +178,6 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrate();
-    // need to run with retry to migrate child instances with flow node dependencies
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     historyMigrator.migrate();
 
     // then

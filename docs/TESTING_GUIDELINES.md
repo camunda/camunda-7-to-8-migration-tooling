@@ -231,8 +231,8 @@ void shouldSkipUserTaskWhenProcessInstanceNotMigrated() {
     var task = taskService.createTaskQuery().singleResult();
     
     // when: migrate user tasks WITHOUT migrating process instances first
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.migrateUserTasks(); // Real-World skip - no parent
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_USER_TASK); // Real-World skip - no parent
     
     // then: verify skip via logs
     logs.assertContains(formatMessage(
@@ -397,7 +397,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         completeProcessInstance(c7Instance.getId());
         
         // when
-        historyMigrator.start();
+        historyMigrator.migrate();
         
         // then
         var c8History = searchHistoricProcessInstances();

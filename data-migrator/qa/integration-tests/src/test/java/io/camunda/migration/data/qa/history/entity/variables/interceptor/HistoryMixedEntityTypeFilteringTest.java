@@ -43,7 +43,7 @@ public class HistoryMixedEntityTypeFilteringTest extends AbstractMigratorTest {
 
     // when
     runtimeMigration.getMigrator().start();
-    historyMigration.getMigrator().start();
+    historyMigration.getMigrator().migrate();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

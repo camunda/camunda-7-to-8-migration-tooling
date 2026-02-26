@@ -40,7 +40,7 @@ public class EntityTypeFilteringTest extends AbstractMigratorTest {
 
     // when
     runtimeMigration.getMigrator().start();
-    historyMigration.getMigrator().start();
+    historyMigration.getMigrator().migrate();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess")).hasVariable("testVar", "RUNTIME_value1");
@@ -62,7 +62,7 @@ public class EntityTypeFilteringTest extends AbstractMigratorTest {
 
     // when
     runtimeMigration.getMigrator().start();
-    historyMigration.getMigrator().start();
+    historyMigration.getMigrator().migrate();
 
     // then
     CamundaAssert.assertThat(byProcessId("simpleProcess"))

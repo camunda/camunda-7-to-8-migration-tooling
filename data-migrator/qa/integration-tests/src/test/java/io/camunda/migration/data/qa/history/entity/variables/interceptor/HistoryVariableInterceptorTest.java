@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity.variables.interceptor;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INTERCEPTOR_ERROR;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -75,11 +75,11 @@ public class HistoryVariableInterceptorTest extends AbstractMigratorTest {
     assertThat(failingVars).isEmpty();
 
     // Verify the failing one was logged as skipped
-    logs.assertContains(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_VARIABLE,
+    logs.assertContains(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName(),
         failingVariableId, "Test exception: Unsupported variable value FAIL"));
 
     // Verify the successful one was NOT logged as skipped
-    logs.assertDoesNotContain(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_VARIABLE,
+    logs.assertDoesNotContain(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName(),
         successVariableId, "Test exception: Unsupported variable value FAIL"));
   }
 
@@ -112,7 +112,7 @@ public class HistoryVariableInterceptorTest extends AbstractMigratorTest {
     assertThat(historyMigration.searchHistoricVariables("failVar")).isEmpty();
 
     // Verify the failing one was skipped
-    logs.assertContains(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_VARIABLE,
+    logs.assertContains(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_VARIABLE.getDisplayName(),
         failingId, "Test exception: Unsupported variable value FAIL"));
   }
 

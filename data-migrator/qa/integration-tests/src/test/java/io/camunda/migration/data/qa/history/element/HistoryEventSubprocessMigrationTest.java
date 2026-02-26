@@ -31,7 +31,7 @@ public class HistoryEventSubprocessMigrationTest extends HistoryAbstractElementM
     runtimeService.signalEventReceived("SignalEventName");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("eventSubprocessId");
@@ -56,7 +56,7 @@ public class HistoryEventSubprocessMigrationTest extends HistoryAbstractElementM
     runtimeService.signalEventReceived("SignalEventName");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("eventSubprocessId");
@@ -78,7 +78,7 @@ public class HistoryEventSubprocessMigrationTest extends HistoryAbstractElementM
     runtimeService.startProcessInstanceByKey("transaction");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("transaction");

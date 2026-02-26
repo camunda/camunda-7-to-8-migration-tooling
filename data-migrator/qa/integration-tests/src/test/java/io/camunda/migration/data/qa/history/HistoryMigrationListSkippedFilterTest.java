@@ -9,6 +9,8 @@ package io.camunda.migration.data.qa.history;
 
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -46,26 +48,24 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances without definition
-        historyMigrator.migrateProcessInstances();
+        historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.setRequestedEntityTypes(List.of(TYPE.HISTORY_PROCESS_INSTANCE));
-        historyMigrator.start();
+        historyMigrator.printSkippedHistoryEntities(List.of(HISTORY_PROCESS_INSTANCE));
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
 
         // Should only contain process instances
         assertThat(skippedEntitiesByType).hasSize(1);
-        assertThat(skippedEntitiesByType).containsKey(TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName());
-        assertThat(skippedEntitiesByType.get(TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
+        assertThat(skippedEntitiesByType).containsKey(HISTORY_PROCESS_INSTANCE.getDisplayName());
+        assertThat(skippedEntitiesByType.get(HISTORY_PROCESS_INSTANCE.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
         // Should not contain other entity types
         assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName());
-        assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_USER_TASK.getDisplayName());
+        assertThat(skippedEntitiesByType).doesNotContainKey(HISTORY_USER_TASK.getDisplayName());
         assertThat(skippedEntitiesByType).doesNotContainKey(TYPE.HISTORY_VARIABLE.getDisplayName());
     }
 
@@ -78,16 +78,14 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         String processDefinitionId = getProcessDefinitionId();
 
         // Create real-world skip scenario by migrating instances and tasks without definition
-        historyMigrator.migrateProcessInstances();
-        historyMigrator.migrateUserTasks();
+        historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+        historyMigrator.migrateByType(HISTORY_USER_TASK);
 
         // when
-        historyMigrator.setMode(LIST_SKIPPED);
-        historyMigrator.setRequestedEntityTypes(List.of(
-            IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE,
-            IdKeyMapper.TYPE.HISTORY_USER_TASK
+        historyMigrator.printSkippedHistoryEntities(List.of(
+            HISTORY_PROCESS_INSTANCE,
+            HISTORY_USER_TASK
         ));
-        historyMigrator.start();
 
         // then
         Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
@@ -95,12 +93,12 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         // Should only contain process instances and user tasks
         assertThat(skippedEntitiesByType).hasSize(2);
         assertThat(skippedEntitiesByType).containsKeys(
-            IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(),
-            IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName()
+            HISTORY_PROCESS_INSTANCE.getDisplayName(),
+            HISTORY_USER_TASK.getDisplayName()
         );
 
         // Verify process instances
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(HISTORY_PROCESS_INSTANCE.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(processInstanceIds);
 
@@ -111,7 +109,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
             .stream()
             .map(task -> task.getId())
             .collect(Collectors.toList());
-        assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_USER_TASK.getDisplayName()))
+        assertThat(skippedEntitiesByType.get(HISTORY_USER_TASK.getDisplayName()))
             .hasSize(3)
             .containsExactlyInAnyOrderElementsOf(expectedUserTaskIds);
 

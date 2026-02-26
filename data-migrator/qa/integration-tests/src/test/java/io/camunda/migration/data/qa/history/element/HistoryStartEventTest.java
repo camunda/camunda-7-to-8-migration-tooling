@@ -33,7 +33,7 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
     runtimeService.correlateMessage("msgRef");
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("MessageStartEventProcessId");
@@ -57,7 +57,7 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
         "Unexpected process state: process instance should exist").isNotNull();
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("multipleStartEvent");
@@ -81,7 +81,7 @@ public class HistoryStartEventTest extends HistoryAbstractElementMigrationTest {
         "Unexpected process state: process instance should exist").isNotNull();
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("messageStartEventWithSubprocess");

@@ -268,7 +268,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     var c7ProcDefKey = runtimeService.startProcessInstanceByKey("simpleProcess").getProcessDefinitionKey();
 
     // when running history migration first
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then verify history migration completed (we can't easily query history from runtime test)
     // History migration should not interfere with runtime migration

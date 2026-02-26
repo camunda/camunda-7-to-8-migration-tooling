@@ -27,7 +27,7 @@ public class HistoryBoundaryMigrationTest extends HistoryAbstractElementMigratio
     runtimeService.startProcessInstanceByKey(PROCESS);
 
     // when
-    historyMigrator.start();
+    historyMigrator.migrate();
 
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);

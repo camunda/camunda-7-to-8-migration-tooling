@@ -7,6 +7,12 @@
  */
 package io.camunda.migration.data.qa.history.entity.interceptor;
 
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -66,7 +72,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("simpleProcess", true);
@@ -92,7 +98,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     historyService.deleteHistoricProcessInstance(processInstance.getId());
 
     // Run history migration
-    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
 
     // Get the migrated process instance to get the key
     List<ProcessInstanceEntity> migratedProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId",
@@ -117,7 +123,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
         Variables.createVariables().putValue("inputA", stringValue("A")));
 
     // when
-    historyMigrator.migrateDecisionInstances();
+    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE);
 
     // then: decision instance is migrated
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("simpleDecisionId");
@@ -136,7 +142,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
 
     // then
     List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
@@ -162,7 +168,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
         .singleResult();
 
     // when
-    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateByType(HISTORY_USER_TASK);
 
     // then
     List<UserTaskEntity> userTasks = searchHistoricUserTasks(2L);
@@ -188,7 +194,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     taskService.complete(task.getId());
 
     // when
-    historyMigrator.migrateVariables();
+    historyMigrator.migrateByType(HISTORY_VARIABLE);
 
     // then
     List<VariableEntity> c8Variables = searchHistoricVariables("stringVar");
@@ -218,7 +224,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     }
 
     // when
-    historyMigrator.migrateIncidents();
+    historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     // then
     List<IncidentEntity> incidents = searchHistoricIncidents("failingServiceTaskProcessId");
@@ -241,14 +247,13 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     completeAllUserTasksWithDefaultUserTaskId();
 
     // assume
-    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
     List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);
     assertThat(flowNodes).isEmpty();
 
     // when
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
     skipSettingScopeKeyForFlowNode(false);
-    historyMigrator.migrateFlowNodes();
+    historyMigrator.retryByType(HISTORY_FLOW_NODE);
 
     // then
     flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(1L);

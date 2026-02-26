@@ -216,17 +216,17 @@ public class MigratorApp {
       System.exit(1);
     }
 
-    historyMigrator.setMode(mode);
-
     // Extract entity type filters if --list-skipped is used
     if (mode == MigratorMode.LIST_SKIPPED) {
       List<IdKeyMapper.TYPE> entityTypeFilters = extractEntityTypeFilters(appArgs);
-      if (!entityTypeFilters.isEmpty()) {
-        historyMigrator.setRequestedEntityTypes(entityTypeFilters);
-      }
-    }
+      historyMigrator.printSkippedHistoryEntities(entityTypeFilters);
+    } else if (mode == MigratorMode.RETRY_SKIPPED) {
+      historyMigrator.retry();
 
-    historyMigrator.start();
+    } else if (mode == MigratorMode.MIGRATE) {
+      historyMigrator.migrate();
+
+    }
   }
 
   public static void migrateIdentity(ConfigurableApplicationContext context, MigratorMode mode) {

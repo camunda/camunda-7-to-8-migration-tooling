@@ -20,9 +20,12 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
+import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
+import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -30,8 +33,16 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.search.entities.DecisionDefinitionEntity;
+import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.time.OffsetDateTime;
+import java.time.Period;
 import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.model.dmn.instance.Decision;
 import org.camunda.bpm.model.dmn.instance.LiteralExpression;
@@ -41,17 +52,22 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating decision instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInstance, DecisionInstanceDbModel> {
+public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDecisionInstance, DecisionInstanceDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_DECISION_INSTANCE,
-        c7Client::getHistoricDecisionInstance,
-        c7Client::fetchAndHandleHistoricDecisionInstances
-    );
+  public BiConsumer<Consumer<HistoricDecisionInstance>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricDecisionInstances;
   }
 
+  @Override
+  public Function<String, HistoricDecisionInstance> fetchForRetryHandler() {
+    return c7Client::getHistoricDecisionInstance;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_DECISION_INSTANCE;
+  }
   /**
    * Migrates a historic decision instance from Camunda 7 to Camunda 8.
    *
@@ -250,6 +266,60 @@ public class DecisionInstanceMigrator extends BaseMigrator<HistoricDecisionInsta
 
   protected FlowNodeInstanceDbModel findFlowNode(Long flowNodeInstanceKey) {
     return c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(b -> b.filter(FlowNodeInstanceFilter.of(f -> f.flowNodeInstanceKeys(flowNodeInstanceKey))))).getFirst();
+  }
+
+  protected DecisionInstanceEntity findDecisionInstance(String decisionInstanceId) {
+    if (decisionInstanceId == null) {
+      return null;
+    }
+
+    Long key = dbClient.findC8KeyByC7IdAndType(decisionInstanceId,
+        IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE);
+    if (key == null) {
+      return null;
+    }
+
+    return c8Client.searchDecisionInstances(
+            DecisionInstanceDbQuery.of(b -> b.filter(value -> value.decisionInstanceKeys(key))))
+        .stream()
+        .findFirst()
+        .orElse(null);
+  }
+
+  protected DecisionDefinitionEntity findDecisionDefinition(String decisionDefinitionId) {
+    Long key = dbClient.findC8KeyByC7IdAndType(decisionDefinitionId, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
+    if (key == null) {
+      return null;
+    }
+
+    return c8Client.searchDecisionDefinitions(
+            DecisionDefinitionDbQuery.of(b -> b.filter(value -> value.decisionDefinitionKeys(key))))
+        .stream()
+        .findFirst()
+        .orElse(null);
+  }
+
+  /**
+   * Calculates the history cleanup date for child entities (flow nodes, variables, etc.)
+   * based on the parent ProcessInstance's endDate.
+   * Only calculates when the parent ProcessInstance has no removalTime.
+   *
+   * @param processInstanceEndDate the endDate from the parent ProcessInstanceEntity
+   * @param c7RemovalTime the C7 removal time of the child entity
+   * @return the calculated history cleanup date, or null if auto-cancel TTL is disabled
+   */
+  protected OffsetDateTime calculateHistoryCleanupDateForChild(Date processInstanceEndDate, Date c7RemovalTime) {
+    // If C7 already has a removalTime, use it directly
+    if (c7RemovalTime != null) {
+      return convertDate(c7RemovalTime);
+    }
+
+    Period ttl = getAutoCancelTtl();
+    // If TTL is null or zero, auto-cancel is disabled - return null for cleanup date
+    if (ttl == null || ttl.isZero()) {
+      return null;
+    }
+    return convertDate(processInstanceEndDate).plus(ttl);
   }
 
 }

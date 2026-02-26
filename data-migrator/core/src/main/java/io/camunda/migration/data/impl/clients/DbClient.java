@@ -23,13 +23,18 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.Pagination;
+import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.DbClientLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.PrintUtils;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -172,21 +177,42 @@ public class DbClient {
    * skipped entities, even when some are migrated (removed from skipped list) during processing.
    *
    * @param type the entity type to process
-   * @param callback function that processes an entity and returns true if migrated, false if skipped
+   * @param callback function that processes a skipped entity and returns {@code null} if it was
+   *     successfully migrated, or an {@link EntitySkippedException} if the entity remains skipped
+   * @return a list of {@link EntitySkippedException}s for all entities that could not be migrated
    */
-  public void fetchAndHandleSkippedForType(TYPE type, Consumer<IdKeyDbModel> callback) {
+  public List<EntitySkippedException> fetchAndHandleSkippedForType(TYPE type, Function<IdKeyDbModel, EntitySkippedException> callback) {
     int pageSize = properties.getPageSize();
     String lastId = null;
+    List<EntitySkippedException> skippedExceptions = new ArrayList<>();
 
     List<IdKeyDbModel> fetched;
     do {
       fetched = idKeyMapper.findSkippedByTypeWithCursor(type, lastId, pageSize);
 
       for (IdKeyDbModel entity : fetched) {
-        callback.accept(entity);
+        EntitySkippedException exception = callback.apply(entity);
+          if (exception != null) {
+            skippedExceptions.add(exception);
+          }
         lastId = entity.getC7Id();
       }
     } while (!fetched.isEmpty());
+
+    return skippedExceptions;
+  }
+
+  /**
+   * Processes skipped entities with pagination using a Consumer callback.
+   *
+   * @param type the entity type to process
+   * @param callback consumer that processes each entity
+   */
+  public void fetchAndHandleSkippedForType(TYPE type, Consumer<IdKeyDbModel> callback) {
+    fetchAndHandleSkippedForType(type, entity -> {
+      callback.accept(entity);
+      return null;
+    });
   }
 
   /**

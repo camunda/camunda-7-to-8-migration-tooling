@@ -189,8 +189,7 @@ public class HistoryProgrammaticConfigurationTest extends AbstractMigratorTest {
     runtimeService.setVariable(simpleProcessInstance.getId(), "exFlag", false);
 
     // when
-    historyMigration.getMigrator().setMode(RETRY_SKIPPED);
-    historyMigration.getMigrator().migrate();
+    historyMigration.getMigrator().retry();
 
     // then
     assertVariableExists("exFlag", "UNIVERSAL_false");

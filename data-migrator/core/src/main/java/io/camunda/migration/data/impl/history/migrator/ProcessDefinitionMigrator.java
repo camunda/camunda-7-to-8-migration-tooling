@@ -15,6 +15,11 @@ import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.springframework.stereotype.Service;
 
@@ -22,15 +27,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating process definitions from Camunda 7 to Camunda 8.
  */
 @Service
-public class ProcessDefinitionMigrator extends BaseMigrator<ProcessDefinition, ProcessDefinitionDbModel> {
+public class ProcessDefinitionMigrator extends HistoryEntityMigrator<ProcessDefinition, ProcessDefinitionDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_PROCESS_DEFINITION,
-        c7Client::getProcessDefinition,
-        c7Client::fetchAndHandleProcessDefinitions
-    );
+  public BiConsumer<Consumer<ProcessDefinition>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleProcessDefinitions;
+  }
+
+  @Override
+  public Function<String, ProcessDefinition> fetchForRetryHandler() {
+    return c7Client::getProcessDefinition;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_PROCESS_DEFINITION;
   }
 
   /**

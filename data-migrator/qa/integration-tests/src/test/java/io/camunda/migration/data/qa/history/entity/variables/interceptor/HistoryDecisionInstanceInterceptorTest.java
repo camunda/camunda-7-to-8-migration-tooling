@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity.variables.interceptor;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING_INTERCEPTOR_ERROR;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
@@ -64,11 +64,11 @@ public class HistoryDecisionInstanceInterceptorTest extends AbstractMigratorTest
     assertThat(migratedDecisionInstances).hasSize(1);
 
     // Verify the failing one was logged as skipped
-    logs.assertContains(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE,
+    logs.assertContains(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
         failingDecisionInstanceId, "Test exception: Unsupported input value FAIL"));
 
     // Verify the successful one was NOT logged as skipped
-    logs.assertDoesNotContain(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE,
+    logs.assertDoesNotContain(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
         successDecisionInstanceId, "Test exception: Unsupported input value FAIL"));
   }
 
@@ -101,7 +101,7 @@ public class HistoryDecisionInstanceInterceptorTest extends AbstractMigratorTest
     assertThat(migratedDecisionInstances).hasSize(2);
 
     // Verify the failing one was logged as skipped
-    logs.assertContains(formatMessage(SKIPPING_INTERCEPTOR_ERROR, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE,
+    logs.assertContains(formatMessage(SKIPPING, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
         failingId, "Test exception: Unsupported input value FAIL"));
   }
 }
