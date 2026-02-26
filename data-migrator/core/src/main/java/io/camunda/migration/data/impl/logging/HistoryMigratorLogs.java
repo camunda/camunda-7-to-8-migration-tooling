@@ -40,6 +40,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES = "C7 CMMN variables not supported in C8.";
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
   public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
+  public static final String SKIP_REASON_UNSUPPORTED_JOBS = "Only async-before and async-after jobs are supported for migration.";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";

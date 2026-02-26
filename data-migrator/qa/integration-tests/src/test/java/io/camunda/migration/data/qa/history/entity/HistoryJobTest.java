@@ -9,6 +9,8 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -34,9 +36,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     managementService.executeJob(c7JobId);
 
     // when: jobs and process instances are migrated
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateJobs();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_JOB);
 
     // then: the process instance was migrated
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("asyncBeforeUserTaskProcessId");
@@ -129,9 +131,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(jobLogCount).as("Should have multiple job log entries").isGreaterThan(1);
 
     // when
-    historyMigrator.migrateProcessDefinitions();
-    historyMigrator.migrateProcessInstances();
-    historyMigrator.migrateJobs();
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_JOB);
 
     // then: only ONE C8 job entry created despite multiple log entries (tracked by job ID)
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("failingServiceTaskProcessId");
