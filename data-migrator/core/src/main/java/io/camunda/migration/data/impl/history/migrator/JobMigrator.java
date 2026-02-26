@@ -8,10 +8,13 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_JOBS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingJob;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_AFTER;
+import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_BEFORE;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -27,6 +30,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricJobLog;
+import org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration;
 import org.springframework.stereotype.Service;
 
 /**
@@ -81,6 +85,10 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
   public Long migrateTransactionally(final HistoricJobLog c7JobLog) {
     final String c7JobId = c7JobLog.getJobId();
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
+      String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
+      if (ASYNC_BEFORE.equals(jobDefinitionConfiguration) && ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS); //TODO test case for non-async jobs
+      }
       logMigratingJob(c7JobId);
 
       final var jobKey = getNextKey();
