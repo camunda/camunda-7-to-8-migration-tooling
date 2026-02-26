@@ -89,6 +89,9 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
     assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
+    assertThat(log.agentElementId()).isNull();
+    assertThat(log.relatedEntityKey()).isNull();
+    assertThat(log.relatedEntityType()).isNull();
   }
 
   @Test
