@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -91,8 +92,6 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         if (processInstanceKey != null) {
           var flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
-//          .jobKey(jobDefinitionKey) // TODO when jobs are migrated
-
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -127,7 +126,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     }
 
     if (dbModel.jobKey() == null) {
-//      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
+      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
     }
       c8Client.insertIncident(dbModel);
 
@@ -184,11 +183,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     }
     if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
       final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
-      if (jobKey != null) {
-        builder.jobKey(jobKey);
-      } else {
-        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
-      }
+      builder.jobKey(jobKey);
     }
   }
 
@@ -199,7 +194,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * @return true for {@code failedJob} incident type
    */
   protected boolean isFailedJobIncident(final HistoricIncident c7Incident) {
-    return "failedJob".equals(c7Incident.getIncidentType());
+    return FAILED_JOB_HANDLER_TYPE.equals(c7Incident.getIncidentType());
   }
 
 }

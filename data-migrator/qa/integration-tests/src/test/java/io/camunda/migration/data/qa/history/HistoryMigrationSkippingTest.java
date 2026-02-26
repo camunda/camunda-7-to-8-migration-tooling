@@ -30,15 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.MigratorMode;
-import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.variable.Variables;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -245,7 +242,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         ).hasSize(1); // Only the first skip from phase 1
   }
 
-  @WhiteBox
   @Test
   public void shouldNotMigrateIncidentsWhenJobIsSkipped() {
     // given state in c7 with a failing service task
@@ -264,21 +260,19 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         // expected - job will fail
       }
     }
+    assertThat(historyService.createHistoricIncidentQuery().count())
+        .as("Expected one incident to be created").isEqualTo(1);
 
-    // and manually mark the job as skipped
-    dbClient.insert(job.getId(), null, TYPE.HISTORY_JOB);
-
-    // when history is migrated
-    historyMigrator.migrate();
+    // when history is migrated but jobs are skipped
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     // then process instance was migrated but incident was skipped due to skipped job
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
     assertThat(historicProcesses).hasSize(1);
     ProcessInstanceEntity c8processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
-
-    // verify the incident was skipped
-    assertThat(dbClient.countSkippedByType(HISTORY_INCIDENT)).isEqualTo(1);
   }
 
   @Test

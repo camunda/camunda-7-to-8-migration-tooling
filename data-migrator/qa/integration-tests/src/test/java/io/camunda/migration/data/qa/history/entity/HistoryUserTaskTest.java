@@ -248,7 +248,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateUserTaskWithNoAssignee() {// todo
+  public void shouldMigrateUserTaskWithNoAssignee() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
@@ -278,7 +278,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateUserTaskWithNullDates() {// todo
+  public void shouldMigrateUserTaskWithNullDates() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
