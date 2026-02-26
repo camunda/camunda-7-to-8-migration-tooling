@@ -9,6 +9,7 @@ recipeList:
       version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
+  - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathExecutionListenerRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllDelegateMigrateRecipes
@@ -23,6 +24,7 @@ displayName: Runs all delegate cleanup recipes
 description: Removes delegate code and unused imports.
 recipeList:
   - io.camunda.migration.code.recipes.delegate.CleanupDelegateRecipe
+  - io.camunda.migration.code.recipes.delegate.CleanupExecutionListenerRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe

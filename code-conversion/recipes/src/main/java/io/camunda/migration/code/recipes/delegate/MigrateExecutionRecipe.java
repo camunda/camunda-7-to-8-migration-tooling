@@ -39,6 +39,7 @@ public class MigrateExecutionRecipe extends Recipe {
   public List<Recipe> getRecipeList() {
     return List.of(
         new CopyDelegateToJobWorkerRecipe(),
+        new CopyExecutionListenerToJobWorkerRecipe(),
         new MigrateDelegateExecutionMethodsInJobWorker(),
         new MigrateDelegateBPMNErrorAndExceptionInJobWorker());
   }
@@ -129,6 +130,83 @@ public class MigrateExecutionRecipe extends Recipe {
     }
   }
 
+  private static class CopyExecutionListenerToJobWorkerRecipe extends Recipe {
+
+    public CopyExecutionListenerToJobWorkerRecipe() {}
+
+    @Override
+    public String getDisplayName() {
+      return "Copy ExecutionListener code to job worker recipe";
+    }
+
+    @Override
+    public String getDescription() {
+      return "Copies ExecutionListener notify() logic into the generated job worker method.";
+    }
+
+    @Override
+    public TreeVisitor<?, ExecutionContext> getVisitor() {
+
+      TreeVisitor<?, ExecutionContext> precondition =
+          Preconditions.and(
+              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
+              new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true));
+
+      return Preconditions.check(
+          precondition,
+          new JavaIsoVisitor<ExecutionContext>() {
+            @Override
+            public J.ClassDeclaration visitClassDeclaration(
+                J.ClassDeclaration classDecl, ExecutionContext ctx) {
+
+              if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
+                return super.visitClassDeclaration(classDecl, ctx);
+              }
+
+              List<Statement> current = classDecl.getBody().getStatements();
+              List<Statement> updated = new ArrayList<>();
+
+              // 1) find notify(...) body
+              J.Block notifyBody = null;
+              for (Statement stmt : current) {
+                if (stmt instanceof J.MethodDeclaration m
+                    && "notify".equals(m.getSimpleName())) {
+                  notifyBody = m.getBody();
+                }
+              }
+
+              if (notifyBody != null) {
+                for (Statement stmt : current) {
+                  if (stmt instanceof J.MethodDeclaration m
+                      && "executeJob".equals(m.getSimpleName())) {
+
+                    J.Block jobBody = m.getBody();
+                    List<Statement> jobStmts = jobBody.getStatements();
+                    List<Statement> listenerStmts =
+                        new ArrayList<>(notifyBody.getStatements());
+
+                    // keep resultMap init + return, wrap listener logic in between
+                    listenerStmts.add(0, jobStmts.get(0));
+                    listenerStmts.add(jobStmts.get(jobStmts.size() - 1));
+
+                    updated.add(
+                        m.withBody(jobBody.withStatements(listenerStmts))
+                            .withName(m.getName().withSimpleName("executeJobMigrated"))
+                            .withMethodType(
+                                m.getMethodType().withName("executeJobMigrated")));
+                  } else {
+                    updated.add(stmt);
+                  }
+                }
+                return classDecl.withBody(classDecl.getBody().withStatements(updated));
+              }
+
+              return super.visitClassDeclaration(classDecl, ctx);
+            }
+          });
+    }
+  }
+
   private static class MigrateDelegateExecutionMethodsInJobWorker extends AbstractMigrationRecipe {
 
     @Override
@@ -145,14 +223,18 @@ public class MigrateExecutionRecipe extends Recipe {
     protected TreeVisitor<?, ExecutionContext> preconditions() {
       return Preconditions.and(
           new UsesType<>("io.camunda.client.annotation.JobWorker", true),
-          new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
+          Preconditions.or(
+              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true),
+              new UsesType<>("org.camunda.bpm.engine.delegate.ExecutionListener", true)));
     }
 
     @Override
     protected Predicate<Cursor> visitorSkipCondition() {
       return cursor -> {
         J.MethodDeclaration m = cursor.firstEnclosing(J.MethodDeclaration.class);
-        return m != null && "execute".equals(m.getSimpleName());
+        return m != null
+            && ("execute".equals(m.getSimpleName())
+                || "notify".equals(m.getSimpleName()));
       };
     }
 
