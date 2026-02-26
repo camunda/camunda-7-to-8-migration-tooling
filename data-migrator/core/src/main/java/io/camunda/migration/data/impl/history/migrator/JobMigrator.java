@@ -13,11 +13,19 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
-import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.util.Date;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.springframework.stereotype.Service;
 
@@ -35,23 +43,21 @@ import org.springframework.stereotype.Service;
  * </p>
  */
 @Service
-public class JobMigrator extends BaseMigrator<HistoricJobLog, JobDbModel> {
+public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbModel> {
 
-  /**
-   * Migrates all historic job log entries from Camunda 7 to Camunda 8.
-   * <p>
-   * Processes log entries in ascending timestamp order. Since tracking is done by C7 job ID, only
-   * the first log entry encountered per job is migrated; subsequent entries for the same job are
-   * deduplicated via the tracking table.
-   * </p>
-   */
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_JOB,
-        c7Client::getHistoricJobLog,
-        c7Client::fetchAndHandleHistoricJobLogs
-    );
+  public BiConsumer<Consumer<HistoricJobLog>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricJobLogs;
+  }
+
+  @Override
+  public Function<String, HistoricJobLog> fetchForRetryHandler() {
+    return c7Client::getHistoricJobLog;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_JOB;
   }
 
   /**
@@ -113,5 +119,36 @@ public class JobMigrator extends BaseMigrator<HistoricJobLog, JobDbModel> {
     }
 
     return null;
+  }
+
+  /**
+   * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
+   * <p>
+   * Since {@link HistoricJobLog} provides only the activity ID (not the activity instance ID),
+   * this method searches C8 flow node instances by activity ID within the migrated process
+   * instance.
+   * </p>
+   *
+   * @param activityId the C7 activity ID
+   * @param processInstanceId the C7 process instance ID
+   * @return the C8 flow node instance key, or {@code null} if not found
+   */
+  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
+    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
+    if (processInstanceKey == null) {
+      return null;
+    }
+
+    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(
+        FlowNodeInstanceDbQuery.of(builder -> builder.filter(
+            FlowNodeInstanceFilter.of(filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey))
+        ))
+    );
+
+    if (!flowNodes.isEmpty()) {
+      return flowNodes.getFirst().flowNodeInstanceKey();
+    } else {
+      return null;
+    }
   }
 }
