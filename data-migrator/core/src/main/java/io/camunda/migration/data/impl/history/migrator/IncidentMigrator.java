@@ -125,7 +125,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
     }
 
-    if (dbModel.jobKey() == null) {
+    if (isFailedJobIncident(c7Incident) && dbModel.jobKey() == null) { // nope, only async
       throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
     }
       c8Client.insertIncident(dbModel);
