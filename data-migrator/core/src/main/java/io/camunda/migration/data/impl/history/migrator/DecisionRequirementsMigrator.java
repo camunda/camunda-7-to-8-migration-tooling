@@ -14,6 +14,11 @@ import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.impl.dmn.entity.repository.DecisionRequirementsDefinitionEntity;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
@@ -23,15 +28,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating decision requirements definitions from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionRequirementsMigrator extends BaseMigrator<DecisionRequirementsDefinition, DecisionRequirementsDbModel> {
+public class DecisionRequirementsMigrator extends HistoryEntityMigrator<DecisionRequirementsDefinition, DecisionRequirementsDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_DECISION_REQUIREMENT,
-        c7Client::getDecisionRequirementsDefinition,
-        c7Client::fetchAndHandleDecisionRequirementsDefinitions
-    );
+  public BiConsumer<Consumer<DecisionRequirementsDefinition>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleDecisionRequirementsDefinitions;
+  }
+
+  @Override
+  public Function<String, DecisionRequirementsDefinition> fetchForRetryHandler() {
+    return c7Client::getDecisionRequirementsDefinition;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_DECISION_REQUIREMENT;
   }
 
   /**

@@ -21,7 +21,12 @@ import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.springframework.stereotype.Service;
 
@@ -34,22 +39,21 @@ import org.springframework.stereotype.Service;
  * </p>
  */
 @Service
-public class ExternalTaskMigrator extends BaseMigrator<HistoricExternalTaskLog, JobDbModel> {
+public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternalTaskLog, JobDbModel> {
 
-  /**
-   * Migrates all historic external task logs from Camunda 7 to Camunda 8.
-   * <p>
-   * This method handles pagination and processes external task logs in batches, either migrating
-   * new entries or retrying skipped ones based on the migration mode.
-   * </p>
-   */
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_EXTERNAL_TASK,
-        c7Client::getHistoricExternalTaskLog,
-        c7Client::fetchAndHandleHistoricExternalTaskLogs
-    );
+  public BiConsumer<Consumer<HistoricExternalTaskLog>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricExternalTaskLogs;
+  }
+
+  @Override
+  public Function<String, HistoricExternalTaskLog> fetchForRetryHandler() {
+    return c7Client::getHistoricExternalTaskLog;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_EXTERNAL_TASK;
   }
 
   /**

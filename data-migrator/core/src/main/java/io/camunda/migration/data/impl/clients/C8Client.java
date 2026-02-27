@@ -10,6 +10,8 @@ package io.camunda.migration.data.impl.clients;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_DEPLOY_C8_RESOURCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_PROCESS_DEFINITION_XML;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_FETCH_VARIABLE;
@@ -22,7 +24,6 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_FLOW_NODE_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_INCIDENT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_JOB;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
@@ -268,6 +269,13 @@ public class C8Client {
   }
 
   /**
+   * Inserts Process Instance tags into the database.
+   */
+  public void insertProcessInstanceTags(ProcessInstanceDbModel dbModel) {
+    callApi(() -> processInstanceMapper.insertTags(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
+  }
+
+  /**
    * Finds a ProcessInstance by key.
    */
   public ProcessInstanceEntity findProcessInstance(Long key) {
@@ -338,6 +346,13 @@ public class C8Client {
   }
 
   /**
+   * Inserts User Task tags into the database.
+   */
+  public void insertUserTaskTags(UserTaskDbModel dbModel) {
+    callApi(() -> userTaskMapper.insertTags(dbModel), FAILED_TO_INSERT_USER_TASK);
+  }
+
+  /**
    * Inserts a FlowNodeInstance into the database.
    */
   public void insertFlowNodeInstance(FlowNodeInstanceDbModel dbModel) {
@@ -349,6 +364,13 @@ public class C8Client {
    */
   public void insertAuditLog(AuditLogDbModel dbModel) {
     callApi(() -> auditLogMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_AUDIT_LOG);
+  }
+
+  /**
+   * Inserts a Job into the database.
+   */
+  public void insertJob(JobDbModel dbModel) {
+    callApi(() -> jobMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_JOB);
   }
 
   /**
@@ -372,11 +394,33 @@ public class C8Client {
     return callApi(() -> processDefinitionMapper.search(query), FAILED_TO_SEARCH_PROCESS_DEFINITIONS);
   }
 
+  /**
+   * Creates a new tenant in C8
+   */
   public void createTenant(Tenant tenant) {
     CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
     callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
 
+  /**
+   * Assigns a user to a tenant in C8, creating a tenant membership for the user
+   */
+  public void createUserTenantAssignment(String tenantId, String userId) {
+    var command = camundaClient.newAssignUserToTenantCommand().username(userId).tenantId(tenantId);
+    callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
+  }
+
+  /**
+   * Assigns a group to a tenant in C8, creating a tenant membership for the group
+   */
+  public void createGroupTenantAssignment(String tenantId, String groupId) {
+      var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
+      callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
+  }
+
+  /**
+   * Creates a new authorization in C8
+   */
   public CreateAuthorizationResponse createAuthorization(String c7Id, C8Authorization c8Authorization) {
     CreateAuthorizationCommandStep1.CreateAuthorizationCommandStep6 command = camundaClient
         .newCreateAuthorizationCommand()
@@ -389,11 +433,17 @@ public class C8Client {
     return callApi(command::execute, FAILED_TO_MIGRATE_AUTHORIZATION + c7Id);
   }
 
+  /**
+   * Fetches a user by ID from C8
+   */
   public User getUser(String userId) {
     UserGetRequest userGetRequest = camundaClient.newUserGetRequest(userId);
     return callApi(userGetRequest::execute, "Failed to get user " + userId);
   }
 
+  /**
+   * Fetches a group by ID from C8
+   */
   public Group getGroup(String groupId) {
     GroupGetRequest groupGetRequest = camundaClient.newGroupGetRequest(groupId);
     return callApi(groupGetRequest::execute, "Failed to get group " + groupId);
@@ -404,13 +454,6 @@ public class C8Client {
    */
   public void insertForm(FormDbModel dbModel) {
     callApi(() -> formMapper.insert(dbModel), "Failed to insert form");
-  }
-
-  /**
-   * Inserts a Job into the database.
-   */
-  public void insertJob(JobDbModel dbModel) {
-    callApi(() -> jobMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_JOB);
   }
 
 }

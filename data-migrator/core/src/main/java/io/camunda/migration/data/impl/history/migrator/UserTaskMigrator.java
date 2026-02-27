@@ -11,6 +11,8 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_CMMN_TASKS;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_SA_TASKS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingHistoricUserTask;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
@@ -21,7 +23,12 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.springframework.stereotype.Service;
 
@@ -29,15 +36,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating user tasks from Camunda 7 to Camunda 8.
  */
 @Service
-public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance, UserTaskDbModel> {
+public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance, UserTaskDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_USER_TASK,
-        c7Client::getHistoricTaskInstance,
-        c7Client::fetchAndHandleHistoricUserTasks
-    );
+  public BiConsumer<Consumer<HistoricTaskInstance>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricUserTasks;
+  }
+
+  @Override
+  public Function<String, HistoricTaskInstance> fetchForRetryHandler() {
+    return c7Client::getHistoricTaskInstance;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_USER_TASK;
   }
 
   /**
@@ -63,6 +76,14 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance, UserTas
     var c7UserTaskId = c7UserTask.getId();
     if (shouldMigrate(c7UserTaskId, HISTORY_USER_TASK)) {
       logMigratingHistoricUserTask(c7UserTaskId);
+
+      if (c7UserTask.getCaseInstanceId() != null) {
+        throw new EntitySkippedException(c7UserTask, SKIP_REASON_UNSUPPORTED_CMMN_TASKS);
+      }
+
+      if (c7UserTask.getProcessInstanceId() == null && c7UserTask.getCaseInstanceId() == null) {
+        throw new EntitySkippedException(c7UserTask, SKIP_REASON_UNSUPPORTED_SA_TASKS);
+      }
 
       String c7FormId = null;
       if (c7UserTask.getProcessDefinitionId() != null) {
@@ -115,6 +136,9 @@ public class UserTaskMigrator extends BaseMigrator<HistoricTaskInstance, UserTas
       }
 
       c8Client.insertUserTask(dbModel);
+      if (dbModel.tags() != null && !dbModel.tags().isEmpty()) {
+        c8Client.insertUserTaskTags(dbModel);
+      }
 
       return dbModel.userTaskKey();
     }

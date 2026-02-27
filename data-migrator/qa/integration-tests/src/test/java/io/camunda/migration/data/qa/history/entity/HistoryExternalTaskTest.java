@@ -20,7 +20,6 @@ import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.externaltask.LockedExternalTask;
-import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -40,7 +39,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
   public void shouldMigrateCompletedExternalTaskLog() {
     // given
     deployer.deployCamunda7Process("externalTaskProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("externalTaskProcessId");
+    runtimeService.startProcessInstanceByKey("externalTaskProcessId");
 
     List<LockedExternalTask> lockedTasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC, LOCK_DURATION)
@@ -48,13 +47,11 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(lockedTasks).hasSize(1);
     externalTaskService.complete(lockedTasks.getFirst().getId(), WORKER_ID);
 
-    List<ProcessInstanceEntity> processInstances = null;
-
     // when
     historyMigrator.migrate();
 
     // then
-    processInstances = searchHistoricProcessInstances("externalTaskProcessId");
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("externalTaskProcessId");
     assertThat(processInstances).hasSize(1);
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
@@ -86,7 +83,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
   public void shouldMigrateFailedExternalTaskLog() {
     // given
     deployer.deployCamunda7Process("externalTaskProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("externalTaskProcessId");
+    runtimeService.startProcessInstanceByKey("externalTaskProcessId");
 
     List<LockedExternalTask> lockedTasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC, LOCK_DURATION)

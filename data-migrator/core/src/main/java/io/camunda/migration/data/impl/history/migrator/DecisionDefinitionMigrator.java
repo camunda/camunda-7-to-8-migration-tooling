@@ -17,6 +17,11 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,18 +30,24 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating decision definitions from Camunda 7 to Camunda 8.
  */
 @Service
-public class DecisionDefinitionMigrator extends BaseMigrator<DecisionDefinition, DecisionDefinitionDbModel> {
+public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDefinition, DecisionDefinitionDbModel> {
 
   @Autowired
   protected DecisionRequirementsMigrator decisionRequirementsMigrator;
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_DECISION_DEFINITION,
-        c7Client::getDecisionDefinition,
-        c7Client::fetchAndHandleDecisionDefinitions
-    );
+  public BiConsumer<Consumer<DecisionDefinition>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleDecisionDefinitions;
+  }
+
+  @Override
+  public Function<String, DecisionDefinition> fetchForRetryHandler() {
+    return c7Client::getDecisionDefinition;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_DECISION_DEFINITION;
   }
 
   /**

@@ -7,16 +7,14 @@
  */
 package io.camunda.migration.data;
 
-import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
-import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 
 import io.camunda.migration.data.config.C8DataSourceConfigured;
+import io.camunda.migration.data.impl.history.migrator.HistoryEntityMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
-import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
@@ -25,10 +23,17 @@ import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.history.EntitySkippedException;
+import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
@@ -36,8 +41,6 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(C8DataSourceConfigured.class)
 public class HistoryMigrator {
-
-  // Migrator Services
 
   @Autowired
   protected FormMigrator formMigrator;
@@ -78,28 +81,35 @@ public class HistoryMigrator {
   @Autowired
   protected DbClient dbClient;
 
-  protected MigratorMode mode = MIGRATE;
-
-  protected List<TYPE> requestedEntityTypes;
-
-  public void start() {
-    try {
-      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
-      if (LIST_SKIPPED.equals(mode)) {
-        printSkippedHistoryEntities();
-      } else {
-        migrate();
-      }
-    } finally {
-      ExceptionUtils.clearContext();
-    }
+  protected List<HistoryEntityMigrator<?, ?>> getMigrators() {
+    return List.of(
+        formMigrator,
+        processDefinitionMigrator,
+        processInstanceMigrator,
+        flowNodeMigrator,
+        userTaskMigrator,
+        variableMigrator,
+        externalTaskMigrator,
+        incidentMigrator,
+        decisionRequirementsMigrator,
+        decisionDefinitionMigrator,
+        decisionInstanceMigrator,
+        auditLogMigrator
+    );
   }
 
-  protected void printSkippedHistoryEntities() {
-    if(requestedEntityTypes == null ||  requestedEntityTypes.isEmpty()) {
-      getHistoryTypes().forEach(this::printSkippedEntitiesForType);
-    } else {
-      requestedEntityTypes.forEach(this::printSkippedEntitiesForType);
+  public void printSkippedHistoryEntities(List<IdKeyMapper.TYPE> requestedEntityTypes) {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      if (requestedEntityTypes == null || requestedEntityTypes.isEmpty()) {
+        getHistoryTypes().forEach(this::printSkippedEntitiesForType);
+      } else {
+        requestedEntityTypes.forEach(this::printSkippedEntitiesForType);
+      }
+
+    } finally {
+      ExceptionUtils.clearContext();
     }
   }
 
@@ -108,86 +118,59 @@ public class HistoryMigrator {
     dbClient.listSkippedEntitiesByType(type);
   }
 
+  public void retry() {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      getMigrators().forEach(migrator -> migrator.retry()
+          .forEach(HistoryMigratorLogs::logSkippingWarn));
+
+    } finally {
+      ExceptionUtils.clearContext();
+    }
+  }
+
   public void migrate() {
-    migrateForms();
-    migrateProcessDefinitions();
-    migrateProcessInstances();
-    migrateFlowNodes();
-    migrateUserTasks();
-    migrateVariables();
-    migrateExternalTasks();
-    migrateIncidents();
-    migrateDecisionRequirementsDefinitions();
-    migrateDecisionDefinitions();
-    migrateDecisionInstances();
-    migrateAuditLogs();
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      getMigrators().forEach(HistoryEntityMigrator::migrate);
+
+      List<EntitySkippedException> permanentlySkippedExceptions = new ArrayList<>();
+
+      long previousSkippedCount = Long.MAX_VALUE;
+      long currentSkippedCount = dbClient.countSkipped();
+
+      while (currentSkippedCount > 0 && currentSkippedCount < previousSkippedCount) {
+        permanentlySkippedExceptions.clear(); // Only keep exceptions from the latest retry loop
+        previousSkippedCount = currentSkippedCount;
+        getMigrators().forEach(migrator -> permanentlySkippedExceptions.addAll(migrator.retry()));
+        currentSkippedCount = dbClient.countSkipped();
+      }
+
+      // Log all permanently skipped entities after retrying
+      permanentlySkippedExceptions.forEach(HistoryMigratorLogs::logSkippingWarn);
+    } finally {
+      ExceptionUtils.clearContext();
+    }
   }
 
-  public void migrateForms() {
-    formMigrator.migrateAll();
+  public void migrateByType(TYPE type) {
+    HistoryEntityMigrator<?, ?> migrator = getMigrators().stream()
+        .filter(m -> m.getType() == type)
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("No migrator found for type: " + type));
+
+    migrator.migrate();
   }
 
-  public void migrateProcessDefinitions() {
-    processDefinitionMigrator.migrateAll();
+  public void retryByType(TYPE type) {
+    HistoryEntityMigrator<?, ?> migrator = getMigrators().stream()
+        .filter(m -> m.getType() == type)
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("No migrator found for type: " + type));
+
+    migrator.retry();
   }
 
-  public void migrateProcessInstances() {
-    processInstanceMigrator.migrateAll();
-  }
-
-  public void migrateFlowNodes() {
-    flowNodeMigrator.migrateAll();
-  }
-
-  public void migrateUserTasks() {
-    userTaskMigrator.migrateAll();
-  }
-
-  public void migrateVariables() {
-    variableMigrator.migrateAll();
-  }
-
-  public void migrateIncidents() {
-    incidentMigrator.migrateAll();
-  }
-
-  public void migrateDecisionRequirementsDefinitions() {
-    decisionRequirementsMigrator.migrateAll();
-  }
-
-  public void migrateDecisionDefinitions() {
-    decisionDefinitionMigrator.migrateAll();
-  }
-
-  public void migrateDecisionInstances() {
-    decisionInstanceMigrator.migrateAll();
-  }
-
-  public void migrateAuditLogs() {
-    auditLogMigrator.migrateAll();
-  }
-
-  public void migrateExternalTasks() {
-    externalTaskMigrator.migrateAll();
-  }
-
-  public void setRequestedEntityTypes(List<TYPE> requestedEntityTypes) {
-    this.requestedEntityTypes = requestedEntityTypes;
-  }
-
-  public void setMode(MigratorMode mode) {
-    this.mode = mode;
-    formMigrator.setMode(mode);
-    decisionDefinitionMigrator.setMode(mode);
-    decisionInstanceMigrator.setMode(mode);
-    decisionRequirementsMigrator.setMode(mode);
-    flowNodeMigrator.setMode(mode);
-    incidentMigrator.setMode(mode);
-    processDefinitionMigrator.setMode(mode);
-    processInstanceMigrator.setMode(mode);
-    userTaskMigrator.setMode(mode);
-    variableMigrator.setMode(mode);
-    auditLogMigrator.setMode(mode);
-    externalTaskMigrator.setMode(mode);
-  }
 }

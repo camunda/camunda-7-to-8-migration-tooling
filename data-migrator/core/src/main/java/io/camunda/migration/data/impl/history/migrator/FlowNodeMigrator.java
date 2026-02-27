@@ -20,6 +20,11 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import java.util.Date;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.springframework.stereotype.Service;
@@ -28,15 +33,21 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating flow node instances from Camunda 7 to Camunda 8.
  */
 @Service
-public class FlowNodeMigrator extends BaseMigrator<HistoricActivityInstance, FlowNodeInstanceDbModel> {
+public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInstance, FlowNodeInstanceDbModel> {
 
   @Override
-  public void migrateAll() {
-    fetchMigrateOrRetry(
-        HISTORY_FLOW_NODE,
-        c7Client::getHistoricActivityInstance,
-        c7Client::fetchAndHandleHistoricFlowNodes
-    );
+  public BiConsumer<Consumer<HistoricActivityInstance>, Date> fetchForMigrateHandler() {
+    return c7Client::fetchAndHandleHistoricFlowNodes;
+  }
+
+  @Override
+  public Function<String, HistoricActivityInstance> fetchForRetryHandler() {
+    return c7Client::getHistoricActivityInstance;
+  }
+
+  @Override
+  public IdKeyMapper.TYPE getType() {
+    return HISTORY_FLOW_NODE;
   }
 
   /**

@@ -42,12 +42,12 @@ public class C7Entity<C7> {
     return switch (c7) {
       case HistoricDecisionInstance c7DecisionInstance -> of(c7DecisionInstance);
       case HistoricActivityInstance c7ActivityInstance -> of(c7ActivityInstance);
+      case HistoricExternalTaskLog c7ExternalTaskLog -> of(c7ExternalTaskLog);
       case HistoricIncident c7Incident -> of(c7Incident);
       case HistoricProcessInstance c7ProcessInstance -> of(c7ProcessInstance);
       case HistoricTaskInstance c7TaskInstance -> of(c7TaskInstance);
       case HistoricVariableInstance c7VariableInstance -> of(c7VariableInstance);
       case UserOperationLogEntry userOperationLogEntry -> of(userOperationLogEntry);
-      case HistoricExternalTaskLog c7ExternalTaskLog -> of(c7ExternalTaskLog);
       default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + c7.getClass().getName());
     };
   }
@@ -82,16 +82,16 @@ public class C7Entity<C7> {
     return new C7Entity<>(c7Entity.getOperationId(), c7Entity.getTimestamp(), c7Entity);
   }
 
-  public static C7Entity<HistoricExternalTaskLog> of(HistoricExternalTaskLog c7Entity) {
-    return new C7Entity<>(c7Entity.getId(), c7Entity.getTimestamp(), c7Entity);
-  }
-
   public static C7Entity<HistoricDecisionInstance> of(HistoricDecisionInstance c7Entity) {
     return new C7Entity<>(c7Entity.getId(), c7Entity.getEvaluationTime(), c7Entity);
   }
 
   public static C7Entity<HistoricActivityInstance> of(HistoricActivityInstance c7Entity) {
     return new C7Entity<>(c7Entity.getId(), c7Entity.getStartTime(), c7Entity);
+  }
+
+  public static C7Entity<HistoricExternalTaskLog> of(HistoricExternalTaskLog c7Entity) {
+    return new C7Entity<>(c7Entity.getId(), c7Entity.getTimestamp(), c7Entity);
   }
 
   public static C7Entity<HistoricIncident> of(HistoricIncident c7Entity) {

@@ -13,6 +13,8 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static org.camunda.bpm.engine.EntityTypes.*;
+import static org.camunda.bpm.engine.history.UserOperationLogEntry.*;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
@@ -21,7 +23,6 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.AuditLogEntity;
 import java.util.Set;
-import org.camunda.bpm.engine.EntityTypes;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.Order;
@@ -78,13 +79,17 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
         .annotation(userOperationLog.getAnnotation())
         .tenantId(tenantId)
         .tenantScope(getAuditLogTenantScope(tenantId))
-        .category(convertCategory(userOperationLog.getCategory()));
+        .category(convertCategory(userOperationLog.getCategory()))
+        .entityDescription(convertEntityDescription(userOperationLog))
+        .agentElementId(null)
+        .relatedEntityKey(null)
+        .relatedEntityType(null);
+
     // Note: auditLogKey, processInstanceKey, rootProcessInstanceKey, processDefinitionKey, userTaskKey, entityKey, timestamp, historyCleanupDate
     // are set externally in AuditLogMigrator
     // not setting entityValueType and entityOperationIntent as they internal properties meant for future-proofing purposes
 
     updateEntityTypesThatDontMatchBetweenC7andC8(userOperationLog, builder);
-
   }
 
   /**
@@ -124,12 +129,13 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    */
   protected AuditLogEntity.AuditLogOperationCategory convertCategory(String category) {
     return switch (category) {
-      case UserOperationLogEntry.CATEGORY_ADMIN -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
-      case UserOperationLogEntry.CATEGORY_OPERATOR -> AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES;
-      case UserOperationLogEntry.CATEGORY_TASK_WORKER -> AuditLogEntity.AuditLogOperationCategory.USER_TASKS;
+      case CATEGORY_ADMIN -> AuditLogEntity.AuditLogOperationCategory.ADMIN;
+      case CATEGORY_OPERATOR -> AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES;
+      case CATEGORY_TASK_WORKER -> AuditLogEntity.AuditLogOperationCategory.USER_TASKS;
       default -> AuditLogEntity.AuditLogOperationCategory.UNKNOWN;
     };
   }
+
   /**
    * Converts a Camunda 7 entity type to a Camunda 8 AuditLogEntityType.
    * <p>
@@ -161,24 +167,22 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    */
   protected AuditLogEntity.AuditLogEntityType convertEntityType(UserOperationLogEntry userOperationLog) {
     return  switch (userOperationLog.getEntityType()) {
-      case EntityTypes.PROCESS_INSTANCE -> AuditLogEntity.AuditLogEntityType.PROCESS_INSTANCE;
-      case EntityTypes.VARIABLE -> AuditLogEntity.AuditLogEntityType.VARIABLE;
-      case EntityTypes.TASK -> AuditLogEntity.AuditLogEntityType.USER_TASK;
-      case EntityTypes.DECISION_INSTANCE, EntityTypes.DECISION_DEFINITION, EntityTypes.DECISION_REQUIREMENTS_DEFINITION -> AuditLogEntity.AuditLogEntityType.DECISION;
-      case EntityTypes.USER -> AuditLogEntity.AuditLogEntityType.USER;
-      case EntityTypes.GROUP -> AuditLogEntity.AuditLogEntityType.GROUP;
-      case EntityTypes.TENANT -> AuditLogEntity.AuditLogEntityType.TENANT;
-      case EntityTypes.AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
-      case EntityTypes.INCIDENT -> AuditLogEntity.AuditLogEntityType.INCIDENT;
-      case EntityTypes.PROCESS_DEFINITION, EntityTypes.DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
-      case EntityTypes.GROUP_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.GROUP;
-      case EntityTypes.TENANT_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.TENANT;
+      case PROCESS_INSTANCE -> AuditLogEntity.AuditLogEntityType.PROCESS_INSTANCE;
+      case VARIABLE -> AuditLogEntity.AuditLogEntityType.VARIABLE;
+      case TASK -> AuditLogEntity.AuditLogEntityType.USER_TASK;
+      case DECISION_INSTANCE, DECISION_DEFINITION, DECISION_REQUIREMENTS_DEFINITION -> AuditLogEntity.AuditLogEntityType.DECISION;
+      case USER -> AuditLogEntity.AuditLogEntityType.USER;
+      case GROUP, GROUP_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.GROUP;
+      case TENANT, TENANT_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.TENANT;
+      case AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
+      case INCIDENT -> AuditLogEntity.AuditLogEntityType.INCIDENT;
+      case PROCESS_DEFINITION, DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
 
       // Camunda 7 entity types that are currently NOT converted:
-      // EntityTypes.BATCH, EntityTypes.IDENTITY_LINK, EntityTypes.ATTACHMENT, EntityTypes.JOB_DEFINITION,
-      // EntityTypes.JOB, EntityTypes.EXTERNAL_TASK, EntityTypes.CASE_DEFINITION, EntityTypes.CASE_INSTANCE,
-      // EntityTypes.METRICS, EntityTypes.TASK_METRICS, EntityTypes.OPERATION_LOG, EntityTypes.FILTER,
-      // EntityTypes.COMMENT, EntityTypes.PROPERTY
+      // BATCH, IDENTITY_LINK, ATTACHMENT, JOB_DEFINITION,
+      // JOB, EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE,
+      // METRICS, TASK_METRICS, OPERATION_LOG, FILTER,
+      // COMMENT, PROPERTY
 
       default -> throw new EntityInterceptorException(UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE + userOperationLog.getEntityType());
     };
@@ -231,55 +235,55 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
 
     return switch (operationType) {
       // Task operations
-      case UserOperationLogEntry.OPERATION_TYPE_ASSIGN,
-           UserOperationLogEntry.OPERATION_TYPE_CLAIM,
-           UserOperationLogEntry.OPERATION_TYPE_DELEGATE ->
+      case OPERATION_TYPE_ASSIGN,
+           OPERATION_TYPE_CLAIM,
+           OPERATION_TYPE_DELEGATE ->
           AuditLogEntity.AuditLogOperationType.ASSIGN;
-      case UserOperationLogEntry.OPERATION_TYPE_COMPLETE ->
+      case OPERATION_TYPE_COMPLETE ->
           AuditLogEntity.AuditLogOperationType.COMPLETE;
-      case UserOperationLogEntry.OPERATION_TYPE_SET_PRIORITY,
-           UserOperationLogEntry.OPERATION_TYPE_SET_OWNER,
-           UserOperationLogEntry.OPERATION_TYPE_UPDATE ->
+      case OPERATION_TYPE_SET_PRIORITY,
+           OPERATION_TYPE_SET_OWNER,
+           OPERATION_TYPE_UPDATE ->
           AuditLogEntity.AuditLogOperationType.UPDATE;
 
       // ProcessInstance operations
-      case UserOperationLogEntry.OPERATION_TYPE_CREATE -> {
-        if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
-            EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
+      case OPERATION_TYPE_CREATE -> {
+        if (GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
+            TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.ASSIGN;
         } else {
           yield AuditLogEntity.AuditLogOperationType.CREATE;
         }
       }
-      case UserOperationLogEntry.OPERATION_TYPE_DELETE -> {
-        if (EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
+      case OPERATION_TYPE_DELETE -> {
+        if (PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.CANCEL;
-        } else if (EntityTypes.GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
-            EntityTypes.TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
+        } else if (GROUP_MEMBERSHIP.equals(userOperationLog.getEntityType()) ||
+            TENANT_MEMBERSHIP.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.UNASSIGN;
         } else {
           yield AuditLogEntity.AuditLogOperationType.DELETE;
         }
       }
-      case UserOperationLogEntry.OPERATION_TYPE_MODIFY_PROCESS_INSTANCE ->
+      case OPERATION_TYPE_MODIFY_PROCESS_INSTANCE ->
           AuditLogEntity.AuditLogOperationType.MODIFY;
-      case UserOperationLogEntry.OPERATION_TYPE_MIGRATE ->
+      case OPERATION_TYPE_MIGRATE ->
           AuditLogEntity.AuditLogOperationType.MIGRATE;
-      case UserOperationLogEntry.OPERATION_TYPE_DELETE_HISTORY, UserOperationLogEntry.OPERATION_TYPE_REMOVE_VARIABLE ->
+      case OPERATION_TYPE_DELETE_HISTORY, OPERATION_TYPE_REMOVE_VARIABLE ->
           AuditLogEntity.AuditLogOperationType.DELETE;
 
       // Variable operations
-      case UserOperationLogEntry.OPERATION_TYPE_MODIFY_VARIABLE, UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLE,
-           UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLES ->
+      case OPERATION_TYPE_MODIFY_VARIABLE, OPERATION_TYPE_SET_VARIABLE,
+           OPERATION_TYPE_SET_VARIABLES ->
           AuditLogEntity.AuditLogOperationType.UPDATE;
 
       // DecisionDefinition operations
-      case UserOperationLogEntry.OPERATION_TYPE_EVALUATE ->
+      case OPERATION_TYPE_EVALUATE ->
           AuditLogEntity.AuditLogOperationType.EVALUATE;
 
       // Incident operations
-      case UserOperationLogEntry.OPERATION_TYPE_RESOLVE -> {
-        if (EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
+      case OPERATION_TYPE_RESOLVE -> {
+        if (PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
           yield AuditLogEntity.AuditLogOperationType.RESOLVE;
         } else {
           yield AuditLogEntity.AuditLogOperationType.UPDATE;
@@ -288,6 +292,25 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
 
       default ->
           throw new EntityInterceptorException(HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE + operationType);
+    };
+  }
+
+  /**
+   * Converts the entity description for certain entity types based on the user operation log entry.
+   * @param userOperationLog the Camunda 7 user operation log entry to extract the entity description from
+   * @return the converted entity description, or null if not applicable
+   */
+  protected String convertEntityDescription(UserOperationLogEntry userOperationLog) {
+    return switch (userOperationLog.getEntityType()) {
+      case VARIABLE -> {
+        if (OPERATION_TYPE_DELETE_HISTORY.equals(userOperationLog.getOperationType())) {
+          yield userOperationLog.getNewValue();
+        } else {
+          yield null; // for rest of the operations, the variable name is not stored
+        }
+      }
+      case USER, GROUP, TENANT -> userOperationLog.getNewValue();
+      default -> null;
     };
   }
 
@@ -309,11 +332,11 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * @param builder the audit log builder to update
    */
   protected void updateEntityTypesThatDontMatchBetweenC7andC8(UserOperationLogEntry userOperationLog, Builder builder) {
-    if (UserOperationLogEntry.OPERATION_TYPE_RESOLVE.equals(userOperationLog.getOperationType())
-        && EntityTypes.PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
+    if (OPERATION_TYPE_RESOLVE.equals(userOperationLog.getOperationType())
+        && PROCESS_INSTANCE.equals(userOperationLog.getEntityType())) {
       builder.entityType(AuditLogEntity.AuditLogEntityType.INCIDENT);
-    } else if (UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLE.equals(userOperationLog.getOperationType())
-        || UserOperationLogEntry.OPERATION_TYPE_SET_VARIABLES.equals(userOperationLog.getOperationType())) {
+    } else if (OPERATION_TYPE_SET_VARIABLE.equals(userOperationLog.getOperationType())
+        || OPERATION_TYPE_SET_VARIABLES.equals(userOperationLog.getOperationType())) {
       builder.entityType(AuditLogEntity.AuditLogEntityType.VARIABLE);
     }
   }
