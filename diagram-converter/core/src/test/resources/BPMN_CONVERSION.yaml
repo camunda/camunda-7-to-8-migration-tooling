@@ -770,7 +770,7 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 calculates when to evaluate the FEEL expression based on the expression itself.</conversion:message>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -779,7 +779,7 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 calculates when to evaluate the FEEL expression based on the expression itself.</conversion:message>
+          <conversion:message severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting) with variable and event filter
         properties:
@@ -794,7 +794,7 @@ categories:
         expectedBpmn: |
           <bpmn:boundaryEvent attachedToRef="Activity_12xgp4d" cancelActivity="true" id="Event_0xq3ibq" parallelMultiple="false">
             <bpmn:extensionElements>
-              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 calculates when to evaluate the FEEL expression based on the expression itself.</conversion:message>
+              <conversion:message link="https://docs.camunda.io/docs/components/modeler/bpmn/events/" severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.</conversion:message>
               <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
             </bpmn:extensionElements>
             <bpmn:outgoing>Flow_04gmarh</bpmn:outgoing>
@@ -807,7 +807,7 @@ categories:
             </bpmn:conditionalEventDefinition>
           </bpmn:boundaryEvent>
         expectedMessages: |
-          <conversion:message severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 calculates when to evaluate the FEEL expression based on the expression itself.</conversion:message>
+          <conversion:message severity="REVIEW">Variable name filter is not supported in conditional event on 'ConditionalEventDefinition_0pmcqvy'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.</conversion:message>
           <conversion:message severity="REVIEW">FEEL Condition expression: Please review transformed expression: 'variable = 1' -&gt; '=variable = 1'. Check for custom FEEL functions as they are not supported by Zeebe.</conversion:message>
       - name: Conditional boundary event (interrupting) event filter on update
         properties:

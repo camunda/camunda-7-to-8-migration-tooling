@@ -576,7 +576,7 @@ public class MessageFactoryTest {
     assertThat(message).isNotNull();
     assertThat(message.getMessage())
         .isEqualTo(
-            "Variable name filter is not supported in conditional event on '%s'. Camunda 8 calculates when to evaluate the FEEL expression based on the expression itself.",
+            "Variable name filter is not supported in conditional event on '%s'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.",
             elementId);
   }
 
