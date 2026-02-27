@@ -11,7 +11,7 @@ import {
   ProgressIndicator,
   ProgressStep,
   Button,
-  Callout,
+  ActionableNotification,
   DataTable,
   Table,
   TableHead,
@@ -45,6 +45,9 @@ function App() {
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
   const [previewTableRows, setPreviewTableRows] = useState([]);
+
+  const [downloadError, setDownloadError] = useState(null);
+  const [downloadErrorTitle, setDownloadErrorTitle] = useState("");
 
   const [showConfig, setShowConfig] = useState(false);
   const [configOptions, setConfigOptions] = useState({
@@ -199,10 +202,40 @@ function App() {
     setValidFiles(validFiles);
   }
 
+  function buildErrorMessage(errorBody) {
+    switch (errorBody.errorCode) {
+      case "FILE_COUNT_LIMIT_EXCEEDED":
+        return <>
+          Too many files uploaded. The online version supports up to {errorBody.limit} files per request.
+          {" "}To learn how to run the diagram converter locally with a custom file limit, consult the{" "}
+          <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
+            target="_blank" rel="noopener noreferrer">diagram converter guide</a>.
+        </>;
+      default:
+        return "Download failed. Please try again.";
+    }
+  }
+
+  async function handleDownloadResponse(filename, response, title) {
+    if (!response.ok) {
+      let errorMessage = "Download failed. Please try again.";
+      try {
+        const errorBody = await response.json();
+        errorMessage = buildErrorMessage(errorBody);
+      } catch {
+        // Response body is not JSON, use default message
+      }
+      setDownloadErrorTitle(title);
+      setDownloadError(errorMessage);
+      return;
+    }
+    setDownloadError(null);
+    await download1(filename, response);
+  }
+
   async function downloadXLS() {
     const formData = createFormData(validFiles);
-    //validFiles.forEach((file) => formData.append("file", file));
-    await download1("analysis.xlsx",
+    await handleDownloadResponse("analysis.xlsx",
       await fetch(baseUrl + "/check", {
         body: formData,
         method: "POST",
@@ -210,30 +243,31 @@ function App() {
           Accept:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
-      })
+      }),
+      "Downloading XLSX failed"
     );
   }
   async function downloadCSV() {
     const formData = createFormData(validFiles);
-    //validFiles.forEach((file) => formData.append("file", file));
-    await download1("analysis.csv",
+    await handleDownloadResponse("analysis.csv",
       await fetch(baseUrl + "/check", {
         body: formData,
         method: "POST",
         headers: {
           Accept: "text/csv",
         },
-      })
+      }),
+      "Downloading CSV failed"
     );
   }
   async function downloadZIP() {
     const formData = createFormData(validFiles);
-    //validFiles.forEach((file) => formData.append("file", file));
-    await download1("converted-models.zip",
+    await handleDownloadResponse("converted-models.zip",
       await fetch(baseUrl + "/convertBatch", {
         body: formData,
         method: "POST",
-      })
+      }),
+      "Downloading ZIP failed"
     );
   }
 
@@ -522,6 +556,17 @@ function App() {
                   }
                 />
               ))}
+              {downloadError && (
+                <ActionableNotification
+                  kind="error"
+                  title={downloadErrorTitle}
+                  lowContrast
+                  onClose={() => setDownloadError(null)}
+                  className="download-error-notification"
+                >
+                  {downloadError}
+                </ActionableNotification>
+              )}
               <Button
                 kind="tertiary"
                 size="lg"
