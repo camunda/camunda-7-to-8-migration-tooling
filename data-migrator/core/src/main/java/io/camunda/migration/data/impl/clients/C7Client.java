@@ -42,6 +42,7 @@ import org.camunda.bpm.engine.delegate.Expression;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
@@ -56,6 +57,7 @@ import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
+import org.camunda.bpm.engine.impl.HistoricJobLogQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricProcessInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
@@ -568,6 +570,39 @@ public class C7Client {
   public UserOperationLogEntry getUserOperationLogEntry(String c7Id) {
     var query = historyService.createUserOperationLogQuery().operationId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry", c7Id));
+  }
+
+  /**
+   * Fetches the first historic job log entry for the given job ID, ordered by timestamp ascending.
+   * Used for retry mode, where the job ID is the tracking key.
+   */
+  public HistoricJobLog getHistoricJobLog(String jobId) {
+    HistoricJobLogQueryImpl query = (HistoricJobLogQueryImpl) historyService.createHistoricJobLogQuery()
+        .jobId(jobId)
+        .orderByTimestamp()
+        .asc()
+        .orderByJobId()
+        .asc();
+    List<HistoricJobLog> results = callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricJobLog with jobId", jobId));
+    return results.isEmpty() ? null : results.getFirst();
+  }
+
+  /**
+   * Processes historic job log entries with pagination using the provided callback consumer.
+   * The {@code ignoredCreatedAfter} parameter is not supported by the query and is ignored;
+   * deduplication is handled via the tracking table.
+   */
+  public void fetchAndHandleHistoricJobLogs(Consumer<HistoricJobLog> callback, Date ignoredCreatedAfter) {
+    HistoricJobLogQueryImpl query = (HistoricJobLogQueryImpl) historyService.createHistoricJobLogQuery()
+        .orderByTimestamp()
+        .asc()
+        .orderByJobId()
+        .asc();
+
+    new Pagination<HistoricJobLog>().pageSize(properties.getPageSize())
+        .query(query)
+        .callback(callback);
   }
 
   /**
