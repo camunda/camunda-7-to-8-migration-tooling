@@ -570,6 +570,17 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildVariableNameFilterOnConditionalEvent() {
+    String elementId = random();
+    Message message = variableNameFilterOnConditionalEvent(elementId);
+    assertThat(message).isNotNull();
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Variable name filter is not supported in conditional event on '%s'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.",
+            elementId);
+  }
+
+  @Test
   void shouldBuildGeneratedIdOnConditionalEventDefinition() {
     String parentElementId = random();
     String generatedId = "ConditionalEventDefinition_" + random();

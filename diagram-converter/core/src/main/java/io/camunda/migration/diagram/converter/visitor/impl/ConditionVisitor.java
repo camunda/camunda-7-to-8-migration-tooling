@@ -133,10 +133,17 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
 
   private void addConditionalFilterElement(DomElementVisitorContext context) {
     DomElement conditionalEventDefinition = context.getElement().getParentElement();
+    String elementId = conditionalEventDefinition.getAttribute("id");
+
     String variableName = conditionalEventDefinition.getAttribute(CAMUNDA, "variableName");
     String variableEvents = conditionalEventDefinition.getAttribute(CAMUNDA, "variableEvents");
 
-    if (StringUtils.isBlank(variableName) && StringUtils.isBlank(variableEvents)) {
+    if (StringUtils.isNotBlank(variableName)) {
+      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
+      context.addMessage(MessageFactory.variableNameFilterOnConditionalEvent(elementId));
+    }
+
+    if (StringUtils.isBlank(variableEvents)) {
       return;
     }
 
@@ -145,14 +152,8 @@ public class ConditionVisitor extends AbstractBpmnElementVisitor {
     DomElement conditionalFilter =
         context.getElement().getDocument().createElement(ZEEBE, "conditionalFilter");
 
-    if (StringUtils.isNotBlank(variableName)) {
-      conditionalFilter.setAttribute("variableNames", variableName);
-      conditionalEventDefinition.removeAttribute(CAMUNDA, "variableName");
-    }
-
     if (StringUtils.isNotBlank(variableEvents)) {
       if (containsDeleteEvent(variableEvents)) {
-        String elementId = conditionalEventDefinition.getAttribute("id");
         context.addMessage(MessageFactory.deleteEventFilterOnConditionalEvent(elementId));
       }
       conditionalFilter.setAttribute("variableEvents", variableEvents);
