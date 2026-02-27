@@ -56,7 +56,7 @@
     <!-- Process solution containing the JavaDelegate service tasks referenced in the BPMN -->
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>big-bang-migration-example-process-solution</artifactId>
+      <artifactId>big-bang-migration-example-process-solution-c7</artifactId>
       <version>${project.version}</version>
     </dependency>
 

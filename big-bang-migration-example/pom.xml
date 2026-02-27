@@ -16,7 +16,8 @@
   <description>Example demonstrating a big bang migration from Camunda 7 to Camunda 8 using all three migration tools.</description>
 
   <modules>
-    <module>process-solution</module>
+    <module>process-solution-c7</module>
+    <module>process-solution-c8</module>
     <module>c7-data-generator</module>
   </modules>
 

@@ -9,11 +9,13 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>big-bang-migration-example-process-solution</artifactId>
+  <artifactId>big-bang-migration-example-process-solution-c8</artifactId>
   <packaging>jar</packaging>
 
-  <name>Big Bang Migration Example: Process Solution</name>
-  <description>Camunda 7 invoice process solution to be migrated to Camunda 8 using diagram-converter and code-conversion recipes.</description>
+  <name>Big Bang Migration Example: Process Solution (Camunda 8)</name>
+  <description>Camunda 8 target for the migrated invoice process solution. This module starts empty —
+    the migrate.sh script copies files from process-solution-c7 and then runs the diagram-converter
+    and code-conversion recipes to produce the Camunda 8 version.</description>
 
   <properties>
     <maven.compiler.source>21</maven.compiler.source>
@@ -22,7 +24,7 @@
   </properties>
 
   <dependencies>
-    <!-- Camunda 8 dependencies (needed after code conversion) -->
+    <!-- Camunda 8 dependencies (target after code conversion) -->
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-client-java</artifactId>
@@ -36,7 +38,7 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Camunda 7 dependencies (used before code conversion) -->
+    <!-- Camunda 7 dependencies (needed during OpenRewrite code conversion) -->
     <dependency>
       <groupId>org.camunda.bpm</groupId>
       <artifactId>camunda-engine</artifactId>
@@ -44,12 +46,12 @@
       <scope>provided</scope>
     </dependency>
 
-        <dependency>
+    <!-- JavaScript engine for BPMN script task listeners (removed from JDK since Java 15) -->
+    <dependency>
       <groupId>org.graalvm.js</groupId>
       <artifactId>js</artifactId>
-        <version>21.3.17</version>
+      <version>21.3.17</version>
     </dependency>
-
     <dependency>
       <groupId>org.graalvm.js</groupId>
       <artifactId>js-scriptengine</artifactId>

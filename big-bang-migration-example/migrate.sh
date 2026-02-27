@@ -8,12 +8,14 @@
 #   3. Data Migrator      — migrates runtime/history data (instructions only)
 #
 # Usage:
-#   ./migrate.sh              Run all migration steps (diagrams + code)
+#   ./migrate.sh              Run all migration steps (copy + diagrams + code)
 #   ./migrate.sh --start-c7   Start the C7 app to inspect the process before migration (H2)
 #   ./migrate.sh --start-c7-postgres  Start the C7 app with PostgreSQL database
+#   ./migrate.sh --copy       Copy C7 source files into the C8 module
 #   ./migrate.sh --diagrams   Run diagram conversion only
 #   ./migrate.sh --code       Run code conversion only
 #   ./migrate.sh --data       Show data migration instructions
+#   ./migrate.sh --clean      Remove generated C8 source files (reset to pre-migration state)
 #   ./migrate.sh --build      Build prerequisites first, then migrate
 #
 
@@ -22,9 +24,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-PROCESS_SOLUTION_DIR="$SCRIPT_DIR/process-solution"
+PROCESS_SOLUTION_C7_DIR="$SCRIPT_DIR/process-solution-c7"
+PROCESS_SOLUTION_C8_DIR="$SCRIPT_DIR/process-solution-c8"
 C7_DATA_GENERATOR_DIR="$SCRIPT_DIR/c7-data-generator"
-RESOURCES_DIR="$PROCESS_SOLUTION_DIR/src/main/resources"
+C8_RESOURCES_DIR="$PROCESS_SOLUTION_C8_DIR/src/main/resources"
+C8_JAVA_DIR="$PROCESS_SOLUTION_C8_DIR/src/main/java"
 
 DIAGRAM_CONVERTER_CLI_JAR="$ROOT_DIR/diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-0.3.0-SNAPSHOT.jar"
 
@@ -111,48 +115,84 @@ step_start_c7() {
   fi
 }
 
-# ─── Step 1: Diagram Conversion ────────────────────────────────────────────
+# ─── Step 1: Copy C7 → C8 ────────────────────────────────────────────────
+
+step_copy() {
+  banner "Step 1: Copy C7 Source Files into C8 Module"
+
+  if [ -d "$PROCESS_SOLUTION_C8_DIR/src/main" ]; then
+    warn "C8 module already contains source files. Removing them first..."
+    rm -rf "$PROCESS_SOLUTION_C8_DIR/src/main"
+  fi
+
+  info "Copying from: process-solution-c7/src/main/"
+  info "Copying to:   process-solution-c8/src/main/"
+  echo ""
+
+  cp -r "$PROCESS_SOLUTION_C7_DIR/src/main" "$PROCESS_SOLUTION_C8_DIR/src/main"
+
+  ok "Files copied to C8 module."
+  info "Copied files:"
+  for f in "$C8_RESOURCES_DIR"/*.bpmn "$C8_RESOURCES_DIR"/*.dmn; do
+    [ -f "$f" ] && info "  resources/$(basename "$f")"
+  done
+  for f in "$C8_JAVA_DIR"/org/camunda/bpm/example/invoice/service/*.java; do
+    [ -f "$f" ] && info "  java/.../service/$(basename "$f")"
+  done
+}
+
+# ─── Step 2: Diagram Conversion ──────────────────────────────────────────
 
 step_diagrams() {
-  banner "Step 1: Convert Diagrams (BPMN/DMN)"
+  banner "Step 2: Convert Diagrams (BPMN/DMN)"
 
-  info "Converting files in: $RESOURCES_DIR"
+  if [ ! -d "$C8_RESOURCES_DIR" ]; then
+    error "C8 module has no resources. Run './migrate.sh --copy' first."
+    exit 1
+  fi
+
+  info "Converting files in: $C8_RESOURCES_DIR"
   info "Using: --override --add-data-migration-execution-listener"
   echo ""
 
   java -jar "$DIAGRAM_CONVERTER_CLI_JAR" \
-    local "$RESOURCES_DIR" \
+    local "$C8_RESOURCES_DIR" \
     --override \
     --add-data-migration-execution-listener
 
   echo ""
   ok "Diagram conversion complete."
   info "Converted files:"
-  for f in "$RESOURCES_DIR"/*.bpmn "$RESOURCES_DIR"/*.dmn; do
+  for f in "$C8_RESOURCES_DIR"/*.bpmn "$C8_RESOURCES_DIR"/*.dmn; do
     [ -f "$f" ] && info "  $(basename "$f")"
   done
 }
 
-# ─── Step 2: Code Conversion ───────────────────────────────────────────────
+# ─── Step 3: Code Conversion ─────────────────────────────────────────────
 
 step_code() {
-  banner "Step 2: Convert Code (JavaDelegate -> @JobWorker)"
+  banner "Step 3: Convert Code (JavaDelegate -> @JobWorker)"
 
-  info "Running OpenRewrite recipes on process-solution..."
+  if [ ! -d "$C8_JAVA_DIR" ]; then
+    error "C8 module has no Java sources. Run './migrate.sh --copy' first."
+    exit 1
+  fi
+
+  info "Running OpenRewrite recipes on process-solution-c8..."
   echo ""
 
-  mvn rewrite:run -f "$PROCESS_SOLUTION_DIR/pom.xml"
+  mvn rewrite:run -f "$PROCESS_SOLUTION_C8_DIR/pom.xml"
 
   echo ""
   ok "Code conversion complete."
   info "Review the changes:"
-  info "  git diff big-bang-migration-example/process-solution/src/"
+  info "  diff -r process-solution-c7/src process-solution-c8/src"
 }
 
-# ─── Step 3: Data Migration (instructions) ─────────────────────────────────
+# ─── Step 4: Data Migration (instructions) ───────────────────────────────
 
 step_data() {
-  banner "Step 3: Migrate Data"
+  banner "Step 4: Migrate Data"
 
   info "Data migration requires a running Camunda 7 database and a Camunda 8 cluster."
   info ""
@@ -171,7 +211,20 @@ step_data() {
   info "   --history  Migrates historical data"
 }
 
-# ─── Build ──────────────────────────────────────────────────────────────────
+# ─── Clean ───────────────────────────────────────────────────────────────
+
+step_clean() {
+  banner "Clean: Remove Generated C8 Source Files"
+
+  if [ -d "$PROCESS_SOLUTION_C8_DIR/src/main" ]; then
+    rm -rf "$PROCESS_SOLUTION_C8_DIR/src/main"
+    ok "Removed process-solution-c8/src/main/ — module is back to pre-migration state."
+  else
+    info "Nothing to clean — process-solution-c8/src/main/ does not exist."
+  fi
+}
+
+# ─── Build ───────────────────────────────────────────────────────────────
 
 build_prerequisites() {
   banner "Building Prerequisites"
@@ -185,35 +238,34 @@ build_prerequisites() {
   ok "Build complete."
 }
 
-# ─── Main ───────────────────────────────────────────────────────────────────
+# ─── Main ────────────────────────────────────────────────────────────────
 
 run_all() {
   check_prerequisites
+  step_copy
   step_diagrams
   step_code
   step_data
 
   banner "Migration Complete"
-  ok "Diagrams and code have been migrated."
+  ok "C7 source files have been copied to process-solution-c8/ and converted."
+  ok "The original C7 files in process-solution-c7/ remain unchanged."
   ok "Follow the data migration instructions above to complete the big bang migration."
 }
 
 case "${1:-}" in
   --build)
     build_prerequisites
-    check_prerequisites
-    step_diagrams
-    step_code
-    step_data
-    banner "Migration Complete"
-    ok "Diagrams and code have been migrated."
-    ok "Follow the data migration instructions above to complete the big bang migration."
+    run_all
     ;;
   --start-c7)
     step_start_c7
     ;;
   --start-c7-postgres)
     step_start_c7 postgres
+    ;;
+  --copy)
+    step_copy
     ;;
   --diagrams)
     check_prerequisites
@@ -225,19 +277,24 @@ case "${1:-}" in
   --data)
     step_data
     ;;
+  --clean)
+    step_clean
+    ;;
   --help|-h)
     echo "Usage: $0 [OPTION]"
     echo ""
     echo "Big Bang Migration Script - Migrates Camunda 7 invoice example to Camunda 8"
     echo ""
     echo "Options:"
-    echo "  (no args)     Run all migration steps (diagrams + code + data instructions)"
+    echo "  (no args)     Run all migration steps (copy + diagrams + code + data instructions)"
     echo "  --start-c7    Start the Camunda 7 app with H2 database"
     echo "  --start-c7-postgres  Start the Camunda 7 app with PostgreSQL database"
     echo "  --build       Build prerequisites first, then run all steps"
-    echo "  --diagrams    Run diagram conversion only (BPMN/DMN)"
-    echo "  --code        Run code conversion only (JavaDelegate -> @JobWorker)"
-    echo "  --data        Show data migration instructions"
+    echo "  --copy        Step 1: Copy C7 source files into the C8 module"
+    echo "  --diagrams    Step 2: Convert BPMN/DMN diagrams in the C8 module"
+    echo "  --code        Step 3: Convert Java code in the C8 module (JavaDelegate -> @JobWorker)"
+    echo "  --data        Step 4: Show data migration instructions"
+    echo "  --clean       Remove generated C8 source files (reset to pre-migration state)"
     echo "  --help, -h    Show this help message"
     ;;
   "")
