@@ -125,15 +125,15 @@ public class IdentityMigratorLogs {
     LOGGER.warn(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
   }
 
-  private static String ownerType(Authorization authorization) {
+  static String ownerType(Authorization authorization) {
     return StringUtils.isNotBlank(authorization.getUserId()) ? "user" : "group";
   }
 
-  private static String ownerId(Authorization authorization) {
+  static String ownerId(Authorization authorization) {
     return StringUtils.isNotBlank(authorization.getUserId()) ? authorization.getUserId() : authorization.getGroupId();
   }
 
-  private static String resourceTypeName(Authorization authorization) {
+  static String resourceTypeName(Authorization authorization) {
     return ResourceTypeUtil.getResourceByType(authorization.getResourceType()).resourceName();
   }
 }
