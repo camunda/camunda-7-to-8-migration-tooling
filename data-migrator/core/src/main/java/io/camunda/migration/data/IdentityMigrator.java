@@ -122,7 +122,7 @@ public class IdentityMigrator {
   }
 
   protected void migrateAuthorization(Authorization authorization) {
-    IdentityMigratorLogs.logMigratingAuthorization(authorization.getId());
+    IdentityMigratorLogs.logMigratingAuthorization(authorization);
     AuthorizationMappingResult mappingResult = authorizationManager.mapAuthorization(authorization);
 
     if (mappingResult.isSuccess()) {
@@ -139,13 +139,13 @@ public class IdentityMigrator {
             IdentityMigratorLogs.logMigratedChildAuthorization(auth.resourceId());
           }
         }
-        IdentityMigratorLogs.logMigratedAuthorization(authorization.getId());
+        IdentityMigratorLogs.logMigratedAuthorization(authorization);
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());
       } catch (MigratorException e) {
-        markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), e.getMessage());
+        markAsSkipped(authorization, e.getMessage());
       }
     } else {
-      markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), mappingResult.getReason());
+      markAsSkipped(authorization, mappingResult.getReason());
     }
   }
 
@@ -180,10 +180,16 @@ public class IdentityMigrator {
   protected void markAsSkipped(IdKeyMapper.TYPE type, String id, String reason) {
     switch (type) {
       case TENANT -> IdentityMigratorLogs.logSkippedTenant(id);
-      case AUTHORIZATION -> IdentityMigratorLogs.logSkippedAuthorization(id, reason);
     }
     if (MIGRATE.equals(mode)) {
       saveRecord(type, id, null);
+    }
+  }
+
+  protected void markAsSkipped(Authorization authorization, String reason) {
+    IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
+    if (MIGRATE.equals(mode)) {
+      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
     }
   }
 

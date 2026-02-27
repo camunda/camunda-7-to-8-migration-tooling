@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.util;
 
 import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.migration.data.exception.HistoryMigratorException;
 import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.exception.MigratorException;
@@ -81,7 +82,11 @@ public class ExceptionUtils {
       exception = new RuntimeMigratorException(message, e);
     }
 
-    LOGGER.error(message, exception);
+    if (context == ExceptionContext.IDENTITY && e instanceof ProblemException pe && pe.details().getStatus() == 409) {
+      LOGGER.warn("{}: {}", message, pe.details().getDetail());
+    } else {
+      LOGGER.error(message, exception);
+    }
     return exception;
   }
 

@@ -10,6 +10,9 @@ package io.camunda.migration.data.impl.logging;
 import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
+import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.impl.util.ResourceTypeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,11 +28,11 @@ public class IdentityMigratorLogs {
   public static final String CANNOT_MIGRATE_TENANT_MEMBERSHIP = "There was an error while migrating tenant membership for tenant [{}] and {} [{}]: {}";
   public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}]";
   public static final String SKIPPED_TENANT = "Tenant with ID [{}] was skipped";
-  public static final String MIGRATING_AUTH = "Migrating authorization [{}]";
+  public static final String MIGRATING_AUTH = "Migrating authorization [{}] for {} [{}] on {} [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
-  public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}]";
-  public static final String SKIPPED_AUTH = "Authorization with ID [{}] was skipped: {}";
+  public static final String SUCCESSFULLY_MIGRATED_AUTH = "Successfully migrated authorization [{}] for {} [{}] on {} [{}]";
+  public static final String SKIPPED_AUTH = "Authorization with ID [{}] for {} [{}] on {} [{}] was skipped: {}";
   public static final String FOUND_DEFINITIONS_IN_DEPLOYMENT = "Found {} definitions for deployment [{}]";
   public static final String FOUND_CMMN_IN_DEPLOYMENT = "Found {} CMMN resources for deployment [{}], but CMMN is not supported in Camunda 8";
   public static final String STARTING_MIGRATION_OF_ENTITIES = "Starting migration of {} entities";
@@ -62,8 +65,9 @@ public class IdentityMigratorLogs {
     LOGGER.warn(SKIPPED_TENANT, tenantId);
   }
 
-  public static void logMigratingAuthorization(String authId) {
-    LOGGER.debug(MIGRATING_AUTH, authId);
+  public static void logMigratingAuthorization(Authorization authorization) {
+    LOGGER.debug(MIGRATING_AUTH, authorization.getId(), ownerType(authorization), ownerId(authorization),
+        resourceTypeName(authorization), authorization.getResourceId());
   }
 
   public static void logMigratingChildAuthorization(String resourceId) {
@@ -74,12 +78,14 @@ public class IdentityMigratorLogs {
     LOGGER.debug(SUCCESSFULLY_MIGRATED_CHILD_AUTH, resourceId);
   }
 
-  public static void logMigratedAuthorization(String authId) {
-    LOGGER.info(SUCCESSFULLY_MIGRATED_AUTH, authId);
+  public static void logMigratedAuthorization(Authorization authorization) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_AUTH, authorization.getId(), ownerType(authorization), ownerId(authorization),
+        resourceTypeName(authorization), authorization.getResourceId());
   }
 
-  public static void logSkippedAuthorization(String authId, String reason) {
-    LOGGER.warn(SKIPPED_AUTH, authId, reason);
+  public static void logSkippedAuthorization(Authorization authorization, String reason) {
+    LOGGER.warn(SKIPPED_AUTH, authorization.getId(), ownerType(authorization), ownerId(authorization),
+        resourceTypeName(authorization), authorization.getResourceId(), reason);
   }
 
   public static void foundDefinitionsInDeployment(int count, String deploymentId) {
@@ -116,5 +122,17 @@ public class IdentityMigratorLogs {
 
   public static void logCannotMigrateTenantMembership(String tenantId, String type, String userOrGroupId, String reason) {
     LOGGER.warn(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
+  }
+
+  private static String ownerType(Authorization authorization) {
+    return StringUtils.isNotBlank(authorization.getUserId()) ? "user" : "group";
+  }
+
+  private static String ownerId(Authorization authorization) {
+    return StringUtils.isNotBlank(authorization.getUserId()) ? authorization.getUserId() : authorization.getGroupId();
+  }
+
+  private static String resourceTypeName(Authorization authorization) {
+    return ResourceTypeUtil.getResourceByType(authorization.getResourceType()).resourceName();
   }
 }

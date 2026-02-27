@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.qa.identity;
 
-import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_AUTH;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -170,7 +169,12 @@ public class IdentityTestHelper {
   }
 
   protected void verifyAuthorizationSkippedViaLogs(String authorizationId, String reason, LogCapturer logs) {
-    logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, reason));
+    assertThat(logs.getEvents())
+        .as("Expected a skip log for authorization [%s] with reason: %s", authorizationId, reason)
+        .anySatisfy(event -> {
+          assertThat(event.getMessage()).contains(authorizationId);
+          assertThat(event.getMessage()).contains(reason);
+        });
   }
 
   protected void verifyTenantSkippedViaLogs(String tenantId, LogCapturer logs) {
