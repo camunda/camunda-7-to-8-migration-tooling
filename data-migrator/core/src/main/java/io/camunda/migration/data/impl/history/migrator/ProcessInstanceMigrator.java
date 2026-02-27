@@ -91,6 +91,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
       var builder = new ProcessInstanceDbModelBuilder();
 
       Long processInstanceKey = getNextKey();
+      Long rootProcessInstanceKey = null;
       builder.processInstanceKey(processInstanceKey);
       if (processDefinitionKey != null) {
         builder.processDefinitionKey(processDefinitionKey);
@@ -113,6 +114,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         } else if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+            rootProcessInstanceKey = rootProcessInstance.processInstanceKey();
             builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
           }
         }
@@ -125,7 +127,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
       builder
           .historyCleanupDate(c8HistoryCleanupDate)
           .endDate(c8EndTime)
-          .treePath(generateTreepath(builder.build().rootProcessInstanceKey(), processInstanceKey));
+          .treePath(generateTreepath(rootProcessInstanceKey, processInstanceKey));
 
       ProcessInstanceDbModel dbModel = convert(C7Entity.of(c7ProcessInstance), builder);
 
@@ -180,7 +182,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
 
   /**
    * Generates a tree path for process instances in the format:
-   *    PI_rootProcessInstanceKey/processInstanceKey or
+   *    PI_rootProcessInstanceKey/PI_processInstanceKey or
    *    PI_processInstanceKey if this instance is the root of the hierarchy
    *
    * @param rootProcessInstanceKey the root process instance key
@@ -188,7 +190,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
    * @return the tree path string
    */
   public static String generateTreepath(Long rootProcessInstanceKey, Long processInstanceKey) {
-    return Objects.equals(rootProcessInstanceKey, processInstanceKey) ?
+    return rootProcessInstanceKey == null || Objects.equals(rootProcessInstanceKey, processInstanceKey) ?
         "PI_" + processInstanceKey :
         "PI_" + rootProcessInstanceKey + "/PI_" + processInstanceKey;
   }

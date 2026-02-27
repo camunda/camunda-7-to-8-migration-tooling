@@ -181,8 +181,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
-    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
-    historyMigrator.migrate();
+    historyMigrator.retry();
 
     // then
     List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
@@ -223,8 +222,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // Sub process should have rootProcessInstanceKey pointing to the parent
     assertThat(sub.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey());
-
-
+    
     // Verify that flow nodes also have rootProcessInstanceKey
     List<FlowNodeInstanceEntity> subFlowNodes = searchHistoricFlowNodes(sub.processInstanceKey());
     assertThat(subFlowNodes).isNotEmpty();
