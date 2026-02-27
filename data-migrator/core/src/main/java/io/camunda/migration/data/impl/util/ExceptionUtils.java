@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.util;
 
 import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.migration.data.exception.HistoryMigratorException;
 import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.exception.MigratorException;
@@ -72,16 +73,26 @@ public class ExceptionUtils {
     ExceptionContext context = EXCEPTION_CONTEXT.get();
     MigratorException exception;
 
+    boolean skipErrorLog = false;
     if (context == ExceptionContext.HISTORY) {
       exception = new HistoryMigratorException(message, e);
     } else if (context == ExceptionContext.IDENTITY) {
-      exception = new IdentityMigratorException(message, e);
-    } else {
+      if (e instanceof ProblemException pe) {
+        skipErrorLog = true;
+        exception = new IdentityMigratorException(pe.details().getDetail(), e);
+      } else  {
+        exception = new IdentityMigratorException(message, e);
+      }
+    } else if (context == ExceptionContext.RUNTIME) {
       // Default to RuntimeMigratorException
       exception = new RuntimeMigratorException(message, e);
+    } else {
+      throw new IllegalStateException("Unknown exception context: " + context);
     }
 
-    LOGGER.error(message, exception);
+    if (!skipErrorLog) {
+      LOGGER.error(message, exception);
+    }
     return exception;
   }
 
