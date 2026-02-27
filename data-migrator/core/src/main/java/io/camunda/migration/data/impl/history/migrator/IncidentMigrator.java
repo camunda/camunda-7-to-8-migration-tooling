@@ -156,7 +156,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   }
 
   /**
-   * Generates a tree path for incidents in the format: processInstanceKey/elementInstanceKey (if exists)
+   * Generates a tree path for incidents in the format: PI_processInstanceKey/FNI_elementInstanceKey (if the
+   * elementInstanceKey exists, otherwise PI_processInstanceKey)
    *
    * @param processInstanceKey the process instance key
    * @param elementInstanceKey the flow node instance key
@@ -164,7 +165,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    */
   public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
     return elementInstanceKey == null ?
-        "PI_" + processInstanceKey.toString() :
+        "PI_" + processInstanceKey :
         "PI_" + processInstanceKey + "/FNI_" + elementInstanceKey;
   }
 }

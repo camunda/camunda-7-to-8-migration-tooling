@@ -239,7 +239,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
-  // TODO
   public List<IncidentDbModel> searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {
     String sql = "SELECT INCIDENT_KEY, TREE_PATH, PROCESS_INSTANCE_KEY, FLOW_NODE_INSTANCE_KEY " +
                  "FROM INCIDENT WHERE PROCESS_INSTANCE_KEY = ?";
