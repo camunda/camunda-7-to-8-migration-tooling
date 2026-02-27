@@ -12,6 +12,7 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.impl.util.ResourceTypeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,13 +22,13 @@ public class IdentityMigratorLogs {
   protected static final Logger LOGGER = LoggerFactory.getLogger(IdentityMigrator.class);
 
   // Event log constants
-  public static final String MIGRATING_TENANT = "Migrating tenant [{}]";
+  public static final String MIGRATING_TENANT = "Migrating tenant [{}] (name: {})";
   public static final String MIGRATING_TENANT_MEMBERSHIPS = "Migrating tenant memberships for tenant [{}]";
   public static final String MIGRATING_TENANT_MEMBERSHIP = "Migrating tenant membership for tenant [{}] and {} [{}]";
   public static final String MIGRATED_TENANT_MEMBERSHIP = "Successfully migrated tenant membership for tenant [{}] and {} [{}]";
   public static final String CANNOT_MIGRATE_TENANT_MEMBERSHIP = "There was an error while migrating tenant membership for tenant [{}] and {} [{}]: {}";
-  public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}]";
-  public static final String SKIPPED_TENANT = "Tenant with ID [{}] was skipped";
+  public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}] (name: {})";
+  public static final String SKIPPED_TENANT = "Tenant with ID [{}] (name: {}) was skipped: {}";
   public static final String MIGRATING_AUTH = "Migrating authorization [{}] for {} [{}] on {} [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
@@ -53,16 +54,16 @@ public class IdentityMigratorLogs {
     LOGGER.info(STARTING_MIGRATION_OF_ENTITIES, type.name().toLowerCase());
   }
 
-  public static void logMigratingTenant(String tenantId) {
-    LOGGER.debug(MIGRATING_TENANT, tenantId);
+  public static void logMigratingTenant(Tenant tenant) {
+    LOGGER.debug(MIGRATING_TENANT, tenant.getId(), tenant.getName());
   }
 
-  public static void logMigratedTenant(String tenantId) {
-    LOGGER.info(SUCCESSFULLY_MIGRATED_TENANT, tenantId);
+  public static void logMigratedTenant(Tenant tenant) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_TENANT, tenant.getId(), tenant.getName());
   }
 
-  public static void logSkippedTenant(String tenantId) {
-    LOGGER.warn(SKIPPED_TENANT, tenantId);
+  public static void logSkippedTenant(Tenant tenant, String reason) {
+    LOGGER.warn(SKIPPED_TENANT, tenant.getId(), tenant.getName(), reason);
   }
 
   public static void logMigratingAuthorization(Authorization authorization) {

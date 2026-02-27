@@ -110,12 +110,12 @@ public class IdentityMigrator {
 
   protected void migrateTenant(Tenant tenant) {
     try {
-      IdentityMigratorLogs.logMigratingTenant(tenant.getId());
+      IdentityMigratorLogs.logMigratingTenant(tenant);
       c8Client.createTenant(tenant);
-      IdentityMigratorLogs.logMigratedTenant(tenant.getId());
+      IdentityMigratorLogs.logMigratedTenant(tenant);
       saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY);
     } catch (MigratorException e) {
-      markAsSkipped(IdKeyMapper.TYPE.TENANT, tenant.getId(), e.getMessage());
+      markAsSkipped(tenant, e.getMessage());
       return; // Only migrate memberships if tenant migration was successful
     }
     migrateTenantMemberships(tenant.getId());
@@ -177,19 +177,17 @@ public class IdentityMigrator {
     }
   }
 
-  protected void markAsSkipped(IdKeyMapper.TYPE type, String id, String reason) {
-    switch (type) {
-      case TENANT -> IdentityMigratorLogs.logSkippedTenant(id);
-    }
-    if (MIGRATE.equals(mode)) {
-      saveRecord(type, id, null);
-    }
-  }
-
   protected void markAsSkipped(Authorization authorization, String reason) {
     IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
     if (MIGRATE.equals(mode)) {
       saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
+    }
+  }
+
+  protected void markAsSkipped(Tenant tenant, String reason) {
+    IdentityMigratorLogs.logSkippedTenant(tenant, reason);
+    if (MIGRATE.equals(mode)) {
+      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), null);
     }
   }
 

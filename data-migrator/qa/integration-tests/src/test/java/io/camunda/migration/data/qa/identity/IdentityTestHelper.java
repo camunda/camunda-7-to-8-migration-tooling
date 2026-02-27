@@ -7,8 +7,6 @@
  */
 package io.camunda.migration.data.qa.identity;
 
-import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
-import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
@@ -178,7 +176,9 @@ public class IdentityTestHelper {
   }
 
   protected void verifyTenantSkippedViaLogs(String tenantId, LogCapturer logs) {
-    logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId));
+    assertThat(logs.getEvents())
+        .as("Expected a skip log for tenant [%s]", tenantId)
+        .anySatisfy(event -> assertThat(event.getMessage()).contains(tenantId));
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
