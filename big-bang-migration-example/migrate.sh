@@ -9,7 +9,8 @@
 #
 # Usage:
 #   ./migrate.sh              Run all migration steps (diagrams + code)
-#   ./migrate.sh --start-c7   Start the C7 app to inspect the process before migration
+#   ./migrate.sh --start-c7   Start the C7 app to inspect the process before migration (H2)
+#   ./migrate.sh --start-c7-postgres  Start the C7 app with PostgreSQL database
 #   ./migrate.sh --diagrams   Run diagram conversion only
 #   ./migrate.sh --code       Run code conversion only
 #   ./migrate.sh --data       Show data migration instructions
@@ -81,9 +82,20 @@ check_prerequisites() {
 # ─── Step 0: Start C7 App ──────────────────────────────────────────────────
 
 step_start_c7() {
+  local profile="${1:-}"
+
   banner "Step 0: Start Camunda 7 Invoice Application"
 
-  info "Starting the C7 invoice app with embedded engine and H2 database..."
+  if [ "$profile" = "postgres" ]; then
+    info "Starting the C7 invoice app with PostgreSQL database..."
+    info "Make sure PostgreSQL is running, e.g.:"
+    info "  docker run --name postgres -p 5432:5432 \\"
+    info "    -e POSTGRES_PASSWORD=camunda -e POSTGRES_USER=camunda \\"
+    info "    -e POSTGRES_DB=process-engine postgres:17"
+  else
+    info "Starting the C7 invoice app with embedded H2 database..."
+  fi
+  info ""
   info "Once started, open http://localhost:8080 (login: demo / demo)"
   info ""
   info "  Cockpit:  http://localhost:8080/camunda/app/cockpit/"
@@ -92,7 +104,11 @@ step_start_c7() {
   info "Press Ctrl+C to stop the application."
   echo ""
 
-  mvn spring-boot:run -f "$C7_DATA_GENERATOR_DIR/pom.xml"
+  if [ -n "$profile" ]; then
+    mvn spring-boot:run -f "$C7_DATA_GENERATOR_DIR/pom.xml" -Dspring-boot.run.profiles="$profile"
+  else
+    mvn spring-boot:run -f "$C7_DATA_GENERATOR_DIR/pom.xml"
+  fi
 }
 
 # ─── Step 1: Diagram Conversion ────────────────────────────────────────────
@@ -196,6 +212,9 @@ case "${1:-}" in
   --start-c7)
     step_start_c7
     ;;
+  --start-c7-postgres)
+    step_start_c7 postgres
+    ;;
   --diagrams)
     check_prerequisites
     step_diagrams
@@ -213,7 +232,8 @@ case "${1:-}" in
     echo ""
     echo "Options:"
     echo "  (no args)     Run all migration steps (diagrams + code + data instructions)"
-    echo "  --start-c7    Start the Camunda 7 app to inspect the process before migration"
+    echo "  --start-c7    Start the Camunda 7 app with H2 database"
+    echo "  --start-c7-postgres  Start the Camunda 7 app with PostgreSQL database"
     echo "  --build       Build prerequisites first, then run all steps"
     echo "  --diagrams    Run diagram conversion only (BPMN/DMN)"
     echo "  --code        Run code conversion only (JavaDelegate -> @JobWorker)"

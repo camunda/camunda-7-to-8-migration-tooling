@@ -55,10 +55,11 @@ cd big-bang-migration-example
 The script supports running individual steps:
 
 ```bash
-./migrate.sh --start-c7   # Step 0: start C7 app to inspect the process before migration
-./migrate.sh --diagrams   # Step 1 only: convert BPMN/DMN
-./migrate.sh --code       # Step 2 only: convert Java code
-./migrate.sh --data       # Step 3: show data migration instructions
+./migrate.sh --start-c7            # Step 0: start C7 app with H2 database
+./migrate.sh --start-c7-postgres   # Step 0: start C7 app with PostgreSQL
+./migrate.sh --diagrams            # Step 1 only: convert BPMN/DMN
+./migrate.sh --code                # Step 2 only: convert Java code
+./migrate.sh --data                # Step 3: show data migration instructions
 ```
 
 ## Prerequisites
@@ -88,6 +89,24 @@ This starts a Spring Boot application with an embedded Camunda 7 engine, H2 data
 The application deploys both invoice process versions (v1 and v2), the DMN decision table, and the review subprocess. It also creates demo users (demo, john, mary, peter) and starts sample process instances.
 
 Press `Ctrl+C` to stop the application. The H2 database is persisted to `c7-data-generator/camunda-h2-database` and can be used as a source for the data-migrator in step 3.
+
+#### Using PostgreSQL instead of H2
+
+To use a PostgreSQL database (recommended for data migration testing), start a PostgreSQL container first:
+
+```bash
+docker run --name postgres -p 5432:5432 \
+  -e POSTGRES_PASSWORD=camunda -e POSTGRES_USER=camunda \
+  -e POSTGRES_DB=process-engine postgres:17
+```
+
+Then start the C7 app with the `postgres` profile:
+
+```bash
+./migrate.sh --start-c7-postgres
+```
+
+The PostgreSQL database can then be used directly as the source for the data-migrator in step 3 by pointing `camunda.migrator.c7.data-source.jdbc-url` to `jdbc:postgresql://localhost:5432/process-engine`.
 
 ### Step 1: Convert Diagrams
 
