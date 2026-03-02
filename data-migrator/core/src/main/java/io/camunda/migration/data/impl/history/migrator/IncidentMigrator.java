@@ -8,9 +8,11 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 
@@ -31,6 +33,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.engine.runtime.Incident;
 import org.springframework.stereotype.Service;
 
 /**
@@ -93,7 +96,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
-          //          .jobKey(jobDefinitionKey) // TODO when jobs are migrated
+          resolveJobKey(c7Incident, builder);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -127,8 +130,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         }
       }
 
-      if (dbModel.jobKey() == null) {
-        //      throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE); // TODO when jobs are migrated
+      if (dbModel.jobKey() == null && Incident.EXTERNAL_TASK_HANDLER_TYPE.equals(c7Incident.getIncidentType())) {
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
       }
       c8Client.insertIncident(dbModel);
 
@@ -136,6 +139,28 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
     }
 
     return null;
+  }
+
+  /**
+   * Resolves the job key for an external task incident.
+   *
+   * <p>For incidents of type {@link Incident#EXTERNAL_TASK_HANDLER_TYPE}, the external task ID
+   * is stored in the incident's configuration field. This method looks up the migrated job key
+   * using that external task ID.
+   *
+   * @param c7Incident the historic incident from Camunda 7
+   * @param builder the incident db model builder to set the job key on
+   */
+  protected void resolveJobKey(HistoricIncident c7Incident, Builder builder) {
+    if (!Incident.EXTERNAL_TASK_HANDLER_TYPE.equals(c7Incident.getIncidentType())) {
+      return;
+    }
+    String externalTaskId = c7Incident.getConfiguration();
+    if (externalTaskId == null) {
+      return;
+    }
+    Long jobKey = dbClient.findC8KeyByC7IdAndType(externalTaskId, HISTORY_EXTERNAL_TASK);
+    builder.jobKey(jobKey);
   }
 
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {

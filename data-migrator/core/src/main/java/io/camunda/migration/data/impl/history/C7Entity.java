@@ -12,6 +12,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.*;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
@@ -46,6 +47,7 @@ public class C7Entity<C7> {
       case HistoricTaskInstance c7TaskInstance -> of(c7TaskInstance);
       case HistoricVariableInstance c7VariableInstance -> of(c7VariableInstance);
       case UserOperationLogEntry userOperationLogEntry -> of(userOperationLogEntry);
+      case HistoricExternalTaskLog c7ExternalTaskLog -> of(c7ExternalTaskLog);
       default -> throw new IllegalArgumentException("Unsupported C7 entity type: " + c7.getClass().getName());
     };
   }
@@ -102,6 +104,12 @@ public class C7Entity<C7> {
 
   public static C7Entity<HistoricVariableInstance> of(HistoricVariableInstance c7Entity) {
     return new C7Entity<>(c7Entity.getId(), c7Entity.getCreateTime(), c7Entity);
+  }
+
+  public static C7Entity<HistoricExternalTaskLog> of(HistoricExternalTaskLog c7Entity) {
+    C7Entity<HistoricExternalTaskLog> entity = new C7Entity<>(c7Entity.getExternalTaskId(), c7Entity.getTimestamp(), c7Entity);
+    entity.setType(TYPE.HISTORY_EXTERNAL_TASK);
+    return entity;
   }
 
   public String getId() {
