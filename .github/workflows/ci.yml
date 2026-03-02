@@ -52,7 +52,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload distro
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: distro
@@ -129,7 +129,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload code-conversion artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: code-conversion
@@ -179,7 +179,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload diagram-converter artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: diagram-converter
@@ -976,7 +976,7 @@ jobs:
           CI: true
 
       - name: Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -984,7 +984,7 @@ jobs:
           retention-days: 7
 
       - name: Upload screenshots
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-screenshots
