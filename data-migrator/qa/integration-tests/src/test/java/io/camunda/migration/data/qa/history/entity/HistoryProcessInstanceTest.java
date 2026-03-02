@@ -173,6 +173,32 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldPopulateTreePathForCallActivity() {
+    // given
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    runtimeService.startProcessInstanceByKey("callingProcessId");
+
+    // when
+    historyMigrator.migrate();
+    historyMigrator.retry();
+
+    // then
+    List<ProcessInstanceEntity> parentProcessInstances = searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> subProcessInstances = searchHistoricProcessInstances("calledProcessInstanceId");
+    assertThat(parentProcessInstances).hasSize(1);
+    assertThat(subProcessInstances).hasSize(1);
+
+    ProcessInstanceEntity parent = parentProcessInstances.getFirst();
+    ProcessInstanceEntity sub = subProcessInstances.getFirst();
+
+    assertThat(parent.treePath()).isNotNull().isEqualTo("PI_" + parent.processInstanceKey());
+
+    assertThat(sub.treePath()).isNotNull()
+        .isEqualTo("PI_" + parent.processInstanceKey() + "/PI_" + sub.processInstanceKey());
+  }
+
+  @Test
   public void shouldPopulateRootProcessInstanceKeyForCallActivity() {
     // given
     deployer.deployCamunda7Process("callActivityProcess.bpmn");
@@ -196,7 +222,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     // Sub process should have rootProcessInstanceKey pointing to the parent
     assertThat(sub.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey());
-
+    
     // Verify that flow nodes also have rootProcessInstanceKey
     List<FlowNodeInstanceEntity> subFlowNodes = searchHistoricFlowNodes(sub.processInstanceKey());
     assertThat(subFlowNodes).isNotEmpty();
@@ -310,7 +336,13 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     }
 
     assertThat(processInstance.hasIncident()).isEqualTo(hasIncidents);
-    assertThat(processInstance.treePath()).isNull();
+
+    assertThat(processInstance.treePath()).isNotNull();
+    if (hasParent) {
+      assertThat(processInstance.treePath()).matches("PI_\\d+/PI_" + processInstance.processInstanceKey());
+    } else {
+      assertThat(processInstance.treePath()).isEqualTo("PI_" + processInstance.processInstanceKey());
+    }
   }
 
   @Test

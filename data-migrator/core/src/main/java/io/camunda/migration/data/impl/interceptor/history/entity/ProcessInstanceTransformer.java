@@ -44,7 +44,6 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
         .tenantId(getTenantId(entity.getTenantId()))
         .version(entity.getProcessDefinitionVersion())
         .tags(getDefaultTags(entity))
-        .treePath(null)
         .numIncidents(0)
         .partitionId(C7_HISTORY_PARTITION_ID);
   }
