@@ -8,6 +8,7 @@
 
 package io.camunda.migration.data.qa;
 
+import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.qa.util.ProcessDefinitionDeployer;
 import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.migration.data.qa.util.WithMultiDb;
@@ -35,6 +36,10 @@ public class AbstractMigratorTest {
 
   @Autowired
   protected ProcessDefinitionDeployer deployer;
+
+
+  @Autowired
+  protected C7Client c7Client;
 
   // C7 ---------------------------------------
 

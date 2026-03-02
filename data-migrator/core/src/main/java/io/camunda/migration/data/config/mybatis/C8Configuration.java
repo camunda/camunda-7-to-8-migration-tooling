@@ -10,7 +10,6 @@ package io.camunda.migration.data.config.mybatis;
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
-import io.camunda.db.rdbms.read.RdbmsReaderConfig;
 import io.camunda.db.rdbms.read.service.AuditLogDbReader;
 import io.camunda.db.rdbms.read.service.AuthorizationDbReader;
 import io.camunda.db.rdbms.read.service.BatchOperationDbReader;
@@ -21,7 +20,6 @@ import io.camunda.db.rdbms.read.service.DecisionInstanceDbReader;
 import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
 import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
 import io.camunda.db.rdbms.read.service.FormDbReader;
-import io.camunda.db.rdbms.read.service.GlobalListenerDbReader;
 import io.camunda.db.rdbms.read.service.GroupDbReader;
 import io.camunda.db.rdbms.read.service.GroupMemberDbReader;
 import io.camunda.db.rdbms.read.service.HistoryDeletionDbReader;
@@ -58,7 +56,6 @@ import io.camunda.db.rdbms.sql.DecisionRequirementsMapper;
 import io.camunda.db.rdbms.sql.ExporterPositionMapper;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.FormMapper;
-import io.camunda.db.rdbms.sql.GlobalListenerMapper;
 import io.camunda.db.rdbms.sql.GroupMapper;
 import io.camunda.db.rdbms.sql.HistoryDeletionMapper;
 import io.camunda.db.rdbms.sql.IncidentMapper;
@@ -249,11 +246,6 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public MapperFactoryBean<GlobalListenerMapper> globalListenerMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
-    return createMapperFactoryBean(c8SqlSessionFactory, GlobalListenerMapper.class);
-  }
-
-  @Bean
   public MapperFactoryBean<MappingRuleMapper> mappingMapper(@Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory) {
     return createMapperFactoryBean(c8SqlSessionFactory, MappingRuleMapper.class);
   }
@@ -309,136 +301,126 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public RdbmsReaderConfig rdbmsReaderConfig() {
-    return new RdbmsReaderConfig(RdbmsReaderConfig.DEFAULT_MAX_TOTAL_HITS);
+  public VariableDbReader variableRdbmsReader(VariableMapper variableMapper) {
+    return new VariableDbReader(variableMapper);
   }
 
   @Bean
-  public VariableDbReader variableRdbmsReader(VariableMapper variableMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new VariableDbReader(variableMapper, rdbmsReaderConfig);
+  public ClusterVariableDbReader clusterVariableRdbmsReader(ClusterVariableMapper clusterVariableMapper) {
+    return new ClusterVariableDbReader(clusterVariableMapper);
   }
 
   @Bean
-  public ClusterVariableDbReader clusterVariableRdbmsReader(ClusterVariableMapper clusterVariableMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ClusterVariableDbReader(clusterVariableMapper, rdbmsReaderConfig);
+  public AuthorizationDbReader authorizationReader(AuthorizationMapper authorizationMapper) {
+    return new AuthorizationDbReader(authorizationMapper);
   }
 
   @Bean
-  public AuthorizationDbReader authorizationReader(AuthorizationMapper authorizationMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new AuthorizationDbReader(authorizationMapper, rdbmsReaderConfig);
-  }
-
-  @Bean
-  public AuditLogDbReader auditLogReader(AuditLogMapper auditLogMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new AuditLogDbReader(auditLogMapper, rdbmsReaderConfig);
+  public AuditLogDbReader auditLogReader(AuditLogMapper auditLogMapper) {
+    return new AuditLogDbReader(auditLogMapper);
   }
 
   @Bean
   public DecisionDefinitionDbReader decisionDefinitionReader(
-      DecisionDefinitionMapper decisionDefinitionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new DecisionDefinitionDbReader(decisionDefinitionMapper, rdbmsReaderConfig);
+      DecisionDefinitionMapper decisionDefinitionMapper) {
+    return new DecisionDefinitionDbReader(decisionDefinitionMapper);
   }
 
   @Bean
   public DecisionInstanceDbReader decisionInstanceReader(
-      DecisionInstanceMapper decisionInstanceMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new DecisionInstanceDbReader(decisionInstanceMapper, rdbmsReaderConfig);
+      DecisionInstanceMapper decisionInstanceMapper) {
+    return new DecisionInstanceDbReader(decisionInstanceMapper);
   }
 
   @Bean
   public DecisionRequirementsDbReader decisionRequirementsReader(
-      DecisionRequirementsMapper decisionRequirementsMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new DecisionRequirementsDbReader(decisionRequirementsMapper, rdbmsReaderConfig);
+      DecisionRequirementsMapper decisionRequirementsMapper) {
+    return new DecisionRequirementsDbReader(decisionRequirementsMapper);
   }
 
   @Bean
   public FlowNodeInstanceDbReader flowNodeInstanceReader(
-      FlowNodeInstanceMapper flowNodeInstanceMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new FlowNodeInstanceDbReader(flowNodeInstanceMapper, rdbmsReaderConfig);
+      FlowNodeInstanceMapper flowNodeInstanceMapper) {
+    return new FlowNodeInstanceDbReader(flowNodeInstanceMapper);
   }
 
   @Bean
-  public GroupDbReader groupReader(GroupMapper groupMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new GroupDbReader(groupMapper, rdbmsReaderConfig);
+  public GroupDbReader groupReader(GroupMapper groupMapper) {
+    return new GroupDbReader(groupMapper);
   }
 
   @Bean
-  public IncidentDbReader incidentReader(IncidentMapper incidentMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new IncidentDbReader(incidentMapper, rdbmsReaderConfig);
+  public IncidentDbReader incidentReader(IncidentMapper incidentMapper) {
+    return new IncidentDbReader(incidentMapper);
   }
 
   @Bean
   public ProcessDefinitionDbReader processDeploymentRdbmsReader(
-      ProcessDefinitionMapper processDefinitionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ProcessDefinitionDbReader(processDefinitionMapper, rdbmsReaderConfig);
+      ProcessDefinitionMapper processDefinitionMapper) {
+    return new ProcessDefinitionDbReader(processDefinitionMapper);
   }
 
   @Bean
   public ProcessInstanceDbReader processRdbmsReader(
-      ProcessInstanceMapper processInstanceMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ProcessInstanceDbReader(processInstanceMapper, rdbmsReaderConfig);
+      ProcessInstanceMapper processInstanceMapper) {
+    return new ProcessInstanceDbReader(processInstanceMapper);
   }
 
   @Bean
-  public TenantDbReader tenantReader(TenantMapper tenantMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new TenantDbReader(tenantMapper, rdbmsReaderConfig);
+  public TenantDbReader tenantReader(TenantMapper tenantMapper) {
+    return new TenantDbReader(tenantMapper);
   }
 
   @Bean
-  public UserDbReader userRdbmsReader(UserMapper userTaskMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new UserDbReader(userTaskMapper, rdbmsReaderConfig);
+  public UserDbReader userRdbmsReader(UserMapper userTaskMapper) {
+    return new UserDbReader(userTaskMapper);
   }
 
   @Bean
-  public RoleDbReader roleRdbmsReader(RoleMapper roleMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new RoleDbReader(roleMapper, rdbmsReaderConfig);
+  public RoleDbReader roleRdbmsReader(RoleMapper roleMapper) {
+    return new RoleDbReader(roleMapper);
   }
 
   @Bean
-  public UserTaskDbReader userTaskRdbmsReader(UserTaskMapper userTaskMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new UserTaskDbReader(userTaskMapper, rdbmsReaderConfig);
+  public UserTaskDbReader userTaskRdbmsReader(UserTaskMapper userTaskMapper) {
+    return new UserTaskDbReader(userTaskMapper);
   }
 
   @Bean
-  public FormDbReader formRdbmsReader(FormMapper formMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new FormDbReader(formMapper, rdbmsReaderConfig);
+  public FormDbReader formRdbmsReader(FormMapper formMapper) {
+    return new FormDbReader(formMapper);
   }
 
   @Bean
-  public GlobalListenerDbReader globalListenerReader(GlobalListenerMapper globalListenerMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new GlobalListenerDbReader(globalListenerMapper, rdbmsReaderConfig);
-  }
-
-  @Bean
-  public MappingRuleDbReader mappingRdbmsReader(MappingRuleMapper mappingMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new MappingRuleDbReader(mappingMapper, rdbmsReaderConfig);
+  public MappingRuleDbReader mappingRdbmsReader(MappingRuleMapper mappingMapper) {
+    return new MappingRuleDbReader(mappingMapper);
   }
 
   @Bean
   public BatchOperationDbReader batchOperationReader(
-      BatchOperationMapper batchOperationMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new BatchOperationDbReader(batchOperationMapper, rdbmsReaderConfig);
+      BatchOperationMapper batchOperationMapper) {
+    return new BatchOperationDbReader(batchOperationMapper);
   }
 
   @Bean
   public BatchOperationItemDbReader batchOperationItemReader(
-      BatchOperationMapper batchOperationMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new BatchOperationItemDbReader(batchOperationMapper, rdbmsReaderConfig);
+      BatchOperationMapper batchOperationMapper) {
+    return new BatchOperationItemDbReader(batchOperationMapper);
   }
 
   @Bean
-  public JobDbReader jobReader(JobMapper jobMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new JobDbReader(jobMapper, rdbmsReaderConfig);
+  public JobDbReader jobReader(JobMapper jobMapper) {
+    return new JobDbReader(jobMapper);
   }
 
   @Bean
-  public JobMetricsBatchDbReader jobMetricsBatchDbReader(JobMetricsBatchMapper jobMetricsBatchMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new JobMetricsBatchDbReader(jobMetricsBatchMapper, rdbmsReaderConfig);
+  public JobMetricsBatchDbReader jobMetricsBatchDbReader(JobMetricsBatchMapper jobMetricsBatchMapper) {
+    return new JobMetricsBatchDbReader(jobMetricsBatchMapper);
   }
 
   @Bean
-  public SequenceFlowDbReader sequenceFlowReader(SequenceFlowMapper sequenceFlowMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new SequenceFlowDbReader(sequenceFlowMapper, rdbmsReaderConfig);
+  public SequenceFlowDbReader sequenceFlowReader(SequenceFlowMapper sequenceFlowMapper) {
+    return new SequenceFlowDbReader(sequenceFlowMapper);
   }
 
   @Bean
@@ -452,43 +434,43 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public MessageSubscriptionDbReader messageSubscriptionDbReader(MessageSubscriptionMapper messageSubscriptionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new MessageSubscriptionDbReader(messageSubscriptionMapper, rdbmsReaderConfig);
+  public MessageSubscriptionDbReader messageSubscriptionDbReader(MessageSubscriptionMapper messageSubscriptionMapper) {
+    return new MessageSubscriptionDbReader(messageSubscriptionMapper);
   }
 
   @Bean
-  public ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader(MessageSubscriptionMapper messageSubscriptionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ProcessDefinitionMessageSubscriptionStatisticsDbReader(messageSubscriptionMapper, rdbmsReaderConfig);
+  public ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader( MessageSubscriptionMapper messageSubscriptionMapper) {
+    return new ProcessDefinitionMessageSubscriptionStatisticsDbReader(messageSubscriptionMapper);
   }
 
   @Bean
-  public CorrelatedMessageSubscriptionDbReader correlatedMessageReader(CorrelatedMessageSubscriptionMapper correlatedMessageMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new CorrelatedMessageSubscriptionDbReader(correlatedMessageMapper, rdbmsReaderConfig);
+  public CorrelatedMessageSubscriptionDbReader correlatedMessageReader(CorrelatedMessageSubscriptionMapper correlatedMessageMapper) {
+    return new CorrelatedMessageSubscriptionDbReader(correlatedMessageMapper);
   }
 
   @Bean
-  public ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsReader(ProcessDefinitionMapper processDefinitionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ProcessDefinitionInstanceStatisticsDbReader(processDefinitionMapper, rdbmsReaderConfig);
+  public ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
+    return new ProcessDefinitionInstanceStatisticsDbReader(processDefinitionMapper);
   }
 
   @Bean
-  public ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsReader(ProcessDefinitionMapper processDefinitionMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new ProcessDefinitionInstanceVersionStatisticsDbReader(processDefinitionMapper, rdbmsReaderConfig);
+  public ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsReader(ProcessDefinitionMapper processDefinitionMapper) {
+    return new ProcessDefinitionInstanceVersionStatisticsDbReader(processDefinitionMapper);
   }
 
   @Bean
-  public GroupMemberDbReader groupMemberReader(GroupMapper groupMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new GroupMemberDbReader(groupMapper, rdbmsReaderConfig);
+  public GroupMemberDbReader groupMemberReader(GroupMapper groupMapper) {
+    return new GroupMemberDbReader(groupMapper);
   }
 
   @Bean
-  public RoleMemberDbReader roleMemberReader(RoleMapper roleMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new RoleMemberDbReader(roleMapper, rdbmsReaderConfig);
+  public RoleMemberDbReader roleMemberReader(RoleMapper roleMapper) {
+    return new RoleMemberDbReader(roleMapper);
   }
 
   @Bean
-  public TenantMemberDbReader tenantMemberReader(TenantMapper tenantMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new TenantMemberDbReader(tenantMapper, rdbmsReaderConfig);
+  public TenantMemberDbReader tenantMemberReader(TenantMapper tenantMapper) {
+    return new TenantMemberDbReader(tenantMapper);
   }
 
   @Bean
@@ -497,13 +479,13 @@ public class C8Configuration extends AbstractConfiguration {
   }
 
   @Bean
-  public IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader(IncidentMapper incidentMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new IncidentProcessInstanceStatisticsByErrorDbReader(incidentMapper, rdbmsReaderConfig);
+  public IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader(IncidentMapper incidentMapper) {
+    return new IncidentProcessInstanceStatisticsByErrorDbReader(incidentMapper);
   }
 
   @Bean
-  public IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader(IncidentMapper incidentMapper, RdbmsReaderConfig rdbmsReaderConfig) {
-    return new IncidentProcessInstanceStatisticsByDefinitionDbReader(incidentMapper, rdbmsReaderConfig);
+  public IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader(IncidentMapper incidentMapper) {
+    return new IncidentProcessInstanceStatisticsByDefinitionDbReader(incidentMapper);
   }
 
   @Bean
@@ -601,8 +583,7 @@ public class C8Configuration extends AbstractConfiguration {
       ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
       HistoryDeletionDbReader historyDeletionReader,
       IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
-      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader,
-      GlobalListenerDbReader globalListenerReader) {
+      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader) {
     return new RdbmsService(
         rdbmsWriterFactory,
         auditLogReader,
@@ -640,8 +621,7 @@ public class C8Configuration extends AbstractConfiguration {
         processDefinitionInstanceVersionStatisticsDbReader,
         historyDeletionReader,
         incidentProcessInstanceStatisticsByErrorDbReader,
-        incidentProcessInstanceStatisticsByDefinitionDbReader,
-        globalListenerReader);
+        incidentProcessInstanceStatisticsByDefinitionDbReader);
   }
 
 }

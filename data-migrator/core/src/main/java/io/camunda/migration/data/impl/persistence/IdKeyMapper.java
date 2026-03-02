@@ -48,7 +48,6 @@ public interface IdKeyMapper {
   );
 
   enum TYPE {
-    // history
     HISTORY_PROCESS_DEFINITION("Historic Process Definition"),
     HISTORY_PROCESS_INSTANCE("Historic Process Instance"),
     HISTORY_INCIDENT("Historic Incident"),
@@ -62,10 +61,8 @@ public interface IdKeyMapper {
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
     HISTORY_EXTERNAL_TASK("Historic External Task"),
 
-    // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
-    // identity
     TENANT("Tenant"),
     AUTHORIZATION("Authorization");
 
@@ -114,9 +111,7 @@ public interface IdKeyMapper {
 
   void insert(IdKeyDbModel idKeyDbModel);
 
-  List<IdKeyDbModel> findSkippedByTypeWithOffset(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
-
-  List<IdKeyDbModel> findSkippedByTypeWithCursor(@Param("type") TYPE type, @Param("lastId") String lastId, @Param("limit") int limit);
+  List<IdKeyDbModel> findSkippedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 

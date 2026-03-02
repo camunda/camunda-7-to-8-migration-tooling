@@ -27,13 +27,8 @@
     WHERE TYPE = #{type} AND C8_KEY IS NULL
   </select>
 
-  <select id="findSkippedByTypeWithOffset" resultMap="idKeyResultMap">
-    <bind name="pagination" value="'offset'"/>
-    <include refid="findSkippedByQueryCriteriaSql"/>
-  </select>
-
-  <select id="findSkippedByTypeWithCursor" resultMap="idKeyResultMap">
-    <bind name="pagination" value="'cursor'"/>
+  <!-- countMigratedByType is used for testing and by the migrator cockpit plugin -->
+  <select id="findSkippedByType" resultMap="idKeyResultMap">
     <include refid="findSkippedByQueryCriteriaSql"/>
   </select>
 
@@ -48,28 +43,14 @@
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NOT NULL
     ORDER BY C7_ID
-    <if test="limit != null &amp;&amp; offset != null">
-      ${offsetPagination}
-    </if>
+    <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </select>
 
   <sql id="findSkippedByQueryCriteriaSql">
     SELECT C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON FROM ${prefix}MIGRATION_MAPPING
     WHERE TYPE = #{type} AND C8_KEY IS NULL
-    <if test="pagination == 'cursor'">
-      <if test="lastId != null">
-        AND C7_ID > #{lastId, jdbcType=VARCHAR}
-      </if>
-    </if>
     ORDER BY C7_ID
-    <choose>
-      <when test="pagination == 'offset'">
-        ${offsetPagination}
-      </when>
-      <when test="pagination == 'cursor'">
-        ${limitPagination}
-      </when>
-    </choose>
+    <include refid="io.camunda.migration.data.Commons.pageSql"/>
   </sql>
 
   <select id="findAllC7Ids">
@@ -107,16 +88,14 @@
   <select id="findLatestCreateTimeByType" parameterType="java.lang.String">
     <!-- No need to order with two criteria since we limit result to return exactly one create time -->
     SELECT CREATE_TIME FROM ${prefix}MIGRATION_MAPPING WHERE TYPE = '${type}' ORDER BY CREATE_TIME DESC
-    <bind name="limit" value="1"/>
-    ${limitPagination}
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
   <select id="findC8KeyByC7IdAndType" resultType="java.lang.Long">
     SELECT C8_KEY FROM ${prefix}MIGRATION_MAPPING
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
     ORDER BY C7_ID
-    <bind name="limit" value="1"/>
-    ${limitPagination}
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
   <insert
@@ -134,8 +113,7 @@
 
   <select id="findLatestIdByType" parameterType="java.lang.String">
     SELECT C7_ID FROM ${prefix}MIGRATION_MAPPING WHERE TYPE = '${type}' ORDER BY C7_ID DESC
-    <bind name="limit" value="1"/>
-    ${limitPagination}
+    <include refid="io.camunda.migration.data.Commons.singleResultSql"/>
   </select>
 
 

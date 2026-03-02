@@ -15,15 +15,6 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,9 +70,9 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(userTaskIds).hasSize(5);
 
     // when
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
-    historyMigrator.migrateByType(HISTORY_USER_TASK);
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks();
 
     // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
@@ -93,7 +84,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Verify all 5 specific user tasks were skipped
     for (String taskId : userTaskIds) {
-      logs.assertContains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+      logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
     }
   }
 
@@ -104,14 +95,14 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
 
     // Migrate instances without definition (real-world skip scenario)
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateProcessInstances();
     
     // Verify the instance was skipped
     logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(), processInstance.getId(), SKIP_REASON_MISSING_PROCESS_DEFINITION));
 
     // Now migrate with definition - already skipped instance should not be reprocessed
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
 
     // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
@@ -135,12 +126,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     taskService.complete(task.getId());
 
     // when
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_USER_TASK);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks();
 
     // then
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -152,10 +143,10 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     taskService.complete(task.getId());
 
     // when
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_USER_TASK);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_USER_TASK);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateUserTasks();
 
     // then
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
@@ -166,7 +157,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // and verify logs don't contain any additional skip operations for this process instance
     assertThat(logs.getEvents()
         .stream()
-        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE)))
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE)))
         .toList()
         ).hasSize(1); // Only the first skip from phase 1
   }
@@ -194,12 +185,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
 
     // when: Migrate incidents WITHOUT process instances (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_INCIDENT); // Skips due to missing process instance
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateIncidents(); // Skips due to missing process instance
 
     // then: Incidents are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("failingServiceTaskProcessId")).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -224,12 +215,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
 
     // First migration: Migrate incidents WITHOUT process instances (skipps with a real-world scenario)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_INCIDENT); // Skips due to missing process instance
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateIncidents(); // Skips due to missing process instance
 
     // Second migration: Migrate process instances, but already-skipped incident should not be reprocessed
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_INCIDENT);
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateIncidents();
 
     // then: Process instance was migrated but incident remains skipped
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
@@ -240,7 +231,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // and verify logs don't contain any additional skip operations for this process instance
     assertThat(logs.getEvents()
         .stream()
-        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE)))
+        .filter(event -> event.getMessage().contains(formatMessage(SKIPPING, TYPE.HISTORY_INCIDENT.getDisplayName(), incidentId, SKIP_REASON_MISSING_PROCESS_INSTANCE)))
         .toList()
         ).hasSize(1); // Only the first skip from phase 1
   }
@@ -265,7 +256,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     }
 
     // and manually mark the job as skipped
-    dbClient.insert(job.getId(), null, HISTORY_FLOW_NODE);
+    dbClient.insert(job.getId(), null, TYPE.HISTORY_FLOW_NODE);
 
     // when history is migrated
     historyMigrator.migrate();
@@ -277,7 +268,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
 
     // verify the incident was skipped
-    assertThat(dbClient.countSkippedByType(HISTORY_INCIDENT)).isEqualTo(1);
+    assertThat(dbClient.countSkippedByType(TYPE.HISTORY_INCIDENT)).isEqualTo(1);
   }
 
   @Test
@@ -295,15 +286,15 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(variableIds).isNotEmpty();
 
     // when: Migrate variables WITHOUT process instances (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_VARIABLE); // Skips due to missing process instance
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateVariables(); // Skips due to missing process instance
 
     // then: Variables are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricProcessInstances("userTaskProcessId")).isEmpty();
 
     // Verify all variables were skipped
     for (String variableId : variableIds) {
-      logs.assertContains(formatMessage(SKIPPING, HISTORY_VARIABLE.getDisplayName(), variableId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+      logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_VARIABLE.getDisplayName(), variableId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
     }
   }
 
@@ -323,17 +314,17 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(variableIds).hasSize(2);
 
     // First migration: Migrate variables WITHOUT process instances (skipps with a real-world scenario)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_VARIABLE); // All variables skip due to missing process instance
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateVariables(); // All variables skip due to missing process instance
 
     // Verify all variables were skipped
     for (String variableId : variableIds) {
-      logs.assertContains(formatMessage(SKIPPING, HISTORY_VARIABLE.getDisplayName(), variableId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+      logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_VARIABLE.getDisplayName(), variableId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
     }
 
     // Second migration: Migrate process instances and variables again
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_VARIABLE); // Already skipped variables should not be reprocessed
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateVariables(); // Already skipped variables should not be reprocessed
 
     // then: Process instance was migrated but variables remain skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
@@ -361,17 +352,17 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var taskVariable = historyService.createHistoricVariableInstanceQuery().taskIdIn(taskId).singleResult();
 
     // when: Migrate user tasks and variables WITHOUT process instances (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_USER_TASK); // Skips due to missing process instance
-    historyMigrator.migrateByType(HISTORY_VARIABLE); // Also skips
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateUserTasks(); // Skips due to missing process instance
+    historyMigrator.migrateVariables(); // Also skips
 
     // then: Process instance was not migrated, task and its variables were skipped
     var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(historicProcesses).hasSize(0);
 
     // Verify task and variable were skipped
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_VARIABLE.getDisplayName(), taskVariable.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), taskId, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_VARIABLE.getDisplayName(), taskVariable.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -400,16 +391,16 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(serviceTaskVariable).isNotNull();
 
     // when: Migrate flow nodes and variables WITHOUT process instances (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE); // Skips due to missing process instance
-    historyMigrator.migrateByType(HISTORY_VARIABLE); // Also skips
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateFlowNodes(); // Skips due to missing process instance
+    historyMigrator.migrateVariables(); // Also skips
 
     // then: Process instance was not migrated, service task and variable were skipped
     var historicProcesses = searchHistoricProcessInstances("serviceTaskWithInputMappingProcessId");
     assertThat(historicProcesses).hasSize(0);
 
     // Verify variable was skipped
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_VARIABLE.getDisplayName(), serviceTaskVariable.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_VARIABLE.getDisplayName(), serviceTaskVariable.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -425,7 +416,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // when: Migrate decision definitions WITHOUT migrating requirements first
     // This creates a real-world skip scenario - definitions can't migrate without their parent requirements
-    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
+    historyMigrator.migrateDecisionDefinitions();
 
     // then: Decision definitions are skipped with a real-world scenario due to missing requirements
     assertThat(searchHistoricDecisionDefinitions("simpleDmnWithReqs1Id")).isEmpty();
@@ -433,7 +424,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     // Verify all 2 specific decision definitions were skipped
     for (String definitionId : decisionDefinitionIds) {
-      logs.assertContains(formatMessage(SKIPPING, HISTORY_DECISION_DEFINITION.getDisplayName(), definitionId, SKIP_REASON_MISSING_DECISION_REQUIREMENTS));
+      logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(), definitionId, SKIP_REASON_MISSING_DECISION_REQUIREMENTS));
     }
   }
 
@@ -447,8 +438,8 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
     // when: Migrate decision instances WITHOUT decision definitions (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE); // Skips due to missing decision definition
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing decision definition
 
     // then: Decision instances are skipped with a real-world scenario due to missing decision definition
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
@@ -469,8 +460,8 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
     // when: Migrate decision instances WITHOUT process definitions (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE); // Skips due to missing process definition
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing process definition
 
     // then: Decision instances are skipped with a real-world scenario due to missing process definition
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
@@ -488,9 +479,9 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
     // when: Migrate decision instances WITHOUT process instances (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE); // Skips due to missing process instance
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing process instance
 
     // then: Decision instances are skipped with a real-world scenario due to missing process instance
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
@@ -508,14 +499,45 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery().singleResult().getId();
 
     // when: Migrate decision instances WITHOUT flow nodes (creates real-world skip)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE); // Skips due to missing flow node
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateDecisionDefinitions();
+    historyMigrator.migrateDecisionInstances(); // Skips due to missing flow node
 
     // then: Decision instances are skipped with a real-world scenario due to missing flow node
     assertThat(searchHistoricDecisionInstances("simpleDecisionId")).isEmpty();
     logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(), decisionInstanceId, SKIP_REASON_MISSING_FLOW_NODE));
+  }
+
+  @Test
+  @WhiteBox
+  public void shouldNotSkipTaskVariablesWhenEntityWithSameIdButDifferentTypeIsSkipped() {
+    // given state in c7
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    var taskId = taskService.createTaskQuery().singleResult().getId();
+
+    // Simulate ID collision by manually inserting a record with the same ID as the task
+    // but with a different type (HISTORY_INCIDENT)
+    dbClient.insert(taskId, null, TYPE.HISTORY_INCIDENT);
+    // Verify the collision record exists before completing the task
+    assertThat(dbClient.checkExistsByC7IdAndType(taskId, TYPE.HISTORY_INCIDENT)).as(
+        "Record with task ID should exist").isTrue();
+
+    // when history is migrated
+    historyMigrator.migrate();
+
+    // then
+    // 1. Process instance should be migrated
+    var historicProcesses = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(historicProcesses).hasSize(1);
+    var processInstanceKey = historicProcesses.getFirst().processInstanceKey();
+
+    // 2. User task should be migrated (not skipped due to ID collision with HISTORY_INCIDENT)
+    var userTasks = searchHistoricUserTasks(processInstanceKey);
+    assertThat(userTasks).as("User task should be migrated despite ID collision with HISTORY_INCIDENT").hasSize(1);
+    assertThat(userTasks.getFirst().elementId()).as("User task should have correct id").isEqualTo("userTaskId");
   }
 
   @Test
@@ -527,12 +549,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
 
     // then
     assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -544,12 +566,12 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // when
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateFlowNodes();
 
     // then
     assertThat(searchFlowNodeInstancesByName(USER_TASK_ID)).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_FLOW_NODE.getDisplayName(), id, SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test
@@ -566,17 +588,17 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var task = taskService.createTaskQuery().singleResult();
 
     // and - migrate process definition and process instance, but NOT the form
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
-    // Note: historyMigrator.migrateByType(HISTORY_FORM); is NOT called here
-    historyMigrator.migrateByType(HISTORY_USER_TASK);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    // Note: historyMigrator.migrateForms() is NOT called here
+    historyMigrator.migrateUserTasks();
 
     // then - user task should be skipped due to missing form
     var processInstances = searchHistoricProcessInstances("processWithFormId");
     assertThat(processInstances).hasSize(1);
     assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
   }
 
   @Test
@@ -593,22 +615,22 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var task = taskService.createTaskQuery().singleResult();
 
     // and - first attempt: migrate without forms (should skip user task)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
-    historyMigrator.migrateByType(HISTORY_USER_TASK); // Skips due to missing form
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
+    historyMigrator.migrateUserTasks(); // Skips due to missing form
 
     // then - user task should be skipped
     var processInstances = searchHistoricProcessInstances("processWithFormId");
     assertThat(processInstances).hasSize(1);
     assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).isEmpty();
-    logs.assertContains(formatMessage(SKIPPING, HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_USER_TASK.getDisplayName(), task.getId(), SKIP_REASON_MISSING_FORM));
 
     // when - second attempt: migrate forms and retry user tasks
-    historyMigrator.migrateByType(HISTORY_FORM_DEFINITION);
+    historyMigrator.migrateForms();
 
-    historyMigrator.retry();
-    historyMigrator.migrateByType(HISTORY_USER_TASK); // Should succeed now
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrateUserTasks(); // Should succeed now
 
     // then - user task should be migrated successfully
     var userTasks = searchHistoricUserTasks(processInstances.getFirst().processInstanceKey());

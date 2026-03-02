@@ -7,15 +7,6 @@
  */
 package io.camunda.migration.data.qa.history;
 
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
@@ -92,9 +83,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
 
     // when/then - test rollback behavior
     testRollbackWithMappingVerification(
-        HISTORY_PROCESS_DEFINITION,
+        IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION,
         processDefinitionId,
-        () -> historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION),
+        () -> historyMigrator.migrateProcessDefinitions(),
         () -> {
           List<ProcessDefinitionEntity> definitions = searchHistoricProcessDefinitions("userTaskProcessId");
           assertThat(definitions)
@@ -119,8 +110,8 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate prerequisites
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
 
     // Get the migrated process instance key for verification
     Long processInstanceKey = searchHistoricProcessInstances("userTaskProcessId").getFirst().processInstanceKey();
@@ -128,9 +119,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricActivityInstanceQuery().list().getFirst().getId();
     testRollbackWithMappingVerification(
-        HISTORY_FLOW_NODE,
+        IdKeyMapper.TYPE.HISTORY_FLOW_NODE,
         c7Id,
-        () -> historyMigrator.migrateByType(HISTORY_FLOW_NODE),
+        () -> historyMigrator.migrateFlowNodes(),
         () -> {
           List<FlowNodeInstanceEntity> flowNodes = searchHistoricFlowNodes(processInstanceKey);
           assertThat(flowNodes)
@@ -154,9 +145,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate prerequisites (UserTask requires ProcessInstance AND FlowNode)
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
+    historyMigrator.migrateFlowNodes();
 
     // Get the migrated process instance key for verification
     Long processInstanceKey = searchHistoricProcessInstances("userTaskProcessId").getFirst().processInstanceKey();
@@ -167,9 +158,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         .singleResult()
         .getId();
     testRollbackWithMappingVerification(
-        HISTORY_USER_TASK,
+        IdKeyMapper.TYPE.HISTORY_USER_TASK,
         c7Id,
-        () -> historyMigrator.migrateByType(HISTORY_USER_TASK),
+        () -> historyMigrator.migrateUserTasks(),
         () -> {
           List<UserTaskEntity> userTasks = searchHistoricUserTasks(processInstanceKey);
           assertThat(userTasks)
@@ -195,15 +186,15 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate prerequisites
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
 
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricVariableInstanceQuery().singleResult().getId();
     testRollbackWithMappingVerification(
-        HISTORY_VARIABLE,
+        IdKeyMapper.TYPE.HISTORY_VARIABLE,
         c7Id,
-        () -> historyMigrator.migrateByType(HISTORY_VARIABLE),
+        () -> historyMigrator.migrateVariables(),
         () -> {
           List<VariableEntity> variables = searchHistoricVariables("testVar");
           assertThat(variables)
@@ -229,15 +220,15 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
     triggerIncident(processInstance.getId());
 
     // Migrate prerequisites
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateProcessDefinitions();
+    historyMigrator.migrateProcessInstances();
 
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricIncidentQuery().singleResult().getId();
     testRollbackWithMappingVerification(
-        HISTORY_INCIDENT,
+        IdKeyMapper.TYPE.HISTORY_INCIDENT,
         c7Id,
-        () -> historyMigrator.migrateByType(HISTORY_INCIDENT),
+        () -> historyMigrator.migrateIncidents(),
         () -> {
           List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
           assertThat(incidents)
@@ -263,9 +254,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
 
     // when/then - test rollback behavior
     testRollbackWithMappingVerification(
-        HISTORY_DECISION_REQUIREMENT,
+        IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT,
         drdId,
-        () -> historyMigrator.migrateByType(HISTORY_DECISION_REQUIREMENT),
+        () -> historyMigrator.migrateDecisionRequirementsDefinitions(),
         () -> {
           List<DecisionRequirementsEntity> drds = searchHistoricDecisionRequirementsDefinition("dish-decision");
           assertThat(drds)
@@ -291,13 +282,13 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         .getId();
 
     // Migrate prerequisites
-    historyMigrator.migrateByType(HISTORY_DECISION_REQUIREMENT);
+    historyMigrator.migrateDecisionRequirementsDefinitions();
 
     // when/then - test rollback behavior
     testRollbackWithMappingVerification(
-        HISTORY_DECISION_DEFINITION,
+        IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION,
         decisionDefinitionId,
-        () -> historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION),
+        () -> historyMigrator.migrateDecisionDefinitions(),
         () -> {
           List<DecisionDefinitionEntity> definitions = searchHistoricDecisionDefinitions("Dish");
           assertThat(definitions)
@@ -325,8 +316,8 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         .evaluate();
 
     // Migrate prerequisites
-    historyMigrator.migrateByType(HISTORY_DECISION_REQUIREMENT);
-    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION);
+    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigrator.migrateDecisionDefinitions();
 
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricDecisionInstanceQuery()
@@ -335,9 +326,9 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         .getId();
 
     testRollbackWithMappingVerification(
-        HISTORY_DECISION_INSTANCE,
+        IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE,
         c7Id,
-        () -> historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE),
+        () -> historyMigrator.migrateDecisionInstances(),
         () -> {
           List<DecisionInstanceEntity> instances = searchHistoricDecisionInstances("Dish", "Season", "GuestCount");
           assertThat(instances)

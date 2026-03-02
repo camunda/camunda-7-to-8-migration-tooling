@@ -9,32 +9,19 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.FORM_NOT_FOUND;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.JOB_NO_RETRIES;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.RESOURCE_NOT_FOUND;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.UNHANDLED_ERROR_EVENT;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
-import java.util.Collections;
 import java.util.List;
 import org.camunda.bpm.engine.history.HistoricIncident;
-import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
-
-  @Autowired
-  protected ProcessEngineConfigurationImpl processEngineConfigurationImpl;
 
   @Test
   public void shouldMigrateIncidentTenant() {
@@ -121,13 +108,16 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // when
     historyMigrator.migrate();
+    // need to run with retry to migrate child instances with flow node dependencies
+    historyMigrator.setMode(MigratorMode.RETRY_SKIPPED);
+    historyMigrator.migrate();
 
     // then
 
     // child incident is migrated
     List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
     assertThat(childIncidents).hasSize(1);
-    assertOnIncidentBasicFields(childIncidents.getFirst(), c7ChildIncident, childProcess, parentProcess, UNKNOWN, false);
+    assertOnIncidentBasicFields(childIncidents.getFirst(), c7ChildIncident, childProcess, parentProcess);
 
     // parent incident is migrated
     List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
@@ -252,127 +242,27 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
     assertThat(incidents).hasSize(1);
     IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, RESOURCE_NOT_FOUND, true);
-  }
 
-  @Test
-  public void shouldMigrateIncidentWithFormNotFoundErrorType() {
-    // given
-    deployer.deployCamunda7Process("formNotFoundProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("formNotFoundProcessId");
-    triggerIncident(c7ProcessInstance.getId());
+    // specific values
+    assertThat(c8Incident.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(c8Incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ProcessInstance.getProcessDefinitionKey()));
+    assertThat(c8Incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
+    assertThat(c8Incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
+    assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    assertThat(c8Incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ProcessInstance.getProcessDefinitionKey()));
+    String expectedRootProcessKey = c7ProcessInstance.getProcessDefinitionKey();
+    assertThat(c8Incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(expectedRootProcessKey));
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    // non-null values
+    assertThat(c8Incident.incidentKey()).isNotNull();
+    assertThat(c8Incident.creationTime()).isNotNull();
 
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("formNotFoundProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, FORM_NOT_FOUND, true);
-  }
-
-  @Test
-  public void shouldMigrateIncidentWithDecisionEvaluationErrorType() {
-    // given
-    deployer.deployCamunda7Process("ruleTaskProcess.bpmn");
-    deployer.deployCamunda7Decision("mappingFailureDmn.dmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("ruleTaskProcessId", Collections.singletonMap("input", "single entry list"));
-    triggerIncident(c7ProcessInstance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("ruleTaskProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, DECISION_EVALUATION_ERROR, true);
-  }
-
-  @Test
-  public void shouldMigrateIncidentWithConditionalErrorType() {
-    // given
-    deployer.deployCamunda7Process("conditionErrorProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("conditionErrorProcessId");
-    triggerIncident(c7ProcessInstance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("conditionErrorProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, CONDITION_ERROR, true);
-  }
-
-  @Test
-  public void shouldMigrateIncidentWithUnhandledErrorType() {
-    // given
-    processEngineConfigurationImpl.setEnableExceptionsAfterUnhandledBpmnError(true);
-    deployer.deployCamunda7Process("unhandledErrorProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("unhandledErrorProcessId");
-    triggerIncident(c7ProcessInstance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("unhandledErrorProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, UNHANDLED_ERROR_EVENT, true);
-  }
-
-  @Test
-  public void shouldMigrateIncidentWithNoJobRetriesErrorType() {
-    // given
-    processEngineConfigurationImpl.setEnableExceptionsAfterUnhandledBpmnError(true);
-    deployer.deployCamunda7Process("noJobRetriesProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("noJobRetriesProcessId");
-    triggerIncident(c7ProcessInstance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("noJobRetriesProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, JOB_NO_RETRIES, true);
+    // null values
+    assertThat(c8Incident.jobKey()).isNull();
+    assertThat(c8Incident.flowNodeInstanceKey()).isNull(); // service task's flow node hasn't been migrated so it doesn't have a key
   }
 
   protected void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance) {
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ChildInstance, c7ParentInstance, UNKNOWN, false);
-  }
-
-  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident, HistoricIncident c7Incident, ProcessInstance c7ChildInstance, ProcessInstance c7ParentInstance, IncidentEntity.ErrorType errorType, boolean waitingExecution) {
     // specific values
     assertThat(c8Incident.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(c8Incident.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ChildInstance.getProcessDefinitionKey()));
@@ -382,21 +272,14 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(c8Incident.processInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(c7ChildInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ParentInstance != null ? c7ParentInstance.getProcessDefinitionKey() : c7ChildInstance.getProcessDefinitionKey();
     assertThat(c8Incident.rootProcessInstanceKey()).isEqualTo(findMigratedProcessInstanceKey(expectedRootProcessKey));
-    assertThat(c8Incident.errorType()).isEqualTo(errorType);
 
     // non-null values
     assertThat(c8Incident.incidentKey()).isNotNull();
     assertThat(c8Incident.creationTime()).isNotNull();
+    assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
 
     // null values
     assertThat(c8Incident.jobKey()).isNull();
-
-    // conditional
-    if (waitingExecution) {
-      assertThat(c8Incident.flowNodeInstanceKey()).isNull();
-    } else {
-      assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
-    }
   }
 
   protected void executeJob(ProcessInstance c7ProcessInstance) {

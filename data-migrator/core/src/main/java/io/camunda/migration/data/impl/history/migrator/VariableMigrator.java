@@ -11,7 +11,6 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_SCOPE_KEY;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
@@ -24,12 +23,7 @@ import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import java.util.Date;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,24 +33,18 @@ import org.springframework.stereotype.Service;
  * Service class responsible for migrating variables from Camunda 7 to Camunda 8.
  */
 @Service
-public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInstance, VariableDbModel> {
+public class VariableMigrator extends BaseMigrator<HistoricVariableInstance, VariableDbModel> {
 
   @Autowired(required = false)
   protected VendorDatabaseProperties vendorDatabaseProperties;
 
   @Override
-  public BiConsumer<Consumer<HistoricVariableInstance>, Date> fetchForMigrateHandler() {
-    return c7Client::fetchAndHandleHistoricVariables;
-  }
-
-  @Override
-  public Function<String, HistoricVariableInstance> fetchForRetryHandler() {
-    return c7Client::getHistoricVariableInstance;
-  }
-
-  @Override
-  public IdKeyMapper.TYPE getType() {
-    return HISTORY_VARIABLE;
+  public void migrateAll() {
+    fetchMigrateOrRetry(
+        HISTORY_VARIABLE,
+        c7Client::getHistoricVariableInstance,
+        c7Client::fetchAndHandleHistoricVariables
+    );
   }
 
   /**
@@ -89,10 +77,6 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
       HistoryMigratorLogs.migratingHistoricVariable(c7VariableId);
-
-      if (c7Variable.getCaseInstanceId() != null) {
-        throw new EntitySkippedException(c7Variable, SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES);
-      }
 
       var builder = new VariableDbModelBuilder();
 
@@ -148,15 +132,6 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
     VariableDbModel dbModel = convert(C7Entity.of(c7Variable), builder);
     return dbModel.truncateValue(vendorDatabaseProperties.variableValuePreviewSize(),
         vendorDatabaseProperties.charColumnMaxBytes());
-  }
-
-  protected Long findScopeKey(String instanceId) {
-    Long key = findFlowNodeInstanceKey(instanceId);
-    if (key != null) {
-      return key;
-    }
-
-    return dbClient.findC8KeyByC7IdAndType(instanceId, HISTORY_PROCESS_INSTANCE);
   }
 
 }

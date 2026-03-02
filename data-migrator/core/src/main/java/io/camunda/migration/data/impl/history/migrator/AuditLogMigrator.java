@@ -26,12 +26,8 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import org.camunda.bpm.engine.EntityTypes;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.springframework.stereotype.Service;
@@ -45,21 +41,22 @@ import org.springframework.stereotype.Service;
  * </p>
  */
 @Service
-public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntry, AuditLogDbModel> {
+public class AuditLogMigrator extends BaseMigrator<UserOperationLogEntry, AuditLogDbModel> {
 
+  /**
+   * Migrates all audit log entries from Camunda 7 to Camunda 8.
+   * <p>
+   * This method handles pagination and processes audit logs in batches, either migrating
+   * new entries or retrying skipped ones based on the migration mode.
+   * </p>
+   */
   @Override
-  public BiConsumer<Consumer<UserOperationLogEntry>, Date> fetchForMigrateHandler() {
-    return c7Client::fetchAndHandleUserOperationLogEntries;
-  }
-
-  @Override
-  public Function<String, UserOperationLogEntry> fetchForRetryHandler() {
-    return c7Client::getUserOperationLogEntry;
-  }
-
-  @Override
-  public IdKeyMapper.TYPE getType() {
-    return HISTORY_AUDIT_LOG;
+  public void migrateAll() {
+    fetchMigrateOrRetry(
+        HISTORY_AUDIT_LOG,
+        c7Client::getUserOperationLogEntry,
+        c7Client::fetchAndHandleUserOperationLogEntries
+    );
   }
 
   /**

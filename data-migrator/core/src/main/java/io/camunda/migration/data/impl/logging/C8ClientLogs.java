@@ -35,14 +35,12 @@ public class C8ClientLogs {
   public static final String FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT = "Failed to insert decision instance output";
   public static final String FAILED_TO_SEARCH_DECISION_INSTANCES = "Failed to search decision instances";
   public static final String FAILED_TO_INSERT_INCIDENT = "Failed to insert incident";
-  public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
   public static final String FAILED_TO_INSERT_VARIABLE = "Failed to insert variable";
   public static final String FAILED_TO_INSERT_USER_TASK = "Failed to insert user task";
   public static final String FAILED_TO_INSERT_FLOW_NODE_INSTANCE = "Failed to insert flow node instance";
   public static final String FAILED_TO_SEARCH_FLOW_NODE_INSTANCES = "Failed to search flow node instances";
   public static final String FAILED_TO_SEARCH_USER_TASKS = "Failed to search user tasks";
   public static final String FAILED_TO_INSERT_AUDIT_LOG = "Failed to insert audit log";
+  public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
   public static final String FAILED_TO_MIGRATE_AUTHORIZATION = "Failed to migrate authorization with legacy ID: ";
-  public static final String FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and user [%s], check logs for details";
-  public static final String FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and group [%s], check logs for details";
 }

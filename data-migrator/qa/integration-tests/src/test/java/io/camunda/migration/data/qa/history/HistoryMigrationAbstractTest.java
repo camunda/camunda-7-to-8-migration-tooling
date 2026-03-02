@@ -111,6 +111,8 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
     // Migrator
     dbClient.deleteAllMappings();
+    historyMigrator.setMode(MigratorMode.MIGRATE);
+    historyMigrator.setRequestedEntityTypes(null);
 
     // C8
     rdbmsPurger.purgeRdbms();
@@ -194,12 +196,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
-  public List<UserTaskEntity> searchHistoricUserTasks() {
-    return rdbmsService.getUserTaskReader()
-        .search(new UserTaskQuery(FilterBuilders.userTask().build(), SortOptionBuilders.userTask().build(), SearchQueryPage.of((b) -> b)))
-        .items();
-  }
-
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
     return rdbmsService.getFlowNodeInstanceReader()
         .search(FlowNodeInstanceQuery.of(queryBuilder ->
@@ -247,20 +243,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.names(varName))))
-        .items();
-  }
-
-  public List<VariableEntity> searchHistoricVariables(Long processInstanceKey) {
-    return rdbmsService.getVariableReader()
-        .search(VariableQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processInstanceKeys(processInstanceKey))))
-        .items();
-  }
-
-  public List<VariableEntity> searchHistoricVariables() {
-    return rdbmsService.getVariableReader()
-        .search(new VariableQuery(FilterBuilders.variable().build(), SortOptionBuilders.variable().build(), SearchQueryPage.of((b) -> b)))
         .items();
   }
 

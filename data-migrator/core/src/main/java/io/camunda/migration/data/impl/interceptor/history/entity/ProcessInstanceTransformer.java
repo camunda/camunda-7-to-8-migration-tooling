@@ -8,20 +8,15 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.BUSINESS_KEY_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState;
 
 import io.camunda.migration.data.interceptor.EntityInterceptor;
-import java.util.HashSet;
 import java.util.Set;
-import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
-import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -43,7 +38,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
         .state(convertState(entity.getState()))
         .tenantId(getTenantId(entity.getTenantId()))
         .version(entity.getProcessDefinitionVersion())
-        .tags(getDefaultTags(entity))
+        // parent and super process instance are used synonym (process instance that contained the call activity)
         .treePath(null)
         .numIncidents(0)
         .partitionId(C7_HISTORY_PARTITION_ID);
@@ -62,16 +57,4 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
     };
   }
 
-  /**
-   * Generate default tags based on legacy ID and business key.
-   * Tags format: "c7-legacy-id-{id}", "business-key-{businessKey}" (if business key exists)
-   */
-  protected @NonNull Set<String> getDefaultTags(HistoricProcessInstance entity) {
-    Set<String> tags = new HashSet<>();
-    tags.add(C7_LEGACY_ID_PREFIX + entity.getId());
-    if (!StringUtils.isEmpty(entity.getBusinessKey())) {
-      tags.add(BUSINESS_KEY_PREFIX + entity.getBusinessKey());
-    }
-    return tags;
-  }
 }

@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history;
 
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
@@ -44,10 +45,6 @@ public class EntitySkippedException extends RuntimeException {
     this(C7Entity.of(c7FlowNode), message);
   }
 
-  public EntitySkippedException(HistoricExternalTaskLog c7ExternalTaskLog, String message) {
-    this(C7Entity.of(c7ExternalTaskLog), message);
-  }
-
   public EntitySkippedException(HistoricIncident c7Incident, String message) {
     this(C7Entity.of(c7Incident), message);
   }
@@ -64,6 +61,10 @@ public class EntitySkippedException extends RuntimeException {
     this(C7Entity.of(c7Variable), message);
   }
 
+  public EntitySkippedException(HistoricExternalTaskLog c7ExternalTaskLog, String message) {
+    this(C7Entity.of(c7ExternalTaskLog), message);
+  }
+
   @Override
   public String getMessage() {
     return message;
@@ -72,5 +73,4 @@ public class EntitySkippedException extends RuntimeException {
   public C7Entity<?> getC7Entity() {
     return c7Entity;
   }
-
 }

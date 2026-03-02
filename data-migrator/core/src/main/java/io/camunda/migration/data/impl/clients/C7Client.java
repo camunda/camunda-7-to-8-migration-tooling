@@ -47,12 +47,8 @@ import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
-import org.camunda.bpm.engine.identity.Group;
-import org.camunda.bpm.engine.identity.GroupQuery;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.identity.TenantQuery;
-import org.camunda.bpm.engine.identity.User;
-import org.camunda.bpm.engine.identity.UserQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
@@ -205,12 +201,17 @@ public class C7Client {
                                                                             String childProcessInstanceId) {
     var query = historyService.createHistoricActivityInstanceQuery()
         .processInstanceId(parentProcessInstanceId)
-        .calledProcessInstanceId(childProcessInstanceId)
         .activityType(CALL_ACTIVITY)
+        .orderByHistoricActivityInstanceStartTime()
+        .asc()
         .orderByHistoricActivityInstanceId()
         .asc();
-    return callApi(query::singleResult,
+    List<HistoricActivityInstance> result = callApi(query::list,
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "Parent activity for child process instance", childProcessInstanceId));
+    return result.stream()
+        .filter(activity -> childProcessInstanceId.equals(activity.getCalledProcessInstanceId()))
+        .findFirst()
+        .orElse(null);
   }
 
   /**
@@ -237,6 +238,38 @@ public class C7Client {
   public HistoricIncident getHistoricIncident(String c7Id) {
     var query = historyService.createHistoricIncidentQuery().incidentId(c7Id);
     return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricIncident", c7Id));
+  }
+
+  /**
+   * Gets a single historic external task log by ID.
+   */
+  public HistoricExternalTaskLog getHistoricExternalTaskLog(String c7Id) {
+    var query = historyService.createHistoricExternalTaskLogQuery().logId(c7Id);
+    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricExternalTaskLog", c7Id));
+  }
+
+  /**
+   * Gets the failure historic external task log with 0 retries for the given external task ID.
+   * Used to find the job that triggered an external task incident.
+   */
+  public HistoricExternalTaskLog getFailureExternalTaskLog(String externalTaskId) {
+    List<HistoricExternalTaskLog> logs = callApi(
+        () -> historyService.createHistoricExternalTaskLogQuery()
+            .externalTaskId(externalTaskId)
+            .failureLog()
+            .orderByTimestamp()
+            .desc()
+            .orderByExternalTaskLogId()
+            .desc()
+            .list(),
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "failure HistoricExternalTaskLog for external task", externalTaskId));
+    if (logs == null || logs.isEmpty()) {
+      return null;
+    }
+    return logs.stream()
+        .filter(log -> log.getRetries() != null && log.getRetries() == 0)
+        .findFirst()
+        .orElse(logs.get(0));
   }
 
   /**
@@ -545,6 +578,26 @@ public class C7Client {
   }
 
   /**
+   * Processes historic external task logs with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleHistoricExternalTaskLogs(Consumer<HistoricExternalTaskLog> callback, Date createdAfter) {
+    HistoricExternalTaskLogQueryImpl query = (HistoricExternalTaskLogQueryImpl) historyService.createHistoricExternalTaskLogQuery()
+        .orderByTimestamp()
+        .asc()
+        .orderByExternalTaskLogId()
+        .asc();
+
+    if (createdAfter != null) {
+      query.createdAfter(createdAfter);
+    }
+
+    new Pagination<HistoricExternalTaskLog>().pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
    * Processes historic user operation log entries with pagination using the provided callback consumer.
    */
   public void fetchAndHandleUserOperationLogEntries(Consumer<UserOperationLogEntry> callback, Date timestampAfter) {
@@ -706,81 +759,4 @@ public class C7Client {
     return !execution.isEmpty();
   }
 
-  /**
-   * Fetches user members for a given tenant
-   */
-  public List<User> findUsersForTenant(String tenantId) {
-    UserQuery query = identityService.createUserQuery().memberOfTenant(tenantId);
-
-    return new Pagination<User>()
-        .pageSize(properties.getPageSize())
-        .query(query)
-        .maxCount(query::count)
-        .toList();
-  }
-
-  /**
-   * Fetches group members for a given tenant
-   */
-  public List<Group> findGroupsForTenant(String tenantId) {
-    GroupQuery query = identityService.createGroupQuery().memberOfTenant(tenantId);
-
-    return new Pagination<Group>()
-        .pageSize(properties.getPageSize())
-        .query(query)
-        .maxCount(query::count)
-        .toList();
-  }
-
-  /**
-   * Gets a single historic external task log by its ID.
-   */
-  public HistoricExternalTaskLog getHistoricExternalTaskLog(String c7Id) {
-    var query = historyService.createHistoricExternalTaskLogQuery().logId(c7Id);
-    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricExternalTaskLog", c7Id));
-  }
-
-  /**
-   * Gets the failure historic external task log with 0 retries for the given external task ID.
-   * Used to find the job that triggered an external task incident.
-   */
-  public HistoricExternalTaskLog getFailureExternalTaskLog(String externalTaskId) {
-    List<HistoricExternalTaskLog> logs = callApi(
-        () -> historyService.createHistoricExternalTaskLogQuery()
-            .externalTaskId(externalTaskId)
-            .failureLog()
-            .orderByTimestamp()
-            .desc()
-            .orderByExternalTaskLogId()
-            .desc()
-            .list(),
-        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "failure HistoricExternalTaskLog for external task", externalTaskId));
-    if (logs == null || logs.isEmpty()) {
-      return null;
-    }
-    return logs.stream()
-        .filter(log -> log.getRetries() != null && log.getRetries() == 0)
-        .findFirst()
-        .orElse(logs.get(0));
-  }
-
-  /**
-   * Processes historic external task log entries with pagination using the provided callback consumer.
-   */
-  public void fetchAndHandleHistoricExternalTaskLogs(Consumer<HistoricExternalTaskLog> callback, Date createdAfter) {
-    HistoricExternalTaskLogQueryImpl query = (HistoricExternalTaskLogQueryImpl) historyService.createHistoricExternalTaskLogQuery()
-        .orderByTimestamp()
-        .asc()
-        .orderByExternalTaskLogId()
-        .asc();
-
-    if (createdAfter != null) {
-      query.createdAfter(createdAfter);
-    }
-
-    new Pagination<HistoricExternalTaskLog>().pageSize(properties.getPageSize())
-        .query(query)
-        .maxCount(query::count)
-        .callback(callback);
-  }
 }

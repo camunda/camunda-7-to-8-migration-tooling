@@ -8,6 +8,8 @@
 
 package io.camunda.migration.data.impl.logging;
 
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.HISTORY_TYPE_NAME_MAP;
+
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
@@ -36,14 +38,10 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
   public static final String SKIP_REASON_MISSING_DECISION_DEFINITION = "Missing decision definition";
   public static final String SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE = "Missing root decision instance";
-  public static final String SKIP_REASON_UNSUPPORTED_SA_TASKS = "C7 standalone user tasks not supported in C8.";
-  public static final String SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES = "C7 CMMN variables not supported in C8.";
-  public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
   public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";
-  public static final String RETRYING = "Retrying {}s.";
   public static final String MIGRATING_DEFINITION = "Migrating {} definition with C7 ID: [{}]";
 
   public static final String MIGRATING_INSTANCE = "Migrating historic {} instance with C7 ID: [{}]";
@@ -61,21 +59,18 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
 
   public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
-
   public static final String MIGRATING_EXTERNAL_TASK = "Migrating historic external task log with C7 ID: [{}]";
 
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
+
+  public static final String SKIPPING_INTERCEPTOR_ERROR = "Migration of [{}] with C7 ID [{}] skipped." + " Interceptor error: {}";
   public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type";
   public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
 
   public static void logMigrating(IdKeyMapper.TYPE type) {
     LOGGER.info(MIGRATING, type.getDisplayName());
-  }
-
-  public static void logRetrying(IdKeyMapper.TYPE type) {
-    LOGGER.info(RETRYING, type.getDisplayName());
   }
 
   public static void migratingDecisionDefinition(String c7DecisionDefinitionId) {
@@ -114,6 +109,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
   }
 
+  public static void logMigratingExternalTask(String c7ExternalTaskLogId) {
+    LOGGER.debug(MIGRATING_EXTERNAL_TASK, c7ExternalTaskLogId);
+  }
+
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
     LOGGER.debug(MIGRATING_FLOW_NODE, c7FlowNodeId);
   }
@@ -122,21 +121,17 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_DECISION_REQUIREMENT, c7DecisionRequirementsId);
   }
 
-  public static void logSkippingWarn(EntitySkippedException e) {
+  public static void logSkipping(EntitySkippedException e) {
     C7Entity<?> c7Entity = e.getC7Entity();
     LOGGER.warn(SKIPPING, c7Entity.getType().getDisplayName(), c7Entity.getId(), e.getMessage());
   }
 
-  public static void logSkippingDebug(EntitySkippedException e) {
+  public static void skippingEntityDueToInterceptorError(EntitySkippedException e) {
     C7Entity<?> c7Entity = e.getC7Entity();
-    LOGGER.debug(SKIPPING, c7Entity.getType().getDisplayName(), c7Entity.getId(), e.getMessage());
+    LOGGER.warn(SKIPPING_INTERCEPTOR_ERROR, HISTORY_TYPE_NAME_MAP.get(c7Entity.unwrap().getClass()), c7Entity.getId(), e.getMessage());
   }
 
   public static void logMigratingForm(String c7Id) {
     LOGGER.debug(MIGRATING_FORM, c7Id);
-  }
-
-  public static void logMigratingExternalTask(String c7ExternalTaskLogId) {
-    LOGGER.debug(MIGRATING_EXTERNAL_TASK, c7ExternalTaskLogId);
   }
 }
