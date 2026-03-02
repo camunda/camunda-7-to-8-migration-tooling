@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.INTERMEDIATE_CATCH_EVENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
