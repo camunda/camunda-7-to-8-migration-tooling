@@ -21,6 +21,7 @@ import io.camunda.db.rdbms.read.service.FormDbReader;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.PurgeMapper;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
@@ -29,6 +30,7 @@ import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.DecisionDefinitionEntity;
@@ -64,6 +66,7 @@ import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -92,6 +95,10 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected FlowNodeInstanceMapper flowNodeInstanceMapper;
+
+  @RegisterExtension
+  @Autowired
+  protected RdbmsQueryExtension rdbmsQuery = new RdbmsQueryExtension();
 
   // C7 ---------------------------------------
 
@@ -230,6 +237,20 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
+  }
+
+  public List<IncidentDbModel> searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {
+    String sql = "SELECT INCIDENT_KEY, TREE_PATH, PROCESS_INSTANCE_KEY, FLOW_NODE_INSTANCE_KEY " +
+                 "FROM INCIDENT WHERE PROCESS_INSTANCE_KEY = ?";
+
+    return rdbmsQuery.query(sql, (rs, rowNum) -> {
+      IncidentDbModel.Builder builder = new IncidentDbModel.Builder();
+      builder.incidentKey(rs.getLong("INCIDENT_KEY"));
+      builder.treePath(rs.getString("TREE_PATH"));
+      builder.processInstanceKey(rs.getLong("PROCESS_INSTANCE_KEY"));
+      builder.flowNodeInstanceKey(rs.getLong("FLOW_NODE_INSTANCE_KEY"));
+      return builder.build();
+    }, processInstanceKey);
   }
 
   public List<VariableEntity> searchHistoricVariables(String varName) {
