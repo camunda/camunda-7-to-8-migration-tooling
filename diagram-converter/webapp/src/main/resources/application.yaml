@@ -1,3 +1,12 @@
+server:
+  tomcat:
+    max-part-count: 100
+
+spring:
+  servlet:
+    multipart:
+      resolve-lazily: true
+
 notification:
   slack:
     enabled: false
