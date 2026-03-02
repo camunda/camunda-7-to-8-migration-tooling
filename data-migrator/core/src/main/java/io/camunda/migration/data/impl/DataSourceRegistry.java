@@ -10,13 +10,17 @@ package io.camunda.migration.data.impl;
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.config.property.DataSourceProperties;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.impl.clients.C8Client;
 import jakarta.annotation.PreDestroy;
+import java.sql.SQLException;
 import java.util.Optional;
 import javax.sql.DataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Registry for managing multiple datasources used by the migrator.
@@ -44,12 +48,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Component
 public class DataSourceRegistry {
 
+  protected static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
+
   protected final HikariDataSource c7DataSource;
   protected final HikariDataSource c8DataSource;
   protected final DataSource migratorDataSource;
   protected final PlatformTransactionManager c7TransactionManager;
   protected final PlatformTransactionManager migratorTransactionManager;
   protected final TransactionTemplate migratorTransactionTemplate;
+  protected Boolean isOracle19;
 
   public DataSourceRegistry(MigratorProperties properties) {
     this.c7DataSource = createC7DataSource(properties);
@@ -176,5 +183,37 @@ public class DataSourceRegistry {
     // Prefer C8 datasource when configured for single-transaction atomicity
     return c8DataSource != null ? c8DataSource : c7DataSource;
   }
+
+  /**
+   * Checks if the current database is Oracle 19 or below.
+   * Oracle 19 requires special handling for insertion.
+   * Caches the result after first check.
+   */
+  public boolean isOracle19() {
+    if (isOracle19 != null) {
+      return isOracle19;
+    }
+
+    try {
+      DataSource dataSource = getC8DataSource().get();
+      try (var conn = dataSource.getConnection()) {
+        var meta = conn.getMetaData();
+        String productName = meta.getDatabaseProductName();
+
+        if (productName != null && productName.toLowerCase().contains("oracle")) {
+          int majorVersion = meta.getDatabaseMajorVersion();
+          isOracle19 = majorVersion <= 19;
+          LOGGER.debug("Detected Oracle database version: {}, treating as Oracle 19: {}", majorVersion, isOracle19);
+          return isOracle19;
+        }
+      }
+    } catch (SQLException e) {
+      LOGGER.warn("Failed to detect database version, assuming not Oracle 19", e);
+    }
+
+    isOracle19 = false;
+    return false;
+  }
+
 }
 

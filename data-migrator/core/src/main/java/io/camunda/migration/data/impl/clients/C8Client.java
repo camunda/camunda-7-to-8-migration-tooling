@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.impl.clients;
 
+import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.*;
+import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.*;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
@@ -35,7 +37,6 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEAR
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
@@ -59,7 +60,6 @@ import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.ProcessInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
@@ -85,6 +85,7 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.search.entities.DecisionDefinitionEntity;
@@ -112,6 +113,9 @@ public class C8Client {
 
   @Autowired
   protected CamundaClient camundaClient;
+
+  @Autowired
+  protected DataSourceRegistry dataSourceRegistry;
 
   // MyBatis mappers for history migration
   // These are optional because they're only available when C8 data source is configured
@@ -267,7 +271,17 @@ public class C8Client {
    * Inserts Process Instance tags into the database.
    */
   public void insertProcessInstanceTags(ProcessInstanceDbModel dbModel) {
-    callApi(() -> processInstanceMapper.insertTags(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
+    if (dataSourceRegistry.isOracle19()) {
+      dbModel.tags().forEach(tag -> callApi(() -> {
+        var finalTag = new ProcessInstanceDbModelBuilder()
+            .processInstanceKey(dbModel.processInstanceKey())
+            .tags(Set.of(tag))
+            .build();
+        processInstanceMapper.insertTags(finalTag);
+      }, FAILED_TO_INSERT_PROCESS_INSTANCE));
+    } else {
+      callApi(() -> processInstanceMapper.insertTags(dbModel), FAILED_TO_INSERT_PROCESS_INSTANCE);
+    }
   }
 
   /**
@@ -303,12 +317,33 @@ public class C8Client {
    */
   public void insertDecisionInstance(DecisionInstanceDbModel dbModel) {
     callApi(() -> decisionInstanceMapper.insert(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE);
+
     if (!dbModel.evaluatedInputs().isEmpty()) {
-      callApi(() -> decisionInstanceMapper.insertInput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_INPUT);
+      if (dataSourceRegistry.isOracle19()) {
+        dbModel.evaluatedInputs().forEach(input -> callApi(() -> {
+          var finalInput = new Builder()
+              .decisionInstanceId(dbModel.decisionInstanceId())
+              .evaluatedInputs(List.of(input))
+              .build();
+          decisionInstanceMapper.insertInput(finalInput);
+        }, FAILED_TO_INSERT_DECISION_INSTANCE_INPUT));
+      } else {
+        decisionInstanceMapper.insertInput(dbModel);
+      }
     }
 
     if (!dbModel.evaluatedOutputs().isEmpty()) {
-      callApi(() -> decisionInstanceMapper.insertOutput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT);
+      if (dataSourceRegistry.isOracle19()) {
+        dbModel.evaluatedOutputs().forEach(output -> callApi(() -> {
+          var finalOutput = new Builder()
+              .decisionInstanceId(dbModel.decisionInstanceId())
+              .evaluatedOutputs(List.of(output))
+              .build();
+          decisionInstanceMapper.insertOutput(finalOutput);
+        }, FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT));
+      } else {
+        decisionInstanceMapper.insertOutput(dbModel);
+      }
     }
   }
 
@@ -330,7 +365,7 @@ public class C8Client {
    * Inserts a Variable into the database.
    */
   public void insertVariable(VariableDbModel dbModel) {
-    callApi(() -> variableMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
+    callApi(() -> variableMapper.insert(new BatchInsertDto<>(List.of(dbModel))), FAILED_TO_INSERT_VARIABLE);
   }
 
   /**
@@ -344,7 +379,17 @@ public class C8Client {
    * Inserts User Task tags into the database.
    */
   public void insertUserTaskTags(UserTaskDbModel dbModel) {
-    callApi(() -> userTaskMapper.insertTags(dbModel), FAILED_TO_INSERT_USER_TASK);
+    if (!dataSourceRegistry.isOracle19()) {
+      callApi(() -> userTaskMapper.insertTags(dbModel), FAILED_TO_INSERT_USER_TASK);
+    } else {
+      dbModel.tags().forEach(tag -> callApi(() -> {
+        var finalTag = new UserTaskDbModel.Builder()
+            .userTaskKey(dbModel.userTaskKey())
+            .tags(Set.of(tag))
+            .build();
+        userTaskMapper.insertTags(finalTag);
+      }, FAILED_TO_INSERT_USER_TASK));
+    }
   }
 
   /**
