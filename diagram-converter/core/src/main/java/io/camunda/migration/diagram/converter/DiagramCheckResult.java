@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DiagramCheckResult {
-  private final List<ElementCheckResult> results = new ArrayList<>();
+  private List<ElementCheckResult> results = new ArrayList<>();
   private String filename;
   private String converterVersion;
 
@@ -25,6 +25,10 @@ public class DiagramCheckResult {
 
   public List<ElementCheckResult> getResults() {
     return results;
+  }
+
+  public void setResults(List<ElementCheckResult> results) {
+    this.results = results;
   }
 
   public ElementCheckResult getResult(String elementId) {
@@ -55,15 +59,19 @@ public class DiagramCheckResult {
   }
 
   public static class ElementCheckResult {
-    private final List<ElementCheckMessage> messages = new ArrayList<>();
-    private final List<String> references = new ArrayList<>();
-    private final List<String> referencedBy = new ArrayList<>();
+    private List<ElementCheckMessage> messages = new ArrayList<>();
+    private List<String> references = new ArrayList<>();
+    private List<String> referencedBy = new ArrayList<>();
     private String elementId;
     private String elementName;
     private String elementType;
 
     public List<ElementCheckMessage> getMessages() {
       return messages;
+    }
+
+    public void setMessages(List<ElementCheckMessage> messages) {
+      this.messages = messages;
     }
 
     public String getElementId() {
@@ -94,8 +102,16 @@ public class DiagramCheckResult {
       return references;
     }
 
+    public void setReferences(List<String> references) {
+      this.references = references;
+    }
+
     public List<String> getReferencedBy() {
       return referencedBy;
+    }
+
+    public void setReferencedBy(List<String> referencedBy) {
+      this.referencedBy = referencedBy;
     }
 
     @Override
