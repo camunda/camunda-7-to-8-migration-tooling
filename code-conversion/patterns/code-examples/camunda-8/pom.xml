@@ -15,6 +15,12 @@
 	<name>Camunda 8 Code Examples</name>
 	<description>Collection of examples created for the Camunda 7 to Camunda 8 Code Conversion Pattern Collection</description>
 
+	<properties>
+		<!-- Override parent versions to test with Camunda 8.8 -->
+		<version.camunda-8>8.8.14</version.camunda-8>
+		<version.spring-boot>3.5.8</version.spring-boot>
+	</properties>
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -35,7 +41,7 @@
 
 		<dependency>
 			<groupId>io.camunda</groupId>
-			<artifactId>camunda-spring-boot-starter</artifactId>
+			<artifactId>spring-boot-starter-camunda-sdk</artifactId>
 			<version>${version.camunda-8}</version>
 		</dependency>
 
