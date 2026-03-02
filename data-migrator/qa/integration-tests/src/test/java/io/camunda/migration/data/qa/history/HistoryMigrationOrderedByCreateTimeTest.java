@@ -115,7 +115,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // when
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigrator.migrate();
 
     // then
     List<DecisionRequirementsEntity> firstBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
@@ -126,7 +126,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // when
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigrator.migrate();
 
     // then
     List<DecisionRequirementsEntity> secondBatch = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
@@ -141,7 +141,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
 
     // when
-    historyMigrator.migrateDecisionRequirementsDefinitions();
+    historyMigrator.migrate();
 
     // then
     List<DecisionRequirementsEntity> decisionReqs = searchHistoricDecisionRequirementsDefinition("simpleDmnWithReqsId");
