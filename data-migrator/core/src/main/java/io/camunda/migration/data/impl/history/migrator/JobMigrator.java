@@ -7,7 +7,9 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_JOBS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingJob;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
@@ -16,16 +18,12 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_AFTER;
 import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_BEFORE;
 
-import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
-import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.util.Date;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -86,20 +84,19 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
       logMigratingJob(c7JobId);
-      if (!ASYNC_BEFORE.equals(jobDefinitionConfiguration) || !ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
+      if (!ASYNC_BEFORE.equals(jobDefinitionConfiguration) && !ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS);
       }
 
       final var jobKey = getNextKey();
       final var builder = new JobDbModel.Builder().jobKey(jobKey);
 
+      final var processDefinitionKey = findProcessDefinitionKey(c7JobLog.getProcessDefinitionId());
+      builder.processDefinitionKey(processDefinitionKey);
       final String c7ProcessInstanceId = c7JobLog.getProcessInstanceId();
       final ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
       if (processInstance != null) {
         builder.processInstanceKey(processInstance.processInstanceKey());
-
-        final var processDefinitionKey = findProcessDefinitionKey(c7JobLog.getProcessDefinitionId());
-        builder.processDefinitionKey(processDefinitionKey);
 
         final String c7RootProcessInstanceId = c7JobLog.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -116,8 +113,16 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
 
       final JobDbModel dbModel = convert(C7Entity.of(c7JobLog), builder);
 
+      if (dbModel.processDefinitionKey() == null) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);
+      }
+
       if (dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      }
+
+      if (dbModel.rootProcessInstanceKey() == null) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
       }
 
       c8Client.insertJob(dbModel);
@@ -128,34 +133,4 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
     return null;
   }
 
-  /**
-   * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
-   * <p>
-   * Since {@link HistoricJobLog} provides only the activity ID (not the activity instance ID),
-   * this method searches C8 flow node instances by activity ID within the migrated process
-   * instance.
-   * </p>
-   *
-   * @param activityId the C7 activity ID
-   * @param processInstanceId the C7 process instance ID
-   * @return the C8 flow node instance key, or {@code null} if not found
-   */
-  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
-    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
-    if (processInstanceKey == null) {
-      return null;
-    }
-
-    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(
-        FlowNodeInstanceDbQuery.of(builder -> builder.filter(
-            FlowNodeInstanceFilter.of(filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey))
-        ))
-    );
-
-    if (!flowNodes.isEmpty()) {
-      return flowNodes.getFirst().flowNodeInstanceKey();
-    } else {
-      return null;
-    }
-  }
 }

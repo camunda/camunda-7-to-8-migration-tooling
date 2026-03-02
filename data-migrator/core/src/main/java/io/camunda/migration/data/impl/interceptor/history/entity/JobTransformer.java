@@ -56,52 +56,17 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
     builder
         .type(historicJobLog.getJobDefinitionType())
         .worker(historicJobLog.getHostname())
-        .state(convertState(historicJobLog))
+        .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
-        .retries(historicJobLog.getJobRetries())
-        .hasFailedWithRetriesLeft(historicJobLog.isFailureLog() && historicJobLog.getJobRetries() > 0)
-        .errorMessage(historicJobLog.getJobExceptionMessage())
-        .deadline(convertDate(historicJobLog.getJobDueDate()))
-        .endTime(isTerminalState(historicJobLog) ? creationTime : null)
+        .retries(0)
         .processDefinitionId(prefixDefinitionId(historicJobLog.getProcessDefinitionKey()))
         .elementId(historicJobLog.getActivityId())
         .tenantId(getTenantId(historicJobLog.getTenantId()))
         .partitionId(C7_HISTORY_PARTITION_ID)
-        .creationTime(creationTime)
-        .lastUpdateTime(creationTime);
+        .creationTime(creationTime);
     // Note: jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
     // and elementInstanceKey are set externally in JobMigrator.
   }
 
-  /**
-   * Converts the Camunda 7 job log state flags to a Camunda 8 JobState.
-   *
-   * @param historicJobLog the Camunda 7 historic job log entry
-   * @return the corresponding Camunda 8 job state
-   */
-  protected JobState convertState(final HistoricJobLog historicJobLog) {
-    if (historicJobLog.isCreationLog()) {
-      return JobState.CREATED;
-    } else if (historicJobLog.isSuccessLog()) {
-      return JobState.COMPLETED;
-    } else if (historicJobLog.isFailureLog()) {
-      return historicJobLog.getJobRetries() == 0 ? JobState.FAILED : JobState.ERROR_THROWN;
-    } else if (historicJobLog.isDeletionLog()) {
-      return JobState.CANCELED;
-    }
-    return JobState.CREATED;
-  }
-
-  /**
-   * Returns true if this log entry represents a terminal job state (end time should be set).
-   *
-   * @param historicJobLog the Camunda 7 historic job log entry
-   * @return true if this represents a terminal state
-   */
-  protected boolean isTerminalState(final HistoricJobLog historicJobLog) {
-    return historicJobLog.isSuccessLog() ||
-        historicJobLog.isDeletionLog() ||
-        (historicJobLog.isFailureLog() && historicJobLog.getJobRetries() == 0);
-  }
 }

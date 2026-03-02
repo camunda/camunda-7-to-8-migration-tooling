@@ -20,6 +20,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
@@ -273,6 +274,35 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(historicProcesses).hasSize(1);
     ProcessInstanceEntity c8processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
+  }
+
+  @Test
+  public void shouldNotMigrateJobsWhenProcessInstanceIsSkipped() {
+    // given state in c7 with a failing service task
+    deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
+    var processInstance = runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
+
+    // execute the job to trigger the incident
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+    var job = jobs.getFirst();
+
+    for (int i = 0; i < 3; i++) {
+      try {
+        managementService.executeJob(job.getId());
+      } catch (Exception e) {
+        // expected - job will fail
+      }
+    }
+
+    // when
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_JOB);
+
+    // then
+    assertThat(searchJobs()).isEmpty();
+    logs.assertContains(
+        formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), job.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test

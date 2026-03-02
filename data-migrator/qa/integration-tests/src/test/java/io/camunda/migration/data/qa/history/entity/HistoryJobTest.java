@@ -11,11 +11,14 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.history.element.HistoryAbstractElementMigrationTest.PROCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.JobEntity.JobKind;
+import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
@@ -50,15 +53,53 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
 
+    // retrieve the C7 process definition key to build the expected prefixed processDefinitionId
+    var c7ProcessDef = repositoryService.createProcessDefinitionQuery()
+        .processDefinitionKey("asyncBeforeUserTaskProcessId")
+        .singleResult();
+
     JobEntity job = c8Jobs.getFirst();
-    assertThat(job.jobKey()).isNotNull();
-    assertThat(job.kind()).isEqualTo(JobKind.BPMN_ELEMENT);
-    assertThat(job.listenerEventType()).isEqualTo(ListenerEventType.UNSPECIFIED);
-    assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-    assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
-    assertThat(job.processDefinitionKey()).isNotNull();
-    assertThat(job.elementId()).isEqualTo("asyncUserTaskId");
+    assertJobProperties(job, processInstanceKey, "asyncBeforeUserTaskProcessId", "asyncUserTaskId", false);
   }
+
+  @Test
+  public void shouldMigrateJobsForAsyncAfter() {
+    // given: a process with an async-after
+    deployModel();
+    runtimeService.startProcessInstanceByKey(PROCESS);
+
+    // execute job
+    executeAllJobsWithRetry();
+
+    // when
+    historyMigrator.migrate();
+
+    // then: the process instance was migrated
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    // and: exactly one C8 job entry was created (deduplicated by job ID across multiple log entries)
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
+
+    // retrieve the C7 process definition key to build the expected prefixed processDefinitionId
+    var c7ProcessDef = repositoryService.createProcessDefinitionQuery()
+        .processDefinitionKey(PROCESS)
+        .singleResult();
+
+    JobEntity job = c8Jobs.getFirst();
+    assertJobProperties(job, processInstanceKey, PROCESS, "startEvent", true);
+
+    // and: the incident was migrated with jobKey pointing to the C8 job
+    var incidents = searchHistoricIncidents(PROCESS);
+    assertThat(incidents).hasSize(1);
+    assertThat(incidents.getFirst().jobKey())
+        .as("Incident's jobKey should reference the migrated job")
+        .isNotNull();
+    assertThat(incidents.getFirst().jobKey()).isEqualTo(job.jobKey());
+  }
+
 
   @Test
   public void shouldMigrateFailedJobAndPopulateJobKeyOnIncident() {
@@ -66,18 +107,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
     runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
 
-    var jobs = managementService.createJobQuery().list();
-    assertThat(jobs).hasSize(1);
-    var job = jobs.getFirst();
-
-    // Execute the job to cause it to fail and create an incident
-    for (int i = 0; i < 3; i++) {
-      try {
-        managementService.executeJob(job.getId());
-      } catch (Exception e) {
-        // expected - job will fail
-      }
-    }
+    executeAllJobsWithRetry();
     assertThat(historyService.createHistoricIncidentQuery().count())
         .as("Expected one incident to be created").isEqualTo(1);
 
@@ -92,9 +122,14 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     // and: the failed job was migrated to C8
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Exactly one C8 job entry (deduplication by job ID)").hasSize(1);
-    JobEntity c8Job = c8Jobs.getFirst();
-    assertThat(c8Job.elementId()).isEqualTo("serviceTaskId");
-    assertThat(c8Job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    JobEntity job = c8Jobs.getFirst();
+
+    // retrieve the C7 process definition key for the prefixed processDefinitionId assertion
+    var c7ProcessDef = repositoryService.createProcessDefinitionQuery()
+        .processDefinitionKey("failingServiceTaskProcessId")
+        .singleResult();
+
+    assertJobProperties(job, processInstanceKey, "failingServiceTaskProcessId", "serviceTaskId", false);
 
     // and: the incident was migrated with jobKey pointing to the C8 job
     var incidents = searchHistoricIncidents("failingServiceTaskProcessId");
@@ -102,7 +137,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(incidents.getFirst().jobKey())
         .as("Incident's jobKey should reference the migrated job")
         .isNotNull();
-    assertThat(incidents.getFirst().jobKey()).isEqualTo(c8Job.jobKey());
+    assertThat(incidents.getFirst().jobKey()).isEqualTo(job.jobKey());
   }
 
   @Test
@@ -164,5 +199,54 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     processInstances.getFirst();
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
+  }
+
+
+  protected void assertJobProperties(JobEntity job, long processInstanceKey, String c7ProcessDefinitionKey,
+                                     String taskId, boolean isAsyncAfter) {
+    assertThat(job.jobKey()).isNotNull();
+    assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
+    assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
+    assertThat(job.processDefinitionKey()).isNotNull();
+    if (isAsyncAfter) {
+      assertThat(job.elementInstanceKey()).isNotNull();
+    } else {
+      // elementInstanceKey is null for async-before because the flow node instance does not yet
+      // exist at the time the job was created and executed
+      assertThat(job.elementInstanceKey()).isNull();
+    }
+
+    assertThat(job.type()).isEqualTo("async-continuation");
+    assertThat(job.worker()).isNotNull();
+    assertThat(job.state()).isEqualTo(JobState.COMPLETED);
+    assertThat(job.kind()).isEqualTo(JobKind.BPMN_ELEMENT);
+    assertThat(job.listenerEventType()).isEqualTo(ListenerEventType.UNSPECIFIED);
+    assertThat(job.retries()).isEqualTo(0);
+    assertThat(job.elementId()).isEqualTo(taskId);
+    assertThat(job.processDefinitionId()).isEqualTo(prefixDefinitionId(c7ProcessDefinitionKey));
+    assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+
+    assertThat(job.creationTime()).isNotNull();
+    assertThat(job.deadline()).isNull();
+    assertThat(job.deniedReason()).isNull();
+    assertThat(job.endTime()).isNull();
+    assertThat(job.errorCode()).isNull();
+    assertThat(job.errorMessage()).isNull();
+    assertThat(job.hasFailedWithRetriesLeft()).isFalse();
+    assertThat(job.isDenied()).isFalse();
+    assertThat(job.lastUpdateTime()).isNull();
+  }
+
+  protected void deployModel() {
+    String process = PROCESS;
+    var c7Model = org.camunda.bpm.model.bpmn.Bpmn.createExecutableProcess(process)
+        .startEvent("startEvent")
+        .camundaAsyncAfter()
+        .serviceTask("serviceTaskId")
+          .camundaClass("foo")
+        .endEvent()
+        .done();
+
+    deployer.deployC7ModelInstance(process, c7Model);
   }
 }

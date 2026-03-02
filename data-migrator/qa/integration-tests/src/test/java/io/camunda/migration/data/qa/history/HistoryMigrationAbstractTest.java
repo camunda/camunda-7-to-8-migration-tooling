@@ -285,6 +285,12 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
+  public List<JobEntity> searchJobs() {
+    return rdbmsService.getJobReader()
+        .search(new JobQuery(FilterBuilders.job().build(), SortOptionBuilders.job().build(), SearchQueryPage.of((b) -> b)))
+        .items();
+  }
+
   public List<FormEntity> searchForms(String... formIds) {
     FormDbReader formReader = rdbmsService.getFormReader();
     if (formIds.length != 0) {
