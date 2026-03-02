@@ -116,8 +116,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.RELEASE_VERSION }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.IS_DRY_RUN && format('{0}-dry-run', env.RELEASE_VERSION) || env.RELEASE_VERSION }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.IS_DRY_RUN && 'dry-run' || 'latest' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
