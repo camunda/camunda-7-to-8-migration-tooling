@@ -34,6 +34,12 @@
       "enabled": false
     },
     {
+      "description": "Do not update C8 on main",
+      "matchBaseBranches": ["main"],
+      "matchPackageNames": ["io.camunda**"],
+      "enabled": false
+    },
+    {
       "description": "Automerge all updates with green CI.",
       "matchPackageNames": [
         "*"
