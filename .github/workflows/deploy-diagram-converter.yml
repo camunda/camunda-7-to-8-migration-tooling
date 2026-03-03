@@ -106,27 +106,41 @@ jobs:
           AWS_ACCOUNT_ID=$(echo "${{ steps.ecr-login.outputs.registry }}" | cut -d'.' -f1)
           echo "::add-mask::${AWS_ACCOUNT_ID}"
 
+      - name: Compute image tags
+        id: tags
+        env:
+          ECR_URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        run: |
+          if [[ "${{ inputs.IS_DRY_RUN }}" == "true" ]]; then
+            IMAGE_TAG="${RELEASE_VERSION}-dry-run"
+            ALIAS_TAG="dry-run"
+          else
+            IMAGE_TAG="${RELEASE_VERSION}"
+            ALIAS_TAG="latest"
+          fi
+          echo "image-uri=${ECR_URI}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "alias-uri=${ECR_URI}:${ALIAS_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push multi-platform Docker image
+      - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./docker-context
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.IS_DRY_RUN && format('{0}-dry-run', env.RELEASE_VERSION) || env.RELEASE_VERSION }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ inputs.IS_DRY_RUN && 'dry-run' || 'latest' }}
+            ${{ steps.tags.outputs.image-uri }}
+            ${{ steps.tags.outputs.alias-uri }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Verify image in ECR
-        env:
-          ECR_URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}
         run: |
           echo "Verifying image manifest..."
-          docker buildx imagetools inspect "${ECR_URI}:${RELEASE_VERSION}"
+          docker buildx imagetools inspect "${{ steps.tags.outputs.image-uri }}"
 
       # NOTE: This uses force-new-deployment which relies on the ECS task definition
       # referencing the "latest" tag. If the task definition is changed to pin a specific
@@ -154,8 +168,6 @@ jobs:
 
       - name: Verify running task image
         if: ${{ !inputs.IS_DRY_RUN }}
-        env:
-          ECR_URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}
         run: |
           TASK_ARN=$(aws ecs list-tasks \
             --cluster "${ECS_CLUSTER}" \
@@ -164,20 +176,21 @@ jobs:
             --query 'taskArns[0]' \
             --output text)
 
-          RUNNING_IMAGE=$(aws ecs describe-tasks \
+          RUNNING_DIGEST=$(aws ecs describe-tasks \
             --cluster "${ECS_CLUSTER}" \
             --tasks "${TASK_ARN}" \
             --region "${AWS_REGION}" \
-            --query 'tasks[0].containers[0].image' \
+            --query 'tasks[0].containers[0].imageDigest' \
             --output text)
 
-          echo "Running image: ${RUNNING_IMAGE}"
-          EXPECTED_IMAGE="${ECR_URI}:${RELEASE_VERSION}"
+          EXPECTED_DIGEST="${{ steps.build.outputs.digest }}"
+          echo "Running digest:  ${RUNNING_DIGEST}"
+          echo "Expected digest: ${EXPECTED_DIGEST}"
 
-          if [[ "${RUNNING_IMAGE}" == *"${RELEASE_VERSION}"* ]]; then
-            echo "✅ Deployment verified — running version ${RELEASE_VERSION}"
+          if [[ "${RUNNING_DIGEST}" == "${EXPECTED_DIGEST}" ]]; then
+            echo "✅ Deployment verified — image digest matches"
           else
-            echo "::error::Running image '${RUNNING_IMAGE}' does not match expected '${EXPECTED_IMAGE}'"
+            echo "::error::Running image digest '${RUNNING_DIGEST}' does not match expected '${EXPECTED_DIGEST}'"
             exit 1
           fi
 
