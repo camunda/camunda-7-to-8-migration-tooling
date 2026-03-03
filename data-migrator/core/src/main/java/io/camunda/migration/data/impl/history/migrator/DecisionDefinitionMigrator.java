@@ -23,6 +23,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
+import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -80,11 +81,17 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
         Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(drdId, HISTORY_DECISION_REQUIREMENT);
         if (decisionRequirementsKey != null) {
           builder.decisionRequirementsKey(decisionRequirementsKey);
+          DecisionRequirementsDefinition c7Drd = c7Client.getDecisionRequirementsDefinition(drdId);
+          builder.decisionRequirementsName(c7Drd.getName())
+              .decisionRequirementsVersion(c7Drd.getVersion());
         }
       } else {
         // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
         Long decisionRequirementsKey = decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
         builder.decisionRequirementsKey(decisionRequirementsKey);
+        // For standalone decisions, use the decision's own name and version as the DRD values
+        builder.decisionRequirementsName(c7DecisionDefinition.getName())
+            .decisionRequirementsVersion(c7DecisionDefinition.getVersion());
       }
 
       DecisionDefinitionDbModel dbModel = convert(C7Entity.of(c7DecisionDefinition, creationTime), builder);

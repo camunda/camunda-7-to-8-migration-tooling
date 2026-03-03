@@ -66,15 +66,16 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     // then
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    assertThat(migratedDecisions).singleElement().satisfies(decision -> {
-      assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId("simpleDecisionId"));
-      assertThat(decision.decisionDefinitionKey()).isNotNull();
-      assertThat(decision.version()).isEqualTo(1);
-      assertThat(decision.name()).isEqualTo("simpleDecisionName");
-      assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
-      assertThat(decision.decisionRequirementsKey()).isNotNull();
-      assertThat(decision.decisionRequirementsId()).isNull();
-    });
+    assertThat(migratedDecisions).singleElement().satisfies(decision ->
+        assertDecisionDefinition(
+            decision,
+            "simpleDecisionId",
+            "simpleDecisionName",
+            1,
+            decision.decisionRequirementsKey(),
+            null,
+            "simpleDecisionName",
+            1));
 
     List<DecisionRequirementsEntity> decisionReqs =
         searchHistoricDecisionRequirementsDefinition("simpleDmnId");
@@ -115,9 +116,13 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     assertThat(decisionReqs).hasSize(2);
     assertThat(migratedDecisions).hasSize(2);
     assertThat(migratedDecisions).allSatisfy(decision -> assertThat(decision.decisionRequirementsId()).isNull());
+    assertThat(migratedDecisions).allSatisfy(
+        decision -> assertThat(decision.decisionRequirementsName()).isEqualTo("simpleDecisionName"));
     assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
         .containsExactlyInAnyOrderElementsOf(
             decisionReqs.stream().map(DecisionRequirementsEntity::decisionRequirementsKey).toList());
+    assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsVersion)
+        .containsExactlyInAnyOrder(1,2);
   }
 
   @Test
@@ -146,11 +151,11 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     assertThat(firstDecision).singleElement()
         .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs1Id", "simpleDmnWithReqs1Name", 1,
-            decisionReqsKey, "simpleDmnWithReqsId"));
+            decisionReqsKey, "simpleDmnWithReqsId", "simpleDmnWithReqsName", 1));
 
     assertThat(secondDecision).singleElement()
         .satisfies(decision -> assertDecisionDefinition(decision, "simpleDmnWithReqs2Id", "simpleDmnWithReqs2Name", 1,
-            decisionReqsKey, "simpleDmnWithReqsId"));
+            decisionReqsKey, "simpleDmnWithReqsId", "simpleDmnWithReqsName", 1));
   }
 
   @Test
@@ -394,7 +399,20 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
+    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("literalExpressionDecisionId");
     List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("literalExpressionDecisionId");
+
+    assertThat(migratedDecisions).singleElement().satisfies(decision ->
+        assertDecisionDefinition(
+            decision,
+            "literalExpressionDecisionId",
+            "literalExpressionDecisionName",
+            1,
+            decision.decisionRequirementsKey(),
+            null,
+            "literalExpressionDecisionName",
+            1));
+
     assertThat(migratedInstances).singleElement().satisfies(instance -> {
       assertThat(instance.decisionDefinitionType()).isEqualTo(DecisionInstanceEntity.DecisionDefinitionType.LITERAL_EXPRESSION);
     });
@@ -583,14 +601,30 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
       String decisionName,
       int version,
       Long decisionRequirementsKey,
-      String decisionRequirementsId) {
+      String decisionRequirementsId,
+      String decisionRequirementsName,
+      Integer decisionRequirementsVersion) {
     assertThat(decision.decisionDefinitionId()).isEqualTo(prefixDefinitionId(decisionId));
     assertThat(decision.decisionDefinitionKey()).isNotNull();
     assertThat(decision.version()).isEqualTo(version);
     assertThat(decision.name()).isEqualTo(decisionName);
     assertThat(decision.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(decision.decisionRequirementsKey()).isEqualTo(decisionRequirementsKey);
-    assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
+    if (decisionRequirementsId != null) {
+      assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
+    } else {
+      assertThat(decision.decisionRequirementsId()).isNull();
+    }
+    if (decisionRequirementsName != null) {
+      assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
+    } else {
+      assertThat(decision.decisionRequirementsName()).isNull();
+    }
+    if (decisionRequirementsVersion != null) {
+      assertThat(decision.decisionRequirementsVersion()).isEqualTo(decisionRequirementsVersion);
+    } else {
+      assertThat(decision.decisionRequirementsVersion()).isNull();
+    }
   }
 
 }
