@@ -22,9 +22,7 @@ import java.util.List;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
-import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -239,32 +237,6 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs.size()).isEqualTo(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.ASSIGN);
-  }
-
-  @Test
-  @Disabled
-  public void shouldMigrateAuditLogsForDeleteTask() {
-    // given
-    Task task = taskService.newTask();
-    taskService.saveTask(task);
-
-    // Delete a user task to generate audit logs
-    identityService.setAuthenticatedUserId("demo");
-    taskService.deleteTask(task.getId());
-
-    // Verify audit logs exist in C7
-    long auditLogCount = historyService.createUserOperationLogQuery()
-        .operationType("Delete")
-        .count();
-    assertThat(auditLogCount).isEqualTo(1);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.USER_TASKS.name());
-    assertThat(logs).hasSize(1);
-    assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
   @Test
