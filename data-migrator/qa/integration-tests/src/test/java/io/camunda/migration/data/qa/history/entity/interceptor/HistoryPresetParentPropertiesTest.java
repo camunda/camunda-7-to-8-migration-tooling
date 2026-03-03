@@ -18,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -34,7 +33,6 @@ import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
@@ -205,10 +203,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
   }
 
   @Test
-  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/364")
   public void shouldMigrateIncidentWithPresetProperties() {
     // given: Process with failing service task in C7
     deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
 
     // execute the job to trigger the incident
     var jobs = managementService.createJobQuery().list();

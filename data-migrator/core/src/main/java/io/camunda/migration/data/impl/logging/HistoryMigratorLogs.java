@@ -39,6 +39,8 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_UNSUPPORTED_SA_TASKS = "C7 standalone user tasks not supported in C8.";
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES = "C7 CMMN variables not supported in C8.";
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
+  public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
+  public static final String SKIP_REASON_UNSUPPORTED_JOBS = "Only async-before and async-after jobs are supported for migration.";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";
@@ -60,6 +62,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_DECISION_REQUIREMENT = "Migrating decision requirements with C7 ID: [{}]";
 
   public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
+
+  public static final String MIGRATING_JOB = "Migrating historic job with C7 job ID: [{}]";
 
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
@@ -109,6 +113,10 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingAuditLogs(String c7AuditLogId) {
     LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
+  }
+
+  public static void logMigratingJob(String c7JobId) {
+    LOGGER.debug(MIGRATING_JOB, c7JobId);
   }
 
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
