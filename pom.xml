@@ -37,6 +37,7 @@
     <version.h2>2.4.240</version.h2>
     <plugin.version.compiler>3.14.1</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
+    <commons-lang3.version>3.20.0</commons-lang3.version>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
@@ -103,6 +104,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons-lang3.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
