@@ -12,7 +12,6 @@ import java.io.IOException;
 import org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -24,18 +23,18 @@ public class ConverterExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(ConverterExceptionHandler.class);
 
-  @Value("${server.tomcat.max-part-count:50}")
-  private int maxPartCount;
-
   @ExceptionHandler(MultipartException.class)
   public void handleMultipartException(MultipartException ex, HttpServletResponse response)
       throws IOException {
     Throwable rootCause = getRootCause(ex);
 
-    if (rootCause instanceof FileCountLimitExceededException) {
+    if (rootCause instanceof FileCountLimitExceededException fileCountEx) {
       LOG.warn("File count limit exceeded: {}", rootCause.getMessage());
       writeJsonError(
-          response, HttpStatus.PAYLOAD_TOO_LARGE, "FILE_COUNT_LIMIT_EXCEEDED", maxPartCount);
+          response,
+          HttpStatus.PAYLOAD_TOO_LARGE,
+          "FILE_COUNT_LIMIT_EXCEEDED",
+          fileCountEx.getLimit());
       return;
     }
 
@@ -44,7 +43,7 @@ public class ConverterExceptionHandler {
   }
 
   private void writeJsonError(
-      HttpServletResponse response, HttpStatus status, String errorCode, int limit)
+      HttpServletResponse response, HttpStatus status, String errorCode, long maxPartCount)
       throws IOException {
     response.setStatus(status.value());
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
@@ -54,8 +53,8 @@ public class ConverterExceptionHandler {
             + errorCode
             + "\",\"status\":"
             + status.value()
-            + ",\"limit\":"
-            + limit
+            + ",\"maxPartCount\":"
+            + maxPartCount
             + "}";
     response.getWriter().write(json);
   }

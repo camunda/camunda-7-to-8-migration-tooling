@@ -206,8 +206,8 @@ function App() {
     switch (errorBody.errorCode) {
       case "FILE_COUNT_LIMIT_EXCEEDED":
         return <>
-          Too many files uploaded. The online version supports up to {errorBody.limit} files per request.
-          {" "}To learn how to run the diagram converter locally with a custom file limit, consult the{" "}
+          Too many files uploaded. The online version supports up to {errorBody.maxPartCount} parts per request.
+          {" "}To learn how to run the diagram converter locally with a custom limit, consult the{" "}
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
             target="_blank" rel="noopener noreferrer">diagram converter guide</a>.
         </>;

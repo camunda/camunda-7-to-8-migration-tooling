@@ -34,7 +34,8 @@ public class ConverterExceptionHandlerTest {
   }
 
   @Test
-  void convertBatchExceedingFileCountLimit() throws URISyntaxException {
+  void convertBatchExceedingPartCountLimit() throws URISyntaxException {
+    // max-part-count=2, this request sends 3 parts: 2 files + 1 form field
     Response response =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
@@ -48,6 +49,6 @@ public class ConverterExceptionHandlerTest {
 
     assertThat(response.statusCode()).isEqualTo(413);
     assertThat(response.jsonPath().getString("errorCode")).isEqualTo("FILE_COUNT_LIMIT_EXCEEDED");
-    assertThat(response.jsonPath().getInt("limit")).isEqualTo(2);
+    assertThat(response.jsonPath().getLong("maxPartCount")).isEqualTo(2);
   }
 }
