@@ -68,7 +68,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", C8_DEFAULT_TENANT, false, false);
     List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
     assertThat(variableEntities).hasSize(1);
-    assertThat(variableEntities.getFirst().value()).isEqualTo(c7Process.getId());
+    assertThat(variableEntities.getFirst().value()).isEqualTo("\"" + c7Process.getId() + "\"");
     assertThat(variableEntities.getFirst().processInstanceKey()).isEqualTo(processInstances.getFirst().processInstanceKey());
   }
 
@@ -150,13 +150,13 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     List<VariableEntity> parentVariables = searchHistoricVariables(parentProcessInstance.getFirst().processInstanceKey());
     assertThat(parentVariables).hasSize(1);
     assertThat(parentVariables.getFirst().name()).isEqualTo(LEGACY_ID_VAR_NAME);
-    assertThat(parentVariables.getFirst().value()).isEqualTo(parentInstance.getId());
+    assertThat(parentVariables.getFirst().value()).isEqualTo("\"" + parentInstance.getId() + "\"");
     assertThat(parentVariables.getFirst().rootProcessInstanceKey()).isEqualTo(parentProcessInstance.getFirst().processInstanceKey());
 
     List<VariableEntity> subVariables = searchHistoricVariables(subProcessInstance.getFirst().processInstanceKey());
     assertThat(subVariables).hasSize(1);
     assertThat(subVariables.getFirst().name()).isEqualTo(LEGACY_ID_VAR_NAME);
-    assertThat(subVariables.getFirst().value()).isEqualTo(subInstance.getId());
+    assertThat(subVariables.getFirst().value()).isEqualTo("\"" + subInstance.getId() + "\"");
     assertThat(subVariables.getFirst().rootProcessInstanceKey()).isEqualTo(parentProcessInstance.getFirst().processInstanceKey());
   }
 

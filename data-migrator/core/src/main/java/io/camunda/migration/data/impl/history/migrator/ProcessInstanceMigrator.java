@@ -216,7 +216,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         .processInstanceKey(dbModel.processInstanceKey())
         .processDefinitionId(dbModel.processDefinitionId())
         .name(LEGACY_ID_VAR_NAME)
-        .value(c7ProcessInstanceId)
+        .value(String.format("\"%s\"", c7ProcessInstanceId))
         .elementInstanceKey(dbModel.processInstanceKey())
         .scopeKey(dbModel.processInstanceKey())
         .partitionId(C7_HISTORY_PARTITION_ID)

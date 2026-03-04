@@ -168,7 +168,7 @@ public class HistoryVariableTest extends HistoryMigrationAbstractTest {
     List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
     assertThat(variableEntities).hasSize(1);
     VariableEntity c7IdVariable = variableEntities.getFirst();
-    assertThat(c7IdVariable.value()).isEqualTo(processInstance.getId());
+    assertThat(c7IdVariable.value()).isEqualTo("\"" + processInstance.getId() + "\"");
     assertThat(c7IdVariable.tenantId()).isEqualTo("my-tenant1");
   }
 
@@ -614,7 +614,7 @@ public class HistoryVariableTest extends HistoryMigrationAbstractTest {
     List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
     assertThat(variableEntities).hasSize(1);
     VariableEntity variable = variableEntities.getFirst();
-    assertThat(variable.value()).isEqualTo(c7Process.getId());
+    assertThat(variable.value()).isEqualTo("\"" + c7Process.getId() + "\"");
     assertThat(variable.processInstanceKey()).isEqualTo(instanceKey);
     assertThat(variable.rootProcessInstanceKey()).isEqualTo(instanceKey);
     assertThat(variable.variableKey()).isNotNull();
