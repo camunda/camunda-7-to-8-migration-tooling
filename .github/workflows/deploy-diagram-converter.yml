@@ -219,6 +219,8 @@ jobs:
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| **Version** | \`${RELEASE_VERSION}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Dry Run** | \`${{ inputs.IS_DRY_RUN }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image Tag** | \`${{ steps.tags.outputs.image-uri }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Alias Tag** | \`${{ steps.tags.outputs.alias-uri }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **ECR Repository** | \`${ECR_REPOSITORY}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **ECS Cluster** | \`${ECS_CLUSTER}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **ECS Service** | \`${ECS_SERVICE}\` |" >> $GITHUB_STEP_SUMMARY
