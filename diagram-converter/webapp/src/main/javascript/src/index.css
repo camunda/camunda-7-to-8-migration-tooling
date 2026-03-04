@@ -303,6 +303,12 @@ th, td {
   stroke: #0dcaf0 !important; 
 }
 
+.download-error-notification {
+  width: 100%;
+  max-inline-size: 100%;
+  margin-bottom: 1rem;
+}
+
 .configBox {
   margin-top: 1rem;
   padding: 1rem;
