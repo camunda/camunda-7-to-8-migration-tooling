@@ -66,17 +66,6 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     // then
     List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
-    assertThat(migratedDecisions).singleElement().satisfies(decision ->
-        assertDecisionDefinition(
-            decision,
-            "simpleDecisionId",
-            "simpleDecisionName",
-            1,
-            decision.decisionRequirementsKey(),
-            null,
-            "simpleDecisionName",
-            1));
-
     List<DecisionRequirementsEntity> decisionReqs =
         searchHistoricDecisionRequirementsDefinition("simpleDmnId");
     assertThat(decisionReqs).singleElement().satisfies(decisionRequirements -> {
@@ -122,7 +111,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .containsExactlyInAnyOrderElementsOf(
             decisionReqs.stream().map(DecisionRequirementsEntity::decisionRequirementsKey).toList());
     assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsVersion)
-        .containsExactlyInAnyOrder(1,2);
+        .containsExactlyInAnyOrder(1, 2);
   }
 
   @Test

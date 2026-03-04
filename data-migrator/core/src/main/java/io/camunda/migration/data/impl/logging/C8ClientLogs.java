@@ -28,6 +28,7 @@ public class C8ClientLogs {
   public static final String FAILED_TO_SEARCH_PROCESS_INSTANCE = "Failed to search process instances";
   public static final String FAILED_TO_INSERT_PROCESS_DEFINITION = "Failed to insert process definition";
   public static final String FAILED_TO_INSERT_DECISION_REQUIREMENTS = "Failed to insert decision requirements";
+  public static final String FAILED_TO_SEARCH_DECISION_REQUIREMENTS = "Failed to search decision requirements";
   public static final String FAILED_TO_INSERT_DECISION_DEFINITION = "Failed to insert decision definition";
   public static final String FAILED_TO_SEARCH_DECISION_DEFINITIONS = "Failed to search decision definitions";
   public static final String FAILED_TO_INSERT_DECISION_INSTANCE = "Failed to insert decision instance";
