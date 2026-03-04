@@ -123,8 +123,9 @@ public class ExpressionTransformer {
             .toList();
     if (nonExpressions.size() == 1
         && juelExpression.trim().length() == nonExpressions.get(0).length()) {
-      // Static values in FEEL expressions must be prefixed with '='
-      return dmnMode ? juelExpression : "=" + juelExpression;
+      // Static value. Not adding '=' prefix because the value may be a literal reference (e.g.
+      // assignee name, error code).
+      return juelExpression;
     }
     List<String> expressions =
         Arrays.stream(juelExpression.split("(#|\\$)\\{|}"))
