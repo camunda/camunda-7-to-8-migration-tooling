@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.BUSINESS_KEY_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.MIGRATION_COMPLETED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
@@ -21,7 +22,6 @@ import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessag
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
@@ -66,6 +66,10 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
         ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", C8_DEFAULT_TENANT, false, false);
+    List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
+    assertThat(variableEntities).hasSize(1);
+    assertThat(variableEntities.getFirst().value()).isEqualTo(c7Process.getId());
+    assertThat(variableEntities.getFirst().processInstanceKey()).isEqualTo(processInstances.getFirst().processInstanceKey());
   }
 
   @Test
@@ -121,7 +125,39 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     var sub = subProcessInstance.getFirst();
     verifyProcessInstanceFields(sub, historicSubProcessInstance, "calledProcessInstanceId",
         ProcessInstanceEntity.ProcessInstanceState.COMPLETED, null, C8_DEFAULT_TENANT, true, false);
+  }
 
+  @Test
+  public void shouldMigrateCallActivityAndSubprocessLegacyIdVariable() {
+    // given
+    deployer.deployCamunda7Process("callActivityProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
+    ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
+    ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
+        .superProcessInstanceId(parentInstance.getProcessInstanceId())
+        .singleResult();
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> parentProcessInstance = searchHistoricProcessInstances("callingProcessId");
+    List<ProcessInstanceEntity> subProcessInstance = searchHistoricProcessInstances("calledProcessInstanceId");
+    assertThat(parentProcessInstance).hasSize(1);
+    assertThat(subProcessInstance).hasSize(1);
+
+    List<VariableEntity> parentVariables = searchHistoricVariables(parentProcessInstance.getFirst().processInstanceKey());
+    assertThat(parentVariables).hasSize(1);
+    assertThat(parentVariables.getFirst().name()).isEqualTo(LEGACY_ID_VAR_NAME);
+    assertThat(parentVariables.getFirst().value()).isEqualTo(parentInstance.getId());
+    assertThat(parentVariables.getFirst().rootProcessInstanceKey()).isEqualTo(parentProcessInstance.getFirst().processInstanceKey());
+
+    List<VariableEntity> subVariables = searchHistoricVariables(subProcessInstance.getFirst().processInstanceKey());
+    assertThat(subVariables).hasSize(1);
+    assertThat(subVariables.getFirst().name()).isEqualTo(LEGACY_ID_VAR_NAME);
+    assertThat(subVariables.getFirst().value()).isEqualTo(subInstance.getId());
+    assertThat(subVariables.getFirst().rootProcessInstanceKey()).isEqualTo(parentProcessInstance.getFirst().processInstanceKey());
   }
 
   @Test

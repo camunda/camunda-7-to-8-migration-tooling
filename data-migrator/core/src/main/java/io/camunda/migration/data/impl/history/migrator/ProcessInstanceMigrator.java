@@ -7,10 +7,13 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logInsertLegacyIdAsVariable;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
@@ -18,6 +21,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
+import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
@@ -149,6 +153,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
       }
 
       c8Client.insertProcessInstance(dbModel);
+      insertLegacyIdAsVariable(dbModel, c7ProcessInstanceId);
       if (dbModel.tags() != null && !dbModel.tags().isEmpty()) {
         c8Client.insertProcessInstanceTags(dbModel);
       }
@@ -195,5 +200,29 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         "PI_" + rootProcessInstanceKey + "/PI_" + processInstanceKey;
   }
 
+  /**
+   * Inserts the legacy Camunda 7 process instance ID as a variable in Camunda 8 for traceability.
+   *
+   * <p>This method creates a variable with a predefined name (LEGACY_ID_VAR_NAME) and the value of the C7 process instance ID.
+   * The variable is associated with the migrated process instance and is stored in the same partition as C7 history data for consistency.
+   *
+   * @param dbModel the database model of the migrated process instance
+   * @param c7ProcessInstanceId the Camunda 7 process instance ID to be stored as a variable
+   */
+  protected void insertLegacyIdAsVariable(ProcessInstanceDbModel dbModel, String c7ProcessInstanceId) {
+    var varBuilder = new VariableDbModel.VariableDbModelBuilder();
+    varBuilder.variableKey(getNextKey())
+        .rootProcessInstanceKey(dbModel.rootProcessInstanceKey())
+        .processInstanceKey(dbModel.processInstanceKey())
+        .processDefinitionId(dbModel.processDefinitionId())
+        .name(LEGACY_ID_VAR_NAME)
+        .value(c7ProcessInstanceId)
+        .elementInstanceKey(dbModel.processInstanceKey())
+        .scopeKey(dbModel.processInstanceKey())
+        .partitionId(C7_HISTORY_PARTITION_ID)
+        .tenantId(dbModel.tenantId());
+    c8Client.insertVariable(varBuilder.build());
+    logInsertLegacyIdAsVariable(c7ProcessInstanceId);
+  }
 }
 

@@ -8,13 +8,15 @@
 package io.camunda.migration.data.qa.history.entity.variables;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.JSON;
 import static org.camunda.bpm.engine.variable.Variables.SerializationDataFormats.XML;
 
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
-import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.extension.HistoryMigrationExtension;
+import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.VariableEntity;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -40,7 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-public class HistoryVariableTest extends AbstractMigratorTest {
+public class HistoryVariableTest extends HistoryMigrationAbstractTest {
 
   @RegisterExtension
   HistoryMigrationExtension historyMigration = new HistoryMigrationExtension();
@@ -158,12 +160,16 @@ public class HistoryVariableTest extends AbstractMigratorTest {
 
     // then
     List<VariableEntity> stringVars = historyMigration.searchHistoricVariables("stringVar");
-
     assertThat(stringVars).hasSize(1);
-
     VariableEntity variable = stringVars.getFirst();
     assertVariableFields(variable, c7StringVar, "\"myStringVar\"", null);
     assertThat(variable.tenantId()).isEqualTo("my-tenant1");
+
+    List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
+    assertThat(variableEntities).hasSize(1);
+    VariableEntity c7IdVariable = variableEntities.getFirst();
+    assertThat(c7IdVariable.value()).isEqualTo(processInstance.getId());
+    assertThat(c7IdVariable.tenantId()).isEqualTo("my-tenant1");
   }
 
   @Test
@@ -590,6 +596,33 @@ public class HistoryVariableTest extends AbstractMigratorTest {
     // then
     List<VariableEntity> variables = historyMigration.searchHistoricVariables("javaSerializedVar");
     assertThat(variables).isEmpty();
+  }
+
+  @Test
+  public void shouldMigrateProcessInstanceWithLegacyIdVariable() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance c7Process = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    // when
+    historyMigration.getMigrator().migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    ProcessInstanceEntity processInstance = processInstances.getFirst();
+    Long instanceKey = processInstance.processInstanceKey();
+    List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
+    assertThat(variableEntities).hasSize(1);
+    VariableEntity variable = variableEntities.getFirst();
+    assertThat(variable.value()).isEqualTo(c7Process.getId());
+    assertThat(variable.processInstanceKey()).isEqualTo(instanceKey);
+    assertThat(variable.rootProcessInstanceKey()).isEqualTo(instanceKey);
+    assertThat(variable.variableKey()).isNotNull();
+    assertThat(variable.processDefinitionId()).isEqualTo(processInstance.processDefinitionId());
+    assertThat(variable.scopeKey()).isEqualTo(instanceKey);
+    assertThat(variable.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(variable.fullValue()).isNull();
+    assertThat(variable.isPreview()).isFalse();
   }
 
   protected void assertVariableExists(String varName, Object expectedValue) {
