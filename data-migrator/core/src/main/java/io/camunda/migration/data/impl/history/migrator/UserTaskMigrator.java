@@ -13,6 +13,9 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_CMMN_TASKS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_UNSUPPORTED_SA_TASKS;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingCandidateGroups;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingCandidateUsers;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingCandidates;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingHistoricUserTask;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
@@ -25,11 +28,16 @@ import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.camunda.bpm.engine.history.HistoricIdentityLinkLog;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
+import org.camunda.bpm.engine.task.IdentityLinkType;
 import org.springframework.stereotype.Service;
 
 /**
@@ -136,9 +144,12 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
       }
 
       c8Client.insertUserTask(dbModel);
+
       if (dbModel.tags() != null && !dbModel.tags().isEmpty()) {
         c8Client.insertUserTaskTags(dbModel);
       }
+
+      migrateCandidateAssignments(c7UserTaskId, dbModel);
 
       return dbModel.userTaskKey();
     }
@@ -146,5 +157,68 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
     return null;
   }
 
-}
+  /**
+   * Computes the current set of candidateUsers and candidateGroups for a userTask using {@link HistoricIdentityLinkLog}
+   * entries and persists them to C8.
+   *
+   * @param c7UserTaskId the Camunda 7 userTask ID used to query identityLinkLogs
+   * @param dbModel      the C8 user task model
+   */
+  public void migrateCandidateAssignments(String c7UserTaskId, UserTaskDbModel dbModel) {
+    logMigratingCandidates(c7UserTaskId);
+    List<HistoricIdentityLinkLog> identityLinkLogs = c7Client.getHistoricIdentityLinkLogs(c7UserTaskId);
 
+    List<String> candidateUsers = computeCurrentCandidates(identityLinkLogs, true);
+    List<String> candidateGroups = computeCurrentCandidates(identityLinkLogs, false);
+
+    if (!candidateUsers.isEmpty()) {
+      logMigratingCandidateUsers(candidateUsers.size(), c7UserTaskId);
+      dbModel.candidateUsers(candidateUsers);
+      c8Client.insertCandidateUsers(dbModel);
+    }
+
+    if (!candidateGroups.isEmpty()) {
+      logMigratingCandidateGroups(candidateGroups.size(), c7UserTaskId);
+      dbModel.candidateGroups(candidateGroups);
+      c8Client.insertCandidateGroups(dbModel);
+    }
+  }
+
+  /**
+   * Computes which candidate users or groups are currently assigned to a userTask based on its identityLinkLogs.
+   *
+   * <p>Only entries with {@code type = "candidate"} are considered. Within those:
+   * <ul>
+   *   <li>{@code operationType = "add"} adds the user/group to the active set</li>
+   *   <li>{@code operationType = "delete"} removes the user/group from the active set</li>
+   * </ul>
+   *
+   * @param logs    identityLinkLog entries ordered by time ascending
+   * @param isUsers {@code true} to compute candidateUsers
+   *                {@code false} to compute candidateGroups
+   * @return a list of currently active candidate user/group IDs
+   */
+  public List<String> computeCurrentCandidates(List<HistoricIdentityLinkLog> logs, boolean isUsers) {
+    HashSet<String> assignedIdentityIds = new HashSet<>();
+
+    for (HistoricIdentityLinkLog log : logs) {
+      if (!IdentityLinkType.CANDIDATE.equals(log.getType())) {
+        continue;
+      }
+
+      String id = isUsers ? log.getUserId() : log.getGroupId();
+      if (id == null) {
+        continue;
+      }
+
+      if ("add".equals(log.getOperationType())) {
+        assignedIdentityIds.add(id);
+      } else if ("delete".equals(log.getOperationType())) {
+        assignedIdentityIds.remove(id);
+      }
+    }
+
+    return new ArrayList<>(assignedIdentityIds);
+  }
+
+}

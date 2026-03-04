@@ -45,8 +45,6 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
         .externalFormReference(null)
         .customHeaders(null)
         .tags(null)
-        .candidateGroups(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
-        .candidateUsers(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
         .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .name(entity.getName());
         // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally

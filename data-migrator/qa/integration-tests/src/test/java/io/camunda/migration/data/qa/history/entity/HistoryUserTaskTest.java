@@ -177,6 +177,7 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(activeUserTasks.getFirst().state()).isEqualTo(CANCELED);
     assertThat(activeUserTasks.getFirst().completionDate()).isNotNull();
   }
+
   @Test
   public void shouldMigrateTaskCancelState() {
     // given
@@ -309,6 +310,56 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateCandidateUsers() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+
+    taskService.addCandidateUser(task.getId(), "user1");
+    taskService.addCandidateUser(task.getId(), "user2");
+    taskService.addCandidateUser(task.getId(), "user3");
+    taskService.deleteCandidateUser(task.getId(), "user2");
+
+    taskService.complete(task.getId());
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    ProcessInstanceEntity migratedProcessInstance = searchHistoricProcessInstances("userTaskProcessId").getFirst();
+    UserTaskEntity userTask = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey()).getFirst();
+
+    assertThat(userTask.candidateUsers()).containsExactlyInAnyOrder("user1", "user3");
+    assertThat(userTask.candidateGroups()).isEmpty();
+  }
+
+  @Test
+  public void shouldMigrateCandidateGroups() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    Task task = taskService.createTaskQuery().processInstanceId(processInstance.getId()).singleResult();
+
+    taskService.addCandidateGroup(task.getId(), "group1");
+    taskService.addCandidateGroup(task.getId(), "group2");
+    taskService.addCandidateGroup(task.getId(), "group3");
+    taskService.deleteCandidateGroup(task.getId(), "group1");
+
+    taskService.complete(task.getId());
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    ProcessInstanceEntity migratedProcessInstance = searchHistoricProcessInstances("userTaskProcessId").getFirst();
+    UserTaskEntity userTask = searchHistoricUserTasks(migratedProcessInstance.processInstanceKey()).getFirst();
+
+    assertThat(userTask.candidateGroups()).containsExactlyInAnyOrder("group2", "group3");
+    assertThat(userTask.candidateUsers()).isEmpty();
+  }
+
+  @Test
   public void shouldMigrateTaskWithEmptyName() {
     // deploy processes
     String processName = "process";
@@ -380,13 +431,13 @@ public class HistoryUserTaskTest extends HistoryMigrationAbstractTest {
     // Process definition version
     assertThat(userTask.processDefinitionVersion()).isEqualTo(processInstance.processDefinitionVersion());
 
-    // Fields that are currently null in converter
+    // Fields that are currently null/empty in converter or basic test cases
     assertThat(userTask.formKey()).isNull();
     assertThat(userTask.externalFormReference()).isNull();
     assertThat(userTask.customHeaders()).isEmpty();
     assertThat(userTask.tags()).isEmpty();
-    assertThat(userTask.candidateGroups()).isEmpty();
     assertThat(userTask.candidateUsers()).isEmpty();
+    assertThat(userTask.candidateGroups()).isEmpty();
   }
 
 }
