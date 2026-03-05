@@ -65,6 +65,9 @@ jobs:
             secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN;
             secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_ACCOUNT_ID;
 
+      - name: Mask AWS account ID
+        run: echo "::add-mask::${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_ACCOUNT_ID }}"
+
       - name: Validate version format
         run: |
           if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -139,9 +142,6 @@ jobs:
         with:
           role-to-assume: ${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Mask AWS account ID
-        run: echo "::add-mask::${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_ACCOUNT_ID }}"
 
       - name: Login to Amazon ECR
         id: ecr-login
