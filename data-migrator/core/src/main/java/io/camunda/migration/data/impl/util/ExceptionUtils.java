@@ -87,7 +87,7 @@ public class ExceptionUtils {
       // Default to RuntimeMigratorException
       exception = new RuntimeMigratorException(message, e);
     } else {
-      throw new IllegalStateException("Unknown exception context: " + context);
+      exception = new MigratorException(message, e);
     }
 
     if (!skipErrorLog) {
