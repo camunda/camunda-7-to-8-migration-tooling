@@ -9,7 +9,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -57,7 +57,7 @@ public class DecisionInstanceTransformer implements EntityInterceptor<HistoricDe
       resultJsonString = constructResultJsonFromOutputs(evaluatedOutputs);
     }
 
-    builder.partitionId(C7_HISTORY_PARTITION_ID)
+    builder.partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .state(DecisionInstanceEntity.DecisionInstanceState.EVALUATED)
         .evaluationDate(convertDate(entity.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance

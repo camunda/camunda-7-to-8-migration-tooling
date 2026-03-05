@@ -8,7 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_AUDIT_LOG_ENTITY_VERSION;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -70,7 +70,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
     builder
         .entityType(convertEntityType(userOperationLog))
         .operationType(convertOperationType(userOperationLog))
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .result(AuditLogEntity.AuditLogOperationResult.SUCCESS)
         .entityVersion(C7_AUDIT_LOG_ENTITY_VERSION)
         .actorId(userOperationLog.getUserId())

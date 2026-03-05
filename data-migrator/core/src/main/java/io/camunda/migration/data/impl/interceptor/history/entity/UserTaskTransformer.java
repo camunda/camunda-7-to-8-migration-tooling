@@ -15,7 +15,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import static io.camunda.db.rdbms.write.domain.UserTaskDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -47,7 +47,7 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
         .tags(null)
         .candidateGroups(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
         .candidateUsers(null) // to be covered by https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/430
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .name(entity.getName());
         // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
   }
