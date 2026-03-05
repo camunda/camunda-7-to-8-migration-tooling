@@ -70,13 +70,19 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
    *
    * <p>Skip scenarios:
    * <ul>
-   *   <li>Job already tracked in the migration table - silently skipped</li>
+   *   <li>Job already tracked in the migration table - silently skipped, returns {@code null}</li>
+   *   <li>Unsupported job type (not async-before or async-after) - skipped with
+   *       {@code SKIP_REASON_UNSUPPORTED_JOBS}</li>
+   *   <li>Process definition not yet migrated - skipped with
+   *       {@code SKIP_REASON_MISSING_PROCESS_DEFINITION}</li>
    *   <li>Process instance not yet migrated - skipped with
    *       {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
+   *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with
+   *       {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
    * </ul>
    *
    * @param c7JobLog the Camunda 7 historic job log entry to migrate
-   * @return the C8 job key as a string, or {@code null} if already migrated
+   * @return the C8 job key, or {@code null} if already migrated
    */
   @Override
   public Long migrateTransactionally(final HistoricJobLog c7JobLog) {

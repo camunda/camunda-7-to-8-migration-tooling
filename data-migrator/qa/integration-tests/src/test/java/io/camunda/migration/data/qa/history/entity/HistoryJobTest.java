@@ -12,9 +12,11 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.migration.data.qa.history.element.HistoryAbstractElementMigrationTest.PROCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.JobEntity.JobKind;
@@ -23,6 +25,8 @@ import io.camunda.search.entities.JobEntity.ListenerEventType;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
 
 public class HistoryJobTest extends HistoryMigrationAbstractTest {
@@ -54,7 +58,8 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
 
     JobEntity job = c8Jobs.getFirst();
-    assertJobProperties(job, processInstanceKey, "asyncBeforeUserTaskProcessId", "asyncUserTaskId", false);
+    assertJobProperties(job, processInstanceKey, "asyncBeforeUserTaskProcessId", "asyncUserTaskId", false,
+        processInstances.getFirst().processDefinitionKey());
   }
 
   @Test
@@ -79,7 +84,11 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
 
     JobEntity job = c8Jobs.getFirst();
-    assertJobProperties(job, processInstanceKey, PROCESS, "startEvent", true);
+    assertJobProperties(job, processInstanceKey, PROCESS, "startEvent", true, processInstances.getFirst().processDefinitionKey());
+
+    List<FlowNodeInstanceDbModel> startEvent = searchFlowNodeInstancesByName("startEvent");
+    assertThat(startEvent).hasSize(1);
+    assertThat(job.elementInstanceKey()).isEqualTo(startEvent.getFirst().flowNodeInstanceKey());
 
     // and: the incident was migrated with jobKey pointing to the C8 job
     var incidents = searchHistoricIncidents(PROCESS);
@@ -113,7 +122,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("Exactly one C8 job entry (deduplication by job ID)").hasSize(1);
     JobEntity job = c8Jobs.getFirst();
 
-    assertJobProperties(job, processInstanceKey, "failingServiceTaskProcessId", "serviceTaskId", false);
+    assertJobProperties(job, processInstanceKey, "failingServiceTaskProcessId", "serviceTaskId", false, processInstances.getFirst().processDefinitionKey());
 
     // and: the incident was migrated with jobKey pointing to the C8 job
     var incidents = searchHistoricIncidents("failingServiceTaskProcessId");
@@ -182,7 +191,32 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Exactly one C8 job per C7 job despite multiple log entries").hasSize(1);
+  }
 
+  @Test
+  public void shouldMigrateJobsInNestedProcess() {
+    // given: a process with an async-after
+    deployModel();
+    deployCallingModel();
+    runtimeService.startProcessInstanceByKey("callingProcessId");
+
+    completeAllUserTasksWithDefaultUserTaskId();
+    executeAllJobsWithRetry();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> root = searchHistoricProcessInstances("callingProcessId");
+    assertThat(root).hasSize(1);
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
+    assertThat(processInstances).hasSize(1);
+
+    // and: exactly one C8 job entry was created
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).as("One C8 job entry per C7 job ").hasSize(1);
+
+    assertThat(c8Jobs.getFirst().rootProcessInstanceKey()).isEqualTo(root.getFirst().processInstanceKey());
   }
 
   @Test
@@ -191,12 +225,8 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     deployer.deployCamunda7Process("timerDurationBoundaryEventProcess.bpmn");
     ProcessInstance c7instance = runtimeService.startProcessInstanceByKey("timerDurationBoundaryEventProcessId");
     runtimeService.setVariable(c7instance.getId(), "leftoverDuration", "P0D");
-    // fire timer job
     var jobs = managementService.createJobQuery().processInstanceId(c7instance.getId()).list();
-
-    // Verify multiple log entries exist in C7 for the same job
-    var jobLogCount = historyService.createHistoricJobLogQuery().jobId(jobs.getFirst().getId()).count();
-    assertThat(jobLogCount).as("Should have multiple job log entries").isEqualTo(1);
+    assertThat(jobs).hasSize(1);
 
     // when
     historyMigrator.migrate();
@@ -211,11 +241,11 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
 
 
   protected void assertJobProperties(JobEntity job, long processInstanceKey, String c7ProcessDefinitionKey,
-                                     String taskId, boolean isAsyncAfter) {
+                                     String taskId, boolean isAsyncAfter, Long processDefinitionKey) {
     assertThat(job.jobKey()).isNotNull();
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
-    assertThat(job.processDefinitionKey()).isNotNull();
+    assertThat(job.processDefinitionKey()).isEqualTo(processDefinitionKey);
     if (isAsyncAfter) {
       assertThat(job.elementInstanceKey()).isNotNull();
     } else {
@@ -256,5 +286,16 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
         .done();
 
     deployer.deployC7ModelInstance(process, c7Model);
+  }
+
+  protected void deployCallingModel() {
+    BpmnModelInstance c7BusinessRuleProcess = Bpmn.createExecutableProcess("callingProcessId")
+        .startEvent()
+        .userTask(USER_TASK_ID)
+        .callActivity()
+        .calledElement(PROCESS)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("callingProcessId", c7BusinessRuleProcess);
   }
 }
