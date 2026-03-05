@@ -1,4 +1,4 @@
-name: Deploy Diagram Converter to AWS ECS
+name: Deploy Diagram Converter
 
 on:
   workflow_dispatch:
@@ -9,6 +9,19 @@ on:
         type: string
       IS_DRY_RUN:
         description: "Dry run — build and push image to ECR but skip ECS deployment"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      RELEASE_VERSION:
+        required: true
+        type: string
+      IS_DRY_RUN:
+        required: false
+        type: boolean
+        default: false
+      CALLED_FROM_RELEASE:
         required: false
         type: boolean
         default: false
@@ -59,7 +72,23 @@ jobs:
             exit 1
           fi
 
+      - name: Download artifact from workflow run
+        if: ${{ inputs.CALLED_FROM_RELEASE }}
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifacts-${{ inputs.RELEASE_VERSION }}
+          path: ./workflow-artifacts
+
+      - name: Prepare artifact from workflow run
+        if: ${{ inputs.CALLED_FROM_RELEASE }}
+        run: |
+          mkdir -p docker-context
+          cp "workflow-artifacts/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar" docker-context/app.jar
+          echo "✅ Artifact obtained from workflow artifacts"
+          ls -lh docker-context/
+
       - name: Verify release exists
+        if: ${{ !inputs.CALLED_FROM_RELEASE }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -67,7 +96,9 @@ jobs:
             echo "::error::Release '${RELEASE_VERSION}' not found. Ensure the tag exists at https://github.com/${{ github.repository }}/releases"
             exit 1
           fi
+
       - name: Download release artifact from GitHub
+        if: ${{ !inputs.CALLED_FROM_RELEASE }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
