@@ -50,6 +50,7 @@ jobs:
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
             secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN;
+            secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_ACCOUNT_ID;
 
       - name: Validate version format
         run: |
@@ -108,14 +109,13 @@ jobs:
           role-to-assume: ${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Mask AWS account ID
+        run: echo "::add-mask::${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_ACCOUNT_ID }}"
+
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Mask AWS account ID
-        run: |
-          AWS_ACCOUNT_ID=$(echo "${{ steps.ecr-login.outputs.registry }}" | cut -d'.' -f1)
-          echo "::add-mask::${AWS_ACCOUNT_ID}"
 
       - name: Compute image tags
         id: tags
