@@ -8,6 +8,8 @@
 
 package io.camunda.migration.data.impl.logging;
 
+import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
+
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
@@ -66,6 +68,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
   public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type";
   public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
+  public static final String INSERT_VARIABLE_WITH_LEGACY_C7_ID = "Inserted variable [{}] to "
+      + "migrated process instance with legacy C7 ID [{}].";
 
   public static void logMigrating(IdKeyMapper.TYPE type) {
     LOGGER.info(MIGRATING, type.getDisplayName());
@@ -131,5 +135,9 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingForm(String c7Id) {
     LOGGER.debug(MIGRATING_FORM, c7Id);
+  }
+
+  public static void logInsertLegacyIdAsVariable(String c7Id) {
+    LOGGER.debug(INSERT_VARIABLE_WITH_LEGACY_C7_ID, LEGACY_ID_VAR_NAME, c7Id);
   }
 }
