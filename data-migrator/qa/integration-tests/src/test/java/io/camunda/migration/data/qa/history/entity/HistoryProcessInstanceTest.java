@@ -68,6 +68,26 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateProcessInstanceAsCancelled() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance c7Process = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
+        .processInstanceId(c7Process.getId())
+        .singleResult();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
+        ProcessInstanceEntity.ProcessInstanceState.CANCELED, "custom-version-tag", C8_DEFAULT_TENANT, false, false,
+        false);
+  }
+
+  @Test
   public void shouldMigrateProcessInstancesWithTenant() {
     // given
     deployer.deployCamunda7Process("userTaskProcess.bpmn", "my-tenant1");
