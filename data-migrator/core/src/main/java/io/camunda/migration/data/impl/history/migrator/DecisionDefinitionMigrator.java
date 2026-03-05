@@ -12,12 +12,15 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
 
+import io.camunda.db.rdbms.read.domain.DecisionRequirementsDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.search.entities.DecisionRequirementsEntity;
+import io.camunda.search.filter.DecisionRequirementsFilter;
 import java.util.Date;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -80,11 +83,18 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
         Long decisionRequirementsKey = dbClient.findC8KeyByC7IdAndType(drdId, HISTORY_DECISION_REQUIREMENT);
         if (decisionRequirementsKey != null) {
           builder.decisionRequirementsKey(decisionRequirementsKey);
+          DecisionRequirementsEntity c8Drd = findDecisionRequirements(decisionRequirementsKey);
+          if (c8Drd != null) {
+            builder.decisionRequirementsName(c8Drd.name()).decisionRequirementsVersion(c8Drd.version());
+          }
         }
       } else {
         // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
         Long decisionRequirementsKey = decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
         builder.decisionRequirementsKey(decisionRequirementsKey);
+        // For standalone decisions, use the decision's own name and version as the DRD values
+        builder.decisionRequirementsName(c7DecisionDefinition.getName())
+            .decisionRequirementsVersion(c7DecisionDefinition.getVersion());
       }
 
       DecisionDefinitionDbModel dbModel = convert(C7Entity.of(c7DecisionDefinition, creationTime), builder);
@@ -99,6 +109,15 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
     }
 
     return null;
+  }
+
+  protected DecisionRequirementsEntity findDecisionRequirements(Long decisionRequirementsKey) {
+    return c8Client.searchDecisionRequirements(
+            DecisionRequirementsDbQuery.of(b -> b.filter(
+                new DecisionRequirementsFilter.Builder().decisionRequirementsKeys(decisionRequirementsKey).build())))
+        .stream()
+        .findFirst()
+        .orElse(null);
   }
 
 }
