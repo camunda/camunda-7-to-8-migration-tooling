@@ -12,11 +12,20 @@ public final class MigratorConstants {
   protected MigratorConstants() {}
 
   /**
-   * Partition ID used for history data migration from Camunda 7 to Camunda 8.
+   * Partition ID encoded in generated C8 keys for C7 history data.
    * Set to 4095 (maximum possible partition value) to ensure generated keys don't
    * collide with actual Zeebe partition keys during migration.
    */
   public static int C7_HISTORY_PARTITION_ID = 4095;
+
+  /**
+   * Partition ID assigned to the {@code partitionId} field of migrated C7 history records.
+   * Set to 1 so that the RDBMS exporter on partition 1 can perform history cleanup for
+   * migrated data. Keys still encode {@link #C7_HISTORY_PARTITION_ID} (4095) to avoid
+   * collisions with Zeebe partition keys.
+   */
+  public static int C7_HISTORY_EXPORTER_PARTITION_ID = 1;
+
   public static int C7_AUDIT_LOG_ENTITY_VERSION = -4095;
 
   public static final String LEGACY_ID_VAR_NAME = "legacyId";

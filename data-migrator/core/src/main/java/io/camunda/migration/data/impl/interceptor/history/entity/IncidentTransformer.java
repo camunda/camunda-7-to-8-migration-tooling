@@ -8,7 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -48,7 +48,7 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))
         .errorMessageHash(null)
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .jobKey(null)
         .state(IncidentEntity.IncidentState.RESOLVED)
         .tenantId(getTenantId(entity.getTenantId()));

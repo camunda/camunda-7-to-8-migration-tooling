@@ -8,7 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -43,7 +43,7 @@ public class FlowNodeTransformer implements EntityInterceptor<HistoricActivityIn
         .type(convertType(entity.getActivityType()))
         .tenantId(getTenantId(entity.getTenantId()))
         .state(determineState(entity))
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.
 

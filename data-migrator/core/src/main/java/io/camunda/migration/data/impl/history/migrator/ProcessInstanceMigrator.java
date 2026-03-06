@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
@@ -219,7 +220,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         .value(String.format("\"%s\"", c7ProcessInstanceId))
         .elementInstanceKey(dbModel.processInstanceKey())
         .scopeKey(dbModel.processInstanceKey())
-        .partitionId(C7_HISTORY_PARTITION_ID)
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .tenantId(dbModel.tenantId());
     c8Client.insertVariable(varBuilder.build());
     logInsertLegacyIdAsVariable(c7ProcessInstanceId);
