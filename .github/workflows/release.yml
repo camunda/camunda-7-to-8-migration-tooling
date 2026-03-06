@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
       DEPLOY_DIAGRAM_CONVERTER:
-        description: "Deploy diagram converter to AWS (don't check for alpha and patches < latest minor)"
+        description: "DEPLOY_DIAGRAM_CONVERTER (don't check for alpha and patches < latest minor)"
         required: false
         type: boolean
         default: false
