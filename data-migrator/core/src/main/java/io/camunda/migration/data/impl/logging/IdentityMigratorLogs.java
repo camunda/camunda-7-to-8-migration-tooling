@@ -55,7 +55,7 @@ public class IdentityMigratorLogs {
   }
 
   public static void logMigratingTenant(Tenant tenant) {
-    LOGGER.debug(MIGRATING_TENANT, tenant.getId(), tenant.getName());
+    LOGGER.debug(MIGRATING_TENANT, tenant.getId(), tenant.getName() == null ? "null" : tenant.getName());
   }
 
   public static void logMigratedTenant(Tenant tenant) {
