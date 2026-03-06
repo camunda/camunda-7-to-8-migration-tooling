@@ -595,15 +595,17 @@ public class C7Client {
 
   /**
    * Processes historic job log entries with pagination using the provided callback consumer.
-   * The {@code ignoredCreatedAfter} parameter is not supported by the query and is ignored;
-   * deduplication is handled via the tracking table.
    */
-  public void fetchAndHandleHistoricJobLogs(Consumer<HistoricJobLog> callback, Date ignoredCreatedAfter) {
+  public void fetchAndHandleHistoricJobLogs(Consumer<HistoricJobLog> callback, Date timestampAfter) {
     HistoricJobLogQueryImpl query = (HistoricJobLogQueryImpl) historyService.createHistoricJobLogQuery()
         .orderByTimestamp()
         .asc()
         .orderByJobId()
         .asc();
+
+    if (timestampAfter != null) {
+      query.timestampAfter(timestampAfter);
+    }
 
     new Pagination<HistoricJobLog>().pageSize(properties.getPageSize())
         .query(query)
