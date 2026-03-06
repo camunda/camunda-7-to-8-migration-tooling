@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.BUSINESS_KEY_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
@@ -400,8 +401,8 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
         searchHistoricProcessInstances("simpleProcess");
     assertThat(migratedProcessInstances).isNotEmpty();
 
-    assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(C7_LEGACY_ID_PREFIX + processInstance.getId());
-    assertThat(migratedProcessInstances.getFirst().businessId()).isEqualTo("customBusinessKey");
+    assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(C7_LEGACY_ID_PREFIX + processInstance.getId(),
+        BUSINESS_KEY_PREFIX + processInstance.getBusinessKey());
   }
 
   @Test
@@ -425,7 +426,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(migratedProcessInstances).isNotEmpty();
 
     assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(C7_LEGACY_ID_PREFIX + processInstance.getId());
-    assertThat(migratedProcessInstances.getFirst().businessId()).isEmpty();
   }
 
   @Test
@@ -449,7 +449,6 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(migratedProcessInstances).isNotEmpty();
 
     assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(C7_LEGACY_ID_PREFIX + processInstance.getId());
-    assertThat(migratedProcessInstances.getFirst().businessId()).isNull();
   }
 
   protected void deployModel() {

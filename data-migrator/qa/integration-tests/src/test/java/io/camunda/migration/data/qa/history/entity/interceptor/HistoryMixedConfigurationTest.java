@@ -92,7 +92,6 @@ public class HistoryMixedConfigurationTest extends HistoryMigrationAbstractTest 
     assertThat(migratedProcessInstances).isNotEmpty();
 
     assertThat(migratedProcessInstances.getFirst().tags()).containsOnly(processInstance.getBusinessKey(), "tag1", "tag2");
-    assertThat(migratedProcessInstances.getFirst().businessId()).isEqualTo(processInstance.getBusinessKey());
   }
 
   @Test
