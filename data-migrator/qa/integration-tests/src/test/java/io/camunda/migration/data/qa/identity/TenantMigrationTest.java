@@ -65,7 +65,7 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatTenantsContain(expectedTenants, tenants);
 
     // and 1 tenant was marked as skipped
-    testHelper.verifyTenantSkippedViaLogs(tenant2.getId(), logs);
+    testHelper.verifyTenantSkippedViaLogs(tenant2.getId(), tenant2.getName(), "The provided tenantId contains illegal characters.", logs);
   }
 
   @Test
@@ -150,8 +150,8 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatUsersForTenantContainExactly(tenant1.getId(), "userId1", "userId2");
 
     // and 1 tenant membership could not be migrated
-    String reason = format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenant1.getId(), "userId0");
-    logs.assertContains(formatMessage(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenant1.getId(), OwnerType.USER.name(), "userId0", reason));
+    logs.assertContains(formatMessage(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenant1.getId(), OwnerType.USER.name(), "userId0",
+        "Command 'ADD_ENTITY' rejected with code 'NOT_FOUND': Expected to add user with ID 'userId0' to tenant with ID 'tenantId1', but the user doesn't exist."));
   }
 
 }

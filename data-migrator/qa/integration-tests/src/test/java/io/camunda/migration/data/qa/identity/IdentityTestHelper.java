@@ -169,12 +169,13 @@ public class IdentityTestHelper {
         .containsAll(expectedTenants.stream().map(tenant -> tuple(tenant.getId(), tenant.getName())).toList());
   }
 
-  protected void verifyAuthorizationSkippedViaLogs(String authorizationId, String reason, LogCapturer logs) {
-    logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, reason));
+  protected void verifyAuthorizationSkippedViaLogs(String authorizationId, String ownerType, String ownerId, String resourceTypeName,
+                                                   String resourceTypeId, String reason, LogCapturer logs) {
+    logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, ownerType, ownerId, resourceTypeName, resourceTypeId, reason));
   }
 
-  protected void verifyTenantSkippedViaLogs(String tenantId, LogCapturer logs) {
-    logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId));
+  protected void verifyTenantSkippedViaLogs(String tenantId, String tenantName, String reason, LogCapturer logs) {
+    logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId, tenantName == null ? "null" : tenantName, reason));
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
