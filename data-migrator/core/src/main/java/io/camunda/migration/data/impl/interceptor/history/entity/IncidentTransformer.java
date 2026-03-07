@@ -49,7 +49,6 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
         .creationDate(convertDate(entity.getCreateTime()))
         .errorMessageHash(null)
         .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
-        .jobKey(null)
         .state(IncidentEntity.IncidentState.RESOLVED)
         .tenantId(getTenantId(entity.getTenantId()));
         // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally

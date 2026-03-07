@@ -24,6 +24,7 @@ import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntit
 import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.persistence.entity.HistoricJobLogEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
@@ -42,7 +43,8 @@ public interface IdKeyMapper {
       entry(DecisionDefinitionEntity.class, TYPE.HISTORY_DECISION_DEFINITION),
       entry(DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT),
       entry(UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG),
-      entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION)
+      entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION),
+      entry(HistoricJobLogEventEntity.class, TYPE.HISTORY_JOB)
   );
 
   enum TYPE {
@@ -58,6 +60,7 @@ public interface IdKeyMapper {
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
+    HISTORY_JOB("Historic Job"),
 
     // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
