@@ -34,6 +34,8 @@ public class ExpressionTransformerTest {
             expressionToFeel("").isMappedTo("=null"),
             expressionToFeel("${someVariable}").isMappedTo("=someVariable"),
             expressionToFeel("someStaticValue").isMappedTo("someStaticValue"),
+            expressionToFeel("\"inputValue\"").isMappedTo("\"inputValue\""),
+            expressionToFeel("\"outputValue\"").isMappedTo("\"outputValue\""),
             expressionToFeel("${var.innerField}").isMappedTo("=var.innerField"),
             expressionToFeel("hello-${World}").isMappedTo("=\"hello-\" + World"),
             expressionToFeel("#{x}").isMappedTo("=x"),
