@@ -1,4 +1,4 @@
-name: Deploy Diagram Converter to AWS ECS
+name: Deploy Diagram Converter
 
 on:
   workflow_dispatch:
@@ -9,6 +9,19 @@ on:
         type: string
       IS_DRY_RUN:
         description: "Dry run — build and push image to ECR but skip ECS deployment"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      RELEASE_VERSION:
+        required: true
+        type: string
+      IS_DRY_RUN:
+        required: false
+        type: boolean
+        default: false
+      CALLED_FROM_RELEASE:
         required: false
         type: boolean
         default: false
@@ -40,6 +53,21 @@ jobs:
     environment: diagram-converter-production
 
     steps:
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN;
+            secret/data/products/cambpm/ci/github-workflow DIAGRAM_CONVERTER_AWS_ACCOUNT_ID;
+
+      - name: Mask AWS account ID
+        run: echo "::add-mask::${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_ACCOUNT_ID }}"
+
       - name: Validate version format
         run: |
           if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -47,7 +75,23 @@ jobs:
             exit 1
           fi
 
+      - name: Download artifact from workflow run
+        if: ${{ inputs.CALLED_FROM_RELEASE }}
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifacts-${{ inputs.RELEASE_VERSION }}
+          path: ./workflow-artifacts
+
+      - name: Prepare artifact from workflow run
+        if: ${{ inputs.CALLED_FROM_RELEASE }}
+        run: |
+          mkdir -p docker-context
+          cp "workflow-artifacts/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar" docker-context/app.jar
+          echo "✅ Artifact obtained from workflow artifacts"
+          ls -lh docker-context/
+
       - name: Verify release exists
+        if: ${{ !inputs.CALLED_FROM_RELEASE }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -55,7 +99,9 @@ jobs:
             echo "::error::Release '${RELEASE_VERSION}' not found. Ensure the tag exists at https://github.com/${{ github.repository }}/releases"
             exit 1
           fi
+
       - name: Download release artifact from GitHub
+        if: ${{ !inputs.CALLED_FROM_RELEASE }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -94,17 +140,13 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ steps.secrets.outputs.DIAGRAM_CONVERTER_AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Mask AWS account ID
-        run: |
-          AWS_ACCOUNT_ID=$(echo "${{ steps.ecr-login.outputs.registry }}" | cut -d'.' -f1)
-          echo "::add-mask::${AWS_ACCOUNT_ID}"
 
       - name: Compute image tags
         id: tags
