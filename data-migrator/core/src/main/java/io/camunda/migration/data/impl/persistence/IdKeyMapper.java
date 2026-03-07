@@ -58,6 +58,7 @@ public interface IdKeyMapper {
     HISTORY_DECISION_REQUIREMENT("Historic Decision Requirement"),
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
+    HISTORY_EXTERNAL_TASK("Historic External Task"),
 
     // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),

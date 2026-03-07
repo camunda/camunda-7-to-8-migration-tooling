@@ -41,6 +41,7 @@ import org.camunda.bpm.engine.authorization.AuthorizationQuery;
 import org.camunda.bpm.engine.delegate.Expression;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
@@ -55,6 +56,7 @@ import org.camunda.bpm.engine.identity.UserQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
+import org.camunda.bpm.engine.impl.HistoricExternalTaskLogQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricProcessInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricTaskInstanceQueryImpl;
@@ -484,6 +486,42 @@ public class C7Client {
         .query(query)
         .maxCount(query::count)
         .callback(callback);
+  }
+
+  /**
+   * Processes historic external task log entries with pagination using the provided callback
+   * consumer. Orders by timestamp descending so the most recent log entry per external task
+   * is processed first, capturing the final state of each external task.
+   *
+   * <p>Note: {@link org.camunda.bpm.engine.history.HistoricExternalTaskLogQuery} does not
+   * support timestamp-based filtering, so the {@code startAfter} parameter is not used.
+   */
+  public void fetchAndHandleHistoricExternalTaskLogs(Consumer<HistoricExternalTaskLog> callback, Date startAfter) {
+    HistoricExternalTaskLogQueryImpl query = (HistoricExternalTaskLogQueryImpl) historyService.createHistoricExternalTaskLogQuery()
+        .orderByTimestamp()
+        .desc()
+        .orderByExternalTaskId()
+        .asc();
+
+    new Pagination<HistoricExternalTaskLog>().pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .callback(callback);
+  }
+
+  /**
+   * Gets the most recent historic external task log entry for the given external task ID.
+   */
+  public HistoricExternalTaskLog getHistoricExternalTaskLog(String externalTaskId) {
+    return callApi(() -> historyService.createHistoricExternalTaskLogQuery()
+            .externalTaskId(externalTaskId)
+            .orderByTimestamp()
+            .desc()
+            .listPage(0, 1)
+            .stream()
+            .findFirst()
+            .orElse(null),
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricExternalTaskLog", externalTaskId));
   }
 
   /**

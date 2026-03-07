@@ -15,6 +15,7 @@ import io.camunda.migration.data.impl.history.migrator.HistoryEntityMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
@@ -75,6 +76,9 @@ public class HistoryMigrator {
   protected AuditLogMigrator auditLogMigrator;
 
   @Autowired
+  protected ExternalTaskMigrator externalTaskMigrator;
+
+  @Autowired
   protected DbClient dbClient;
 
   protected List<HistoryEntityMigrator<?, ?>> getMigrators() {
@@ -85,6 +89,7 @@ public class HistoryMigrator {
         flowNodeMigrator,
         userTaskMigrator,
         variableMigrator,
+        externalTaskMigrator,
         incidentMigrator,
         decisionRequirementsMigrator,
         decisionDefinitionMigrator,
