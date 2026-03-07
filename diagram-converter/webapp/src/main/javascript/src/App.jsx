@@ -145,6 +145,21 @@ function App() {
              "Accept": "application/json"
           },
         });
+
+        if (!checkResponse.ok) {
+          const result = {
+            status: "error",
+            originalModelXml: originalModelXml,
+            checkResponseJson: null,
+          };
+          setFileResults((prevResults) => {
+            const updated = [...prevResults];
+            updated[idx] = result;
+            return updated;
+          });
+          return result;
+        }
+
         const checkResponseJson = await checkResponse.json();
 
         let result = {
@@ -180,10 +195,10 @@ function App() {
         const blob = await convertResponse.blob();
 
         result = {
-          status: checkResponse.ok && convertResponse.ok ? "success" : "error",
+          status: convertResponse.ok ? "success" : "error",
           originalModelXml: originalModelXml,
           checkResponseJson: checkResponseJson,
-          convertedFileBlob: blob,
+          convertedFileBlob: convertResponse.ok ? blob : null,
           filename
         };
 
@@ -552,7 +567,7 @@ function App() {
                   previewAction={() => preview(fileResults[idx])}
                   downloadAction={() => download(fileResults[idx])}
                   error={
-                    !fileResults[idx].ok == "error" ? "File upload failure" : ""
+                    fileResults[idx].status === "error" ? "File upload failure" : ""
                   }
                 />
               ))}

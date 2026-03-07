@@ -60,7 +60,7 @@ export default function DropZone({
           </button>
         )}
         {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
-        {isConverted && downloadAction && (
+        {isConverted && downloadAction && !error && (
           <button className="download" onClick={downloadAction} title="Download the converted model">
             <Download />
           </button>
@@ -69,14 +69,6 @@ export default function DropZone({
           <button onClick={onDelete}>
             <TrashCan />
           </button>
-        )}        
-
-        {status === "error" && (
-          <Tooltip label="File upload failure">
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
-            </div>
-          </Tooltip>
         )}
       </div>
     </div>
