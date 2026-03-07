@@ -7,9 +7,8 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.BUSINESS_KEY_PREFIX;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
+import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -45,7 +44,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
         .version(entity.getProcessDefinitionVersion())
         .tags(getDefaultTags(entity))
         .numIncidents(0)
-        .partitionId(C7_HISTORY_PARTITION_ID);
+        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID);
   }
 
   /**
