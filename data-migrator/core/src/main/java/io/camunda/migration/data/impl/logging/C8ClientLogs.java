@@ -48,5 +48,6 @@ public class C8ClientLogs {
   public static final String FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and user [%s], check logs for details";
   public static final String FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and group [%s], check logs for details";
   public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
+  public static final String FAILED_TO_QUERY_TOPOLOGY = "Camunda REST API cannot be reached to query for the topology. If you want to continue in offline mode, please configure a partition count with the following config property: " ;
 
 }

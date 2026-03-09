@@ -20,7 +20,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
-import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
@@ -75,7 +74,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public String migrateTransactionally(UserOperationLogEntry c7AuditLog) {
+  public MigrationResult migrateTransactionally(UserOperationLogEntry c7AuditLog) {
     String c7AuditLogId = c7AuditLog.getOperationId();
     if (shouldMigrate(c7AuditLogId, HISTORY_AUDIT_LOG)) {
       logMigratingAuditLogs(c7AuditLogId);
@@ -90,6 +89,10 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       resolveUserTaskKey(auditLogDbModelBuilder, c7AuditLog);
       resolveJobKey(auditLogDbModelBuilder, c7AuditLog);
 
+      // Assign partition: inherit from root process instance, or use random if none
+      int partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7AuditLog.getRootProcessInstanceId());
+      auditLogDbModelBuilder.partitionId(partitionId);
+
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
 
@@ -101,17 +104,13 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       }
 
-      if (c7AuditLog.getRootProcessInstanceId() != null && dbModel.rootProcessInstanceKey() == null) {
-        throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-      }
-
       if (c7AuditLog.getTaskId() != null && dbModel.userTaskKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_BELONGS_TO_SKIPPED_TASK);
       }
 
       c8Client.insertAuditLog(dbModel);
 
-      return dbModel.auditLogKey();
+      return MigrationResult.of(dbModel.auditLogKey());
     }
 
     return null;
@@ -136,15 +135,24 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
   protected void resolveProcessInstanceKeys(Builder builder, UserOperationLogEntry c7AuditLog) {
     String c7ProcessInstanceId = c7AuditLog.getProcessInstanceId();
     String c7RootProcessInstanceId = c7AuditLog.getRootProcessInstanceId();
-    if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-      var processInstanceId = findProcessInstanceByC7Id(c7ProcessInstanceId).processInstanceKey();
-      builder.processInstanceKey(processInstanceId);
-      if (EntityTypes.PROCESS_INSTANCE.equals(c7AuditLog.getEntityType())){
-        builder.entityKey(String.valueOf(processInstanceId));
-      }
-      if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-        ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
-        builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+    if (c7ProcessInstanceId != null) {
+      if (isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        var processInstanceId = findProcessInstanceByC7Id(c7ProcessInstanceId).processInstanceKey();
+        builder.processInstanceKey(processInstanceId);
+        if (EntityTypes.PROCESS_INSTANCE.equals(c7AuditLog.getEntityType())) {
+          builder.entityKey(String.valueOf(processInstanceId));
+        }
+
+        if (c7RootProcessInstanceId != null) {
+          if (isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+          } else {
+            throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+          }
+        }
+      } else {
+        throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_INSTANCE);
       }
     }
   }
@@ -192,7 +200,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       if (EntityTypes.TASK.equals(c7AuditLog.getEntityType())){
         builder.entityKey(String.valueOf(taskKey));
       }
-      UserTaskDbModel userTaskDbModel = searchUserTasksByKey(taskKey);
+      UserTaskDbModel userTaskDbModel = c8Client.findUserTaskOrThrow(taskKey);
       builder.userTaskKey(taskKey)
           .elementInstanceKey(userTaskDbModel.elementInstanceKey());
     }
@@ -215,23 +223,6 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
       builder.jobKey(jobKey);
     }
-  }
-
-  /**
-   * Searches for a user task in Camunda 8 by its task key.
-   * <p>
-   * This method queries the Camunda 8 database to retrieve the user task details
-   * including the element instance key, which is needed for the audit log entry.
-   * </p>
-   *
-   * @param taskKey the Camunda 8 user task key
-   * @return the user task database model, or null if not found
-   */
-  protected UserTaskDbModel searchUserTasksByKey(Long taskKey) {
-    return c8Client.searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey))))
-        .stream()
-        .findFirst()
-        .orElse(null);
   }
 
   /**

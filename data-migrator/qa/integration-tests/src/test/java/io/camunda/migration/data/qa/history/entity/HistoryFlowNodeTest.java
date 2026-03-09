@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.END_EVENT;
@@ -18,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
+import io.camunda.migration.data.impl.util.PartitionSupplier;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
 
@@ -244,8 +245,17 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
     List<FlowNodeInstanceDbModel> flowNodes =
         searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
 
+    // All flow nodes should be assigned a partition from the available Zeebe partitions
+    List<Integer> availablePartitions = List.of(1, 2, 3);
     assertThat(flowNodes).isNotEmpty()
-        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(C7_HISTORY_EXPORTER_PARTITION_ID));
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isIn(availablePartitions));
+
+    // All flow nodes of the same process instance should share the same partition ID
+    // as the parent process instance
+    int processInstancePartitionId = searchProcessInstancePartitionId(processInstanceKey);
+    assertThat(processInstancePartitionId).isIn(availablePartitions);
+    assertThat(flowNodes)
+        .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isEqualTo(processInstancePartitionId));
   }
 
   @Test

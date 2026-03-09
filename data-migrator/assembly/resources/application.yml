@@ -67,6 +67,12 @@ camunda:
 
     ## History migration configuration
     history:
+      ## Number of partitions to use for distributing history data.
+      ## When set, this value takes precedence over querying the topology from the Camunda REST API.
+      ## This enables "offline mode" where the migrator can run without connectivity to Camunda 8.
+      ## If not set, the partition count is automatically fetched from the Camunda REST API.
+      #partition-count: 1
+
       # ACTIVE or SUSPENDED C7 instances will be automatically canceled in C8 with end date set to migration date
       auto-cancel:
         cleanup:
