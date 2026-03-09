@@ -24,7 +24,6 @@ import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
@@ -39,19 +38,21 @@ import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.FormEntity;
 import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
-import io.camunda.search.query.AuditLogQuery;
 import io.camunda.search.filter.FilterBuilders;
 import io.camunda.search.page.SearchQueryPage;
+import io.camunda.search.query.AuditLogQuery;
 import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.FormQuery;
 import io.camunda.search.query.IncidentQuery;
+import io.camunda.search.query.JobQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
@@ -272,6 +273,20 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   public List<VariableEntity> searchHistoricVariables() {
     return rdbmsService.getVariableReader()
         .search(new VariableQuery(FilterBuilders.variable().build(), SortOptionBuilders.variable().build(), SearchQueryPage.of((b) -> b)))
+        .items();
+  }
+
+  public List<JobEntity> searchJobs(long processInstanceKey) {
+    return rdbmsService.getJobReader()
+        .search(JobQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
+        .items();
+  }
+
+  public List<JobEntity> searchJobs() {
+    return rdbmsService.getJobReader()
+        .search(new JobQuery(FilterBuilders.job().build(), SortOptionBuilders.job().build(), SearchQueryPage.of((b) -> b)))
         .items();
   }
 
