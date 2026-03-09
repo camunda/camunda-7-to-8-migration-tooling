@@ -376,6 +376,7 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         anyString(),
         any(Date.class),
         any(IdKeyMapper.TYPE.class),
+        any(),
         any());
   }
 

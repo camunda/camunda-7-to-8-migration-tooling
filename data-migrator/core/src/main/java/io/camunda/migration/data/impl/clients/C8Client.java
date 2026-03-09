@@ -34,24 +34,33 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_QUERY_TOPOLOGY;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_FLOW_NODE_INSTANCES;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_PROCESS_DEFINITIONS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
+import static io.camunda.migration.data.impl.util.PartitionSupplier.PARTITION_COUNT_PROPERTY;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.fetch.GroupGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
+import io.camunda.client.api.response.PartitionInfo;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.response.Group;
@@ -59,7 +68,6 @@ import io.camunda.client.api.search.response.ProcessDefinition;
 import io.camunda.client.api.search.response.SearchResponse;
 import io.camunda.client.api.search.response.User;
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.DecisionRequirementsDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
@@ -92,15 +100,18 @@ import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
-import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.filter.DecisionRequirementsFilter;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -282,8 +293,27 @@ public class C8Client {
   /**
    * Finds a ProcessInstance by key.
    */
-  public ProcessInstanceEntity findProcessInstance(Long key) {
+  protected ProcessInstanceEntity findProcessInstance(Long key) {
     return callApi(() -> processInstanceMapper.findOne(key), FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY + key);
+  }
+
+  /**
+   * Finds a ProcessInstance by key and throws if not found.
+   * <p>
+   * Use this method when the entity is expected to exist (e.g., based on migration mapping).
+   * If the entity is not found, it indicates C8 history cleanup ran before migration completed.
+   * </p>
+   *
+   * @param processInstanceKey the C8 process instance key
+   * @return the found process instance
+   * @throws C8EntityNotFoundException if not found
+   */
+  public ProcessInstanceEntity findProcessInstanceOrThrow(Long processInstanceKey) {
+    ProcessInstanceEntity result = findProcessInstance(processInstanceKey);
+    if (result == null) {
+      throw new C8EntityNotFoundException(HISTORY_PROCESS_INSTANCE, processInstanceKey);
+    }
+    return result;
   }
 
   /**
@@ -296,8 +326,26 @@ public class C8Client {
   /**
    * Searches for DecisionRequirementsDefinition matching the query
    */
-  public List<DecisionRequirementsEntity> searchDecisionRequirements(DecisionRequirementsDbQuery query) {
+  protected List<DecisionRequirementsEntity> searchDecisionRequirements(DecisionRequirementsDbQuery query) {
     return callApi(() -> decisionRequirementsMapper.search(query), FAILED_TO_SEARCH_DECISION_REQUIREMENTS);
+  }
+
+  /**
+   * Finds a DecisionRequirements by key and throws if not found.
+   * <p>
+   * Use this method when the entity is expected to exist (e.g., based on migration mapping).
+   * If the entity is not found, it indicates C8 history cleanup ran before migration completed.
+   * </p>
+   *
+   * @param decisionRequirementsKey the C8 decision requirements key
+   * @return the found decision requirements
+   * @throws C8EntityNotFoundException if not found
+   */
+  public DecisionRequirementsEntity findDecisionRequirementsOrThrow(Long decisionRequirementsKey) {
+    return C8EntityQuery
+        .of(() -> searchDecisionRequirements(DecisionRequirementsDbQuery.of(b -> b.filter(
+            new DecisionRequirementsFilter.Builder().decisionRequirementsKeys(decisionRequirementsKey).build()))))
+        .findOneOrThrow(HISTORY_DECISION_REQUIREMENT, decisionRequirementsKey);
   }
 
   /**
@@ -310,8 +358,26 @@ public class C8Client {
   /**
    * Searches for DecisionDefinitions matching the query.
    */
-  public List<DecisionDefinitionEntity> searchDecisionDefinitions(DecisionDefinitionDbQuery query) {
+  protected List<DecisionDefinitionEntity> searchDecisionDefinitions(DecisionDefinitionDbQuery query) {
     return callApi(() -> decisionDefinitionMapper.search(query), FAILED_TO_SEARCH_DECISION_DEFINITIONS);
+  }
+
+  /**
+   * Finds a DecisionDefinition by key and throws if not found.
+   * <p>
+   * Use this method when the entity is expected to exist (e.g., based on migration mapping).
+   * If the entity is not found, it indicates C8 history cleanup ran before migration completed.
+   * </p>
+   *
+   * @param decisionDefinitionKey the C8 decision definition key
+   * @return the found decision definition
+   * @throws C8EntityNotFoundException if not found
+   */
+  public DecisionDefinitionEntity findDecisionDefinitionOrThrow(Long decisionDefinitionKey) {
+    return C8EntityQuery
+        .of(() -> searchDecisionDefinitions(DecisionDefinitionDbQuery.of(b -> b.filter(
+            value -> value.decisionDefinitionKeys(decisionDefinitionKey)))))
+        .findOneOrThrow(HISTORY_DECISION_DEFINITION, decisionDefinitionKey);
   }
 
   /**
@@ -326,13 +392,6 @@ public class C8Client {
     if (!dbModel.evaluatedOutputs().isEmpty()) {
       callApi(() -> decisionInstanceMapper.insertOutput(dbModel), FAILED_TO_INSERT_DECISION_INSTANCE_OUTPUT);
     }
-  }
-
-  /**
-   * Searches for DecisionInstances matching the query.
-   */
-  public List<DecisionInstanceEntity> searchDecisionInstances(DecisionInstanceDbQuery query) {
-    return callApi(() -> decisionInstanceMapper.search(query), FAILED_TO_SEARCH_DECISION_INSTANCES);
   }
 
   /**
@@ -398,18 +457,67 @@ public class C8Client {
     return callApi(() -> flowNodeInstanceMapper.search(query), FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
   }
 
+  public List<FlowNodeInstanceDbModel> findFlowNodes(String activityId, Long processInstanceKey) {
+    return searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
+            builder -> builder.filter(FlowNodeInstanceFilter.of(
+                filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+  }
+
+  public FlowNodeInstanceDbModel findFlowNodeOrThrow(Long flowNodeInstanceKey) {
+    return C8EntityQuery
+        .of(() -> searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
+            builder -> builder.filter(FlowNodeInstanceFilter.of(
+                filter -> filter.flowNodeInstanceKeys(flowNodeInstanceKey))))))
+        .findOneOrThrow(HISTORY_FLOW_NODE, flowNodeInstanceKey);
+  }
+
   /**
    * Searches for User tasks matching the query.
    */
-  public List<UserTaskDbModel> searchUserTasks(UserTaskDbQuery query){
+  protected List<UserTaskDbModel> searchUserTasks(UserTaskDbQuery query){
     return callApi(() -> userTaskMapper.search(query), FAILED_TO_SEARCH_USER_TASKS);
+  }
+
+  /**
+   * Finds a User task by key and throws if not found.
+   * <p>
+   * Use this method when the entity is expected to exist (e.g., based on migration mapping).
+   * If the entity is not found, it indicates C8 history cleanup ran before migration completed.
+   * </p>
+   *
+   * @param userTaskKey the C8 user task key
+   * @return the found user task
+   * @throws C8EntityNotFoundException if not found
+   */
+  public UserTaskDbModel findUserTaskOrThrow(Long userTaskKey) {
+    return C8EntityQuery
+        .of(() -> searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(userTaskKey)))))
+        .findOneOrThrow(HISTORY_USER_TASK, userTaskKey);
   }
 
   /**
    * Searches for ProcessDefinitions matching the query.
    */
-  public List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
+  protected List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
     return callApi(() -> processDefinitionMapper.search(query), FAILED_TO_SEARCH_PROCESS_DEFINITIONS);
+  }
+
+  /**
+   * Finds a ProcessDefinition by key and throws if not found.
+   * <p>
+   * Use this method when the entity is expected to exist (e.g., based on migration mapping).
+   * If the entity is not found, it indicates C8 history cleanup ran before migration completed.
+   * </p>
+   *
+   * @param processDefinitionKey the C8 process definition key
+   * @return the found process definition
+   * @throws C8EntityNotFoundException if not found
+   */
+  public ProcessDefinitionEntity findProcessDefinitionOrThrow(Long processDefinitionKey) {
+    return C8EntityQuery
+        .of(() -> searchProcessDefinitions(ProcessDefinitionDbQuery.of(b -> b.filter(
+            value -> value.processDefinitionKeys(processDefinitionKey)))))
+        .findOneOrThrow(HISTORY_PROCESS_DEFINITION, processDefinitionKey);
   }
 
   /**
@@ -481,4 +589,62 @@ public class C8Client {
     callApi(() -> jobMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_JOB);
   }
 
+  /**
+   * Fetches the available Zeebe partition IDs from the broker topology.
+   *
+   * @return list of partition IDs, never empty
+   */
+  public List<Integer> fetchPartitionIds() {
+    var topology = callApi(() -> camundaClient.newTopologyRequest().execute(), FAILED_TO_QUERY_TOPOLOGY + PARTITION_COUNT_PROPERTY);
+    return topology.getBrokers()
+        .stream()
+        .flatMap(broker -> broker.getPartitions().stream())
+        .map(PartitionInfo::getPartitionId)
+        .distinct()
+        .sorted()
+        .toList();
+  }
+
+  public static class C8EntityQuery<T> {
+
+    protected final Supplier<List<T>> querySupplier;
+
+    protected C8EntityQuery(Supplier<List<T>> querySupplier) {
+      this.querySupplier = querySupplier;
+    }
+
+    /**
+     * Creates a new C8EntityQuery with the given query supplier.
+     *
+     * @param querySupplier supplier that executes the query and returns results
+     * @param <T> the entity type
+     * @return a new C8EntityQuery instance
+     */
+    public static <T> C8EntityQuery<T> of(Supplier<List<T>> querySupplier) {
+      return new C8EntityQuery<>(querySupplier);
+    }
+
+    /**
+     * Executes the query and returns the first result, or throws
+     * {@link C8EntityNotFoundException} if no results are found.
+     * <p>
+     * Use this method when querying for an entity that is expected to exist
+     * based on prior migration (e.g., the mapping table indicates it was migrated).
+     * If the entity is not found, it likely means C8 history cleanup ran before
+     * migration completed.
+     * </p>
+     *
+     * @param entityType the type of entity being queried (for error context)
+     * @param c8Key the C8 key that was used to query (for error context)
+     * @return the found entity
+     * @throws C8EntityNotFoundException if no entity is found
+     */
+    public T findOneOrThrow(IdKeyMapper.TYPE entityType, Long c8Key) {
+      return querySupplier.get()
+          .stream()
+          .findFirst()
+          .orElseThrow(() -> new C8EntityNotFoundException(entityType, c8Key));
+    }
+
+  }
 }

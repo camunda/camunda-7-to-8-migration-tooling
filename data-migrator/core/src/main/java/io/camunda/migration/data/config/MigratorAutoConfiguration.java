@@ -40,6 +40,7 @@ import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 
 import io.camunda.migration.data.impl.identity.DefinitionLookupService;
+import io.camunda.migration.data.impl.util.PartitionSupplier;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;
@@ -85,7 +86,8 @@ import org.springframework.context.annotation.Import;
     VariableMigrator.class,
     AuditLogMigrator.class,
     SchemaShutdownCleaner.class,
-    DataSourceRegistry.class
+    DataSourceRegistry.class,
+    PartitionSupplier.class
 })
 @Configuration
 @EnableConfigurationProperties(MigratorProperties.class)

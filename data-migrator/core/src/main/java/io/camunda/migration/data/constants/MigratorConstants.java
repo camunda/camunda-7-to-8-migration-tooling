@@ -18,14 +18,6 @@ public final class MigratorConstants {
    */
   public static int C7_HISTORY_PARTITION_ID = 4095;
 
-  /**
-   * Partition ID assigned to the {@code partitionId} field of migrated C7 history records.
-   * Set to 1 so that the RDBMS exporter on partition 1 can perform history cleanup for
-   * migrated data. Keys still encode {@link #C7_HISTORY_PARTITION_ID} (4095) to avoid
-   * collisions with Zeebe partition keys.
-   */
-  public static int C7_HISTORY_EXPORTER_PARTITION_ID = 1;
-
   public static int C7_AUDIT_LOG_ENTITY_VERSION = -4095;
 
   public static final String LEGACY_ID_VAR_NAME = "legacyId";

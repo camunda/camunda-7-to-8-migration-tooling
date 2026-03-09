@@ -91,6 +91,15 @@ public class DbClient {
   }
 
   /**
+   * Finds the partition ID stored for the given C7 ID and type.
+   *
+   * <p>Returns {@code null} if no record exists or if the record has no partition ID set.
+   */
+  public Integer findPartitionIdByC7IdAndType(String c7Id, TYPE type) {
+    return callApi(() -> idKeyMapper.findPartitionIdByC7IdAndType(c7Id, type), FAILED_TO_FIND_KEY_BY_ID + c7Id);
+  }
+
+  /**
    * Finds all C7 IDs.
    */
   public List<String> findAllC7Ids() {
@@ -101,15 +110,23 @@ public class DbClient {
    * Updates a record by setting the key for an existing ID and type.
    */
   public void updateC8KeyByC7IdAndType(String c7Id, Long c8Key, TYPE type) {
-    updateC8KeyByC7IdAndType(c7Id, (c8Key == null) ? null : c8Key.toString(), type);
+    updateC8KeyByC7IdAndType(c7Id, (c8Key == null) ? null : c8Key.toString(), type, null);
   }
 
   /**
    * Updates a record by setting the key for an existing ID and type.
    */
   public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type) {
+    updateC8KeyByC7IdAndType(c7Id, c8Key, type, null);
+  }
+
+  /**
+   * Updates a record by setting the key and partition ID for an existing ID and type.
+   */
+  public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type, Integer partitionId) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, c8Key, type);
+    model.setPartitionId(partitionId);
     callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
   }
 
@@ -150,30 +167,44 @@ public class DbClient {
    * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type) {
-    insert(c7Id, c8Key, createTime, type, null);
+    insert(c7Id, (c8Key == null) ? null : c8Key.toString(), createTime, type, null, null);
   }
 
   /**
    * Inserts a new record into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, TYPE type) {
-    insert(c7Id, c8Key, null, type, null);
+    insert(c7Id, (c8Key == null) ? null : c8Key.toString(), null, type, null, null);
   }
 
   /**
    * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, Long c8Key, Date createTime, TYPE type, String skipReason) {
-    insert(c7Id, (c8Key == null) ? null : c8Key.toString(), createTime, type, skipReason);
+    insert(c7Id, (c8Key == null) ? null : c8Key.toString(), createTime, type, skipReason, null);
+  }
+
+  /**
+   * Inserts a new record of the given type into the mapping table with a partition ID.
+   */
+  public void insert(String c7Id, String c8Key, Date createTime, TYPE type, Integer partitionId) {
+    insert(c7Id, c8Key, createTime, type, null, partitionId);
   }
 
   /**
    * Inserts a new record of the given type into the mapping table.
    */
   public void insert(String c7Id, String c8Key, Date createTime, TYPE type, String skipReason) {
+    insert(c7Id, c8Key, createTime, type, skipReason, null);
+  }
+
+  /**
+   * Inserts a new record of the given type into the mapping table.
+   */
+  public void insert(String c7Id, String c8Key, Date createTime, TYPE type, String skipReason, Integer partitionId) {
     String finalSkipReason = properties.getSaveSkipReason() ? skipReason : null;
     DbClientLogs.insertingRecord(c7Id, createTime, null, finalSkipReason);
-    var model = createIdKeyDbModel(c7Id, createTime, c8Key, type, finalSkipReason);
+    var model = createIdKeyDbModel(c7Id, createTime, c8Key, type, finalSkipReason, partitionId);
     callApi(() -> idKeyMapper.insert(model), FAILED_TO_INSERT_RECORD + c7Id);
   }
 
@@ -268,12 +299,20 @@ public class DbClient {
    * Creates a new IdKeyDbModel instance with the provided parameters including skip reason.
    */
   protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, String c8Key, TYPE type, String skipReason) {
+    return createIdKeyDbModel(c7Id, createTime, c8Key, type, skipReason, null);
+  }
+
+  /**
+   * Creates a new IdKeyDbModel instance with the provided parameters including skip reason and partition ID.
+   */
+  protected IdKeyDbModel createIdKeyDbModel(String c7Id, Date createTime, String c8Key, TYPE type, String skipReason, Integer partitionId) {
     var keyIdDbModel = new IdKeyDbModel();
     keyIdDbModel.setC7Id(c7Id);
     keyIdDbModel.setCreateTime(createTime);
     keyIdDbModel.setC8Key(c8Key);
     keyIdDbModel.setType(type);
     keyIdDbModel.setSkipReason(skipReason);
+    keyIdDbModel.setPartitionId(partitionId);
     return keyIdDbModel;
   }
 
