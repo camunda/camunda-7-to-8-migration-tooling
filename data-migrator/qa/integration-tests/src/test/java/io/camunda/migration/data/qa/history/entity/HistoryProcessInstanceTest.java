@@ -31,7 +31,6 @@ import io.camunda.search.query.VariableQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Date;
 import java.util.List;
-import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
@@ -64,11 +63,32 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
-        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", C8_DEFAULT_TENANT, false, false);
+        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", C8_DEFAULT_TENANT, false, false,
+        true);
     List<VariableEntity> variableEntities = searchHistoricVariables(LEGACY_ID_VAR_NAME);
     assertThat(variableEntities).hasSize(1);
     assertThat(variableEntities.getFirst().value()).isEqualTo("\"" + c7Process.getId() + "\"");
     assertThat(variableEntities.getFirst().processInstanceKey()).isEqualTo(processInstances.getFirst().processInstanceKey());
+  }
+
+  @Test
+  public void shouldMigrateProcessInstanceAsCancelled() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance c7Process = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    HistoricProcessInstance historicProcessInstance = historyService.createHistoricProcessInstanceQuery()
+        .processInstanceId(c7Process.getId())
+        .singleResult();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
+        ProcessInstanceEntity.ProcessInstanceState.CANCELED, "custom-version-tag", C8_DEFAULT_TENANT, false, false,
+        false);
   }
 
   @Test
@@ -88,7 +108,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(processInstances).hasSize(1);
     verifyProcessInstanceFields(processInstances.getFirst(), historicProcessInstance, "userTaskProcessId",
-        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", "my-tenant1", false, false);
+        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, "custom-version-tag", "my-tenant1", false, false, true);
   }
 
   @Test
@@ -119,11 +139,12 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
 
     var parent = parentProcessInstance.getFirst();
     verifyProcessInstanceFields(parent, historicProcessInstance, "callingProcessId",
-        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, null, C8_DEFAULT_TENANT, false, false);
+        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, null, C8_DEFAULT_TENANT, false, false, true);
 
     var sub = subProcessInstance.getFirst();
     verifyProcessInstanceFields(sub, historicSubProcessInstance, "calledProcessInstanceId",
-        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, null, C8_DEFAULT_TENANT, true, false);
+        ProcessInstanceEntity.ProcessInstanceState.COMPLETED, null, C8_DEFAULT_TENANT, true, false, true);
+
   }
 
   @Test
@@ -160,7 +181,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  @Disabled("https://github.com/camunda/camunda-bpm-platform/issues/5400")
+  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/428")
   public void shouldMigrateProcessInstanceWithIncident() {
     // given
     deployer.deployCamunda7Process("incidentProcess.bpmn");
@@ -179,32 +200,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     var processInstance = processInstances.getFirst();
 
     verifyProcessInstanceFields(processInstance, historicProcessInstance, "incidentProcessId",
-        ProcessInstanceEntity.ProcessInstanceState.ACTIVE, null, C8_DEFAULT_TENANT, false, true);
-  }
-
-  @Test
-  @Disabled("https://github.com/camunda/camunda-bpm-platform/issues/5359")
-  @WhiteBox
-  public void shouldCheckCalledProcessParentElementKey() {
-    // given
-    deployer.deployCamunda7Process("callActivityProcess.bpmn");
-    deployer.deployCamunda7Process("calledActivitySubprocess.bpmn");
-    ProcessInstance parentInstance = runtimeService.startProcessInstanceByKey("callingProcessId");
-    ProcessInstance subInstance = runtimeService.createProcessInstanceQuery()
-        .superProcessInstanceId(parentInstance.getProcessInstanceId())
-        .singleResult();
-    completeAllUserTasksWithDefaultUserTaskId();
-    HistoricActivityInstance callActivity = historyService.createHistoricActivityInstanceQuery()
-        .activityId("callActivityId")
-        .processInstanceId(subInstance.getId())
-        .singleResult();
-    dbClient.insert(callActivity.getId(), null, TYPE.HISTORY_PROCESS_DEFINITION);
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    assertThat(searchHistoricProcessInstances("calledProcessInstanceId")).isEmpty();
+        ProcessInstanceEntity.ProcessInstanceState.CANCELED, null, C8_DEFAULT_TENANT, false, true, false);
   }
 
   @Test
@@ -346,7 +342,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
                                              String versionTag,
                                              String tenantId,
                                              boolean hasParent,
-                                             boolean hasIncidents) {
+                                             boolean hasIncidents, boolean isCompleted) {
     // Verify migration completed successfully via logs
     logs.assertContains(formatMessage(MIGRATION_COMPLETED, TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(), historicProcessInstance.getId()));
 
@@ -357,8 +353,11 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     assertThat(processInstance.tenantId()).isEqualTo(tenantId);
     assertThat(processInstance.startDate())
         .isEqualTo(convertDate(historicProcessInstance.getStartTime()));
-    assertThat(processInstance.endDate())
-        .isEqualTo(convertDate(historicProcessInstance.getEndTime()));
+    if (isCompleted) {
+      assertThat(processInstance.endDate()).isEqualTo(convertDate(historicProcessInstance.getEndTime()));
+    } else {
+      assertThat(processInstance.endDate()).isNotNull();
+    }
     assertThat(processInstance.processDefinitionVersion()).isEqualTo(1);
     assertThat(processInstance.processDefinitionVersionTag()).isEqualTo(versionTag);
 
