@@ -7,13 +7,18 @@
  */
 package io.camunda.migration.data.qa.history;
 
-import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_VARIABLE;
@@ -241,12 +246,13 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             HISTORY_FLOW_NODE.getDisplayName(),
             HISTORY_USER_TASK.getDisplayName(),
             HISTORY_VARIABLE.getDisplayName(),
-            TYPE.HISTORY_AUDIT_LOG.getDisplayName(),
+            HISTORY_AUDIT_LOG.getDisplayName(),
+            HISTORY_JOB.getDisplayName(),
             HISTORY_INCIDENT.getDisplayName(),
-            TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
-            TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),
-            TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
-            TYPE.HISTORY_FORM_DEFINITION.getDisplayName()
+            HISTORY_DECISION_DEFINITION.getDisplayName(),
+            HISTORY_DECISION_REQUIREMENT.getDisplayName(),
+            HISTORY_DECISION_INSTANCE.getDisplayName(),
+            HISTORY_FORM_DEFINITION.getDisplayName()
         };
 
         assertThat(skippedEntitiesByType.keySet().toArray()).containsExactlyInAnyOrder(expectedEntityTypes);
