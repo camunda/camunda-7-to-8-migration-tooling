@@ -18,6 +18,7 @@ public class IdKeyDbModel {
   protected TYPE type;
   protected Date createTime;
   protected String skipReason;
+  protected Integer partitionId;
 
   public IdKeyDbModel() {
   }
@@ -65,6 +66,14 @@ public class IdKeyDbModel {
 
   public void setSkipReason(String skipReason) {
     this.skipReason = skipReason;
+  }
+
+  public Integer getPartitionId() {
+    return partitionId;
+  }
+
+  public void setPartitionId(Integer partitionId) {
+    this.partitionId = partitionId;
   }
 
   @Override

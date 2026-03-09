@@ -14,12 +14,27 @@ public class HistoryProperties {
 
   protected AutoCancelProperties autoCancel;
 
+  /**
+   * The number of partitions to use for distributing history data
+   * When set, this value takes precedence over querying the topology from the Camunda REST API.
+   * This enables "offline mode" where the migrator can run without connectivity to Camunda 8.
+   */
+  protected Integer partitionCount;
+
   public AutoCancelProperties getAutoCancel() {
     return autoCancel;
   }
 
   public void setAutoCancel(AutoCancelProperties autoCancel) {
     this.autoCancel = autoCancel;
+  }
+
+  public Integer getPartitionCount() {
+    return partitionCount;
+  }
+
+  public void setPartitionCount(Integer partitionCount) {
+    this.partitionCount = partitionCount;
   }
 
 }

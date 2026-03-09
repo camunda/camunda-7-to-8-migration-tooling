@@ -8,11 +8,11 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.FORM_NOT_FOUND;
@@ -43,15 +43,15 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
   public void execute(HistoricIncident entity, Builder builder) {
     builder.incidentKey(getNextKey())
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
-        .flowNodeId(entity.getActivityId())
+        .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .errorType(determineErrorType(entity))
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))
         .errorMessageHash(null)
-        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
         .state(IncidentEntity.IncidentState.RESOLVED)
         .tenantId(getTenantId(entity.getTenantId()));
-        // Note: processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
+        // Note: partitionId is set externally by IncidentMigrator to match the parent process instance
+        // processDefinitionKey, processInstanceKey, jobKey, and flowNodeInstanceKey are set externally
   }
 
   protected IncidentEntity.ErrorType determineErrorType(HistoricIncident c7Incident) {

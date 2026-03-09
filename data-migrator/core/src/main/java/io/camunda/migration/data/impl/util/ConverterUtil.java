@@ -22,6 +22,8 @@ import static io.camunda.zeebe.protocol.Protocol.KEY_BITS;
 
 public class ConverterUtil {
 
+  protected static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
+
   public static Long getNextKey() {
     SecureRandom secureRandom = new SecureRandom();
     return Protocol.encodePartitionId(C7_HISTORY_PARTITION_ID, secureRandom.nextLong(getUpperBound() + 1));
@@ -56,5 +58,14 @@ public class ConverterUtil {
     }
     return String.format("%s-%s", C7_LEGACY_PREFIX, definitionId);
   }
+
+
+  /**
+   * Removes the multi-instance body suffix from the activity ID if present, as C8 does not use this convention for multi-instance activities.
+   */
+  public static String sanitizeFlowNodeId(String activityId) {
+    return activityId.replace(C7_MULTI_INSTANCE_BODY_SUFFIX, "");
+  }
+
 
 }

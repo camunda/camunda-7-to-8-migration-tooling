@@ -7,8 +7,6 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE;
@@ -86,7 +84,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
    * @throws VariableInterceptorException if an error occurs during variable interception (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricProcessInstance c7ProcessInstance) {
+  public MigrationResult migrateTransactionally(HistoricProcessInstance c7ProcessInstance) {
     String c7ProcessInstanceId = c7ProcessInstance.getId();
     if (shouldMigrate(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
       HistoryMigratorLogs.migratingProcessInstance(c7ProcessInstanceId);
@@ -96,8 +94,25 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
       var builder = new ProcessInstanceDbModelBuilder();
 
       Long processInstanceKey = getNextKey();
-      Long rootProcessInstanceKey = null;
       builder.processInstanceKey(processInstanceKey);
+
+      Long rootProcessInstanceKey = null;
+      
+      Integer partitionId = null;
+      String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
+
+      if (c7RootProcessInstanceId == null) {
+        throw new EntitySkippedException(c7ProcessInstance, "Root process instance ID always null.");
+      }
+
+      if (c7ProcessInstanceId.equals(c7RootProcessInstanceId)) {
+        partitionId = partitionSupplier.getRandomPartitionId();
+      } else {
+        partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId);
+      }
+      
+      builder.partitionId(partitionId);
+
       if (processDefinitionKey != null) {
         builder.processDefinitionKey(processDefinitionKey);
       }
@@ -113,10 +128,9 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
           }
         }
 
-        String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
-        if (c7RootProcessInstanceId != null && c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
+        if (c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
           builder.rootProcessInstanceKey(processInstanceKey);
-        } else if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        } else if (isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
             rootProcessInstanceKey = rootProcessInstance.processInstanceKey();
@@ -159,7 +173,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         c8Client.insertProcessInstanceTags(dbModel);
       }
 
-      return dbModel.processInstanceKey();
+      return MigrationResult.of(dbModel.processInstanceKey(), partitionId);
     }
     return null;
   }
@@ -220,10 +234,11 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         .value(String.format("\"%s\"", c7ProcessInstanceId))
         .elementInstanceKey(dbModel.processInstanceKey())
         .scopeKey(dbModel.processInstanceKey())
-        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID)
+        .partitionId(dbModel.partitionId())
         .tenantId(dbModel.tenantId());
     c8Client.insertVariable(varBuilder.build());
     logInsertLegacyIdAsVariable(c7ProcessInstanceId);
   }
+
 }
 

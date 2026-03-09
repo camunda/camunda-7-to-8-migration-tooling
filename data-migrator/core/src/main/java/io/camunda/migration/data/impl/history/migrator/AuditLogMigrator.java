@@ -25,6 +25,7 @@ import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -74,7 +75,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public String migrateTransactionally(UserOperationLogEntry c7AuditLog) {
+  public MigrationResult migrateTransactionally(UserOperationLogEntry c7AuditLog) {
     String c7AuditLogId = c7AuditLog.getOperationId();
     if (shouldMigrate(c7AuditLogId, HISTORY_AUDIT_LOG)) {
       logMigratingAuditLogs(c7AuditLogId);
@@ -87,6 +88,11 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       resolveProcessInstanceKeys(auditLogDbModelBuilder, c7AuditLog);
       resolveProcessDefinitionKey(auditLogDbModelBuilder, c7AuditLog);
       resolveUserTaskKey(auditLogDbModelBuilder, c7AuditLog);
+
+
+      // Assign partition: inherit from root process instance, or use random if none
+      int partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7AuditLog.getRootProcessInstanceId());
+      auditLogDbModelBuilder.partitionId(partitionId);
 
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
@@ -109,7 +115,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
 
       c8Client.insertAuditLog(dbModel);
 
-      return dbModel.auditLogKey();
+      return MigrationResult.of(dbModel.auditLogKey());
     }
 
     return null;
@@ -204,13 +210,14 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
    * </p>
    *
    * @param taskKey the Camunda 8 user task key
-   * @return the user task database model, or null if not found
+   * @return the user task database model
+   * @throws C8EntityNotFoundException if the user task was migrated but no longer exists in C8
    */
   protected UserTaskDbModel searchUserTasksByKey(Long taskKey) {
     return c8Client.searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(taskKey))))
         .stream()
         .findFirst()
-        .orElse(null);
+        .orElseThrow(() -> new C8EntityNotFoundException(HISTORY_USER_TASK, taskKey));
   }
 
   /**

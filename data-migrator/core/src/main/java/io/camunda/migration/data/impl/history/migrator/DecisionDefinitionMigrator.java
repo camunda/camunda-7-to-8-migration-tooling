@@ -16,6 +16,7 @@ import io.camunda.db.rdbms.read.domain.DecisionRequirementsDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -69,7 +70,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public Long migrateTransactionally(DecisionDefinition c7DecisionDefinition) {
+  public MigrationResult migrateTransactionally(DecisionDefinition c7DecisionDefinition) {
     var c7Id = c7DecisionDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_DEFINITION)) {
       HistoryMigratorLogs.migratingDecisionDefinition(c7Id);
@@ -84,9 +85,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
         if (decisionRequirementsKey != null) {
           builder.decisionRequirementsKey(decisionRequirementsKey);
           DecisionRequirementsEntity c8Drd = findDecisionRequirements(decisionRequirementsKey);
-          if (c8Drd != null) {
-            builder.decisionRequirementsName(c8Drd.name()).decisionRequirementsVersion(c8Drd.version());
-          }
+          builder.decisionRequirementsName(c8Drd.name()).decisionRequirementsVersion(c8Drd.version());
         }
       } else {
         // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
@@ -105,7 +104,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
 
       c8Client.insertDecisionDefinition(dbModel);
 
-      return dbModel.decisionDefinitionKey();
+      return MigrationResult.of(dbModel.decisionDefinitionKey());
     }
 
     return null;
@@ -117,7 +116,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
                 new DecisionRequirementsFilter.Builder().decisionRequirementsKeys(decisionRequirementsKey).build())))
         .stream()
         .findFirst()
-        .orElse(null);
+        .orElseThrow(() -> new C8EntityNotFoundException(HISTORY_DECISION_REQUIREMENT, decisionRequirementsKey));
   }
 
 }

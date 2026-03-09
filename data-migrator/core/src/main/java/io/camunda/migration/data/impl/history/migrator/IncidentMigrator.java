@@ -15,11 +15,13 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -73,7 +75,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricIncident c7Incident) {
+  public MigrationResult migrateTransactionally(HistoricIncident c7Incident) {
     var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
@@ -86,7 +88,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       builder.processDefinitionKey(processDefinitionKey);
       if (c7ProcessInstance != null) {
         processInstanceKey = c7ProcessInstance.processInstanceKey();
-        builder.processInstanceKey(processInstanceKey);
+        builder.processInstanceKey(processInstanceKey)
+            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7Incident.getRootProcessInstanceId()));
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
@@ -119,7 +122,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
-        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
+        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), sanitizeFlowNodeId(c7Incident.getActivityId()))) {
           // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
           throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
         }
@@ -132,7 +135,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
 
       c8Client.insertIncident(dbModel);
 
-      return dbModel.incidentKey();
+      return MigrationResult.of(dbModel.incidentKey());
     }
 
     return null;

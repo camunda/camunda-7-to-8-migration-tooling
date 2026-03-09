@@ -254,6 +254,11 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     }, processInstanceKey);
   }
 
+  public int searchProcessInstancePartitionId(Long processInstanceKey) {
+    String sql = "SELECT PARTITION_ID FROM PROCESS_INSTANCE WHERE PROCESS_INSTANCE_KEY = ?";
+    return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), processInstanceKey).getFirst();
+  }
+
   public List<VariableEntity> searchHistoricVariables(String varName) {
     return rdbmsService.getVariableReader()
         .search(VariableQuery.of(queryBuilder ->

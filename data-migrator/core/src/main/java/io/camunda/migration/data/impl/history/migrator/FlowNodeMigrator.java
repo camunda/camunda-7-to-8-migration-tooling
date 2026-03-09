@@ -78,7 +78,7 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
    * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricActivityInstance c7FlowNode) {
+  public MigrationResult migrateTransactionally(HistoricActivityInstance c7FlowNode) {
     var c7FlowNodeId = c7FlowNode.getId();
     if (shouldMigrate(c7FlowNodeId, HISTORY_FLOW_NODE)) {
       HistoryMigratorLogs.migratingHistoricFlowNode(c7FlowNodeId);
@@ -96,6 +96,7 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
         builder.processInstanceKey(processInstanceKey)
             .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
             .processDefinitionKey(processDefinitionKey)
+            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7FlowNode.getRootProcessInstanceId()))
             .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
 
         String c7RootProcessInstanceId = c7FlowNode.getRootProcessInstanceId();
@@ -132,7 +133,7 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
 
       c8Client.insertFlowNodeInstance(dbModel);
 
-      return dbModel.flowNodeInstanceKey();
+      return MigrationResult.of(dbModel.flowNodeInstanceKey());
     }
 
     return null;

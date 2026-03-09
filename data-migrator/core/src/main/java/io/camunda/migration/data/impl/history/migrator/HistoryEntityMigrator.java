@@ -18,6 +18,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
@@ -32,8 +33,10 @@ import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.impl.util.PartitionSupplier;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -79,13 +82,22 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   @Autowired
   protected DataSourceRegistry dataSourceRegistry;
 
+  @Autowired
+  protected PartitionSupplier partitionSupplier;
+
   protected MigratorMode mode = MIGRATE;
 
-  protected void markMigrated(C7Entity<?> c7Entity, String c8Key) {
+  /**
+   * Overrides {@link HistoryEntityMigrator#markMigrated} to persist the partition ID
+   * alongside the C8 key in the {@code MIGRATION_MAPPING} table. Child entity migrators
+   * (flow nodes, variables, user tasks, etc.) later look up the partition ID from the DB
+   * so that the same partition is used for all entities belonging to the same process instance.
+   */
+  protected void markMigrated(C7Entity<?> c7Entity, MigrationResult result) {
     if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.updateC8KeyByC7IdAndType(c7Entity.getId(), c8Key, c7Entity.getType());
+      dbClient.updateC8KeyByC7IdAndType(c7Entity.getId(), result.c8Key(), c7Entity.getType(), result.partitionId());
     } else if (MIGRATE.equals(mode)) {
-      dbClient.insert(c7Entity.getId(), c8Key, c7Entity.getCreationTime(), c7Entity.getType(), null);
+      dbClient.insert(c7Entity.getId(), result.c8Key(), c7Entity.getCreationTime(), c7Entity.getType(), result.partitionId());
     }
   }
 
@@ -140,8 +152,9 @@ public abstract class HistoryEntityMigrator<C7, C8> {
    * </p>
    *
    * @param entity the Camunda 7 entity to migrate
+   * @return the migration result containing the C8 key and optional metadata, or null if not migrated
    */
-  public abstract Object migrateTransactionally(C7 entity);
+  public abstract MigrationResult migrateTransactionally(C7 entity);
 
   public void migrate() {
     setMode(MIGRATE);
@@ -167,15 +180,19 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   protected EntitySkippedException migrateEntity(C7 entity) {
     C7Entity<C7> c7Entity = (C7Entity<C7>) getC7Entity(entity);
     try {
-      Object c8Key = migrateTransactionally(c7Entity.unwrap());
-      if (c8Key != null) {
-        markMigrated(c7Entity, c8Key.toString());
+      MigrationResult result = migrateTransactionally(c7Entity.unwrap());
+      if (result != null) {
+        markMigrated(c7Entity, result);
         logMigrationCompleted(c7Entity);
       }
       return null;
     } catch (EntitySkippedException e) {
       markSkipped(e);
       return e;
+    } catch (C8EntityNotFoundException e) {
+      EntitySkippedException skippedException = new EntitySkippedException(c7Entity, e.getMessage());
+      markSkipped(skippedException);
+      return skippedException;
     }
   }
 
@@ -295,7 +312,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
     if (!processDefinitions.isEmpty()) {
       return processDefinitions.getFirst().processDefinitionKey();
     } else {
-      return null;
+      throw new C8EntityNotFoundException(TYPE.HISTORY_PROCESS_DEFINITION, key);
     }
   }
 
@@ -309,7 +326,11 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       return null;
     }
 
-    return c8Client.findProcessInstance(c8Key);
+    ProcessInstanceEntity result = c8Client.findProcessInstance(c8Key);
+    if (result == null) {
+      throw new C8EntityNotFoundException(HISTORY_PROCESS_INSTANCE, c8Key);
+    }
+    return result;
   }
 
   protected Long findFlowNodeInstanceKey(String activityInstanceId) {
@@ -322,6 +343,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
    * @param activityId the C7 activity ID
    * @param processInstanceId the C7 process instance ID
    * @return the C8 flow node instance key, or {@code null} if not found
+   * @throws C8EntityNotFoundException if the process instance was migrated but no longer exists in C8
    */
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
     Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
@@ -331,7 +353,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
     List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
         builder -> builder.filter(FlowNodeInstanceFilter.of(
-            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+            filter -> filter.flowNodeIds(sanitizeFlowNodeId(activityId)).processInstanceKeys(processInstanceKey)))));
 
     if (!flowNodes.isEmpty()) {
       return flowNodes.getFirst().flowNodeInstanceKey();
