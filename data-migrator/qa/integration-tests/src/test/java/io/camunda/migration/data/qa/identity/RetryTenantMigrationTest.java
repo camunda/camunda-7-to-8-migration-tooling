@@ -132,8 +132,11 @@ public class RetryTenantMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.createUserInC8("userId2", "firstName2", "lastName2");
     identityService.createTenantUserMembership(t1.getId(), "userId1");
     identityService.createTenantUserMembership(t1.getId(), "userId2");
+
     identityMigrator.start();
-    testHelper.verifyTenantSkippedViaLogs(t1.getId(), t1.getName(), "No name provided.", logs);
+
+    // verify membership migration was skipped
+    testHelper.assertNoMembershipsForTenant(t1.getId());
 
     // when issue with tenant is fixed
     t1.setName("Tenant1");
