@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.BUSINESS_KEY_PREFIX;
 import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
