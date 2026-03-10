@@ -11,7 +11,7 @@ on:
         description: "Dry run — build and push image to ECR but skip ECS deployment"
         required: false
         type: boolean
-        default: false
+        default: true
   workflow_call:
     inputs:
       RELEASE_VERSION:
@@ -20,7 +20,7 @@ on:
       IS_DRY_RUN:
         required: false
         type: boolean
-        default: false
+        default: true
       CALLED_FROM_RELEASE:
         required: false
         type: boolean
