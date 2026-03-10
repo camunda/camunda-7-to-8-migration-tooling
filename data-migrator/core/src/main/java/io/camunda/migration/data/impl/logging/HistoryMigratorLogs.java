@@ -8,6 +8,8 @@
 
 package io.camunda.migration.data.impl.logging;
 
+import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
+
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
@@ -39,6 +41,8 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_UNSUPPORTED_SA_TASKS = "C7 standalone user tasks not supported in C8.";
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_VARIABLES = "C7 CMMN variables not supported in C8.";
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
+  public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
+  public static final String SKIP_REASON_UNSUPPORTED_JOBS = "Only async-before and async-after jobs are supported for migration.";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";
@@ -61,11 +65,15 @@ public class HistoryMigratorLogs {
 
   public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
 
+  public static final String MIGRATING_JOB = "Migrating historic job with C7 job ID: [{}]";
+
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
   public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type";
   public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
+  public static final String INSERT_VARIABLE_WITH_LEGACY_C7_ID = "Inserted variable [{}] to "
+      + "migrated process instance with legacy C7 ID [{}].";
 
   public static void logMigrating(IdKeyMapper.TYPE type) {
     LOGGER.info(MIGRATING, type.getDisplayName());
@@ -111,6 +119,10 @@ public class HistoryMigratorLogs {
     LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
   }
 
+  public static void logMigratingJob(String c7JobId) {
+    LOGGER.debug(MIGRATING_JOB, c7JobId);
+  }
+
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
     LOGGER.debug(MIGRATING_FLOW_NODE, c7FlowNodeId);
   }
@@ -131,5 +143,9 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingForm(String c7Id) {
     LOGGER.debug(MIGRATING_FORM, c7Id);
+  }
+
+  public static void logInsertLegacyIdAsVariable(String c7Id) {
+    LOGGER.debug(INSERT_VARIABLE_WITH_LEGACY_C7_ID, LEGACY_ID_VAR_NAME, c7Id);
   }
 }

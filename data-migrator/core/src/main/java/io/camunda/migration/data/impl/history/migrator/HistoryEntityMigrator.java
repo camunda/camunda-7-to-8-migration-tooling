@@ -19,12 +19,14 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
+import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
-import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.exception.VariableInterceptorException;
+import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.impl.EntityConversionService;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
@@ -35,12 +37,12 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
 import io.camunda.util.ObjectBuilder;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -312,6 +314,30 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   protected Long findFlowNodeInstanceKey(String activityInstanceId) {
     return dbClient.findC8KeyByC7IdAndType(activityInstanceId, HISTORY_FLOW_NODE);
+  }
+
+  /**
+   * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
+   *
+   * @param activityId the C7 activity ID
+   * @param processInstanceId the C7 process instance ID
+   * @return the C8 flow node instance key, or {@code null} if not found
+   */
+  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
+    Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
+    if (processInstanceKey == null) {
+      return null;
+    }
+
+    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
+        builder -> builder.filter(FlowNodeInstanceFilter.of(
+            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+
+    if (!flowNodes.isEmpty()) {
+      return flowNodes.getFirst().flowNodeInstanceKey();
+    } else {
+      return null;
+    }
   }
 
   protected boolean isMigrated(String id, TYPE type) {

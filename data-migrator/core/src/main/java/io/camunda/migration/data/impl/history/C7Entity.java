@@ -7,18 +7,18 @@
  */
 package io.camunda.migration.data.impl.history;
 
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.*;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
-import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntity;
-import org.camunda.bpm.engine.repository.CamundaFormDefinition;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
+import org.camunda.bpm.engine.repository.CamundaFormDefinition;
 import org.camunda.bpm.engine.repository.DecisionDefinition;
 import org.camunda.bpm.engine.repository.DecisionRequirementsDefinition;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -42,6 +42,7 @@ public class C7Entity<C7> {
       case HistoricDecisionInstance c7DecisionInstance -> of(c7DecisionInstance);
       case HistoricActivityInstance c7ActivityInstance -> of(c7ActivityInstance);
       case HistoricIncident c7Incident -> of(c7Incident);
+      case HistoricJobLog c7JobLog -> of(c7JobLog);
       case HistoricProcessInstance c7ProcessInstance -> of(c7ProcessInstance);
       case HistoricTaskInstance c7TaskInstance -> of(c7TaskInstance);
       case HistoricVariableInstance c7VariableInstance -> of(c7VariableInstance);
@@ -102,6 +103,10 @@ public class C7Entity<C7> {
 
   public static C7Entity<HistoricVariableInstance> of(HistoricVariableInstance c7Entity) {
     return new C7Entity<>(c7Entity.getId(), c7Entity.getCreateTime(), c7Entity);
+  }
+
+  public static C7Entity<HistoricJobLog> of(HistoricJobLog c7Entity) {
+    return new C7Entity<>(c7Entity.getJobId(), c7Entity.getTimestamp(), c7Entity);
   }
 
   public String getId() {

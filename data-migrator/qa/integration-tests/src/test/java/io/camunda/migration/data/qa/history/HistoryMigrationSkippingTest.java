@@ -20,6 +20,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
@@ -30,15 +31,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.MigratorMode;
-import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Map;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.variable.Variables;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -245,8 +243,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         ).hasSize(1); // Only the first skip from phase 1
   }
 
-  @Disabled("TODO: https://github.com/camunda/camunda-bpm-platform/issues/5331")
-  @WhiteBox
   @Test
   public void shouldNotMigrateIncidentsWhenJobIsSkipped() {
     // given state in c7 with a failing service task
@@ -258,26 +254,55 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(jobs).hasSize(1);
     var job = jobs.getFirst();
 
-    try {
-      managementService.executeJob(job.getId());
-    } catch (Exception e) {
-      // expected - job will fail
+    for (int i = 0; i < 3; i++) {
+      try {
+        managementService.executeJob(job.getId());
+      } catch (Exception e) {
+        // expected - job will fail
+      }
     }
+    assertThat(historyService.createHistoricIncidentQuery().count())
+        .as("Expected one incident to be created").isEqualTo(1);
 
-    // and manually mark the job as skipped
-    dbClient.insert(job.getId(), null, HISTORY_FLOW_NODE);
-
-    // when history is migrated
-    historyMigrator.migrate();
+    // when history is migrated but jobs are skipped
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     // then process instance was migrated but incident was skipped due to skipped job
     var historicProcesses = searchHistoricProcessInstances("failingServiceTaskProcessId");
     assertThat(historicProcesses).hasSize(1);
     ProcessInstanceEntity c8processInstance = historicProcesses.getFirst();
     assertThat(searchHistoricIncidents(c8processInstance.processDefinitionId())).isEmpty();
+  }
 
-    // verify the incident was skipped
-    assertThat(dbClient.countSkippedByType(HISTORY_INCIDENT)).isEqualTo(1);
+  @Test
+  public void shouldNotMigrateJobsWhenProcessInstanceIsSkipped() {
+    // given state in c7 with a failing service task
+    deployer.deployCamunda7Process("failingServiceTaskProcess.bpmn");
+    var processInstance = runtimeService.startProcessInstanceByKey("failingServiceTaskProcessId");
+
+    // execute the job to trigger the incident
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+    var job = jobs.getFirst();
+
+    for (int i = 0; i < 3; i++) {
+      try {
+        managementService.executeJob(job.getId());
+      } catch (Exception e) {
+        // expected - job will fail
+      }
+    }
+
+    // when
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_JOB);
+
+    // then
+    assertThat(searchJobs()).isEmpty();
+    logs.assertContains(
+        formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), job.getId(), SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 
   @Test

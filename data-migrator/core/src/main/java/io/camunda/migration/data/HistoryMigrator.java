@@ -11,28 +11,27 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.getHistoryTypes;
 
 import io.camunda.migration.data.config.C8DataSourceConfigured;
-import io.camunda.migration.data.impl.history.migrator.HistoryEntityMigrator;
+import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.impl.history.EntitySkippedException;
+import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
+import io.camunda.migration.data.impl.history.migrator.HistoryEntityMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
+import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
-import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
-import io.camunda.migration.data.impl.clients.DbClient;
-import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
 import io.camunda.migration.data.impl.util.PrintUtils;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
@@ -63,6 +62,9 @@ public class HistoryMigrator {
   protected IncidentMigrator incidentMigrator;
 
   @Autowired
+  protected JobMigrator jobMigrator;
+
+  @Autowired
   protected DecisionRequirementsMigrator decisionRequirementsMigrator;
 
   @Autowired
@@ -85,6 +87,7 @@ public class HistoryMigrator {
         flowNodeMigrator,
         userTaskMigrator,
         variableMigrator,
+        jobMigrator,
         incidentMigrator,
         decisionRequirementsMigrator,
         decisionDefinitionMigrator,
