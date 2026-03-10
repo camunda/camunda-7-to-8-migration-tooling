@@ -12,6 +12,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
@@ -41,6 +42,7 @@ public class C7Entity<C7> {
     return switch (c7) {
       case HistoricDecisionInstance c7DecisionInstance -> of(c7DecisionInstance);
       case HistoricActivityInstance c7ActivityInstance -> of(c7ActivityInstance);
+      case HistoricExternalTaskLog c7ExternalTaskLog -> of(c7ExternalTaskLog);
       case HistoricIncident c7Incident -> of(c7Incident);
       case HistoricJobLog c7JobLog -> of(c7JobLog);
       case HistoricProcessInstance c7ProcessInstance -> of(c7ProcessInstance);
@@ -107,6 +109,10 @@ public class C7Entity<C7> {
 
   public static C7Entity<HistoricJobLog> of(HistoricJobLog c7Entity) {
     return new C7Entity<>(c7Entity.getJobId(), c7Entity.getTimestamp(), c7Entity);
+  }
+
+  public static C7Entity<HistoricExternalTaskLog> of(HistoricExternalTaskLog c7Entity) {
+    return new C7Entity<>(c7Entity.getExternalTaskId(), c7Entity.getTimestamp(), c7Entity);
   }
 
   public String getId() {

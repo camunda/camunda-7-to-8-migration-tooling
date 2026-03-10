@@ -67,6 +67,8 @@ public class HistoryMigratorLogs {
 
   public static final String MIGRATING_JOB = "Migrating historic job with C7 job ID: [{}]";
 
+  public static final String MIGRATING_EXTERNAL_TASK = "Migrating historic external task with C7 external task ID: [{}]";
+
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
@@ -121,6 +123,10 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingJob(String c7JobId) {
     LOGGER.debug(MIGRATING_JOB, c7JobId);
+  }
+
+  public static void logMigratingExternalTask(String c7ExternalTaskId) {
+    LOGGER.debug(MIGRATING_EXTERNAL_TASK, c7ExternalTaskId);
   }
 
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
