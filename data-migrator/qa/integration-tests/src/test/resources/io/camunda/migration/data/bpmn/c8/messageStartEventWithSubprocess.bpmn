@@ -7,7 +7,7 @@
       <bpmn:extensionElements>
         <conversion:reference>Message_2jjc83j</conversion:reference>
         <zeebe:executionListeners>
-          <zeebe:executionListener eventType="end" type="migrator" />
+          <zeebe:executionListener eventType="end" type="=if legacyId != null then &quot;migrator&quot; else &quot;noop&quot;" />
         </zeebe:executionListeners>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_1fh2zq4</bpmn:outgoing>

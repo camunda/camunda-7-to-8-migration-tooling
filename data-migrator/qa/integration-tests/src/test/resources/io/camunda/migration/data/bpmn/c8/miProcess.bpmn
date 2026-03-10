@@ -4,7 +4,7 @@
     <bpmn:startEvent id="startEvent" name="Start Event">
       <bpmn:extensionElements>
         <zeebe:executionListeners>
-          <zeebe:executionListener eventType="end" type="migrator" />
+          <zeebe:executionListener eventType="end" type="=if legacyId != null then &quot;migrator&quot; else &quot;noop&quot;" />
         </zeebe:executionListeners>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_0xme2ti</bpmn:outgoing>

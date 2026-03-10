@@ -3,7 +3,7 @@
     <bpmn:startEvent id="StartEvent" isInterrupting="true" name="StartEvent" parallelMultiple="false">
       <bpmn:extensionElements>
         <zeebe:executionListeners>
-          <zeebe:executionListener eventType="end" type="migrator" />
+          <zeebe:executionListener eventType="end" type="=if legacyId != null then &quot;migrator&quot; else &quot;noop&quot;" />
         </zeebe:executionListeners>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_10u5e0b</bpmn:outgoing>

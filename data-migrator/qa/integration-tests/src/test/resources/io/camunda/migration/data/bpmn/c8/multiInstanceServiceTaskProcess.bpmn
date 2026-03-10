@@ -58,7 +58,7 @@
     <bpmn2:startEvent id="StartEvent_1" name="Start Event">
       <bpmn2:extensionElements>
         <zeebe:executionListeners>
-          <zeebe:executionListener eventType="end" type="migrator" />
+          <zeebe:executionListener eventType="end" type="=if legacyId != null then &quot;migrator&quot; else &quot;noop&quot;" />
         </zeebe:executionListeners>
       </bpmn2:extensionElements>
       <bpmn2:outgoing>SequenceFlow_1</bpmn2:outgoing>
