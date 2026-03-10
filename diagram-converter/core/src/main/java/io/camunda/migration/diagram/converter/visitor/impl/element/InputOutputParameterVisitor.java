@@ -45,11 +45,16 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     ExpressionTransformationResult transformationResult =
         ExpressionTransformer.transformToFeel(
             direction.getName() + " parameter '" + name + "'", expression);
+    // Zeebe I/O mapping source must be a FEEL expression (prefixed with '=')
+    String source = transformationResult.result();
+    if (source != null && !source.startsWith("=")) {
+      source = "=" + source;
+    }
+    String finalSource = source;
     context.addConversion(
         AbstractDataMapperConvertible.class,
         abstractTaskConversion ->
-            abstractTaskConversion.addZeebeIoMapping(
-                direction, transformationResult.result(), name));
+            abstractTaskConversion.addZeebeIoMapping(direction, finalSource, name));
     return ExpressionTransformationResultMessageFactory.getMessage(
         transformationResult,
         "https://docs.camunda.io/docs/components/concepts/variables/#inputoutput-variable-mappings");
