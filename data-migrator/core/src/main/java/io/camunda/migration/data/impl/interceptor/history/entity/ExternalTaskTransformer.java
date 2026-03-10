@@ -51,8 +51,6 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
    */
   @Override
   public void execute(final HistoricExternalTaskLog externalTaskLog, final JobDbModel.Builder builder) {
-    final var creationTime = convertDate(externalTaskLog.getTimestamp());
-
     builder
         .type(externalTaskLog.getTopicName())
         .worker(externalTaskLog.getWorkerId())
@@ -64,7 +62,7 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .elementId(externalTaskLog.getActivityId())
         .tenantId(getTenantId(externalTaskLog.getTenantId()))
         .partitionId(C7_HISTORY_PARTITION_ID)
-        .creationTime(creationTime);
+        .creationTime(convertDate(externalTaskLog.getTimestamp()));
     // Note: jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
     // and elementInstanceKey are set externally in ExternalTaskMigrator.
   }
