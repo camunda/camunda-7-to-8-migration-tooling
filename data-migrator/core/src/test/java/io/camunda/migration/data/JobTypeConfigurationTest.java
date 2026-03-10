@@ -28,14 +28,14 @@ class JobTypeConfigurationTest {
     @Test
     public void shouldHaveDefaultJobTypeWhenNotConfigured() {
       assertThat(migratorProperties.getJobType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE);
-      assertThat(migratorProperties.getJobType()).isEqualTo("migrator");
+      assertThat(migratorProperties.getEffectiveValidationJobType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE);
       assertThat(migratorProperties.getValidationJobType()).isNull();
     }
 
     @Test
     public void shouldFallbackToJobTypeForValidation() {
-      assertThat(migratorProperties.getEffectiveValidationJobType()).isEqualTo("migrator");
-      assertThat(migratorProperties.getJobActivationType()).isEqualTo("migrator");
+      assertThat(migratorProperties.getEffectiveValidationJobType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE);
+      assertThat(migratorProperties.getJobActivationType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE);
     }
   }
 
@@ -74,14 +74,14 @@ class JobTypeConfigurationTest {
 
     @Test
     public void shouldHaveValidationJobTypeWithDefaultJobType() {
-      assertThat(migratorProperties.getJobType()).isEqualTo("migrator"); // default
+      assertThat(migratorProperties.getJobType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE); // default
       assertThat(migratorProperties.getValidationJobType()).isEqualTo("validation-type");
     }
 
     @Test
     public void shouldUseValidationJobTypeForValidationAndDefaultForActivation() {
       assertThat(migratorProperties.getEffectiveValidationJobType()).isEqualTo("validation-type");
-      assertThat(migratorProperties.getJobActivationType()).isEqualTo("migrator");
+      assertThat(migratorProperties.getJobActivationType()).isEqualTo(MigratorProperties.DEFAULT_JOB_TYPE);
     }
   }
 

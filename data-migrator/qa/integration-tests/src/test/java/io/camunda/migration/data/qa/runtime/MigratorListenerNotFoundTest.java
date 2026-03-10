@@ -8,6 +8,7 @@
 
 package io.camunda.migration.data.qa.runtime;
 
+import static io.camunda.migration.data.config.property.MigratorProperties.DEFAULT_JOB_TYPE;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
 import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.NO_EXECUTION_LISTENER_OF_TYPE_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,7 @@ public class MigratorListenerNotFoundTest extends RuntimeMigrationAbstractTest {
                 SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("[{}]", "\\[%s\\]").replace("{}", "%s"), id,
                 String.format(
                     NO_EXECUTION_LISTENER_OF_TYPE_ERROR.replace(".", "\\.").replace("[", "\\[").replace("]", "\\]"),
-                    "migrator", "Event_1px2j50", "noMigratorListener", 1, "migrator")))))).hasSize(1);
+                    DEFAULT_JOB_TYPE, "Event_1px2j50", "noMigratorListener", 1, DEFAULT_JOB_TYPE)))))).hasSize(1);
   }
 
   @Test
@@ -71,7 +72,7 @@ public class MigratorListenerNotFoundTest extends RuntimeMigrationAbstractTest {
                 SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR.replace("[{}]", "\\[%s\\]").replace("{}", "%s"), id,
                 String.format(
                     NO_EXECUTION_LISTENER_OF_TYPE_ERROR.replace(".", "\\.").replace("[", "\\[").replace("]", "\\]"),
-                    "migrator", "Event_1px2j50", "migratorListenerCustomType", 1, "migrator")))))).hasSize(1);
+                    DEFAULT_JOB_TYPE, "Event_1px2j50", "migratorListenerCustomType", 1, DEFAULT_JOB_TYPE)))))).hasSize(1);
   }
 
   @Test

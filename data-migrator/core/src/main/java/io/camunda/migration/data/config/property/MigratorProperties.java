@@ -20,7 +20,7 @@ public class MigratorProperties {
 
   public static final int DEFAULT_PAGE_SIZE = 100;
   public static final String PREFIX = "camunda.migrator";
-  public static final String DEFAULT_JOB_TYPE = "migrator";
+  public static final String DEFAULT_JOB_TYPE = "=if legacyId != null then \"migrator\" else \"noop\"";
 
   protected Integer pageSize = DEFAULT_PAGE_SIZE;
   protected String jobType = DEFAULT_JOB_TYPE;
