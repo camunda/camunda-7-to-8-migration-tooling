@@ -38,6 +38,8 @@ public class C8ClientLogs {
   public static final String FAILED_TO_INSERT_INCIDENT = "Failed to insert incident";
   public static final String FAILED_TO_INSERT_VARIABLE = "Failed to insert variable";
   public static final String FAILED_TO_INSERT_USER_TASK = "Failed to insert user task";
+  public static final String FAILED_TO_INSERT_CANDIDATE_USERS = "Failed to insert candidate users for user task";
+  public static final String FAILED_TO_INSERT_CANDIDATE_GROUPS = "Failed to insert candidate groups for user task";
   public static final String FAILED_TO_INSERT_FLOW_NODE_INSTANCE = "Failed to insert flow node instance";
   public static final String FAILED_TO_SEARCH_FLOW_NODE_INSTANCES = "Failed to search flow node instances";
   public static final String FAILED_TO_SEARCH_USER_TASKS = "Failed to search user tasks";

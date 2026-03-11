@@ -27,6 +27,8 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_JOB;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_CANDIDATE_GROUPS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_CANDIDATE_USERS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
@@ -359,6 +361,20 @@ public class C8Client {
    */
   public void insertUserTaskTags(UserTaskDbModel dbModel) {
     callApi(() -> userTaskMapper.insertTags(dbModel), FAILED_TO_INSERT_USER_TASK);
+  }
+
+  /**
+   * Inserts candidate users for a UserTask into the database.
+   */
+  public void insertCandidateUsers(UserTaskDbModel dbModel) {
+    callApi(() -> userTaskMapper.insertCandidateUsers(dbModel), FAILED_TO_INSERT_CANDIDATE_USERS);
+  }
+
+  /**
+   * Inserts candidate groups for a UserTask into the database.
+   */
+  public void insertCandidateGroups(UserTaskDbModel dbModel) {
+    callApi(() -> userTaskMapper.insertCandidateGroups(dbModel), FAILED_TO_INSERT_CANDIDATE_GROUPS);
   }
 
   /**

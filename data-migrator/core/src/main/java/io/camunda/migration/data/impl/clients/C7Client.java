@@ -44,6 +44,7 @@ import org.camunda.bpm.engine.history.HistoricDecisionInstance;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
+import org.camunda.bpm.engine.history.HistoricIdentityLinkLog;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
@@ -56,6 +57,7 @@ import org.camunda.bpm.engine.identity.UserQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
+import org.camunda.bpm.engine.impl.HistoricIdentityLinkLogQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIncidentQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricJobLogQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricProcessInstanceQueryImpl;
@@ -84,6 +86,7 @@ import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
 import org.camunda.bpm.engine.runtime.VariableInstance;
 import org.camunda.bpm.engine.runtime.VariableInstanceQuery;
+import org.camunda.bpm.engine.task.IdentityLinkType;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -744,6 +747,22 @@ public class C7Client {
 
     List<Execution> execution = callApi(query::list, format("Failed to retrieve executions for process instance [%s]", processInstanceId));
     return !execution.isEmpty();
+  }
+
+  /**
+   * Fetches all historic identity link logs for a given task, ordered by time ascending.
+   * This includes both ADD and DELETE operations for candidate users and candidate groups.
+   */
+  public List<HistoricIdentityLinkLog> getHistoricIdentityLinkLogs(String taskId) {
+    HistoricIdentityLinkLogQueryImpl query = (HistoricIdentityLinkLogQueryImpl) historyService
+        .createHistoricIdentityLinkLogQuery()
+        .type(IdentityLinkType.CANDIDATE)
+        .taskId(taskId)
+        .orderByTime()
+        .asc();
+
+    return callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricIdentityLinkLog", taskId));
   }
 
   /**

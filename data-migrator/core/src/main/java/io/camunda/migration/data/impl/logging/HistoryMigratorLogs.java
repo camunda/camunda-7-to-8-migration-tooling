@@ -67,6 +67,10 @@ public class HistoryMigratorLogs {
 
   public static final String MIGRATING_JOB = "Migrating historic job with C7 job ID: [{}]";
 
+  public static final String MIGRATING_CANDIDATES = "Migrating candidate users and groups for user task with C7 ID: [{}]";
+  public static final String MIGRATING_CANDIDATE_USERS = "Migrating {} candidate user(s) for user task with C7 ID: [{}]";
+  public static final String MIGRATING_CANDIDATE_GROUPS = "Migrating {} candidate group(s) for user task with C7 ID: [{}]";
+
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
@@ -117,6 +121,18 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingAuditLogs(String c7AuditLogId) {
     LOGGER.debug(MIGRATING_AUDIT_LOGS, c7AuditLogId);
+  }
+
+  public static void logMigratingCandidates(String c7UserTaskId) {
+    LOGGER.debug(MIGRATING_CANDIDATES, c7UserTaskId);
+  }
+
+  public static void logMigratingCandidateUsers(int count, String c7UserTaskId) {
+    LOGGER.debug(MIGRATING_CANDIDATE_USERS, count, c7UserTaskId);
+  }
+
+  public static void logMigratingCandidateGroups(int count, String c7UserTaskId) {
+    LOGGER.debug(MIGRATING_CANDIDATE_GROUPS, count, c7UserTaskId);
   }
 
   public static void logMigratingJob(String c7JobId) {
