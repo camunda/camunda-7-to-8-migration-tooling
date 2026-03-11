@@ -12,9 +12,11 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static org.camunda.bpm.engine.runtime.Incident.EXTERNAL_TASK_HANDLER_TYPE;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
@@ -125,8 +127,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         }
       }
 
-      if (isFailedJobIncident(c7Incident) && dbModel.jobKey() == null) {
-        // Only skip the incident when the referenced C7 job is actually tracked as migrated/skipped.
+      if ((isFailedJobIncident(c7Incident) || isFailedExternalTaskIncident(c7Incident)) && dbModel.jobKey() == null) {
+        // Only skip the incident when the referenced C7 job/external task is actually tracked as migrated/skipped.
         throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
       }
 
@@ -153,32 +155,40 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   }
 
   /**
-   * Resolves and sets the job key on the incident builder for {@code failedJob} incidents.
+   * Resolves and sets the job key on the incident builder for {@code failedJob} and
+   * {@code failedExternalTask} incidents.
    * <p>
-   * If the incident is a {@code failedJob} incident and the associated C7 job has been tracked
-   * in the migration table, the C8 job key is looked up and set on the builder. The key will be
-   * {@code null} if the job was skipped during migration, which will cause the incident to be
-   * skipped downstream via {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
+   * For {@code failedJob} incidents, the C7 job ID (incident configuration) is looked up in the
+   * HISTORY_JOB tracking table. For {@code failedExternalTask} incidents, the C7 external task ID
+   * (incident configuration) is looked up in the HISTORY_EXTERNAL_TASK tracking table.
+   * If the associated job/external task has been tracked in the migration table, the C8 job key is
+   * looked up and set on the builder. The key will be {@code null} if the job/external task was
+   * skipped during migration, which will cause the incident to be skipped downstream via
+   * {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
    * </p>
    * <p>
-   * If the job is not yet tracked (job migration may not have run or the job type is not
-   * tracked), the incident proceeds without a job key.
+   * If the job/external task is not yet tracked (migration may not have run), the incident
+   * proceeds without a job key.
    * </p>
    *
    * @param c7Incident the Camunda 7 incident
    * @param builder    the incident builder to set the job key on
    */
   protected void resolveJobKey(final HistoricIncident c7Incident, final Builder builder) {
-    if (!isFailedJobIncident(c7Incident)) {
+    final String c7Id = c7Incident.getConfiguration();
+    if (c7Id == null) {
       return;
     }
-    final String c7JobId = c7Incident.getConfiguration();
-    if (c7JobId == null) {
-      return;
-    }
-    if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
-      final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
-      builder.jobKey(jobKey);
+    if (isFailedJobIncident(c7Incident)) {
+      if (dbClient.checkExistsByC7IdAndType(c7Id, HISTORY_JOB)) {
+        final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7Id, HISTORY_JOB);
+        builder.jobKey(jobKey);
+      }
+    } else if (isFailedExternalTaskIncident(c7Incident)) {
+      if (dbClient.checkExistsByC7IdAndType(c7Id, HISTORY_EXTERNAL_TASK)) {
+        final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7Id, HISTORY_EXTERNAL_TASK);
+        builder.jobKey(jobKey);
+      }
     }
   }
 
@@ -190,6 +200,16 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    */
   protected boolean isFailedJobIncident(final HistoricIncident c7Incident) {
     return FAILED_JOB_HANDLER_TYPE.equals(c7Incident.getIncidentType());
+  }
+
+  /**
+   * Returns true if this incident was caused by an external task failure.
+   *
+   * @param c7Incident the Camunda 7 incident
+   * @return true for {@code failedExternalTask} incident type
+   */
+  protected boolean isFailedExternalTaskIncident(final HistoricIncident c7Incident) {
+    return EXTERNAL_TASK_HANDLER_TYPE.equals(c7Incident.getIncidentType());
   }
 }
 

@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.history;
 import java.util.Date;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.history.HistoricDecisionInstance;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.history.HistoricJobLog;
 import org.camunda.bpm.engine.history.HistoricProcessInstance;
@@ -50,6 +51,10 @@ public class EntitySkippedException extends RuntimeException {
 
   public EntitySkippedException(HistoricJobLog c7JobLog, String message) {
     this(C7Entity.of(c7JobLog), message);
+  }
+
+  public EntitySkippedException(HistoricExternalTaskLog c7ExternalTaskLog, String message) {
+    this(C7Entity.of(c7ExternalTaskLog), message);
   }
 
   public EntitySkippedException(HistoricProcessInstance c7ProcessInstance, String message) {

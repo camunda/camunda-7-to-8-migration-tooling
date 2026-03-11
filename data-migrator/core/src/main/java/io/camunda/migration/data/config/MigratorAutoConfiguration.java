@@ -28,6 +28,7 @@ import io.camunda.migration.data.impl.RuntimeValidator;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
@@ -77,6 +78,7 @@ import org.springframework.context.annotation.Import;
     DecisionRequirementsMigrator.class,
     FlowNodeMigrator.class,
     JobMigrator.class,
+    ExternalTaskMigrator.class,
     IncidentMigrator.class,
     FormMigrator.class,
     ProcessDefinitionMigrator.class,
