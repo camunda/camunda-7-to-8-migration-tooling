@@ -296,7 +296,7 @@ export const process_instance = [
 			operation: "post",
 		},
 		target: {
-			path: "/process-instances/batch-operations/cancellation",
+			path: "/process-instances/cancellation",
 			operation: "post",
 		},
 		direct: {
@@ -390,7 +390,7 @@ export const process_instance = [
 			operation: "post",
 		},
 		target: {
-			path: "/process-instances/batch-operations/cancellation",
+			path: "/process-instances/cancellation",
 			operation: "post",
 		},
 		direct: {
