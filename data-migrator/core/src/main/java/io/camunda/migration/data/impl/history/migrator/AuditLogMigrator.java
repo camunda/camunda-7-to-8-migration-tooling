@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingAuditLogs;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
@@ -87,6 +88,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       resolveProcessInstanceKeys(auditLogDbModelBuilder, c7AuditLog);
       resolveProcessDefinitionKey(auditLogDbModelBuilder, c7AuditLog);
       resolveUserTaskKey(auditLogDbModelBuilder, c7AuditLog);
+      resolveJobKey(auditLogDbModelBuilder, c7AuditLog);
 
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
@@ -193,6 +195,27 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       UserTaskDbModel userTaskDbModel = searchUserTasksByKey(taskKey);
       builder.userTaskKey(taskKey)
           .elementInstanceKey(userTaskDbModel.elementInstanceKey());
+    }
+  }
+
+  /**
+   * Resolves and sets the job entity key on the builder.
+   * <p>
+   * This method looks up the Camunda 8 key for the job based on the
+   * Camunda 7 job ID from the audit log entry.
+   * The key is only set if the job has already been migrated.
+   * If the entity type is JOB, also sets the entityKey.
+   * </p>
+   *
+   * @param builder the audit log builder
+   * @param c7AuditLog the user operation log entry from Camunda 7
+   */
+  protected void resolveJobKey(Builder builder, UserOperationLogEntry c7AuditLog) {
+    String c7JobId = c7AuditLog.getJobId();
+    if (c7JobId != null && EntityTypes.JOB.equals(c7AuditLog.getEntityType())
+        && isMigrated(c7JobId, HISTORY_JOB)) {
+      Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
+      builder.entityKey(String.valueOf(jobKey));
     }
   }
 

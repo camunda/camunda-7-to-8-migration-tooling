@@ -482,6 +482,42 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateAuditLogsForExecuteJob() {
+    // given
+    deployer.deployCamunda7Process("asyncBeforeUserTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("asyncBeforeUserTaskProcessId");
+
+    // Execute the async-before job with an authenticated user to generate the "Execute" audit log
+    identityService.setAuthenticatedUserId("demo");
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+    String c7JobId = jobs.getFirst().getId();
+    managementService.executeJob(c7JobId);
+
+    // Verify "Execute" audit log exists in C7 with JOB entity type
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_EXECUTE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("asyncBeforeUserTaskProcessId");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("asyncBeforeUserTaskProcessId");
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.JOB);
+    assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.COMPLETE);
+    assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+    assertThat(log.entityKey()).isNotNull();
+    assertThat(log.actorId()).isEqualTo("demo");
+  }
+
+  @Test
   public void shouldSkipAuditLogsForActivateSuspend() {
     // given
     deployer.deployCamunda7Process("simpleProcess.bpmn");
