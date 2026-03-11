@@ -86,6 +86,7 @@ import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.runtime.ProcessInstanceQuery;
 import org.camunda.bpm.engine.runtime.VariableInstance;
 import org.camunda.bpm.engine.runtime.VariableInstanceQuery;
+import org.camunda.bpm.engine.task.IdentityLinkType;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -755,6 +756,7 @@ public class C7Client {
   public List<HistoricIdentityLinkLog> getHistoricIdentityLinkLogs(String taskId) {
     HistoricIdentityLinkLogQueryImpl query = (HistoricIdentityLinkLogQueryImpl) historyService
         .createHistoricIdentityLinkLogQuery()
+        .type(IdentityLinkType.CANDIDATE)
         .taskId(taskId)
         .orderByTime()
         .asc();
