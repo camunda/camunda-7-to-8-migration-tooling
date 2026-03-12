@@ -145,6 +145,27 @@ function App() {
              "Accept": "application/json"
           },
         });
+
+        if (!checkResponse.ok) {
+          let errorMessage = "Analysis failed";
+          try {
+            const errorBody = await checkResponse.text();
+            if (errorBody) errorMessage = `Analysis failed: ${errorBody}`;
+          } catch { /* ignore parse errors */ }
+          const result = {
+            status: "error",
+            errorMessage: errorMessage,
+            originalModelXml: originalModelXml,
+            checkResponseJson: null,
+          };
+          setFileResults((prevResults) => {
+            const updated = [...prevResults];
+            updated[idx] = result;
+            return updated;
+          });
+          return result;
+        }
+
         const checkResponseJson = await checkResponse.json();
 
         let result = {
@@ -176,11 +197,31 @@ function App() {
           }
         }
 
+        if (!convertResponse.ok) {
+          let errorMessage = "Conversion failed";
+          try {
+            const errorBody = await convertResponse.text();
+            if (errorBody) errorMessage = `Conversion failed: ${errorBody}`;
+          } catch { /* ignore parse errors */ }
+          result = {
+            status: "error",
+            errorMessage: errorMessage,
+            originalModelXml: originalModelXml,
+            checkResponseJson: checkResponseJson,
+          };
+          setFileResults((prevResults) => {
+            const updated = [...prevResults];
+            updated[idx] = result;
+            return updated;
+          });
+          return result;
+        }
+
         // Convert response to blob
         const blob = await convertResponse.blob();
 
         result = {
-          status: checkResponse.ok && convertResponse.ok ? "success" : "error",
+          status: "success",
           originalModelXml: originalModelXml,
           checkResponseJson: checkResponseJson,
           convertedFileBlob: blob,
@@ -552,7 +593,9 @@ function App() {
                   previewAction={() => preview(fileResults[idx])}
                   downloadAction={() => download(fileResults[idx])}
                   error={
-                    !fileResults[idx].ok == "error" ? "File upload failure" : ""
+                    fileResults[idx].status === "error"
+                      ? (fileResults[idx].errorMessage || "File processing failed")
+                      : ""
                   }
                 />
               ))}

@@ -32,8 +32,8 @@ export default function DropZone({
       <div className="left">
         <img src={Paperclip} />
         <span
-          className={downloadAction && !error ? "downloadable" : ""}
-          onClick={error ? undefined : downloadAction}
+          className={isConverted && downloadAction && !error ? "downloadable" : ""}
+          onClick={isConverted && !error ? downloadAction : undefined}
         >
           {name}
         </span>
@@ -60,7 +60,7 @@ export default function DropZone({
           </button>
         )}
         {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
-        {isConverted && downloadAction && (
+        {isConverted && downloadAction && !error && (
           <button className="download" onClick={downloadAction} title="Download the converted model">
             <Download />
           </button>
@@ -69,14 +69,6 @@ export default function DropZone({
           <button onClick={onDelete}>
             <TrashCan />
           </button>
-        )}        
-
-        {status === "error" && (
-          <Tooltip label="File upload failure">
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
-            </div>
-          </Tooltip>
         )}
       </div>
     </div>
