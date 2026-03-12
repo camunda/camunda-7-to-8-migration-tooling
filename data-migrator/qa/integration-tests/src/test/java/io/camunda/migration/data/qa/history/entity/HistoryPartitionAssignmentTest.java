@@ -7,34 +7,20 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_DELETED_IN_C8;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
-import io.camunda.migration.data.qa.util.WhiteBox;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
-import io.camunda.search.entities.FlowNodeInstanceEntity;
-import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
-import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
 import java.util.Map;
-import org.camunda.bpm.engine.history.HistoricActivityInstance;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.event.Level;
 
 /**
  * Integration tests verifying correct partition ID assignment during history migration.
@@ -42,14 +28,14 @@ import org.slf4j.event.Level;
  * <p>Tests cover:
  * <ul>
  *   <li>Process hierarchies (call activities) share the same partition as the root process instance</li>
+ *   <li>All process-related entities (flow nodes, user tasks, variables) share the same partition as their process instance</li>
  *   <li>Standalone decisions and their child decision instances share the same partition</li>
- *   <li>Entities whose parent C8 entity was deleted are skipped with a C8EntityNotFoundException</li>
  * </ul>
+ *
+ * <p>White-box tests for {@code C8EntityNotFoundException} scenarios are in
+ * {@link HistoryC8EntityDeletedTest}.
  */
 public class HistoryPartitionAssignmentTest extends HistoryMigrationAbstractTest {
-
-  @RegisterExtension
-  protected final LogCapturer logs = LogCapturer.create().captureForType(HistoryMigrator.class, Level.DEBUG);
 
   @Test
   public void shouldCallActivityProcessHierarchyShareSamePartitionAsRootProcessInstance() {
@@ -155,72 +141,4 @@ public class HistoryPartitionAssignmentTest extends HistoryMigrationAbstractTest
         .allSatisfy(partitionId -> assertThat(partitionId).isEqualTo(allPartitions.getFirst()));
   }
 
-  @Test
-  @WhiteBox
-  public void shouldSkipProcessInstanceWhenProcessDefinitionWasDeletedInC8() {
-    // given – a simple process instance in history
-    deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    String processInstanceId =
-        runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-
-    // migrate process definitions first so the mapping exists
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-
-    // simulate C8 history cleanup by deleting the process definition record
-    List<ProcessDefinitionEntity> definitions = searchHistoricProcessDefinitions("simpleStartEndProcessId");
-    assertThat(definitions).hasSize(1);
-    Long processDefinitionKey = definitions.getFirst().processDefinitionKey();
-    rdbmsQuery.update("DELETE FROM PROCESS_DEFINITION WHERE PROCESS_DEFINITION_KEY = ?", processDefinitionKey);
-
-    // when – migrate process instances after the process definition no longer exists in C8
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-
-    // then – the process instance must be skipped with a "deleted in C8" message
-    assertThat(searchHistoricProcessInstances("simpleStartEndProcessId")).isEmpty();
-    logs.assertContains(formatMessage(
-        SKIPPING,
-        HISTORY_PROCESS_INSTANCE.getDisplayName(),
-        processInstanceId,
-        String.format(SKIP_REASON_DELETED_IN_C8, HISTORY_PROCESS_DEFINITION.getDisplayName(), processDefinitionKey)));
-  }
-
-  @Test
-  @WhiteBox
-  public void shouldSkipFlowNodesWhenProcessInstanceWasDeletedInC8() {
-    // given – deploy and run a simple auto-completing process
-    deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    String processInstanceId = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-
-    // migrate process definitions and process instances
-    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
-    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-
-    // simulate C8 history cleanup by deleting the process instance record
-    List<ProcessInstanceEntity> instances = searchHistoricProcessInstances("simpleStartEndProcessId");
-    assertThat(instances).hasSize(1);
-    Long processInstanceKey = instances.getFirst().processInstanceKey();
-    rdbmsQuery.update("DELETE FROM PROCESS_INSTANCE WHERE PROCESS_INSTANCE_KEY = ?", processInstanceKey);
-
-    // collect the C7 flow node IDs (start event + end event) before flow node migration
-    List<String> flowNodeIds = historyService.createHistoricActivityInstanceQuery()
-        .processInstanceId(processInstanceId)
-        .list()
-        .stream()
-        .map(HistoricActivityInstance::getId)
-        .toList();
-    assertThat(flowNodeIds).isNotEmpty();
-
-    // when – migrate flow nodes after the process instance is gone from C8
-    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
-
-    // then – all flow nodes must be skipped because their parent process instance was deleted
-    assertThat(searchHistoricFlowNodes(processInstanceKey)).isEmpty();
-    for (String flowNodeId : flowNodeIds) {
-      logs.assertContains(formatMessage(
-          SKIPPING,
-          HISTORY_FLOW_NODE.getDisplayName(),
-          flowNodeId,
-          String.format(SKIP_REASON_DELETED_IN_C8, HISTORY_PROCESS_INSTANCE.getDisplayName(), processInstanceKey)));
-    }
-  }
 }
