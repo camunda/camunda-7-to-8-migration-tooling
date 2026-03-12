@@ -66,7 +66,6 @@ public class PartitionSupplier {
    * partition count is configured, this method throws an exception with guidance
    * on how to configure offline mode.
    *
-   * @throws IllegalStateException if topology cannot be fetched and no partition count is configured
    */
   public void initialize() {
     Integer configuredPartitionCount = getConfiguredPartitionCount();

@@ -29,9 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
 
-  @Autowired
-  protected PartitionSupplier partitionSupplier;
-
   @Test
   public void shouldGenerateTreePathForFlowNodes() {
     // given
@@ -249,7 +246,7 @@ public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
         searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
 
     // All flow nodes should be assigned a partition from the available Zeebe partitions
-    List<Integer> availablePartitions = partitionSupplier.getPartitionIds();
+    List<Integer> availablePartitions = List.of(1, 2, 3);
     assertThat(flowNodes).isNotEmpty()
         .allSatisfy(flowNode -> assertThat(flowNode.partitionId()).isIn(availablePartitions));
 
