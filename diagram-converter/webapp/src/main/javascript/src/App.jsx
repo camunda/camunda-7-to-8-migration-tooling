@@ -55,7 +55,7 @@ function App() {
     keepJobTypeBlank: false,
     alwaysUseDefaultJobType: false,
     addDataMigrationExecutionListener: false,
-    dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
+    dataMigrationExecutionListenerJobType: "migrator",
   });
 
 

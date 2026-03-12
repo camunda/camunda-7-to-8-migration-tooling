@@ -538,7 +538,7 @@ public class DiagramConverterTest {
                 .getChildElements()
                 .get(0)
                 .getAttribute("type"))
-        .isEqualTo("=if legacyId != null then \"migrator\" else \"noop\"");
+        .isEqualTo("migrator");
     assertThat(subprocessStartEvent.getChildElementsByNameNs(BPMN, "extensionElements")).isEmpty();
   }
 
