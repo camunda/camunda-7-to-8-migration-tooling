@@ -189,8 +189,7 @@ public class HistoryPartitionAssignmentTest extends HistoryMigrationAbstractTest
   public void shouldSkipFlowNodesWhenProcessInstanceWasDeletedInC8() {
     // given – deploy and run a simple auto-completing process
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    String processInstanceId =
-        runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
+    String processInstanceId = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
 
     // migrate process definitions and process instances
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);

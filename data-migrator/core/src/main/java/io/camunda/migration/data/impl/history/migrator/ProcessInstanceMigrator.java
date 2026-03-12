@@ -97,24 +97,10 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
       builder.processInstanceKey(processInstanceKey);
 
       Long rootProcessInstanceKey = null;
-      
-      Integer partitionId = null;
-      String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
 
+      String c7RootProcessInstanceId = c7ProcessInstance.getRootProcessInstanceId();
       if (c7RootProcessInstanceId == null) {
         throw new EntitySkippedException(c7ProcessInstance, "Root process instance ID always null.");
-      }
-
-      if (c7ProcessInstanceId.equals(c7RootProcessInstanceId)) {
-        partitionId = partitionSupplier.getRandomPartitionId();
-      } else {
-        partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId);
-      }
-      
-      builder.partitionId(partitionId);
-
-      if (processDefinitionKey != null) {
-        builder.processDefinitionKey(processDefinitionKey);
       }
 
       if (isMigrated(processDefinitionId, HISTORY_PROCESS_DEFINITION)) {
@@ -130,13 +116,24 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
 
         if (c7RootProcessInstanceId.equals(c7ProcessInstanceId)) {
           builder.rootProcessInstanceKey(processInstanceKey);
+
+          int partitionId = partitionSupplier.getRandomPartitionId();
+          builder.partitionId(partitionId);
+
         } else if (isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+          int partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId);
+          builder.partitionId(partitionId);
+
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
-          if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
+          if (rootProcessInstance != null) {
             rootProcessInstanceKey = rootProcessInstance.processInstanceKey();
             builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
           }
         }
+      }
+
+      if (processDefinitionKey != null) {
+        builder.processDefinitionKey(processDefinitionKey);
       }
 
       Date c7EndTime = c7ProcessInstance.getEndTime();
@@ -173,7 +170,7 @@ public class ProcessInstanceMigrator extends HistoryEntityMigrator<HistoricProce
         c8Client.insertProcessInstanceTags(dbModel);
       }
 
-      return MigrationResult.of(dbModel.processInstanceKey(), partitionId);
+      return MigrationResult.of(dbModel.processInstanceKey(), dbModel.partitionId());
     }
     return null;
   }
