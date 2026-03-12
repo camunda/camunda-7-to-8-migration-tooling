@@ -147,6 +147,51 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateFailedJobIncidentForNestedProcessInstance() {
+    // given a parent process that calls a child process containing a failing async service task
+    deployer.deployCamunda7Process("callActivityWithIncidentSubprocess.bpmn");
+    deployer.deployCamunda7Process("incidentProcess.bpmn");
+    ProcessInstance parentProcess = runtimeService.startProcessInstanceByKey("callActivityWithIncidentSubprocessId");
+    ProcessInstance childProcess = runtimeService.createProcessInstanceQuery()
+        .processDefinitionKey("incidentProcessId")
+        .singleResult();
+    assertThat(childProcess).isNotNull();
+
+    // trigger the failing job in the child process to create a failedJob incident
+    triggerIncident(childProcess.getProcessInstanceId());
+
+    // verify incidents exist in both child and parent process instances in C7
+    HistoricIncident c7ChildIncident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(childProcess.getProcessInstanceId())
+        .singleResult();
+    assertThat(c7ChildIncident).isNotNull();
+    assertThat(c7ChildIncident.getConfiguration()).as("leaf incident should have a job reference").isNotNull();
+
+    HistoricIncident c7ParentIncident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(parentProcess.getProcessInstanceId())
+        .singleResult();
+    assertThat(c7ParentIncident).isNotNull();
+    assertThat(c7ParentIncident.getConfiguration()).as("propagated parent incident should have no job reference").isNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then both incidents are migrated
+
+    // child incident has a job key (the failed job was migrated)
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
+    assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
+
+    // parent incident is migrated without a job key (propagated incident has no direct job reference)
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
+    assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
+    assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
+    assertThat(parentIncidents.getFirst().state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
+  }
+
+  @Test
   public void shouldMigrateIncidentBasicFieldsForActiveTaskWithAsyncBefore() {
     // given
     deployer.deployCamunda7Process("userTaskProcessAsyncBefore.bpmn");
