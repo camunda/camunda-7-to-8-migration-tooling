@@ -89,7 +89,7 @@ public class HistoryPartitionAssignmentTest extends HistoryMigrationAbstractTest
   }
 
   @Test
-  public void shouldProcessRelatedEntitiesShareSamePartitionAsTheirProcessInstance() {
+  public void shouldProcessRelatedEntitiesShareSamePartitionAsProcessInstance() {
     // given – a process with a user task and a process variable
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
     Map<String, Object> processVariables = Variables.createVariables().putValue("testVar", stringValue("value"));

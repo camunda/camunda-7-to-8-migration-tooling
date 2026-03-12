@@ -54,7 +54,7 @@ public class HistoryPartitionDistributionTest extends HistoryMigrationAbstractTe
     }
 
     // with 20 instances across 3 partitions, the probability of all landing on one partition is
-    // negligible (<0.01%); assert that at least 2 distinct partitions were used
+    // negligible (< 0.01%); assert that at least 2 distinct partitions were used
     assertThat(usedPartitions)
         .as("Expected process instances to be distributed across multiple partitions")
         .hasSizeGreaterThan(1);
