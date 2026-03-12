@@ -18,7 +18,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
-import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
@@ -353,7 +352,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
     List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
         builder -> builder.filter(FlowNodeInstanceFilter.of(
-            filter -> filter.flowNodeIds(sanitizeFlowNodeId(activityId)).processInstanceKeys(processInstanceKey)))));
+            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
 
     if (!flowNodes.isEmpty()) {
       return flowNodes.getFirst().flowNodeInstanceKey();

@@ -59,13 +59,4 @@ public class ConverterUtil {
     return String.format("%s-%s", C7_LEGACY_PREFIX, definitionId);
   }
 
-
-  /**
-   * Removes the multi-instance body suffix from the activity ID if present, as C8 does not use this convention for multi-instance activities.
-   */
-  public static String sanitizeFlowNodeId(String activityId) {
-    return activityId.replace(C7_MULTI_INSTANCE_BODY_SUFFIX, "");
-  }
-
-
 }

@@ -15,13 +15,11 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
 import io.camunda.migration.data.impl.history.C7Entity;
-import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -122,7 +120,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
-        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), sanitizeFlowNodeId(c7Incident.getActivityId()))) {
+        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
           // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
           throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
         }
