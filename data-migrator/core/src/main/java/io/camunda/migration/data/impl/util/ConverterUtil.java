@@ -22,6 +22,8 @@ import static io.camunda.zeebe.protocol.Protocol.KEY_BITS;
 
 public class ConverterUtil {
 
+  protected static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
+
   public static Long getNextKey() {
     SecureRandom secureRandom = new SecureRandom();
     return Protocol.encodePartitionId(C7_HISTORY_PARTITION_ID, secureRandom.nextLong(getUpperBound() + 1));

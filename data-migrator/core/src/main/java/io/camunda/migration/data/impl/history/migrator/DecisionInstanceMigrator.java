@@ -31,6 +31,7 @@ import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
+import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -97,7 +98,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public Long migrateTransactionally(HistoricDecisionInstance c7DecisionInstance) {
+  public MigrationResult migrateTransactionally(HistoricDecisionInstance c7DecisionInstance) {
     var c7DecisionInstanceId = c7DecisionInstance.getId();
     if (shouldMigrate(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE)) {
       HistoryMigratorLogs.migratingDecisionInstance(c7DecisionInstanceId);
@@ -142,7 +143,8 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
           if (isMigrated(c7DecisionInstance.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
             var processInstance = findProcessInstanceByC7Id(c7DecisionInstance.getProcessInstanceId());
             if (processInstance != null && processInstance.processInstanceKey() != null) {
-              builder.processInstanceKey(processInstance.processInstanceKey());
+              builder.processInstanceKey(processInstance.processInstanceKey())
+                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7DecisionInstance.getRootProcessInstanceId()));
             }
           }
 
@@ -166,6 +168,9 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
               }
             }
           }
+        } else {
+          // Standalone decisions (not tied to a process instance) get a random partition
+          builder.partitionId(partitionSupplier.getRandomPartitionId());
         }
       }
 
@@ -214,7 +219,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
 
       c8Client.insertDecisionInstance(dbModel);
 
-      return dbModel.decisionInstanceKey();
+      return MigrationResult.of(dbModel.decisionInstanceKey());
     }
 
     return null;
@@ -237,9 +242,11 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
             .decisionRequirementsKey(parentDbModel.decisionRequirementsKey())
             .processDefinitionKey(parentDbModel.processDefinitionKey())
             .processInstanceKey(parentDbModel.processInstanceKey())
+            .rootProcessInstanceKey(parentDbModel.rootProcessInstanceKey())
             .rootDecisionDefinitionKey(parentDbModel.rootDecisionDefinitionKey())
             .flowNodeInstanceKey(parentDbModel.flowNodeInstanceKey())
             .flowNodeId(parentDbModel.flowNodeId())
+            .partitionId(parentDbModel.partitionId())
             .decisionType(determineDecisionType(childDecisionInstance))
             .historyCleanupDate(parentDbModel.historyCleanupDate());
 
@@ -273,8 +280,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
       return null;
     }
 
-    Long key = dbClient.findC8KeyByC7IdAndType(decisionInstanceId,
-        IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE);
+    Long key = dbClient.findC8KeyByC7IdAndType(decisionInstanceId, IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE);
     if (key == null) {
       return null;
     }
@@ -283,7 +289,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
             DecisionInstanceDbQuery.of(b -> b.filter(value -> value.decisionInstanceKeys(key))))
         .stream()
         .findFirst()
-        .orElse(null);
+        .orElseThrow(() -> new C8EntityNotFoundException(HISTORY_DECISION_INSTANCE, key));
   }
 
   protected DecisionDefinitionEntity findDecisionDefinition(String decisionDefinitionId) {
@@ -296,7 +302,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
             DecisionDefinitionDbQuery.of(b -> b.filter(value -> value.decisionDefinitionKeys(key))))
         .stream()
         .findFirst()
-        .orElse(null);
+        .orElseThrow(() -> new C8EntityNotFoundException(HISTORY_DECISION_DEFINITION, key));
   }
 
   /**

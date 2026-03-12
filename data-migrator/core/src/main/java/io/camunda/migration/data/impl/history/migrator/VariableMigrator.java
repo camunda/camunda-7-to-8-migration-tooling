@@ -85,7 +85,7 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
    * @throws VariableInterceptorException if an error occurs during variable interception (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricVariableInstance c7Variable) {
+  public MigrationResult migrateTransactionally(HistoricVariableInstance c7Variable) {
     String c7VariableId = c7Variable.getId();
     if (shouldMigrate(c7VariableId, HISTORY_VARIABLE)) {
       HistoryMigratorLogs.migratingHistoricVariable(c7VariableId);
@@ -100,7 +100,8 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
       if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
         ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
         Long processInstanceKey = processInstance.processInstanceKey();
-        builder.processInstanceKey(processInstanceKey);
+        builder.processInstanceKey(processInstanceKey)
+            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7Variable.getRootProcessInstanceId()));
 
         String c7RootProcessInstanceId = c7Variable.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
@@ -137,7 +138,7 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
 
       c8Client.insertVariable(dbModel);
 
-      return dbModel.variableKey();
+      return MigrationResult.of(dbModel.variableKey());
     }
 
     return null;

@@ -22,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Generic JUnit 5 extension for executing SQL queries against RDBMS databases in tests.
@@ -53,6 +54,7 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
 
   private static ApplicationContext applicationContext;
   private JdbcTemplate jdbcTemplate;
+  private TransactionTemplate transactionTemplate;
   private final Function<DataSourceRegistry, DataSource> dataSourceSelector;
 
   /**
@@ -86,6 +88,7 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
       DataSourceRegistry registry = applicationContext.getBean(DataSourceRegistry.class);
       DataSource dataSource = dataSourceSelector.apply(registry);
       jdbcTemplate = new JdbcTemplate(dataSource);
+      transactionTemplate = registry.getMigratorTxTemplate();
     }
   }
 
@@ -168,23 +171,23 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
   }
 
   /**
-   * Execute an update/insert/delete statement.
+   * Execute an update/insert/delete statement within a transaction.
    *
    * @param sql the SQL statement
    * @param args the statement parameters
    * @return the number of rows affected
    */
   public int update(String sql, Object... args) {
-    return getJdbcTemplate().update(sql, args);
+    return transactionTemplate.execute(status -> getJdbcTemplate().update(sql, args));
   }
 
   /**
-   * Execute a SQL statement (for DDL or statements without parameters).
+   * Execute a SQL statement (for DDL or statements without parameters) within a transaction.
    *
    * @param sql the SQL statement
    */
   public void execute(String sql) {
-    getJdbcTemplate().execute(sql);
+    transactionTemplate.executeWithoutResult(status -> getJdbcTemplate().execute(sql));
   }
 
   /**

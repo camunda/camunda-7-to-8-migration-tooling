@@ -42,6 +42,7 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEAR
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
+import static io.camunda.migration.data.impl.util.PartitionSupplier.PARTITION_COUNT_PROPERTY;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
@@ -52,6 +53,7 @@ import io.camunda.client.api.fetch.GroupGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
+import io.camunda.client.api.response.PartitionInfo;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.response.Group;
@@ -479,6 +481,24 @@ public class C8Client {
    */
   public void insertJob(JobDbModel dbModel) {
     callApi(() -> jobMapper.insert(new BatchInsertDto(List.of(dbModel))), FAILED_TO_INSERT_JOB);
+  }
+
+  /**
+   * Fetches the available Zeebe partition IDs from the broker topology.
+   *
+   * @return list of partition IDs, never empty
+   */
+  public List<Integer> fetchPartitionIds() {
+    var topology = callApi(() -> camundaClient.newTopologyRequest().execute(), "Camunda REST API cannot be reached to query for the topology. " +
+        "If you want to continue in offline mode, please configure a partition count with the following config property: " +
+        PARTITION_COUNT_PROPERTY);
+    return topology.getBrokers()
+        .stream()
+        .flatMap(broker -> broker.getPartitions().stream())
+        .map(PartitionInfo::getPartitionId)
+        .distinct()
+        .sorted()
+        .toList();
   }
 
 }

@@ -43,6 +43,8 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
   public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
   public static final String SKIP_REASON_UNSUPPORTED_JOBS = "Only async-before and async-after jobs are supported for migration.";
+  public static final String SKIP_REASON_DELETED_IN_C8 = "Parent %s with C8 key [%s] has been deleted already in C8.";
+  public static final String SKIP_REASON_DELETED_IN_C8_ASSOCIATED = "Parent %s with C7 process instance ID [%s] and flow node ID [%s] has been deleted already in C8.";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";

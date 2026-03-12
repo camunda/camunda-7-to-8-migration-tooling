@@ -8,7 +8,6 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.VariableDbModel.*;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_EXPORTER_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -40,9 +39,9 @@ public class VariableTransformer implements EntityInterceptor<HistoricVariableIn
         .name(entity.getName())
         .value(variableService.convertValue(entity))
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
-        .tenantId(getTenantId(entity.getTenantId()))
-        .partitionId(C7_HISTORY_EXPORTER_PARTITION_ID);
-    // Note: processInstanceKey, scopeKey, and elementInstanceKey are set externally
+        .tenantId(getTenantId(entity.getTenantId()));
+    // Note: partitionId is set externally by VariableMigrator to match the parent process instance
+    // processInstanceKey, scopeKey, and elementInstanceKey are set externally
   }
 
 }
