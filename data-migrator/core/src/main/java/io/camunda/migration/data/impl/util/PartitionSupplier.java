@@ -42,17 +42,17 @@ public class PartitionSupplier {
   public static final String PARTITION_COUNT_PROPERTY = "camunda.migrator.history.partition-count";
 
   @Autowired
-  private C8Client c8Client;
+  protected C8Client c8Client;
 
   @Autowired
-  private DbClient dbClient;
+  protected DbClient dbClient;
 
   @Autowired
-  private MigratorProperties migratorProperties;
+  protected MigratorProperties migratorProperties;
 
-  private final SecureRandom random = new SecureRandom();
+  protected final SecureRandom random = new SecureRandom();
 
-  private volatile List<Integer> partitionIds;
+  protected volatile List<Integer> partitionIds;
 
   /**
    * Initializes the partition IDs for history migration.
