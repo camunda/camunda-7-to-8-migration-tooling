@@ -178,6 +178,11 @@ public class IdentityTestHelper {
     logs.assertContains(formatMessage(SKIPPED_TENANT, tenantId, tenantName == null ? "null" : tenantName, reason));
   }
 
+  protected void assertNoMembershipsForTenant(String tenantId) {
+    List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
+    assertThat(usersForTenant).isEmpty();
+  }
+
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
     List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
     assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
