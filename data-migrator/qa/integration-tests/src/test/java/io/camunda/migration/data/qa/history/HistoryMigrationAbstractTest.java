@@ -265,7 +265,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public int searchVariablePartitionId(Long variableKey) {
-    String sql = "SELECT PARTITION_ID FROM VARIABLE WHERE VARIABLE_KEY = ?";
+    String sql = "SELECT PARTITION_ID FROM VARIABLE WHERE VAR_KEY = ?";
     return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), variableKey).getFirst();
   }
 
