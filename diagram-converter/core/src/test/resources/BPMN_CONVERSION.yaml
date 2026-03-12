@@ -233,7 +233,7 @@ categories:
           <bpmn:startEvent id="start" isInterrupting="true" parallelMultiple="false">
             <extensionElements>
               <zeebe:executionListeners>
-                <zeebe:executionListener eventType="end" type="=if legacyId != null then &quot;migrator&quot; else &quot;noop&quot;"/>
+                <zeebe:executionListener eventType="end" type="migrator"/>
               </zeebe:executionListeners>
             </extensionElements>
           </bpmn:startEvent>
@@ -246,7 +246,7 @@ categories:
             </extensionElements>
           </bpmn:serviceTask>
         expectedMessages: |
-          <conversion:message severity="INFO">Added execution listener '=if legacyId != null then "migrator" else "noop"' to blank start event 'startEvent' to be used by Camunda 7 Data Migrator.</conversion:message>
+          <conversion:message severity="INFO">Added execution listener 'migrator' to blank start event 'startEvent' to be used by Camunda 7 Data Migrator.</conversion:message>
           <conversion:message severity="REVIEW">Delegate class or expression 'com.camunda.consulting.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
       - name: Service Task with delegateExpression
         givenBpmn: |
