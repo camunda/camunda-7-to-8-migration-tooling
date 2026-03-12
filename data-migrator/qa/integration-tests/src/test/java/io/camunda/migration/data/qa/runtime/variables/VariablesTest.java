@@ -418,7 +418,7 @@ public class VariablesTest extends AbstractMigratorTest {
     // C8
     var c8Model = io.camunda.zeebe.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent("start_1")
-        .zeebeEndExecutionListener("migrator")
+        .zeebeEndExecutionListener("=if legacyId != null then \"migrator\" else \"noop\"")
         .subProcess("sub_1")
         .embeddedSubProcess()
         .startEvent("start_2")
@@ -448,7 +448,7 @@ public class VariablesTest extends AbstractMigratorTest {
     // C8
     var c8Model = io.camunda.zeebe.model.bpmn.Bpmn.createExecutableProcess(process)
         .startEvent("start_1")
-        .zeebeEndExecutionListener("migrator")
+        .zeebeEndExecutionListener("=if legacyId != null then \"migrator\" else \"noop\"")
         .parallelGateway("fork")
         .userTask("userTask_1")
         .parallelGateway("join")
