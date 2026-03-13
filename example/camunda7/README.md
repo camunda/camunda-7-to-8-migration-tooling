@@ -70,9 +70,9 @@ java -jar example/camunda7/target/migration-example-camunda7-0.3.0-SNAPSHOT.jar
 
 | URL | Description |
 |-----|-------------|
-| http://localhost:8080/camunda/app/cockpit/ | Cockpit (login: demo/demo) |
-| http://localhost:8080/camunda/app/tasklist/ | Tasklist (login: demo/demo) |
-| http://localhost:8080/engine-rest/ | REST API |
+| http://localhost:8010/camunda/app/cockpit/ | Cockpit (login: demo/demo) |
+| http://localhost:8010/camunda/app/tasklist/ | Tasklist (login: demo/demo) |
+| http://localhost:8010/engine-rest/ | REST API |
 
 ## Deployed Processes
 
@@ -86,7 +86,7 @@ Process with a service task that has an execution listener (`MyExecutionListener
 
 Start it via:
 ```bash
-curl -X POST "http://localhost:8080/test/execution-listener?foo=bar"
+curl -X POST "http://localhost:8010/test/execution-listener?foo=bar"
 ```
 
 ## Smoke Tests
@@ -98,7 +98,7 @@ The `test.sh` script exercises both processes via the REST API:
 3. Starts `my-project-process`, claims and completes the user task, verifies completion
 
 ```bash
-./test.sh              # default: http://localhost:8080
+./test.sh              # default: http://localhost:8010
 ./test.sh http://localhost:9090  # custom URL
 ```
 

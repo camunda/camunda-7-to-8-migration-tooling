@@ -17,6 +17,7 @@
 
   <modules>
     <module>camunda7</module>
+    <module>camunda8-reference</module>
   </modules>
 
   <build>

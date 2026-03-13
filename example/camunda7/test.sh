@@ -6,7 +6,7 @@
 #
 set -euo pipefail
 
-BASE_URL="${1:-http://localhost:8080}"
+BASE_URL="${1:-http://localhost:8010}"
 ENGINE_REST="$BASE_URL/engine-rest"
 PASS=0
 FAIL=0
