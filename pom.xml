@@ -64,6 +64,7 @@
     <module>data-migrator</module>
     <module>diagram-converter</module>
     <module>big-bang-migration-example</module>
+    <module>example</module>
   </modules>
 
   <scm>

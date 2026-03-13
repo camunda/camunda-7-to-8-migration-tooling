@@ -1,0 +1,33 @@
+services:
+
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=process-engine
+      - POSTGRES_USER=camunda
+      - POSTGRES_PASSWORD=camunda
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camunda -d process-engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  camunda7:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/process-engine
+      - SPRING_DATASOURCE_USERNAME=camunda
+      - SPRING_DATASOURCE_PASSWORD=camunda
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/engine-rest/engine"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
