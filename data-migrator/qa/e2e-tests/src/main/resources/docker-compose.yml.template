@@ -22,7 +22,7 @@ services:
         echo 'Installing JDK 21...'
         apk add --no-cache openjdk21
         export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-        export PATH=$JAVA_HOME/bin:$PATH
+        export PATH=$$JAVA_HOME/bin:$$PATH
         echo 'JDK 21 installed successfully'
         java -version
         echo 'Starting Camunda...'

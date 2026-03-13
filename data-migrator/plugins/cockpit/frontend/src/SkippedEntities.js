@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {createColumnHelper} from '@tanstack/react-table';
 import PaginatedTable from "./PaginatedTable";
 import {ENTITY_TYPES} from "./utils/types";
@@ -107,101 +107,100 @@ function SkippedEntities({camundaAPI}) {
 
   const columnHelper = createColumnHelper();
 
-  const columns = useMemo(
-    () => {
-      let baseColumns = [
+  const getColumns = () => {
+    let baseColumns = [
+      columnHelper.accessor('c7Id', {
+        header: getColumnHeader(),
+        cell: info => getEntityLink(info.row.original),
+        size: 370
+      })];
+
+    if (!showSkipped) {
+      baseColumns.push(columnHelper.accessor('c8Key', {
+        header: 'C8 Key',
+        cell: info =>
+          <a href={`http://localhost:8080/operate/processes/${info.getValue()}`} target={"_blank"}>{info.getValue()}</a>,
+      }));
+    }
+
+    // Only add skip reason column when showing skipped entities
+    if (showSkipped) {
+      baseColumns = [...baseColumns,
+        columnHelper.accessor('skipReason', {
+          header: 'Skip reason',
+          cell: info => renderSkipReasonWithLinks(info.getValue(), info.row.original),
+        }),
+      ];
+    }
+
+    // Add process instance column for HISTORY_VARIABLE type
+    if (selectedType === ENTITY_TYPES.HISTORY_VARIABLE) {
+      baseColumns.splice(1, 0,
         columnHelper.accessor('c7Id', {
-          header: getColumnHeader(),
-          cell: info => getEntityLink(info.row.original),
-          size: 370
-        })];
+          id: 'processInstanceId',
+          header: 'Process Instance ID',
+          cell: info => {
+            const variableId = info.getValue();
+            const processInstanceId = processInstanceIds[variableId];
 
-      if (!showSkipped) {
-        baseColumns.push(columnHelper.accessor('c8Key', {
-          header: 'C8 Key',
-          cell: info =>
-            <a href={`http://localhost:8080/operate/processes/${info.getValue()}`} target={"_blank"}>{info.getValue()}</a>,
-        }));
-      }
+            return processInstanceId ?
+              <a href={`#/process-instance/${processInstanceId}/history`}>{processInstanceId}</a> :
+              <span>Loading...</span>;
+          },
+        }),
+        columnHelper.accessor('name', {
+          header: 'Variable Name',
+          cell: info => {
+            const variableId = info.row.original.c7Id;
+            return variableMetadata[variableId]?.name || <span>Loading...</span>;
+          },
+        }),
+        columnHelper.accessor('type', {
+          header: 'Variable Type',
+          cell: info => {
+            const variableId = info.row.original.c7Id;
+            return variableMetadata[variableId]?.type || <span>Loading...</span>;
+          },
+        })
+      );
+    }
 
-      // Only add skip reason column when showing skipped entities
-      if (showSkipped) {
-        baseColumns = [...baseColumns,
-          columnHelper.accessor('skipReason', {
-            header: 'Skip reason',
-            cell: info => renderSkipReasonWithLinks(info.getValue(), info.row.original),
-          }),
-        ];
-      }
+    // Add process definition key column for RUNTIME_PROCESS_INSTANCE type
+    if (selectedType === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE) {
+      baseColumns.splice(1, 0,
+        columnHelper.accessor('c7Id', {
+          id: 'processDefinitionKey',
+          header: 'Process Definition Key',
+          cell: info => {
+            const processInstanceId = info.getValue();
+            const definitionKey = processDefinitionKeys[processInstanceId];
 
-      // Add process instance column for HISTORY_VARIABLE type
-      if (selectedType === ENTITY_TYPES.HISTORY_VARIABLE) {
-        baseColumns.splice(1, 0,
-          columnHelper.accessor('c7Id', {
-            id: 'processInstanceId',
-            header: 'Process Instance ID',
-            cell: info => {
-              const variableId = info.getValue();
-              const processInstanceId = processInstanceIds[variableId];
+            return definitionKey || <span>Loading...</span>;
+          },
+        })
+      );
+    }
 
-              return processInstanceId ?
-                <a href={`#/process-instance/${processInstanceId}/history`}>{processInstanceId}</a> :
-                <span>Loading...</span>;
-            },
-          }),
-          columnHelper.accessor('name', {
-            header: 'Variable Name',
-            cell: info => {
-              const variableId = info.row.original.c7Id;
-              return variableMetadata[variableId]?.name || <span>Loading...</span>;
-            },
-          }),
-          columnHelper.accessor('type', {
-            header: 'Variable Type',
-            cell: info => {
-              const variableId = info.row.original.c7Id;
-              return variableMetadata[variableId]?.type || <span>Loading...</span>;
-            },
-          })
-        );
-      }
+    // Add process definition key column for HISTORY_PROCESS_INSTANCE type
+    if (selectedType === ENTITY_TYPES.HISTORY_PROCESS_INSTANCE) {
+      baseColumns.splice(1, 0,
+        columnHelper.accessor('c7Id', {
+          id: 'historyProcessDefinitionKey',
+          header: 'Process Definition Key',
+          cell: info => {
+            const processInstanceId = info.getValue();
+            const definitionKey = processDefinitionKeys[processInstanceId];
 
-      // Add process definition key column for RUNTIME_PROCESS_INSTANCE type
-      if (selectedType === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE) {
-        baseColumns.splice(1, 0,
-          columnHelper.accessor('c7Id', {
-            id: 'processDefinitionKey',
-            header: 'Process Definition Key',
-            cell: info => {
-              const processInstanceId = info.getValue();
-              const definitionKey = processDefinitionKeys[processInstanceId];
+            return definitionKey || <span>Loading...</span>;
+          },
+        })
+      );
+    }
 
-              return definitionKey || <span>Loading...</span>;
-            },
-          })
-        );
-      }
+    return baseColumns;
+  };
 
-      // Add process definition key column for HISTORY_PROCESS_INSTANCE type
-      if (selectedType === ENTITY_TYPES.HISTORY_PROCESS_INSTANCE) {
-        baseColumns.splice(1, 0,
-          columnHelper.accessor('c7Id', {
-            id: 'historyProcessDefinitionKey',
-            header: 'Process Definition Key',
-            cell: info => {
-              const processInstanceId = info.getValue();
-              const definitionKey = processDefinitionKeys[processInstanceId];
-
-              return definitionKey || <span>Loading...</span>;
-            },
-          })
-        );
-      }
-
-      return baseColumns;
-    },
-    [selectedType, processInstanceIds, showSkipped, viewMode, processDefinitionKeys, variableMetadata]
-  );
+  const columns = getColumns();
 
   const getEntityTypeLabel = (entityType) => {
     const labels = {
@@ -246,18 +245,24 @@ function SkippedEntities({camundaAPI}) {
         }
       );
       const count = await response.json();
-      setTotalCount(typeof count === 'number' ? count : count.total || count.count || 0);
+      console.log({count});
+      const resolvedCount = typeof count === 'number' ? count : count.total || count.count || 0;
+      setTotalCount(resolvedCount);
+      return resolvedCount;
     } catch (err) {
       console.error('Failed to fetch total count:', err);
       setTotalCount(0);
+      return 0;
     }
   };
 
-  const fetchData = async (pageIndex = 0, pageSize = 10) => {
+  const fetchData = async (pageIndex = 0, pageSize = 10, knownTotalCount) => {
     setLoading(true);
     try {
-      // If totalCount is 0, short-circuit and set empty array
-      if (totalCount === 0) {
+      // Use the passed count to avoid stale closure over totalCount
+      const effectiveCount = knownTotalCount !== undefined ? knownTotalCount : totalCount;
+      // If count is 0, short-circuit and set empty array
+      if (effectiveCount === 0) {
         setSkippedEntities([]);
         return;
       }
@@ -413,33 +418,14 @@ function SkippedEntities({camundaAPI}) {
     // Inject LiveReload for development
     injectLiveReload();
 
-    // Reset process instance IDs when changing entity type
-    if (selectedType !== ENTITY_TYPES.HISTORY_VARIABLE) {
-      setProcessInstanceIds({});
-      setVariableMetadata({}); // Also reset variable metadata
-    }
+    // Reset cached data when filters change
+    setProcessInstanceIds({});
+    setProcessDefinitionKeys({});
+    setVariableMetadata({});
 
-    // Reset process definition keys when changing entity type
-    if (selectedType !== ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE && selectedType !== ENTITY_TYPES.HISTORY_PROCESS_INSTANCE) {
-      setProcessDefinitionKeys({});
-    }
-
-    // Reset variable metadata when switching between skipped/migrated modes for variables
-    if (selectedType === ENTITY_TYPES.HISTORY_VARIABLE) {
-      setVariableMetadata({});
-    }
-
-    // When switching to runtime mode, set entity type to runtime process instance
-    if (viewMode === 'runtime') {
-      setSelectedType(ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE);
-    } else if (viewMode === 'history' && selectedType === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE) {
-      // When switching to history mode from runtime, default to history process instance
-      setSelectedType(ENTITY_TYPES.HISTORY_PROCESS_INSTANCE);
-    }
-
-    // Fetch total count first, then fetch data
-    fetchTotalCount().then(() => {
-      fetchData(0, 10);
+    // Fetch total count first, then fetch data with the resolved count
+    fetchTotalCount().then((count) => {
+      fetchData(0, 10, count);
     });
   }, [selectedType, showSkipped, viewMode]); // Add viewMode to dependency array
 
@@ -447,10 +433,6 @@ function SkippedEntities({camundaAPI}) {
   const handlePageChange = (pageIndex, pageSize) => {
     fetchData(pageIndex, pageSize);
   };
-
-  if (loading && skippedEntities.length === 0) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <>
@@ -487,7 +469,10 @@ function SkippedEntities({camundaAPI}) {
                   type="radio"
                   value="runtime"
                   checked={viewMode === 'runtime'}
-                  onChange={() => setViewMode('runtime')}
+                  onChange={() => {
+                    setViewMode('runtime');
+                    setSelectedType(ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE);
+                  }}
                   style={{marginRight: '5px'}}
                 />
                 Runtime
@@ -497,7 +482,10 @@ function SkippedEntities({camundaAPI}) {
                   type="radio"
                   value="history"
                   checked={viewMode === 'history'}
-                  onChange={() => setViewMode('history')}
+                  onChange={() => {
+                    setViewMode('history');
+                    setSelectedType(ENTITY_TYPES.HISTORY_PROCESS_INSTANCE);
+                  }}
                   style={{marginRight: '5px'}}
                 />
                 History

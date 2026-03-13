@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -43,14 +43,18 @@ export default function PaginatedTable({
     pageCount: Math.max(1, Math.ceil(totalCount / pageSize)),
   });
 
-  // Effect to notify parent component when pagination changes
+  // Notify parent only when user changes page or page size (not on mount).
+  // The parent's own useEffect handles initial fetch and filter changes.
+  const isMounted = useRef(false);
   useEffect(() => {
-    // Only trigger the callback if we have a valid onPageChange function
-    // AND there's data to paginate (avoid unnecessary API calls when count is 0)
-    if (onPageChange && typeof onPageChange === 'function' && (totalCount > 0 || pageIndex === 0)) {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    if (onPageChange && typeof onPageChange === 'function') {
       onPageChange(pageIndex, pageSize);
     }
-  }, [pageIndex, pageSize, totalCount]);
+  }, [pageIndex, pageSize]);
 
   // Calculate max page based on current data, ensure it's at least 0
   const maxPage = totalCount > 0 ? Math.max(0, Math.ceil(totalCount / pageSize) - 1) : 0;
