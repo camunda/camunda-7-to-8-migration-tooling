@@ -445,7 +445,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   public void shouldSkipIncidentReferencedByMultiInstanceFlowNode() {
     // given
     deployer.deployCamunda7Process("miProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+    runtimeService.startProcessInstanceByKey("miProcess");
 
     var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
     task.forEach(t -> {
@@ -469,7 +469,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   public void shouldMigrateMultiInstanceFlowNodeReference() {
     // given
     deployer.deployCamunda7Process("miProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+    runtimeService.startProcessInstanceByKey("miProcess");
 
     var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
     task.forEach(t -> {
