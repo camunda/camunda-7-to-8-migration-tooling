@@ -22,11 +22,17 @@ export default function PaginatedTable({
   loading,
   onPageChange,
   initialPageSize = 10,
-  pageSizeOptions = [5, 10, 20, 30, 40, 50]
+  pageSizeOptions = [5, 10, 20, 30, 40, 50],
+  resetKey
 }) {
   // Simple state for pagination
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
+
+  // Reset to first page when the entity type or filter changes
+  useEffect(() => {
+    setPageIndex(0);
+  }, [resetKey]);
 
   // React Table instance
   const table = useReactTable({
