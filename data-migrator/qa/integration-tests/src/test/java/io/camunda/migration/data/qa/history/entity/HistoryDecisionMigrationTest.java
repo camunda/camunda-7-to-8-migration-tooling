@@ -179,6 +179,52 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateCorrectRuleId() {
+    // given
+    deployer.deployCamunda7Decision("dish-decision.dmn");
+    Map<String, Object> variables = Variables.createVariables()
+        .putValue("dayType", stringValue("Weekend"))
+        .putValue("temperature", 15);
+    decisionService.evaluateDecisionTableByKey("Dish", variables);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("Dish");
+    assertThat(migratedInstances).singleElement().satisfies(instance ->
+        assertThat(instance.evaluatedOutputs()).singleElement().satisfies(output -> {
+          assertThat(output.ruleId()).isEqualTo("row-445981423-4");
+          assertThat(output.ruleIndex()).isEqualTo(6);
+        }));
+  }
+
+  @Test
+  public void shouldMigrateRuleIndexForMultipleMatchedRules() {
+    // given
+    deployer.deployCamunda7Decision("hitPolicyRuleOrderDmn.dmn");
+    Map<String, Object> variables = Variables.createVariables().putValue("input", stringValue("A"));
+    decisionService.evaluateDecisionTableByKey("hitPolicyRuleOrderDecisionId", variables);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<DecisionInstanceEntity> migratedInstances = searchHistoricDecisionInstances("hitPolicyRuleOrderDecisionId");
+    assertThat(migratedInstances).singleElement().satisfies(instance -> {
+      assertThat(instance.evaluatedOutputs()).hasSize(2);
+      assertThat(instance.evaluatedOutputs()).anySatisfy(output -> {
+        assertThat(output.ruleId()).isEqualTo("DecisionRule_0i50yb6");
+        assertThat(output.ruleIndex()).isEqualTo(1);
+      });
+      assertThat(instance.evaluatedOutputs()).anySatisfy(output -> {
+        assertThat(output.ruleId()).isEqualTo("DecisionRule_0rmuml0");
+        assertThat(output.ruleIndex()).isEqualTo(2);
+      });
+    });
+  }
+
+  @Test
   public void shouldMigrateHistoricDecisionInstance() {
     // given
     Date now = ClockUtil.now();
@@ -214,7 +260,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
-            "outputB", "\"B\""));
+            "outputB", "\"B\"",
+            "DecisionRule_0rh3id4", 1));
   }
 
   @Test
@@ -247,7 +294,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
-            "outputB", "\"B\""));
+            "outputB", "\"B\"",
+            "DecisionRule_0rh3id4", 1));
   }
 
   @Test
@@ -307,7 +355,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
-            "outputB", "\"B\""));
+            "outputB", "\"B\"",
+            "DecisionRule_0ogxiwg", 1));
 
     assertThat(instances2).singleElement().satisfies(instance ->
         assertDecisionInstance(
@@ -322,7 +371,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"C\"",
             "inputB", "\"B\"",
-            "outputC", "\"C\""));
+            "outputC", "\"C\"",
+            "DecisionRule_1itcc5z", 1));
   }
 
   @Test
@@ -359,7 +409,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"B\"",
             "inputA", "\"A\"",
-            "outputB", "\"B\""));
+            "outputB", "\"B\"",
+            "DecisionRule_0ogxiwg", 1));
 
     assertThat(instances2).singleElement().satisfies(instance ->
         assertDecisionInstance(
@@ -374,7 +425,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE,
             "\"C\"",
             "inputB", "\"B\"",
-            "outputC", "\"C\""));
+            "outputC", "\"C\"",
+            "DecisionRule_1itcc5z", 1));
   }
 
   @Test

@@ -78,6 +78,8 @@ public class HistoryMigratorLogs {
   public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
   public static final String INSERT_VARIABLE_WITH_LEGACY_C7_ID = "Inserted variable [{}] to "
       + "migrated process instance with legacy C7 ID [{}].";
+  public static final String COULD_NOT_BUILD_DECISION_RULE_INDEX = "Could not build ruleIndex map for decision "
+    + "definition [{}]; rule indices will fallback to 1.";
 
   public static void logMigrating(IdKeyMapper.TYPE type) {
     LOGGER.info(MIGRATING, type.getDisplayName());
@@ -163,5 +165,9 @@ public class HistoryMigratorLogs {
 
   public static void logInsertLegacyIdAsVariable(String c7Id) {
     LOGGER.debug(INSERT_VARIABLE_WITH_LEGACY_C7_ID, LEGACY_ID_VAR_NAME, c7Id);
+  }
+
+  public static void logCouldNotBuildDecisionRuleIndex(String c7Id) {
+    LOGGER.warn(COULD_NOT_BUILD_DECISION_RULE_INDEX, c7Id);
   }
 }
