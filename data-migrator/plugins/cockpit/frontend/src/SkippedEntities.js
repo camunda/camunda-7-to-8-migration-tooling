@@ -527,6 +527,7 @@ function SkippedEntities({camundaAPI}) {
             onPageChange={handlePageChange}
             initialPageSize={10}
             pageSizeOptions={[5, 10, 20, 30, 40, 50]}
+            resetKey={`${selectedType}-${showSkipped}-${viewMode}`}
           />
         </div>
       </section>
