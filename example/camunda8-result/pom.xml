@@ -9,11 +9,11 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>migration-example-camunda8-scaffold</artifactId>
+  <artifactId>migration-example-camunda8-result</artifactId>
   <packaging>jar</packaging>
 
-  <name>Migration Example: Camunda 8 Scaffold</name>
-  <description>Empty Camunda 8 project used as the migration target. Run diagram-converter and code-conversion to populate it from the Camunda 7 source.</description>
+  <name>Migration Example: Camunda 8 Result</name>
+  <description>Output of running migration tooling on the Camunda 7 example. Compare against camunda8-reference/ to evaluate migration quality.</description>
 
   <dependencyManagement>
     <dependencies>
@@ -43,14 +43,6 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
-
-    <!-- Camunda 7 Spring Boot starter (provided) — needed for OpenRewrite to resolve C7 types during code conversion -->
-    <dependency>
-      <groupId>org.camunda.bpm.springboot</groupId>
-      <artifactId>camunda-bpm-spring-boot-starter-4-rest</artifactId>
-      <version>${version.camunda-7}</version>
-      <scope>provided</scope>
-    </dependency>
   </dependencies>
 
   <build>
@@ -66,27 +58,6 @@
             </manifest>
           </archive>
         </configuration>
-      </plugin>
-      <!-- OpenRewrite: code-conversion recipes (JavaDelegate/ExecutionListener -> @JobWorker) -->
-      <plugin>
-        <groupId>org.openrewrite.maven</groupId>
-        <artifactId>rewrite-maven-plugin</artifactId>
-        <version>6.29.0</version>
-        <configuration>
-          <activeRecipes>
-            <!-- Delegate/ExecutionListener → @JobWorker -->
-            <recipe>io.camunda.migration.code.recipes.AllDelegateRecipes</recipe>
-            <!-- RuntimeService/ProcessEngine → CamundaClient -->
-            <recipe>io.camunda.migration.code.recipes.AllClientRecipes</recipe>
-          </activeRecipes>
-        </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>io.camunda</groupId>
-            <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
-            <version>${project.parent.version}</version>
-          </dependency>
-        </dependencies>
       </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>

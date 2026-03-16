@@ -10,6 +10,7 @@ package org.camunda.conversion.execution_listeners;
 import java.util.Map;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,11 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class ExecutionListenerTestController {
 
-    private final RuntimeService runtimeService;
-
-    public ExecutionListenerTestController(RuntimeService runtimeService) {
-        this.runtimeService = runtimeService;
-    }
+    @Autowired
+    private RuntimeService runtimeService;
 
     /**
      * Start the execution-listener-test process with variable "foo".
@@ -34,6 +32,6 @@ public class ExecutionListenerTestController {
                 "execution-listener-test",
                 Map.of("foo", foo)
         );
-        return "Started process instance: " + pi.getId() + " with foo=" + foo;
+        return "Started process instance: " + pi.getProcessInstanceId() + " with foo=" + foo;
     }
 }

@@ -6,15 +6,16 @@
 #   1. Diagram Converter — converts BPMN/DMN files (camunda: → zeebe: namespace)
 #   2. Code Conversion   — converts Java code (JavaDelegate/ExecutionListener → @JobWorker)
 #
-# The script copies C7 sources into the camunda8-scaffold module, then runs
-# both conversion tools. Compare the result against camunda8-reference/.
+# The script copies C7 business code (not Application.java) into the camunda8-scaffold
+# module, runs both conversion tools, then copies the result to camunda8-result for
+# testing. Compare camunda8-result/ against camunda8-reference/.
 #
 # Usage:
-#   ./migrate.sh              Run all migration steps (copy + diagrams + code)
+#   ./migrate.sh              Run all migration steps
 #   ./migrate.sh --diagrams   Run diagram conversion only (assumes sources already copied)
 #   ./migrate.sh --code       Run code conversion only (assumes sources already copied)
 #   ./migrate.sh --copy       Copy C7 sources to scaffold only (no conversion)
-#   ./migrate.sh --clean      Reset scaffold to empty state
+#   ./migrate.sh --clean      Reset scaffold and result to empty state
 #   ./migrate.sh --build      Build prerequisites first, then run all steps
 #   ./migrate.sh --help       Show this help message
 #
@@ -26,6 +27,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 C7_DIR="$SCRIPT_DIR/camunda7"
 SCAFFOLD_DIR="$SCRIPT_DIR/camunda8-scaffold"
+RESULT_DIR="$SCRIPT_DIR/camunda8-result"
 REFERENCE_DIR="$SCRIPT_DIR/camunda8-reference"
 
 C7_JAVA_DIR="$C7_DIR/src/main/java"
@@ -33,6 +35,9 @@ C7_RESOURCES_DIR="$C7_DIR/src/main/resources"
 
 SCAFFOLD_JAVA_DIR="$SCAFFOLD_DIR/src/main/java"
 SCAFFOLD_RESOURCES_DIR="$SCAFFOLD_DIR/src/main/resources"
+
+RESULT_JAVA_DIR="$RESULT_DIR/src/main/java"
+RESULT_RESOURCES_DIR="$RESULT_DIR/src/main/resources"
 
 DIAGRAM_CONVERTER_CLI_JAR="$ROOT_DIR/diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-0.3.0-SNAPSHOT.jar"
 
@@ -90,14 +95,22 @@ check_prerequisites() {
 # ─── Step 0: Copy C7 sources to scaffold ──────────────────────────────────
 
 step_copy() {
-  banner "Step 0: Copy C7 Sources to Scaffold"
+  banner "Step 0: Copy C7 Business Code to Scaffold"
 
-  # Clean existing scaffold sources (except application.yaml)
-  info "Cleaning scaffold Java sources..."
-  rm -rf "$SCAFFOLD_JAVA_DIR"
+  # Clean scaffold Java sources except the scaffold's own Application.java
+  info "Cleaning scaffold Java sources (keeping Application.java)..."
+  find "$SCAFFOLD_JAVA_DIR" -name "*.java" ! -path "*/io/camunda/conversion/Application.java" -delete 2>/dev/null || true
+  # Remove empty C7 package dirs if they exist from a previous run
+  find "$SCAFFOLD_JAVA_DIR" -type d -empty -delete 2>/dev/null || true
 
-  info "Copying C7 Java sources..."
-  cp -r "$C7_JAVA_DIR" "$SCAFFOLD_JAVA_DIR"
+  # Copy C7 Java sources, excluding Application.java (scaffold has its own C8-compatible one)
+  info "Copying C7 Java sources (excluding Application.java)..."
+  find "$C7_JAVA_DIR" -name "*.java" ! -name "Application.java" | while read -r src; do
+    rel="${src#$C7_JAVA_DIR/}"
+    dest="$SCAFFOLD_JAVA_DIR/$rel"
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+  done
 
   # Copy BPMNs (not processes.xml or other C7-specific resources)
   info "Copying C7 BPMN files..."
@@ -106,12 +119,12 @@ step_copy() {
   echo ""
   ok "Sources copied to scaffold:"
   info "  Java:"
-  find "$SCAFFOLD_JAVA_DIR" -name "*.java" | while read -r f; do
+  find "$SCAFFOLD_JAVA_DIR" -name "*.java" | sort | while read -r f; do
     info "    $(echo "$f" | sed "s|$SCAFFOLD_DIR/||")"
   done
   info "  BPMNs:"
   for f in "$SCAFFOLD_RESOURCES_DIR"/*.bpmn; do
-    [ -f "$f" ] && info "    $(basename "$f")"
+    [ -f "$f" ] && info "    $(basename "$f")" || true
   done
 }
 
@@ -121,18 +134,22 @@ step_diagrams() {
   banner "Step 1: Convert Diagrams (BPMN/DMN)"
 
   info "Converting files in: $SCAFFOLD_RESOURCES_DIR"
-  info "Using: --override"
+  info "Using: --override --prefix (empty, replace in place)"
   echo ""
 
   java -jar "$DIAGRAM_CONVERTER_CLI_JAR" \
     local "$SCAFFOLD_RESOURCES_DIR" \
-    --override
+    --override \
+    --prefix=""
 
   echo ""
   ok "Diagram conversion complete."
   info "Converted files:"
-  for f in "$SCAFFOLD_RESOURCES_DIR"/*.bpmn "$SCAFFOLD_RESOURCES_DIR"/*.dmn; do
-    [ -f "$f" ] && info "  $(basename "$f")"
+  for f in "$SCAFFOLD_RESOURCES_DIR"/*.bpmn; do
+    [ -f "$f" ] && info "  $(basename "$f")" || true
+  done
+  for f in "$SCAFFOLD_RESOURCES_DIR"/*.dmn; do
+    [ -f "$f" ] && info "  $(basename "$f")" || true
   done
 }
 
@@ -148,50 +165,62 @@ step_code() {
 
   echo ""
   ok "Code conversion complete."
-  info "Review the changes:"
-  info "  diff -r example/camunda8-scaffold/src/ example/camunda8-reference/src/"
+}
+
+# ─── Step 3: Copy to Result ──────────────────────────────────────────────
+
+step_publish_result() {
+  banner "Step 3: Publish to camunda8-result"
+
+  # Copy converted Java files (excluding scaffold's Application.java)
+  info "Copying converted Java sources to result..."
+  find "$SCAFFOLD_JAVA_DIR" -name "*.java" ! -path "*/io/camunda/conversion/Application.java" | while read -r src; do
+    rel="${src#$SCAFFOLD_JAVA_DIR/}"
+    dest="$RESULT_JAVA_DIR/$rel"
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+  done
+
+  # Copy converted BPMNs
+  info "Copying converted BPMN files to result..."
+  for f in "$SCAFFOLD_RESOURCES_DIR"/*.bpmn; do
+    [ -f "$f" ] && cp "$f" "$RESULT_RESOURCES_DIR/"
+  done
+  for f in "$SCAFFOLD_RESOURCES_DIR"/*.dmn; do
+    [ -f "$f" ] && cp "$f" "$RESULT_RESOURCES_DIR/"
+  done
+
+  echo ""
+  ok "Result module populated:"
+  info "  Java:"
+  find "$RESULT_JAVA_DIR" -name "*.java" | sort | while read -r f; do
+    info "    $(echo "$f" | sed "s|$RESULT_DIR/||")"
+  done
+  info "  BPMNs:"
+  for f in "$RESULT_RESOURCES_DIR"/*.bpmn; do
+    [ -f "$f" ] && info "    $(basename "$f")" || true
+  done
 }
 
 # ─── Clean ────────────────────────────────────────────────────────────────
 
 step_clean() {
-  banner "Reset Scaffold to Empty State"
+  banner "Reset Scaffold and Result"
 
-  info "Removing scaffold Java sources..."
-  rm -rf "$SCAFFOLD_JAVA_DIR"
-  mkdir -p "$SCAFFOLD_JAVA_DIR/io/camunda/conversion"
-
-  # Restore the bare Application.java
-  cat > "$SCAFFOLD_JAVA_DIR/io/camunda/conversion/Application.java" << 'JAVAEOF'
-/*
- * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
- * one or more contributor license agreements. See the NOTICE file distributed
- * with this work for additional information regarding copyright ownership.
- * Licensed under the Camunda License 1.0. You may not use this file
- * except in compliance with the Camunda License 1.0.
- */
-package io.camunda.conversion;
-
-import io.camunda.client.annotation.Deployment;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-@Deployment(resources = "classpath*:*.bpmn")
-public class Application {
-
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
-
-}
-JAVAEOF
-
-  info "Removing scaffold BPMN files..."
+  # Clean scaffold — remove migrated code but keep Application.java
+  info "Cleaning scaffold..."
+  find "$SCAFFOLD_JAVA_DIR" -name "*.java" ! -path "*/io/camunda/conversion/Application.java" -delete 2>/dev/null || true
+  find "$SCAFFOLD_JAVA_DIR" -type d -empty -delete 2>/dev/null || true
   rm -f "$SCAFFOLD_RESOURCES_DIR"/*.bpmn
 
+  # Clean result — remove migrated code but keep Application.java
+  info "Cleaning result..."
+  find "$RESULT_JAVA_DIR" -name "*.java" ! -path "*/org/camunda/conversion/Application.java" -delete 2>/dev/null || true
+  find "$RESULT_JAVA_DIR" -type d -empty -delete 2>/dev/null || true
+  rm -f "$RESULT_RESOURCES_DIR"/*.bpmn
+
   echo ""
-  ok "Scaffold reset to empty state."
+  ok "Scaffold and result reset."
 }
 
 # ─── Build ────────────────────────────────────────────────────────────────
@@ -213,14 +242,17 @@ build_prerequisites() {
 summary() {
   banner "Migration Complete"
 
-  ok "Diagrams and code have been converted."
+  ok "Diagrams and code have been converted and published to camunda8-result."
   echo ""
   info "Next steps:"
-  info "  1. Review the migrated code in example/camunda8-scaffold/src/"
-  info "  2. Compare against the reference: diff -r camunda8-scaffold/src/ camunda8-reference/src/"
-  info "  3. Note: Application.java needs manual update (@EnableProcessApplication → @Deployment)"
-  info "  4. Build and test: mvn clean package -pl example/camunda8-scaffold -am -DskipTests"
-  info "  5. Run: cd camunda8-scaffold && docker compose up --build"
+  info "  1. Review the migrated code:"
+  info "       diff -r camunda8-result/src/ camunda8-reference/src/"
+  info "  2. Build:"
+  info "       mvn clean package -pl example/camunda8-result -am -DskipTests"
+  info "  3. Run:"
+  info "       cd camunda8-result && docker compose up --build"
+  info "  4. Test:"
+  info "       cd camunda8-result && ./test.sh"
 }
 
 # ─── Main ─────────────────────────────────────────────────────────────────
@@ -232,6 +264,7 @@ case "${1:-}" in
     step_copy
     step_diagrams
     step_code
+    step_publish_result
     summary
     ;;
   --copy)
@@ -244,6 +277,9 @@ case "${1:-}" in
   --code)
     step_code
     ;;
+  --publish)
+    step_publish_result
+    ;;
   --clean)
     step_clean
     ;;
@@ -253,11 +289,12 @@ case "${1:-}" in
     echo "Migration Script — Converts Camunda 7 example to Camunda 8"
     echo ""
     echo "Options:"
-    echo "  (no args)     Run all migration steps (copy + diagrams + code)"
-    echo "  --copy        Copy C7 sources to scaffold only (no conversion)"
+    echo "  (no args)     Run all migration steps (copy → diagrams → code → publish)"
+    echo "  --copy        Copy C7 sources to scaffold only"
     echo "  --diagrams    Run diagram conversion only"
     echo "  --code        Run code conversion only (OpenRewrite)"
-    echo "  --clean       Reset scaffold to empty state"
+    echo "  --publish     Copy scaffold output to camunda8-result"
+    echo "  --clean       Reset scaffold and result to empty state"
     echo "  --build       Build prerequisites first, then run all steps"
     echo "  --help, -h    Show this help message"
     ;;
@@ -266,6 +303,7 @@ case "${1:-}" in
     step_copy
     step_diagrams
     step_code
+    step_publish_result
     summary
     ;;
   *)

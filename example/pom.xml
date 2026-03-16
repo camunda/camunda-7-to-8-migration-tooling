@@ -19,6 +19,7 @@
     <module>camunda7</module>
     <module>camunda8-reference</module>
     <module>camunda8-scaffold</module>
+    <module>camunda8-result</module>
   </modules>
 
   <build>
