@@ -480,7 +480,7 @@ function App() {
                   />
                   <div className="form-spacer" />
                   <Checkbox
-                    id="defaultJobTypeEnabled"
+                    id="alwaysUseDefaultJobType"
                     labelText="Enable default job type"
                     checked={configOptions.alwaysUseDefaultJobType}
                     helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
