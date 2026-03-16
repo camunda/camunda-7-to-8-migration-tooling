@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -24,6 +25,7 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -88,6 +90,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
   public Long migrateTransactionally(final HistoricJobLog c7JobLog) {
     final String c7JobId = c7JobLog.getJobId();
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
+      AtomicBoolean isMultiInstance = new AtomicBoolean(false);
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
       logMigratingJob(c7JobId);
       if (!ASYNC_BEFORE.equals(jobDefinitionConfiguration) && !ASYNC_AFTER.equals(jobDefinitionConfiguration)) {
@@ -112,8 +115,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
           }
         }
 
-        final Long elementInstanceKey = findFlowNodeInstanceKey(
-            c7JobLog.getActivityId(), c7ProcessInstanceId);
+        final Long elementInstanceKey = findFlowNodeInstanceKey(c7JobLog.getActivityId(), c7ProcessInstanceId, isMultiInstance);
         builder.elementInstanceKey(elementInstanceKey);
       }
 
@@ -129,6 +131,10 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
 
       if (dbModel.rootProcessInstanceKey() == null) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+      }
+
+      if (isMultiInstance.get() && dbModel.elementInstanceKey() == null) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE);
       }
 
       c8Client.insertJob(dbModel);

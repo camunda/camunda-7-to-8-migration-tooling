@@ -11,6 +11,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_P
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
@@ -61,7 +62,7 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
         .processDefinitionId(prefixDefinitionId(historicJobLog.getProcessDefinitionKey()))
-        .elementId(historicJobLog.getActivityId())
+        .elementId(sanitizeFlowNodeId(historicJobLog.getActivityId()))
         .tenantId(getTenantId(historicJobLog.getTenantId()))
         .partitionId(C7_HISTORY_PARTITION_ID)
         .creationTime(creationTime);

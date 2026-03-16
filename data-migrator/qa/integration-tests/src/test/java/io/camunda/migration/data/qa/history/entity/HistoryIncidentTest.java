@@ -30,6 +30,7 @@ import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -440,6 +441,55 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
         .isEqualTo("PI_" + processInstanceKey);
   }
 
+  @Test
+  public void shouldSkipIncidentReferencedByMultiInstanceFlowNode() {
+    // given
+    deployer.deployCamunda7Process("miProcess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
+    task.forEach(t -> {
+      String executionId = t.getExecutionId();
+      runtimeService.createIncident("foo", executionId, "bar");
+    });
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+
+    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
+    assertThat(incidents).isEmpty();
+  }
+
+  @Test
+  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
+  public void shouldMigrateMultiInstanceFlowNodeReference() {
+    // given
+    deployer.deployCamunda7Process("miProcess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
+    task.forEach(t -> {
+      String executionId = t.getExecutionId();
+      runtimeService.createIncident("foo", executionId, "bar");
+    });
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+
+    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
+    assertThat(incidents).hasSize(2);
+
+    assertThat(incidents.getFirst().flowNodeInstanceKey()).isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
+  }
+
   protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
@@ -504,4 +554,5 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     String executionId = task.getExecutionId();
     runtimeService.createIncident("foo", executionId, "bar");
   }
+
 }
