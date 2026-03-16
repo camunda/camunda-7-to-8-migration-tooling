@@ -199,12 +199,11 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
   }
 
   /**
-   * Resolves and sets the job entity key on the builder.
+   * Resolves and sets the job key on the builder.
    * <p>
    * This method looks up the Camunda 8 key for the job based on the
    * Camunda 7 job ID from the audit log entry.
    * The key is only set if the job has already been migrated.
-   * If the entity type is JOB, also sets the entityKey.
    * </p>
    *
    * @param builder the audit log builder
@@ -212,10 +211,9 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
    */
   protected void resolveJobKey(Builder builder, UserOperationLogEntry c7AuditLog) {
     String c7JobId = c7AuditLog.getJobId();
-    if (c7JobId != null && EntityTypes.JOB.equals(c7AuditLog.getEntityType())
-        && isMigrated(c7JobId, HISTORY_JOB)) {
+    if (c7JobId != null && EntityTypes.JOB.equals(c7AuditLog.getEntityType()) && isMigrated(c7JobId, HISTORY_JOB)) {
       Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
-      builder.entityKey(String.valueOf(jobKey));
+      builder.jobKey(jobKey);
     }
   }
 

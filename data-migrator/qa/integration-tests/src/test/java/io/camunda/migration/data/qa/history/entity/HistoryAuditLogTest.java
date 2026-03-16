@@ -513,7 +513,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.JOB);
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.COMPLETE);
     assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
-    assertThat(log.entityKey()).isNotNull();
+    assertThat(log.jobKey()).isNotNull();
     assertThat(log.actorId()).isEqualTo("demo");
   }
 
