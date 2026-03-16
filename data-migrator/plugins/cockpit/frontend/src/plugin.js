@@ -12,13 +12,18 @@ import { createRoot } from "react-dom/client";
 import SkippedEntities from "./SkippedEntities.js";
 
 let root = null;
+let currentNode = null;
 
 export default {
   id: "camunda-7-to-8-data-migrator",
   pluginPoint: "cockpit.processes.dashboard",
   render: (node, { api }) => {
-    if (!root) {
+    if (!root || currentNode !== node) {
+      if (root) {
+        root.unmount();
+      }
       root = createRoot(node);
+      currentNode = node;
     }
     root.render(<SkippedEntities camundaAPI={ api } />);
   },
@@ -26,6 +31,7 @@ export default {
     if (root) {
       root.unmount();
       root = null;
+      currentNode = null;
     }
   },
 
