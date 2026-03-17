@@ -22,10 +22,11 @@ public class C8ClientLogs {
   public static final String FAILED_TO_FETCH_VARIABLE = "Failed to fetch variable '%s' from job: %s";
   public static final String FAILED_TO_MODIFY_PROCESS_INSTANCE = "Failed to modify process instance with activation for key: ";
   public static final String FAILED_TO_SEARCH_PROCESS_DEFINITIONS = "Process definition search failed for processDefinitionId: ";
+  public static final String FAILED_TO_MIGRATE_USER = "Failed to migrate user: ";
+  public static final String FAILED_TO_MIGRATE_GROUP = "Failed to migrate group with ID: ";
   public static final String FAILED_TO_MIGRATE_TENANT = "Failed to migrate tenant with ID: ";
   public static final String FAILED_TO_INSERT_PROCESS_INSTANCE = "Failed to insert process instance";
   public static final String FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY = "Failed to find process instance by key: ";
-  public static final String FAILED_TO_SEARCH_PROCESS_INSTANCE = "Failed to search process instances";
   public static final String FAILED_TO_INSERT_PROCESS_DEFINITION = "Failed to insert process definition";
   public static final String FAILED_TO_INSERT_DECISION_REQUIREMENTS = "Failed to insert decision requirements";
   public static final String FAILED_TO_SEARCH_DECISION_REQUIREMENTS = "Failed to search decision requirements";
@@ -46,6 +47,7 @@ public class C8ClientLogs {
   public static final String FAILED_TO_INSERT_AUDIT_LOG = "Failed to insert audit log";
   public static final String FAILED_TO_MIGRATE_AUTHORIZATION = "Failed to migrate authorization with legacy ID: ";
   public static final String FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and user [%s], check logs for details";
+  public static final String FAILED_TO_CREATE_GROUP_MEMBERSHIP = "Failed to create group membership for group [%s] and user [%s], check logs for details";
   public static final String FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and group [%s], check logs for details";
   public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
 

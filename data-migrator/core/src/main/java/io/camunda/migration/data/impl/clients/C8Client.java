@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
@@ -32,7 +33,9 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_GROUP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_USER;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_INSTANCES;
@@ -45,13 +48,16 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
+import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
+import io.camunda.client.api.command.CreateUserCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.fetch.GroupGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
+import io.camunda.client.api.response.CreateTenantResponse;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.response.Group;
@@ -413,11 +419,39 @@ public class C8Client {
   }
 
   /**
+   * Creates a new user in C8
+   */
+  public void createUser(org.camunda.bpm.engine.identity.User user) {
+    String name = user.getFirstName() + " " + user.getLastName();
+    CreateUserCommandStep1 command = camundaClient.newCreateUserCommand().username(user.getId()).name(name).password(user.getPassword());
+    if (user.getEmail() != null) {
+      command = command.email(user.getEmail());
+    }
+    callApi(command::execute, FAILED_TO_MIGRATE_USER + user.getId());
+  }
+
+  /**
+   * Creates a new group in C8
+   */
+  public void createGroup(org.camunda.bpm.engine.identity.Group group) {
+    CreateGroupCommandStep1.CreateGroupCommandStep2 command = camundaClient.newCreateGroupCommand().groupId(group.getId()).name(group.getName());
+    callApi(command::execute, FAILED_TO_MIGRATE_GROUP + group.getId());
+  }
+
+  /**
    * Creates a new tenant in C8
    */
   public void createTenant(Tenant tenant) {
     CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
-    callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
+    CreateTenantResponse createTenantResponse = callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
+  }
+
+  /**
+   * Assigns a user to a group in C8, creating a group membership for the user
+   */
+  public void createGroupAssignment(String groupId, String userId) {
+    var command = camundaClient.newAssignUserToGroupCommand().username(userId).groupId(groupId);
+    callApi(command::execute, String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId));
   }
 
   /**
