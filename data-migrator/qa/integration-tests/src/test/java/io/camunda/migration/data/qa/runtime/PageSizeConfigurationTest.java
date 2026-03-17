@@ -10,12 +10,13 @@ package io.camunda.migration.data.qa.runtime;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -45,8 +46,9 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(processInstances).hasSize(5);
+    Awaitility.await()
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5));
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 0, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 2, page size: 2");
     assertThat(output.getOut()).contains("Method: #fetchAndHandleHistoricRootProcessInstances, max count: 5, offset: 4, page size: 2");
@@ -68,7 +70,9 @@ class PageSizeConfigurationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5);
+    Awaitility.await()
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(5));
 
     Matcher matcher = Pattern.compile(MIGRATOR_JOBS_FOUND + "2").matcher(output.getOut());
     assertThat(matcher.results().count()).isEqualTo(2);

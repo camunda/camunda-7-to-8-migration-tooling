@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinition
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.migration.data.HistoryMigrator;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.assertj.core.api.Assertions;
+import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.task.Task;
@@ -179,11 +181,12 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then the instance was migrated
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(processInstances).hasSize(1);
-    ProcessInstance processInstance = processInstances.getFirst();
-    assertThat(processInstance.getProcessDefinitionId()).isEqualTo(process.getProcessDefinitionKey());
-
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
+      List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+      assertThat(processInstances).hasSize(1);
+      ProcessInstance processInstance = processInstances.getFirst();
+      assertThat(processInstance.getProcessDefinitionId()).isEqualTo(process.getProcessDefinitionKey());
+    });
 
     events = logs.getEvents();
     // and no additional skipping logs (still 1, not 2 matches)
@@ -277,8 +280,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then verify runtime process instance was migrated successfully
-    List<ProcessInstance> c8ProcessInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertThat(c8ProcessInstances).hasSize(1);
+    Awaitility.await()
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(1));
+
 
     // and verify historic process instance exists in RDBMS
     List<ProcessInstanceEntity> historicProcessInstances = rdbmsService.getProcessInstanceReader()

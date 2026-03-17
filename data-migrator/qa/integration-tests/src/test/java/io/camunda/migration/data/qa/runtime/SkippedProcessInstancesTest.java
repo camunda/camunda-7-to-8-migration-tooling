@@ -10,8 +10,8 @@ package io.camunda.migration.data.qa.runtime;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
-import io.camunda.client.api.search.response.SearchResponsePage;
-import java.util.function.Supplier;
+import io.camunda.client.api.command.ClientException;
+import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.task.Task;
@@ -43,21 +43,21 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
     runtimeMigrator.start();
 
-    Supplier<SearchResponsePage> response = () -> camundaClient.newProcessInstanceSearchRequest().execute().page();
-
     // assume
-    assertThat(response.get().totalItems()).isEqualTo(22);
+    Awaitility.await()
+        .ignoreException(ClientException.class)
+        .untilAsserted(
+            () -> assertThat(camundaClient.newProcessInstanceSearchRequest().execute().page().totalItems()).isEqualTo(
+                22));
 
     runtimeService.createProcessInstanceQuery()
         .processDefinitionKey("miProcess")
         .list()
-        .forEach(processInstance -> {
-          taskService.createTaskQuery()
-              .processInstanceId(processInstance.getId())
-              .list()
-              .stream()
-              .map(Task::getId).forEach(taskService::complete);
-        });
+        .forEach(processInstance -> taskService.createTaskQuery()
+            .processInstanceId(processInstance.getId())
+            .list()
+            .stream()
+            .map(Task::getId).forEach(taskService::complete));
 
     runtimeMigrator.setMode(RETRY_SKIPPED);
 
@@ -65,7 +65,11 @@ class SkippedProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    assertThat(response.get().totalItems()).isEqualTo(22*2);
+    Awaitility.await()
+        .ignoreException(ClientException.class)
+        .untilAsserted(
+            () -> assertThat(camundaClient.newProcessInstanceSearchRequest().execute().page().totalItems()).isEqualTo(
+                22 * 2));
   }
 
 }

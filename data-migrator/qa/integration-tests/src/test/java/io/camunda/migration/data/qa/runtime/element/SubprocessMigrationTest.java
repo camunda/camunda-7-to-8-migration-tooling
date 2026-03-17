@@ -10,18 +10,31 @@ package io.camunda.migration.data.qa.runtime.element;
 
 import static io.camunda.migration.data.constants.MigratorConstants.LEGACY_ID_VAR_NAME;
 import static io.camunda.migration.data.impl.logging.RuntimeMigratorLogs.SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR;
+import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
-import static io.camunda.migration.data.impl.logging.RuntimeValidatorLogs.CALL_ACTIVITY_LEGACY_ID_ERROR;
 
-import io.camunda.migration.data.RuntimeMigrator;
-import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.Variable;
+import io.camunda.migration.data.RuntimeMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import org.assertj.core.api.Assertions;
+import org.awaitility.Awaitility;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -45,13 +58,18 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    io.camunda.client.api.search.response.ProcessInstance c8ParentInstance =
-        camundaClient.newProcessInstanceSearchRequest().filter(processInstanceFilter -> {
-          processInstanceFilter.processDefinitionId("callingProcessId");
-        }).execute().items().getFirst();
+    AtomicReference<Long> c8ParentInstanceKey = new AtomicReference<>();
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
+      List<io.camunda.client.api.search.response.ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest()
+          .filter(processInstanceFilter -> processInstanceFilter.processDefinitionId("callingProcessId"))
+          .execute()
+          .items();
+      Assertions.assertThat(processInstances).hasSize(1);
+      c8ParentInstanceKey.set(processInstances.getFirst().getProcessInstanceKey());
+    });
+    Assertions.assertThat(c8ParentInstanceKey.get()).isNotNull();
 
-    Long c8ParentInstanceKey = c8ParentInstance.getProcessInstanceKey();
-    Optional<Variable> variable = getVariableByScope(c8ParentInstanceKey, c8ParentInstanceKey, LEGACY_ID_VAR_NAME);
+    Optional<Variable> variable = getVariableByScope(c8ParentInstanceKey.get(), c8ParentInstanceKey.get(), LEGACY_ID_VAR_NAME);
     assert variable.isPresent();
     assert variable.get().getValue().equals("\""+parentInstance.getProcessInstanceId()+"\"");
 
