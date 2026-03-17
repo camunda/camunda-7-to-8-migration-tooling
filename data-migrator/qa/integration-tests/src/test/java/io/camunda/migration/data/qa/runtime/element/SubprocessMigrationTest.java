@@ -16,11 +16,19 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
+import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import org.assertj.core.api.Assertions;
+import org.awaitility.Awaitility;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
@@ -50,16 +58,16 @@ public class SubprocessMigrationTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then
-    AtomicReference<Long> c8ParentInstanceKey = null;
+    AtomicReference<Long> c8ParentInstanceKey = new AtomicReference<>();
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<io.camunda.client.api.search.response.ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest()
           .filter(processInstanceFilter -> processInstanceFilter.processDefinitionId("callingProcessId"))
           .execute()
           .items();
-      assertThat(processInstances).hasSize(1);
+      Assertions.assertThat(processInstances).hasSize(1);
       c8ParentInstanceKey.set(processInstances.getFirst().getProcessInstanceKey());
     });
-    assertThat(c8ParentInstanceKey.get()).isNotNull();
+    Assertions.assertThat(c8ParentInstanceKey.get()).isNotNull();
 
     Optional<Variable> variable = getVariableByScope(c8ParentInstanceKey.get(), c8ParentInstanceKey.get(), LEGACY_ID_VAR_NAME);
     assert variable.isPresent();
