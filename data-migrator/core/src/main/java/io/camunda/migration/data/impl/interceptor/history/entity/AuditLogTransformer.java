@@ -151,6 +151,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>AUTHORIZATION → AUTHORIZATION</li>
    *   <li>INCIDENT → INCIDENT</li>
    *   <li>PROCESS_DEFINITION, DEPLOYMENT → RESOURCE</li>
+   *   <li>JOB → JOB</li>
    *   <li>GROUP_MEMBERSHIP → GROUP (membership operations)</li>
    *   <li>TENAT_MEMBERSHIP → TENANT (membership operations)</li>
    * </ul>
@@ -177,10 +178,11 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       case AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
       case INCIDENT -> AuditLogEntity.AuditLogEntityType.INCIDENT;
       case PROCESS_DEFINITION, DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
+      case JOB -> AuditLogEntity.AuditLogEntityType.JOB;
 
       // Camunda 7 entity types that are currently NOT converted:
       // BATCH, IDENTITY_LINK, ATTACHMENT, JOB_DEFINITION,
-      // JOB, EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE,
+      // EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE,
       // METRICS, TASK_METRICS, OPERATION_LOG, FILTER,
       // COMMENT, PROPERTY
 
@@ -219,6 +221,10 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * <h3>Incident Operations:</h3>
    * <ul>
    *   <li>RESOLVE → RESOLVE (for process instances) or UPDATE (for other entities)</li>
+   * </ul>
+   * <h3>Job Operations:</h3>
+   * <ul>
+   *   <li>EXECUTE → COMPLETE</li>
    * </ul>
    * <h3>Membership Operations:</h3>
    * <ul>
@@ -289,6 +295,10 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
           yield AuditLogEntity.AuditLogOperationType.UPDATE;
         }
       }
+
+      // Job operations
+      case OPERATION_TYPE_EXECUTE ->
+          AuditLogEntity.AuditLogOperationType.COMPLETE;
 
       default ->
           throw new EntityInterceptorException(HistoryMigratorLogs.UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE + operationType);
