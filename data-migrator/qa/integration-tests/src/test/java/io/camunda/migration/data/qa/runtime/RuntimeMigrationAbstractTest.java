@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.command.ClientStatusException;
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
@@ -69,7 +71,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     for (ProcessInstance i : items) {
       try {
         camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
-      } catch (io.camunda.client.api.command.ClientStatusException e) {
+      } catch (ClientStatusException | ProblemException e) {
         if (!e.getMessage().contains("NOT_FOUND")) {
           throw e;
         }
