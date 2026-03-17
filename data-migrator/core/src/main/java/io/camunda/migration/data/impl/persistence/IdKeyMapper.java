@@ -66,6 +66,8 @@ public interface IdKeyMapper {
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
     // identity
+    USER("User"),
+    GROUP("Group"),
     TENANT("Tenant"),
     AUTHORIZATION("Authorization");
 

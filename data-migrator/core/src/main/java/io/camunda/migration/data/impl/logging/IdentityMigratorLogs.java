@@ -12,6 +12,7 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.identity.Group;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.impl.util.ResourceTypeUtil;
 import org.slf4j.Logger;
@@ -29,6 +30,19 @@ public class IdentityMigratorLogs {
   public static final String CANNOT_MIGRATE_TENANT_MEMBERSHIP = "There was an error while migrating tenant membership for tenant [{}] and {} [{}]: {}";
   public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}] (name: {})";
   public static final String SKIPPED_TENANT = "Tenant with ID [{}] (name: {}) was skipped: {}";
+
+  public static final String MIGRATING_GROUP = "Migrating group [{}] (name: {})";
+  public static final String MIGRATING_GROUP_MEMBERSHIPS = "Migrating group memberships for group [{}]";
+  public static final String MIGRATING_GROUP_MEMBERSHIP = "Migrating group membership for group [{}] and user [{}]";
+  public static final String MIGRATED_GROUP_MEMBERSHIP = "Successfully migrated group membership for group [{}] and user [{}]";
+  public static final String CANNOT_MIGRATE_GROUP_MEMBERSHIP = "There was an error while migrating group membership for group [{}] and user [{}]: {}";
+  public static final String SUCCESSFULLY_MIGRATED_GROUP = "Successfully migrated group [{}] (name: {})";
+  public static final String SKIPPED_GROUP = "Group with ID [{}] (name: {}) was skipped: {}";
+
+  public static final String MIGRATING_USER = "Migrating user [{}]";
+  public static final String SUCCESSFULLY_MIGRATED_USER = "Successfully migrated user [{}]";
+  public static final String SKIPPED_USER = "User [{}] was skipped: {}";
+
   public static final String MIGRATING_AUTH = "Migrating authorization [{}] for {} [{}] on {} [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
@@ -64,6 +78,30 @@ public class IdentityMigratorLogs {
 
   public static void logSkippedTenant(Tenant tenant, String reason) {
     LOGGER.warn(SKIPPED_TENANT, tenant.getId(), tenant.getName() == null ? "null" : tenant.getName(), reason);
+  }
+
+  public static void logMigratingGroup(Group group) {
+    LOGGER.debug(MIGRATING_GROUP, group.getId(), group.getName() == null ? "null" : group.getName());
+  }
+
+  public static void logMigratedGroup(Group group) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_GROUP, group.getId(), group.getName());
+  }
+
+  public static void logSkippedGroup(Group group, String reason) {
+    LOGGER.warn(SKIPPED_GROUP, group.getId(), group.getName() == null ? "null" : group.getName(), reason);
+  }
+
+  public static void logMigratingUser(String username) {
+    LOGGER.debug(MIGRATING_USER, username);
+  }
+
+  public static void logMigratedUser(String username) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_USER, username);
+  }
+
+  public static void logSkippedUser(String username, String reason) {
+    LOGGER.warn(SKIPPED_USER, username, reason);
   }
 
   public static void logMigratingAuthorization(Authorization authorization) {
@@ -123,6 +161,22 @@ public class IdentityMigratorLogs {
 
   public static void logCannotMigrateTenantMembership(String tenantId, String type, String userOrGroupId, String reason) {
     LOGGER.warn(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
+  }
+
+  public static void logMigratingGroupMemberships(String groupId) {
+    LOGGER.info(MIGRATING_GROUP_MEMBERSHIPS, groupId);
+  }
+
+  public static void logMigratingGroupMembership(String groupId, String username) {
+    LOGGER.info(MIGRATING_GROUP_MEMBERSHIP, groupId, username);
+  }
+
+  public static void logMigratedGroupMembership(String groupId, String username) {
+    LOGGER.info(MIGRATED_GROUP_MEMBERSHIP, groupId, username);
+  }
+
+  public static void logCannotMigrateGroupMembership(String groupId, String username, String reason) {
+    LOGGER.warn(CANNOT_MIGRATE_GROUP_MEMBERSHIP, groupId, username, reason);
   }
 
   static String ownerType(Authorization authorization) {
