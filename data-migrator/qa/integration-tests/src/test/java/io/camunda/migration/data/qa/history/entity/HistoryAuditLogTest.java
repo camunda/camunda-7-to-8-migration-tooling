@@ -8,13 +8,11 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.*;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
 
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -85,14 +83,12 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.actorId()).isEqualTo("demo");
     assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
     assertThat(log.processDefinitionId()).isEqualTo(prefixDefinitionId("simpleProcess"));
-    assertThat(log.annotation()).isEqualTo(annotation);
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
     assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
     assertThat(log.agentElementId()).isNull();
     assertThat(log.relatedEntityKey()).isNull();
     assertThat(log.relatedEntityType()).isNull();
-
   }
 
   @Test

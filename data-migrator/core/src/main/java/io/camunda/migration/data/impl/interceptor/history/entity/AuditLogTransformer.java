@@ -53,7 +53,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>Converts entity type, operation type, and category to Camunda 8 equivalents</li>
    *   <li>Sets actor information (user ID and actor type)</li>
    *   <li>Maps tenant information and scope</li>
-   *   <li>Preserves annotations and other metadata</li>
+   *   <li>Preserves metadata</li>
    *   <li>Handles special cases where entity types differ between C7 and C8</li>
    * </ul>
    * Note: Key properties like auditLogKey, processInstanceKey, processDefinitionKey, userTaskKey,
@@ -76,7 +76,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
         .actorId(userOperationLog.getUserId())
         .actorType(AuditLogEntity.AuditLogActorType.USER)
         .processDefinitionId(prefixDefinitionId(userOperationLog.getProcessDefinitionKey()))
-        .annotation(userOperationLog.getAnnotation())
         .tenantId(tenantId)
         .tenantScope(getAuditLogTenantScope(tenantId))
         .category(convertCategory(userOperationLog.getCategory()))
