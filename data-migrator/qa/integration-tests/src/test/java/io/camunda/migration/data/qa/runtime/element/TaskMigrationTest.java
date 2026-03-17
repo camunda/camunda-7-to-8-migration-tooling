@@ -11,21 +11,21 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 import static io.camunda.process.test.api.assertions.ElementSelectors.byId;
 import static io.camunda.process.test.api.assertions.ProcessInstanceSelectors.byProcessId;
 import static io.camunda.process.test.api.assertions.UserTaskSelectors.byTaskName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientException;
+import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.process.test.api.CamundaAssert;
 import java.util.List;
 import java.util.stream.Stream;
 import org.assertj.core.api.Assertions;
+import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import io.camunda.client.CamundaClient;
-import io.camunda.client.api.search.response.ProcessInstance;
-import io.camunda.process.test.api.CamundaAssert;
 
 @SpringBootTest
 public class TaskMigrationTest extends AbstractElementMigrationTest {
@@ -68,10 +68,12 @@ public class TaskMigrationTest extends AbstractElementMigrationTest {
     runtimeMigrator.start();
 
     // then
-    List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    assertEquals(1, processInstances.size());
-    ProcessInstance processInstance = processInstances.getFirst();
-    assertEquals(simpleProcess.getProcessDefinitionKey(), processInstance.getProcessDefinitionId());
+    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
+      List<ProcessInstance> processInstances = camundaClient.newProcessInstanceSearchRequest().execute().items();
+      Assertions.assertThat(processInstances).hasSize(1);
+      ProcessInstance processInstance = processInstances.getFirst();
+      Assertions.assertThat(processInstance.getProcessDefinitionId()).isEqualTo(simpleProcess.getProcessDefinitionKey());
+    });
 
     CamundaAssert.assertThat(byProcessId("simpleProcess"))
         .isActive()
