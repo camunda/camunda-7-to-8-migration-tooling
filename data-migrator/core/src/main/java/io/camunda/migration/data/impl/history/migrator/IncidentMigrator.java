@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
@@ -90,7 +91,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(), isMultiInstance);
+          flowNodeInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7Incident.getActivityId()),
+              c7Incident.getProcessInstanceId(), isMultiInstance);
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();

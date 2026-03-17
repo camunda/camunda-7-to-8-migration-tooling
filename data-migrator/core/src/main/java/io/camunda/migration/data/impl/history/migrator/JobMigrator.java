@@ -16,6 +16,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigr
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_AFTER;
 import static org.camunda.bpm.engine.impl.jobexecutor.MessageJobDeclaration.ASYNC_BEFORE;
 
@@ -115,7 +116,8 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
           }
         }
 
-        final Long elementInstanceKey = findFlowNodeInstanceKey(c7JobLog.getActivityId(), c7ProcessInstanceId, isMultiInstance);
+        final Long elementInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7JobLog.getActivityId()),
+            c7ProcessInstanceId, isMultiInstance);
         builder.elementInstanceKey(elementInstanceKey);
       }
 

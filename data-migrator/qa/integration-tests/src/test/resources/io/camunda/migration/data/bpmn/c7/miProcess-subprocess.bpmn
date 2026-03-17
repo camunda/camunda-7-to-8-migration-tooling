@@ -7,10 +7,10 @@
     <bpmn:endEvent id="Event_0wud37j">
       <bpmn:incoming>Flow_0h01tz2</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:subProcess id="Activity_1xhlwo5">
+    <bpmn:subProcess id="Activity_1xhlwo5" camunda:asyncBefore="true">
       <bpmn:incoming>Flow_1g3wbno</bpmn:incoming>
       <bpmn:outgoing>Flow_0h01tz2</bpmn:outgoing>
-      <bpmn:multiInstanceLoopCharacteristics camunda:asyncBefore="true">
+      <bpmn:multiInstanceLoopCharacteristics>
         <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">2</bpmn:loopCardinality>
       </bpmn:multiInstanceLoopCharacteristics>
       <bpmn:startEvent id="startEvent_14gnty4">

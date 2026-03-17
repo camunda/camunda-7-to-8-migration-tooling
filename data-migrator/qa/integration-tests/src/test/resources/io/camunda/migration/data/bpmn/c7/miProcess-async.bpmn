@@ -9,35 +9,35 @@
       <bpmn:incoming>Flow_0siask5</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="Flow_0siask5" sourceRef="serviceTask1" targetRef="Event_0wud37j" />
-    <bpmn:serviceTask id="serviceTask1" name="Service Task 1" camunda:expression="${true}">
+    <bpmn:serviceTask id="serviceTask1" name="Service Task 1" camunda:asyncBefore="true" camunda:expression="${true}">
       <bpmn:incoming>Flow_0xme2ti</bpmn:incoming>
       <bpmn:outgoing>Flow_0siask5</bpmn:outgoing>
-      <bpmn:multiInstanceLoopCharacteristics camunda:asyncBefore="true">
+      <bpmn:multiInstanceLoopCharacteristics>
         <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">2</bpmn:loopCardinality>
       </bpmn:multiInstanceLoopCharacteristics>
     </bpmn:serviceTask>
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="miProcess">
-      <bpmndi:BPMNShape id="Event_0wud37j_di" bpmnElement="Event_0wud37j">
-        <dc:Bounds x="512" y="102" width="36" height="36" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Activity_14etdik_di" bpmnElement="serviceTask1">
-        <dc:Bounds x="311" y="80" width="100" height="80" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="startEvent">
         <dc:Bounds x="162" y="102" width="36" height="36" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="153" y="145" width="56" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_0siask5_di" bpmnElement="Flow_0siask5">
-        <di:waypoint x="411" y="120" />
-        <di:waypoint x="512" y="120" />
-      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Event_0wud37j_di" bpmnElement="Event_0wud37j">
+        <dc:Bounds x="512" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_14etdik_di" bpmnElement="serviceTask1">
+        <dc:Bounds x="311" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_0xme2ti_di" bpmnElement="Flow_0xme2ti">
         <di:waypoint x="198" y="120" />
         <di:waypoint x="311" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0siask5_di" bpmnElement="Flow_0siask5">
+        <di:waypoint x="411" y="120" />
+        <di:waypoint x="512" y="120" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
