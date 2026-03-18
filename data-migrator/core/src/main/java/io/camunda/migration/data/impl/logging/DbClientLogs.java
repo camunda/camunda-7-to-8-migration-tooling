@@ -38,6 +38,7 @@ public class DbClientLogs {
   public static final String FAILED_TO_UPDATE_SKIP_REASON = "Failed to update skip reason for C7 ID: ";
   public static final String FAILED_TO_INSERT_RECORD = "Failed to insert record for C7 ID: ";
   public static final String FAILED_TO_FIND_SKIPPED_COUNT = "Failed to find skipped count";
+  public static final String FAILED_TO_FIND_MIGRATED_COUNT = "Failed to find migrated count";
   public static final String FAILED_TO_FIND_ALL_SKIPPED = "Failed to find skipped C7 IDs";
   public static final String FAILED_TO_DELETE = "Failed to delete mapping for C7 ID: ";
   public static final String FAILED_TO_DROP_MIGRATION_TABLE = "Failed to drop migration mapping table";

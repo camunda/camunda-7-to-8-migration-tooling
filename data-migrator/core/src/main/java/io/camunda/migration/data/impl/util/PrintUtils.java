@@ -24,6 +24,20 @@ public class PrintUtils {
     print(message);
   }
 
+  public static void printMigratedInstancesHeader(long count, TYPE entityType) {
+    String entityName = entityType.getDisplayName();
+    if (count > 0) {
+      print("Migration mappings for [" + entityName + "s]:");
+      print("Camunda7-Id Camunda8-Key");
+    } else {
+      print("No entities of type [" + entityName + "] were migrated");
+    }
+  }
+
+  public static void printMapping(String c7Id, String c8Key) {
+    print(c7Id + " " + c8Key);
+  }
+
   public static void print(String message) {
     PRINTER.info(message);
   }
