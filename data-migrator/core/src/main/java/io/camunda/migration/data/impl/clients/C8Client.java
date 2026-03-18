@@ -45,6 +45,7 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEAR
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_USER_TASKS;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
@@ -96,6 +97,7 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.search.entities.DecisionDefinitionEntity;
@@ -443,7 +445,7 @@ public class C8Client {
    */
   public void createTenant(Tenant tenant) {
     CreateTenantCommandStep1 command = camundaClient.newCreateTenantCommand().tenantId(tenant.getId()).name(tenant.getName());
-    CreateTenantResponse createTenantResponse = callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
+    callApi(command::execute, FAILED_TO_MIGRATE_TENANT + tenant.getId());
   }
 
   /**
@@ -451,7 +453,15 @@ public class C8Client {
    */
   public void createGroupAssignment(String groupId, String userId) {
     var command = camundaClient.newAssignUserToGroupCommand().username(userId).groupId(groupId);
-    callApi(command::execute, String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId));
+    try {
+      if (getUser(userId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId));
+      } else {
+        throw new IdentityMigratorException("User " + userId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId), e);
+    }
   }
 
   /**
