@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -123,12 +124,14 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
-        // Multi-instance activities produce multiple flow nodes for the same activityId within a process
-        // instance, making it impossible to deterministically resolve the correct flow node for this
-        // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
-        if (isMultiInstance.get()
-            // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
-            || !c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
+        if (isMultiInstance.get()) {
+          // Multi-instance activities produce multiple flow nodes for the same activityId within a process
+          // instance, making it impossible to deterministically resolve the correct flow node for this
+          // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
+          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+        }
+        // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
+        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
           throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
         }
       }

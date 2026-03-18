@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -136,7 +136,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
       }
 
       if (isMultiInstance.get() && dbModel.elementInstanceKey() == null) {
-        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE);
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
       }
 
       c8Client.insertJob(dbModel);

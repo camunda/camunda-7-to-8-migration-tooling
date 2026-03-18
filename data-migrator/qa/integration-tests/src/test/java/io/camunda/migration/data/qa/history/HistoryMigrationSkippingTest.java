@@ -11,6 +11,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -31,10 +32,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.camunda.bpm.engine.HistoryService;
+import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
@@ -221,7 +227,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
     String incidentId = historyService.createHistoricIncidentQuery().singleResult().getId();
 
-    // First migration: Migrate incidents WITHOUT process instances (skipps with a real-world scenario)
+    // First migration: Migrate incidents WITHOUT process instances (skips with a real-world scenario)
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_INCIDENT); // Skips due to missing process instance
 
@@ -347,7 +353,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
         .toList();
     assertThat(variableIds).hasSize(2);
 
-    // First migration: Migrate variables WITHOUT process instances (skipps with a real-world scenario)
+    // First migration: Migrate variables WITHOUT process instances (skips with a real-world scenario)
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_VARIABLE); // All variables skip due to missing process instance
 
@@ -639,5 +645,76 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     var userTasks = searchHistoricUserTasks(processInstances.getFirst().processInstanceKey());
     assertThat(userTasks).hasSize(1);
     assertThat(userTasks.getFirst().formKey()).isNotNull();
+  }
+
+  @Test
+  public void shouldSkipIncidentReferencedByMultiInstanceFlowNode() {
+    // given
+    deployer.deployCamunda7Process("miProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("miProcess");
+
+    var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
+    List<String> incidentIds = new ArrayList<>();
+    task.forEach(t -> {
+      String executionId = t.getExecutionId();
+      incidentIds.add(runtimeService.createIncident("foo", executionId, "bar").getId());
+    });
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+
+    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
+    assertThat(incidents).isEmpty();
+    incidentIds.forEach(id -> logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), id,
+        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+  }
+
+
+  @Test
+  public void shouldSkipJobReferencedByMultiInstanceFlowNode() {
+    // given
+    deployer.deployCamunda7Process("miProcess-async.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
+    jobs.forEach(j -> managementService.executeJob(j.getId()));
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).isEmpty();
+    jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
+        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+  }
+
+  @Test
+  public void shouldSkipJobReferencedByMultiInstanceFlowNodeSubprocess() {
+    // given
+    deployer.deployCamunda7Process("miProcess-subprocess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
+    jobs.forEach(j -> managementService.executeJob(j.getId()));
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).isEmpty();
+    jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
+        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
   }
 }

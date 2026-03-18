@@ -241,26 +241,6 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldSkipJobReferencedByMultiInstanceFlowNode() {
-    // given
-    deployer.deployCamunda7Process("miProcess-async.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
-
-    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
-    jobs.forEach(j -> managementService.executeJob(j.getId()));
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
-    assertThat(processInstances).hasSize(1);
-
-    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
-    assertThat(c8Jobs).isEmpty();
-  }
-
-  @Test
   @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
   public void shouldMigrateMultiInstanceFlowNodeReference() {
     // given
@@ -280,26 +260,6 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
 
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs.getFirst().elementInstanceKey()).isNotEqualTo(c8Jobs.getLast().elementInstanceKey());
-  }
-
-  @Test
-  public void shouldSkipJobReferencedByMultiInstanceFlowNodeSubprocess() {
-    // given
-    deployer.deployCamunda7Process("miProcess-subprocess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
-
-    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
-    jobs.forEach(j -> managementService.executeJob(j.getId()));
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
-    assertThat(processInstances).hasSize(1);
-
-    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
-    assertThat(c8Jobs).isEmpty();
   }
 
   @Test

@@ -442,29 +442,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldSkipIncidentReferencedByMultiInstanceFlowNode() {
-    // given
-    deployer.deployCamunda7Process("miProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("miProcess");
-
-    var task = taskService.createTaskQuery().taskDefinitionKey("userTask1").list();
-    task.forEach(t -> {
-      String executionId = t.getExecutionId();
-      runtimeService.createIncident("foo", executionId, "bar");
-    });
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
-    assertThat(processInstances).hasSize(1);
-
-    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
-    assertThat(incidents).isEmpty();
-  }
-
-  @Test
   @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
   public void shouldMigrateMultiInstanceFlowNodeReference() {
     // given
