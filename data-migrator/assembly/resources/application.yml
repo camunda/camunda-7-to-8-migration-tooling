@@ -120,10 +120,15 @@ logging:
     io.camunda.migration.data: WARN
     ### Enable debug migrator logging
     ##io.camunda.migration.data: DEBUG
-    ## Enable debug logging for runtime migration
+    #
+    ## Enable debug logging for migration types
     #io.camunda.migration.data.RuntimeMigrator: DEBUG
+    #io.camunda.migration.data.HistoryMigrator: DEBUG
+    #io.camunda.migration.data.IdentityMigrator: DEBUG
+    #
     ## Enable debug logging for ID mapping
-    #io.camunda.migration.data.persistence.IdKeyMapper: DEBUG # persistence
+    #io.camunda.migration.data.impl.persistence.IdKeyMapper: DEBUG # persistence
+    #
     ## Enable debug logging for C7
     #org.camunda.bpm: INFO  # C7
   file:
