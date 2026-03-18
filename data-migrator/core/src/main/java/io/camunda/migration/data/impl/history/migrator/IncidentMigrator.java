@@ -68,7 +68,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    *   <li>Process instance not yet migrated - skipped with {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
    *   <li>Flow node instance not found and activity is not in async-before waiting state - skipped with {@code SKIP_REASON_MISSING_FLOW_NODE}</li>
-   *   <li>Failed job incident whose referenced job was skipped (no C8 key) - skipped with {@code SKIP_REASON_MISSING_JOB_REFERENCE}</li>
+   *   <li>Failed job incident whose referenced job was skipped (no C8 key) - skipped with {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
+   *       Propagated incidents in parent process instances (no job reference) are migrated without a job key.</li>
    * </ul>
    *
    * @param c7Incident the historic incident from Camunda 7 to be migrated
@@ -136,8 +137,10 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         }
       }
 
-      if (isFailedJobIncident(c7Incident) && dbModel.jobKey() == null) {
-        // Only skip the incident when the referenced C7 job is actually tracked as migrated/skipped.
+      if (isFailedJobIncident(c7Incident) && c7Incident.getConfiguration() != null && dbModel.jobKey() == null) {
+        // Only skip the incident when it has a job reference but the job was not successfully migrated.
+        // Incidents without a configuration (e.g. propagated incidents in parent process instances)
+        // do not carry a direct job reference and should be migrated without a job key.
         throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_JOB_REFERENCE);
       }
 
@@ -166,14 +169,16 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   /**
    * Resolves and sets the job key on the incident builder for {@code failedJob} incidents.
    * <p>
-   * If the incident is a {@code failedJob} incident and the associated C7 job has been tracked
-   * in the migration table, the C8 job key is looked up and set on the builder. The key will be
-   * {@code null} if the job was skipped during migration, which will cause the incident to be
-   * skipped downstream via {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
+   * If the incident is a {@code failedJob} incident and has a job reference (i.e.
+   * {@code configuration} is non-null), the C8 job key is looked up in the migration tracking
+   * table and set on the builder. A {@code null} key means the job was explicitly skipped
+   * during migration, which will cause the incident to be skipped downstream via
+   * {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
    * </p>
    * <p>
-   * If the job is not yet tracked (job migration may not have run or the job type is not
-   * tracked), the incident proceeds without a job key.
+   * Incidents with a {@code null} configuration are propagated incidents in parent process
+   * instances (e.g. from a call activity hierarchy). These incidents do not carry a direct job
+   * reference and are migrated without a job key.
    * </p>
    *
    * @param c7Incident the Camunda 7 incident

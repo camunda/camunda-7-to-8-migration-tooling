@@ -58,8 +58,6 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
         .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
         .singleResult();
     assertThat(userOperationLogEntry).isNotNull();
-    String annotation = "anAnnotation";
-    historyService.setAnnotationForOperationLogById(userOperationLogEntry.getOperationId(), annotation);
 
     // when
     historyMigrator.migrate();
