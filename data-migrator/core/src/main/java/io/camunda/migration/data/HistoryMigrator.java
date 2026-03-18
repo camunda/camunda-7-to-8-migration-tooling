@@ -120,6 +120,26 @@ public class HistoryMigrator {
     dbClient.listSkippedEntitiesByType(type);
   }
 
+  public void printMigratedHistoryEntities(List<IdKeyMapper.TYPE> requestedEntityTypes) {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      if (requestedEntityTypes == null || requestedEntityTypes.isEmpty()) {
+        getHistoryTypes().forEach(this::printMigratedEntitiesForType);
+      } else {
+        requestedEntityTypes.forEach(this::printMigratedEntitiesForType);
+      }
+
+    } finally {
+      ExceptionUtils.clearContext();
+    }
+  }
+
+  protected void printMigratedEntitiesForType(TYPE type) {
+    PrintUtils.printMigratedInstancesHeader(dbClient.countMigratedByType(type), type);
+    dbClient.listMigratedEntitiesByType(type);
+  }
+
   public void retry() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);

@@ -35,7 +35,7 @@ import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
-import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
@@ -115,7 +115,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
         historyMigrator.printSkippedHistoryEntities(null);
 
         // then
-        Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+        Map<String, List<String>> skippedEntitiesByType = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
         verifySkippedEntitiesOutput(skippedEntitiesByType, processDefinitionId, processInstanceIds);
     }
 

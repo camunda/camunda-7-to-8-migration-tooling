@@ -14,7 +14,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.migration.data.qa.util.SkippedEntitiesLogParserUtils;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +54,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         historyMigrator.printSkippedHistoryEntities(List.of(HISTORY_PROCESS_INSTANCE));
 
         // then
-        Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+        Map<String, List<String>> skippedEntitiesByType = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
 
         // Should only contain process instances
         assertThat(skippedEntitiesByType).hasSize(1);
@@ -88,7 +88,7 @@ public class HistoryMigrationListSkippedFilterTest extends HistoryMigrationAbstr
         ));
 
         // then
-        Map<String, List<String>> skippedEntitiesByType = SkippedEntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+        Map<String, List<String>> skippedEntitiesByType = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
 
         // Should only contain process instances and user tasks
         assertThat(skippedEntitiesByType).hasSize(2);
