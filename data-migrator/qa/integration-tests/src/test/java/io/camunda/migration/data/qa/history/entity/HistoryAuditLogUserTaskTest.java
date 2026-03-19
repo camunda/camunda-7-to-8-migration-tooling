@@ -60,8 +60,6 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
         .processInstanceId(processInstance.getId())
         .count();
     assertThat(auditLogCount).isEqualTo(1);
-    String annotation = "anAnnotation";
-    historyService.setAnnotationForOperationLogById(historyService.createUserOperationLogQuery().singleResult().getOperationId(), annotation);
 
     // when
     historyMigrator.migrate();

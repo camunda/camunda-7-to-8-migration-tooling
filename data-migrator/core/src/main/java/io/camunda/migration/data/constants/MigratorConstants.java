@@ -32,4 +32,5 @@ public final class MigratorConstants {
   public static final String C8_DEFAULT_TENANT = "<default>";
   public static final String C7_LEGACY_PREFIX = "c7-legacy";
   public static final String C7_LEGACY_ID_PREFIX = "c7-legacy-id-";
+  public static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
 }

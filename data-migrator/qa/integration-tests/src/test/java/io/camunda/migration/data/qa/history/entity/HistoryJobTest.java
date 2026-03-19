@@ -27,6 +27,7 @@ import java.util.List;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 public class HistoryJobTest extends HistoryMigrationAbstractTest {
@@ -239,6 +240,49 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).isEmpty();
   }
 
+  @Test
+  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
+  public void shouldMigrateMultiInstanceFlowNodeReference() {
+    // given
+    deployer.deployCamunda7Process("miProcess-async.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
+    jobs.forEach(j -> managementService.executeJob(j.getId()));
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs.getFirst().elementInstanceKey()).isNotEqualTo(c8Jobs.getLast().elementInstanceKey());
+  }
+
+  @Test
+  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
+  public void shouldMigrateMultiInstanceFlowNodeReferenceSubprocess() {
+    // given
+    deployer.deployCamunda7Process("miProcess-subprocess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("miProcess");
+
+    var jobs = managementService.createJobQuery().processInstanceId(c7ProcessInstance.getId()).list();
+    jobs.forEach(j -> managementService.executeJob(j.getId()));
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs.getFirst().elementInstanceKey()).isNotEqualTo(c8Jobs.getLast().elementInstanceKey());
+  }
 
   protected void assertJobProperties(JobEntity job, long processInstanceKey, String c7ProcessDefinitionKey,
                                      String taskId, boolean isAsyncAfter, Long processDefinitionKey) {

@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -15,6 +16,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
@@ -25,6 +27,7 @@ import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,6 +80,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   public Long migrateTransactionally(HistoricIncident c7Incident) {
     var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
+      AtomicBoolean isMultiInstance = new AtomicBoolean(false);
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
       Long processInstanceKey;
@@ -89,7 +93,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId());
+          flowNodeInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7Incident.getActivityId()),
+              c7Incident.getProcessInstanceId(), isMultiInstance);
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
@@ -120,8 +125,14 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
+        if (isMultiInstance.get()) {
+          // Multi-instance activities produce multiple flow nodes for the same activityId within a process
+          // instance, making it impossible to deterministically resolve the correct flow node for this
+          // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
+          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+        }
+        // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
         if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
-          // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
           throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
         }
       }

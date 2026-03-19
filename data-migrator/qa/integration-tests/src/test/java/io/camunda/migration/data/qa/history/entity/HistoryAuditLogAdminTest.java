@@ -57,8 +57,6 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     long auditLogCount = historyService.createUserOperationLogQuery()
         .count();
     assertThat(auditLogCount).isEqualTo(1);
-    String annotation = "anAnnotation";
-    historyService.setAnnotationForOperationLogById(historyService.createUserOperationLogQuery().singleResult().getOperationId(), annotation);
 
     // when
     historyMigrator.migrate();

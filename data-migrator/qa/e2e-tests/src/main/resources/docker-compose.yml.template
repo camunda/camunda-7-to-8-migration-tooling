@@ -14,6 +14,8 @@ services:
     volumes:
       # Mount the plugin JAR to Camunda's plugin directory
       - ../../plugins/cockpit/target/camunda-7-to-8-data-migrator-cockpit-plugin-${project.version}.jar:/camunda/webapps/camunda/WEB-INF/lib/camunda-7-to-8-data-migrator-cockpit-plugin.jar:ro
+      # Mount custom Cockpit config with operateUrl
+      - ./src/main/resources/cockpit-config.js:/camunda/webapps/camunda/app/cockpit/scripts/config.js:ro
     command:
       - /bin/sh
       - -c
