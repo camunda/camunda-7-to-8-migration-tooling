@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.MIGRATING_USER_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPING;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
@@ -24,6 +25,9 @@ import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.util.WhiteBox;
 import io.github.netmikey.logunit.api.LogCapturer;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.variable.Variables;
@@ -43,6 +47,9 @@ public class HistoryMigrationSkipReasonTest extends HistoryMigrationAbstractTest
 
   @Autowired
   protected MigratorProperties migratorProperties;
+
+  @Autowired
+  protected IdKeyMapper idKeyMapper;
 
   @AfterEach
   void cleanUp() {
@@ -77,6 +84,7 @@ public class HistoryMigrationSkipReasonTest extends HistoryMigrationAbstractTest
   }
 
   @Test
+  @WhiteBox
   public void shouldClearSkipReasonWhenEntityIsMigratedOnRetry() {
     // given
     migratorProperties.setSaveSkipReason(true);
@@ -106,9 +114,18 @@ public class HistoryMigrationSkipReasonTest extends HistoryMigrationAbstractTest
     var processInstances = searchHistoricProcessInstances("processWithFormId");
     assertThat(processInstances).hasSize(1);
     assertThat(searchHistoricUserTasks(processInstances.getFirst().processInstanceKey())).hasSize(1);
+    logs.assertContains(formatMessage(MIGRATING_USER_TASK, task.getId()));
+    assertPersistedSkipReasonClearedForMigrated(HISTORY_USER_TASK);
   }
 
   protected void verifySkippedViaLogs(String entityType, String c7Id, String expectedSkipReason) {
     logs.assertContains(formatMessage(SKIPPING, entityType, c7Id, expectedSkipReason));
+  }
+
+  protected void assertPersistedSkipReasonClearedForMigrated(IdKeyMapper.TYPE type) {
+    var migrated = idKeyMapper.findMigratedByType(type, 0, 10);
+    assertThat(migrated).hasSize(1);
+    IdKeyDbModel mapping = migrated.getFirst();
+    assertThat(mapping.getSkipReason()).isNull();
   }
 }
