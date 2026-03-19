@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -78,6 +79,8 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
    *       {@code SKIP_REASON_MISSING_PROCESS_INSTANCE}</li>
    *   <li>Root process instance not yet migrated (when part of a process hierarchy) - skipped with
    *       {@code SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE}</li>
+   *   <li>Multi-instance activity with ambiguous flow node reference - skipped with
+   *       {@code SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE}</li>
    * </ul>
    *
    * @param c7ExternalTaskLog the Camunda 7 historic external task log entry to migrate
@@ -126,6 +129,10 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
 
       if (dbModel.rootProcessInstanceKey() == null) {
         throw new EntitySkippedException(c7ExternalTaskLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
+      }
+
+      if (isMultiInstance.get() && dbModel.elementInstanceKey() == null) {
+        throw new EntitySkippedException(c7ExternalTaskLog, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
       }
 
       c8Client.insertJob(dbModel);
