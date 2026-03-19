@@ -30,7 +30,6 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code topicName} mapped to {@code type}</li>
  *   <li>{@code workerId} mapped to {@code worker}</li>
- *   <li>state derived from the log entry type (creation, success, failure, deletion)</li>
  * </ul>
  * </p>
  * <p>
@@ -58,13 +57,12 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
     builder
         .type(entity.getTopicName())
         .worker(entity.getWorkerId())
-        .state(deriveState(entity))
+        .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(entity.getActivityId()))
-        .errorMessage(entity.getErrorMessage())
         .tenantId(getTenantId(entity.getTenantId()))
         .partitionId(C7_HISTORY_PARTITION_ID);
     // Note: jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,

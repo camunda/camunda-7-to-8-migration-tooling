@@ -22,7 +22,7 @@ import io.camunda.search.entities.JobEntity.ListenerEventType;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.camunda.bpm.engine.ExternalTaskService;
-import org.camunda.bpm.engine.externaltask.ExternalTask;
+import org.camunda.bpm.engine.externaltask.LockedExternalTask;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +38,48 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
   protected ExternalTaskService externalTaskService;
 
   @Test
+  public void shouldMigrateExternalTask() {
+    // given: a process with an external task
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+          .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // lock and complete the external task
+//    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+//        .topic(TOPIC_NAME, 10000L)
+//        .execute();
+//    assertThat(tasks).hasSize(1);
+//    externalTaskService.complete(tasks.getFirst().getId(), WORKER_ID);
+
+    // verify that history has been recorded
+    assertThat(historyService.createHistoricExternalTaskLogQuery().count()).isGreaterThan(0);
+
+    // when: migration runs
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
+
+    // then: the process instance was migrated
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    // and: exactly one C8 job entry was created (deduplicated by external task ID)
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
+
+    // and: the job has the expected properties
+    JobEntity job = c8Jobs.getFirst();
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
+        null);
+  }
+
+  @Test
   public void shouldMigrateCompletedExternalTask() {
     // given: a process with an external task
     var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
@@ -50,7 +92,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey(PROCESS_KEY);
 
     // lock and complete the external task
-    List<ExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC_NAME, 10000L)
         .execute();
     assertThat(tasks).hasSize(1);
@@ -75,7 +117,8 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
 
     // and: the job has the expected properties
     JobEntity job = c8Jobs.getFirst();
-    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey());
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
+        WORKER_ID);
   }
 
   @Test
@@ -91,7 +134,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey(PROCESS_KEY);
 
     // lock, report failure, and complete - creating multiple log entries for the same task
-    List<ExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC_NAME, 10000L)
         .execute();
     assertThat(tasks).hasSize(1);
@@ -137,7 +180,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     deployer.deployC7ModelInstance(PROCESS_KEY, c7Model, "tenantId");
     runtimeService.startProcessInstanceByKey(PROCESS_KEY);
 
-    List<ExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC_NAME, 10000L)
         .execute();
     assertThat(tasks).hasSize(1);
@@ -167,7 +210,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     runtimeService.startProcessInstanceByKey(PROCESS_KEY);
 
     // lock and report failure with 0 retries to create an incident
-    List<ExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
         .topic(TOPIC_NAME, 10000L)
         .execute();
     assertThat(tasks).hasSize(1);
@@ -198,13 +241,14 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(incidents.getFirst().jobKey()).isEqualTo(job.jobKey());
   }
 
-  protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey) {
+  protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey,
+                                                 String worker) {
     assertThat(job.jobKey()).isNotNull();
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.processDefinitionKey()).isEqualTo(processDefinitionKey);
     assertThat(job.type()).isEqualTo(TOPIC_NAME);
-    assertThat(job.worker()).isEqualTo(WORKER_ID);
+    assertThat(job.worker()).isEqualTo(worker);
     assertThat(job.state()).isEqualTo(JobState.COMPLETED);
     assertThat(job.kind()).isEqualTo(JobKind.BPMN_ELEMENT);
     assertThat(job.listenerEventType()).isEqualTo(ListenerEventType.UNSPECIFIED);

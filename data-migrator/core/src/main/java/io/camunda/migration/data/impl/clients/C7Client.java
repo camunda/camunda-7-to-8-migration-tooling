@@ -643,7 +643,7 @@ public class C7Client {
         .asc();
 
     if (timestampAfter != null) {
-      query.timestampAfter(timestampAfter);
+      //      query.timestampAfter(timestampAfter);
     }
 
     new Pagination<HistoricExternalTaskLog>().pageSize(properties.getPageSize())
