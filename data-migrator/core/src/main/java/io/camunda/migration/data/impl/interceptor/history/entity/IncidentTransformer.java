@@ -13,6 +13,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.FORM_NOT_FOUND;
@@ -43,7 +44,7 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
   public void execute(HistoricIncident entity, Builder builder) {
     builder.incidentKey(getNextKey())
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
-        .flowNodeId(entity.getActivityId())
+        .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .errorType(determineErrorType(entity))
         .errorMessage(entity.getIncidentMessage())
         .creationDate(convertDate(entity.getCreateTime()))

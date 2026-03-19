@@ -33,7 +33,6 @@ import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
-import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -43,6 +42,7 @@ import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -121,7 +121,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
    *
    * @return the entity type from IdKeyMapper.TYPE enum
    */
-  public abstract IdKeyMapper.TYPE getType();
+  public abstract TYPE getType();
 
   /**
    * Migrates a single entity from Camunda 7 to Camunda 8.
@@ -284,7 +284,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   }
 
   protected Long findProcessDefinitionKey(String processDefinitionId) {
-    Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId, IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION);
+    Long key = dbClient.findC8KeyByC7IdAndType(processDefinitionId, TYPE.HISTORY_PROCESS_DEFINITION);
     if (key == null) {
       return null;
     }
@@ -319,11 +319,20 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   /**
    * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
    *
-   * @param activityId the C7 activity ID
+   * <p>When exactly one C8 flow node matches the given {@code activityId} and process instance,
+   * its key is returned directly. When multiple flow nodes match (multi-instance activities),
+   * the method sets {@code isMultiInstance} to {@code true} and returns {@code null} because
+   * a deterministic mapping to the correct flow node instance is not possible.
+   * Callers should inspect {@code isMultiInstance} to distinguish "not found" from
+   * "ambiguous due to multi-instance".
+   *
+   * @param activityId        the C7 activity ID (BPMN element ID)
    * @param processInstanceId the C7 process instance ID
-   * @return the C8 flow node instance key, or {@code null} if not found
+   * @param isMultiInstance   mutable flag set to {@code true} when multiple C8 flow nodes exist
+   *                          for the same activity, indicating a multi-instance scenario
+   * @return the C8 flow node instance key, or {@code null} if not found or ambiguous
    */
-  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId) {
+  protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId, AtomicBoolean isMultiInstance) {
     Long processInstanceKey = dbClient.findC8KeyByC7IdAndType(processInstanceId, HISTORY_PROCESS_INSTANCE);
     if (processInstanceKey == null) {
       return null;
@@ -334,10 +343,14 @@ public abstract class HistoryEntityMigrator<C7, C8> {
             filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
 
     if (!flowNodes.isEmpty()) {
-      return flowNodes.getFirst().flowNodeInstanceKey();
-    } else {
-      return null;
+      if (flowNodes.size() == 1) {
+        return flowNodes.getFirst().flowNodeInstanceKey();
+      }
+      if (flowNodes.size() > 1) {
+        isMultiInstance.set(true);
+      }
     }
+    return null;
   }
 
   protected boolean isMigrated(String id, TYPE type) {

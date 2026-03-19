@@ -17,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_MULTI_INSTANCE_BODY_SUFFIX;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.zeebe.protocol.Protocol.KEY_BITS;
 
@@ -55,6 +56,13 @@ public class ConverterUtil {
       return null;
     }
     return String.format("%s-%s", C7_LEGACY_PREFIX, definitionId);
+  }
+
+  /**
+   * Removes the multi-instance body suffix from the activity ID if present, as C8 does not use this convention for multi-instance activities.
+   */
+  public static String sanitizeFlowNodeId(String activityId) {
+    return activityId.replace(C7_MULTI_INSTANCE_BODY_SUFFIX, "");
   }
 
 }
