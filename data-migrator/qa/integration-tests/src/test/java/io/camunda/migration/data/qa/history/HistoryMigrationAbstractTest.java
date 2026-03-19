@@ -335,7 +335,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
       String inputName,
       String inputValue,
       String outputName,
-      String outputValue) {
+      String outputValue,
+      String outputRuleId,
+      int outputRuleIndex) {
     assertThat(instance.decisionInstanceId()).isNotNull();
     assertThat(instance.decisionInstanceKey()).isNotNull();
     assertThat(instance.state()).isEqualTo(EVALUATED);
@@ -360,6 +362,8 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
       assertThat(output.outputId()).isNotNull();
       assertThat(output.outputName()).isEqualTo(outputName);
       assertThat(output.outputValue()).isEqualTo(outputValue);
+      assertThat(output.ruleId()).isEqualTo(outputRuleId);
+      assertThat(output.ruleIndex()).isEqualTo(outputRuleIndex);
     });
   }
 }

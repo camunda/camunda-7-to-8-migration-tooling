@@ -129,7 +129,7 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     assertThat(migratedInstances).singleElement()
         .satisfies(instance -> assertDecisionInstance(instance, "simpleDecisionId", now, 7L, 5L, 1L, 2L, 3L,
             DecisionInstanceEntity.DecisionDefinitionType.DECISION_TABLE, "\"B\"", "inputA", "\"A\"", "outputB",
-            "\"B\""));
+            "\"B\"", "DecisionRule_0rh3id4", 1));
   }
 
   @Test

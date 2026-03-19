@@ -96,6 +96,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class C7Client {
 
+
   @Autowired
   protected RuntimeService runtimeService;
 
