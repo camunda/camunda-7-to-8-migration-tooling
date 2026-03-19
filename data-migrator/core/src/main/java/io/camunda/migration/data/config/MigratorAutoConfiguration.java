@@ -33,6 +33,7 @@ import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
@@ -77,6 +78,7 @@ import org.springframework.context.annotation.Import;
     DecisionRequirementsMigrator.class,
     FlowNodeMigrator.class,
     JobMigrator.class,
+    ExternalTaskMigrator.class,
     IncidentMigrator.class,
     FormMigrator.class,
     ProcessDefinitionMigrator.class,
