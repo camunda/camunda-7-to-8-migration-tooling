@@ -16,8 +16,6 @@ import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.USE
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.migration.data.MigratorMode;
-import io.camunda.migration.data.impl.util.PartitionSupplier;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -25,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryFlowNodeTest extends HistoryMigrationAbstractTest {
 

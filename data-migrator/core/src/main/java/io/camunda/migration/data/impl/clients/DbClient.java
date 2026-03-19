@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_KEY_BY_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_C7_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_CREATE_TIME;
+import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_PARTITION_ID_BY_C7_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_SKIPPED_COUNT;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_INSERT_RECORD;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_UPDATE_KEY;
@@ -98,7 +99,7 @@ public class DbClient {
    * <p>Returns {@code null} if no record exists or if the record has no partition ID set.
    */
   public Integer findPartitionIdByC7IdAndType(String c7Id, TYPE type) {
-    return callApi(() -> idKeyMapper.findPartitionIdByC7IdAndType(c7Id, type), FAILED_TO_FIND_KEY_BY_ID + c7Id);
+    return callApi(() -> idKeyMapper.findPartitionIdByC7IdAndType(c7Id, type), FAILED_TO_FIND_PARTITION_ID_BY_C7_ID + c7Id);
   }
 
   /**

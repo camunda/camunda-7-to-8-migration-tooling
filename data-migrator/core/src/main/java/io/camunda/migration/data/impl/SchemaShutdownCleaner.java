@@ -19,11 +19,6 @@ import io.camunda.migration.data.impl.clients.DbClient;
 import jakarta.annotation.PreDestroy;
 import java.sql.Connection;
 import javax.sql.DataSource;
-import liquibase.Liquibase;
-import liquibase.database.Database;
-import liquibase.database.DatabaseFactory;
-import liquibase.database.jvm.JdbcConnection;
-import liquibase.resource.ClassLoaderResourceAccessor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.exceptions.PersistenceException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,13 +66,17 @@ public class SchemaShutdownCleaner {
   protected void rollbackTableCreation(String prefix) {
     DataSource dataSource = dataSourceRegistry.getMigratorDataSource();
     try (Connection conn = dataSource.getConnection()) {
-      Database database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(conn));
-      Liquibase liquibase = new Liquibase("db/changelog/migrator/db.0.1.0.xml", new ClassLoaderResourceAccessor(), database);
-      database.setDatabaseChangeLogTableName(prefix + "DATABASECHANGELOG");
-      database.setDatabaseChangeLogLockTableName(prefix + "DATABASECHANGELOGLOCK");
-      liquibase.setChangeLogParameter("prefix", prefix);
-      liquibase.clearCheckSums();
-      liquibase.rollback("tag_before_create_migration_mapping_table", "");
+      try (var stmt = conn.createStatement()) {
+        stmt.execute("DROP TABLE " + prefix + "MIGRATION_MAPPING");
+      }
+      // Delete migrator changelog entries so Liquibase will recreate the table on next run
+      try (var stmt = conn.prepareStatement(
+          "DELETE FROM " + prefix + "DATABASECHANGELOG WHERE FILENAME LIKE 'db/changelog/migrator/%'")) {
+        stmt.executeUpdate();
+      }
+      if (!conn.getAutoCommit()) {
+        conn.commit();
+      }
     } catch (Exception e) {
       throw new PersistenceException(e);
     }

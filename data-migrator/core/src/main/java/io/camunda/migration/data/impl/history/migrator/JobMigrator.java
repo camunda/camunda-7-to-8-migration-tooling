@@ -125,8 +125,6 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
             c7ProcessInstanceId, isMultiInstance);
         if (elementInstanceKey != null) {
           builder.elementInstanceKey(elementInstanceKey);
-        } else if (isAsyncAfter) {
-          throw new C8EntityNotFoundException(HISTORY_FLOW_NODE, processInstance.processInstanceKey(), c7JobLog.getActivityId());
         }
       }
 
@@ -146,6 +144,11 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
 
       if (isMultiInstance.get() && dbModel.elementInstanceKey() == null) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+      }
+
+      // For async-after jobs, element instance key is required
+      if (isAsyncAfter && dbModel.elementInstanceKey() == null) {
+        throw new C8EntityNotFoundException(HISTORY_FLOW_NODE, dbModel.processInstanceKey(), c7JobLog.getActivityId());
       }
 
       c8Client.insertJob(dbModel);

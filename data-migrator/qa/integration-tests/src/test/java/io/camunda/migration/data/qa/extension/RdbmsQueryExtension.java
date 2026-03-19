@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.extension;
 import io.camunda.migration.data.impl.DataSourceRegistry;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -55,22 +54,14 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
   private static ApplicationContext applicationContext;
   private JdbcTemplate jdbcTemplate;
   private TransactionTemplate transactionTemplate;
-  private final Function<DataSourceRegistry, DataSource> dataSourceSelector;
 
   /**
    * Creates extension using the migrator data source (C8 when configured, otherwise C7).
+   * <p>
+   * This extension uses the migrator data source and transaction template together,
+   * ensuring that all database operations run within the correct transaction context.
    */
   public RdbmsQueryExtension() {
-    this(DataSourceRegistry::getMigratorDataSource);
-  }
-
-  /**
-   * Creates extension using a specific data source from the registry.
-   *
-   * @param dataSourceSelector function to select the data source from the registry
-   */
-  public RdbmsQueryExtension(Function<DataSourceRegistry, DataSource> dataSourceSelector) {
-    this.dataSourceSelector = dataSourceSelector;
   }
 
   @Override
@@ -86,7 +77,7 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
 
     if (jdbcTemplate == null && applicationContext != null) {
       DataSourceRegistry registry = applicationContext.getBean(DataSourceRegistry.class);
-      DataSource dataSource = dataSourceSelector.apply(registry);
+      DataSource dataSource = registry.getMigratorDataSource();
       jdbcTemplate = new JdbcTemplate(dataSource);
       transactionTemplate = registry.getMigratorTxTemplate();
     }

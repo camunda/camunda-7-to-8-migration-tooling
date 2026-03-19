@@ -90,8 +90,10 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       resolveJobKey(auditLogDbModelBuilder, c7AuditLog);
 
       // Assign partition: inherit from root process instance, or use random if none
-      int partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7AuditLog.getRootProcessInstanceId());
-      auditLogDbModelBuilder.partitionId(partitionId);
+      Integer partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7AuditLog.getRootProcessInstanceId());
+      if (partitionId != null) {
+        auditLogDbModelBuilder.partitionId(partitionId);
+      } // else: only null when anyway skipped later
 
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
@@ -102,6 +104,10 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
 
       if (c7AuditLog.getProcessInstanceId() != null && dbModel.processInstanceKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      }
+
+      if (c7AuditLog.getRootProcessInstanceId() != null && dbModel.rootProcessInstanceKey() == null) {
+        throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
       }
 
       if (c7AuditLog.getTaskId() != null && dbModel.userTaskKey() == null) {
@@ -135,24 +141,16 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
   protected void resolveProcessInstanceKeys(Builder builder, UserOperationLogEntry c7AuditLog) {
     String c7ProcessInstanceId = c7AuditLog.getProcessInstanceId();
     String c7RootProcessInstanceId = c7AuditLog.getRootProcessInstanceId();
-    if (c7ProcessInstanceId != null) {
-      if (isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-        var processInstanceId = findProcessInstanceByC7Id(c7ProcessInstanceId).processInstanceKey();
-        builder.processInstanceKey(processInstanceId);
-        if (EntityTypes.PROCESS_INSTANCE.equals(c7AuditLog.getEntityType())) {
-          builder.entityKey(String.valueOf(processInstanceId));
-        }
+    if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+      var processInstanceId = findProcessInstanceByC7Id(c7ProcessInstanceId).processInstanceKey();
+      builder.processInstanceKey(processInstanceId);
+      if (EntityTypes.PROCESS_INSTANCE.equals(c7AuditLog.getEntityType())) {
+        builder.entityKey(String.valueOf(processInstanceId));
+      }
 
-        if (c7RootProcessInstanceId != null) {
-          if (isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-            ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
-          } else {
-            throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
-          }
-        }
-      } else {
-        throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_INSTANCE);
+      if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+        ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+        builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
       }
     }
   }

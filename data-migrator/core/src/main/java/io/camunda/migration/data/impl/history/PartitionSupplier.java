@@ -5,8 +5,12 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-package io.camunda.migration.data.impl.util;
+package io.camunda.migration.data.impl.history;
 
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.INVALID_PARTITION_COUNT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.PARTITION_COUNT_PROPERTY;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logFetchedPartitionsFromTopology;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logUsingConfiguredPartitionCount;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -15,8 +19,6 @@ import io.camunda.migration.data.impl.clients.DbClient;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.stream.IntStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -37,9 +39,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class PartitionSupplier {
 
-  protected static final Logger LOG = LoggerFactory.getLogger(PartitionSupplier.class);
-
-  public static final String PARTITION_COUNT_PROPERTY = "camunda.migrator.history.partition-count";
 
   @Autowired
   protected C8Client c8Client;
@@ -66,17 +65,22 @@ public class PartitionSupplier {
    * partition count is configured, this method throws an exception with guidance
    * on how to configure offline mode.
    *
+   * @throws IllegalArgumentException if the configured partition count is less than 1
    */
   public void initialize() {
     Integer configuredPartitionCount = getConfiguredPartitionCount();
     if (configuredPartitionCount != null) {
+      if (configuredPartitionCount < 1) {
+        throw new IllegalArgumentException(
+            String.format(INVALID_PARTITION_COUNT, configuredPartitionCount, PARTITION_COUNT_PROPERTY));
+      }
       partitionIds = IntStream.rangeClosed(1, configuredPartitionCount)
           .boxed()
           .toList();
-      LOG.info("Using configured partition count: {} (partition IDs: {})", configuredPartitionCount, partitionIds);
+      logUsingConfiguredPartitionCount(configuredPartitionCount, partitionIds);
     } else {
       partitionIds = c8Client.fetchPartitionIds();
-      LOG.info("Fetched {} Zeebe partition(s) from topology: {}", partitionIds.size(), partitionIds);
+      logFetchedPartitionsFromTopology(partitionIds.size(), partitionIds);
     }
   }
 
@@ -107,7 +111,7 @@ public class PartitionSupplier {
    * @return the assigned partition ID, or a random partition ID when no root process instance is given
    * @throws IllegalStateException if no partition ID is recorded for the given root process instance
    */
-  public int getPartitionIdByRootProcessInstance(String c7RootProcessInstanceId) {
+  public Integer getPartitionIdByRootProcessInstance(String c7RootProcessInstanceId) {
     if (c7RootProcessInstanceId == null) {
       return getRandomPartitionId();
     }
