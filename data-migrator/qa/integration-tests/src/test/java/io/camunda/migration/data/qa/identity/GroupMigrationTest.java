@@ -8,7 +8,6 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
-import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.CANNOT_MIGRATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
 
