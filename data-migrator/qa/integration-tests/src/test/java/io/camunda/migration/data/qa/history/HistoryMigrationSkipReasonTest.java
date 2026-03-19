@@ -12,6 +12,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -122,7 +123,8 @@ public class HistoryMigrationSkipReasonTest extends HistoryMigrationAbstractTest
     logs.assertContains(formatMessage(SKIPPING, entityType, c7Id, expectedSkipReason));
   }
 
-  protected void assertPersistedSkipReasonClearedForMigrated(IdKeyMapper.TYPE type) {
+  @WhiteBox
+  protected void assertPersistedSkipReasonClearedForMigrated(TYPE type) {
     var migrated = idKeyMapper.findMigratedByType(type, 0, 10);
     assertThat(migrated).hasSize(1);
     IdKeyDbModel mapping = migrated.getFirst();
