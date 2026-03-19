@@ -26,6 +26,7 @@ function SkippedEntities({camundaAPI}) {
   const cockpitApi = camundaAPI.cockpitApi;
   const engine = camundaAPI.engine;
   const restApi = '/engine-rest';
+  const operateUrl = window.camCockpitConf?.operateUrl;
 
   const getEntityLink = (entity) => {
     if (entity.type === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE) {
@@ -119,8 +120,9 @@ function SkippedEntities({camundaAPI}) {
       if (!showSkipped) {
         baseColumns.push(columnHelper.accessor('c8Key', {
           header: 'C8 Key',
-          cell: info =>
-            <a href={`http://localhost:8080/operate/processes/${info.getValue()}`} target={"_blank"}>{info.getValue()}</a>,
+          cell: info => operateUrl
+            ? <a href={`${operateUrl}/processes/${info.getValue()}`}>{info.getValue()}</a>
+            : info.getValue(),
         }));
       }
 
@@ -200,7 +202,7 @@ function SkippedEntities({camundaAPI}) {
 
       return baseColumns;
     },
-    [selectedType, processInstanceIds, showSkipped, viewMode, processDefinitionKeys, variableMetadata]
+    [selectedType, processInstanceIds, showSkipped, viewMode, processDefinitionKeys, variableMetadata, operateUrl]
   );
 
   const getEntityTypeLabel = (entityType) => {
