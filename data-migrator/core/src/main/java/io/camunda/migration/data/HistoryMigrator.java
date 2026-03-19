@@ -29,7 +29,7 @@ import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
-import io.camunda.migration.data.impl.util.PartitionSupplier;
+import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.impl.util.PrintUtils;
 import java.util.ArrayList;
 import java.util.List;

@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.Builder;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -104,22 +105,18 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
       // Check if this is a standalone decision (not triggered by a BPMN)
       var isStandaloneDecision = c7DecisionInstance.getProcessDefinitionKey() == null;
 
-      var c7RootDecisionInstanceId = c7DecisionInstance.getRootDecisionInstanceId();
-
       if (isMigrated(c7DecisionInstance.getDecisionDefinitionId(), HISTORY_DECISION_DEFINITION)) {
         var decisionDefinition = findDecisionDefinition(c7DecisionInstance.getDecisionDefinitionId());
         if (decisionDefinition != null) {
-          if (decisionDefinition.decisionDefinitionKey() != null) {
-            builder.decisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
+          Long decisionDefinitionKey = decisionDefinition.decisionDefinitionKey();
+          if (decisionDefinitionKey != null) {
+            builder.decisionDefinitionKey(decisionDefinitionKey);
+            builder.rootDecisionDefinitionKey(decisionDefinitionKey);
           }
           if (decisionDefinition.decisionRequirementsKey() != null) {
             builder.decisionRequirementsKey(decisionDefinition.decisionRequirementsKey());
           }
-          if (c7RootDecisionInstanceId == null) {
-            builder.rootDecisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
-          }
         }
-
 
         if (!isStandaloneDecision) {
           if (isMigrated(c7DecisionInstance.getProcessDefinitionId(), HISTORY_PROCESS_DEFINITION)) {
@@ -180,8 +177,12 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
 
       migrateChildDecisionInstances(c7DecisionInstance, dbModel);
 
-      if (dbModel.decisionDefinitionKey() == null || dbModel.decisionRequirementsKey() == null) {
+      if (dbModel.decisionDefinitionKey() == null || dbModel.rootDecisionDefinitionKey() == null) {
         throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_DEFINITION);
+      }
+
+      if (dbModel.decisionRequirementsKey() == null) {
+        throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
       }
 
       if (!isStandaloneDecision) {

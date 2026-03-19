@@ -93,7 +93,7 @@ public class IdKeyDbModel {
 
   @Override
   public String toString() {
-    return "IdKey[" + "c8Key=" + c8Key + ", " + "c7Id=" + c7Id + ", " + "type=" + type + ']';
+    return "IdKey[" + "c8Key=" + c8Key + ", " + "c7Id=" + c7Id + ", " + "type=" + type + "partitionId=" + partitionId + ']';
   }
 
 }

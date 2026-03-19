@@ -40,7 +40,7 @@ import io.camunda.migration.data.impl.history.migrator.UserTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 
 import io.camunda.migration.data.impl.identity.DefinitionLookupService;
-import io.camunda.migration.data.impl.util.PartitionSupplier;
+import io.camunda.migration.data.impl.history.PartitionSupplier;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;

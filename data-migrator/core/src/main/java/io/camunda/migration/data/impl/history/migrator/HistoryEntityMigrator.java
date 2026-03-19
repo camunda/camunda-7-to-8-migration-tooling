@@ -34,7 +34,7 @@ import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
-import io.camunda.migration.data.impl.util.PartitionSupplier;
+import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.util.ObjectBuilder;
@@ -84,12 +84,6 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   protected MigratorMode mode = MIGRATE;
 
-  /**
-   * Overrides {@link HistoryEntityMigrator#markMigrated} to persist the partition ID
-   * alongside the C8 key in the {@code MIGRATION_MAPPING} table. Child entity migrators
-   * (flow nodes, variables, user tasks, etc.) later look up the partition ID from the DB
-   * so that the same partition is used for all entities belonging to the same process instance.
-   */
   protected void markMigrated(C7Entity<?> c7Entity, MigrationResult result) {
     if (RETRY_SKIPPED.equals(mode)) {
       dbClient.updateC8KeyAndClearSkipReason(c7Entity.getId(), result.c8Key(), c7Entity.getType(), result.partitionId());
