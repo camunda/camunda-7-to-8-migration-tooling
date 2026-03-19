@@ -76,7 +76,7 @@ public class IdentityMigrator {
   }
 
   protected void migrate() {
-    migrateUsers();
+//    migrateUsers();
     migrateGroups();
     migrateTenants();
     migrateAuthorizations();
