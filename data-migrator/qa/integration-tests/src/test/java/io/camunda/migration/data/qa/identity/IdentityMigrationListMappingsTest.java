@@ -84,7 +84,7 @@ public class IdentityMigrationListMappingsTest extends IdentityMigrationAbstract
     identityMigrator.start();
 
     List<io.camunda.client.api.search.response.Authorization> tenants = testHelper.awaitAuthorizationsCountAndGet(1, USERNAME);
-    String C8key = tenants.getFirst().getAuthorizationKey();
+    String c8key = tenants.getFirst().getAuthorizationKey();
 
     // when
     identityMigrator.setMode(LIST_MIGRATED);
@@ -97,7 +97,7 @@ public class IdentityMigrationListMappingsTest extends IdentityMigrationAbstract
     assertThat(migratedEntitiesByType).containsKey(TYPE.AUTHORIZATION.getDisplayName());
     List<String> authMappings = migratedEntitiesByType.get(TYPE.AUTHORIZATION.getDisplayName());
     assertThat(authMappings).hasSize(1);
-    assertThat(authMappings).anyMatch(line -> line.startsWith(auth1.getId() + " " + C8key));
+    assertThat(authMappings).anyMatch(line -> line.startsWith(auth1.getId() + " " + c8key));
   }
 
   @Test

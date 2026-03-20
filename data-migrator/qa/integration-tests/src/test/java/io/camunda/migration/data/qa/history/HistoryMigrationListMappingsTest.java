@@ -75,14 +75,18 @@ public class HistoryMigrationListMappingsTest extends HistoryMigrationAbstractTe
         // then every history type should appear in the output
         String outputStr = output.getOut();
         List<String> expectedTypes = List.of(
-            "Historic Process Definition",
-            "Historic Process Instance",
-            "Historic Incident",
-            "Historic Variable",
-            "Historic User Task",
-            "Historic Flow Node",
-            "Historic Decision Instance",
-            "Historic Decision Definition"
+            TYPE.HISTORY_PROCESS_DEFINITION.getDisplayName(),
+            TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName(),
+            TYPE.HISTORY_INCIDENT.getDisplayName(),
+            TYPE.HISTORY_VARIABLE.getDisplayName(),
+            TYPE.HISTORY_USER_TASK.getDisplayName(),
+            TYPE.HISTORY_FLOW_NODE.getDisplayName(),
+            TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(),
+            TYPE.HISTORY_DECISION_DEFINITION.getDisplayName(),
+            TYPE.HISTORY_DECISION_REQUIREMENT.getDisplayName(),
+            TYPE.HISTORY_AUDIT_LOG.getDisplayName(),
+            TYPE.HISTORY_FORM_DEFINITION.getDisplayName(),
+            TYPE.HISTORY_JOB.getDisplayName()
         );
         for (String displayName : expectedTypes) {
             assertThat(
