@@ -64,12 +64,17 @@ public class IdentityTestHelper {
     return tenant;
   }
 
-  protected void createUserInC7(String username, String firstName, String lastName) {
+  protected void createUserInC7(String username, String firstName, String lastName, String email) {
     User user = identityService.newUser(username);
     user.setFirstName(firstName);
     user.setLastName(lastName);
     user.setPassword("pswd");
+    user.setEmail(email);
     identityService.saveUser(user);
+  }
+
+  protected void createUserInC7(String username, String firstName, String lastName) {
+    createUserInC7(username, firstName, lastName, null);
   }
 
   protected Group createGroupInC7(String groupId, String groupName) {

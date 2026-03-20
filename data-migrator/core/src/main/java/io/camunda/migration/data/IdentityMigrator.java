@@ -79,7 +79,7 @@ public class IdentityMigrator {
   }
 
   protected void migrate() {
-//    migrateUsers();
+    migrateUsers();
     migrateGroups();
     migrateTenants();
     migrateAuthorizations();
@@ -139,10 +139,13 @@ public class IdentityMigrator {
     try {
       IdentityMigratorLogs.logMigratingUser(user.getId());
       c8Client.createUser(user);
+      Thread.sleep(1000); // test - to ensure that created users are visible when migrating memberships right after
       IdentityMigratorLogs.logMigratedUser(user.getId());
       saveRecord(IdKeyMapper.TYPE.USER, user.getId(), DEFAULT_KEY);
     } catch (MigratorException e) {
       markUserAsSkipped(user.getId(), e.getMessage());
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
     }
   }
 
