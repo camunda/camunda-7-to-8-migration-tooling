@@ -180,7 +180,7 @@ test.describe('Operate - Decision Instances', () => {
     const instanceHeader = page.locator('[data-testid="instance-header"]');
     await expect(instanceHeader).toBeVisible();
 
-    // Verify decision name is displayed
+    // Verify the decision instance key column header is displayed
     const decisionInstanceKey = instanceHeader.locator('th:has-text("Decision Instance Key")');
     await expect(decisionInstanceKey).toBeVisible();
   });
