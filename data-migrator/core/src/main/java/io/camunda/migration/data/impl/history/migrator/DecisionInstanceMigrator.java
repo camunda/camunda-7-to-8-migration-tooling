@@ -175,14 +175,8 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
 
       DecisionInstanceDbModel dbModel = convert(C7Entity.of(c7DecisionInstance), builder);
 
-      migrateChildDecisionInstances(c7DecisionInstance, dbModel);
-
       if (dbModel.decisionDefinitionKey() == null || dbModel.rootDecisionDefinitionKey() == null) {
         throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_DEFINITION);
-      }
-
-      if (dbModel.decisionRequirementsKey() == null) {
-        throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
       }
 
       if (!isStandaloneDecision) {
@@ -202,6 +196,8 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
           throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_FLOW_NODE);
         }
       }
+
+      migrateChildDecisionInstances(c7DecisionInstance, dbModel);
 
       c8Client.insertDecisionInstance(dbModel);
 
