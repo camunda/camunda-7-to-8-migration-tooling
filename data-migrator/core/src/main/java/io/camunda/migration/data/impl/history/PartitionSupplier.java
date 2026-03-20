@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.INVALID_PARTITION_COUNT;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.NO_PARTITIONS_AVAILABLE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.PARTITION_COUNT_PROPERTY;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logFetchedPartitionsFromTopology;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logUsingConfiguredPartitionCount;
@@ -66,6 +67,7 @@ public class PartitionSupplier {
    * on how to configure offline mode.
    *
    * @throws IllegalArgumentException if the configured partition count is less than 1
+   * @throws IllegalStateException if no partitions are available from the topology
    */
   public void initialize() {
     Integer configuredPartitionCount = getConfiguredPartitionCount();
@@ -80,6 +82,9 @@ public class PartitionSupplier {
       logUsingConfiguredPartitionCount(configuredPartitionCount, partitionIds);
     } else {
       partitionIds = c8Client.fetchPartitionIds();
+      if (partitionIds.isEmpty()) {
+        throw new IllegalStateException(String.format(NO_PARTITIONS_AVAILABLE, PARTITION_COUNT_PROPERTY));
+      }
       logFetchedPartitionsFromTopology(partitionIds.size(), partitionIds);
     }
   }

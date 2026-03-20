@@ -66,19 +66,58 @@ public class SchemaShutdownCleaner {
   protected void rollbackTableCreation(String prefix) {
     DataSource dataSource = dataSourceRegistry.getMigratorDataSource();
     try (Connection conn = dataSource.getConnection()) {
-      try (var stmt = conn.createStatement()) {
-        stmt.execute("DROP TABLE " + prefix + "MIGRATION_MAPPING");
+      String mappingTableName = prefix + "MIGRATION_MAPPING";
+      String changelogTableName = prefix + "DATABASECHANGELOG";
+
+      // Drop mapping table only if it exists
+      if (tableExists(conn, mappingTableName)) {
+        try (var stmt = conn.createStatement()) {
+          stmt.execute("DROP TABLE " + mappingTableName);
+        }
       }
-      // Delete migrator changelog entries so Liquibase will recreate the table on next run
-      try (var stmt = conn.prepareStatement(
-          "DELETE FROM " + prefix + "DATABASECHANGELOG WHERE FILENAME LIKE 'db/changelog/migrator/%'")) {
-        stmt.executeUpdate();
+
+      // Delete migrator changelog entries only if changelog table exists
+      if (tableExists(conn, changelogTableName)) {
+        try (var stmt = conn.prepareStatement(
+            "DELETE FROM " + changelogTableName + " WHERE FILENAME LIKE 'db/changelog/migrator/%'")) {
+          stmt.executeUpdate();
+        }
       }
+
       if (!conn.getAutoCommit()) {
         conn.commit();
       }
     } catch (Exception e) {
       throw new PersistenceException(e);
+    }
+  }
+
+  /**
+   * Checks if a table exists in the database using DatabaseMetaData.
+   * Handles case-sensitivity differences across database vendors.
+   */
+  protected boolean tableExists(Connection conn, String tableName) {
+    try {
+      var metaData = conn.getMetaData();
+      // Try exact case first
+      try (var rs = metaData.getTables(null, null, tableName, new String[]{"TABLE"})) {
+        if (rs.next()) {
+          return true;
+        }
+      }
+      // Try uppercase (for databases that store identifiers in uppercase like Oracle, H2)
+      try (var rs = metaData.getTables(null, null, tableName.toUpperCase(), new String[]{"TABLE"})) {
+        if (rs.next()) {
+          return true;
+        }
+      }
+      // Try lowercase (for databases that store identifiers in lowercase like PostgreSQL)
+      try (var rs = metaData.getTables(null, null, tableName.toLowerCase(), new String[]{"TABLE"})) {
+        return rs.next();
+      }
+    } catch (Exception e) {
+      // If metadata check fails, assume table exists and let the DROP statement handle it
+      return true;
     }
   }
 

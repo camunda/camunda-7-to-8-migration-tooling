@@ -28,6 +28,8 @@ public class HistoryMigratorLogs {
   // PartitionSupplier constants
   public static final String PARTITION_COUNT_PROPERTY = "camunda.migrator.history.partition-count";
   public static final String INVALID_PARTITION_COUNT = "Invalid partition count: %d. The property '%s' must be at least 1.";
+  public static final String NO_PARTITIONS_AVAILABLE = "No Zeebe partitions available from topology. " +
+      "Ensure the Camunda cluster is properly configured and running, or configure '%s' for offline mode.";
   public static final String USING_CONFIGURED_PARTITION_COUNT = "Using configured partition count: {} (partition IDs: {})";
   public static final String FETCHED_PARTITIONS_FROM_TOPOLOGY = "Fetched {} Zeebe partition(s) from topology: {}";
 
