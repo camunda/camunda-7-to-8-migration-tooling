@@ -99,6 +99,7 @@ import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.impl.identity.C8Authorization;
+import io.camunda.migration.data.impl.identity.SecurePasswordGenerator;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -425,11 +426,16 @@ public class C8Client {
    */
   public void createUser(org.camunda.bpm.engine.identity.User user) {
     String name = user.getFirstName() + " " + user.getLastName();
-    CreateUserCommandStep1 command = camundaClient.newCreateUserCommand().username(user.getId()).name(name).password(user.getPassword());
+    CreateUserCommandStep1 command = camundaClient.newCreateUserCommand()
+        .username(user.getId())
+        .name(name)
+        .password(SecurePasswordGenerator.generate());
     if (user.getEmail() != null) {
       command = command.email(user.getEmail());
     }
+
     callApi(command::execute, FAILED_TO_MIGRATE_USER + user.getId());
+
   }
 
   /**

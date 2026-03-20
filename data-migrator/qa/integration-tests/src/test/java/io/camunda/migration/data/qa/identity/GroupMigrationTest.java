@@ -10,11 +10,13 @@ package io.camunda.migration.data.qa.identity;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import io.camunda.client.api.search.response.Group;
 import io.camunda.migration.data.IdentityMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -93,8 +95,6 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
 
     testHelper.createUserInC7("userId1", "firstName1", "lastName1");
     testHelper.createUserInC7("userId2", "firstName2", "lastName2");
-    testHelper.createUserInC8("userId1", "firstName1", "lastName1");
-    testHelper.createUserInC8("userId2", "firstName2", "lastName2");
 
     identityService.createMembership("userId1", group1.getId());
     identityService.createMembership("userId2", group2.getId());
@@ -116,12 +116,9 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
     // given
     var group1 = testHelper.createGroupInC7("groupId1", "groupName1");
 
-    testHelper.createUserInC7("userId0", "firstName0", "lastName0");
+    testHelper.createUserInC7("userId0", "firstName0", "lastName0", "@@@"); // invalid email so it cannot get migrated
     testHelper.createUserInC7("userId1", "firstName1", "lastName1");
     testHelper.createUserInC7("userId2", "firstName2", "lastName2");
-
-    testHelper.createUserInC8("userId1", "firstName1", "lastName1");
-    testHelper.createUserInC8("userId2", "firstName2", "lastName2");
 
     identityService.createMembership("userId0", group1.getId()); // cannot be migrated because user does not exist
     identityService.createMembership("userId1", group1.getId());
@@ -135,7 +132,7 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatGroupsContain(List.of(group1), groups);
 
     // and 2 group memberships are migrated
-    testHelper.assertThatUsersForGroupContainExactly(group1.getId(), "userId1", "userId2");
+    await().timeout(3, TimeUnit.SECONDS).untilAsserted(() -> testHelper.assertThatUsersForGroupContainExactly(group1.getId(), "userId1", "userId2"));
 
     // and 1 group membership could not be migrated
     logs.assertContains(formatMessage(FAILED_TO_CREATE_GROUP_MEMBERSHIP, group1.getId(), "userId0"));
