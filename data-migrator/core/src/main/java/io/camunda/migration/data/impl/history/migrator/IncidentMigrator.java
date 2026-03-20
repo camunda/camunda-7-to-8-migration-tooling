@@ -93,8 +93,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          flowNodeInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7Incident.getActivityId()),
-              c7Incident.getProcessInstanceId(), isMultiInstance);
+          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
+              isMultiInstance);
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
