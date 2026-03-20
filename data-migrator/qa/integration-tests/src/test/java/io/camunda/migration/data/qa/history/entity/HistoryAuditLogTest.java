@@ -298,6 +298,8 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    // TODO: change assert that log is skipped
+    // TODO: add skip audit logs for the other types as well.
     assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.EVALUATE);
@@ -334,6 +336,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     // then
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    // TODO: change assert that log is skipped
     assertThat(logs).hasSize(2);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
