@@ -130,6 +130,14 @@ function App() {
     return formData;
   }
 
+  function updateFileResult(idx, result) {
+    setFileResults((prevResults) => {
+      const updated = [...prevResults];
+      updated[idx] = result;
+      return updated;
+    });
+  }
+
   async function analyzeAndConvert() {
     setStep(2);
     setFileResults(files.map(() => ({ status: "uploading" })));
@@ -147,22 +155,13 @@ function App() {
         });
 
         if (!checkResponse.ok) {
-          let errorMessage = "Analysis failed";
-          try {
-            const errorBody = await checkResponse.text();
-            if (errorBody) errorMessage = `Analysis failed: ${errorBody}`;
-          } catch { /* ignore parse errors */ }
           const result = {
             status: "error",
-            errorMessage: errorMessage,
+            errorMessage: `Analysis failed (HTTP ${checkResponse.status})`,
             originalModelXml: originalModelXml,
             checkResponseJson: null,
           };
-          setFileResults((prevResults) => {
-            const updated = [...prevResults];
-            updated[idx] = result;
-            return updated;
-          });
+          updateFileResult(idx, result);
           return result;
         }
 
@@ -173,11 +172,7 @@ function App() {
           originalModelXml: originalModelXml,
           checkResponseJson: checkResponseJson,
         };
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
+        updateFileResult(idx, result);
 
         const convertResponse = await fetch(baseUrl + "/convert", {
           body: formData,
@@ -198,22 +193,13 @@ function App() {
         }
 
         if (!convertResponse.ok) {
-          let errorMessage = "Conversion failed";
-          try {
-            const errorBody = await convertResponse.text();
-            if (errorBody) errorMessage = `Conversion failed: ${errorBody}`;
-          } catch { /* ignore parse errors */ }
           result = {
             status: "error",
-            errorMessage: errorMessage,
+            errorMessage: `Conversion failed (HTTP ${convertResponse.status})`,
             originalModelXml: originalModelXml,
             checkResponseJson: checkResponseJson,
           };
-          setFileResults((prevResults) => {
-            const updated = [...prevResults];
-            updated[idx] = result;
-            return updated;
-          });
+          updateFileResult(idx, result);
           return result;
         }
 
@@ -228,11 +214,7 @@ function App() {
           filename
         };
 
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
+        updateFileResult(idx, result);
         return result;
       })
     );

@@ -33,7 +33,7 @@ export default function DropZone({
         <img src={Paperclip} />
         <span
           className={isConverted && downloadAction && !error ? "downloadable" : ""}
-          onClick={isConverted && !error ? downloadAction : undefined}
+          onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
         >
           {name}
         </span>
