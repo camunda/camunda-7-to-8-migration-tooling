@@ -592,7 +592,10 @@ public class C8Client {
   /**
    * Fetches the available Zeebe partition IDs from the broker topology.
    *
-   * @return list of partition IDs, never empty
+   * <p>Note: This method may return an empty list if the topology response contains no brokers
+   * or partitions (e.g., misconfigured cluster). Callers should validate the result before use.
+   *
+   * @return list of partition IDs (may be empty if no partitions are discovered)
    */
   public List<Integer> fetchPartitionIds() {
     var topology = callApi(() -> camundaClient.newTopologyRequest().execute(), FAILED_TO_QUERY_TOPOLOGY + PARTITION_COUNT_PROPERTY);
