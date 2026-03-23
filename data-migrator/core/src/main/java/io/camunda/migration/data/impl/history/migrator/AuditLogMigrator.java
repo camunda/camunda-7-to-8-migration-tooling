@@ -15,16 +15,12 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingAuditLogs;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
-import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-import static org.camunda.bpm.engine.EntityTypes.DECISION_DEFINITION;
-import static org.camunda.bpm.engine.history.UserOperationLogEntry.OPERATION_TYPE_EVALUATE;
 
-import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
 import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
@@ -33,7 +29,6 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
-import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
 import java.util.function.BiConsumer;
@@ -116,7 +111,6 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       }
 
       if (c7AuditLog.getJobId() != null && dbModel.jobKey() == null) {
-        // TODO create test case
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_JOB_REFERENCE);
       }
 
