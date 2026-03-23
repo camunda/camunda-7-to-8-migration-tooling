@@ -180,9 +180,9 @@ test.describe('Operate - Decision Instances', () => {
     const instanceHeader = page.locator('[data-testid="instance-header"]');
     await expect(instanceHeader).toBeVisible();
 
-    // Verify decision name is displayed
-    const decisionName = instanceHeader.locator('th:has-text("Decision Name")');
-    await expect(decisionName).toBeVisible();
+    // Verify the decision instance key column header is displayed
+    const decisionInstanceKey = instanceHeader.locator('th:has-text("Decision Instance Key")');
+    await expect(decisionInstanceKey).toBeVisible();
   });
 
   test('should display DMN table', async ({ page }) => {
@@ -330,7 +330,10 @@ test.describe('Operate - Decision Instances', () => {
     await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Get the current decision name from the header
-    const currentDecisionName = await page.locator('[data-testid="instance-header"] td[title*="Assign Approver Group"]').textContent();
+    const currentDecisionName = await page
+      .locator('[data-testid="instance-header"]')
+      .getByText('Assign Approver Group', { exact: false })
+      .textContent();
     console.log(`Current decision: ${currentDecisionName}`);
 
     // Get the DRD panel
@@ -358,8 +361,10 @@ test.describe('Operate - Decision Instances', () => {
     expect(newUrl).not.toBe(currentUrl);
 
     // Verify the decision name changed to "Invoice Classification"
-    const newDecisionName = page.locator('[data-testid="instance-header"] td[title*="Invoice Classification"]');
-    await expect(newDecisionName).toBeVisible();
+    const header = page.locator('[data-testid="instance-header"]');
+    await expect(
+      header.getByText('Invoice Classification', { exact: false }),
+    ).toBeVisible();
 
     console.log(`Navigation successful: from "${currentDecisionName}" to "Invoice Classification"`);
     console.log(`URL changed: ${currentUrl} -> ${newUrl}`);

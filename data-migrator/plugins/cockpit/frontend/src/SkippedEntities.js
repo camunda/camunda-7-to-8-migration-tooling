@@ -120,9 +120,13 @@ function SkippedEntities({camundaAPI}) {
       if (!showSkipped) {
         baseColumns.push(columnHelper.accessor('c8Key', {
           header: 'C8 Key',
-          cell: info => operateUrl
-            ? <a href={`${operateUrl}/processes/${info.getValue()}`}>{info.getValue()}</a>
-            : info.getValue(),
+          cell: info => {
+            const isProcessInstance = selectedType === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE
+              || selectedType === ENTITY_TYPES.HISTORY_PROCESS_INSTANCE;
+            return isProcessInstance && operateUrl
+              ? <a href={`${operateUrl}/processes/${info.getValue()}`}>{info.getValue()}</a>
+              : info.getValue();
+          },
         }));
       }
 
