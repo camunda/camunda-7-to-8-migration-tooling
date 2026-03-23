@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.history.migrator;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 import static io.camunda.migration.data.config.property.history.CleanupProperties.DEFAULT_TTL;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_MULTI_INSTANCE_BODY_SUFFIX;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigrating;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigrationCompleted;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logRetrying;
@@ -18,6 +19,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
@@ -319,17 +321,28 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   /**
    * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
    *
-   * <p>When exactly one C8 flow node matches the given {@code activityId} and process instance,
-   * its key is returned directly. When multiple flow nodes match (multi-instance activities),
-   * the method sets {@code isMultiInstance} to {@code true} and returns {@code null} because
-   * a deterministic mapping to the correct flow node instance is not possible.
-   * Callers should inspect {@code isMultiInstance} to distinguish "not found" from
-   * "ambiguous due to multi-instance".
+   * <p>The method first checks whether the {@code activityId} contains the
+   * {@code #multiInstanceBody} suffix. If so, {@code isMultiInstance} is set to {@code true}
+   * and {@code null} is returned immediately — a multi-instance body cannot be mapped to a single
+   * flow node instance.
    *
-   * @param activityId        the C7 activity ID (BPMN element ID)
+   * <p>Otherwise, the method searches C8 for flow nodes matching the sanitized {@code activityId}
+   * within the migrated process instance. When at least one C8 flow node exists, the method queries
+   * C7 for all historic activity instances with the same {@code activityId} and
+   * {@code processInstanceId}. This is necessary because only some of the flow nodes may have been
+   * migrated at this point. If more than one C7 activity instance exists, the activity is part of a
+   * multi-instance configuration, so {@code isMultiInstance} is set to {@code true} and {@code null}
+   * is returned. When exactly one C8 flow node matches and the activity is not multi-instance, its
+   * key is returned directly.
+   *
+   * <p>Callers should inspect {@code isMultiInstance} to distinguish "not found" from "ambiguous
+   * due to multi-instance".
+   *
+   * @param activityId        the C7 activity ID (BPMN element ID), may include the
+   *                          {@code #multiInstanceBody} suffix
    * @param processInstanceId the C7 process instance ID
-   * @param isMultiInstance   mutable flag set to {@code true} when multiple C8 flow nodes exist
-   *                          for the same activity, indicating a multi-instance scenario
+   * @param isMultiInstance   mutable flag set to {@code true} when the activity is detected as
+   *                          multi-instance, indicating an ambiguous mapping
    * @return the C8 flow node instance key, or {@code null} if not found or ambiguous
    */
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId, AtomicBoolean isMultiInstance) {
@@ -338,16 +351,26 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       return null;
     }
 
+    if (activityId.endsWith(C7_MULTI_INSTANCE_BODY_SUFFIX)) {
+      // C8 flow node can't be determinated
+      isMultiInstance.set(true);
+      return null;
+    }
+
     List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
         builder -> builder.filter(FlowNodeInstanceFilter.of(
-            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+            filter -> filter.flowNodeIds(sanitizeFlowNodeId(activityId)).processInstanceKeys(processInstanceKey)))));
 
     if (!flowNodes.isEmpty()) {
+      // only some of the flow nodes might have been migrated at this point so first check how many entities are in C7
+      var historicActivityInstances = c7Client.findHistoricActivityInstances(activityId, processInstanceId);
+      if (historicActivityInstances != null && historicActivityInstances.size() > 1) {
+        // C8 flow node can't be determinated
+        isMultiInstance.set(true);
+        return null;
+      }
       if (flowNodes.size() == 1) {
         return flowNodes.getFirst().flowNodeInstanceKey();
-      }
-      if (flowNodes.size() > 1) {
-        isMultiInstance.set(true);
       }
     }
     return null;
