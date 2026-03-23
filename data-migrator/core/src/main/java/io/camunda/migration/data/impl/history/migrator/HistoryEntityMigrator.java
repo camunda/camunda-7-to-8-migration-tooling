@@ -21,6 +21,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
+import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -37,6 +38,7 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import io.camunda.search.filter.FlowNodeInstanceFilter;
 import io.camunda.util.ObjectBuilder;
 import java.time.OffsetDateTime;
 import java.time.Period;
