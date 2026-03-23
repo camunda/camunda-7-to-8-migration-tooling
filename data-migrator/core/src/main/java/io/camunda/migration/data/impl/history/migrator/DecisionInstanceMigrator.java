@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.Builder;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -24,8 +25,6 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
-import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.DecisionInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -35,7 +34,6 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
-import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.time.OffsetDateTime;
 import java.time.Period;
@@ -97,7 +95,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public Long migrateTransactionally(HistoricDecisionInstance c7DecisionInstance) {
+  public MigrationResult migrateTransactionally(HistoricDecisionInstance c7DecisionInstance) {
     var c7DecisionInstanceId = c7DecisionInstance.getId();
     if (shouldMigrate(c7DecisionInstanceId, TYPE.HISTORY_DECISION_INSTANCE)) {
       HistoryMigratorLogs.migratingDecisionInstance(c7DecisionInstanceId);
@@ -107,27 +105,16 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
       // Check if this is a standalone decision (not triggered by a BPMN)
       var isStandaloneDecision = c7DecisionInstance.getProcessDefinitionKey() == null;
 
-      var c7RootDecisionInstanceId = c7DecisionInstance.getRootDecisionInstanceId();
-
       if (isMigrated(c7DecisionInstance.getDecisionDefinitionId(), HISTORY_DECISION_DEFINITION)) {
         var decisionDefinition = findDecisionDefinition(c7DecisionInstance.getDecisionDefinitionId());
         if (decisionDefinition != null) {
-          if (decisionDefinition.decisionDefinitionKey() != null) {
-            builder.decisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
+          Long decisionDefinitionKey = decisionDefinition.decisionDefinitionKey();
+          if (decisionDefinitionKey != null) {
+            builder.decisionDefinitionKey(decisionDefinitionKey);
+            builder.rootDecisionDefinitionKey(decisionDefinitionKey);
           }
           if (decisionDefinition.decisionRequirementsKey() != null) {
             builder.decisionRequirementsKey(decisionDefinition.decisionRequirementsKey());
-          }
-          if (c7RootDecisionInstanceId == null) {
-            builder.rootDecisionDefinitionKey(decisionDefinition.decisionDefinitionKey());
-          }
-        }
-
-        if (c7RootDecisionInstanceId != null && isMigrated(c7RootDecisionInstanceId, HISTORY_DECISION_INSTANCE)) {
-          var rootDecisionInstance = findDecisionInstance(c7RootDecisionInstanceId);
-          if (rootDecisionInstance != null && rootDecisionInstance.decisionDefinitionKey() != null) {
-            var rootDecisionDefinitionKey = rootDecisionInstance.decisionDefinitionKey();
-            builder.rootDecisionDefinitionKey(rootDecisionDefinitionKey);
           }
         }
 
@@ -142,7 +129,8 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
           if (isMigrated(c7DecisionInstance.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
             var processInstance = findProcessInstanceByC7Id(c7DecisionInstance.getProcessInstanceId());
             if (processInstance != null && processInstance.processInstanceKey() != null) {
-              builder.processInstanceKey(processInstance.processInstanceKey());
+              builder.processInstanceKey(processInstance.processInstanceKey())
+                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7DecisionInstance.getRootProcessInstanceId()));
             }
           }
 
@@ -156,7 +144,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
           if (isMigrated(c7DecisionInstance.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
             var flowNodeInstanceKey = findFlowNodeInstanceKey(c7DecisionInstance.getActivityInstanceId());
             if (flowNodeInstanceKey != null) {
-              var flowNode = findFlowNode(flowNodeInstanceKey);
+              var flowNode = c8Client.findFlowNodeOrThrow(flowNodeInstanceKey);
               if (flowNode.flowNodeInstanceKey() != null) {
                 builder.flowNodeInstanceKey(flowNode.flowNodeInstanceKey());
               }
@@ -166,6 +154,9 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
               }
             }
           }
+        } else {
+          // Standalone decisions (not tied to a process instance) get a random partition
+          builder.partitionId(partitionSupplier.getRandomPartitionId());
         }
       }
 
@@ -184,14 +175,8 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
 
       DecisionInstanceDbModel dbModel = convert(C7Entity.of(c7DecisionInstance), builder);
 
-      migrateChildDecisionInstances(c7DecisionInstance, dbModel);
-
-      if (dbModel.decisionDefinitionKey() == null || dbModel.decisionRequirementsKey() == null) {
+      if (dbModel.decisionDefinitionKey() == null || dbModel.rootDecisionDefinitionKey() == null) {
         throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_DECISION_DEFINITION);
-      }
-
-      if (c7RootDecisionInstanceId != null && dbModel.rootDecisionDefinitionKey() == null) {
-        throw new EntitySkippedException(c7DecisionInstance, SKIP_REASON_MISSING_ROOT_DECISION_INSTANCE);
       }
 
       if (!isStandaloneDecision) {
@@ -212,9 +197,11 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
         }
       }
 
+      migrateChildDecisionInstances(c7DecisionInstance, dbModel);
+
       c8Client.insertDecisionInstance(dbModel);
 
-      return dbModel.decisionInstanceKey();
+      return MigrationResult.of(dbModel.decisionInstanceKey());
     }
 
     return null;
@@ -237,9 +224,11 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
             .decisionRequirementsKey(parentDbModel.decisionRequirementsKey())
             .processDefinitionKey(parentDbModel.processDefinitionKey())
             .processInstanceKey(parentDbModel.processInstanceKey())
+            .rootProcessInstanceKey(parentDbModel.rootProcessInstanceKey())
             .rootDecisionDefinitionKey(parentDbModel.rootDecisionDefinitionKey())
             .flowNodeInstanceKey(parentDbModel.flowNodeInstanceKey())
             .flowNodeId(parentDbModel.flowNodeId())
+            .partitionId(parentDbModel.partitionId())
             .decisionType(determineDecisionType(childDecisionInstance))
             .historyCleanupDate(parentDbModel.historyCleanupDate());
 
@@ -264,27 +253,6 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
     }
   }
 
-  protected FlowNodeInstanceDbModel findFlowNode(Long flowNodeInstanceKey) {
-    return c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(b -> b.filter(FlowNodeInstanceFilter.of(f -> f.flowNodeInstanceKeys(flowNodeInstanceKey))))).getFirst();
-  }
-
-  protected DecisionInstanceEntity findDecisionInstance(String decisionInstanceId) {
-    if (decisionInstanceId == null) {
-      return null;
-    }
-
-    Long key = dbClient.findC8KeyByC7IdAndType(decisionInstanceId,
-        IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE);
-    if (key == null) {
-      return null;
-    }
-
-    return c8Client.searchDecisionInstances(
-            DecisionInstanceDbQuery.of(b -> b.filter(value -> value.decisionInstanceKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
-  }
 
   protected DecisionDefinitionEntity findDecisionDefinition(String decisionDefinitionId) {
     Long key = dbClient.findC8KeyByC7IdAndType(decisionDefinitionId, IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION);
@@ -292,11 +260,7 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
       return null;
     }
 
-    return c8Client.searchDecisionDefinitions(
-            DecisionDefinitionDbQuery.of(b -> b.filter(value -> value.decisionDefinitionKeys(key))))
-        .stream()
-        .findFirst()
-        .orElse(null);
+    return c8Client.findDecisionDefinitionOrThrow(key);
   }
 
   /**

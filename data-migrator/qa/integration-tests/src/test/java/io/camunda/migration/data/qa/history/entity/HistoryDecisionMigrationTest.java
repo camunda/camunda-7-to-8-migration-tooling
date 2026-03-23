@@ -581,6 +581,40 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
         .extracting(DecisionInstanceEntity::result).isEqualTo("[\"firstRule\",\"secondRule\"]");
   }
 
+  @Test
+  public void shouldPopulateRootProcessInstanceKeyForChildDecisionInstances() {
+    // given: Call activity hierarchy with business rule task in subprocess
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    deployer.deployCamunda7Process("callActivityWithBusinessRuleProcess.bpmn");
+    deployer.deployCamunda7Process("calledActivityWithBusinessRuleSubprocess.bpmn");
+
+    // Start the parent process which calls the subprocess containing the business rule task
+    runtimeService.startProcessInstanceByKey("callingProcessWithBusinessRuleId",
+        Variables.createVariables().putValue("inputA", stringValue("A")));
+
+    // when
+    historyMigrator.migrate();
+
+    // then: Verify all decision instances have the correct rootProcessInstanceKey
+    List<ProcessInstanceEntity> rootProcessInstances = searchHistoricProcessInstances("callingProcessWithBusinessRuleId");
+    assertThat(rootProcessInstances).hasSize(1);
+    Long rootProcessInstanceKey = rootProcessInstances.getFirst().processInstanceKey();
+
+    // Parent decision instance (simpleDmnWithReqs2Id - the one directly called by business rule task)
+    List<DecisionInstanceEntity> parentDecisionInstances = searchHistoricDecisionInstances("simpleDmnWithReqs2Id");
+    assertThat(parentDecisionInstances).hasSize(1);
+    assertThat(parentDecisionInstances.getFirst().rootProcessInstanceKey())
+        .as("Parent decision instance should have rootProcessInstanceKey pointing to the root process")
+        .isEqualTo(rootProcessInstanceKey);
+
+    // Child decision instance (simpleDmnWithReqs1Id - called as requirement by parent)
+    List<DecisionInstanceEntity> childDecisionInstances = searchHistoricDecisionInstances("simpleDmnWithReqs1Id");
+    assertThat(childDecisionInstances).hasSize(1);
+    assertThat(childDecisionInstances.getFirst().rootProcessInstanceKey())
+        .as("Child decision instance should inherit rootProcessInstanceKey from parent")
+        .isEqualTo(rootProcessInstanceKey);
+  }
+
   protected List<DecisionInstanceEntity> deployStartAndMigrateDmnForResultMigrationTestScenarios(String decisionId,
                                                                                                String decisionFileName) {
     deployer.deployCamunda7Decision(decisionFileName);

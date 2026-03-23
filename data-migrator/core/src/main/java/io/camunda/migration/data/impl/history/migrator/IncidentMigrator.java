@@ -77,7 +77,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricIncident c7Incident) {
+  public MigrationResult migrateTransactionally(HistoricIncident c7Incident) {
     var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
       AtomicBoolean isMultiInstance = new AtomicBoolean(false);
@@ -91,7 +91,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       builder.processDefinitionKey(processDefinitionKey);
       if (c7ProcessInstance != null) {
         processInstanceKey = c7ProcessInstance.processInstanceKey();
-        builder.processInstanceKey(processInstanceKey);
+        builder.processInstanceKey(processInstanceKey)
+            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7Incident.getRootProcessInstanceId()));
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7Incident.getActivityId()),
               c7Incident.getProcessInstanceId(), isMultiInstance);
@@ -146,7 +147,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
 
       c8Client.insertIncident(dbModel);
 
-      return dbModel.incidentKey();
+      return MigrationResult.of(dbModel.incidentKey());
     }
 
     return null;
