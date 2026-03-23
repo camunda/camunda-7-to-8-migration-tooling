@@ -376,6 +376,24 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Poracle,integration,runtime-only
 
+      - name: Dump Docker/Testcontainers logs
+        if: always()
+        run: |
+          mkdir -p docker-logs
+          docker ps -a --format '{{.ID}} {{.Names}}' > docker-logs/containers.txt
+          while read id name; do
+            echo "=== $name ($id) ===" > "docker-logs/${name}.log"
+            docker logs "$id" >> "docker-logs/${name}.log" 2>&1 || true
+          done < docker-logs/containers.txt
+      
+      - name: Upload Docker logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-logs
+          path: docker-logs
+          retention-days: 7
+
   it-runtime-mysql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -1033,24 +1051,6 @@ jobs:
       - name: Run integration tests with ${{ matrix.database }}
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration
-        
-      - name: Dump Docker/Testcontainers logs
-        if: always()
-        run: |
-          mkdir -p docker-logs
-          docker ps -a --format '{{.ID}} {{.Names}}' > docker-logs/containers.txt
-          while read id name; do
-            echo "=== $name ($id) ===" > "docker-logs/${name}.log"
-            docker logs "$id" >> "docker-logs/${name}.log" 2>&1 || true
-          done < docker-logs/containers.txt
-      
-      - name: Upload Docker logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-logs
-          path: docker-logs
-          retention-days: 7
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
