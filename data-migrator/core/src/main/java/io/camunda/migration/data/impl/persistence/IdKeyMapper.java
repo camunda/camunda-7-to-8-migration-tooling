@@ -120,6 +120,8 @@ public interface IdKeyMapper {
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 
+  long countMigratedByType(@Param("type") TYPE type);
+
   long countSkippedByType(@Param("type") TYPE type);
 
   long countSkipped();

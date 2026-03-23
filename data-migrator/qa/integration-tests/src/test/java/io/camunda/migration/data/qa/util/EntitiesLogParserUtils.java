@@ -17,67 +17,85 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Utility class for parsing skipped entities from migrator log output.
+ * Utility class for parsing entity information from migrator log output.
  * Provides common functionality for test classes that need to extract and validate
- * skipped entity information from captured console output.
+ * migrated or skipped entity information from captured console output.
  */
-public class SkippedEntitiesLogParserUtils {
+public class EntitiesLogParserUtils {
+
+    private static final Pattern MIGRATED_START_PATTERN = Pattern.compile(
+        "(Migration mappings for \\[[^\\]]+\\]:|No entities of type \\[[^\\]]+\\] were migrated)");
+    private static final Pattern MIGRATED_HEADER_PATTERN = Pattern.compile(
+        "(Migration mappings for \\[([^\\]]+)\\]:|No entities of type \\[([^\\]]+)\\] were migrated)");
+
+    private static final Pattern SKIPPED_START_PATTERN = Pattern.compile(
+        "(Previously skipped \\[[^\\]]+\\]:|No entities of type \\[[^\\]]+\\] were skipped during previous migration)");
+    private static final Pattern SKIPPED_HEADER_PATTERN = Pattern.compile(
+        "(Previously skipped \\[([^\\]]+)\\]:|No entities of type \\[([^\\]]+)\\] were skipped during previous migration)");
+
+    /**
+     * Parses the migrator output and extracts migrated entity mappings.
+     *
+     * @param output the captured console output from the migrator
+     * @return a map of entity type display names to lists of mapping strings ("c7Id c8Key")
+     */
+    public static Map<String, List<String>> parseMigratedEntitiesOutput(String output) {
+        return parseOutput(output, MIGRATED_START_PATTERN, MIGRATED_HEADER_PATTERN);
+    }
 
     /**
      * Parses the migrator output and extracts skipped entities.
-     * Filters out debug/info logs that may appear in CI environments.
      *
      * @param output the captured console output from the migrator
      * @return a map of entity type display names to lists of entity IDs
      */
     public static Map<String, List<String>> parseSkippedEntitiesOutput(String output) {
+        return parseOutput(output, SKIPPED_START_PATTERN, SKIPPED_HEADER_PATTERN);
+    }
+
+    private static Map<String, List<String>> parseOutput(String output, Pattern startPattern, Pattern headerPattern) {
         Map<String, List<String>> result = new HashMap<>();
 
-        String relevantOutput = extractRelevantOutput(output);
+        String relevantOutput = extractRelevantOutput(output, startPattern);
         if (relevantOutput.isEmpty()) {
             return result;
         }
 
-        List<EntitySection> sections = extractEntitySections(relevantOutput);
+        List<EntitySection> sections = extractEntitySections(relevantOutput, headerPattern);
 
         for (EntitySection section : sections) {
-            List<String> entityIds = extractEntityIds(section.content);
-            result.put(section.entityType, entityIds);
+            List<String> entries = extractEntries(section.content);
+            result.put(section.entityType, entries);
         }
 
         return result;
     }
 
-    protected static String extractRelevantOutput(String output) {
-        Pattern startPattern = Pattern.compile("(Previously skipped \\[[^\\]]+\\]:|No entities of type \\[[^\\]]+\\] were skipped during previous migration)");
+    private static String extractRelevantOutput(String output, Pattern startPattern) {
         Matcher matcher = startPattern.matcher(output);
         return matcher.find() ? output.substring(matcher.start()) : "";
     }
 
-    protected static List<EntitySection> extractEntitySections(String output) {
+    private static List<EntitySection> extractEntitySections(String output, Pattern headerPattern) {
         List<EntitySection> sections = new ArrayList<>();
-        Pattern headerPattern = Pattern.compile("(Previously skipped \\[([^\\]]+)\\]:|No entities of type \\[([^\\]]+)\\] were skipped during previous migration)");
         Matcher matcher = headerPattern.matcher(output);
 
         int lastEnd = 0;
         String lastEntityType = null;
 
         while (matcher.find()) {
-            // Process previous section if exists
             if (lastEntityType != null) {
                 String content = output.substring(lastEnd, matcher.start()).trim();
                 sections.add(new EntitySection(lastEntityType, content));
             }
 
-            // Extract entity type from current match and remove trailing 's' to match enum display names
             String entityType = matcher.group(2) != null ? matcher.group(2) : matcher.group(3);
-            // Both "Previously skipped" and "No entities" formats use plural names, so remove trailing 's' for both
+            // Header formats use plural names, so remove trailing 's'
             lastEntityType = entityType.endsWith("s") ?
                 entityType.substring(0, entityType.length() - 1) : entityType;
             lastEnd = matcher.end();
         }
 
-        // Process last section
         if (lastEntityType != null) {
             String content = output.substring(lastEnd).trim();
             sections.add(new EntitySection(lastEntityType, content));
@@ -86,31 +104,34 @@ public class SkippedEntitiesLogParserUtils {
         return sections;
     }
 
-    protected static List<String> extractEntityIds(String sectionContent) {
+    private static List<String> extractEntries(String sectionContent) {
         if (sectionContent.isEmpty()) {
             return new ArrayList<>();
         }
 
         return Arrays.stream(sectionContent.split("\\R"))
             .map(String::trim)
-            .filter(line -> !line.isEmpty() && !isLogLine(line))
+            .filter(line -> !line.isEmpty() && !isLogLine(line) && !isColumnHeader(line))
             .collect(Collectors.toList());
     }
 
     /**
-     * Checks if a line is a log message that should be filtered out in CI environments.
-     * This is necessary because CI may output debug/info logs mixed with actual entity IDs.
+     * Checks if a line is a column header that should be filtered out from entity entries.
      */
-    protected static boolean isLogLine(String line) {
+    private static boolean isColumnHeader(String line) {
+        return "Camunda7-Id Camunda8-Key".equals(line);
+    }
+
+    /**
+     * Checks if a line is a log message that should be filtered out in CI environments.
+     */
+    private static boolean isLogLine(String line) {
         return line.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z.*") || // ISO timestamp
                line.matches(".*(DEBUG|INFO|WARN|ERROR).*") || // Log levels
                line.matches(".*(==>|<==|Preparing:|Parameters:|Total:).*"); // SQL logging patterns
     }
 
-    /**
-     * Internal class to hold entity section information during parsing.
-     */
-    protected static class EntitySection {
+    private static class EntitySection {
         final String entityType;
         final String content;
 
