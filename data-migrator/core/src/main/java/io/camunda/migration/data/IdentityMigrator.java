@@ -39,7 +39,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class IdentityMigrator {
 
-  public static final long DEFAULT_TENANT_KEY = 1L; // Tenants do not have keys, we need a value different from null to mark them as migrated
+  public static final long DEFAULT_KEY = 1L; // For entities that don't expose keys, we need a value different from null to mark them as migrated
 
   protected MigratorMode mode = MIGRATE;
 
@@ -76,11 +76,23 @@ public class IdentityMigrator {
   }
 
   protected void migrate() {
+    migrateUsers();
+    migrateGroups();
     migrateTenants();
     migrateAuthorizations();
   }
 
   protected void listSkippedIdentityEntities() {
+    // users
+    Long skippedUsersCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.USER);
+    PrintUtils.printSkippedInstancesHeader(skippedUsersCount, IdKeyMapper.TYPE.USER);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.USER);
+
+    // groups
+    Long skippedGroupsCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.GROUP);
+    PrintUtils.printSkippedInstancesHeader(skippedGroupsCount, IdKeyMapper.TYPE.GROUP);
+    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.GROUP);
+
     // tenants
     Long skippedTenantsCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT);
     PrintUtils.printSkippedInstancesHeader(skippedTenantsCount, IdKeyMapper.TYPE.TENANT);
@@ -92,12 +104,22 @@ public class IdentityMigrator {
     dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
   }
 
+  protected void migrateUsers() {
+    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.USER);
+    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+    fetchUsersToMigrate(user -> txTemplate.executeWithoutResult(status -> migrateUser(user)));
+  }
+
+  protected void migrateGroups() {
+    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.GROUP);
+    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+    fetchGroupsToMigrate(group -> txTemplate.executeWithoutResult(status -> migrateGroup(group)));
+  }
+
   protected void migrateTenants() {
     IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.TENANT);
-
     var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
-    fetchTenantsToMigrate(tenant ->
-        txTemplate.executeWithoutResult(status -> migrateTenant(tenant)));
+    fetchTenantsToMigrate(tenant -> txTemplate.executeWithoutResult(status -> migrateTenant(tenant)));
   }
 
   protected void migrateAuthorizations() {
@@ -108,14 +130,41 @@ public class IdentityMigrator {
         txTemplate.executeWithoutResult(status -> migrateAuthorization(authorization)));
   }
 
+  protected void migrateUser(User user) {
+    try {
+      IdentityMigratorLogs.logMigratingUser(user.getId());
+      c8Client.createUser(user);
+      Thread.sleep(1000); // test - to ensure that created users are visible when migrating memberships right after
+      IdentityMigratorLogs.logMigratedUser(user.getId());
+      saveRecord(IdKeyMapper.TYPE.USER, user.getId(), DEFAULT_KEY);
+    } catch (MigratorException e) {
+      markUserAsSkipped(user.getId(), e.getMessage());
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  protected void migrateGroup(Group group) {
+    try {
+      IdentityMigratorLogs.logMigratingGroup(group);
+      c8Client.createGroup(group);
+      IdentityMigratorLogs.logMigratedGroup(group);
+      saveRecord(IdKeyMapper.TYPE.GROUP, group.getId(), DEFAULT_KEY);
+    } catch (MigratorException e) {
+      markGroupAsSkipped(group, e.getMessage());
+      return; // Only migrate memberships if group migration was successful
+    }
+    migrateGroupMemberships(group.getId());
+  }
+
   protected void migrateTenant(Tenant tenant) {
     try {
       IdentityMigratorLogs.logMigratingTenant(tenant);
       c8Client.createTenant(tenant);
       IdentityMigratorLogs.logMigratedTenant(tenant);
-      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_TENANT_KEY);
+      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_KEY);
     } catch (MigratorException e) {
-      markAsSkipped(tenant, e.getMessage());
+      markTenantAsSkipped(tenant, e.getMessage());
       return; // Only migrate memberships if tenant migration was successful
     }
     migrateTenantMemberships(tenant.getId());
@@ -142,10 +191,24 @@ public class IdentityMigrator {
         IdentityMigratorLogs.logMigratedAuthorization(authorization);
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());
       } catch (MigratorException e) {
-        markAsSkipped(authorization, e.getMessage());
+        markAuthorizationAsSkipped(authorization, e.getMessage());
       }
     } else {
-      markAsSkipped(authorization, mappingResult.getReason());
+      markAuthorizationAsSkipped(authorization, mappingResult.getReason());
+    }
+  }
+
+  protected void migrateGroupMemberships(String groupId) {
+    IdentityMigratorLogs.logMigratingGroupMemberships(groupId);
+    List<User> userMemberships = c7Client.findUsersForGroup(groupId);
+    for (User user : userMemberships) {
+      IdentityMigratorLogs.logMigratingGroupMembership(groupId, user.getId());
+      try {
+        c8Client.createGroupAssignment(groupId, user.getId());
+        IdentityMigratorLogs.logMigratedGroupMembership(groupId, user.getId());
+      } catch (MigratorException e) {
+        IdentityMigratorLogs.logCannotMigrateGroupMembership(groupId, user.getId(), e.getMessage());
+      }
     }
   }
 
@@ -177,17 +240,31 @@ public class IdentityMigrator {
     }
   }
 
-  protected void markAsSkipped(Authorization authorization, String reason) {
-    IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
+  protected void markUserAsSkipped(String username, String reason) {
+    IdentityMigratorLogs.logSkippedUser(username, reason);
     if (MIGRATE.equals(mode)) {
-      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
+      saveRecord(IdKeyMapper.TYPE.USER, username, null);
     }
   }
 
-  protected void markAsSkipped(Tenant tenant, String reason) {
+  protected void markGroupAsSkipped(Group group, String reason) {
+    IdentityMigratorLogs.logSkippedGroup(group, reason);
+    if (MIGRATE.equals(mode)) {
+      saveRecord(IdKeyMapper.TYPE.GROUP, group.getId(), null);
+    }
+  }
+
+  protected void markTenantAsSkipped(Tenant tenant, String reason) {
     IdentityMigratorLogs.logSkippedTenant(tenant, reason);
     if (MIGRATE.equals(mode)) {
       saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), null);
+    }
+  }
+
+  protected void markAuthorizationAsSkipped(Authorization authorization, String reason) {
+    IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
+    if (MIGRATE.equals(mode)) {
+      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
     }
   }
 
@@ -196,6 +273,28 @@ public class IdentityMigrator {
       dbClient.updateC8KeyByC7IdAndType(c7Id, c8Key, type);
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Id, c8Key, type);
+    }
+  }
+
+  protected void fetchUsersToMigrate(Consumer<User> userConsumer) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      fetchAndHandleSkippedUsers(userConsumer);
+    } else {
+      IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.USER);
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.USER);
+      IdentityMigratorLogs.logLatestId(IdKeyMapper.TYPE.USER, latestId);
+      c7Client.fetchAndHandleUsers(userConsumer, latestId);
+    }
+  }
+
+  protected void fetchGroupsToMigrate(Consumer<Group> groupConsumer) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      fetchAndHandleSkippedGroups(groupConsumer);
+    } else {
+      IdentityMigratorLogs.logFetchingLatestMigrated(IdKeyMapper.TYPE.GROUP);
+      String latestId = dbClient.findLatestIdByType(IdKeyMapper.TYPE.GROUP);
+      IdentityMigratorLogs.logLatestId(IdKeyMapper.TYPE.GROUP, latestId);
+      c7Client.fetchAndHandleGroups(groupConsumer, latestId);
     }
   }
 
@@ -229,6 +328,26 @@ public class IdentityMigrator {
         callback.accept(authorization);
       } else {
         IdentityMigratorLogs.logMissingAuthorization(authorizationId);
+      }
+    });
+  }
+
+  protected void fetchAndHandleSkippedUsers(Consumer<User> callback) {
+    dbClient.fetchAndHandleSkippedForType(IdKeyMapper.TYPE.USER, (IdKeyDbModel skipped) -> {
+      String userId = skipped.getC7Id();
+      User user = c7Client.getUser(userId);
+      if (user != null) {
+        callback.accept(user);
+      }
+    });
+  }
+
+  protected void fetchAndHandleSkippedGroups(Consumer<Group> callback) {
+    dbClient.fetchAndHandleSkippedForType(IdKeyMapper.TYPE.GROUP, (IdKeyDbModel skipped) -> {
+      String groupId = skipped.getC7Id();
+      Group group = c7Client.getGroup(groupId);
+      if (group != null) {
+        callback.accept(group);
       }
     });
   }

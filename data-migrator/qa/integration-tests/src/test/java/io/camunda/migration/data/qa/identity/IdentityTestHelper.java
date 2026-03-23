@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_AUTH;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_GROUP;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_TENANT;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,6 +20,7 @@ import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
 import io.camunda.client.api.search.request.TenantsSearchRequest;
+import io.camunda.client.api.search.response.GroupUser;
 import io.camunda.client.api.search.response.TenantGroup;
 import io.camunda.client.api.search.response.TenantUser;
 import io.camunda.zeebe.protocol.record.value.AuthorizationResourceType;
@@ -61,18 +63,24 @@ public class IdentityTestHelper {
     return tenant;
   }
 
-  protected void createUserInC7(String username, String firstName, String lastName) {
+  protected void createUserInC7(String username, String firstName, String lastName, String email) {
     User user = identityService.newUser(username);
     user.setFirstName(firstName);
     user.setLastName(lastName);
     user.setPassword("pswd");
+    user.setEmail(email);
     identityService.saveUser(user);
   }
 
-  protected void createGroupInC7(String groupId, String groupName) {
+  protected void createUserInC7(String username, String firstName, String lastName) {
+    createUserInC7(username, firstName, lastName, null);
+  }
+
+  protected Group createGroupInC7(String groupId, String groupName) {
     Group group = identityService.newGroup(groupId);
     group.setName(groupName);
     identityService.saveGroup(group);
+    return group;
   }
 
   protected Authorization createAuthorizationInC7(int type, String userId, String groupId, Resources resourceType, String resourceId, Set<Permission> permissions) {
@@ -143,6 +151,12 @@ public class IdentityTestHelper {
     return request.execute().items();
   }
 
+  protected List<io.camunda.client.api.search.response.Group> awaitGroupsCountAndGet(int expectedSize) {
+    var request = camundaClient.newGroupsSearchRequest();
+    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize);
+    return request.execute().items();
+  }
+
   protected List<io.camunda.client.api.search.response.Tenant> awaitTenantsCountAndGet(int expectedSize) {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
     await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize + 1) ; // +1 for default tenant
@@ -163,6 +177,12 @@ public class IdentityTestHelper {
     });
   }
 
+  protected void assertThatGroupsContain(List<org.camunda.bpm.engine.identity.Group> expectedGroups, List<io.camunda.client.api.search.response.Group> c8Groups) {
+    assertThat(c8Groups)
+        .extracting(io.camunda.client.api.search.response.Group::getGroupId, io.camunda.client.api.search.response.Group::getName)
+        .containsAll(expectedGroups.stream().map(group -> tuple(group.getId(), group.getName())).toList());
+  }
+
   protected void assertThatTenantsContain(List<org.camunda.bpm.engine.identity.Tenant> expectedTenants, List<io.camunda.client.api.search.response.Tenant> c8Tenants) {
     assertThat(c8Tenants)
         .extracting(io.camunda.client.api.search.response.Tenant::getTenantId, io.camunda.client.api.search.response.Tenant::getName)
@@ -172,6 +192,10 @@ public class IdentityTestHelper {
   protected void verifyAuthorizationSkippedViaLogs(String authorizationId, String ownerType, String ownerId, String resourceTypeName,
                                                    String resourceTypeId, String reason, LogCapturer logs) {
     logs.assertContains(formatMessage(SKIPPED_AUTH, authorizationId, ownerType, ownerId, resourceTypeName, resourceTypeId, reason));
+  }
+
+  protected void verifyGroupSkippedViaLogs(String groupId, String groupName, String reason, LogCapturer logs) {
+    logs.assertContains(formatMessage(SKIPPED_GROUP, groupId, groupName == null ? "null" : groupName, reason));
   }
 
   protected void verifyTenantSkippedViaLogs(String tenantId, String tenantName, String reason, LogCapturer logs) {
@@ -186,6 +210,11 @@ public class IdentityTestHelper {
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
     List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
     assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
+  }
+
+  protected void assertThatUsersForGroupContainExactly(String groupId, String... usernames) {
+    List<GroupUser> usersForGroup = camundaClient.newUsersByGroupSearchRequest(groupId).execute().items();
+    assertThat(usersForGroup).extracting(GroupUser::getUsername).containsExactlyInAnyOrder(usernames);
   }
 
   protected void assertThatGroupsForTenantContainExactly(String tenantId, String... groupIds) {
