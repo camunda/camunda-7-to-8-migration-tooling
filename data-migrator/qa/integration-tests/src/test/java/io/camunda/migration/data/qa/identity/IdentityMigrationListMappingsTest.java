@@ -83,8 +83,12 @@ public class IdentityMigrationListMappingsTest extends IdentityMigrationAbstract
         Resources.APPLICATION, "cockpit", Set.of(Permissions.ALL));
     identityMigrator.start();
 
-    List<io.camunda.client.api.search.response.Authorization> tenants = testHelper.awaitAuthorizationsCountAndGet(1, USERNAME);
-    String c8key = tenants.getFirst().getAuthorizationKey();
+    List<io.camunda.client.api.search.response.Authorization> auths = testHelper.awaitAuthorizationsCountAndGet(1, USERNAME);
+    String c8key = auths.stream()
+        .filter(a -> "operate".equals(a.getResourceId()))
+        .findFirst()
+        .orElseThrow()
+        .getAuthorizationKey();
 
     // when
     identityMigrator.setMode(LIST_MIGRATED);
