@@ -184,8 +184,10 @@ public class IdentityTestHelper {
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
-    List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
-    assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
+    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+      List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
+      assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
+    });
   }
 
   protected void assertThatGroupsForTenantContainExactly(String tenantId, String... groupIds) {
