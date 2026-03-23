@@ -6,14 +6,7 @@
 
 A tool for migrating Camunda 7 process instances and related data to Camunda 8. This migrator helps organizations seamlessly transition their process instances while preserving execution state and variables ensuring minimal disruption to ongoing business processes.
 
-> [!WARNING]  
-> **Production Readiness Status:**
-> - **Runtime Migrator**: Will be production-ready and officially supported with the Camunda 8.8 release
-> - **History Migrator**: Currently **EXPERIMENTAL** and **NOT intended for production use**. It will remain in experimental status even after the 8.8 release.
-> 
-> We encourage users to try the runtime migrator in development/testing environments and provide feedback to help us improve the tool before the 8.8 release.
-
-Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/).
+Please see the official documentation for more details: [Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/migration-tooling/data-migrator/).
 
 ## Table of Contents
 
