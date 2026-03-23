@@ -6,7 +6,7 @@ This repository contains the Camunda 7 to 8 Data Migrator, a tool that helps org
 
 **Key Points:**
 - The runtime migrator is targeting production readiness with Camunda 8.8 release
-- The history migrator is EXPERIMENTAL and not intended for production use
+- The history migrator is targeting production readiness with Camunda 8.9 release
 - This tool is critical for seamless migration with minimal disruption to business processes
 
 ## Technology Stack

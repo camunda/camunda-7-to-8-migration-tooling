@@ -153,8 +153,8 @@ public class MigratorApp {
     System.out.println("Options:");
     System.out.println("  --help              - Show this help message");
     System.out.println("  --runtime           - Migrate runtime data only");
-    System.out.println("  --history           - Migrate history data only. This option is still EXPERIMENTAL and not meant for production use.");
-    System.out.println("  --identity          - Migrate identity data only. This option is still EXPERIMENTAL and not meant for production use.");
+    System.out.println("  --history           - Migrate history data only");
+    System.out.println("  --identity          - Migrate identity data only");
     System.out.println("  --runtime --history --identity - Migrate all data in the specified order");
     System.out.println("  --list-skipped [ENTITY_TYPES...]");
     System.out.println("                    - List previously skipped migration data. For history data, optionally specify entity types to filter.");
