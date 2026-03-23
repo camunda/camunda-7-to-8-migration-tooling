@@ -597,7 +597,7 @@ public class C7Client {
   public UserOperationLogEntry getUserOperationLogEntry(String c7Id) {
     var query = historyService.createUserOperationLogQuery().operationId(c7Id).orderByTimestamp().asc().orderByOperationId().asc();
     var results = callApi(query::list,
-        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry with operationId", query));
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry with operationId", c7Id));
     return results.isEmpty() ? null : results.getFirst();
   }
 

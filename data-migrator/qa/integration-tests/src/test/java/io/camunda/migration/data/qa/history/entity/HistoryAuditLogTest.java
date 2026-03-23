@@ -45,6 +45,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   @AfterEach
   public void cleanupData() {
     identityService.clearAuthentication();
+    managementService.createJobQuery().list().forEach(job -> managementService.deleteJob(job.getId()));
     historyService.createUserOperationLogQuery().list().forEach(log ->
         historyService.deleteUserOperationLogEntry(log.getId()));
   }
@@ -387,7 +388,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
     identityService.setAuthenticatedUserId("demo");
     historyService.setRemovalTimeToHistoricDecisionInstances()
-        .absoluteRemovalTime( new Date())
+        .absoluteRemovalTime(new Date())
         .byIds(historyService.createHistoricDecisionInstanceQuery()
             .decisionDefinitionKey("Dish")
             .singleResult()

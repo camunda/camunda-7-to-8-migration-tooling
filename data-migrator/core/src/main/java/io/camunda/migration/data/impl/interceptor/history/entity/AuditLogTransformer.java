@@ -143,7 +143,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>PROCESS_INSTANCE → PROCESS_INSTANCE</li>
    *   <li>VARIABLE → VARIABLE</li>
    *   <li>TASK → USER_TASK</li>
-   *   <li>DECISION_DEFINITION → DECISION</li>
    *   <li>USER → USER</li>
    *   <li>GROUP → GROUP</li>
    *   <li>TENANT → TENANT</li>
