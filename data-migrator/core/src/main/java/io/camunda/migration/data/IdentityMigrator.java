@@ -22,6 +22,7 @@ import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
 import io.camunda.migration.data.impl.identity.AuthorizationMappingResult;
 import io.camunda.migration.data.impl.identity.C8Authorization;
+import io.camunda.migration.data.impl.identity.IdentitySync;
 import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
@@ -52,6 +53,9 @@ public class IdentityMigrator {
 
   @Autowired
   protected C8Client c8Client;
+
+  @Autowired
+  protected IdentitySync await;
 
   @Autowired
   protected AuthorizationManager authorizationManager;
@@ -139,13 +143,11 @@ public class IdentityMigrator {
     try {
       IdentityMigratorLogs.logMigratingUser(user.getId());
       c8Client.createUser(user);
-      Thread.sleep(1000); // test - to ensure that created users are visible when migrating memberships right after
       IdentityMigratorLogs.logMigratedUser(user.getId());
       saveRecord(IdKeyMapper.TYPE.USER, user.getId(), DEFAULT_KEY);
+      await.waitUserVisible(user.getId());
     } catch (MigratorException e) {
       markUserAsSkipped(user.getId(), e.getMessage());
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 

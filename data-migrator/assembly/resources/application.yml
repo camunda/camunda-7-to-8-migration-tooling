@@ -118,6 +118,12 @@ camunda:
     #    # Database driver class name
     #    driver-class-name: org.h2.Driver
 
+#    identity-sync:
+#      # Timeout in milliseconds for identity synchronization operations (default: 3000)
+#      timeout: 3000
+#      # Polling interval in milliseconds for identity synchronization operations (default: 250)
+#      poll-interval: 250
+
 # Logging configuration
 logging:
   level:

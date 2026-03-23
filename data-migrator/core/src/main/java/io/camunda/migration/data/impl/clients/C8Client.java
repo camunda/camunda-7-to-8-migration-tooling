@@ -53,6 +53,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
@@ -62,12 +63,12 @@ import io.camunda.client.api.command.CreateUserCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.fetch.GroupGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.client.api.response.PartitionInfo;
-import io.camunda.client.api.response.CreateTenantResponse;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.response.Group;
@@ -106,6 +107,7 @@ import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.IdentityMigratorException;
+import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.identity.C8Authorization;
 import io.camunda.migration.data.impl.identity.SecurePasswordGenerator;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
@@ -700,4 +702,25 @@ public class C8Client {
     }
 
   }
+  /**
+   * Checks if a user or group with the given ID exists in C8.
+   */
+  public boolean ownerExists(String userId, String groupId) {
+    Object userOrGroup = null;
+    try {
+      if (isNotBlank(userId)) {
+        userOrGroup = getUser(userId);
+      } else if (isNotBlank(groupId)) {
+        userOrGroup = getGroup(groupId);
+      }
+      return userOrGroup != null;
+    } catch (MigratorException e) {
+      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
+        return false;
+      } else {
+        throw new IdentityMigratorException("Cannot verify owner existence: " + userOrGroup, e);
+      }
+    }
+  }
+
 }

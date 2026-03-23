@@ -34,6 +34,7 @@ public class MigratorProperties {
   protected C7Properties c7;
   protected C8Properties c8;
   protected HistoryProperties history;
+  protected IdentitySyncProperties identitySync = new IdentitySyncProperties();
 
   protected List<InterceptorConfig> interceptors;
 
@@ -59,6 +60,14 @@ public class MigratorProperties {
 
   public void setC8(C8Properties c8) {
     this.c8 = c8;
+  }
+
+  public IdentitySyncProperties getIdentitySync() {
+    return identitySync;
+  }
+
+  public void setIdentitySync(IdentitySyncProperties identitySync) {
+    this.identitySync = identitySync;
   }
 
   public Boolean getAutoDdl() {

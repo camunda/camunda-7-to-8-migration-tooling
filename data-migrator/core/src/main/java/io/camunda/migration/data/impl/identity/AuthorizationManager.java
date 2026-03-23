@@ -24,7 +24,6 @@ import static org.camunda.bpm.engine.authorization.Resources.DECISION_DEFINITION
 import static org.camunda.bpm.engine.authorization.Resources.DEPLOYMENT;
 import static org.camunda.bpm.engine.authorization.Resources.PROCESS_DEFINITION;
 
-import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
@@ -37,7 +36,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.authorization.Authorization;
 import org.camunda.bpm.engine.authorization.Permission;
 import org.camunda.bpm.engine.authorization.Permissions;
@@ -100,7 +98,7 @@ public class AuthorizationManager {
       return AuthorizationMappingResult.failure(format(FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID, authorization.getResourceId(), c7ResourceType.resourceName()));
     }
 
-    if (!ownerExists(authorization.getUserId(), authorization.getGroupId())) {
+    if (!c8Client.ownerExists(authorization.getUserId(), authorization.getGroupId())) {
       return AuthorizationMappingResult.failure(FAILURE_OWNER_NOT_EXISTS);
     }
 
@@ -150,24 +148,6 @@ public class AuthorizationManager {
       return permissions.stream().filter(permission -> equals(permission, Permissions.ALL)).collect(Collectors.toSet()); // Return only ALL
     } else { // Else, remove NONE from the list and return singular permissions
       return permissions.stream().filter(permission -> !equals(permission, Permissions.NONE)).collect(Collectors.toSet());
-    }
-  }
-
-  protected boolean ownerExists(String userId, String groupId) {
-    Object userOrGroup = null;
-    try {
-      if (isNotBlank(userId)) {
-        userOrGroup = c8Client.getUser(userId);
-      } else if (isNotBlank(groupId)) {
-        userOrGroup = c8Client.getGroup(groupId);
-      }
-      return userOrGroup != null;
-    } catch (MigratorException e) {
-      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
-        return false;
-      } else {
-        throw new IdentityMigratorException("Cannot verify owner existence: " + userOrGroup, e);
-      }
     }
   }
 
