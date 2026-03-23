@@ -83,7 +83,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   protected void markMigrated(C7Entity<?> c7Entity, String c8Key) {
     if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.updateC8KeyByC7IdAndType(c7Entity.getId(), c8Key, c7Entity.getType());
+      dbClient.updateC8KeyAndClearSkipReason(c7Entity.getId(), c8Key, c7Entity.getType());
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Entity.getId(), c8Key, c7Entity.getCreationTime(), c7Entity.getType(), null);
     }
@@ -98,7 +98,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   protected void saveRecord(String c7Id, TYPE type, Date createTime, String skipReason) {
     if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.updateC8KeyByC7IdAndType(c7Id, (String) null, type);
+      dbClient.updateSkipReason(c7Id, type, skipReason);
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Id, (String) null, createTime, type, skipReason);
     }
