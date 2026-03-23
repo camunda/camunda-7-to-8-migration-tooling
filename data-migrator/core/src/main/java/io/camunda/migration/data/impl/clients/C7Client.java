@@ -203,6 +203,24 @@ public class C7Client {
   }
 
   /**
+   * Finds all historic activity instances for a given BPMN activity ID within a process instance.
+   *
+   * <p>This is used to detect multi-instance activities: when more than one activity instance exists
+   * for the same {@code activityId} within a process instance, the activity is part of a
+   * multi-instance configuration.
+   *
+   * @param activityId        the BPMN element ID (e.g., {@code "userTask1"})
+   * @param processInstanceId the C7 process instance ID
+   * @return list of matching historic activity instances, empty if none exist
+   */
+  public List<HistoricActivityInstance> findHistoricActivityInstances(String activityId, String processInstanceId) {
+    var query = historyService.createHistoricActivityInstanceQuery()
+        .activityId(activityId)
+        .processInstanceId(processInstanceId);
+    return callApi(query::list, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricActivityInstance", activityId));
+  }
+
+  /**
    * Finds the activity that started a child process instance.
    */
   public HistoricActivityInstance findCallActivityByCalledProcessInstanceId(String parentProcessInstanceId,

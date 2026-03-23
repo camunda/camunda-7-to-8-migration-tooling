@@ -116,8 +116,8 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
           }
         }
 
-        final Long elementInstanceKey = findFlowNodeInstanceKey(sanitizeFlowNodeId(c7JobLog.getActivityId()),
-            c7ProcessInstanceId, isMultiInstance);
+        final Long elementInstanceKey = findFlowNodeInstanceKey(c7JobLog.getActivityId(), c7ProcessInstanceId,
+            isMultiInstance);
         builder.elementInstanceKey(elementInstanceKey);
       }
 
