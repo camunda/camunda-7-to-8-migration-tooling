@@ -22,6 +22,8 @@ public class DbClientLogs {
 
   // DbClient Messages
   public static final String UPDATING_KEY_FOR_C7_ID = "Updating key for C7 ID [{}] with value [{}]";
+  public static final String UPDATING_KEY_AND_CLEAR_SKIP_REASON = "Updating key for C7 ID [{}] with value [{}] "
+      + "and nullifying skip reason";
   public static final String UPDATING_SKIP_REASON = "Updating skip reason for C7 ID [{}] with value [{}]";
   public static final String INSERTING_RECORD = "Inserting record [{}], [{}], [{}], [{}]";
   public static final String FOUND_CREATE_TIME_FOR_TYPE = "Latest create time for {}: {}";
@@ -44,6 +46,10 @@ public class DbClientLogs {
 
   public static void updatingC8KeyForC7Id(String c7Id, String c8Key) {
     LOGGER.debug(UPDATING_KEY_FOR_C7_ID, c7Id, c8Key);
+  }
+
+  public static void updatingC8KeyAndClearSkipReason(String c7Id, String c8Key) {
+    LOGGER.debug(UPDATING_KEY_AND_CLEAR_SKIP_REASON, c7Id, c8Key);
   }
 
   public static void updatingSkipReason(String c7Id, String skipReason) {
