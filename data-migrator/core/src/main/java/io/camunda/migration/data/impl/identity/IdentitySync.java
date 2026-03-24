@@ -37,17 +37,27 @@ public class IdentitySync {
   }
 
   /**
-   * Waits until a user is visible via Identity, or throws IllegalStateException on timeout.
+   * Waits until a user is visible via Identity, or logs and returns on timeout.
    */
   public void waitUserVisible(String username) {
-    waitUntil("User visible: ", username, () -> isUserVisible(username));
+    waitUntil("User visible: " + username, () -> c8Client.ownerExists(username, null));
   }
 
-  protected boolean isUserVisible(String username) {
-    return c8Client.ownerExists(username, null);
+  /**
+   * Waits until a group is visible via Identity, or logs and returns on timeout.
+   */
+  public void waitGroupVisible(String groupId) {
+    waitUntil("Group visible: " + groupId, () -> c8Client.ownerExists(null, groupId));
   }
 
-  protected void waitUntil(String alias, String username, Supplier<Boolean> condition) {
+  /**
+   * Waits until a tenant is visible via Identity, or logs and returns on timeout.
+   */
+  public void waitTenantVisible(String tenantId) {
+    waitUntil("Tenant visible: " + tenantId, () -> c8Client.tenantExists(tenantId));
+  }
+
+  protected void waitUntil(String alias, Supplier<Boolean> condition) {
     final Instant deadline = Instant.now().plus(timeout);
 
     while (true) {
@@ -55,7 +65,7 @@ public class IdentitySync {
         return;
       }
       if (Instant.now().isAfter(deadline)) {
-        IdentityMigratorLogs.logUserExistenceCheckTimeout(username);
+        IdentityMigratorLogs.logIdentitySyncTimeout(alias);
         return;
       }
 
@@ -63,7 +73,7 @@ public class IdentitySync {
         Thread.sleep(pollInterval.toMillis());
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
-        throw new IllegalStateException("Interrupted while waiting for condition: " + alias + username, ie);
+        throw new IllegalStateException("Interrupted while waiting for condition: " + alias, ie);
       }
     }
   }

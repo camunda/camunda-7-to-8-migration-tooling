@@ -55,6 +55,7 @@ public class IdentityMigratorLogs {
   public static final String LATEST_ID = "Latest migrated {} ID: {}";
   public static final String MISSING_AUTHORIZATION = "Authorization with ID {} can no longer be found, it might have been removed";
   public static final String INITIALIZED_SYNC_UTIL = "Initialized identity sync util with timeout [{} ms] and poll interval [{} ms]";
+  public static final String SYNC_TIMEOUT_EXCEEDED = "Wait condition for [{}] timed out";
 
   // Failure reasons constants
   public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
@@ -64,7 +65,6 @@ public class IdentityMigratorLogs {
   public static final String FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID = "Specific resource ID [%s] is not supported for resource type [%s], only wildcard is allowed";
   public static final String FAILURE_UNSUPPORTED_RESOURCE_ID = "Resource ID [%s] is not supported for resource type [%s]";
   public static final String FAILURE_UNEXPECTED_ERROR = "Unexpected error occurred while mapping authorization [%s]: %s";
-  public static final String FAILURE_NOT_PRESENT_AFTER_TIMEOUT = "User [{}] was created successfully but could not be retrieved within the configured timeout";
 
   public static void logMigratingEntities(IdKeyMapper.TYPE type) {
     LOGGER.info(STARTING_MIGRATION_OF_ENTITIES, type.name().toLowerCase());
@@ -181,8 +181,8 @@ public class IdentityMigratorLogs {
     LOGGER.warn(CANNOT_MIGRATE_GROUP_MEMBERSHIP, groupId, username, reason);
   }
 
-  public static void logUserExistenceCheckTimeout(String username) {
-    LOGGER.debug(FAILURE_NOT_PRESENT_AFTER_TIMEOUT, username);
+  public static void logIdentitySyncTimeout(String condition) {
+    LOGGER.debug(SYNC_TIMEOUT_EXCEEDED, condition);
   }
 
   public static void logInitializedSyncUtil(Long timeout, Long pollInterval) {

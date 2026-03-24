@@ -55,7 +55,7 @@ public class IdentityMigrator {
   protected C8Client c8Client;
 
   @Autowired
-  protected IdentitySync await;
+  protected IdentitySync identitySync;
 
   @Autowired
   protected AuthorizationManager authorizationManager;
@@ -145,7 +145,7 @@ public class IdentityMigrator {
       c8Client.createUser(user);
       IdentityMigratorLogs.logMigratedUser(user.getId());
       saveRecord(IdKeyMapper.TYPE.USER, user.getId(), DEFAULT_KEY);
-      await.waitUserVisible(user.getId());
+      identitySync.waitUserVisible(user.getId());
     } catch (MigratorException e) {
       markUserAsSkipped(user.getId(), e.getMessage());
     }
@@ -157,6 +157,7 @@ public class IdentityMigrator {
       c8Client.createGroup(group);
       IdentityMigratorLogs.logMigratedGroup(group);
       saveRecord(IdKeyMapper.TYPE.GROUP, group.getId(), DEFAULT_KEY);
+      identitySync.waitGroupVisible(group.getId());
     } catch (MigratorException e) {
       markGroupAsSkipped(group, e.getMessage());
       return; // Only migrate memberships if group migration was successful
@@ -170,6 +171,7 @@ public class IdentityMigrator {
       c8Client.createTenant(tenant);
       IdentityMigratorLogs.logMigratedTenant(tenant);
       saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), DEFAULT_KEY);
+      identitySync.waitTenantVisible(tenant.getId());
     } catch (MigratorException e) {
       markTenantAsSkipped(tenant, e.getMessage());
       return; // Only migrate memberships if tenant migration was successful

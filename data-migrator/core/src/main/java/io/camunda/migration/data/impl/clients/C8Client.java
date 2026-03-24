@@ -65,6 +65,7 @@ import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.fetch.GroupGetRequest;
+import io.camunda.client.api.fetch.TenantGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
@@ -612,6 +613,14 @@ public class C8Client {
   }
 
   /**
+   * Fetches a tenant by ID from C8
+   */
+  public io.camunda.client.api.search.response.Tenant getTenant(String tenantId) {
+    TenantGetRequest tenantGetRequest = camundaClient.newTenantGetRequest(tenantId);
+    return callApi(tenantGetRequest::execute, "Failed to get tenant " + tenantId);
+  }
+
+  /**
    * Fetches a user by ID from C8
    */
   public User getUser(String userId) {
@@ -723,4 +732,19 @@ public class C8Client {
     }
   }
 
+  /**
+   * Checks if a tenant with the given ID exists in C8.
+   */
+  public boolean tenantExists(String tenantId) {
+    try {
+      camundaClient.newTenantGetRequest(tenantId).execute();
+      return true;
+    } catch (MigratorException e) {
+      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
+        return false;
+      } else {
+        throw new IdentityMigratorException("Cannot verify tenant existence: " + tenantId, e);
+      }
+    }
+  }
 }
