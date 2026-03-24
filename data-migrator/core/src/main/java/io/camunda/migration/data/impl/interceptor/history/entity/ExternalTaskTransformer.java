@@ -63,9 +63,9 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .retries(0)
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(entity.getActivityId()))
-        .tenantId(getTenantId(entity.getTenantId()))
-        .partitionId(C7_HISTORY_PARTITION_ID);
-    // Note: jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
+        .tenantId(getTenantId(entity.getTenantId()));
+    // Note: partitionId is set externally by IncidentMigrator to match the parent process instance
+    // jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
     // and elementInstanceKey are set externally in ExternalTaskMigrator.
   }
 }

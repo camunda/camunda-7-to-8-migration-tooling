@@ -241,6 +241,79 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(incidents.getFirst().jobKey()).isEqualTo(job.jobKey());
   }
 
+  @Test
+  public void shouldMigrateExternalTaskWithoutFlowNode() {
+    // given: a process with an external task where flow nodes are NOT migrated
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+          .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // verify that history has been recorded
+    assertThat(historyService.createHistoricExternalTaskLogQuery().count()).isGreaterThan(0);
+
+    // when: migrate external tasks WITHOUT migrating flow nodes
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    // Note: HISTORY_FLOW_NODE is NOT migrated
+    historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
+
+    // then: the external task was migrated successfully with null elementInstanceKey
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("External task should be migrated even without flow node").hasSize(1);
+    assertThat(c8Jobs.getFirst().elementInstanceKey())
+        .as("elementInstanceKey should be null when flow nodes are not migrated")
+        .isNull();
+  }
+
+  @Test
+  public void shouldMigrateCompletedExternalTaskWithoutFlowNode() {
+    // given: a process with a completed external task where flow nodes are NOT migrated
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+          .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // lock and complete the external task
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+        .topic(TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    externalTaskService.complete(tasks.getFirst().getId(), WORKER_ID);
+
+    // verify that history has been recorded
+    assertThat(historyService.createHistoricExternalTaskLogQuery().count()).isGreaterThan(0);
+
+    // when: migrate external tasks WITHOUT migrating flow nodes
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    // Note: HISTORY_FLOW_NODE is NOT migrated
+    historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
+
+    // then: the completed external task was migrated successfully with null elementInstanceKey
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("Completed external task should be migrated even without flow node").hasSize(1);
+    assertThat(c8Jobs.getFirst().elementInstanceKey())
+        .as("elementInstanceKey should be null when flow nodes are not migrated")
+        .isNull();
+  }
+
   protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey,
                                                  String worker) {
     assertThat(job.jobKey()).isNotNull();

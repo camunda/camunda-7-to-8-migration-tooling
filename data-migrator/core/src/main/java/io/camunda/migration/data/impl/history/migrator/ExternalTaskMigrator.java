@@ -84,7 +84,7 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
    * @return the C8 job key, or {@code null} if already migrated
    */
   @Override
-  public Long migrateTransactionally(final HistoricExternalTaskLog c7ExternalTaskLog) {
+  public MigrationResult migrateTransactionally(final HistoricExternalTaskLog c7ExternalTaskLog) {
     final String c7ExternalTaskId = c7ExternalTaskLog.getExternalTaskId();
     if (shouldMigrate(c7ExternalTaskId, HISTORY_EXTERNAL_TASK)) {
       final AtomicBoolean isMultiInstance = new AtomicBoolean(false);
@@ -105,13 +105,16 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           final ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
 
-        final Long elementInstanceKey = findFlowNodeInstanceKey(
+        Long elementInstanceKey = findFlowNodeInstanceKey(
             sanitizeFlowNodeId(c7ExternalTaskLog.getActivityId()), c7ProcessInstanceId, isMultiInstance);
-        builder.elementInstanceKey(elementInstanceKey);
+        if (elementInstanceKey != null) {
+          builder.elementInstanceKey(elementInstanceKey);
+        }
       }
 
       final JobDbModel dbModel = convert(C7Entity.of(c7ExternalTaskLog), builder);
@@ -130,7 +133,7 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
 
       c8Client.insertJob(dbModel);
 
-      return jobKey;
+      return MigrationResult.of(jobKey);
     }
 
     return null;
