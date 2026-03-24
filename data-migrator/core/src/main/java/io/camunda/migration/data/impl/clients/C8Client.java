@@ -737,8 +737,7 @@ public class C8Client {
    */
   public boolean tenantExists(String tenantId) {
     try {
-      camundaClient.newTenantGetRequest(tenantId).execute();
-      return true;
+      return getTenant(tenantId) != null;
     } catch (MigratorException e) {
       if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
         return false;

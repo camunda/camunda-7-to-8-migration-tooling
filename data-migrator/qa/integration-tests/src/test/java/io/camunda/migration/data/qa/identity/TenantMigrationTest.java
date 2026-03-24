@@ -15,10 +15,8 @@ import java.util.List;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.CANNOT_MIGRATE_TENANT_MEMBERSHIP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.extension.RegisterExtension;

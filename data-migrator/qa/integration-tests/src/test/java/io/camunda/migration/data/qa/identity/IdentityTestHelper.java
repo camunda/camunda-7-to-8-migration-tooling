@@ -234,20 +234,24 @@ public class IdentityTestHelper {
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
-    await().ignoreException(ClientException.class).untilAsserted(() -> {
+    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
       List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
       assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
     });
   }
 
   protected void assertThatUsersForGroupContainExactly(String groupId, String... usernames) {
-    List<GroupUser> usersForGroup = camundaClient.newUsersByGroupSearchRequest(groupId).execute().items();
-    assertThat(usersForGroup).extracting(GroupUser::getUsername).containsExactlyInAnyOrder(usernames);
+    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+      List<GroupUser> usersForGroup = camundaClient.newUsersByGroupSearchRequest(groupId).execute().items();
+      assertThat(usersForGroup).extracting(GroupUser::getUsername).containsExactlyInAnyOrder(usernames);
+    });
   }
 
   protected void assertThatGroupsForTenantContainExactly(String tenantId, String... groupIds) {
-    List<TenantGroup> groupsForTenant = camundaClient.newGroupsByTenantSearchRequest(tenantId).execute().items();
-    assertThat(groupsForTenant).extracting(TenantGroup::getGroupId).containsExactlyInAnyOrder(groupIds);
+    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+      List<TenantGroup> groupsForTenant = camundaClient.newGroupsByTenantSearchRequest(tenantId).execute().items();
+      assertThat(groupsForTenant).extracting(TenantGroup::getGroupId).containsExactlyInAnyOrder(groupIds);
+    });
   }
 
 }
