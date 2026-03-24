@@ -146,11 +146,12 @@ public class DbClient {
    * @param c8Key the Camunda 8 key to set on the record
    * @param type the entity type (e.g. process instance, decision instance)
    */
-  public void updateC8KeyAndClearSkipReason(String c7Id, String c8Key, TYPE type) {
+  public void updateC8KeyAndClearSkipReason(String c7Id, String c8Key, TYPE type, Integer partitionId) {
     // no need to check for properties.getSaveSkipReason(),
     // since nullifying skip reason is relevant only if skip reason is saved in the first place
     DbClientLogs.updatingC8KeyAndClearSkipReason(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, c8Key, type);
+    model.setPartitionId(partitionId);
     callApi(() -> idKeyMapper.updateC8KeyAndClearSkipReason(model), FAILED_TO_UPDATE_KEY + c8Key);
   }
 
