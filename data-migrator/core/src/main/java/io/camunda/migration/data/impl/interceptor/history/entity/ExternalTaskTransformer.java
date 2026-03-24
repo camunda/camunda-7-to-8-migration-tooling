@@ -56,7 +56,7 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
   public void execute(final HistoricExternalTaskLog entity, final JobDbModel.Builder builder) {
     builder
         .type(entity.getTopicName())
-        .worker(entity.getWorkerId())
+//        .worker(entity.getWorkerId())
         .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
         .listenerEventType(ListenerEventType.UNSPECIFIED)

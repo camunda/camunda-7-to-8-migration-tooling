@@ -42,7 +42,9 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_BELONGS_TO_SKIPPED_TASK = "Belongs to a skipped task";
   public static final String SKIP_REASON_MISSING_SCOPE_KEY = "Missing scope key";
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
-  public static final String SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE = "Missing flow node due to multi instance activity";
+  public static final String SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE = "Flow node cannot be determined "
+      + "due to two tokens under the same activity id. Possible cases: multi-instance node or process isntance " 
+      + "modification";
   public static final String SKIP_REASON_MISSING_FORM = "Missing form";
   public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";

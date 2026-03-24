@@ -8,7 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -81,7 +81,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   public MigrationResult migrateTransactionally(HistoricIncident c7Incident) {
     var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
-      AtomicBoolean isMultiInstance = new AtomicBoolean(false);
+      AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
       Long processInstanceKey;
@@ -95,7 +95,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
-              isMultiInstance);
+              hasMultipleFlowNodes);
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
@@ -127,11 +127,11 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
-        if (isMultiInstance.get()) {
+        if (hasMultipleFlowNodes.get()) {
           // Multi-instance activities produce multiple flow nodes for the same activityId within a process
           // instance, making it impossible to deterministically resolve the correct flow node for this
           // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
-          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+          throw new EntitySkippedException(c7Incident, SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE);
         }
         // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
         if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {

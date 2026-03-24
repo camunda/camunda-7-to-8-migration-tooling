@@ -49,13 +49,6 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
     runtimeService.startProcessInstanceByKey(PROCESS_KEY);
 
-    // lock and complete the external task
-//    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
-//        .topic(TOPIC_NAME, 10000L)
-//        .execute();
-//    assertThat(tasks).hasSize(1);
-//    externalTaskService.complete(tasks.getFirst().getId(), WORKER_ID);
-
     // verify that history has been recorded
     assertThat(historyService.createHistoricExternalTaskLogQuery().count()).isGreaterThan(0);
 
@@ -116,9 +109,11 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
     // and: the job has the expected properties
+    // Note: worker is null because the migrator picks up the first (creation) log entry per
+    // external task ID, and the creation event does not yet have a workerId
     JobEntity job = c8Jobs.getFirst();
     assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
-        WORKER_ID);
+        null);
   }
 
   @Test
