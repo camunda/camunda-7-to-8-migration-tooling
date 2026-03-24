@@ -208,6 +208,11 @@ public class IdentityTestHelper {
     assertThat(usersForTenant).isEmpty();
   }
 
+  protected void assertNoMembershipsForGroup(String groupId) {
+    List<GroupUser> usersForGroup = camundaClient.newUsersByGroupSearchRequest(groupId).execute().items();
+    assertThat(usersForGroup).isEmpty();
+  }
+
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
     await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
