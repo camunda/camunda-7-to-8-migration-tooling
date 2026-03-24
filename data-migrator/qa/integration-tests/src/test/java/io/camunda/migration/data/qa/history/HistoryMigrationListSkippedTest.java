@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
@@ -248,6 +249,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             HISTORY_VARIABLE.getDisplayName(),
             HISTORY_AUDIT_LOG.getDisplayName(),
             HISTORY_JOB.getDisplayName(),
+            HISTORY_EXTERNAL_TASK.getDisplayName(),
             HISTORY_INCIDENT.getDisplayName(),
             HISTORY_DECISION_DEFINITION.getDisplayName(),
             HISTORY_DECISION_REQUIREMENT.getDisplayName(),

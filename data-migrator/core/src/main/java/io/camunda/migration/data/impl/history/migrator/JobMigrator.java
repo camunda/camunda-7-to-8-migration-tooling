@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -92,7 +92,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
   public MigrationResult migrateTransactionally(final HistoricJobLog c7JobLog) {
     final String c7JobId = c7JobLog.getJobId();
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
-      AtomicBoolean isMultiInstance = new AtomicBoolean(false);
+      AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
       logMigratingJob(c7JobId);
       boolean isAsyncBefore = ASYNC_BEFORE.equals(jobDefinitionConfiguration);
@@ -121,7 +121,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         }
 
         Long elementInstanceKey = findFlowNodeInstanceKey(c7JobLog.getActivityId(), c7ProcessInstanceId,
-            isMultiInstance);
+            hasMultipleFlowNodes);
         if (elementInstanceKey != null) {
           builder.elementInstanceKey(elementInstanceKey);
         }
@@ -141,8 +141,8 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
       }
 
-      if (isMultiInstance.get() && dbModel.elementInstanceKey() == null) {
-        throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+      if (hasMultipleFlowNodes.get() && dbModel.elementInstanceKey() == null) {
+        throw new EntitySkippedException(c7JobLog, SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE);
       }
 
       // For async-after jobs, element instance key is required

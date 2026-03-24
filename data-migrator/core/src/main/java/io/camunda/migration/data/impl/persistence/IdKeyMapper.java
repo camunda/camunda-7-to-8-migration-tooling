@@ -24,6 +24,7 @@ import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntit
 import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricExternalTaskLogEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricJobLogEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
@@ -44,7 +45,8 @@ public interface IdKeyMapper {
       entry(DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT),
       entry(UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG),
       entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION),
-      entry(HistoricJobLogEventEntity.class, TYPE.HISTORY_JOB)
+      entry(HistoricJobLogEventEntity.class, TYPE.HISTORY_JOB),
+      entry(HistoricExternalTaskLogEntity.class, TYPE.HISTORY_EXTERNAL_TASK)
   );
 
   enum TYPE {
@@ -61,6 +63,7 @@ public interface IdKeyMapper {
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
     HISTORY_JOB("Historic Job"),
+    HISTORY_EXTERNAL_TASK("Historic External Task"),
 
     // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),

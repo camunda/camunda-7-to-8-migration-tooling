@@ -8,15 +8,15 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 import static org.camunda.bpm.engine.runtime.Incident.FAILED_JOB_HANDLER_TYPE;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
@@ -32,6 +32,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.camunda.bpm.engine.history.HistoricIncident;
+import org.camunda.bpm.engine.runtime.Incident;
 import org.springframework.stereotype.Service;
 
 /**
@@ -80,7 +81,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   public MigrationResult migrateTransactionally(HistoricIncident c7Incident) {
     var c7IncidentId = c7Incident.getId();
     if (shouldMigrate(c7IncidentId, HISTORY_INCIDENT)) {
-      AtomicBoolean isMultiInstance = new AtomicBoolean(false);
+      AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
       HistoryMigratorLogs.migratingHistoricIncident(c7IncidentId);
       var c7ProcessInstance = findProcessInstanceByC7Id(c7Incident.getProcessInstanceId());
       Long processInstanceKey;
@@ -94,7 +95,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
-              isMultiInstance);
+              hasMultipleFlowNodes);
           builder.flowNodeInstanceKey(flowNodeInstanceKey);
 
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
@@ -126,11 +127,11 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       }
 
       if (dbModel.flowNodeInstanceKey() == null) {
-        if (isMultiInstance.get()) {
+        if (hasMultipleFlowNodes.get()) {
           // Multi-instance activities produce multiple flow nodes for the same activityId within a process
           // instance, making it impossible to deterministically resolve the correct flow node for this
           // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
-          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE);
+          throw new EntitySkippedException(c7Incident, SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE);
         }
         // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
         if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
@@ -138,7 +139,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         }
       }
 
-      if (isFailedJobIncident(c7Incident) && c7Incident.getConfiguration() != null && dbModel.jobKey() == null) {
+      if ((isFailedJobIncident(c7Incident) || isFailedExternalTaskIncident(c7Incident))
+          && c7Incident.getConfiguration() != null && dbModel.jobKey() == null) {
         // Only skip the incident when it has a job reference but the job was not successfully migrated.
         // Incidents without a configuration (e.g. propagated incidents in parent process instances)
         // do not carry a direct job reference and should be migrated without a job key.
@@ -168,13 +170,18 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
   }
 
   /**
-   * Resolves and sets the job key on the incident builder for {@code failedJob} incidents.
+   * Resolves and sets the job key on the incident builder for {@code failedJob} and
+   * {@code failedExternalTask} incidents.
    * <p>
    * If the incident is a {@code failedJob} incident and has a job reference (i.e.
    * {@code configuration} is non-null), the C8 job key is looked up in the migration tracking
    * table and set on the builder. A {@code null} key means the job was explicitly skipped
    * during migration, which will cause the incident to be skipped downstream via
    * {@code SKIP_REASON_MISSING_JOB_REFERENCE}.
+   * </p>
+   * <p>
+   * For {@code failedExternalTask} incidents, the C8 job key is looked up in the
+   * {@code HISTORY_EXTERNAL_TASK} tracking table instead.
    * </p>
    * <p>
    * Incidents with a {@code null} configuration are propagated incidents in parent process
@@ -186,14 +193,19 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * @param builder    the incident builder to set the job key on
    */
   protected void resolveJobKey(final HistoricIncident c7Incident, final Builder builder) {
-    if (!isFailedJobIncident(c7Incident)) {
+    if (!isFailedJobIncident(c7Incident) && !isFailedExternalTaskIncident(c7Incident)) {
       return;
     }
     final String c7JobId = c7Incident.getConfiguration();
     if (c7JobId == null) {
       return;
     }
-    if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
+    if (isFailedExternalTaskIncident(c7Incident)) {
+      if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK)) {
+        final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK);
+        builder.jobKey(jobKey);
+      }
+    } else if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
       final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
       builder.jobKey(jobKey);
     }
@@ -207,6 +219,16 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    */
   protected boolean isFailedJobIncident(final HistoricIncident c7Incident) {
     return FAILED_JOB_HANDLER_TYPE.equals(c7Incident.getIncidentType());
+  }
+
+  /**
+   * Returns true if this incident was caused by an external task failure.
+   *
+   * @param c7Incident the Camunda 7 incident
+   * @return true for {@code failedExternalTask} incident type
+   */
+  protected boolean isFailedExternalTaskIncident(final HistoricIncident c7Incident) {
+    return Incident.EXTERNAL_TASK_HANDLER_TYPE.equals(c7Incident.getIncidentType());
   }
 }
 

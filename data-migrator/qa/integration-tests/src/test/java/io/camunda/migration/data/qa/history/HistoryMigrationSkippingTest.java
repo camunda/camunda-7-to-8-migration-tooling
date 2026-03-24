@@ -11,7 +11,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
@@ -696,7 +696,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
     assertThat(incidents).isEmpty();
     incidentIds.forEach(id -> logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), id,
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE)));
   }
 
 
@@ -719,7 +719,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE)));
   }
 
   @Test
@@ -741,6 +741,6 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE)));
   }
 }
