@@ -109,14 +109,14 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
       final String c7ProcessInstanceId = c7JobLog.getProcessInstanceId();
       final ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
       if (processInstance != null) {
-        builder.processInstanceKey(processInstance.processInstanceKey())
-            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7JobLog.getRootProcessInstanceId()));
+        builder.processInstanceKey(processInstance.processInstanceKey());
 
         final String c7RootProcessInstanceId = c7JobLog.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           final ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
 

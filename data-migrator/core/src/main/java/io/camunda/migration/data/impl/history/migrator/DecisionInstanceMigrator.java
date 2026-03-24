@@ -129,15 +129,16 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
           if (isMigrated(c7DecisionInstance.getProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
             var processInstance = findProcessInstanceByC7Id(c7DecisionInstance.getProcessInstanceId());
             if (processInstance != null && processInstance.processInstanceKey() != null) {
-              builder.processInstanceKey(processInstance.processInstanceKey())
-                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7DecisionInstance.getRootProcessInstanceId()));
+              builder.processInstanceKey(processInstance.processInstanceKey());
             }
           }
 
-          if (isMigrated(c7DecisionInstance.getRootProcessInstanceId(), HISTORY_PROCESS_INSTANCE)) {
-            var rootProcessInstance = findProcessInstanceByC7Id(c7DecisionInstance.getRootProcessInstanceId());
+          String rootProcessInstanceId = c7DecisionInstance.getRootProcessInstanceId();
+          if (isMigrated(rootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
+            var rootProcessInstance = findProcessInstanceByC7Id(rootProcessInstanceId);
             if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-              builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+              builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(rootProcessInstanceId));
             }
           }
 

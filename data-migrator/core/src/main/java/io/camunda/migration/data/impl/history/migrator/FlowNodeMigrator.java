@@ -96,14 +96,14 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
         builder.processInstanceKey(processInstanceKey)
             .treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey))
             .processDefinitionKey(processDefinitionKey)
-            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7FlowNode.getRootProcessInstanceId()))
             .endDate(calculateCompletionDateForChild(processInstance.endDate(), c7FlowNode.getEndTime()));
 
         String c7RootProcessInstanceId = c7FlowNode.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
-          if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+          if (rootProcessInstance != null) {
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
 

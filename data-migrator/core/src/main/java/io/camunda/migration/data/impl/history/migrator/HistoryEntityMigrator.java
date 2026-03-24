@@ -88,7 +88,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
 
   protected void markMigrated(C7Entity<?> c7Entity, MigrationResult result) {
     if (RETRY_SKIPPED.equals(mode)) {
-      dbClient.updateC8KeyAndClearSkipReason(c7Entity.getId(), result.c8Key(), c7Entity.getType(), result.partitionId());
+      dbClient.updateC8KeyByC7IdAndType(c7Entity.getId(), result.c8Key(), c7Entity.getType(), result.partitionId());
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Entity.getId(), result.c8Key(), c7Entity.getCreationTime(), c7Entity.getType(), result.partitionId());
     }

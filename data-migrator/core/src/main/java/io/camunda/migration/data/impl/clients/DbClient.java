@@ -115,44 +115,13 @@ public class DbClient {
   }
 
   /**
-   * Updates a record by setting the key for an existing ID and type.
-   */
-  public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type) {
-    updateC8KeyByC7IdAndType(c7Id, c8Key, type, null);
-  }
-
-  /**
    * Updates a record by setting the key and partition ID for an existing ID and type.
    */
   public void updateC8KeyByC7IdAndType(String c7Id, String c8Key, TYPE type, Integer partitionId) {
     DbClientLogs.updatingC8KeyForC7Id(c7Id, c8Key);
     var model = createIdKeyDbModel(c7Id, c8Key, type);
     model.setPartitionId(partitionId);
-    callApi(() -> idKeyMapper.updateC8KeyByC7IdAndType(model), FAILED_TO_UPDATE_KEY + c8Key);
-  }
-
-  /**
-   * Updates an existing mapping record by setting the Camunda 8 key and clearing the skip reason.
-   *
-   * <p>This method is intended for the {@code RETRY_SKIPPED} mode, where a previously skipped
-   * entity has been successfully migrated on retry. It sets the C8 key to record the migration
-   * result and nullifies the skip reason to remove the entity from the skipped list.
-   *
-   * <p>Note: The skip reason is always cleared regardless of the
-   * {@link MigratorProperties#getSaveSkipReason()} setting, since clearing is only relevant when
-   * a skip reason was previously persisted.
-   *
-   * @param c7Id the Camunda 7 entity ID identifying the mapping record
-   * @param c8Key the Camunda 8 key to set on the record
-   * @param type the entity type (e.g. process instance, decision instance)
-   */
-  public void updateC8KeyAndClearSkipReason(String c7Id, String c8Key, TYPE type, Integer partitionId) {
-    // no need to check for properties.getSaveSkipReason(),
-    // since nullifying skip reason is relevant only if skip reason is saved in the first place
-    DbClientLogs.updatingC8KeyAndClearSkipReason(c7Id, c8Key);
-    var model = createIdKeyDbModel(c7Id, c8Key, type);
-    model.setPartitionId(partitionId);
-    callApi(() -> idKeyMapper.updateC8KeyAndClearSkipReason(model), FAILED_TO_UPDATE_KEY + c8Key);
+    callApi(() -> idKeyMapper.updateAndClearSkipReason(model), FAILED_TO_UPDATE_KEY + c8Key);
   }
 
   public void updateSkipReason(String c7Id, TYPE type, String skipReason) {

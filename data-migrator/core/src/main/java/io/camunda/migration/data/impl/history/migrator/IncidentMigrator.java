@@ -91,8 +91,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
       builder.processDefinitionKey(processDefinitionKey);
       if (c7ProcessInstance != null) {
         processInstanceKey = c7ProcessInstance.processInstanceKey();
-        builder.processInstanceKey(processInstanceKey)
-            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7Incident.getRootProcessInstanceId()));
+        builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
           flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
               isMultiInstance);
@@ -102,7 +101,8 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
             ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
             if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-              builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+              builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
             }
           }
           builder.treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey));

@@ -78,18 +78,12 @@
     FROM ${prefix}MIGRATION_MAPPING
   </select>
 
-  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
+  <update id="updateAndClearSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
-    SET C8_KEY = #{c8Key, jdbcType=VARCHAR}
+    SET C8_KEY = #{c8Key, jdbcType=VARCHAR}, SKIP_REASON = NULL
     <if test="partitionId != null">
       , PARTITION_ID = #{partitionId, jdbcType=INTEGER}
     </if>
-    WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
-  </update>
-
-  <update id="updateC8KeyAndClearSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
-    UPDATE ${prefix}MIGRATION_MAPPING
-    SET C8_KEY = #{c8Key, jdbcType=VARCHAR}, SKIP_REASON = NULL
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
   </update>
 

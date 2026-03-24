@@ -100,14 +100,14 @@ public class VariableMigrator extends HistoryEntityMigrator<HistoricVariableInst
       if (c7ProcessInstanceId != null && isMigrated(c7ProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
         ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
         Long processInstanceKey = processInstance.processInstanceKey();
-        builder.processInstanceKey(processInstanceKey)
-            .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7Variable.getRootProcessInstanceId()));
+        builder.processInstanceKey(processInstanceKey);
 
         String c7RootProcessInstanceId = c7Variable.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
       }

@@ -128,9 +128,7 @@ public interface IdKeyMapper {
 
   List<String> findAllC7Ids();
 
-  void updateC8KeyByC7IdAndType(IdKeyDbModel idKeyDbModel);
-
-  void updateC8KeyAndClearSkipReason(IdKeyDbModel idKeyDbModel);
+  void updateAndClearSkipReason(IdKeyDbModel idKeyDbModel);
 
   void updateSkipReason(IdKeyDbModel idKeyDbModel);
 

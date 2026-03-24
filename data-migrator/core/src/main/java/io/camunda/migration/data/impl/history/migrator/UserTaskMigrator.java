@@ -103,8 +103,7 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
         var processInstance = findProcessInstanceByC7Id(c7UserTask.getProcessInstanceId());
         if (processInstance != null) {
           builder.processInstanceKey(processInstance.processInstanceKey())
-              .processDefinitionVersion(processInstance.processDefinitionVersion())
-              .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7UserTask.getRootProcessInstanceId()));
+              .processDefinitionVersion(processInstance.processDefinitionVersion());
           var completionDate = calculateCompletionDateForChild(processInstance.endDate(), c7UserTask.getEndTime());
           builder.completionDate(completionDate);
         }
@@ -112,7 +111,8 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
         if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
