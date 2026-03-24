@@ -32,7 +32,7 @@
     <!-- C7 Dependencies -->
     <dependency>
       <groupId>org.camunda.bpm</groupId>
-      <artifactId>camunda-engine-spring-6</artifactId>
+      <artifactId>camunda-engine-spring</artifactId>
       <version>${version.camunda-7}</version>
       <exclusions>
         <exclusion>
