@@ -231,9 +231,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>postgresql</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -250,9 +247,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>oracle</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -269,9 +263,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>mysql</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -288,9 +279,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>mariadb</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -307,9 +295,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>sqlserver</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -326,9 +311,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>postgresql-15</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -345,9 +327,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>oracle-19</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -364,9 +343,6 @@
               <systemPropertyVariables>
                 <spring.profiles.active>mariadb-10</spring.profiles.active>
               </systemPropertyVariables>
-              <excludes>
-                <exclude>**/DropSchemaTest.java</exclude>
-              </excludes>
             </configuration>
           </plugin>
         </plugins>

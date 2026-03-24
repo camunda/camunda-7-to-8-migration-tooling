@@ -18,6 +18,7 @@ public class IdKeyDbModel {
   protected TYPE type;
   protected Date createTime;
   protected String skipReason;
+  protected Integer partitionId;
 
   public IdKeyDbModel() {
   }
@@ -67,6 +68,14 @@ public class IdKeyDbModel {
     this.skipReason = skipReason;
   }
 
+  public Integer getPartitionId() {
+    return partitionId;
+  }
+
+  public void setPartitionId(Integer partitionId) {
+    this.partitionId = partitionId;
+  }
+
   @Override
   public boolean equals(Object obj) {
     if (obj == this)
@@ -84,7 +93,7 @@ public class IdKeyDbModel {
 
   @Override
   public String toString() {
-    return "IdKey[" + "c8Key=" + c8Key + ", " + "c7Id=" + c7Id + ", " + "type=" + type + ']';
+    return "IdKey[" + "c8Key=" + c8Key + ", " + "c7Id=" + c7Id + ", " + "type=" + type + ", " + "partitionId=" + partitionId + ']';
   }
 
 }

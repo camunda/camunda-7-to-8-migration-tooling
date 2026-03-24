@@ -487,6 +487,32 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldSkipDecisionInstanceWhenDecisionRequirementsIsSkipped() {
+    // given: DMN with decision requirements and process with business rule task in C7
+    deployer.deployCamunda7Decision("simpleDmnWithReqs.dmn");
+    deployer.deployCamunda7Process("businessRuleForDmnWithReqs.bpmn");
+    runtimeService.startProcessInstanceByKey("businessRuleForDmnWithReqsId",
+        Variables.createVariables().putValue("inputA", stringValue("A")));
+    String decisionInstanceId = historyService.createHistoricDecisionInstanceQuery()
+        .decisionDefinitionKey("simpleDmnWithReqs2Id")
+        .singleResult()
+        .getId();
+
+    // when: Migrate decision instances WITHOUT decision requirements (creates real-world skip)
+    // Note: HISTORY_DECISION_REQUIREMENT is NOT migrated, so decision definitions will be skipped
+    // This causes the decision instance to be skipped due to missing decision requirements
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_DECISION_DEFINITION); // Will skip due to missing requirements
+    historyMigrator.migrateByType(HISTORY_DECISION_INSTANCE); // Skips due to missing decision requirements
+
+    // then: Decision instances are skipped because the decision definition couldn't be migrated
+    assertThat(searchHistoricDecisionInstances("simpleDmnWithReqs2Id")).isEmpty();
+    logs.assertContains(formatMessage(SKIPPING, TYPE.HISTORY_DECISION_INSTANCE.getDisplayName(), decisionInstanceId, SKIP_REASON_MISSING_DECISION_DEFINITION));
+  }
+
+  @Test
   public void shouldSkipDecisionInstanceWhenProcessDefinitionIsSkipped() {
     // given: DMN and process with business rule task in C7
     deployer.deployCamunda7Decision("simpleDmn.dmn");

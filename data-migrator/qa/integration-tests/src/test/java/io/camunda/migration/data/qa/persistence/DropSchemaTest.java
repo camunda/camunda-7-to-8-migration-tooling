@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zaxxer.hikari.HikariDataSource;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.qa.MigrationTestApplication;
+import io.camunda.migration.data.qa.util.WithMultiDb;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -20,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import javax.sql.DataSource;
+import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.RepositoryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
+@WithMultiDb
 public class DropSchemaTest {
 
   protected static final String MIGRATION_MAPPING_TABLE = "MIGRATION_MAPPING";
@@ -43,7 +46,7 @@ public class DropSchemaTest {
   @AfterEach
   void tearDown() {
     var context = new SpringApplicationBuilder(MigrationTestApplication.class).run();
-    var processEngine = context.getBean(org.camunda.bpm.engine.ProcessEngine.class);
+    var processEngine = context.getBean(ProcessEngine.class);
     RepositoryService repositoryService = processEngine.getRepositoryService();
     repositoryService.createDeploymentQuery().list()
         .forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
@@ -114,7 +117,7 @@ public class DropSchemaTest {
 
       // Create real-world skip scenario: Deploy and start process, but migrate instances without process definition
       // This causes process instances to be skipped with a real-world scenario
-      var processEngine = context.getBean(org.camunda.bpm.engine.ProcessEngine.class);
+      var processEngine = context.getBean(ProcessEngine.class);
       RepositoryService repositoryService = processEngine.getRepositoryService();
       var runtimeService = processEngine.getRuntimeService();
 
@@ -151,7 +154,7 @@ public class DropSchemaTest {
           .isTrue();
 
       // Create real-world skip scenario: Deploy and start process, but migrate instances without process definition
-      var processEngine = context.getBean(org.camunda.bpm.engine.ProcessEngine.class);
+      var processEngine = context.getBean(ProcessEngine.class);
       var repositoryService = processEngine.getRepositoryService();
       var runtimeService = processEngine.getRuntimeService();
 
@@ -226,9 +229,9 @@ public class DropSchemaTest {
    */
   protected static DataSource createDurableDataSource(ConfigurableApplicationContext context) {
     HikariDataSource durableDataSource = new HikariDataSource();
-    durableDataSource.setJdbcUrl(context.getEnvironment().getProperty("camunda.migrator.c7.data-source.jdbc-url"));
-    durableDataSource.setUsername(context.getEnvironment().getProperty("camunda.migrator.c7.data-source.username"));
-    durableDataSource.setPassword(context.getEnvironment().getProperty("camunda.migrator.c7.data-source.password"));
+    durableDataSource.setJdbcUrl(context.getEnvironment().getProperty("camunda.migrator.c8.data-source.jdbc-url"));
+    durableDataSource.setUsername(context.getEnvironment().getProperty("camunda.migrator.c8.data-source.username"));
+    durableDataSource.setPassword(context.getEnvironment().getProperty("camunda.migrator.c8.data-source.password"));
     return durableDataSource;
   }
 

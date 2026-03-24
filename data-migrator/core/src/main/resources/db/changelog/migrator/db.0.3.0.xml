@@ -60,4 +60,10 @@
     </createIndex>
   </changeSet>
 
+  <changeSet id="add_partition_id_column_to_migration_mapping" author="Camunda">
+    <addColumn tableName="${prefix}MIGRATION_MAPPING">
+      <column name="PARTITION_ID" type="INTEGER"/>
+    </addColumn>
+  </changeSet>
+
 </databaseChangeLog>

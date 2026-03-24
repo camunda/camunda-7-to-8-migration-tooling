@@ -54,7 +54,7 @@ public class ProcessDefinitionMigrator extends HistoryEntityMigrator<ProcessDefi
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public Long migrateTransactionally(ProcessDefinition c7ProcessDefinition) {
+  public MigrationResult migrateTransactionally(ProcessDefinition c7ProcessDefinition) {
     var c7Id = c7ProcessDefinition.getId();
     if (shouldMigrate(c7Id, HISTORY_PROCESS_DEFINITION)) {
       logMigratingProcessDefinition(c7Id);
@@ -67,7 +67,7 @@ public class ProcessDefinitionMigrator extends HistoryEntityMigrator<ProcessDefi
       var creationTime = c7Client.getDefinitionDeploymentTime(c7ProcessDefinition.getDeploymentId());
       var dbModel = convert(C7Entity.of(c7ProcessDefinition, creationTime), builder);
       c8Client.insertProcessDefinition(dbModel);
-      return dbModel.processDefinitionKey();
+      return MigrationResult.of(dbModel.processDefinitionKey());
     }
 
     return null;

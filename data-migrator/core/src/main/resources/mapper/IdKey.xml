@@ -15,6 +15,7 @@
     <result property="createTime" column="CREATE_TIME" jdbcType="TIMESTAMP"/>
     <result property="type" column="TYPE" jdbcType="VARCHAR"/>
     <result property="skipReason" column="SKIP_REASON" jdbcType="VARCHAR"/>
+    <result property="partitionId" column="PARTITION_ID" jdbcType="INTEGER"/>
   </resultMap>
 
   <select id="countSkipped" resultType="long">
@@ -77,15 +78,12 @@
     FROM ${prefix}MIGRATION_MAPPING
   </select>
 
-  <update id="updateC8KeyByC7IdAndType" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
-    UPDATE ${prefix}MIGRATION_MAPPING
-    SET C8_KEY = #{c8Key, jdbcType=VARCHAR}
-    WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
-  </update>
-
-  <update id="updateC8KeyAndClearSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
+  <update id="updateAndClearSkipReason" parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel">
     UPDATE ${prefix}MIGRATION_MAPPING
     SET C8_KEY = #{c8Key, jdbcType=VARCHAR}, SKIP_REASON = NULL
+    <if test="partitionId != null">
+      , PARTITION_ID = #{partitionId, jdbcType=INTEGER}
+    </if>
     WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
   </update>
 
@@ -125,12 +123,20 @@
     ${limitPagination}
   </select>
 
+  <select id="findPartitionIdByC7IdAndType" resultType="java.lang.Integer">
+    SELECT PARTITION_ID FROM ${prefix}MIGRATION_MAPPING
+    WHERE C7_ID = #{c7Id, jdbcType=VARCHAR} AND TYPE = #{type, jdbcType=VARCHAR}
+    ORDER BY C7_ID
+    <bind name="limit" value="1"/>
+    ${limitPagination}
+  </select>
+
   <insert
     id="insert"
     parameterType="io.camunda.migration.data.impl.persistence.IdKeyDbModel"
     flushCache="true">
-    INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON)
-    VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=VARCHAR}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR})
+    INSERT INTO ${prefix}MIGRATION_MAPPING (C7_ID, C8_KEY, CREATE_TIME, TYPE, SKIP_REASON, PARTITION_ID)
+    VALUES (#{c7Id, jdbcType=VARCHAR}, #{c8Key, jdbcType=VARCHAR}, #{createTime, jdbcType=TIMESTAMP}, #{type, jdbcType=VARCHAR}, #{skipReason, jdbcType=VARCHAR}, #{partitionId, jdbcType=INTEGER})
   </insert>
 
   <delete id="deleteByC7Id">
