@@ -43,11 +43,11 @@ public class IdentitySync {
     waitUntil("User visible: ", username, () -> isUserVisible(username));
   }
 
-  private boolean isUserVisible(String username) {
+  protected boolean isUserVisible(String username) {
     return c8Client.ownerExists(username, null);
   }
 
-  private void waitUntil(String alias, String username, Supplier<Boolean> condition) {
+  protected void waitUntil(String alias, String username, Supplier<Boolean> condition) {
     final Instant deadline = Instant.now().plus(timeout);
 
     while (true) {
