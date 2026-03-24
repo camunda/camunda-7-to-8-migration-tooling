@@ -116,8 +116,9 @@ public class SchemaShutdownCleaner {
         return rs.next();
       }
     } catch (Exception e) {
-      // If metadata check fails, assume table exists and let the DROP statement handle it
-      return true;
+      // If metadata check fails, conservatively assume the table does not exist and skip DROP.
+      // This keeps shutdown cleanup best-effort and avoids failing on non-existent tables.
+      return false;
     }
   }
 
