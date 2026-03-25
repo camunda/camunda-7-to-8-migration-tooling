@@ -43,7 +43,7 @@ public class FormMigrator extends HistoryEntityMigrator<CamundaFormDefinition, F
   }
 
   @Override
-  public Long migrateTransactionally(CamundaFormDefinition c7Form) {
+  public MigrationResult migrateTransactionally(CamundaFormDefinition c7Form) {
     String c7Id = c7Form.getId();
     if (shouldMigrate(c7Id, getType())) {
       logMigratingForm(c7Id);
@@ -52,7 +52,7 @@ public class FormMigrator extends HistoryEntityMigrator<CamundaFormDefinition, F
       var builder = new FormDbModelBuilder();
       FormDbModel dbModel = convert(C7Entity.of(c7Form, deploymentTime), builder);
       c8Client.insertForm(dbModel);
-      return dbModel.formKey();
+      return MigrationResult.of(dbModel.formKey());
     }
 
     return null;

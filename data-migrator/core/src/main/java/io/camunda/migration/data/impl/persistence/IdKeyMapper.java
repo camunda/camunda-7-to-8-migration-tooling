@@ -112,6 +112,8 @@ public interface IdKeyMapper {
 
   Long findC8KeyByC7IdAndType(@Param("c7Id") String id, @Param("type") TYPE type);
 
+  Integer findPartitionIdByC7IdAndType(@Param("c7Id") String id, @Param("type") TYPE type);
+
   void insert(IdKeyDbModel idKeyDbModel);
 
   List<IdKeyDbModel> findSkippedByTypeWithOffset(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
@@ -126,7 +128,7 @@ public interface IdKeyMapper {
 
   List<String> findAllC7Ids();
 
-  void updateC8KeyByC7IdAndType(IdKeyDbModel idKeyDbModel);
+  void updateAndClearSkipReason(IdKeyDbModel idKeyDbModel);
 
   void updateSkipReason(IdKeyDbModel idKeyDbModel);
 

@@ -25,8 +25,17 @@ public class HistoryMigratorLogs {
 
   public static final Logger LOGGER = LoggerFactory.getLogger(HistoryMigrator.class);
 
+  // PartitionSupplier constants
+  public static final String PARTITION_COUNT_PROPERTY = "camunda.migrator.history.partition-count";
+  public static final String INVALID_PARTITION_COUNT = "Invalid partition count: %d. The property '%s' must be at least 1.";
+  public static final String NO_PARTITIONS_AVAILABLE = "No Zeebe partitions available from topology. " +
+      "Ensure the Camunda cluster is properly configured and running, or configure '%s' for offline mode.";
+  public static final String USING_CONFIGURED_PARTITION_COUNT = "Using configured partition count: {} (partition IDs: {})";
+  public static final String FETCHED_PARTITIONS_FROM_TOPOLOGY = "Fetched {} Zeebe partition(s) from topology: {}";
+
   // Skip reason constants
   public static final String SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE = "Missing root process instance";
+  public static final String SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE_LEGACY_DATA = "Missing root process instance ID. Was the process instance started before Camunda 7.11?";
   public static final String SKIP_REASON_MISSING_PARENT_PROCESS_INSTANCE = "Missing parent process instance";
   public static final String SKIP_REASON_MISSING_PROCESS_DEFINITION = "Missing process definition";
   public static final String SKIP_REASON_MISSING_PROCESS_INSTANCE = "Missing process instance";
@@ -44,6 +53,8 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_UNSUPPORTED_CMMN_TASKS = "C7 CMMN user tasks not supported in C8.";
   public static final String SKIP_REASON_MISSING_JOB_REFERENCE = "Missing job reference";
   public static final String SKIP_REASON_UNSUPPORTED_JOBS = "Only async-before and async-after jobs are supported for migration.";
+  public static final String SKIP_REASON_DELETED_IN_C8 = "Parent %s with C8 key [%s] has been deleted already in C8.";
+  public static final String SKIP_REASON_DELETED_IN_C8_ASSOCIATED = "Parent %s with C8 process instance key [%s] and flow node ID [%s] has been deleted already in C8.";
 
   // HistoryMigrator Messages
   public static final String MIGRATING = "Migrating {}s.";
@@ -170,5 +181,14 @@ public class HistoryMigratorLogs {
 
   public static void logCouldNotBuildDecisionRuleIndex(String c7Id) {
     LOGGER.warn(COULD_NOT_BUILD_DECISION_RULE_INDEX, c7Id);
+  }
+
+  // PartitionSupplier logging methods
+  public static void logUsingConfiguredPartitionCount(int partitionCount, java.util.List<Integer> partitionIds) {
+    LOGGER.info(USING_CONFIGURED_PARTITION_COUNT, partitionCount, partitionIds);
+  }
+
+  public static void logFetchedPartitionsFromTopology(int count, java.util.List<Integer> partitionIds) {
+    LOGGER.info(FETCHED_PARTITIONS_FROM_TOPOLOGY, count, partitionIds);
   }
 }

@@ -10,7 +10,6 @@ package io.camunda.migration.data.qa.extension;
 import io.camunda.migration.data.impl.DataSourceRegistry;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -22,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Generic JUnit 5 extension for executing SQL queries against RDBMS databases in tests.
@@ -53,22 +53,15 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
 
   private static ApplicationContext applicationContext;
   private JdbcTemplate jdbcTemplate;
-  private final Function<DataSourceRegistry, DataSource> dataSourceSelector;
+  private TransactionTemplate transactionTemplate;
 
   /**
    * Creates extension using the migrator data source (C8 when configured, otherwise C7).
+   * <p>
+   * This extension uses the migrator data source and transaction template together,
+   * ensuring that all database operations run within the correct transaction context.
    */
   public RdbmsQueryExtension() {
-    this(DataSourceRegistry::getMigratorDataSource);
-  }
-
-  /**
-   * Creates extension using a specific data source from the registry.
-   *
-   * @param dataSourceSelector function to select the data source from the registry
-   */
-  public RdbmsQueryExtension(Function<DataSourceRegistry, DataSource> dataSourceSelector) {
-    this.dataSourceSelector = dataSourceSelector;
   }
 
   @Override
@@ -84,8 +77,9 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
 
     if (jdbcTemplate == null && applicationContext != null) {
       DataSourceRegistry registry = applicationContext.getBean(DataSourceRegistry.class);
-      DataSource dataSource = dataSourceSelector.apply(registry);
+      DataSource dataSource = registry.getMigratorDataSource();
       jdbcTemplate = new JdbcTemplate(dataSource);
+      transactionTemplate = registry.getMigratorTxTemplate();
     }
   }
 
@@ -168,23 +162,23 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
   }
 
   /**
-   * Execute an update/insert/delete statement.
+   * Execute an update/insert/delete statement within a transaction.
    *
    * @param sql the SQL statement
    * @param args the statement parameters
    * @return the number of rows affected
    */
   public int update(String sql, Object... args) {
-    return getJdbcTemplate().update(sql, args);
+    return transactionTemplate.execute(status -> getJdbcTemplate().update(sql, args));
   }
 
   /**
-   * Execute a SQL statement (for DDL or statements without parameters).
+   * Execute a SQL statement (for DDL or statements without parameters) within a transaction.
    *
    * @param sql the SQL statement
    */
   public void execute(String sql) {
-    getJdbcTemplate().execute(sql);
+    transactionTemplate.executeWithoutResult(status -> getJdbcTemplate().execute(sql));
   }
 
   /**

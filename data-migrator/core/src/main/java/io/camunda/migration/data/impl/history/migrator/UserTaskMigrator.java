@@ -80,7 +80,7 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
    * @throws EntityInterceptorException if an error occurs during entity conversion (handled internally, entity marked as skipped)
    */
   @Override
-  public Long migrateTransactionally(HistoricTaskInstance c7UserTask) {
+  public MigrationResult migrateTransactionally(HistoricTaskInstance c7UserTask) {
     var c7UserTaskId = c7UserTask.getId();
     if (shouldMigrate(c7UserTaskId, HISTORY_USER_TASK)) {
       logMigratingHistoricUserTask(c7UserTaskId);
@@ -111,7 +111,8 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey());
+            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
+                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
           }
         }
         if (isMigrated(c7UserTask.getActivityInstanceId(), HISTORY_FLOW_NODE)) {
@@ -151,7 +152,7 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
 
       migrateCandidateAssignments(c7UserTaskId, dbModel);
 
-      return dbModel.userTaskKey();
+      return MigrationResult.of(dbModel.userTaskKey());
     }
 
     return null;
