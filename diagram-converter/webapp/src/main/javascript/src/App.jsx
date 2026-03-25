@@ -130,6 +130,14 @@ function App() {
     return formData;
   }
 
+  function updateFileResult(idx, result) {
+    setFileResults((prevResults) => {
+      const updated = [...prevResults];
+      updated[idx] = result;
+      return updated;
+    });
+  }
+
   async function analyzeAndConvert() {
     setStep(2);
     setFileResults(files.map(() => ({ status: "uploading" })));
@@ -145,6 +153,18 @@ function App() {
              "Accept": "application/json"
           },
         });
+
+        if (!checkResponse.ok) {
+          const result = {
+            status: "error",
+            errorMessage: `Analysis failed (HTTP ${checkResponse.status})`,
+            originalModelXml: originalModelXml,
+            checkResponseJson: null,
+          };
+          updateFileResult(idx, result);
+          return result;
+        }
+
         const checkResponseJson = await checkResponse.json();
 
         let result = {
@@ -152,11 +172,7 @@ function App() {
           originalModelXml: originalModelXml,
           checkResponseJson: checkResponseJson,
         };
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
+        updateFileResult(idx, result);
 
         const convertResponse = await fetch(baseUrl + "/convert", {
           body: formData,
@@ -176,22 +192,29 @@ function App() {
           }
         }
 
+        if (!convertResponse.ok) {
+          result = {
+            status: "error",
+            errorMessage: `Conversion failed (HTTP ${convertResponse.status})`,
+            originalModelXml: originalModelXml,
+            checkResponseJson: checkResponseJson,
+          };
+          updateFileResult(idx, result);
+          return result;
+        }
+
         // Convert response to blob
         const blob = await convertResponse.blob();
 
         result = {
-          status: checkResponse.ok && convertResponse.ok ? "success" : "error",
+          status: "success",
           originalModelXml: originalModelXml,
           checkResponseJson: checkResponseJson,
           convertedFileBlob: blob,
           filename
         };
 
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
+        updateFileResult(idx, result);
         return result;
       })
     );
@@ -552,7 +575,9 @@ function App() {
                   previewAction={() => preview(fileResults[idx])}
                   downloadAction={() => download(fileResults[idx])}
                   error={
-                    !fileResults[idx].ok == "error" ? "File upload failure" : ""
+                    fileResults[idx].status === "error"
+                      ? (fileResults[idx].errorMessage || "File processing failed")
+                      : ""
                   }
                 />
               ))}
