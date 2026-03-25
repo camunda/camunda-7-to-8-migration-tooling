@@ -31,9 +31,9 @@ public class IdentitySync {
 
   @PostConstruct
   public void init() {
-    timeout = Duration.ofMillis(migratorProperties.getIdentitySync().getTimeout());
-    pollInterval = Duration.ofMillis(migratorProperties.getIdentitySync().getPollInterval());
-    IdentityMigratorLogs.logInitializedSyncUtil(timeout.toMillis(), pollInterval.toMillis());
+    timeout = Duration.ofMillis(migratorProperties.getIdentity().getSync().getTimeout());
+    pollInterval = Duration.ofMillis(migratorProperties.getIdentity().getSync().getPollInterval());
+    IdentityMigratorLogs.logInitializedIdentitySync(timeout.toMillis(), pollInterval.toMillis());
   }
 
   /**

@@ -8,19 +8,28 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
+import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_GROUP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import io.camunda.client.api.search.response.Group;
 import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.properties.bind.validation.BindValidationException;
+import org.springframework.boot.test.context.SpringBootTest;
 
 public class GroupMigrationTest extends IdentityMigrationAbstractTest {
 
@@ -136,5 +145,83 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
 
     // and 1 group membership could not be migrated
     logs.assertContains(formatMessage(FAILED_TO_CREATE_GROUP_MEMBERSHIP, group1.getId(), "userId0"));
+  }
+
+  @Nested
+  @SpringBootTest(properties = {
+      "camunda.migrator.identity.skip-users=true",
+      "camunda.migrator.identity.skip-groups=true",
+  })
+  public class SkipGroupsEnabledTest {
+
+    @Test
+    public void shouldNotMigrateGroupsWhenSkipGroupsIsEnabled() {
+      // given groups exist in c7 but skip-groups is enabled
+      var group1 = testHelper.createGroupInC7("groupId1", "name1");
+      var group2 = testHelper.createGroupInC7("groupId2", "name2");
+      var group3 = testHelper.createGroupInC7("groupId3", "name3");
+
+      // when migrating
+      identityMigrator.start();
+
+      // then no groups were migrated
+      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(5)).untilAsserted(() -> {
+        var currentGroups = camundaClient.newGroupsSearchRequest().execute().items();
+        assertThat(currentGroups).hasSize(0);
+      });
+
+      // and no groups were skipped
+      var skippedMessage = SKIPPED_GROUP.substring(0, SKIPPED_GROUP.lastIndexOf(':')).replace("{}", "%s"); // remove reason, not relevant
+      logs.assertDoesNotContain(format(skippedMessage, group1.getId(), group1.getName()));
+      logs.assertDoesNotContain(format(skippedMessage, group2.getId(), group1.getName()));
+      logs.assertDoesNotContain(format(skippedMessage, group3.getId(), group1.getName()));
+    }
+  }
+
+  @Nested
+  @SpringBootTest(properties = {
+      "camunda.migrator.identity.skip-users=true",
+      "camunda.migrator.identity.skip-groups=false",
+  })
+  public class SkipUsersEnabledTest {
+
+    @Test
+    public void shouldMigrateGroupsButNotUsers() {
+      // given groups and memberships exist in c7 but skip-users is enabled
+      var group1 = testHelper.createGroupInC7("groupId1", "groupName1");
+      var user1 = testHelper.createUserInC7("userId1", "firstName1", "lastName1");
+      identityService.createMembership("userId1", group1.getId());
+
+      // when migrating
+      identityMigrator.start();
+
+      // then the groups were migrated
+      List<Group> groups = testHelper.awaitGroupsCountAndGet(1);
+      testHelper.assertThatGroupsContain(List.of(group1), groups);
+
+      // but the membership could not be migrated because the user wasn't migrated
+      logs.assertContains(formatMessage(FAILED_TO_CREATE_GROUP_MEMBERSHIP, group1.getId(), user1.getId()));
+    }
+  }
+
+  @Nested
+  class InvalidSkipPropertiesTest {
+
+    @Test
+    void shouldFailAtStartupWhenBadPropertyCombination() {
+
+      assertThatThrownBy(() ->
+          new SpringApplicationBuilder(MigratorAutoConfiguration.class)
+              .properties(
+                  "camunda.migrator.identity.skip-users=false",
+                  "camunda.migrator.identity.skip-groups=true"
+              )
+              .run()
+      )
+          .hasMessageContaining("Error creating bean")
+          .hasRootCauseInstanceOf(BindValidationException.class)
+          .rootCause()
+          .hasMessageContaining("When skip-groups is enabled, skip-users must also be enabled");
+    }
   }
 }

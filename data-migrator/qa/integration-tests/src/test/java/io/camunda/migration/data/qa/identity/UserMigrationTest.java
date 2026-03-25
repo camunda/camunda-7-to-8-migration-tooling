@@ -8,12 +8,16 @@
 package io.camunda.migration.data.qa.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import io.camunda.migration.data.IdentityMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.boot.test.context.SpringBootTest;
 
 public class UserMigrationTest extends IdentityMigrationAbstractTest {
 
@@ -75,6 +79,35 @@ public class UserMigrationTest extends IdentityMigrationAbstractTest {
 
     // but not user1
     assertThat(camundaClient.newUsersSearchRequest().filter(f -> f.username(user1.getId())).execute().items()).hasSize(0);
+  }
+
+  @Nested
+  @SpringBootTest(properties = {
+      "camunda.migrator.identity.skip-users=true",
+  })
+  public class SkipUsersEnabledTest {
+
+    @Test
+    public void shouldNotMigrateUsersWhenSkipUsersIsEnabled() {
+      // given users exist in c7 but skip-users is enabled
+      var user1 = testHelper.createUserInC7("user1", "name1", "lastName1");
+      var user2 = testHelper.createUserInC7("user2", "name2", "lastName2");
+      var user3 = testHelper.createUserInC7("user3", "name3", "lastName");
+
+      // when migrating
+      identityMigrator.start();
+
+      // then no users were migrated
+      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(5)).untilAsserted(() -> {
+        var currentUsers = camundaClient.newUsersSearchRequest().execute().items();
+        assertThat(currentUsers).hasSize(0);
+      });
+
+      // and no users were skipped
+      logs.assertDoesNotContain("User [" + user1.getId() + "] was skipped");
+      logs.assertDoesNotContain("User [" + user2.getId() + "] was skipped");
+      logs.assertDoesNotContain("User [" + user3.getId() + "] was skipped");
+    }
   }
 
 }

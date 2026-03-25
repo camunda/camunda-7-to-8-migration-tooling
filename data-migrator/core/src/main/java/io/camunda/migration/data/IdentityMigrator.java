@@ -13,6 +13,7 @@ import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
 
 import io.camunda.client.api.response.CreateAuthorizationResponse;
+import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.migration.data.exception.MigratorException;
@@ -62,6 +63,9 @@ public class IdentityMigrator {
 
   @Autowired
   protected DataSourceRegistry dataSourceRegistry;
+
+  @Autowired
+  protected MigratorProperties migratorProperties;
 
   public void start() {
     try {
@@ -114,15 +118,23 @@ public class IdentityMigrator {
   }
 
   protected void migrateUsers() {
-    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.USER);
-    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
-    fetchUsersToMigrate(user -> txTemplate.executeWithoutResult(status -> migrateUser(user)));
+    if (migratorProperties.getIdentity().getSkipUsers()) {
+      IdentityMigratorLogs.logSkipUsersEnabled();
+    } else {
+      IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.USER);
+      var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+      fetchUsersToMigrate(user -> txTemplate.executeWithoutResult(status -> migrateUser(user)));
+    }
   }
 
   protected void migrateGroups() {
-    IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.GROUP);
-    var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
-    fetchGroupsToMigrate(group -> txTemplate.executeWithoutResult(status -> migrateGroup(group)));
+    if (migratorProperties.getIdentity().getSkipGroups()) {
+      IdentityMigratorLogs.logSkipGroupsEnabled();
+    } else {
+      IdentityMigratorLogs.logMigratingEntities(IdKeyMapper.TYPE.GROUP);
+      var txTemplate = dataSourceRegistry.getMigratorTxTemplate();
+      fetchGroupsToMigrate(group -> txTemplate.executeWithoutResult(status -> migrateGroup(group)));
+    }
   }
 
   protected void migrateTenants() {

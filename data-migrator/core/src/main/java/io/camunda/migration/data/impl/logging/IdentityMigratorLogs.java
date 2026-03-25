@@ -38,10 +38,12 @@ public class IdentityMigratorLogs {
   public static final String CANNOT_MIGRATE_GROUP_MEMBERSHIP = "There was an error while migrating group membership for group [{}] and user [{}]: {}";
   public static final String SUCCESSFULLY_MIGRATED_GROUP = "Successfully migrated group [{}] (name: {})";
   public static final String SKIPPED_GROUP = "Group with ID [{}] (name: {}) was skipped: {}";
+  public static final String SKIP_GROUPS_ENABLED = "skip-groups is enabled in configuration, migration for groups will not be performed";
 
   public static final String MIGRATING_USER = "Migrating user [{}]";
   public static final String SUCCESSFULLY_MIGRATED_USER = "Successfully migrated user [{}]";
   public static final String SKIPPED_USER = "User [{}] was skipped: {}";
+  public static final String SKIP_USERS_ENABLED = "skip-users is enabled in configuration, migration for users will not be performed";
 
   public static final String MIGRATING_AUTH = "Migrating authorization [{}] for {} [{}] on {} [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
@@ -54,7 +56,7 @@ public class IdentityMigratorLogs {
   public static final String FETCHING_LATEST_ID = "Fetching most recently migrated {} ID";
   public static final String LATEST_ID = "Latest migrated {} ID: {}";
   public static final String MISSING_AUTHORIZATION = "Authorization with ID {} can no longer be found, it might have been removed";
-  public static final String INITIALIZED_SYNC_UTIL = "Initialized identity sync util with timeout [{} ms] and poll interval [{} ms]";
+  public static final String INITIALIZED_IDENTITY_SYNC = "Initialized identity sync util with timeout [{} ms] and poll interval [{} ms]";
   public static final String SYNC_TIMEOUT_EXCEEDED = "Wait condition for [{}] timed out";
 
   // Failure reasons constants
@@ -185,8 +187,16 @@ public class IdentityMigratorLogs {
     LOGGER.debug(SYNC_TIMEOUT_EXCEEDED, condition);
   }
 
-  public static void logInitializedSyncUtil(Long timeout, Long pollInterval) {
-    LOGGER.debug(INITIALIZED_SYNC_UTIL, timeout, pollInterval);
+  public static void logInitializedIdentitySync(Long timeout, Long pollInterval) {
+    LOGGER.info(INITIALIZED_IDENTITY_SYNC, timeout, pollInterval);
+  }
+
+  public static void logSkipGroupsEnabled() {
+    LOGGER.info(SKIP_GROUPS_ENABLED);
+  }
+
+  public static void logSkipUsersEnabled() {
+    LOGGER.info(SKIP_USERS_ENABLED);
   }
 
   static String ownerType(Authorization authorization) {
