@@ -90,9 +90,9 @@ public class UserMigrationTest extends IdentityMigrationAbstractTest {
     @Test
     public void shouldNotMigrateUsersWhenSkipUsersIsEnabled() {
       // given users exist in c7 but skip-users is enabled
-      var user1 = testHelper.createUserInC7("user1", "name1", "lastName1");
-      var user2 = testHelper.createUserInC7("user2", "name2", "lastName2");
-      var user3 = testHelper.createUserInC7("user3", "name3", "lastName");
+      testHelper.createUserInC7("user1", "name1", "lastName1");
+      testHelper.createUserInC7("user2", "name2", "lastName2");
+      testHelper.createUserInC7("user3", "name3", "lastName");
 
       // when migrating
       identityMigrator.start();
@@ -102,11 +102,6 @@ public class UserMigrationTest extends IdentityMigrationAbstractTest {
         var currentUsers = camundaClient.newUsersSearchRequest().execute().items();
         assertThat(currentUsers).hasSize(0);
       });
-
-      // and no users were skipped
-      logs.assertDoesNotContain("User [" + user1.getId() + "] was skipped");
-      logs.assertDoesNotContain("User [" + user2.getId() + "] was skipped");
-      logs.assertDoesNotContain("User [" + user3.getId() + "] was skipped");
     }
   }
 

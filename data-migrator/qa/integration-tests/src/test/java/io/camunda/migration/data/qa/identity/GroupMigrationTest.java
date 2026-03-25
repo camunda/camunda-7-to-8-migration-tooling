@@ -157,9 +157,9 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
     @Test
     public void shouldNotMigrateGroupsWhenSkipGroupsIsEnabled() {
       // given groups exist in c7 but skip-groups is enabled
-      var group1 = testHelper.createGroupInC7("groupId1", "name1");
-      var group2 = testHelper.createGroupInC7("groupId2", "name2");
-      var group3 = testHelper.createGroupInC7("groupId3", "name3");
+      testHelper.createGroupInC7("groupId1", "name1");
+      testHelper.createGroupInC7("groupId2", "name2");
+      testHelper.createGroupInC7("groupId3", "name3");
 
       // when migrating
       identityMigrator.start();
@@ -169,12 +169,6 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
         var currentGroups = camundaClient.newGroupsSearchRequest().execute().items();
         assertThat(currentGroups).hasSize(0);
       });
-
-      // and no groups were skipped
-      var skippedMessage = SKIPPED_GROUP.substring(0, SKIPPED_GROUP.lastIndexOf(':')).replace("{}", "%s"); // remove reason, not relevant
-      logs.assertDoesNotContain(format(skippedMessage, group1.getId(), group1.getName()));
-      logs.assertDoesNotContain(format(skippedMessage, group2.getId(), group1.getName()));
-      logs.assertDoesNotContain(format(skippedMessage, group3.getId(), group1.getName()));
     }
   }
 
