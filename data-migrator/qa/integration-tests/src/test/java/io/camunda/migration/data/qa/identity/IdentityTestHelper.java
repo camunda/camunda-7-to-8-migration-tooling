@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.enums.PermissionType;
 import io.camunda.client.api.search.enums.ResourceType;
@@ -184,7 +185,7 @@ public class IdentityTestHelper {
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
-    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+    await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
       assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
     });
