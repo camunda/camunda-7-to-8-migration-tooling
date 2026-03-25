@@ -15,7 +15,6 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigr
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
-import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.impl.history.C7Entity;

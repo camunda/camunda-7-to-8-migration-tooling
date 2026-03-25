@@ -324,5 +324,6 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.elementId()).isEqualTo(TASK_ID);
     assertThat(job.processDefinitionId()).isEqualTo(prefixDefinitionId(PROCESS_KEY));
     assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(job.creationTime()).isNotNull();
   }
 }
