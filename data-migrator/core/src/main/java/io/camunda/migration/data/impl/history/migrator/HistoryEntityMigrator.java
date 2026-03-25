@@ -332,19 +332,15 @@ public abstract class HistoryEntityMigrator<C7, C8> {
    * BPMN element ID. When at least one C8 flow node exists, the method queries C7 for all historic
    * activity instances with the same {@code activityId} and {@code processInstanceId}. This is
    * necessary because only some of the flow nodes may have been migrated at this point. If more
-   * than one C7 activity instance exists, the activity is part of a multi-instance configuration,
-   * so {@code hasMultipleFlowNodes} is set to {@code true} and {@code null} is returned. When
-   * exactly one C8 flow node matches and the activity is not multi-instance, its key is returned
-   * directly.
-   *
-   * <p>Callers should inspect {@code hasMultipleFlowNodes} to distinguish "not found" from
-   * "ambiguous due to multi-instance".
+   * than one C7 activity instance exists, {@code hasMultipleFlowNodes} is set to {@code true}
+   * and {@code null} is returned. When exactly one C8 flow node matches and the activity is not
+   * multi-instance, its key is returned directly.
    *
    * @param activityId           the C7 activity ID (BPMN element ID), may include the
    *                             {@code #multiInstanceBody} suffix
    * @param processInstanceId    the C7 process instance ID
    * @param hasMultipleFlowNodes mutable flag set to {@code true} when the activity is detected as
-   *                             multi-instance, indicating an ambiguous mapping
+   *                             with an ambiguous mapping
    * @return the C8 flow node instance key, or {@code null} if not found or ambiguous
    */
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId, AtomicBoolean hasMultipleFlowNodes) {
