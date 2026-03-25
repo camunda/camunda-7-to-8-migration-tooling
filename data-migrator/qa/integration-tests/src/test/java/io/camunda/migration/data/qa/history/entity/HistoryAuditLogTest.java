@@ -281,7 +281,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateAuditLogsForEvaluateDecision() {
+  public void shouldSkipAuditLogsForEvaluateDecision() {
     // given
     deployer.deployCamunda7Decision("dish-decision.dmn");
 
