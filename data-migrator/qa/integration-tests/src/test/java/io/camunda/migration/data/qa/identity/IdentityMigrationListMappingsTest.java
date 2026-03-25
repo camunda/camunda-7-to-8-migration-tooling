@@ -12,7 +12,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.authorization.Authorization.AUTH_TYPE_GRANT;
 
-import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import java.util.List;
 import java.util.Map;
@@ -64,16 +63,15 @@ public class IdentityMigrationListMappingsTest extends IdentityMigrationAbstract
     identityMigrator.start();
 
     // then
-    Map<String, List<String>> migratedEntitiesByType =
-        EntitiesLogParserUtils.parseMigratedEntitiesOutput(output.getOut());
-
-    assertThat(migratedEntitiesByType).containsKey(TYPE.TENANT.getDisplayName());
-    List<String> tenantMappings = migratedEntitiesByType.get(TYPE.TENANT.getDisplayName());
-    assertThat(tenantMappings).hasSize(2);
-    // Tenants use DEFAULT_TENANT_KEY (1) since tenants don't have real C8 keys
-    assertThat(tenantMappings).contains(
-        "tenantId1 " + IdentityMigrator.DEFAULT_TENANT_KEY,
-        "tenantId2 " + IdentityMigrator.DEFAULT_TENANT_KEY);
+    String outputStr = output.getOut();
+    String tenantHeader =
+        "[" + TYPE.TENANT.getDisplayName() + "s] keys are not stored as migration metadata, only showing Camunda 7 ids. Migrated ["
+            + TYPE.TENANT.getDisplayName() + "s]:";
+    assertThat(outputStr).contains(tenantHeader);
+    // Verify tenant IDs appear after the header
+    String outputAfterHeader = outputStr.substring(outputStr.indexOf(tenantHeader));
+    assertThat(outputAfterHeader).contains("tenantId1");
+    assertThat(outputAfterHeader).contains("tenantId2");
   }
 
   @Test

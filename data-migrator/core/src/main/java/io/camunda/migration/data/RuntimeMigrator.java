@@ -74,9 +74,9 @@ public class RuntimeMigrator {
           TYPE.RUNTIME_PROCESS_INSTANCE);
         dbClient.listSkippedEntitiesByType(TYPE.RUNTIME_PROCESS_INSTANCE);
       } else if (LIST_MIGRATED.equals(mode)) {
-        PrintUtils.printMigratedInstancesHeader(dbClient.countMigratedByType(TYPE.RUNTIME_PROCESS_INSTANCE),
+        PrintUtils.printMigratedMappingsHeader(dbClient.countMigratedByType(TYPE.RUNTIME_PROCESS_INSTANCE),
           TYPE.RUNTIME_PROCESS_INSTANCE);
-        dbClient.listMigratedEntitiesByType(TYPE.RUNTIME_PROCESS_INSTANCE);
+        dbClient.listMigratedMappingsByType(TYPE.RUNTIME_PROCESS_INSTANCE);
       } else {
         migrate();
       }

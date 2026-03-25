@@ -84,27 +84,27 @@ public class IdentityMigrator {
   }
 
   protected void listSkippedIdentityEntities() {
-    // tenants
-    Long skippedTenantsCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT);
-    PrintUtils.printSkippedInstancesHeader(skippedTenantsCount, IdKeyMapper.TYPE.TENANT);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.TENANT);
-
-    // authorizations
-    Long skippedAuthCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.AUTHORIZATION);
-    PrintUtils.printSkippedInstancesHeader(skippedAuthCount, IdKeyMapper.TYPE.AUTHORIZATION);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
+    IdKeyMapper.IDENTITY_TYPES.forEach(type -> {
+      PrintUtils.printSkippedInstancesHeader(dbClient.countSkippedByType(type), type);
+      dbClient.listSkippedEntitiesByType(type);
+    });
   }
 
   protected void listMigratedIdentityEntities() {
-    // tenants
-    Long migratedTenantsCount = dbClient.countMigratedByType(IdKeyMapper.TYPE.TENANT);
-    PrintUtils.printMigratedInstancesHeader(migratedTenantsCount, IdKeyMapper.TYPE.TENANT);
-    dbClient.listMigratedEntitiesByType(IdKeyMapper.TYPE.TENANT);
+    IdKeyMapper.IDENTITY_TYPES.forEach(this::printMigratedEntitiesForType);
+  }
 
-    // authorizations
-    Long migratedAuthCount = dbClient.countMigratedByType(IdKeyMapper.TYPE.AUTHORIZATION);
-    PrintUtils.printMigratedInstancesHeader(migratedAuthCount, IdKeyMapper.TYPE.AUTHORIZATION);
-    dbClient.listMigratedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
+  protected void printMigratedEntitiesForType(IdKeyMapper.TYPE type) {
+    Long count = dbClient.countMigratedByType(type);
+    if (type == IdKeyMapper.TYPE.TENANT) {
+      PrintUtils.printMigratedC7IdsHeader(count, type);
+      if (count > 0) {
+        dbClient.listMigratedC7IdsByType(type);
+      }
+    } else {
+      PrintUtils.printMigratedMappingsHeader(count, type);
+      dbClient.listMigratedMappingsByType(type);
+    }
   }
 
   protected void migrateTenants() {

@@ -20,15 +20,24 @@ public class PrintUtils {
     String entityName = entityType.getDisplayName();
     String message = count > 0
         ? "Previously skipped [" + entityName + "s]:"
-        : "No entities of type ["+ entityName +"] were skipped during previous migration";
+        : "No entities of type [" + entityName + "] were skipped during previous migration";
     print(message);
   }
 
-  public static void printMigratedInstancesHeader(long count, TYPE entityType) {
+  public static void printMigratedMappingsHeader(long count, TYPE entityType) {
     String entityName = entityType.getDisplayName();
     if (count > 0) {
       print("Migration mappings for [" + entityName + "s]:");
       print("Camunda7-Id Camunda8-Key");
+    } else {
+      print("No entities of type [" + entityName + "] were migrated");
+    }
+  }
+
+  public static void printMigratedC7IdsHeader(long count, TYPE entityType) {
+    String entityName = entityType.getDisplayName();
+    if (count > 0) {
+      print("[" + entityName + "s] keys are not stored as migration metadata, only showing Camunda 7 ids. Migrated [" + entityName + "s]:");
     } else {
       print("No entities of type [" + entityName + "] were migrated");
     }

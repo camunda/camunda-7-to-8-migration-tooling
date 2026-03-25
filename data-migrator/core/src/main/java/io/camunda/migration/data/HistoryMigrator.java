@@ -136,8 +136,8 @@ public class HistoryMigrator {
   }
 
   protected void printMigratedEntitiesForType(TYPE type) {
-    PrintUtils.printMigratedInstancesHeader(dbClient.countMigratedByType(type), type);
-    dbClient.listMigratedEntitiesByType(type);
+    PrintUtils.printMigratedMappingsHeader(dbClient.countMigratedByType(type), type);
+    dbClient.listMigratedMappingsByType(type);
   }
 
   public void retry() {

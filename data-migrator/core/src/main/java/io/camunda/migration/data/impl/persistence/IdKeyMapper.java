@@ -88,6 +88,8 @@ public interface IdKeyMapper {
       .filter(type -> type.name().startsWith("HISTORY"))
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(TYPE.class)));
 
+  List<TYPE> IDENTITY_TYPES = List.of(TYPE.TENANT, TYPE.AUTHORIZATION);
+
   /**
    * Returns the names of all history-related entity types as strings.
    */

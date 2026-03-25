@@ -181,13 +181,23 @@ public class DbClient {
   }
 
   /**
-   * Lists migrated entities by type with pagination and prints them.
+   * Lists migrated entity mappings (C7 ID -> C8 Key) by type with pagination and prints them.
    */
-  public void listMigratedEntitiesByType(TYPE type) {
+  public void listMigratedMappingsByType(TYPE type) {
     new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
         .maxCount(() -> idKeyMapper.countMigratedByType(type))
         .page(offset -> idKeyMapper.findMigratedByType(type, offset, properties.getPageSize()))
         .callback(mapping -> PrintUtils.printMapping(mapping.getC7Id(), mapping.getC8Key()));
+  }
+
+  /**
+   * Lists migrated C7 IDs by type with pagination and prints them (without C8 keys).
+   */
+  public void listMigratedC7IdsByType(TYPE type) {
+    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
+        .maxCount(() -> idKeyMapper.countMigratedByType(type))
+        .page(offset -> idKeyMapper.findMigratedByType(type, offset, properties.getPageSize()))
+        .callback(mapping -> PrintUtils.print(mapping.getC7Id()));
   }
 
   /**
