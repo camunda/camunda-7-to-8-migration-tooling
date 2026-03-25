@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_KEY_BY_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_C7_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_LATEST_CREATE_TIME;
+import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_MIGRATED_COUNT;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_PARTITION_ID_BY_C7_ID;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_FIND_SKIPPED_COUNT;
 import static io.camunda.migration.data.impl.logging.DbClientLogs.FAILED_TO_INSERT_RECORD;
@@ -180,6 +181,26 @@ public class DbClient {
   }
 
   /**
+   * Lists migrated entity mappings (C7 ID -> C8 Key) by type with pagination and prints them.
+   */
+  public void listMigratedMappingsByType(TYPE type) {
+    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
+        .maxCount(() -> idKeyMapper.countMigratedByType(type))
+        .page(offset -> idKeyMapper.findMigratedByType(type, offset, properties.getPageSize()))
+        .callback(mapping -> PrintUtils.printMapping(mapping.getC7Id(), mapping.getC8Key()));
+  }
+
+  /**
+   * Lists migrated C7 IDs by type with pagination and prints them (without C8 keys).
+   */
+  public void listMigratedC7IdsByType(TYPE type) {
+    new Pagination<IdKeyDbModel>().pageSize(properties.getPageSize())
+        .maxCount(() -> idKeyMapper.countMigratedByType(type))
+        .page(offset -> idKeyMapper.findMigratedByType(type, offset, properties.getPageSize()))
+        .callback(mapping -> PrintUtils.print(mapping.getC7Id()));
+  }
+
+  /**
    * Lists skipped entities by type with pagination and prints them.
    */
   public void listSkippedEntitiesByType(TYPE type) {
@@ -243,6 +264,13 @@ public class DbClient {
    */
   public Long countSkipped() {
     return callApi(() -> idKeyMapper.countSkipped(), FAILED_TO_FIND_SKIPPED_COUNT);
+  }
+
+  /**
+   * Finds the count of migrated entities for the given type
+   */
+  public Long countMigratedByType(TYPE type) {
+    return callApi(() -> idKeyMapper.countMigratedByType(type), FAILED_TO_FIND_MIGRATED_COUNT);
   }
 
   /**

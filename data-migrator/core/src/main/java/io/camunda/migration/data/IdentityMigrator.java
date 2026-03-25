@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data;
 
+import static io.camunda.migration.data.MigratorMode.LIST_MIGRATED;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
@@ -63,6 +64,8 @@ public class IdentityMigrator {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.IDENTITY);
       if (LIST_SKIPPED.equals(mode)) {
         listSkippedIdentityEntities();
+      } else if (LIST_MIGRATED.equals(mode)) {
+        listMigratedIdentityEntities();
       } else {
         migrate();
       }
@@ -81,15 +84,27 @@ public class IdentityMigrator {
   }
 
   protected void listSkippedIdentityEntities() {
-    // tenants
-    Long skippedTenantsCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.TENANT);
-    PrintUtils.printSkippedInstancesHeader(skippedTenantsCount, IdKeyMapper.TYPE.TENANT);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.TENANT);
+    IdKeyMapper.IDENTITY_TYPES.forEach(type -> {
+      PrintUtils.printSkippedInstancesHeader(dbClient.countSkippedByType(type), type);
+      dbClient.listSkippedEntitiesByType(type);
+    });
+  }
 
-    // authorizations
-    Long skippedAuthCount = dbClient.countSkippedByType(IdKeyMapper.TYPE.AUTHORIZATION);
-    PrintUtils.printSkippedInstancesHeader(skippedAuthCount, IdKeyMapper.TYPE.AUTHORIZATION);
-    dbClient.listSkippedEntitiesByType(IdKeyMapper.TYPE.AUTHORIZATION);
+  protected void listMigratedIdentityEntities() {
+    IdKeyMapper.IDENTITY_TYPES.forEach(this::printMigratedEntitiesForType);
+  }
+
+  protected void printMigratedEntitiesForType(IdKeyMapper.TYPE type) {
+    Long count = dbClient.countMigratedByType(type);
+    if (type == IdKeyMapper.TYPE.TENANT) {
+      PrintUtils.printMigratedC7IdsHeader(count, type);
+      if (count > 0) {
+        dbClient.listMigratedC7IdsByType(type);
+      }
+    } else {
+      PrintUtils.printMigratedMappingsHeader(count, type);
+      dbClient.listMigratedMappingsByType(type);
+    }
   }
 
   protected void migrateTenants() {
