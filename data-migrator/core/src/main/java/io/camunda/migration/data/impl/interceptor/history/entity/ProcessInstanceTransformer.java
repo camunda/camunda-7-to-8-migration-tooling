@@ -8,7 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel.ProcessInstanceDbModelBuilder;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_ID_PREFIX;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_LEGACY_PREFIX;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -40,7 +40,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
         .state(convertState(entity.getState()))
         .tenantId(getTenantId(entity.getTenantId()))
         .version(entity.getProcessDefinitionVersion())
-        .tags(getDefaultTags(entity))
+        .tags(getDefaultTags())
         .numIncidents(0)
         .businessId(entity.getBusinessKey());
     // Note: partitionId is assigned by ProcessInstanceMigrator based on Zeebe topology
@@ -60,12 +60,12 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
   }
 
   /**
-   * Generate default tags based on legacy ID and business key.
-   * Tags format: "c7-legacy-id-{id}"
+   * Generate default tags based on legacy ID.
+   * Tag format: "c7-legacy-id"
    */
-  protected @NonNull Set<String> getDefaultTags(HistoricProcessInstance entity) {
+  protected @NonNull Set<String> getDefaultTags() {
     Set<String> tags = new HashSet<>();
-    tags.add(C7_LEGACY_ID_PREFIX + entity.getId());
+    tags.add(C7_LEGACY_PREFIX);
     return tags;
   }
 }
