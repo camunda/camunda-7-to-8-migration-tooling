@@ -241,6 +241,59 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldMigrateAsyncBeforeJobWithoutFlowNode() {
+    // given: a process with an async-before user task where flow nodes are NOT migrated
+    deployer.deployCamunda7Process("asyncBeforeUserTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("asyncBeforeUserTaskProcessId");
+
+    // execute the async-before job to enter the user task
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+    String c7JobId = jobs.getFirst().getId();
+    managementService.executeJob(c7JobId);
+
+    // when: migrate jobs WITHOUT migrating flow nodes
+    // For async-before, this should succeed because elementInstanceKey can be null
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    // Note: HISTORY_FLOW_NODE is NOT migrated
+    historyMigrator.migrateByType(HISTORY_JOB);
+
+    // then: the job was migrated successfully with null elementInstanceKey
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("asyncBeforeUserTaskProcessId");
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("Async-before job should be migrated even without flow node").hasSize(1);
+    assertThat(c8Jobs.getFirst().elementInstanceKey())
+        .as("elementInstanceKey should be null for async-before without migrated flow node")
+        .isNull();
+  }
+
+  @Test
+  public void shouldThrowExceptionForAsyncAfterJobWithoutFlowNode() {
+    // given: a process with an async-after start event where flow nodes are NOT migrated
+    deployModel(); // deploys a process with camundaAsyncAfter() on start event
+    runtimeService.startProcessInstanceByKey(PROCESS);
+    executeAllJobsWithRetry();
+
+    // when: migrate jobs WITHOUT migrating flow nodes
+    // For async-after, this should throw C8EntityNotFoundException because elementInstanceKey is required
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    // Note: HISTORY_FLOW_NODE is NOT migrated
+    historyMigrator.migrateByType(HISTORY_JOB);
+
+    // then: no jobs migrated because async-after requires elementInstanceKey
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
+    assertThat(processInstances).hasSize(1);
+
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).as("Async-after job should NOT be migrated without flow node").isEmpty();
+  }
+
+  @Test
   @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
   public void shouldMigrateMultiInstanceFlowNodeReference() {
     // given

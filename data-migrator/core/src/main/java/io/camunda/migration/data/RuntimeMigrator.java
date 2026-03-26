@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data;
 
+import static io.camunda.migration.data.MigratorMode.LIST_MIGRATED;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
@@ -72,6 +73,10 @@ public class RuntimeMigrator {
         PrintUtils.printSkippedInstancesHeader(dbClient.countSkippedByType(TYPE.RUNTIME_PROCESS_INSTANCE),
           TYPE.RUNTIME_PROCESS_INSTANCE);
         dbClient.listSkippedEntitiesByType(TYPE.RUNTIME_PROCESS_INSTANCE);
+      } else if (LIST_MIGRATED.equals(mode)) {
+        PrintUtils.printMigratedMappingsHeader(dbClient.countMigratedByType(TYPE.RUNTIME_PROCESS_INSTANCE),
+          TYPE.RUNTIME_PROCESS_INSTANCE);
+        dbClient.listMigratedMappingsByType(TYPE.RUNTIME_PROCESS_INSTANCE);
       } else {
         migrate();
       }

@@ -88,6 +88,8 @@ public interface IdKeyMapper {
       .filter(type -> type.name().startsWith("HISTORY"))
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(TYPE.class)));
 
+  List<TYPE> IDENTITY_TYPES = List.of(TYPE.TENANT, TYPE.AUTHORIZATION);
+
   /**
    * Returns the names of all history-related entity types as strings.
    */
@@ -112,6 +114,8 @@ public interface IdKeyMapper {
 
   Long findC8KeyByC7IdAndType(@Param("c7Id") String id, @Param("type") TYPE type);
 
+  Integer findPartitionIdByC7IdAndType(@Param("c7Id") String id, @Param("type") TYPE type);
+
   void insert(IdKeyDbModel idKeyDbModel);
 
   List<IdKeyDbModel> findSkippedByTypeWithOffset(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
@@ -120,13 +124,15 @@ public interface IdKeyMapper {
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
 
+  long countMigratedByType(@Param("type") TYPE type);
+
   long countSkippedByType(@Param("type") TYPE type);
 
   long countSkipped();
 
   List<String> findAllC7Ids();
 
-  void updateC8KeyByC7IdAndType(IdKeyDbModel idKeyDbModel);
+  void updateAndClearSkipReason(IdKeyDbModel idKeyDbModel);
 
   void updateSkipReason(IdKeyDbModel idKeyDbModel);
 

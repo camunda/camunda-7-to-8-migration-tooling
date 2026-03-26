@@ -254,6 +254,26 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     }, processInstanceKey);
   }
 
+  public int searchProcessInstancePartitionId(Long processInstanceKey) {
+    String sql = "SELECT PARTITION_ID FROM PROCESS_INSTANCE WHERE PROCESS_INSTANCE_KEY = ?";
+    return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), processInstanceKey).getFirst();
+  }
+
+  public List<Integer> searchDecisionInstancePartitionIds(Long decisionInstanceKey) {
+    String sql = "SELECT PARTITION_ID FROM DECISION_INSTANCE WHERE DECISION_INSTANCE_KEY = ?";
+    return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), decisionInstanceKey);
+  }
+
+  public int searchVariablePartitionId(Long variableKey) {
+    String sql = "SELECT PARTITION_ID FROM VARIABLE WHERE VAR_KEY = ?";
+    return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), variableKey).getFirst();
+  }
+
+  public int searchUserTaskPartitionId(Long userTaskKey) {
+    String sql = "SELECT PARTITION_ID FROM USER_TASK WHERE USER_TASK_KEY = ?";
+    return rdbmsQuery.query(sql, (rs, rowNum) -> rs.getInt("PARTITION_ID"), userTaskKey).getFirst();
+  }
+
   public List<VariableEntity> searchHistoricVariables(String varName) {
     return rdbmsService.getVariableReader()
         .search(VariableQuery.of(queryBuilder ->

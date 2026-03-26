@@ -34,6 +34,8 @@ spring:
 camunda:
   migrator:
     auto-ddl: true
+    history:
+      partition-count: 1
     c8:
       data-source:
         auto-ddl: true

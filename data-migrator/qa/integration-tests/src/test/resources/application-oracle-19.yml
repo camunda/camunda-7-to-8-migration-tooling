@@ -3,6 +3,8 @@ camunda:
     auto-ddl: true
     c7:
       data-source:
+        maximum-pool-size: 3
+        minimum-idle: 1
         auto-ddl: true
         jdbc-url: jdbc:oracle:thin:@localhost:15433/ORCLDB
         username: camunda
@@ -21,6 +23,8 @@ camunda:
     auto-ddl: true
     c8:
       data-source:
+        maximum-pool-size: 3
+        minimum-idle: 1
         auto-ddl: true
         jdbc-url: jdbc:oracle:thin:@localhost:15433/ORCLDB
         username: camunda

@@ -56,7 +56,7 @@ public class DecisionRequirementsMigrator extends HistoryEntityMigrator<Decision
    * @throws EntityInterceptorException if an error occurs during entity conversion
    */
   @Override
-  public Long migrateTransactionally(DecisionRequirementsDefinition c7DecisionRequirements) {
+  public MigrationResult migrateTransactionally(DecisionRequirementsDefinition c7DecisionRequirements) {
     var c7Id = c7DecisionRequirements.getId();
     if (shouldMigrate(c7Id, HISTORY_DECISION_REQUIREMENT)) {
       HistoryMigratorLogs.migratingDecisionRequirements(c7Id);
@@ -64,7 +64,7 @@ public class DecisionRequirementsMigrator extends HistoryEntityMigrator<Decision
       var creationTime = c7Client.getDefinitionDeploymentTime(c7DecisionRequirements.getDeploymentId());
       DecisionRequirementsDbModel dbModel = convert(C7Entity.of(c7DecisionRequirements, creationTime), new Builder());
       c8Client.insertDecisionRequirements(dbModel);
-      return dbModel.decisionRequirementsKey();
+      return MigrationResult.of(dbModel.decisionRequirementsKey());
     }
 
     return null;
@@ -72,7 +72,8 @@ public class DecisionRequirementsMigrator extends HistoryEntityMigrator<Decision
 
   protected Long migrateSyntheticDrd(DecisionDefinition c7DecisionDefinition) {
     var newDrd = newDrd(c7DecisionDefinition);
-    return migrateTransactionally(newDrd);
+    MigrationResult result = migrateTransactionally(newDrd);
+    return result != null ? Long.parseLong(result.c8Key()) : null;
   }
 
   protected DecisionRequirementsDefinition newDrd(DecisionDefinition c7DecisionDefinition) {

@@ -29,6 +29,7 @@ import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.impl.util.ExceptionUtils;
+import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.impl.util.PrintUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +80,9 @@ public class HistoryMigrator {
   @Autowired
   protected DbClient dbClient;
 
+  @Autowired
+  protected PartitionSupplier partitionSupplier;
+
   protected List<HistoryEntityMigrator<?, ?>> getMigrators() {
     return List.of(
         formMigrator,
@@ -116,9 +120,33 @@ public class HistoryMigrator {
     dbClient.listSkippedEntitiesByType(type);
   }
 
+  public void printMigratedHistoryEntities(List<IdKeyMapper.TYPE> requestedEntityTypes) {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      if (requestedEntityTypes == null || requestedEntityTypes.isEmpty()) {
+        getHistoryTypes().forEach(this::printMigratedEntitiesForType);
+      } else {
+        requestedEntityTypes.forEach(this::printMigratedEntitiesForType);
+      }
+
+    } finally {
+      ExceptionUtils.clearContext();
+    }
+  }
+
+  protected void printMigratedEntitiesForType(TYPE type) {
+    PrintUtils.printMigratedMappingsHeader(dbClient.countMigratedByType(type), type);
+    dbClient.listMigratedMappingsByType(type);
+  }
+
   public void retry() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      // Initialize partition supplier before retry - this will fail early if
+      // topology cannot be queried and no partition count is configured
+      partitionSupplier.initialize();
 
       getMigrators().forEach(migrator -> migrator.retry()
           .forEach(HistoryMigratorLogs::logSkippingWarn));
@@ -131,6 +159,10 @@ public class HistoryMigrator {
   public void migrate() {
     try {
       ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      // Initialize partition supplier before migration - this will fail early if
+      // topology cannot be queried and no partition count is configured
+      partitionSupplier.initialize();
 
       getMigrators().forEach(HistoryEntityMigrator::migrate);
 
