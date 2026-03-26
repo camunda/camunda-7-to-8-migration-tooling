@@ -12,6 +12,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -24,6 +25,7 @@ import java.util.List;
 import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.externaltask.LockedExternalTask;
 import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -307,6 +309,57 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs.getFirst().elementInstanceKey())
         .as("elementInstanceKey should be null when flow nodes are not migrated")
         .isNull();
+  }
+
+  @Test
+  public void shouldMigrateExternalTaskInNestedProcess() {
+    // given: a child process with an external task and a calling process
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+          .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    deployCallingModel();
+    runtimeService.startProcessInstanceByKey("callingProcessId");
+
+    // complete the user task to trigger the call activity
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    // lock and complete the external task in the child process
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+        .topic(TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    externalTaskService.complete(tasks.getFirst().getId(), WORKER_ID);
+
+    // when: full migration runs
+    historyMigrator.migrate();
+
+    // then: both root and child process instances were migrated
+    List<ProcessInstanceEntity> root = searchHistoricProcessInstances("callingProcessId");
+    assertThat(root).hasSize(1);
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+
+    // and: exactly one C8 job entry was created for the external task
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    assertThat(c8Jobs).as("One C8 job entry per C7 external task").hasSize(1);
+
+    // and: the rootProcessInstanceKey points to the root (calling) process instance
+    assertThat(c8Jobs.getFirst().rootProcessInstanceKey()).isEqualTo(root.getFirst().processInstanceKey());
+  }
+
+  protected void deployCallingModel() {
+    BpmnModelInstance callingProcess = Bpmn.createExecutableProcess("callingProcessId")
+        .startEvent()
+        .userTask(USER_TASK_ID)
+        .callActivity()
+        .calledElement(PROCESS_KEY)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("callingProcessId", callingProcess);
   }
 
   protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey,
