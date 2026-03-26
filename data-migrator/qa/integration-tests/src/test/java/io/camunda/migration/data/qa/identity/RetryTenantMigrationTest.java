@@ -74,6 +74,10 @@ public class RetryTenantMigrationTest extends IdentityMigrationAbstractTest {
     // then all three tenants are migrated successfully
     List<Tenant> tenants = testHelper.awaitTenantsCountAndGet(3);
     testHelper.assertThatTenantsContain(List.of(t1, t2, t3), tenants);
+    assertThat(idKeyMapper.findMigratedByType(IdKeyMapper.TYPE.TENANT, 0, 10))
+        .hasSize(3)
+        .extracting(IdKeyDbModel::getSkipReason)
+        .containsOnlyNulls();
   }
 
   @Test

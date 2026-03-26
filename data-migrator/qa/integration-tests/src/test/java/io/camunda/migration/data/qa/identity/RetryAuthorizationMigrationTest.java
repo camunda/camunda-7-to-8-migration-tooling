@@ -99,6 +99,10 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
     assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "operate", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "admin", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
     assertAuthorizationsSatisfy(authorizations, ResourceType.COMPONENT, "tasklist", USER, USERNAME, getAllSupportedPerms(ResourceType.COMPONENT));
+    assertThat(idKeyMapper.findMigratedByType(IdKeyMapper.TYPE.AUTHORIZATION, 0, 10))
+        .hasSize(3)
+        .extracting(IdKeyDbModel::getSkipReason)
+        .containsOnlyNulls();
   }
 
   @Test
