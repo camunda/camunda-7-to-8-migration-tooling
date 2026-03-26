@@ -84,26 +84,26 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
    * @return the C8 job key, or {@code null} if already migrated
    */
   @Override
-  public MigrationResult migrateTransactionally(final HistoricExternalTaskLog c7ExternalTaskLog) {
-    final String c7ExternalTaskId = c7ExternalTaskLog.getExternalTaskId();
+  public MigrationResult migrateTransactionally(HistoricExternalTaskLog c7ExternalTaskLog) {
+    String c7ExternalTaskId = c7ExternalTaskLog.getExternalTaskId();
     if (shouldMigrate(c7ExternalTaskId, HISTORY_EXTERNAL_TASK)) {
-      final AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
+      AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
       logMigratingExternalTask(c7ExternalTaskId);
 
-      final var jobKey = getNextKey();
-      final var builder = new JobDbModel.Builder().jobKey(jobKey);
+      var jobKey = getNextKey();
+      var builder = new JobDbModel.Builder().jobKey(jobKey);
 
-      final var processDefinitionKey = findProcessDefinitionKey(c7ExternalTaskLog.getProcessDefinitionId());
+      var processDefinitionKey = findProcessDefinitionKey(c7ExternalTaskLog.getProcessDefinitionId());
       builder.processDefinitionKey(processDefinitionKey);
 
-      final String c7ProcessInstanceId = c7ExternalTaskLog.getProcessInstanceId();
-      final ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
+      String c7ProcessInstanceId = c7ExternalTaskLog.getProcessInstanceId();
+      ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
       if (processInstance != null) {
         builder.processInstanceKey(processInstance.processInstanceKey());
 
-        final String c7RootProcessInstanceId = c7ExternalTaskLog.getRootProcessInstanceId();
+        String c7RootProcessInstanceId = c7ExternalTaskLog.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-          final ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+          ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
             builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
             .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
@@ -117,7 +117,7 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
         }
       }
 
-      final JobDbModel dbModel = convert(C7Entity.of(c7ExternalTaskLog), builder);
+      JobDbModel dbModel = convert(C7Entity.of(c7ExternalTaskLog), builder);
 
       if (dbModel.processDefinitionKey() == null) {
         throw new EntitySkippedException(c7ExternalTaskLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);
