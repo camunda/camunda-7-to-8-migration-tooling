@@ -319,28 +319,16 @@ public abstract class HistoryEntityMigrator<C7, C8> {
   }
 
   /**
-   * Finds the C8 flow node instance key by C7 activity ID and process instance ID.
+   * Finds the C8 flow node instance key for a given C7 activity within a process instance.
    *
-   * <p>The method first checks whether the {@code activityId} contains the
-   * {@code #multiInstanceBody} suffix. If so, {@code hasMultipleFlowNodes} is set to {@code true}
-   * and {@code null} is returned immediately — a multi-instance body cannot be mapped to a single
-   * flow node instance.
-   *
-   * <p>Otherwise, the method searches C8 for flow nodes matching the {@code activityId}
-   * within the migrated process instance. Since the multi-instance body suffix is already handled
-   * by the early return above, the {@code activityId} at this point is guaranteed to be a plain
-   * BPMN element ID. When at least one C8 flow node exists, the method queries C7 for all historic
-   * activity instances with the same {@code activityId} and {@code processInstanceId}. This is
-   * necessary because only some of the flow nodes may have been migrated at this point. If more
-   * than one C7 activity instance exists, {@code hasMultipleFlowNodes} is set to {@code true}
-   * and {@code null} is returned. When exactly one C8 flow node matches and the activity is not
-   * multi-instance, its key is returned directly.
+   * <p>Returns {@code null} and sets {@code hasMultipleFlowNodes} to {@code true} when the
+   * activity cannot be mapped to a single flow node (multi-instance body or multiple C7
+   * activity instances for the same element ID).
    *
    * @param activityId           the C7 activity ID (BPMN element ID), may include the
    *                             {@code #multiInstanceBody} suffix
    * @param processInstanceId    the C7 process instance ID
-   * @param hasMultipleFlowNodes mutable flag set to {@code true} when the activity is detected as
-   *                             with an ambiguous mapping
+   * @param hasMultipleFlowNodes mutable flag set to {@code true} when an ambiguous mapping is detected
    * @return the C8 flow node instance key, or {@code null} if not found or ambiguous
    */
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId, AtomicBoolean hasMultipleFlowNodes) {
@@ -350,7 +338,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
     }
 
     if (activityId.endsWith(C7_MULTI_INSTANCE_BODY_SUFFIX)) {
-      // C8 flow node can't be determinated
+      // C8 flow node can't be determined
       hasMultipleFlowNodes.set(true);
       return null;
     }
