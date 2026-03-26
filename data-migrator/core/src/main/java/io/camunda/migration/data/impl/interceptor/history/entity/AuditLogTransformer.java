@@ -142,7 +142,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    *   <li>PROCESS_INSTANCE → PROCESS_INSTANCE</li>
    *   <li>VARIABLE → VARIABLE</li>
    *   <li>TASK → USER_TASK</li>
-   *   <li>DECISION_INSTANCE, DECISION_DEFINITION, DECISION_REQUIREMENTS_DEFINITION → DECISION</li>
    *   <li>USER → USER</li>
    *   <li>GROUP → GROUP</li>
    *   <li>TENANT → TENANT</li>
@@ -169,7 +168,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       case PROCESS_INSTANCE -> AuditLogEntity.AuditLogEntityType.PROCESS_INSTANCE;
       case VARIABLE -> AuditLogEntity.AuditLogEntityType.VARIABLE;
       case TASK -> AuditLogEntity.AuditLogEntityType.USER_TASK;
-      case DECISION_INSTANCE, DECISION_DEFINITION, DECISION_REQUIREMENTS_DEFINITION -> AuditLogEntity.AuditLogEntityType.DECISION;
       case USER -> AuditLogEntity.AuditLogEntityType.USER;
       case GROUP, GROUP_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.GROUP;
       case TENANT, TENANT_MEMBERSHIP -> AuditLogEntity.AuditLogEntityType.TENANT;
@@ -180,6 +178,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
 
       // Camunda 7 entity types that are currently NOT converted:
       // BATCH, IDENTITY_LINK, ATTACHMENT, JOB_DEFINITION,
+      // DECISION, DECISION_INSTANCE, DECISION_REQUIREMENTS_DEFINITION
       // EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE,
       // METRICS, TASK_METRICS, OPERATION_LOG, FILTER,
       // COMMENT, PROPERTY
@@ -211,10 +210,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * <h3>Variable Operations:</h3>
    * <ul>
    *   <li>MODIFY_VARIABLE, SET_VARIABLE, SET_VARIABLES → UPDATE</li>
-   * </ul>
-   * <h3>Decision Operations:</h3>
-   * <ul>
-   *   <li>EVALUATE → EVALUATE</li>
    * </ul>
    * <h3>Incident Operations:</h3>
    * <ul>
@@ -280,10 +275,6 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       case OPERATION_TYPE_MODIFY_VARIABLE, OPERATION_TYPE_SET_VARIABLE,
            OPERATION_TYPE_SET_VARIABLES ->
           AuditLogEntity.AuditLogOperationType.UPDATE;
-
-      // DecisionDefinition operations
-      case OPERATION_TYPE_EVALUATE ->
-          AuditLogEntity.AuditLogOperationType.EVALUATE;
 
       // Incident operations
       case OPERATION_TYPE_RESOLVE -> {

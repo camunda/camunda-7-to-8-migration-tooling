@@ -86,8 +86,8 @@ public class HistoryMigratorLogs {
   public static final String SKIPPING = "Migration of {} with C7 ID [{}] skipped. {}";
 
   public static final String MIGRATION_COMPLETED = "Migration of {} with C7 ID [{}] completed.";
-  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type";
-  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type";
+  public static final String UNSUPPORTED_AUDIT_LOG_ENTITY_TYPE = "Unsupported audit log entity type: ";
+  public static final String UNSUPPORTED_AUDIT_LOG_OPERATION_TYPE = "Unsupported audit log operation type: ";
   public static final String INSERT_VARIABLE_WITH_LEGACY_C7_ID = "Inserted variable [{}] to "
       + "migrated process instance with legacy C7 ID [{}].";
   public static final String COULD_NOT_BUILD_DECISION_RULE_INDEX = "Could not build ruleIndex map for decision "
