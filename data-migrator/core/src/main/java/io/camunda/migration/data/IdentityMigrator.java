@@ -194,15 +194,19 @@ public class IdentityMigrator {
 
   protected void markAsSkipped(Authorization authorization, String reason) {
     IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
-    if (MIGRATE.equals(mode)) {
-      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
-    }
+    markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), reason);
   }
 
   protected void markAsSkipped(Tenant tenant, String reason) {
     IdentityMigratorLogs.logSkippedTenant(tenant, reason);
-    if (MIGRATE.equals(mode)) {
-      saveRecord(IdKeyMapper.TYPE.TENANT, tenant.getId(), null);
+    markAsSkipped(IdKeyMapper.TYPE.TENANT, tenant.getId(), reason);
+  }
+
+  protected void markAsSkipped(IdKeyMapper.TYPE type, String c7Id, String reason) {
+    if (RETRY_SKIPPED.equals(mode)) {
+      dbClient.updateSkipReason(c7Id, type, reason);
+    } else if (MIGRATE.equals(mode)) {
+      dbClient.insert(c7Id, (Long) null, null, type, reason);
     }
   }
 
