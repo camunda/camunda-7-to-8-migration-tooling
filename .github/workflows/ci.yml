@@ -136,6 +136,43 @@ jobs:
           path: ${{ steps.code-conversion-artifacts.outputs.dir }}
           retention-days: 7
 
+  code-conversion-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Enable long paths for Git on Windows
+        run: git config --global core.longpaths true
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Build and test code-conversion module on Windows
+        working-directory: code-conversion
+        run: mvn verify --batch-mode
+
   diagram-converter:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -185,6 +222,43 @@ jobs:
           name: diagram-converter
           path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
           retention-days: 7
+
+  diagram-converter-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Enable long paths for Git on Windows
+        run: git config --global core.longpaths true
+
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Build and test diagram-converter module on Windows
+        working-directory: diagram-converter
+        run: mvn verify --batch-mode
 
   it-runtime-postgresql:
     runs-on: ubuntu-latest
@@ -1039,7 +1113,9 @@ jobs:
     needs:
       - distro
       - code-conversion
+      - code-conversion-windows
       - diagram-converter
+      - diagram-converter-windows
       - it-runtime-h2
       - it-history-h2
       - it-history-h2-windows
