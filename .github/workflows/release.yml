@@ -229,7 +229,7 @@ jobs:
             secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Login to Camunda Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: registry.camunda.cloud
           username: ${{ steps.vault-secrets.outputs.NEXUS_APP_CAMUNDA_COM_USR }}
