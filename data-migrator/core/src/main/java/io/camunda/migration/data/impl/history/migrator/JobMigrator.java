@@ -89,8 +89,8 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
    * @return the C8 job key, or {@code null} if already migrated
    */
   @Override
-  public MigrationResult migrateTransactionally(final HistoricJobLog c7JobLog) {
-    final String c7JobId = c7JobLog.getJobId();
+  public MigrationResult migrateTransactionally(HistoricJobLog c7JobLog) {
+    String c7JobId = c7JobLog.getJobId();
     if (shouldMigrate(c7JobId, HISTORY_JOB)) {
       AtomicBoolean hasMultipleFlowNodes = new AtomicBoolean(false);
       String jobDefinitionConfiguration = c7JobLog.getJobDefinitionConfiguration();
@@ -101,19 +101,19 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_UNSUPPORTED_JOBS);
       }
 
-      final var jobKey = getNextKey();
-      final var builder = new JobDbModel.Builder().jobKey(jobKey);
+      var jobKey = getNextKey();
+      var builder = new JobDbModel.Builder().jobKey(jobKey);
 
-      final var processDefinitionKey = findProcessDefinitionKey(c7JobLog.getProcessDefinitionId());
+      var processDefinitionKey = findProcessDefinitionKey(c7JobLog.getProcessDefinitionId());
       builder.processDefinitionKey(processDefinitionKey);
-      final String c7ProcessInstanceId = c7JobLog.getProcessInstanceId();
-      final ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
+      String c7ProcessInstanceId = c7JobLog.getProcessInstanceId();
+      ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
       if (processInstance != null) {
         builder.processInstanceKey(processInstance.processInstanceKey());
 
-        final String c7RootProcessInstanceId = c7JobLog.getRootProcessInstanceId();
+        String c7RootProcessInstanceId = c7JobLog.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
-          final ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
+          ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
             builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
                 .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
@@ -127,7 +127,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         }
       }
 
-      final JobDbModel dbModel = convert(C7Entity.of(c7JobLog), builder);
+      JobDbModel dbModel = convert(C7Entity.of(c7JobLog), builder);
 
       if (dbModel.processDefinitionKey() == null) {
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);

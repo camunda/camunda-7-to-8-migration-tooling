@@ -53,8 +53,8 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
    * @param builder the Camunda 8 job builder to populate with converted data
    */
   @Override
-  public void execute(final HistoricExternalTaskLog entity, final JobDbModel.Builder builder) {
-    final var creationTime = convertDate(entity.getTimestamp());
+  public void execute(HistoricExternalTaskLog entity, JobDbModel.Builder builder) {
+    var creationTime = convertDate(entity.getTimestamp());
 
     builder
         .type(entity.getTopicName())

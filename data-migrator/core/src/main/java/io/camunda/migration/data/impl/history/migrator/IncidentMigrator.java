@@ -192,21 +192,21 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * @param c7Incident the Camunda 7 incident
    * @param builder    the incident builder to set the job key on
    */
-  protected void resolveJobKey(final HistoricIncident c7Incident, final Builder builder) {
+  protected void resolveJobKey(HistoricIncident c7Incident, Builder builder) {
     if (!isFailedJobIncident(c7Incident) && !isFailedExternalTaskIncident(c7Incident)) {
       return;
     }
-    final String c7JobId = c7Incident.getConfiguration();
+    String c7JobId = c7Incident.getConfiguration();
     if (c7JobId == null) {
       return;
     }
     if (isFailedExternalTaskIncident(c7Incident)) {
       if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK)) {
-        final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK);
+        Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK);
         builder.jobKey(jobKey);
       }
     } else if (dbClient.checkExistsByC7IdAndType(c7JobId, HISTORY_JOB)) {
-      final Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
+      Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
       builder.jobKey(jobKey);
     }
   }
@@ -217,7 +217,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * @param c7Incident the Camunda 7 incident
    * @return true for {@code failedJob} incident type
    */
-  protected boolean isFailedJobIncident(final HistoricIncident c7Incident) {
+  protected boolean isFailedJobIncident(HistoricIncident c7Incident) {
     return FAILED_JOB_HANDLER_TYPE.equals(c7Incident.getIncidentType());
   }
 
@@ -227,7 +227,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
    * @param c7Incident the Camunda 7 incident
    * @return true for {@code failedExternalTask} incident type
    */
-  protected boolean isFailedExternalTaskIncident(final HistoricIncident c7Incident) {
+  protected boolean isFailedExternalTaskIncident(HistoricIncident c7Incident) {
     return Incident.EXTERNAL_TASK_HANDLER_TYPE.equals(c7Incident.getIncidentType());
   }
 }
