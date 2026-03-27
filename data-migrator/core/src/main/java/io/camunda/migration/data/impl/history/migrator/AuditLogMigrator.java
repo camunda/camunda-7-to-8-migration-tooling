@@ -15,6 +15,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingAuditLogs;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
@@ -222,9 +223,14 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
    */
   protected void resolveJobKey(Builder builder, UserOperationLogEntry c7AuditLog) {
     String c7JobId = c7AuditLog.getJobId();
-    if (c7JobId != null && EntityTypes.JOB.equals(c7AuditLog.getEntityType()) && isMigrated(c7JobId, HISTORY_JOB)) {
-      Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
-      builder.jobKey(jobKey);
+    if (c7JobId != null && EntityTypes.JOB.equals(c7AuditLog.getEntityType())) {
+      if (isMigrated(c7JobId, HISTORY_JOB)) {
+        Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_JOB);
+        builder.jobKey(jobKey);
+      } else if (isMigrated(c7JobId, HISTORY_EXTERNAL_TASK)) {
+        Long jobKey = dbClient.findC8KeyByC7IdAndType(c7JobId, HISTORY_EXTERNAL_TASK);
+        builder.jobKey(jobKey);
+      }
     }
   }
 
