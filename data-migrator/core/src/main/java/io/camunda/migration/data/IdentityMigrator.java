@@ -261,7 +261,7 @@ public class IdentityMigrator {
     }
   }
 
-  protected void markAsSkipped(Authorization authorization, String reason) {
+  protected void markAuthorizationAsSkipped(Authorization authorization, String reason) {
     IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
     markAsSkipped(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), reason);
   }
@@ -286,13 +286,6 @@ public class IdentityMigrator {
       dbClient.updateSkipReason(c7Id, type, reason);
     } else if (MIGRATE.equals(mode)) {
       dbClient.insert(c7Id, (Long) null, null, type, reason);
-    }
-  }
-
-  protected void markAuthorizationAsSkipped(Authorization authorization, String reason) {
-    IdentityMigratorLogs.logSkippedAuthorization(authorization, reason);
-    if (MIGRATE.equals(mode)) {
-      saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), null);
     }
   }
 
