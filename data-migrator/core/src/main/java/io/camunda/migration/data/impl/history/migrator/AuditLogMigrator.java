@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -112,6 +113,10 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
 
       if (c7AuditLog.getTaskId() != null && dbModel.userTaskKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_BELONGS_TO_SKIPPED_TASK);
+      }
+
+      if (c7AuditLog.getJobId() != null && dbModel.jobKey() == null) {
+        throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_JOB_REFERENCE);
       }
 
       c8Client.insertAuditLog(dbModel);

@@ -15,9 +15,11 @@ import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETC
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM_FOR_PD;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_FORM_FOR_PD_AND_TDK;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_GROUP;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_HISTORIC_ELEMENT;
 import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_PROCESS_INSTANCE;
-import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANTS;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_TENANT;
+import static io.camunda.migration.data.impl.logging.C7ClientLogs.FAILED_TO_FETCH_USER;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -55,6 +57,7 @@ import org.camunda.bpm.engine.identity.TenantQuery;
 import org.camunda.bpm.engine.identity.User;
 import org.camunda.bpm.engine.identity.UserQuery;
 import org.camunda.bpm.engine.impl.AuthorizationQueryImpl;
+import org.camunda.bpm.engine.impl.GroupQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricActivityInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricDecisionInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.HistoricIdentityLinkLogQueryImpl;
@@ -66,6 +69,7 @@ import org.camunda.bpm.engine.impl.HistoricVariableInstanceQueryImpl;
 import org.camunda.bpm.engine.impl.ProcessDefinitionQueryImpl;
 import org.camunda.bpm.engine.impl.TenantQueryImpl;
 import org.camunda.bpm.engine.impl.UserOperationLogQueryImpl;
+import org.camunda.bpm.engine.impl.UserQueryImpl;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.cmd.GetCamundaFormDefinitionCmd;
 import org.camunda.bpm.engine.impl.form.CamundaFormRefImpl;
@@ -595,8 +599,10 @@ public class C7Client {
    * Gets a single user operation log entry by ID.
    */
   public UserOperationLogEntry getUserOperationLogEntry(String c7Id) {
-    var query = historyService.createUserOperationLogQuery().operationId(c7Id);
-    return callApi(query::singleResult, format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry", c7Id));
+    var query = historyService.createUserOperationLogQuery().operationId(c7Id).orderByTimestamp().asc().orderByOperationId().asc();
+    var results = callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "UserOperationLogEntry with operationId", c7Id));
+    return results.isEmpty() ? null : results.getFirst();
   }
 
   /**
@@ -635,6 +641,28 @@ public class C7Client {
   }
 
   /**
+   * Processes user entities with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleUsers(Consumer<User> callback, String idAfter) {
+    UserQueryImpl query = (UserQueryImpl) ((UserQueryImpl) identityService.createUserQuery()).idAfter(idAfter)
+        .orderByUserId()
+        .asc();
+
+    new Pagination<User>().pageSize(properties.getPageSize()).query(query).maxCount(query::count).callback(callback);
+  }
+
+  /**
+   * Processes group entities with pagination using the provided callback consumer.
+   */
+  public void fetchAndHandleGroups(Consumer<Group> callback, String idAfter) {
+    GroupQueryImpl query = (GroupQueryImpl) ((GroupQueryImpl) identityService.createGroupQuery()).idAfter(idAfter)
+        .orderByGroupId()
+        .asc();
+
+    new Pagination<Group>().pageSize(properties.getPageSize()).query(query).maxCount(query::count).callback(callback);
+  }
+
+  /**
    * Processes tenant entities with pagination using the provided callback consumer.
    */
   public void fetchAndHandleTenants(Consumer<Tenant> callback, String idAfter) {
@@ -646,11 +674,27 @@ public class C7Client {
   }
 
   /**
+   * Gets a single user by ID.
+   */
+  public User getUser(String userId) {
+    UserQuery query = identityService.createUserQuery().userId(userId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_USER);
+  }
+
+  /**
+   * Gets a single group by ID.
+   */
+  public Group getGroup(String groupId) {
+    GroupQuery query = identityService.createGroupQuery().groupId(groupId);
+    return callApi(query::singleResult, FAILED_TO_FETCH_GROUP);
+  }
+
+  /**
    * Gets a single tenant by ID.
    */
   public Tenant getTenant(String tenantId) {
     TenantQuery query = identityService.createTenantQuery().tenantId(tenantId);
-    return callApi(query::singleResult, FAILED_TO_FETCH_TENANTS);
+    return callApi(query::singleResult, FAILED_TO_FETCH_TENANT);
   }
 
   /**
@@ -782,6 +826,19 @@ public class C7Client {
 
     return callApi(query::list,
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricIdentityLinkLog", taskId));
+  }
+
+  /**
+   * Fetches user members for a given group
+   */
+  public List<User> findUsersForGroup(String groupId) {
+    UserQuery query = identityService.createUserQuery().memberOfGroup(groupId);
+
+    return new Pagination<User>()
+        .pageSize(properties.getPageSize())
+        .query(query)
+        .maxCount(query::count)
+        .toList();
   }
 
   /**

@@ -963,7 +963,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Login to Camunda Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: registry.camunda.cloud
           username: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_USR }}

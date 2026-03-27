@@ -8,13 +8,16 @@
 package io.camunda.migration.data.config.property;
 
 import io.camunda.migration.data.config.property.history.HistoryProperties;
+import jakarta.validation.constraints.AssertTrue;
 import java.util.List;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Configuration properties for the migrator.
  */
+@Validated
 @ConfigurationProperties(MigratorProperties.PREFIX)
 public class MigratorProperties {
 
@@ -34,6 +37,7 @@ public class MigratorProperties {
   protected C7Properties c7;
   protected C8Properties c8;
   protected HistoryProperties history;
+  protected IdentityProperties identity = new IdentityProperties();
 
   protected List<InterceptorConfig> interceptors;
 
@@ -59,6 +63,14 @@ public class MigratorProperties {
 
   public void setC8(C8Properties c8) {
     this.c8 = c8;
+  }
+
+  public IdentityProperties getIdentity() {
+    return identity;
+  }
+
+  public void setIdentity(IdentityProperties identity) {
+    this.identity = identity;
   }
 
   public Boolean getAutoDdl() {
@@ -151,4 +163,11 @@ public class MigratorProperties {
     this.history = history;
   }
 
+  @AssertTrue(message = "When skip-groups is enabled, skip-users must also be enabled")
+  public boolean isCombinationValid() {
+    if (identity.getSkipGroups() == true && identity.getSkipUsers() == false) {
+      return false;
+    }
+    return true;
+  }
 }

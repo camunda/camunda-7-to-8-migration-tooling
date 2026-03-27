@@ -101,8 +101,6 @@ public class EntityConversionService {
       // will be handled in variable interceptor
       throw vex;
     } catch (Exception ex) {
-      EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
-
       if (ex instanceof EntityInterceptorException) {
         throw ex;
       } else {
@@ -134,8 +132,6 @@ public class EntityConversionService {
     } catch (Exception ex) {
       String interceptorName = ex.getClass().getSimpleName();
       String entityType = context.getC7Entity().getClass().getSimpleName();
-      EntityConversionServiceLogs.logInterceptorError(interceptorName, entityType);
-
       if (ex instanceof EntityInterceptorException) {
         throw ex;
       } else {

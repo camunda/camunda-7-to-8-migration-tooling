@@ -7,7 +7,6 @@
  */
 package io.camunda.migration.data.qa.identity;
 
-import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.response.Tenant;
 import io.camunda.migration.data.IdentityMigrator;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -16,9 +15,7 @@ import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
-import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.CANNOT_MIGRATE_TENANT_MEMBERSHIP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -97,12 +94,8 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
 
     testHelper.createUserInC7("userId1", "firstName1", "lastName1");
     testHelper.createUserInC7("userId2", "firstName2", "lastName2");
-    testHelper.createUserInC8("userId1", "firstName1", "lastName1");
-    testHelper.createUserInC8("userId2", "firstName2", "lastName2");
     testHelper.createGroupInC7("groupId1", "groupName1");
     testHelper.createGroupInC7("groupId2", "groupName2");
-    testHelper.createGroupInC8("groupId1", "groupName1");
-    testHelper.createGroupInC8("groupId2", "groupName2");
 
     identityService.createTenantUserMembership(tenant1.getId(), "userId1");
     identityService.createTenantGroupMembership(tenant1.getId(), "groupId1");
@@ -128,12 +121,9 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
     // given
     var tenant1 = testHelper.createTenantInC7("tenantId1", "tenantName1");
 
-    testHelper.createUserInC7("userId0", "firstName0", "lastName0");
+    testHelper.createUserInC7("userId0", "firstName0", "lastName0", "@@@"); // invalid email so it cannot get migrated
     testHelper.createUserInC7("userId1", "firstName1", "lastName1");
     testHelper.createUserInC7("userId2", "firstName2", "lastName2");
-
-    testHelper.createUserInC8("userId1", "firstName1", "lastName1");
-    testHelper.createUserInC8("userId2", "firstName2", "lastName2");
 
     identityService.createTenantUserMembership(tenant1.getId(), "userId0"); // cannot be migrated because user does not exist
     identityService.createTenantUserMembership(tenant1.getId(), "userId1");
@@ -150,8 +140,7 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatUsersForTenantContainExactly(tenant1.getId(), "userId1", "userId2");
 
     // and 1 tenant membership could not be migrated
-    logs.assertContains(formatMessage(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenant1.getId(), OwnerType.USER.name(), "userId0",
-        "Command 'ADD_ENTITY' rejected with code 'NOT_FOUND': Expected to add user with ID 'userId0' to tenant with ID 'tenantId1', but the user doesn't exist."));
+    logs.assertContains(formatMessage(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenant1.getId(), "userId0"));
   }
 
 }
