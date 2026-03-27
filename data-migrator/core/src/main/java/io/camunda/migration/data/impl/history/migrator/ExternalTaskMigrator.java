@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.impl.history.migrator;
 
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -132,7 +132,7 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
       }
 
       if (hasMultipleFlowNodes.get() && dbModel.elementInstanceKey() == null) {
-        throw new EntitySkippedException(c7ExternalTaskLog, SKIP_REASON_CANNOT_DETERMINATE_FLOW_NODE);
+        throw new EntitySkippedException(c7ExternalTaskLog, SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE);
       }
 
       c8Client.insertJob(dbModel);

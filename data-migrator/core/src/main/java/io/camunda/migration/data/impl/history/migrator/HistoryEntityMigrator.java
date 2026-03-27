@@ -357,8 +357,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       // only some of the flow nodes might have been migrated at this point so first check how many entities are in C7
       var historicActivityInstances = c7Client.findHistoricActivityInstances(activityId, processInstanceId);
       if (historicActivityInstances != null && historicActivityInstances.size() > 1) {
-        // Multiple C7 activity instances found for the same element ID — C8 flow node can't be determined.
-        // Possible causes: multi-instance node or process instance modification.
+        // C8 flow node can't be determined
         hasMultipleFlowNodes.set(true);
         return null;
       }

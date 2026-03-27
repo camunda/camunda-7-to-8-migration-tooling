@@ -29,7 +29,6 @@ import org.springframework.stereotype.Component;
  * to the Camunda 8 job format. External tasks are mapped as jobs with:
  * <ul>
  *   <li>{@code topicName} mapped to {@code type}</li>
- *   <li>{@code workerId} mapped to {@code worker}</li>
  * </ul>
  * </p>
  * <p>
@@ -63,10 +62,11 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .creationTime(creationTime)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
+        .worker(null)
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(entity.getActivityId()))
         .tenantId(getTenantId(entity.getTenantId()));
-    // Note: partitionId is set externally by IncidentMigrator to match the parent process instance
+    // Note: partitionId is set externally by ExternalTaskMigrator to match the parent process instance
     // jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
     // and elementInstanceKey are set externally in ExternalTaskMigrator.
   }
