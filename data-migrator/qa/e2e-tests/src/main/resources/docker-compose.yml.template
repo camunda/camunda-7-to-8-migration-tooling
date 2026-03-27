@@ -24,7 +24,7 @@ services:
         echo 'Installing JDK 21...'
         apk add --no-cache openjdk21
         export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-        export PATH=$JAVA_HOME/bin:$PATH
+        export PATH=$$JAVA_HOME/bin:$$PATH
         echo 'JDK 21 installed successfully'
         java -version
         echo 'Starting Camunda...'
@@ -63,7 +63,9 @@ services:
     image: eclipse-temurin:21-jdk
     volumes:
       - ../../assembly/target/camunda-7-to-8-data-migrator-${project.version}.zip:/tmp/migrator.zip:ro
-      - ./src/main/resources/invoice-example:/app/configuration/resources:ro
+      - ./src/main/resources/invoice-example:/app/configuration/resources/invoice:ro
+      - ./src/main/resources/process-example-c8:/app/configuration/resources/process:ro
+      - ./src/main/resources/process-example:/tmp/c7-bpmns:ro
     working_dir: /app
     environment:
       - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/camunda
@@ -85,10 +87,108 @@ services:
       - |
         set -e
         echo 'Extracting migrator distribution...'
-        apt-get update -qq && apt-get install -y -qq unzip wget > /dev/null
+        apt-get update -qq && apt-get install -y -qq unzip wget curl jq > /dev/null
         unzip -q /tmp/migrator.zip -d /app
         echo 'Downloading PostgreSQL driver...'
         wget -q https://jdbc.postgresql.org/download/postgresql-42.7.3.jar -O /app/configuration/userlib/postgresql.jar
+        echo 'Deploying C7 process BPMNs via REST API...'
+        C7_REST=http://camunda7:8080/engine-rest
+
+        # Wait for C7 REST API to be ready
+        echo 'Waiting for C7 REST API...'
+        for i in $$(seq 1 30); do
+          if curl -sf --connect-timeout 5 --max-time 10 "$$C7_REST/engine" > /dev/null 2>&1; then
+            echo "C7 REST API is ready"
+            break
+          fi
+          echo "Attempt $$i: C7 REST API not ready yet..."
+          sleep 3
+        done
+
+        # Deploy BPMNs via REST API (verbose output to debug failures)
+        echo "Deploying BPMNs from /tmp/c7-bpmns/..."
+        ls -la /tmp/c7-bpmns/
+        DEPLOY_RESULT=$$(curl -w "\nHTTP_CODE:%{http_code}" --max-time 30 -X POST "$$C7_REST/deployment/create" \
+          -F "deployment-name=process-example" \
+          -F "enable-duplicate-filtering=false" \
+          -F "callActivityProcess.bpmn=@/tmp/c7-bpmns/callActivityProcess.bpmn" \
+          -F "miProcess-subprocess.bpmn=@/tmp/c7-bpmns/miProcess-subprocess.bpmn" 2>&1) || true
+        echo "Deployment response: $$DEPLOY_RESULT"
+
+        # Start callingProcessId with typed variables
+        echo "Starting callingProcessId..."
+        RESPONSE=$$(curl --max-time 30 -X POST "$$C7_REST/process-definition/key/callingProcessId/start" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "variables": {
+              "stringVar": {"value": "hello world", "type": "String"},
+              "intVar": {"value": 42, "type": "Integer"},
+              "boolVar": {"value": true, "type": "Boolean"},
+              "doubleVar": {"value": 3.14, "type": "Double"},
+              "longVar": {"value": 9999999, "type": "Long"}
+            }
+          }' 2>&1) || true
+        echo "Start response: $$RESPONSE"
+
+        # Poll & execute async-before jobs (triggers MI subprocess instances)
+        sleep 2
+        echo "Querying jobs..."
+        for i in $$(seq 1 15); do
+          JOBS=$$(curl --max-time 10 "$$C7_REST/job?processDefinitionKey=miProcess" 2>/dev/null) || JOBS="[]"
+          echo "Jobs response (attempt $$i): $$JOBS"
+          JOB_IDS=$$(echo "$$JOBS" | jq -r '.[].id' 2>/dev/null || true)
+          if [ -n "$$JOB_IDS" ]; then
+            for JOB_ID in $$JOB_IDS; do
+              EXEC_RESULT=$$(curl --max-time 10 -X POST "$$C7_REST/job/$$JOB_ID/execute" -H "Content-Type: application/json" -d '{}' 2>&1) || true
+              echo "Executed job $$JOB_ID: $$EXEC_RESULT"
+            done
+            break
+          fi
+          sleep 2
+        done
+
+        # Poll & complete user tasks (parallel MI, cardinality=3 — all 3 exist at once)
+        sleep 2
+        echo "Completing parallel MI user tasks (expecting 3)..."
+        COUNTER=1
+        for i in $$(seq 1 15); do
+          TASKS=$$(curl --max-time 10 "$$C7_REST/task?processDefinitionKey=miProcess" 2>/dev/null) || TASKS="[]"
+          TASK_COUNT=$$(echo "$$TASKS" | jq 'length' 2>/dev/null || echo "0")
+          echo "Tasks found (attempt $$i): $$TASK_COUNT"
+          if [ "$$TASK_COUNT" -gt "0" ]; then
+            TASK_IDS=$$(echo "$$TASKS" | jq -r '.[].id' 2>/dev/null)
+            for TASK_ID in $$TASK_IDS; do
+              COMPLETE_RESULT=$$(curl --max-time 10 -X POST "$$C7_REST/task/$$TASK_ID/complete" \
+                -H "Content-Type: application/json" \
+                -d "{\"variables\": {\"taskResult\": {\"value\": \"result-$$COUNTER\", \"type\": \"String\"}}}" 2>&1) || true
+              echo "Completed task $$COUNTER/3: $$TASK_ID"
+              COUNTER=$$((COUNTER + 1))
+            done
+            break
+          fi
+          sleep 2
+        done
+
+        # Execute the failingTask async job so it actually fails and creates an incident
+        sleep 2
+        echo "Executing failingTask async job..."
+        for i in $$(seq 1 15); do
+          JOBS=$$(curl --max-time 10 "$$C7_REST/job?processDefinitionKey=miProcess" 2>/dev/null) || JOBS="[]"
+          JOB_IDS=$$(echo "$$JOBS" | jq -r '.[].id' 2>/dev/null || true)
+          if [ -n "$$JOB_IDS" ]; then
+            for JOB_ID in $$JOB_IDS; do
+              EXEC_RESULT=$$(curl --max-time 10 -X POST "$$C7_REST/job/$$JOB_ID/execute" -H "Content-Type: application/json" -d '{}' 2>&1) || true
+              echo "Executed failingTask job $$JOB_ID: $$EXEC_RESULT"
+            done
+            break
+          fi
+          echo "Attempt $$i: No failingTask jobs yet..."
+          sleep 2
+        done
+
+        sleep 2
+        echo 'C7 process instances created. failingTask should have created an incident.'
+
         echo 'Starting data migration...'
         cd /app
         ./start.sh --history
