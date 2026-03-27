@@ -86,9 +86,9 @@ camunda:
 
 #    # Identity migration configuration
 #    identity:
-#      # Controls whether to skip user migration when IdP is configured for users (default: false)
+#      # Skip the migration of users (enable when  IdP is configured for users; default: false)
 #      skip-users: false
-#      # Controls whether to skip group migration when IdP is configured for groups (default: false)
+#      # Skip the migration of groups (enable when  IdP is configured for groups; default: false)
 #      skip-groups: false
 #      sync:
 #        # Timeout in milliseconds for identity synchronization operations (default: 3000)

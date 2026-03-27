@@ -55,9 +55,9 @@ public class IdentityMigratorLogs {
   public static final String STARTING_MIGRATION_OF_ENTITIES = "Starting migration of {} entities";
   public static final String FETCHING_LATEST_ID = "Fetching most recently migrated {} ID";
   public static final String LATEST_ID = "Latest migrated {} ID: {}";
-  public static final String MISSING_AUTHORIZATION = "Authorization with ID {} can no longer be found, it might have been removed";
+  public static final String MISSING_ENTITY = "{} with ID {} can no longer be found, it might have been removed";
   public static final String INITIALIZED_IDENTITY_SYNC = "Initialized identity sync util with timeout [{} ms] and poll interval [{} ms]";
-  public static final String SYNC_TIMEOUT_EXCEEDED = "Wait condition for [{}] timed out";
+  public static final String SYNC_TIMEOUT_EXCEEDED = "Wait condition for [{}] timed out (timeout: [{} ms])";
 
   // Failure reasons constants
   public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
@@ -147,8 +147,8 @@ public class IdentityMigratorLogs {
     LOGGER.debug(LATEST_ID, type.name().toLowerCase(), Optional.ofNullable(id).orElse("none"));
   }
 
-  public static void logMissingAuthorization(String authId) {
-    LOGGER.info(MISSING_AUTHORIZATION, authId);
+  public static void logMissingEntity(String type, String id) {
+    LOGGER.info(MISSING_ENTITY, type, id);
   }
 
   public static void logMigratingTenantMemberships(String tenantId) {
@@ -183,8 +183,8 @@ public class IdentityMigratorLogs {
     LOGGER.warn(CANNOT_MIGRATE_GROUP_MEMBERSHIP, groupId, username, reason);
   }
 
-  public static void logIdentitySyncTimeout(String condition) {
-    LOGGER.debug(SYNC_TIMEOUT_EXCEEDED, condition);
+  public static void logIdentitySyncTimeout(String condition, long timeout) {
+    LOGGER.info(SYNC_TIMEOUT_EXCEEDED, condition, timeout);
   }
 
   public static void logInitializedIdentitySync(Long timeout, Long pollInterval) {

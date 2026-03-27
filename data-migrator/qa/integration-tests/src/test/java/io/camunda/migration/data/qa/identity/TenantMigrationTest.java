@@ -10,11 +10,14 @@ package io.camunda.migration.data.qa.identity;
 import io.camunda.client.api.search.enums.OwnerType;
 import io.camunda.client.api.search.response.Tenant;
 import io.camunda.migration.data.IdentityMigrator;
+import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.CANNOT_MIGRATE_TENANT_MEMBERSHIP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,8 +144,7 @@ public class TenantMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatUsersForTenantContainExactly(tenant1.getId(), "userId1", "userId2");
 
     // and 1 tenant membership could not be migrated
-    logs.assertContains(formatMessage(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenant1.getId(), OwnerType.USER.name(), "userId0",
-        "Command 'ADD_ENTITY' rejected with code 'NOT_FOUND': Expected to add user with ID 'userId0' to tenant with ID 'tenantId1', but the user doesn't exist."));
+    logs.assertContains(formatMessage(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenant1.getId(), "userId0"));
   }
 
 }

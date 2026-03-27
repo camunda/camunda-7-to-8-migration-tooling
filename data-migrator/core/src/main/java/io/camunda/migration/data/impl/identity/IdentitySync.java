@@ -65,7 +65,7 @@ public class IdentitySync {
         return;
       }
       if (Instant.now().isAfter(deadline)) {
-        IdentityMigratorLogs.logIdentitySyncTimeout(alias);
+        IdentityMigratorLogs.logIdentitySyncTimeout(alias, timeout.toMillis());
         return;
       }
 

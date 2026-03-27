@@ -106,7 +106,7 @@ public class IdentityMigrator {
 
   protected void printMigratedEntitiesForType(IdKeyMapper.TYPE type) {
     Long count = dbClient.countMigratedByType(type);
-    if (type == IdKeyMapper.TYPE.TENANT) {
+    if (type == IdKeyMapper.TYPE.TENANT || type == IdKeyMapper.TYPE.USER || type == IdKeyMapper.TYPE.GROUP) {
       PrintUtils.printMigratedC7IdsHeader(count, type);
       if (count > 0) {
         dbClient.listMigratedC7IdsByType(type);
@@ -355,7 +355,7 @@ public class IdentityMigrator {
       if (authorization != null) {
         callback.accept(authorization);
       } else {
-        IdentityMigratorLogs.logMissingAuthorization(authorizationId);
+        IdentityMigratorLogs.logMissingEntity(IdKeyMapper.TYPE.AUTHORIZATION.getDisplayName(), authorizationId);
       }
     });
   }
@@ -366,6 +366,8 @@ public class IdentityMigrator {
       User user = c7Client.getUser(userId);
       if (user != null) {
         callback.accept(user);
+      } else {
+        IdentityMigratorLogs.logMissingEntity(IdKeyMapper.TYPE.USER.getDisplayName(), userId);
       }
     });
   }
@@ -376,6 +378,8 @@ public class IdentityMigrator {
       Group group = c7Client.getGroup(groupId);
       if (group != null) {
         callback.accept(group);
+      } else {
+        IdentityMigratorLogs.logMissingEntity(IdKeyMapper.TYPE.GROUP.getDisplayName(), groupId);
       }
     });
   }
@@ -386,6 +390,8 @@ public class IdentityMigrator {
       Tenant tenant = c7Client.getTenant(tenantId);
       if (tenant != null) {
         callback.accept(tenant);
+      } else {
+        IdentityMigratorLogs.logMissingEntity(IdKeyMapper.TYPE.TENANT.getDisplayName(), tenantId);
       }
     });
   }

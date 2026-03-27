@@ -61,7 +61,7 @@ public class UserMigrationTest extends IdentityMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateOnlyNonPreviouslyMigratedGroups() {
+  public void shouldMigrateOnlyNonPreviouslyMigratedUsers() {
     // given 3 users in c7 but one was already marked as migrated
     var user1 = testHelper.createUserInC7("user1", "name1", "lastName1");
     identityMigrator.start();

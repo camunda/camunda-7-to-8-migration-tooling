@@ -87,7 +87,6 @@ import org.springframework.context.annotation.Import;
     VariableMigrator.class,
     AuditLogMigrator.class,
     SchemaShutdownCleaner.class,
-    DataSourceRegistry.class,
     PartitionSupplier.class,
     DataSourceRegistry.class,
     IdentitySync.class

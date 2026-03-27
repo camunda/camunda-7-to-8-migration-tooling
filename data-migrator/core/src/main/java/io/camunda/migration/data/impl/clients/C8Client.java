@@ -586,15 +586,31 @@ public class C8Client {
    */
   public void createUserTenantAssignment(String tenantId, String userId) {
     var command = camundaClient.newAssignUserToTenantCommand().username(userId).tenantId(tenantId);
-    callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
+    try {
+      if (getUser(userId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
+      } else {
+        throw new IdentityMigratorException("User " + userId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId), e);
+    }
   }
 
   /**
    * Assigns a group to a tenant in C8, creating a tenant membership for the group
    */
   public void createGroupTenantAssignment(String tenantId, String groupId) {
-      var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
-      callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
+    var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
+    try {
+      if (getGroup(groupId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
+      } else {
+        throw new IdentityMigratorException("Group " + groupId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId), e);
+    }
   }
 
   /**
