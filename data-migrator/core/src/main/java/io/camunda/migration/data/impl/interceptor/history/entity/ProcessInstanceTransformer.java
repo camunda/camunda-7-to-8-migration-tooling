@@ -61,7 +61,7 @@ public class ProcessInstanceTransformer implements EntityInterceptor<HistoricPro
 
   /**
    * Generate default tags based on legacy ID.
-   * Tag format: "c7-legacy-id"
+   * Tag format: "c7-legacy" to allow easy identification of C7-origin data in C8
    */
   protected @NonNull Set<String> getDefaultTags() {
     Set<String> tags = new HashSet<>();
