@@ -14,11 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.client.api.search.response.Group;
 import io.camunda.migration.data.IdentityMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -114,13 +114,9 @@ public class RetryGroupMigrationTest extends IdentityMigrationAbstractTest {
     identityMigrator.start();
 
     // then all skipped groups were listed
-    String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.GROUP.getDisplayName() + "s\\]:";
-    String regex = expectedHeader + "\\R((?:.+\\R){9}.+)";
-    assertThat(output.getOut()).containsPattern(regex);
-    Pattern pattern = Pattern.compile(regex);
-    Matcher matcher = pattern.matcher(output.getOut());
-    final String capturedIds = matcher.find() ? matcher.group(1) : "";
-    groupIds.forEach(id -> assertThat(capturedIds).contains(id));
+    Map<String, List<String>> skipped = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+    List<String> skippedGroups = skipped.get(IdKeyMapper.TYPE.GROUP.getDisplayName());
+    groupIds.forEach(id -> assertThat(skippedGroups).anyMatch(entry -> entry.contains(id)));
   }
 
   @Test
