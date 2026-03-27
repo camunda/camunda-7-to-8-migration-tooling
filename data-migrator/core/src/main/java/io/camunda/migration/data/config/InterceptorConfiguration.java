@@ -28,6 +28,7 @@ import io.camunda.migration.data.impl.interceptor.history.entity.AuditLogTransfo
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionDefinitionTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionInstanceTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.DecisionRequirementsDefinitionTransformer;
+import io.camunda.migration.data.impl.interceptor.history.entity.ExternalTaskTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.FlowNodeTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.FormTransformer;
 import io.camunda.migration.data.impl.interceptor.history.entity.IncidentTransformer;
@@ -361,6 +362,11 @@ public class InterceptorConfiguration {
   @Bean
   public JobTransformer jobTransformer() {
     return new JobTransformer();
+  }
+
+  @Bean
+  public ExternalTaskTransformer externalTaskTransformer() {
+    return new ExternalTaskTransformer();
   }
 
   @Bean

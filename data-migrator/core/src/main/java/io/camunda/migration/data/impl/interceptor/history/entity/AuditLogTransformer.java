@@ -155,7 +155,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
    * </p>
    * <p>
    * Some Camunda 7 entity types are not currently converted (e.g., BATCH, IDENTITY_LINK,
-   * ATTACHMENT, JOB_DEFINITION, JOB, EXTERNAL_TASK, CASE_DEFINITION, CASE_INSTANCE, etc.).
+   * ATTACHMENT, JOB_DEFINITION, CASE_DEFINITION, CASE_INSTANCE, etc.).
    * Attempting to convert unsupported types will throw an EntityInterceptorException.
    * </p>
    *
@@ -174,7 +174,7 @@ public class AuditLogTransformer implements EntityInterceptor<UserOperationLogEn
       case AUTHORIZATION -> AuditLogEntity.AuditLogEntityType.AUTHORIZATION;
       case INCIDENT -> AuditLogEntity.AuditLogEntityType.INCIDENT;
       case PROCESS_DEFINITION, DEPLOYMENT -> AuditLogEntity.AuditLogEntityType.RESOURCE;
-      case JOB -> AuditLogEntity.AuditLogEntityType.JOB;
+      case JOB, EXTERNAL_TASK -> AuditLogEntity.AuditLogEntityType.JOB;
 
       // Camunda 7 entity types that are currently NOT converted:
       // BATCH, IDENTITY_LINK, ATTACHMENT, JOB_DEFINITION,
