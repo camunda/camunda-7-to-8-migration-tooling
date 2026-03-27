@@ -322,13 +322,19 @@ public abstract class HistoryEntityMigrator<C7, C8> {
    * Finds the C8 flow node instance key for a given C7 activity within a process instance.
    *
    * <p>Returns {@code null} and sets {@code hasMultipleFlowNodes} to {@code true} when the
-   * activity cannot be mapped to a single flow node (multi-instance body or multiple C7
-   * activity instances for the same element ID).
+   * activity cannot be mapped to a single flow node. This happens in two cases:
+   * <ul>
+   *   <li>The {@code activityId} ends with the {@code #multiInstanceBody} suffix (multi-instance
+   *       loop body marker)</li>
+   *   <li>Multiple C7 historic activity instances exist for the same element ID within the process
+   *       instance — possible causes: multi-instance node or process instance modification</li>
+   * </ul>
    *
    * @param activityId           the C7 activity ID (BPMN element ID), may include the
    *                             {@code #multiInstanceBody} suffix
    * @param processInstanceId    the C7 process instance ID
-   * @param hasMultipleFlowNodes mutable flag set to {@code true} when an ambiguous mapping is detected
+   * @param hasMultipleFlowNodes mutable flag set to {@code true} when an ambiguous mapping is
+   *                             detected (multi-instance node or process instance modification)
    * @return the C8 flow node instance key, or {@code null} if not found or ambiguous
    */
   protected Long findFlowNodeInstanceKey(String activityId, String processInstanceId, AtomicBoolean hasMultipleFlowNodes) {
@@ -351,7 +357,8 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       // only some of the flow nodes might have been migrated at this point so first check how many entities are in C7
       var historicActivityInstances = c7Client.findHistoricActivityInstances(activityId, processInstanceId);
       if (historicActivityInstances != null && historicActivityInstances.size() > 1) {
-        // C8 flow node can't be determinated
+        // Multiple C7 activity instances found for the same element ID — C8 flow node can't be determined.
+        // Possible causes: multi-instance node or process instance modification.
         hasMultipleFlowNodes.set(true);
         return null;
       }
