@@ -351,6 +351,52 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs.getFirst().rootProcessInstanceKey()).isEqualTo(root.getFirst().processInstanceKey());
   }
 
+  @Test
+  public void shouldMigrateFailedExternalTask() {
+    // given: a process with an external task that fails with an error message and details
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+        .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // lock and report failure with remaining retries (no incident created)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+        .topic(TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    externalTaskService.handleFailure(
+        tasks.getFirst().getId(),
+        WORKER_ID,
+        "Address could not be validated: Address database not reachable",
+        "Super long error details",
+        1,
+        10L * 60L * 1000L);
+
+    // verify that history has been recorded with a failure log entry
+    assertThat(historyService.createHistoricExternalTaskLogQuery().failureLog().count())
+        .as("Expected at least one failure log entry").isGreaterThan(0);
+
+    // when: migration runs
+    historyMigrator.migrate();
+
+    // then: the process instance was migrated
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    // and: exactly one C8 job entry was created (deduplicated by external task ID)
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
+
+    JobEntity job = c8Jobs.getFirst();
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
+        null);
+  }
+
   protected void deployCallingModel() {
     BpmnModelInstance callingProcess = Bpmn.createExecutableProcess("callingProcessId")
         .startEvent()
