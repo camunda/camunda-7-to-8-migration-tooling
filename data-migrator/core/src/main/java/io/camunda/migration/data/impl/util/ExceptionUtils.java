@@ -44,12 +44,12 @@ public class ExceptionUtils {
   }
 
   /**
-   * Wraps {@link ClientException}, {@link ProcessEngineException}, and {@link PersistenceException} into {@link RuntimeMigratorException}.
+   * Wraps {@link ClientException}, {@link ProcessEngineException}, {@link IllegalArgumentException} and {@link PersistenceException} into {@link RuntimeMigratorException}.
    */
   public static <T> T callApi(Supplier<T> supplier, String message) {
     try {
       return supplier.get();
-    } catch (ClientException | ProcessEngineException | PersistenceException e) {
+    } catch (ClientException | ProcessEngineException | IllegalArgumentException | PersistenceException e) {
       throw wrapException(message, e);
     }
   }
@@ -59,12 +59,12 @@ public class ExceptionUtils {
   }
 
   /**
-   * Wraps {@link ClientException}, {@link ProcessEngineException}, and {@link PersistenceException} into {@link RuntimeMigratorException}.
+   * Wraps {@link ClientException}, {@link ProcessEngineException}, {@link IllegalArgumentException} and {@link PersistenceException} into {@link RuntimeMigratorException}.
    */
   public static void callApi(Runnable runnable, String message) {
     try {
       runnable.run();
-    } catch (ClientException | ProcessEngineException | PersistenceException e) {
+    } catch (ClientException | ProcessEngineException | IllegalArgumentException | PersistenceException e) {
       throw wrapException(message, e);
     }
   }
