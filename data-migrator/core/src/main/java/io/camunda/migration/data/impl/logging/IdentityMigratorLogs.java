@@ -12,6 +12,7 @@ import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.authorization.Authorization;
+import org.camunda.bpm.engine.identity.Group;
 import org.camunda.bpm.engine.identity.Tenant;
 import org.camunda.bpm.engine.impl.util.ResourceTypeUtil;
 import org.slf4j.Logger;
@@ -29,6 +30,21 @@ public class IdentityMigratorLogs {
   public static final String CANNOT_MIGRATE_TENANT_MEMBERSHIP = "There was an error while migrating tenant membership for tenant [{}] and {} [{}]: {}";
   public static final String SUCCESSFULLY_MIGRATED_TENANT = "Successfully migrated tenant [{}] (name: {})";
   public static final String SKIPPED_TENANT = "Tenant with ID [{}] (name: {}) was skipped: {}";
+
+  public static final String MIGRATING_GROUP = "Migrating group [{}] (name: {})";
+  public static final String MIGRATING_GROUP_MEMBERSHIPS = "Migrating group memberships for group [{}]";
+  public static final String MIGRATING_GROUP_MEMBERSHIP = "Migrating group membership for group [{}] and user [{}]";
+  public static final String MIGRATED_GROUP_MEMBERSHIP = "Successfully migrated group membership for group [{}] and user [{}]";
+  public static final String CANNOT_MIGRATE_GROUP_MEMBERSHIP = "There was an error while migrating group membership for group [{}] and user [{}]: {}";
+  public static final String SUCCESSFULLY_MIGRATED_GROUP = "Successfully migrated group [{}] (name: {})";
+  public static final String SKIPPED_GROUP = "Group with ID [{}] (name: {}) was skipped: {}";
+  public static final String SKIP_GROUPS_ENABLED = "skip-groups is enabled in configuration, migration for groups will not be performed";
+
+  public static final String MIGRATING_USER = "Migrating user [{}]";
+  public static final String SUCCESSFULLY_MIGRATED_USER = "Successfully migrated user [{}]";
+  public static final String SKIPPED_USER = "User [{}] was skipped: {}";
+  public static final String SKIP_USERS_ENABLED = "skip-users is enabled in configuration, migration for users will not be performed";
+
   public static final String MIGRATING_AUTH = "Migrating authorization [{}] for {} [{}] on {} [{}]";
   public static final String MIGRATING_CHILD_AUTH = "Migrating child authorization for resource [{}]";
   public static final String SUCCESSFULLY_MIGRATED_CHILD_AUTH = "Successfully migrated child authorization for resource [{}]";
@@ -39,7 +55,9 @@ public class IdentityMigratorLogs {
   public static final String STARTING_MIGRATION_OF_ENTITIES = "Starting migration of {} entities";
   public static final String FETCHING_LATEST_ID = "Fetching most recently migrated {} ID";
   public static final String LATEST_ID = "Latest migrated {} ID: {}";
-  public static final String MISSING_AUTHORIZATION = "Authorization with ID {} can no longer be found, it might have been removed";
+  public static final String MISSING_ENTITY = "{} with ID {} can no longer be found, it might have been removed";
+  public static final String INITIALIZED_IDENTITY_SYNC = "Initialized identity sync util with timeout [{} ms] and poll interval [{} ms]";
+  public static final String SYNC_TIMEOUT_EXCEEDED = "Wait condition for [{}] timed out (timeout: [{} ms])";
 
   // Failure reasons constants
   public static final String FAILURE_GLOBAL_AND_REVOKE_UNSUPPORTED = "GLOBAL and REVOKE authorization types are not supported";
@@ -64,6 +82,30 @@ public class IdentityMigratorLogs {
 
   public static void logSkippedTenant(Tenant tenant, String reason) {
     LOGGER.warn(SKIPPED_TENANT, tenant.getId(), tenant.getName() == null ? "null" : tenant.getName(), reason);
+  }
+
+  public static void logMigratingGroup(Group group) {
+    LOGGER.debug(MIGRATING_GROUP, group.getId(), group.getName() == null ? "null" : group.getName());
+  }
+
+  public static void logMigratedGroup(Group group) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_GROUP, group.getId(), group.getName());
+  }
+
+  public static void logSkippedGroup(Group group, String reason) {
+    LOGGER.warn(SKIPPED_GROUP, group.getId(), group.getName() == null ? "null" : group.getName(), reason);
+  }
+
+  public static void logMigratingUser(String username) {
+    LOGGER.debug(MIGRATING_USER, username);
+  }
+
+  public static void logMigratedUser(String username) {
+    LOGGER.info(SUCCESSFULLY_MIGRATED_USER, username);
+  }
+
+  public static void logSkippedUser(String username, String reason) {
+    LOGGER.warn(SKIPPED_USER, username, reason);
   }
 
   public static void logMigratingAuthorization(Authorization authorization) {
@@ -105,8 +147,8 @@ public class IdentityMigratorLogs {
     LOGGER.debug(LATEST_ID, type.name().toLowerCase(), Optional.ofNullable(id).orElse("none"));
   }
 
-  public static void logMissingAuthorization(String authId) {
-    LOGGER.info(MISSING_AUTHORIZATION, authId);
+  public static void logMissingEntity(String type, String id) {
+    LOGGER.info(MISSING_ENTITY, type, id);
   }
 
   public static void logMigratingTenantMemberships(String tenantId) {
@@ -123,6 +165,38 @@ public class IdentityMigratorLogs {
 
   public static void logCannotMigrateTenantMembership(String tenantId, String type, String userOrGroupId, String reason) {
     LOGGER.warn(CANNOT_MIGRATE_TENANT_MEMBERSHIP, tenantId, type, userOrGroupId, reason);
+  }
+
+  public static void logMigratingGroupMemberships(String groupId) {
+    LOGGER.info(MIGRATING_GROUP_MEMBERSHIPS, groupId);
+  }
+
+  public static void logMigratingGroupMembership(String groupId, String username) {
+    LOGGER.info(MIGRATING_GROUP_MEMBERSHIP, groupId, username);
+  }
+
+  public static void logMigratedGroupMembership(String groupId, String username) {
+    LOGGER.info(MIGRATED_GROUP_MEMBERSHIP, groupId, username);
+  }
+
+  public static void logCannotMigrateGroupMembership(String groupId, String username, String reason) {
+    LOGGER.warn(CANNOT_MIGRATE_GROUP_MEMBERSHIP, groupId, username, reason);
+  }
+
+  public static void logIdentitySyncTimeout(String condition, long timeout) {
+    LOGGER.info(SYNC_TIMEOUT_EXCEEDED, condition, timeout);
+  }
+
+  public static void logInitializedIdentitySync(Long timeout, Long pollInterval) {
+    LOGGER.info(INITIALIZED_IDENTITY_SYNC, timeout, pollInterval);
+  }
+
+  public static void logSkipGroupsEnabled() {
+    LOGGER.info(SKIP_GROUPS_ENABLED);
+  }
+
+  public static void logSkipUsersEnabled() {
+    LOGGER.info(SKIP_USERS_ENABLED);
   }
 
   static String ownerType(Authorization authorization) {

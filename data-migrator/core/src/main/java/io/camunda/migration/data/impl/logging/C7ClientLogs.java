@@ -22,7 +22,9 @@ public class C7ClientLogs {
       + "Id: ";
   public static final String FAILED_TO_FETCH_PROCESS_INSTANCE = "Process instance fetching failed for C7 ID: ";
   public static final String FAILED_TO_FETCH_HISTORIC_ELEMENT = "Failed to fetch %s for C7 ID: %s";
-  public static final String FAILED_TO_FETCH_TENANTS = "Failed to fetch tenants";
+  public static final String FAILED_TO_FETCH_TENANT = "Failed to fetch tenant";
+  public static final String FAILED_TO_FETCH_USER = "Failed to fetch user";
+  public static final String FAILED_TO_FETCH_GROUP = "Failed to fetch group";
   public static final String FAILED_TO_FETCH_AUTHORIZATIONS = "Failed to fetch authorizations";
   public static final String FAILED_TO_FETCH_FORM = "Failed to fetch form";
   public static final String FAILED_TO_FETCH_FORM_FOR_PD = FAILED_TO_FETCH_FORM +  " for processDefinition [%s]";
