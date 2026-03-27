@@ -21,11 +21,13 @@ import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Date;
 import java.util.List;
+import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.Deployment;
 import org.camunda.bpm.engine.runtime.Incident;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.model.bpmn.Bpmn;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,9 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected IdentityService identityService;
+
+  @Autowired
+  protected ExternalTaskService externalTaskService;
 
   @AfterEach
   public void cleanupData() {
@@ -578,6 +583,47 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.COMPLETE);
     assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(log.jobKey()).isNotNull();
+    assertThat(log.actorId()).isEqualTo("demo");
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForExternalTaskSetPriority() {
+    // given: a process with an external task
+    var c7Model = Bpmn.createExecutableProcess("externalTaskProcess")
+        .startEvent()
+        .serviceTask("externalTask")
+          .camundaExternalTask("myTopic")
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("externalTaskProcess", c7Model);
+    runtimeService.startProcessInstanceByKey("externalTaskProcess");
+
+    // Set priority on the external task with an authenticated user to generate audit log
+    identityService.setAuthenticatedUserId("demo");
+    var externalTasks = externalTaskService.createExternalTaskQuery().list();
+    assertThat(externalTasks).hasSize(1);
+    externalTaskService.setPriority(externalTasks.getFirst().getId(), 10L);
+
+    // Verify "SetPriority" audit log exists in C7 with ExternalTask entity type
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_SET_PRIORITY)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("externalTaskProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("externalTaskProcess");
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    // External task audit logs are mapped to JOB entity type in C8
+    assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.JOB);
+    assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.UPDATE);
+    assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(log.actorId()).isEqualTo("demo");
   }
 

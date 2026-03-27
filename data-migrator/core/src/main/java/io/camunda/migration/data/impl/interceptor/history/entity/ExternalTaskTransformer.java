@@ -18,55 +18,56 @@ import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
 import java.util.Set;
-import org.camunda.bpm.engine.history.HistoricJobLog;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * Transformer for converting Camunda 7 HistoricJobLog to Camunda 8 JobDbModel.
+ * Transformer for converting Camunda 7 HistoricExternalTaskLog to Camunda 8 JobDbModel.
  * <p>
- * This transformer handles the conversion of historic job log entries from Camunda 7
- * to the Camunda 8 job format. It maps job state, retries, error details, timing, and
- * contextual information.
+ * This transformer handles the conversion of historic external task log entries from Camunda 7
+ * to the Camunda 8 job format. External tasks are mapped as jobs with:
+ * <ul>
+ *   <li>{@code topicName} mapped to {@code type}</li>
+ * </ul>
  * </p>
  * <p>
  * Note: Fields requiring database lookups (processDefinitionKey, processInstanceKey,
- * rootProcessInstanceKey, elementInstanceKey, jobKey) are set externally by JobMigrator.
+ * rootProcessInstanceKey, elementInstanceKey, jobKey) are set externally by ExternalTaskMigrator.
  * </p>
  */
-@Order(13)
+@Order(14)
 @Component
-public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbModel.Builder> {
+public class ExternalTaskTransformer implements EntityInterceptor<HistoricExternalTaskLog, JobDbModel.Builder> {
 
   @Override
   public Set<Class<?>> getTypes() {
-    return Set.of(HistoricJobLog.class);
+    return Set.of(HistoricExternalTaskLog.class);
   }
 
   /**
-   * Executes the transformation of a Camunda 7 HistoricJobLog to Camunda 8 JobDbModel.
+   * Executes the transformation of a Camunda 7 HistoricExternalTaskLog to Camunda 8 JobDbModel.
    *
-   * @param historicJobLog the Camunda 7 historic job log entry to transform
-   * @param builder        the Camunda 8 job builder to populate with converted data
+   * @param entity  the Camunda 7 historic external task log entry to transform
+   * @param builder the Camunda 8 job builder to populate with converted data
    */
   @Override
-  public void execute(HistoricJobLog historicJobLog, JobDbModel.Builder builder) {
-    var creationTime = convertDate(historicJobLog.getTimestamp());
+  public void execute(HistoricExternalTaskLog entity, JobDbModel.Builder builder) {
+    var creationTime = convertDate(entity.getTimestamp());
 
     builder
-        .type(historicJobLog.getJobDefinitionType())
-        .worker(historicJobLog.getHostname())
+        .type(entity.getTopicName())
         .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
+        .creationTime(creationTime)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
-        .processDefinitionId(prefixDefinitionId(historicJobLog.getProcessDefinitionKey()))
-        .elementId(sanitizeFlowNodeId(historicJobLog.getActivityId()))
-        .tenantId(getTenantId(historicJobLog.getTenantId()))
-        .creationTime(creationTime);
-    // Note: partitionId is set externally by JobMigrator to match the parent process instance
+        .worker(null)
+        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .elementId(sanitizeFlowNodeId(entity.getActivityId()))
+        .tenantId(getTenantId(entity.getTenantId()));
+    // Note: partitionId is set externally by ExternalTaskMigrator to match the parent process instance
     // jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
-    // and elementInstanceKey are set externally in JobMigrator.
+    // and elementInstanceKey are set externally in ExternalTaskMigrator.
   }
-
 }

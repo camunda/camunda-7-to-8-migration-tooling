@@ -42,7 +42,8 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_BELONGS_TO_SKIPPED_TASK = "Belongs to a skipped task";
   public static final String SKIP_REASON_MISSING_SCOPE_KEY = "Missing scope key";
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
-  public static final String SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE = "Missing flow node due to multi instance activity";
+  public static final String SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE =
+      "Flow node cannot be determined. Possible causes: multi-instance or performed process instance modification.";
   public static final String SKIP_REASON_MISSING_FORM = "Missing form";
   public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";
@@ -78,6 +79,8 @@ public class HistoryMigratorLogs {
   public static final String MIGRATING_AUDIT_LOGS = "Migrating audit logs with C7 ID: [{}]";
 
   public static final String MIGRATING_JOB = "Migrating historic job with C7 job ID: [{}]";
+
+  public static final String MIGRATING_EXTERNAL_TASK = "Migrating historic external task with C7 external task ID: [{}]";
 
   public static final String MIGRATING_CANDIDATES = "Migrating candidate users and groups for user task with C7 ID: [{}]";
   public static final String MIGRATING_CANDIDATE_USERS = "Migrating {} candidate user(s) for user task with C7 ID: [{}]";
@@ -151,6 +154,10 @@ public class HistoryMigratorLogs {
 
   public static void logMigratingJob(String c7JobId) {
     LOGGER.debug(MIGRATING_JOB, c7JobId);
+  }
+
+  public static void logMigratingExternalTask(String c7ExternalTaskId) {
+    LOGGER.debug(MIGRATING_EXTERNAL_TASK, c7ExternalTaskId);
   }
 
   public static void migratingHistoricFlowNode(String c7FlowNodeId) {
