@@ -30,6 +30,13 @@
       "enabled": false
     },
     {
+      "description": "On any maintenance branch, restrict Camunda 8 packages to patch updates only (no minor or major).",
+      "matchBaseBranches": ["/^maintenance\\//"],
+      "matchPackagePrefixes": ["io.camunda"],
+      "matchUpdateTypes": ["minor", "major"],
+      "enabled": false
+    },
+    {
       "description": "Automerge all updates with green CI.",
       "matchPackageNames": [
         "*"
