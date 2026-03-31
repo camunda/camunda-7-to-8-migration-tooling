@@ -16,6 +16,7 @@ To run the Data Migrator:
    - The `c7` config should point to your Camunda 7 database  
    - The `camunda.client` section should point to your Camunda 8 cluster for runtime migration  
    - The `c8` RDBMS config is only required when running with `--history` (for history migration)
+
 2. Execute the `start` script:  
    - `start.bat` for Windows  
    - `start.sh` for Linux/macOS
