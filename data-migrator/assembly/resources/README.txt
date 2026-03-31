@@ -26,7 +26,7 @@ Options
 - `--help` – Show this help message
 - `--runtime` – Migrate runtime data
 - `--history` – Migrate history data
-- `--identity` – Migrate identity data only
+- `--identity` – Migrate identity data
 - `--list-skipped` – List previously skipped data
 - `--list-migrated` – List migrated entities (C7 ID -> C8 Key)
 - `--retry-skipped` – Only retry the migration of previously skipped data
