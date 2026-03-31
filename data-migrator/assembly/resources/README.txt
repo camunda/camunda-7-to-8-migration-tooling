@@ -14,8 +14,8 @@ To run the Data Migrator:
 
 1. Adjust `./configuration/application.yml`  
    - The `c7` config should point to your Camunda 7 database  
-   - The `c8` config should point to your Camunda 8 database
-
+   - The `camunda.client` section should point to your Camunda 8 cluster for runtime migration  
+   - The `c8` RDBMS config is only required when running with `--history` (for history migration)
 2. Execute the `start` script:  
    - `start.bat` for Windows  
    - `start.sh` for Linux/macOS
@@ -25,9 +25,9 @@ Options
 - `--help` – Show this help message
 - `--runtime` – Migrate runtime data
 - `--history` – Migrate history data
-- `--identity` - Migrate identity data only
+- `--identity` – Migrate identity data only
 - `--list-skipped` – List previously skipped data
-- `--list-migrated` - List migrated entities (C7 ID -> C8 Key).
+- `--list-migrated` – List migrated entities (C7 ID -> C8 Key)
 - `--retry-skipped` – Only retry the migration of previously skipped data
 - `--drop-schema` – If migration was successful, drop the migrator schema on shutdown
 - `--force` – Force the dropping of the migrator schema in all cases, to be used in combination with --drop-schema (warning: this can lead to data loss)
