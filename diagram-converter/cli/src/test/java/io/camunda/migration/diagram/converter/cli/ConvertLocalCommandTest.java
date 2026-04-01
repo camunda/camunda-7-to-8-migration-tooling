@@ -108,4 +108,63 @@ public class ConvertLocalCommandTest {
     assertEquals(0, call);
     assertThat(tempDir.listFiles()).hasSize(1).anyMatch(file -> file.getName().equals("c7.bpmn"));
   }
+
+  @Test
+  void shouldConvertFormFileInDirectory(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(2)
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+    File converted = new File(tempDir, "converted-c8-simple.form");
+    String content = Files.readString(converted.toPath());
+    assertThat(content).contains("\"Camunda Cloud\"");
+    assertThat(content).contains("\"8.9.0\"");
+  }
+
+  @Test
+  void shouldConvertSingleFormFile(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = new File(tempDir, "simple.form");
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(2)
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+  }
+
+  @Test
+  void shouldConvertMixedFilesIncludingForm(@TempDir File tempDir) throws IOException {
+    setupDir("c7.bpmn", tempDir);
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(4)
+        .anyMatch(file -> file.getName().equals("c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("converted-c8-c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+  }
+
+  @Test
+  void shouldSkipFormFileConversionInCheckMode(@TempDir File tempDir) {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.check = true;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(1)
+        .anyMatch(file -> file.getName().equals("simple.form"));
+  }
 }

@@ -1,0 +1,8 @@
+{
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.23.0",
+  "id": "formId",
+  "components": [],
+  "type": "default",
+  "schemaVersion": 16
+}
