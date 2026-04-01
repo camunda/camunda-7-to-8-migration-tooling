@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP;
@@ -32,7 +33,9 @@ import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSE
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_USER_TASK;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_INSERT_VARIABLE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_AUTHORIZATION;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_GROUP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_TENANT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MIGRATE_USER;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_MODIFY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_QUERY_TOPOLOGY;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_SEARCH_DECISION_DEFINITIONS;
@@ -49,14 +52,20 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_USER_TASK;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
+import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
+import io.camunda.client.api.command.CreateUserCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
 import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
+import io.camunda.client.api.command.ProblemException;
 import io.camunda.client.api.fetch.GroupGetRequest;
+import io.camunda.client.api.fetch.TenantGetRequest;
 import io.camunda.client.api.fetch.UserGetRequest;
 import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.CreateAuthorizationResponse;
@@ -98,7 +107,10 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
 import io.camunda.db.rdbms.write.queue.BatchInsertDto;
 import io.camunda.migration.data.config.property.MigratorProperties;
+import io.camunda.migration.data.exception.IdentityMigratorException;
+import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.identity.C8Authorization;
+import io.camunda.migration.data.impl.identity.SecurePasswordGenerator;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
@@ -521,6 +533,31 @@ public class C8Client {
   }
 
   /**
+   * Creates a new user in C8
+   */
+  public void createUser(org.camunda.bpm.engine.identity.User user) {
+    String name = user.getFirstName() + " " + user.getLastName();
+    CreateUserCommandStep1 command = camundaClient.newCreateUserCommand()
+        .username(user.getId())
+        .name(name)
+        .password(SecurePasswordGenerator.generate());
+    if (user.getEmail() != null) {
+      command = command.email(user.getEmail());
+    }
+
+    callApi(command::execute, FAILED_TO_MIGRATE_USER + user.getId());
+
+  }
+
+  /**
+   * Creates a new group in C8
+   */
+  public void createGroup(org.camunda.bpm.engine.identity.Group group) {
+    CreateGroupCommandStep1.CreateGroupCommandStep2 command = camundaClient.newCreateGroupCommand().groupId(group.getId()).name(group.getName());
+    callApi(command::execute, FAILED_TO_MIGRATE_GROUP + group.getId());
+  }
+
+  /**
    * Creates a new tenant in C8
    */
   public void createTenant(Tenant tenant) {
@@ -529,19 +566,51 @@ public class C8Client {
   }
 
   /**
+   * Assigns a user to a group in C8, creating a group membership for the user
+   */
+  public void createGroupAssignment(String groupId, String userId) {
+    var command = camundaClient.newAssignUserToGroupCommand().username(userId).groupId(groupId);
+    try {
+      if (getUser(userId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId));
+      } else {
+        throw new IdentityMigratorException("User " + userId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_GROUP_MEMBERSHIP, groupId, userId), e);
+    }
+  }
+
+  /**
    * Assigns a user to a tenant in C8, creating a tenant membership for the user
    */
   public void createUserTenantAssignment(String tenantId, String userId) {
     var command = camundaClient.newAssignUserToTenantCommand().username(userId).tenantId(tenantId);
-    callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
+    try {
+      if (getUser(userId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId));
+      } else {
+        throw new IdentityMigratorException("User " + userId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_TENANT_USER_MEMBERSHIP, tenantId, userId), e);
+    }
   }
 
   /**
    * Assigns a group to a tenant in C8, creating a tenant membership for the group
    */
   public void createGroupTenantAssignment(String tenantId, String groupId) {
-      var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
-      callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
+    var command = camundaClient.newAssignGroupToTenantCommand().groupId(groupId).tenantId(tenantId);
+    try {
+      if (getGroup(groupId) != null) {
+        callApi(command::execute, String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId));
+      } else {
+        throw new IdentityMigratorException("Group " + groupId + " does not exist in C8");
+      }
+    } catch (IdentityMigratorException e) {
+      throw wrapException(String.format(FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP, tenantId, groupId), e);
+    }
   }
 
   /**
@@ -557,6 +626,14 @@ public class C8Client {
         .permissionTypes(c8Authorization.permissions().toArray(new PermissionType[0]));
 
     return callApi(command::execute, FAILED_TO_MIGRATE_AUTHORIZATION + c7Id);
+  }
+
+  /**
+   * Fetches a tenant by ID from C8
+   */
+  public io.camunda.client.api.search.response.Tenant getTenant(String tenantId) {
+    TenantGetRequest tenantGetRequest = camundaClient.newTenantGetRequest(tenantId);
+    return callApi(tenantGetRequest::execute, "Failed to get tenant " + tenantId);
   }
 
   /**
@@ -649,5 +726,40 @@ public class C8Client {
           .orElseThrow(() -> new C8EntityNotFoundException(entityType, c8Key));
     }
 
+  }
+  /**
+   * Checks if a user or group with the given ID exists in C8.
+   */
+  public boolean ownerExists(String userId, String groupId) {
+    Object userOrGroup = null;
+    try {
+      if (isNotBlank(userId)) {
+        userOrGroup = getUser(userId);
+      } else if (isNotBlank(groupId)) {
+        userOrGroup = getGroup(groupId);
+      }
+      return userOrGroup != null;
+    } catch (MigratorException e) {
+      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
+        return false;
+      } else {
+        throw new IdentityMigratorException("Cannot verify owner existence: " + userOrGroup, e);
+      }
+    }
+  }
+
+  /**
+   * Checks if a tenant with the given ID exists in C8.
+   */
+  public boolean tenantExists(String tenantId) {
+    try {
+      return getTenant(tenantId) != null;
+    } catch (MigratorException e) {
+      if (e.getCause() instanceof ProblemException pe && pe.details().getStatus() == 404) { // Not found
+        return false;
+      } else {
+        throw new IdentityMigratorException("Cannot verify tenant existence: " + tenantId, e);
+      }
+    }
   }
 }

@@ -9,6 +9,9 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
@@ -16,12 +19,15 @@ import static org.camunda.bpm.engine.variable.Variables.createVariables;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
+import java.util.Date;
 import java.util.List;
+import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.IdentityService;
 import org.camunda.bpm.engine.history.UserOperationLogEntry;
 import org.camunda.bpm.engine.repository.Deployment;
 import org.camunda.bpm.engine.runtime.Incident;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
+import org.camunda.bpm.model.bpmn.Bpmn;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,9 +44,13 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   @Autowired
   protected IdentityService identityService;
 
+  @Autowired
+  protected ExternalTaskService externalTaskService;
+
   @AfterEach
   public void cleanupData() {
     identityService.clearAuthentication();
+    managementService.createJobQuery().list().forEach(job -> managementService.deleteJob(job.getId()));
     historyService.createUserOperationLogQuery().list().forEach(log ->
         historyService.deleteUserOperationLogEntry(log.getId()));
   }
@@ -276,7 +286,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateAuditLogsForEvaluateDecision() {
+  public void shouldSkipAuditLogsForEvaluateDecision() {
     // given
     deployer.deployCamunda7Decision("dish-decision.dmn");
 
@@ -296,15 +306,13 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
 
-    // then
+    // then logs are skipped
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSize(1);
-    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
-    assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.EVALUATE);
+    assertThat(logs).hasSize(0);
   }
 
   @Test
-  public void shouldMigrateAuditLogsForDeleteDecisionHistory() {
+  public void shouldSkipAuditLogsForDeleteDecisionHistory() {
     // given
     deployer.deployCamunda7Decision("dish-decision.dmn");
 
@@ -332,11 +340,78 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
 
-    // then
+    // then logs are skipped
     List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
-    assertThat(logs).hasSize(2);
-    assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.DELETE);
-    assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.DECISION);
+    assertThat(logs).hasSize(0);
+  }
+
+  @Test
+  public void shouldSkipAuditLogsForDMNUpdateHistoryTimeToLive() {
+    // given
+    deployer.deployCamunda7Decision("dish-decision.dmn");
+
+    identityService.setAuthenticatedUserId("demo");
+    decisionService.evaluateDecisionByKey("Dish")
+        .variables(createVariables()
+            .putValue("season", "Winter")
+            .putValue("guestCount", 5))
+        .evaluate();
+
+    identityService.setAuthenticatedUserId("demo");
+    repositoryService.updateDecisionDefinitionHistoryTimeToLive(
+        repositoryService.createDecisionDefinitionQuery()
+            .decisionDefinitionKey("Dish")
+            .singleResult()
+            .getId(),
+        5);
+
+    // Verify audit logs exist in C7
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_UPDATE_HISTORY_TIME_TO_LIVE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(3);
+
+    // when
+    historyMigrator.migrate();
+
+    // then logs are skipped
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    assertThat(logs).hasSize(0);
+  }
+
+  @Test
+  public void shouldSkipAuditLogsForDMNSetRemovalTime() {
+    // given
+    deployer.deployCamunda7Decision("dish-decision.dmn");
+
+    identityService.setAuthenticatedUserId("demo");
+    decisionService.evaluateDecisionByKey("Dish")
+        .variables(createVariables()
+            .putValue("season", "Winter")
+            .putValue("guestCount", 5))
+        .evaluate();
+
+    identityService.setAuthenticatedUserId("demo");
+    historyService.setRemovalTimeToHistoricDecisionInstances()
+        .absoluteRemovalTime(new Date())
+        .byIds(historyService.createHistoricDecisionInstanceQuery()
+            .decisionDefinitionKey("Dish")
+            .singleResult()
+            .getId())
+        .executeAsync();
+
+    // Verify audit logs exist in C7
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_SET_REMOVAL_TIME)
+        .count();
+    assertThat(auditLogCount).isEqualTo(5);
+
+    // when
+    historyMigrator.migrate();
+
+    // then logs are skipped
+    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES.name());
+    assertThat(logs).hasSize(0);
   }
 
   @Test
@@ -509,6 +584,79 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(log.jobKey()).isNotNull();
     assertThat(log.actorId()).isEqualTo("demo");
+  }
+
+  @Test
+  public void shouldMigrateAuditLogsForExternalTaskSetPriority() {
+    // given: a process with an external task
+    var c7Model = Bpmn.createExecutableProcess("externalTaskProcess")
+        .startEvent()
+        .serviceTask("externalTask")
+          .camundaExternalTask("myTopic")
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("externalTaskProcess", c7Model);
+    runtimeService.startProcessInstanceByKey("externalTaskProcess");
+
+    // Set priority on the external task with an authenticated user to generate audit log
+    identityService.setAuthenticatedUserId("demo");
+    var externalTasks = externalTaskService.createExternalTaskQuery().list();
+    assertThat(externalTasks).hasSize(1);
+    externalTaskService.setPriority(externalTasks.getFirst().getId(), 10L);
+
+    // Verify "SetPriority" audit log exists in C7 with ExternalTask entity type
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_SET_PRIORITY)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("externalTaskProcess");
+    assertThat(c8ProcessInstance).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("externalTaskProcess");
+    assertThat(logs).hasSize(1);
+    AuditLogEntity log = logs.getFirst();
+
+    // External task audit logs are mapped to JOB entity type in C8
+    assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.JOB);
+    assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.UPDATE);
+    assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
+    assertThat(log.actorId()).isEqualTo("demo");
+  }
+
+  @Test
+  public void shouldSkipAuditLogsForExecuteJobWhenJobIsNotMigrated() {
+    // given
+    deployer.deployCamunda7Process("asyncBeforeUserTaskProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("asyncBeforeUserTaskProcessId");
+
+    // Execute the async-before job with an authenticated user to generate the "Execute" audit log
+    identityService.setAuthenticatedUserId("demo");
+    var jobs = managementService.createJobQuery().list();
+    assertThat(jobs).hasSize(1);
+    String c7JobId = jobs.getFirst().getId();
+    managementService.executeJob(c7JobId);
+
+    // Verify "Execute" audit log exists in C7 with JOB entity type
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_EXECUTE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
+    historyMigrator.migrateByType(HISTORY_AUDIT_LOG);
+
+    // then
+    List<ProcessInstanceEntity> c8ProcessInstances = searchHistoricProcessInstances("asyncBeforeUserTaskProcessId");
+    assertThat(c8ProcessInstances).hasSize(1);
+    List<AuditLogEntity> logs = searchAuditLogs("asyncBeforeUserTaskProcessId");
+    assertThat(logs).isEmpty();
   }
 
   @Test

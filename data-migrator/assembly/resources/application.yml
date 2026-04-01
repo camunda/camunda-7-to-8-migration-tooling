@@ -84,6 +84,18 @@ camunda:
           # Accepts ISO-8601 duration format (e.g., P6M for 6 calendar months, P1Y for 1 year, P90D for 90 days)
           ttl: P6M
 
+#    # Identity migration configuration
+#    identity:
+#      # Skip the migration of users (enable when  IdP is configured for users; default: false)
+#      skip-users: false
+#      # Skip the migration of groups (enable when  IdP is configured for groups; default: false)
+#      skip-groups: false
+#      sync:
+#        # Timeout in milliseconds for identity synchronization operations (default: 3000)
+#        timeout: 3000
+#        # Polling interval in milliseconds for identity synchronization operations (default: 250)
+#        poll-interval: 250
+
     ## Camunda 7 configuration
     c7:
       data-source:

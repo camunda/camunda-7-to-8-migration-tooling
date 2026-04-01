@@ -24,6 +24,7 @@ import org.camunda.bpm.engine.impl.persistence.entity.CamundaFormDefinitionEntit
 import org.camunda.bpm.engine.impl.history.event.UserOperationLogEntryEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricActivityInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricIncidentEntity;
+import org.camunda.bpm.engine.impl.history.event.HistoricExternalTaskLogEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricJobLogEventEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricProcessInstanceEntity;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricTaskInstanceEntity;
@@ -44,7 +45,8 @@ public interface IdKeyMapper {
       entry(DecisionRequirementsDefinitionEntity.class, TYPE.HISTORY_DECISION_REQUIREMENT),
       entry(UserOperationLogEntryEventEntity.class, TYPE.HISTORY_AUDIT_LOG),
       entry(CamundaFormDefinitionEntity.class, TYPE.HISTORY_FORM_DEFINITION),
-      entry(HistoricJobLogEventEntity.class, TYPE.HISTORY_JOB)
+      entry(HistoricJobLogEventEntity.class, TYPE.HISTORY_JOB),
+      entry(HistoricExternalTaskLogEntity.class, TYPE.HISTORY_EXTERNAL_TASK)
   );
 
   enum TYPE {
@@ -61,11 +63,14 @@ public interface IdKeyMapper {
     HISTORY_AUDIT_LOG("Historic Audit Log"),
     HISTORY_FORM_DEFINITION("Historic Form Definition"),
     HISTORY_JOB("Historic Job"),
+    HISTORY_EXTERNAL_TASK("Historic External Task"),
 
     // runtime
     RUNTIME_PROCESS_INSTANCE("Process Instance"),
 
     // identity
+    USER("User"),
+    GROUP("Group"),
     TENANT("Tenant"),
     AUTHORIZATION("Authorization");
 
@@ -87,6 +92,8 @@ public interface IdKeyMapper {
   Set<TYPE> HISTORY_TYPES = Arrays.stream(TYPE.values())
       .filter(type -> type.name().startsWith("HISTORY"))
       .collect(Collectors.toCollection(() -> EnumSet.noneOf(TYPE.class)));
+
+  List<TYPE> IDENTITY_TYPES = List.of(TYPE.USER, TYPE.GROUP, TYPE.TENANT, TYPE.AUTHORIZATION);
 
   /**
    * Returns the names of all history-related entity types as strings.
@@ -121,6 +128,8 @@ public interface IdKeyMapper {
   List<IdKeyDbModel> findSkippedByTypeWithCursor(@Param("type") TYPE type, @Param("lastId") String lastId, @Param("limit") int limit);
 
   List<IdKeyDbModel> findMigratedByType(@Param("type") TYPE type, @Param("offset") int offset, @Param("limit") int limit);
+
+  long countMigratedByType(@Param("type") TYPE type);
 
   long countSkippedByType(@Param("type") TYPE type);
 

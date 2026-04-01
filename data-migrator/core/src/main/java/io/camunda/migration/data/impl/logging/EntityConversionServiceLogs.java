@@ -20,7 +20,6 @@ public class EntityConversionServiceLogs {
 
   // Log message templates
   protected static final String EXECUTING_INTERCEPTOR_LOG = "Executing interceptor {} for entity type: {}";
-  protected static final String INTERCEPTOR_ERROR_LOG = "Interceptor {} failed for entity type: {}";
 
   // Error message templates
   protected static final String ENTITY_INTERCEPTOR_FAILED_MSG = "%s failed for entity type '%s'";
@@ -33,16 +32,6 @@ public class EntityConversionServiceLogs {
    */
   public static void logExecutingInterceptor(String interceptorName, String entityType) {
     LOGGER.debug(EXECUTING_INTERCEPTOR_LOG, interceptorName, entityType);
-  }
-
-  /**
-   * Logs an error when an interceptor fails.
-   *
-   * @param interceptorName the name of the failed interceptor
-   * @param entityType the entity type being processed
-   */
-  public static void logInterceptorError(String interceptorName, String entityType) {
-    LOGGER.error(INTERCEPTOR_ERROR_LOG, interceptorName, entityType);
   }
 
   /**

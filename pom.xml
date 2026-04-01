@@ -28,11 +28,10 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <version.java>21</version.java>
-
     <version.camunda-7>7.24.6-ee</version.camunda-7>
     <version.camunda-8>8.9.0-rc3</version.camunda-8>
     <version.elasticsearch>8.19.6</version.elasticsearch>
-    <version.spring-boot>4.0.4</version.spring-boot>
+    <version.spring-boot>4.0.5</version.spring-boot>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.0.3</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
@@ -45,7 +44,7 @@
     <plugin.version.frontend-maven>2.0.0</plugin.version.frontend-maven>
     <plugin.version.surefire>3.5.5</plugin.version.surefire>
     <plugin.version.failsafe>3.5.5</plugin.version.failsafe>
-    <plugin.version.resources>3.4.0</plugin.version.resources>
+    <plugin.version.resources>3.5.0</plugin.version.resources>
     <plugin.version.dependency>3.10.0</plugin.version.dependency>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>

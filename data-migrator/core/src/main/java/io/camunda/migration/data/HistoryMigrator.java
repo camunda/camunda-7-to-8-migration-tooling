@@ -17,6 +17,7 @@ import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionInstanceMigrator;
 import io.camunda.migration.data.impl.history.migrator.DecisionRequirementsMigrator;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.FormMigrator;
 import io.camunda.migration.data.impl.history.migrator.HistoryEntityMigrator;
@@ -66,6 +67,9 @@ public class HistoryMigrator {
   protected JobMigrator jobMigrator;
 
   @Autowired
+  protected ExternalTaskMigrator externalTaskMigrator;
+
+  @Autowired
   protected DecisionRequirementsMigrator decisionRequirementsMigrator;
 
   @Autowired
@@ -92,6 +96,7 @@ public class HistoryMigrator {
         userTaskMigrator,
         variableMigrator,
         jobMigrator,
+        externalTaskMigrator,
         incidentMigrator,
         decisionRequirementsMigrator,
         decisionDefinitionMigrator,
@@ -118,6 +123,26 @@ public class HistoryMigrator {
   protected void printSkippedEntitiesForType(TYPE type) {
     PrintUtils.printSkippedInstancesHeader(dbClient.countSkippedByType(type), type);
     dbClient.listSkippedEntitiesByType(type);
+  }
+
+  public void printMigratedHistoryEntities(List<IdKeyMapper.TYPE> requestedEntityTypes) {
+    try {
+      ExceptionUtils.setContext(ExceptionUtils.ExceptionContext.HISTORY);
+
+      if (requestedEntityTypes == null || requestedEntityTypes.isEmpty()) {
+        getHistoryTypes().forEach(this::printMigratedEntitiesForType);
+      } else {
+        requestedEntityTypes.forEach(this::printMigratedEntitiesForType);
+      }
+
+    } finally {
+      ExceptionUtils.clearContext();
+    }
+  }
+
+  protected void printMigratedEntitiesForType(TYPE type) {
+    PrintUtils.printMigratedMappingsHeader(dbClient.countMigratedByType(type), type);
+    dbClient.listMigratedMappingsByType(type);
   }
 
   public void retry() {
