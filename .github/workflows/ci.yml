@@ -1050,6 +1050,8 @@ jobs:
         include:
           - camunda-version: '8.9.0-rc2'
             docker-image-version: '8.9.0-rc2'
+          # docker-image-version is empty for SNAPSHOT: no published Docker image exists yet,
+          # so the property is removed from application.yml to let the test framework use its default.
           - camunda-version: '8.10.0-SNAPSHOT'
             docker-image-version: ''
     steps:
