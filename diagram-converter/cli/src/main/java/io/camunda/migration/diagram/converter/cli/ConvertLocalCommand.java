@@ -75,8 +75,8 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
       if (isValidFile(file)) {
         files.add(file);
       } else if (!FormConverter.isFormFile(file.getName())) {
-        LOG_CLI.error("The selected file is no bpmn, dmn or form file");
-        throw new IllegalArgumentException("The selected file is no bpmn, dmn or form file");
+        LOG_CLI.error("The selected file is not a bpmn, dmn or form file");
+        throw new IllegalArgumentException("The selected file is not a bpmn, dmn or form file");
       }
     }
     return handleFiles(files);
