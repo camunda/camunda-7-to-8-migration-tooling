@@ -8,6 +8,7 @@
 package io.camunda.migration.data.config.property;
 
 import com.zaxxer.hikari.HikariConfig;
+import io.camunda.migration.data.impl.logging.ConfigurationLogs;
 
 public class DataSourceProperties extends HikariConfig {
 
@@ -37,6 +38,18 @@ public class DataSourceProperties extends HikariConfig {
 
   public void setVendor(String vendor) {
     this.vendor = vendor;
+  }
+
+  @Override
+  public void setDriverClassName(String driverClassName) {
+    try {
+      super.setDriverClassName(driverClassName);
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof ClassNotFoundException || e.getCause().getCause() instanceof ClassNotFoundException) {
+        ConfigurationLogs.logInvalidJdbcDriver(driverClassName);
+      }
+      throw e;
+    }
   }
 
 }

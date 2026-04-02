@@ -7,7 +7,10 @@
  */
 package io.camunda.migration.data.config.property;
 
+import static io.camunda.migration.data.impl.logging.ConfigurationLogs.INVALID_IDENTITY_PROPERTIES_ERROR;
+
 import io.camunda.migration.data.config.property.history.HistoryProperties;
+import io.camunda.migration.data.impl.logging.ConfigurationLogs;
 import jakarta.validation.constraints.AssertTrue;
 import java.util.List;
 import java.util.Set;
@@ -163,9 +166,10 @@ public class MigratorProperties {
     this.history = history;
   }
 
-  @AssertTrue(message = "When skip-groups is enabled, skip-users must also be enabled")
+  @AssertTrue(message = INVALID_IDENTITY_PROPERTIES_ERROR)
   public boolean isCombinationValid() {
     if (identity.getSkipGroups() == true && identity.getSkipUsers() == false) {
+      ConfigurationLogs.invalidIndentityPropertyConbination();
       return false;
     }
     return true;
