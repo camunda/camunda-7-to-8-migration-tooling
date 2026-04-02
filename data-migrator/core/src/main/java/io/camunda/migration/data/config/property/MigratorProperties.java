@@ -168,8 +168,8 @@ public class MigratorProperties {
 
   @AssertTrue(message = INVALID_IDENTITY_PROPERTIES_ERROR)
   public boolean isCombinationValid() {
-    if (identity.getSkipGroups() == true && identity.getSkipUsers() == false) {
-      ConfigurationLogs.invalidIndentityPropertyConbination();
+    if (identity.getSkipGroups() && !identity.getSkipUsers()) {
+      ConfigurationLogs.logInvalidIdentityPropertyCombination();
       return false;
     }
     return true;

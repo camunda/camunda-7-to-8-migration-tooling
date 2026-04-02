@@ -45,7 +45,8 @@ public class DataSourceProperties extends HikariConfig {
     try {
       super.setDriverClassName(driverClassName);
     } catch (RuntimeException e) {
-      if (e.getCause() instanceof ClassNotFoundException || e.getCause().getCause() instanceof ClassNotFoundException) {
+      Throwable cause = e.getCause();
+      if (cause instanceof ClassNotFoundException || (cause != null && cause.getCause() instanceof ClassNotFoundException)) {
         ConfigurationLogs.logInvalidJdbcDriver(driverClassName);
       }
       throw e;
