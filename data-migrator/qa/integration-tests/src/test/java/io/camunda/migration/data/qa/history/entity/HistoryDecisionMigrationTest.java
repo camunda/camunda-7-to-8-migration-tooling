@@ -104,7 +104,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     assertThat(decisionReqs).hasSize(2);
     assertThat(migratedDecisions).hasSize(2);
-    assertThat(migratedDecisions).allSatisfy(decision -> assertThat(decision.decisionRequirementsId()).isNull());
+    assertThat(migratedDecisions).allSatisfy(decision -> assertThat(decision.decisionRequirementsId()).isNullOrEmpty());
     assertThat(migratedDecisions).allSatisfy(
         decision -> assertThat(decision.decisionRequirementsName()).isEqualTo("simpleDecisionName"));
     assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
@@ -688,7 +688,7 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     if (decisionRequirementsId != null) {
       assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
     } else {
-      assertThat(decision.decisionRequirementsId()).isNull();
+      assertThat(decision.decisionRequirementsId()).isNullOrEmpty();
     }
     if (decisionRequirementsName != null) {
       assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
