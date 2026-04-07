@@ -27,7 +27,7 @@
     <version.feel-engine>1.21.0</version.feel-engine>
     <version.scala>3.8.3</version.scala>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
-    <version.checker-qual>3.54.0</version.checker-qual>
+    <version.checker-qual>3.55.1</version.checker-qual>
     <version.commons-collections4>4.5.0</version.commons-collections4>
     <version.rest-assured>6.0.0</version.rest-assured>
     <plugin.version.spotless-maven-plugin>3.4.0</plugin.version.spotless-maven-plugin>
