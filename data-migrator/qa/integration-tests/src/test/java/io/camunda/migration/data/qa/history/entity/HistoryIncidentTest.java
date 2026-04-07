@@ -761,7 +761,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
         prefixDefinitionId(c7ChildInstance.getProcessDefinitionKey()));
     assertThat(c8Incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
     assertThat(c8Incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
-    assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
     assertThat(c8Incident.processInstanceKey()).isEqualTo(
         findMigratedProcessInstanceKey(c7ChildInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ParentInstance != null ?
@@ -785,6 +784,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
       assertThat(c8Incident.flowNodeInstanceKey()).isNull();
     } else {
       assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
+    }
+
+    if (c7Incident.getIncidentMessage() != null) {
+      assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    } else {
+      assertThat(c8Incident.errorMessage()).isNullOrEmpty();
     }
   }
 

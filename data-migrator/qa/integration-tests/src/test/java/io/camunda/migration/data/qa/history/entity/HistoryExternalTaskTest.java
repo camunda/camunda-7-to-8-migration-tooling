@@ -415,7 +415,6 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.processDefinitionKey()).isEqualTo(processDefinitionKey);
     assertThat(job.type()).isEqualTo(TOPIC_NAME);
-    assertThat(job.worker()).isEqualTo(worker);
     assertThat(job.state()).isEqualTo(JobState.COMPLETED);
     assertThat(job.kind()).isEqualTo(JobKind.BPMN_ELEMENT);
     assertThat(job.listenerEventType()).isEqualTo(ListenerEventType.UNSPECIFIED);
@@ -424,5 +423,10 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.processDefinitionId()).isEqualTo(prefixDefinitionId(PROCESS_KEY));
     assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(job.creationTime()).isNotNull();
+    if (worker != null) {
+      assertThat(job.worker()).isEqualTo(worker);
+    } else {
+      assertThat(job.worker()).isNullOrEmpty();
+    }
   }
 }
