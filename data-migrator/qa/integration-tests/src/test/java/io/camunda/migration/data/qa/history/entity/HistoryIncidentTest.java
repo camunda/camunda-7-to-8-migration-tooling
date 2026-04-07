@@ -27,6 +27,7 @@ import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.externaltask.LockedExternalTask;
 import org.camunda.bpm.engine.history.HistoricIncident;
@@ -761,7 +762,8 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
         prefixDefinitionId(c7ChildInstance.getProcessDefinitionKey()));
     assertThat(c8Incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
     assertThat(c8Incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
-    assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    String expectedIncidentMessage = Objects.toString(c7Incident.getIncidentMessage(), "");
+    assertThat(c8Incident.errorMessage()).isEqualTo(expectedIncidentMessage);
     assertThat(c8Incident.processInstanceKey()).isEqualTo(
         findMigratedProcessInstanceKey(c7ChildInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ParentInstance != null ?
