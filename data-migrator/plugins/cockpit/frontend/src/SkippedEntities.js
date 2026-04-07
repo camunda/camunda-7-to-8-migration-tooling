@@ -51,7 +51,12 @@ function SkippedEntities({camundaAPI}) {
         HISTORY_USER_TASK: "User Task ID",
         HISTORY_FLOW_NODE: "Flow Node ID",
         HISTORY_DECISION_INSTANCE: "Decision Instance ID",
-        HISTORY_DECISION_DEFINITION: "Decision Definition ID"
+        HISTORY_DECISION_DEFINITION: "Decision Definition ID",
+        HISTORY_DECISION_REQUIREMENT: "Decision Requirement ID",
+        HISTORY_AUDIT_LOG: "Audit Log ID",
+        HISTORY_FORM_DEFINITION: "Form Definition ID",
+        HISTORY_JOB: "Job ID",
+        HISTORY_EXTERNAL_TASK: "External Task ID"
       };
       return entityTypeMap[selectedType] || 'ID';
     }
@@ -219,6 +224,11 @@ function SkippedEntities({camundaAPI}) {
       HISTORY_FLOW_NODE: "Flow Node",
       HISTORY_DECISION_INSTANCE: "Decision Instance",
       HISTORY_DECISION_DEFINITION: "Decision Definition",
+      HISTORY_DECISION_REQUIREMENT: "Decision Requirement",
+      HISTORY_AUDIT_LOG: "Audit Log",
+      HISTORY_FORM_DEFINITION: "Form Definition",
+      HISTORY_JOB: "Job",
+      HISTORY_EXTERNAL_TASK: "External Task",
       RUNTIME_PROCESS_INSTANCE: "Process Instance"
     };
     return labels[entityType] || entityType;
