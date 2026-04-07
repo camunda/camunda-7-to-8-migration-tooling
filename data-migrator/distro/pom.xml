@@ -17,6 +17,16 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- netty-bom must be imported before spring-boot-dependencies and zeebe-parent
+           to ensure the pinned Netty version takes precedence over the version pulled in
+           transitively by gRPC. -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
