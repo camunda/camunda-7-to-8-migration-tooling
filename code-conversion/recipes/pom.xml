@@ -291,7 +291,7 @@
       <plugin>
         <groupId>org.openrewrite.maven</groupId>
         <artifactId>rewrite-maven-plugin</artifactId>
-        <version>6.35.0</version>
+        <version>6.35.1</version>
         <configuration>
           <failOnDryRunResults>true</failOnDryRunResults>
         </configuration>
@@ -299,7 +299,7 @@
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
             <artifactId>rewrite-migrate-java</artifactId>
-            <version>3.31.0</version>
+            <version>3.31.3</version>
           </dependency>
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
