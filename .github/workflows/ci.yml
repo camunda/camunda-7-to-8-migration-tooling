@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        camunda-version: ['8.9.0-SNAPSHOT', '8.10.0-SNAPSHOT']
+        camunda-version: ['8.9.0', '8.10.0-SNAPSHOT']
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -146,7 +146,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        camunda-version: ['8.9.0-SNAPSHOT', '8.10.0-SNAPSHOT']
+        camunda-version: ['8.9.0', '8.10.0-SNAPSHOT']
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -1048,16 +1048,12 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
-    if: |
-      github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
         include:
-          - camunda-version: '8.9.0-rc2'
-            docker-image-version: '8.9.0-rc2'
+          - camunda-version: '8.9.0'
+            docker-image-version: '8.9.0'
           # docker-image-version is empty for SNAPSHOT: no published Docker image exists yet,
           # so the property is removed from application.yml to let the test framework use its default.
           - camunda-version: '8.10.0-SNAPSHOT'
