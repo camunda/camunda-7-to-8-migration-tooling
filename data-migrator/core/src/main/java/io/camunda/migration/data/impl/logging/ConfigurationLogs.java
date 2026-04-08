@@ -24,6 +24,8 @@ public class ConfigurationLogs {
   public static final String ERROR_FAILED_TO_REGISTER = "Failed to register interceptor: ";
   public static final String ERROR_PARSING_CONFIGURATION = "An exception occurred while parsing interceptor configuration.";
   public static final String C8_SCHEMA_PROPERTY_ERROR = "Could not determine property for C8 database schema creation.";
+  public static final String JDBC_DRIVER_CLASS_NOT_FOUND_ERROR = "Configured JDBC driver [{}] was not found on the classpath. Please make sure that the JDBC driver jar is in the configuration/userlib/ directory.";
+  public static final String INVALID_IDENTITY_PROPERTIES_ERROR = "Invalid property combination: skip-groups cannot be enabled if skip-users is disabled";
 
   // Info Messages
   public static final String INFO_CONFIGURING_INTERCEPTORS = "Configuring {} interceptors";
@@ -183,6 +185,17 @@ public class ConfigurationLogs {
    */
   public static String getC8SchemaPropertyError() {
     return C8_SCHEMA_PROPERTY_ERROR;
+  }
+
+  /**
+   * Logs when the configured JDBC driver class is not found on the classpath.
+   */
+  public static void logInvalidJdbcDriver(String driverClassName) {
+    LOGGER.error(JDBC_DRIVER_CLASS_NOT_FOUND_ERROR, driverClassName);
+  }
+
+  public static void logInvalidIdentityPropertyCombination() {
+    LOGGER.error(INVALID_IDENTITY_PROPERTIES_ERROR);
   }
 
 }

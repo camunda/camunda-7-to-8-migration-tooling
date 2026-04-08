@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.identity;
 
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
+import static io.camunda.migration.data.impl.logging.ConfigurationLogs.INVALID_IDENTITY_PROPERTIES_ERROR;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.SKIPPED_GROUP;
 import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessage;
 import static java.lang.String.format;
@@ -215,7 +216,7 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
           .hasMessageContaining("Error creating bean")
           .hasRootCauseInstanceOf(BindValidationException.class)
           .rootCause()
-          .hasMessageContaining("When skip-groups is enabled, skip-users must also be enabled");
+          .hasMessageContaining(INVALID_IDENTITY_PROPERTIES_ERROR);
     }
   }
 }
