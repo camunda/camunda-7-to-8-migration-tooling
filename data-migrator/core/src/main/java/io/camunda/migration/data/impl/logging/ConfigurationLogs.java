@@ -191,7 +191,7 @@ public class ConfigurationLogs {
    * Logs when the configured JDBC driver class is not found on the classpath.
    */
   public static void logInvalidJdbcDriver(String driverClassName) {
-    LOGGER.warn(JDBC_DRIVER_CLASS_NOT_FOUND_ERROR, driverClassName);
+    LOGGER.error(JDBC_DRIVER_CLASS_NOT_FOUND_ERROR, driverClassName);
   }
 
   public static void logInvalidIdentityPropertyCombination() {
