@@ -195,7 +195,7 @@ public class ConfigurationLogs {
   }
 
   public static void logInvalidIdentityPropertyCombination() {
-    LOGGER.warn(INVALID_IDENTITY_PROPERTIES_ERROR);
+    LOGGER.error(INVALID_IDENTITY_PROPERTIES_ERROR);
   }
 
 }
