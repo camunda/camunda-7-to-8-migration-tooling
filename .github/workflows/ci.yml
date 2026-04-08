@@ -186,6 +186,48 @@ jobs:
           path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
           retention-days: 7
 
+  # Compile-check all modules against the previous Camunda 8 version (8.9)
+  # to catch API-level incompatibilities before merge.
+  compile-previous-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Compile-check against previous Camunda 8 version
+        # Compiles all modules (except cockpit plugin which requires Node.js and
+        # assembly which is packaging-only) against 8.9 to detect 8.10-only API usage.
+        run: >-
+          mvn compile test-compile
+          -Dversion.camunda-8=8.9.1-SNAPSHOT
+          -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
+          --batch-mode
+
   it-runtime-postgresql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -991,20 +1033,14 @@ jobs:
           path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
-  # Database matrix testing - runs daily on main branch
-  it-database-matrix:
+  # Nightly: verify code-conversion against previous Camunda 8 version (8.9)
+  code-conversion-previous-version:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
+    timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch'
-    strategy:
-      fail-fast: false
-      matrix:
-        database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -1030,9 +1066,166 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run integration tests with ${{ matrix.database }}
+      - name: Build code-conversion module against previous Camunda 8 version
+        working-directory: code-conversion
+        run: mvn verify -PcheckFormat -Dversion.camunda-8=8.9.1-SNAPSHOT --batch-mode
+
+  # Nightly: verify diagram-converter against previous Camunda 8 version (8.9)
+  diagram-converter-previous-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Build and test diagram-converter against previous Camunda 8 version
+        working-directory: diagram-converter
+        run: mvn verify -Pdistro,checkFormat -Dversion.camunda-8=8.9.1-SNAPSHOT --batch-mode
+
+  # Nightly: run E2E tests against previous Camunda 8 version (8.9)
+  e2e-previous-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Login to Camunda Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.camunda.cloud
+          username: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_USR }}
+          password: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_PSW }}
+
+      - name: Run E2E tests against previous Camunda 8 version
         working-directory: data-migrator
-        run: mvn verify -P${{ matrix.database }},integration
+        run: >-
+          mvn clean install -Pe2e -Dmaven.test.skip
+          -Dversion.camunda-8=8.9.1-SNAPSHOT
+          -Dcamunda8.docker.image=camunda/camunda:8.9.1-SNAPSHOT
+          --batch-mode
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-previous-version
+          path: data-migrator/qa/e2e-tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-screenshots-previous-version
+          path: data-migrator/qa/e2e-tests/test-results/
+          retention-days: 7
+
+  # Database and Camunda version compatibility matrix testing - runs daily on main branch
+  it-database-camunda-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
+        camunda-version: [8.10.0-SNAPSHOT, 8.9.1-SNAPSHOT]
+        include:
+          - camunda-version: 8.10.0-SNAPSHOT
+            camunda-docker-image-version: SNAPSHOT
+          - camunda-version: 8.9.1-SNAPSHOT
+            camunda-docker-image-version: 8.9-SNAPSHOT
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run integration tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
+        working-directory: data-migrator
+        run: >-
+          mvn verify -P${{ matrix.database }},integration
+          -Dversion.camunda-8=${{ matrix.camunda-version }}
+          -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
@@ -1040,6 +1233,7 @@ jobs:
       - distro
       - code-conversion
       - diagram-converter
+      - compile-previous-version
       - it-runtime-h2
       - it-history-h2
       - it-history-h2-windows
