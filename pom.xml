@@ -40,6 +40,7 @@
     <version.errorprone>2.45.0</version.errorprone>
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
+    <version.netty>4.1.132.Final</version.netty>
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <plugin.version.compiler>3.14.1</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
@@ -94,6 +95,13 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${version.netty}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
