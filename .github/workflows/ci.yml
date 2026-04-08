@@ -10,6 +10,42 @@ on:
     - cron: "0 5 * * 1-5"  # Weekday mornings for general CI
 
 jobs:
+  # Read Camunda 8 versions from pom.xml to avoid hard-coding in CI
+  read-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      camunda-8-version: ${{ steps.versions.outputs.camunda-8-version }}
+      camunda-8-previous-version: ${{ steps.versions.outputs.camunda-8-previous-version }}
+      camunda-8-docker-image-version: ${{ steps.versions.outputs.camunda-8-docker-image-version }}
+      camunda-8-previous-docker-image-version: ${{ steps.versions.outputs.camunda-8-previous-docker-image-version }}
+      camunda-versions: ${{ steps.versions.outputs.camunda-versions }}
+    steps:
+      - name: Checkout pom.xml
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          sparse-checkout: pom.xml
+          sparse-checkout-cone-mode: false
+
+      - name: Extract Camunda 8 versions from pom.xml
+        id: versions
+        run: |
+          CURRENT=$(sed -n 's/.*<version\.camunda-8>\([^<]*\)<\/version\.camunda-8>.*/\1/p' pom.xml)
+          PREVIOUS=$(sed -n 's/.*<version\.camunda-8\.previous>\([^<]*\)<\/version\.camunda-8\.previous>.*/\1/p' pom.xml)
+
+          # Docker image version: current uses SNAPSHOT, previous uses MAJOR.MINOR-SNAPSHOT
+          CURRENT_DOCKER="SNAPSHOT"
+          PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\..*/\1-SNAPSHOT/')
+
+          echo "camunda-8-version=${CURRENT}" >> $GITHUB_OUTPUT
+          echo "camunda-8-previous-version=${PREVIOUS}" >> $GITHUB_OUTPUT
+          echo "camunda-8-docker-image-version=${CURRENT_DOCKER}" >> $GITHUB_OUTPUT
+          echo "camunda-8-previous-docker-image-version=${PREVIOUS_DOCKER}" >> $GITHUB_OUTPUT
+          echo "camunda-versions=[\"${CURRENT}\",\"${PREVIOUS}\"]" >> $GITHUB_OUTPUT
+
+          echo "Camunda 8 current: ${CURRENT} (docker: ${CURRENT_DOCKER})"
+          echo "Camunda 8 previous: ${PREVIOUS} (docker: ${PREVIOUS_DOCKER})"
+
   distro:
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -189,6 +225,7 @@ jobs:
   # Compile-check all modules against the previous Camunda 8 version (8.9)
   # to catch API-level incompatibilities before merge.
   compile-previous-version:
+    needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
@@ -221,10 +258,10 @@ jobs:
 
       - name: Compile-check against previous Camunda 8 version
         # Compiles all modules (except cockpit plugin which requires Node.js and
-        # assembly which is packaging-only) against 8.9 to detect 8.10-only API usage.
+        # assembly which is packaging-only) against the previous version to detect incompatible API usage.
         run: >-
           mvn compile test-compile
-          -Dversion.camunda-8=8.9.1-SNAPSHOT
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
           -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
           --batch-mode
 
@@ -1035,6 +1072,7 @@ jobs:
 
   # Nightly: verify code-conversion against previous Camunda 8 version (8.9)
   code-conversion-previous-version:
+    needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
@@ -1068,10 +1106,15 @@ jobs:
 
       - name: Build code-conversion module against previous Camunda 8 version
         working-directory: code-conversion
-        run: mvn verify -PcheckFormat -Dversion.camunda-8=8.9.1-SNAPSHOT --batch-mode
+        run: >-
+          mvn verify -PcheckFormat
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dcamunda.process-test.camunda-docker-image-version=${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
+          --batch-mode
 
   # Nightly: verify diagram-converter against previous Camunda 8 version (8.9)
   diagram-converter-previous-version:
+    needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
@@ -1105,10 +1148,15 @@ jobs:
 
       - name: Build and test diagram-converter against previous Camunda 8 version
         working-directory: diagram-converter
-        run: mvn verify -Pdistro,checkFormat -Dversion.camunda-8=8.9.1-SNAPSHOT --batch-mode
+        run: >-
+          mvn verify -Pdistro,checkFormat
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dcamunda.process-test.camunda-docker-image-version=${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
+          --batch-mode
 
   # Nightly: run E2E tests against previous Camunda 8 version (8.9)
   e2e-previous-version:
+    needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -1153,8 +1201,8 @@ jobs:
         working-directory: data-migrator
         run: >-
           mvn clean install -Pe2e -Dmaven.test.skip
-          -Dversion.camunda-8=8.9.1-SNAPSHOT
-          -Dcamunda8.docker.image=camunda/camunda:8.9.1-SNAPSHOT
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dcamunda8.docker.image=camunda/camunda:${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
           --batch-mode
         env:
           CI: true
@@ -1177,6 +1225,7 @@ jobs:
 
   # Database and Camunda version compatibility matrix testing - runs daily on main branch
   it-database-camunda-matrix:
+    needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -1189,12 +1238,12 @@ jobs:
       fail-fast: false
       matrix:
         database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
-        camunda-version: [8.10.0-SNAPSHOT, 8.9.1-SNAPSHOT]
+        camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
         include:
-          - camunda-version: 8.10.0-SNAPSHOT
-            camunda-docker-image-version: SNAPSHOT
-          - camunda-version: 8.9.1-SNAPSHOT
-            camunda-docker-image-version: 8.9-SNAPSHOT
+          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-version }}
+            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-docker-image-version }}
+          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-previous-version }}
+            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
