@@ -31,6 +31,8 @@
 
     <version.camunda-7>7.24.6-ee</version.camunda-7>
     <version.camunda-8>8.10.0-SNAPSHOT</version.camunda-8>
+    <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
+    <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.5</version.spring-boot>
     <version.assertj>3.27.7</version.assertj>
