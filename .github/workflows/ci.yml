@@ -33,9 +33,14 @@ jobs:
           CURRENT=$(sed -n 's/.*<version\.camunda-8>\([^<]*\)<\/version\.camunda-8>.*/\1/p' pom.xml)
           PREVIOUS=$(sed -n 's/.*<version\.camunda-8\.previous>\([^<]*\)<\/version\.camunda-8\.previous>.*/\1/p' pom.xml)
 
-          # Docker image version: current uses SNAPSHOT, previous uses MAJOR.MINOR-SNAPSHOT
-          CURRENT_DOCKER="SNAPSHOT"
-          PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\..*/\1-SNAPSHOT/')
+          # Docker image version: for SNAPSHOT versions, current uses SNAPSHOT and previous uses MAJOR.MINOR-SNAPSHOT
+          # For release versions (no -SNAPSHOT suffix), the Docker tag equals the Maven version as-is
+          if echo "$CURRENT" | grep -q '\-SNAPSHOT$'; then
+            CURRENT_DOCKER="SNAPSHOT"
+          else
+            CURRENT_DOCKER="$CURRENT"
+          fi
+          PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*-SNAPSHOT/\1-SNAPSHOT/')
 
           echo "camunda-8-version=${CURRENT}" >> $GITHUB_OUTPUT
           echo "camunda-8-previous-version=${PREVIOUS}" >> $GITHUB_OUTPUT
