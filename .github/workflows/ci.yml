@@ -36,7 +36,7 @@ jobs:
           if [ -z "$CURRENT" ]; then
             echo "::error::Failed to extract <version.camunda-8> from pom.xml"
             exit 1
-            fi
+          fi
           
           if [ -z "$PREVIOUS" ]; then
             echo "::error::Failed to extract <version.camunda-8.previous> from pom.xml"
@@ -237,7 +237,7 @@ jobs:
           path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
           retention-days: 7
 
-  # Compile-check all modules against the previous Camunda 8 version (8.9)
+  # Compile-check all modules against the previous Camunda 8 version
   # to catch API-level incompatibilities before merge.
   compile-previous-version:
     needs: [read-versions]
@@ -1085,7 +1085,7 @@ jobs:
           path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
-  # Nightly: verify code-conversion against previous Camunda 8 version (8.9)
+  # Nightly: verify code-conversion against previous Camunda 8 version
   code-conversion-previous-version:
     needs: [read-versions]
     runs-on: ubuntu-latest
@@ -1127,10 +1127,9 @@ jobs:
         run: >-
           mvn verify -PcheckFormat
           -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
-          -Dcamunda.process-test.camunda-docker-image-version=${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
           --batch-mode
 
-  # Nightly: verify diagram-converter against previous Camunda 8 version (8.9)
+  # Nightly: verify diagram-converter against previous Camunda 8 version
   diagram-converter-previous-version:
     needs: [read-versions]
     runs-on: ubuntu-latest
@@ -1172,10 +1171,9 @@ jobs:
         run: >-
           mvn verify -Pdistro,checkFormat
           -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
-          -Dcamunda.process-test.camunda-docker-image-version=${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
           --batch-mode
 
-  # Nightly: run E2E tests against previous Camunda 8 version (8.9)
+  # Nightly: run E2E tests against previous Camunda 8 version
   e2e-previous-version:
     needs: [read-versions]
     runs-on: ubuntu-latest
