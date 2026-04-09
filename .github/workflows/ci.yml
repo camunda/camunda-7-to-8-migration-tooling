@@ -32,6 +32,16 @@ jobs:
         run: |
           CURRENT=$(sed -n 's/.*<version\.camunda-8>\([^<]*\)<\/version\.camunda-8>.*/\1/p' pom.xml)
           PREVIOUS=$(sed -n 's/.*<version\.camunda-8\.previous>\([^<]*\)<\/version\.camunda-8\.previous>.*/\1/p' pom.xml)
+          
+          if [ -z "$CURRENT" ]; then
+            echo "::error::Failed to extract <version.camunda-8> from pom.xml"
+            exit 1
+            fi
+          
+          if [ -z "$PREVIOUS" ]; then
+            echo "::error::Failed to extract <version.camunda-8.previous> from pom.xml"
+            exit 1
+          fi
 
           # Docker image version: for SNAPSHOT versions, current uses SNAPSHOT and previous uses MAJOR.MINOR-SNAPSHOT
           # For release versions (no -SNAPSHOT suffix), the Docker tag equals the Maven version as-is
