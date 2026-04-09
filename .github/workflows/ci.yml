@@ -186,81 +186,6 @@ jobs:
           path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
           retention-days: 7
 
-  it-runtime-postgresql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,runtime-only
-
-  it-history-postgresql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,history-only
 
   it-runtime-h2:
     runs-on: ubuntu-latest
@@ -338,135 +263,26 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,history-only
 
-  it-runtime-oracle:
+  # Runtime integration tests for non-H2 databases (label-gated on PRs)
+  it-runtime-db:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with Oracle
-        working-directory: data-migrator
-        run: mvn verify -Poracle,integration,runtime-only
-
-  it-runtime-mysql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with MySQL
-        working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,runtime-only
-
-  it-runtime-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,runtime-only
-
-  it-runtime-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, oracle, mysql, mariadb, sqlserver]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -492,139 +308,34 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with SQL Server
+      - name: Run runtime tests with ${{ matrix.database }}
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
+          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,runtime-only
+        run: mvn verify -P${{ matrix.database }},integration,runtime-only
 
-  it-history-oracle:
+  # History integration tests for non-H2 databases (label-gated on PRs)
+  it-history-db:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with Oracle
-        working-directory: data-migrator
-        run: mvn verify -Poracle,integration,history-only
-
-  it-history-mysql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with MySQL
-        working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,history-only
-
-  it-history-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,history-only
-
-  it-history-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, oracle, mysql, mariadb, sqlserver]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -650,9 +361,13 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run history tests with SQL Server
+      - name: Run history tests with ${{ matrix.database }}
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
+          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,history-only
+        run: mvn verify -P${{ matrix.database }},integration,history-only
 
   it-history-h2-windows:
     runs-on: windows-latest
@@ -698,43 +413,6 @@ jobs:
         working-directory: data-migrator
         run: mvn clean install -P'windows,integration' --batch-mode
 
-  it-identity-postgresql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,identity-only
 
   it-identity-h2:
     runs-on: ubuntu-latest
@@ -774,135 +452,26 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,identity-only
 
-  it-identity-oracle:
+  # Identity integration tests for non-H2 databases (label-gated on PRs)
+  it-identity-db:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with Oracle
-        working-directory: data-migrator
-        run: mvn verify -Poracle,integration,identity-only
-
-  it-identity-mysql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with MySQL
-        working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,identity-only
-
-  it-identity-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,identity-only
-
-  it-identity-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, oracle, mysql, mariadb, sqlserver]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -928,9 +497,13 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run identity tests with SQL Server
+      - name: Run identity tests with ${{ matrix.database }}
+        if: |
+          github.event_name == 'workflow_dispatch' ||
+          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
+          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,identity-only
+        run: mvn verify -P${{ matrix.database }},integration,identity-only
 
   e2e:
     runs-on: ubuntu-latest
