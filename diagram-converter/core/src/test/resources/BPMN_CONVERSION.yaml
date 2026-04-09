@@ -190,6 +190,355 @@ categories:
           <conversion:message severity="TASK">Task Listener at 'delete' with implementation 'com.camunda.consulting.TaskListenerExample' can be transformed to a job worker. Please adjust the job type.</conversion:message>
           <conversion:message severity="TASK">Task Listener at 'update' with implementation 'com.camunda.consulting.TaskListenerExample' can be transformed to a job worker. Please adjust the job type.</conversion:message>
           <conversion:message severity="WARNING">Task Listener at 'timeout' with implementation 'class' 'com.camunda.consulting.TaskListenerExample' cannot be transformed.</conversion:message>
+      - name: Multi-Instance User Task with Activity-Level Execution Listeners (current behavior)
+        description: |
+          A C7 multi-instance user task with camunda:executionListener children placed on the
+          userTask element itself (not inside multiInstanceLoopCharacteristics). In C7 these
+          listeners fire per iteration. The current converter flattens them onto the activity's
+          extensionElements as zeebe:executionListeners, and emits a WARNING for loopCardinality
+          since it is not supported. Note that because the multi-instance loop characteristics
+          are not initialized (no camunda:collection/elementVariable), no zeebe:loopCharacteristics
+          element is produced and the original loopCardinality element is left as-is in the output.
+        givenBpmn: |
+          <bpmn:userTask id="miTasks" name="My Task">
+            <bpmn:extensionElements>
+              <camunda:executionListener
+                event="start"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              <camunda:executionListener
+                event="end"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+              <bpmn:loopCardinality>${nrOfLoops}</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="miTasks" implementation="##unspecified" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+              <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+              <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+              <zeebe:userTask/>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+                <zeebe:executionListener eventType="end" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:loopCardinality>${nrOfLoops}</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+      - name: Multi-Instance User Task with MI-Body Start Execution Listener (desired after targeted rule)
+        description: |
+          DESIRED behavior once a targeted rule for MI-body execution listeners is implemented.
+          In C7 a camunda:executionListener nested inside multiInstanceLoopCharacteristics fires
+          once per MI scope (not per iteration). The targeted rule should detect this nested
+          placement and emit zeebe:executionListeners inside multiInstanceLoopCharacteristics/
+          extensionElements rather than on the activity itself. Only start listeners on the MI
+          body are supported; end listeners are out of scope.
+          NOTE: This case will fail until the new rule is implemented.
+        givenBpmn: |
+          <bpmn:userTask id="miTasks" name="My Task">
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="start"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="miTasks" implementation="##unspecified" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+                <zeebe:executionListeners>
+                  <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+                </zeebe:executionListeners>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-Instance User Task with MI-Body End Execution Listener (unsupported, warning expected)
+        description: |
+          An end execution listener on the MI body is NOT supported for C7 to C8 migration.
+          The converter should emit a WARNING and NOT produce a zeebe:executionListener for it.
+          The end listener is dropped from the output and the user is informed via a warning message.
+        givenBpmn: |
+          <bpmn:userTask id="miTasks" name="My Task">
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="end"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="miTasks" implementation="##unspecified" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="WARNING">Execution Listener at 'end' with implementation 'class' 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' cannot be transformed.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-Instance User Task with Listeners on Both Scopes (desired after targeted rule)
+        description: |
+          DESIRED behavior once the targeted MI-body execution listener rule is implemented.
+          The same userTask carries BOTH per-iteration listeners (on the userTask
+          extensionElements, fire once per MI instance in C7) AND an MI-body start listener
+          (nested inside multiInstanceLoopCharacteristics/extensionElements, fire once per
+          MI scope in C7). The new rule must keep these in separate buckets:
+            - per-iteration listeners -> zeebe:executionListeners on the userTask
+            - MI-body start listener -> zeebe:executionListeners inside the MI characteristics
+          End listeners on the MI body are out of scope and should produce a warning.
+          NOTE: This case will fail until the new rule is implemented.
+        givenBpmn: |
+          <bpmn:userTask id="miTasks" name="My Task">
+            <bpmn:extensionElements>
+              <camunda:executionListener
+                event="start"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener" />
+              <camunda:executionListener
+                event="end"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="start"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="miTasks" implementation="##unspecified" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener"/>
+                <zeebe:executionListener eventType="end" type="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+                <zeebe:executionListeners>
+                  <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener"/>
+                </zeebe:executionListeners>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+  - category: multi-instance service task with execution listeners
+    cases:
+      - name: Multi-Instance Service Task with Activity-Level Execution Listeners (current behavior)
+        description: |
+          A C7 multi-instance service task with camunda:executionListener children placed on the
+          serviceTask element itself (not inside multiInstanceLoopCharacteristics). In C7 these
+          listeners fire per iteration. The current converter flattens them onto the activity's
+          extensionElements as zeebe:executionListeners, and emits a WARNING for loopCardinality
+          since it is not supported. Note that because the multi-instance loop characteristics
+          are not initialized (no camunda:collection/elementVariable), no zeebe:loopCharacteristics
+          element is produced and the original loopCardinality element is left as-is in the output.
+        givenBpmn: |
+          <bpmn:serviceTask id="miTasks" name="My Task" camunda:class="com.example.MyDelegate">
+            <bpmn:extensionElements>
+              <camunda:executionListener
+                event="start"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              <camunda:executionListener
+                event="end"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false">
+              <bpmn:loopCardinality>${nrOfLoops}</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miTasks" implementation="##WebService" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+              <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+              <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+              <conversion:message severity="REVIEW">Delegate class or expression 'com.example.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
+              <zeebe:taskHeaders>
+                <zeebe:header key="class" value="com.example.MyDelegate"/>
+              </zeebe:taskHeaders>
+              <zeebe:taskDefinition type="myDelegate"/>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+                <zeebe:executionListener eventType="end" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:loopCardinality>${nrOfLoops}</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Delegate class or expression 'com.example.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+      - name: Multi-Instance Service Task with MI-Body Start Execution Listener (desired after targeted rule)
+        description: |
+          DESIRED behavior once a targeted rule for MI-body execution listeners is implemented.
+          In C7 a camunda:executionListener nested inside multiInstanceLoopCharacteristics fires
+          once per MI scope (not per iteration). The targeted rule should detect this nested
+          placement and emit zeebe:executionListeners inside multiInstanceLoopCharacteristics/
+          extensionElements rather than on the activity itself. Only start listeners on the MI
+          body are supported; end listeners are out of scope.
+          NOTE: This case will fail until the new rule is implemented.
+        givenBpmn: |
+          <bpmn:serviceTask id="miTasks" name="My Task" camunda:class="com.example.MyDelegate">
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="start"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miTasks" implementation="##WebService" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:taskHeaders>
+                <zeebe:header key="class" value="com.example.MyDelegate"/>
+              </zeebe:taskHeaders>
+              <zeebe:taskDefinition type="myDelegate"/>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+                <zeebe:executionListeners>
+                  <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener"/>
+                </zeebe:executionListeners>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression 'com.example.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-Instance Service Task with MI-Body End Execution Listener (unsupported, warning expected)
+        description: |
+          An end execution listener on the MI body is NOT supported for C7 to C8 migration.
+          The converter should emit a WARNING and NOT produce a zeebe:executionListener for it.
+          The end listener is dropped from the output and the user is informed via a warning message.
+        givenBpmn: |
+          <bpmn:serviceTask id="miTasks" name="My Task" camunda:class="com.example.MyDelegate">
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="end"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miTasks" implementation="##WebService" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:taskHeaders>
+                <zeebe:header key="class" value="com.example.MyDelegate"/>
+              </zeebe:taskHeaders>
+              <zeebe:taskDefinition type="myDelegate"/>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="WARNING">Execution Listener at 'end' with implementation 'class' 'org.camunda.bpm.engine.test.bpmn.multiinstance.RecordInvocationListener' cannot be transformed.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression 'com.example.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-Instance Service Task with Listeners on Both Scopes (desired after targeted rule)
+        description: |
+          DESIRED behavior once the targeted MI-body execution listener rule is implemented.
+          The same serviceTask carries BOTH per-iteration listeners (on the serviceTask
+          extensionElements, fire once per MI instance in C7) AND an MI-body start listener
+          (nested inside multiInstanceLoopCharacteristics/extensionElements, fire once per
+          MI scope in C7). End listeners on the MI body are out of scope and should produce
+          a warning.
+          NOTE: This case will fail until the new rule is implemented.
+        givenBpmn: |
+          <bpmn:serviceTask id="miTasks" name="My Task" camunda:class="com.example.MyDelegate">
+            <bpmn:extensionElements>
+              <camunda:executionListener
+                event="start"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener" />
+              <camunda:executionListener
+                event="end"
+                class="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="${nrOfLoops}" camunda:elementVariable="i">
+              <bpmn:extensionElements>
+                <camunda:executionListener
+                  event="start"
+                  class="org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener" />
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miTasks" implementation="##WebService" isForCompensation="false" name="My Task" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:taskHeaders>
+                <zeebe:header key="class" value="com.example.MyDelegate"/>
+              </zeebe:taskHeaders>
+              <zeebe:taskDefinition type="myDelegate"/>
+              <zeebe:executionListeners>
+                <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener"/>
+                <zeebe:executionListener eventType="end" type="org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener"/>
+              </zeebe:executionListeners>
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+              <bpmn:extensionElements>
+                <zeebe:loopCharacteristics inputCollection="=nrOfLoops" inputElement="i"/>
+                <zeebe:executionListeners>
+                  <zeebe:executionListener eventType="start" type="org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener"/>
+                </zeebe:executionListeners>
+              </bpmn:extensionElements>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationStartListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.PerIterationEndListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation 'org.camunda.bpm.engine.test.bpmn.multiinstance.MiBodyStartListener' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression 'com.example.MyDelegate' has been transformed to job type 'myDelegate'.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${nrOfLoops}' -&gt; '=nrOfLoops'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
   - category: service tasks
     cases:
       - name: Service Task with class

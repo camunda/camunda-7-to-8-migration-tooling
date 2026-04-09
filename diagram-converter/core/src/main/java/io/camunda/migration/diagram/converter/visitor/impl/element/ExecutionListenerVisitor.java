@@ -10,6 +10,7 @@ package io.camunda.migration.diagram.converter.visitor.impl.element;
 import static io.camunda.migration.diagram.converter.visitor.AbstractDelegateImplementationVisitor.*;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener.EventType;
@@ -19,6 +20,7 @@ import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor.ListenerImplementation.DelegateExpressionImplementation;
 import java.util.regex.Matcher;
+import org.camunda.bpm.model.xml.instance.DomElement;
 
 public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
@@ -40,13 +42,45 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
       } else {
         executionListener.setListenerType(implementation.implementation());
       }
-      context.addConversion(
-          AbstractExecutionListenerConvertible.class,
-          c -> c.addZeebeExecutionListener(executionListener));
+      if (isMultiInstanceBodyListener(context)) {
+        if ("start".equals(event)) {
+          context.addConversion(
+              AbstractActivityConvertible.class,
+              c -> {
+                c.initializeLoopCharacteristics();
+                c.getBpmnMultiInstanceLoopCharacteristics().addExecutionListener(executionListener);
+              });
+          return MessageFactory.executionListenerSupported(event, implementation.implementation());
+        } else {
+          // MI-body end listeners are not supported for C7 -> C8 migration
+          return MessageFactory.executionListenerNotSupported(
+              event, ListenerImplementation.type(implementation), implementation.implementation());
+        }
+      } else {
+        context.addConversion(
+            AbstractExecutionListenerConvertible.class,
+            c -> c.addZeebeExecutionListener(executionListener));
+      }
       return MessageFactory.executionListenerSupported(event, implementation.implementation());
     }
     return MessageFactory.executionListenerNotSupported(
         event, ListenerImplementation.type(implementation), implementation.implementation());
+  }
+
+  /**
+   * A camunda:executionListener is considered an MI-body listener when it lives inside the
+   * extensionElements of a multiInstanceLoopCharacteristics. In C7 such listeners fire once per
+   * multi-instance scope (rather than once per iteration), and in C8 they must be emitted nested
+   * inside the multiInstanceLoopCharacteristics extensionElements rather than on the activity.
+   */
+  private boolean isMultiInstanceBodyListener(DomElementVisitorContext context) {
+    DomElement parent = context.getElement().getParentElement();
+    if (parent == null || !"extensionElements".equals(parent.getLocalName())) {
+      return false;
+    }
+    DomElement grandParent = parent.getParentElement();
+    return grandParent != null
+        && "multiInstanceLoopCharacteristics".equals(grandParent.getLocalName());
   }
 
   private boolean isExecutionListenerSupported(SemanticVersion version, String event) {

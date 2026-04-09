@@ -7,6 +7,10 @@
  */
 package io.camunda.migration.diagram.converter.convertible;
 
+import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener;
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class AbstractActivityConvertible extends AbstractDataMapperConvertible {
   private BpmnMultiInstanceLoopCharacteristics bpmnMultiInstanceLoopCharacteristics;
   private ZeebeElementTemplate elementTemplate;
@@ -67,6 +71,7 @@ public abstract class AbstractActivityConvertible extends AbstractDataMapperConv
   public static final class BpmnMultiInstanceLoopCharacteristics {
     private final ZeebeLoopCharacteristics zeebeLoopCharacteristics =
         new ZeebeLoopCharacteristics();
+    private final List<ZeebeExecutionListener> executionListeners = new ArrayList<>();
     private String completionCondition;
     private boolean isSequential = false;
 
@@ -88,6 +93,14 @@ public abstract class AbstractActivityConvertible extends AbstractDataMapperConv
 
     public void setSequential(boolean sequential) {
       isSequential = sequential;
+    }
+
+    public List<ZeebeExecutionListener> getExecutionListeners() {
+      return executionListeners;
+    }
+
+    public void addExecutionListener(ZeebeExecutionListener executionListener) {
+      executionListeners.add(executionListener);
     }
   }
 

@@ -14,6 +14,9 @@ import io.camunda.migration.diagram.converter.convertible.AbstractActivityConver
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.BpmnMultiInstanceLoopCharacteristics;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.ZeebeElementTemplate;
 import io.camunda.migration.diagram.converter.convertible.AbstractActivityConvertible.ZeebeLoopCharacteristics;
+import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.model.xml.instance.DomDocument;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
@@ -55,10 +58,30 @@ public class ActivityConversion extends AbstractTypedConversion<AbstractActivity
     DomElement extensionElements = getExtensionElements(multiInstanceLoopCharacteristics);
     extensionElements.appendChild(
         createLoopCharacteristics(element.getDocument(), bpmnMultiInstanceLoopCharacteristics));
+    if (!bpmnMultiInstanceLoopCharacteristics.getExecutionListeners().isEmpty()) {
+      extensionElements.appendChild(
+          createMultiInstanceExecutionListeners(
+              element.getDocument(), bpmnMultiInstanceLoopCharacteristics.getExecutionListeners()));
+    }
     if (bpmnMultiInstanceLoopCharacteristics.getCompletionCondition() != null) {
       createCompletionCondition(
           multiInstanceLoopCharacteristics, bpmnMultiInstanceLoopCharacteristics);
     }
+  }
+
+  private DomElement createMultiInstanceExecutionListeners(
+      DomDocument document, List<ZeebeExecutionListener> executionListeners) {
+    DomElement listeners = document.createElement(ZEEBE, "executionListeners");
+    for (ZeebeExecutionListener listener : executionListeners) {
+      DomElement listenerDom = document.createElement(ZEEBE, "executionListener");
+      listenerDom.setAttribute(ZEEBE, "eventType", listener.getEventType().name());
+      listenerDom.setAttribute(ZEEBE, "type", listener.getListenerType());
+      if (StringUtils.isNotBlank(listener.getRetries())) {
+        listenerDom.setAttribute(ZEEBE, "retries", listener.getRetries());
+      }
+      listeners.appendChild(listenerDom);
+    }
+    return listeners;
   }
 
   private DomElement createLoopCharacteristics(

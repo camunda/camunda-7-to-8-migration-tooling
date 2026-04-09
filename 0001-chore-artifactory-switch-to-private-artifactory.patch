@@ -1,0 +1,27 @@
+From 12fc314ecc4d68231abdda5cb0e5dbb7f9464a9a Mon Sep 17 00:00:00 2001
+From: oleksiimitrovcmnd <oleksii.mitrov-ext@camunda.com>
+Date: Fri, 27 Mar 2026 09:23:00 +0100
+Subject: [PATCH] chore(artifactory): switch to private artifactory. - switch
+ to private artifactory. Related to:
+ https://github.com/camunda/camunda-bpm-platform-maintenance/issues/2733
+
+---
+ data-migrator/plugins/cockpit/pom.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data-migrator/plugins/cockpit/pom.xml b/data-migrator/plugins/cockpit/pom.xml
+index f91d73ef..4184892a 100644
+--- a/data-migrator/plugins/cockpit/pom.xml
++++ b/data-migrator/plugins/cockpit/pom.xml
+@@ -191,7 +191,7 @@
+     <repository>
+       <id>camunda-bpm-nexus</id>
+       <name>camunda-bpm-nexus</name>
+-      <url>https://artifacts.camunda.com/artifactory/public/</url>
++      <url>https://artifacts.camunda.com/artifactory/private/</url>
+     </repository>
+   </repositories>
+ </project>
+-- 
+2.43.0
+
