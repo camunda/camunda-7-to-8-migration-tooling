@@ -263,10 +263,9 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,history-only
 
-  # Runtime integration tests for non-H2 databases (label-gated on PRs)
-  it-runtime-db:
+  # Determine which databases to test based on PR labels
+  prepare-db-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
     permissions:
       contents: read
     if: |
@@ -279,10 +278,47 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
+    outputs:
+      databases: ${{ steps.set-matrix.outputs.databases }}
+    steps:
+      - name: Build database matrix
+        id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:all') }}" == "true" ]]; then
+            echo 'databases=["postgresql","oracle","mysql","mariadb","sqlserver"]' >> "$GITHUB_OUTPUT"
+          else
+            databases=()
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') }}" == "true" ]]; then
+              databases+=("postgresql")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') }}" == "true" ]]; then
+              databases+=("oracle")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') }}" == "true" ]]; then
+              databases+=("mysql")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') }}" == "true" ]]; then
+              databases+=("mariadb")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') }}" == "true" ]]; then
+              databases+=("sqlserver")
+            fi
+            json=$(printf '%s\n' "${databases[@]}" | jq -R . | jq -sc .)
+            echo "databases=$json" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Runtime integration tests for non-H2 databases (label-gated on PRs)
+  it-runtime-db:
+    needs: prepare-db-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        database: [postgresql, oracle, mysql, mariadb, sqlserver]
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -309,33 +345,20 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run runtime tests with ${{ matrix.database }}
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
-          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,runtime-only
 
   # History integration tests for non-H2 databases (label-gated on PRs)
   it-history-db:
+    needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
     strategy:
       fail-fast: false
       matrix:
-        database: [postgresql, oracle, mysql, mariadb, sqlserver]
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -362,10 +385,6 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run history tests with ${{ matrix.database }}
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
-          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,history-only
 
@@ -454,24 +473,15 @@ jobs:
 
   # Identity integration tests for non-H2 databases (label-gated on PRs)
   it-identity-db:
+    needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
     strategy:
       fail-fast: false
       matrix:
-        database: [postgresql, oracle, mysql, mariadb, sqlserver]
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -498,10 +508,6 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Run identity tests with ${{ matrix.database }}
-        if: |
-          github.event_name == 'workflow_dispatch' ||
-          contains(github.event.pull_request.labels.*.name, 'ci:db:all') ||
-          contains(github.event.pull_request.labels.*.name, format('ci:db:{0}', matrix.database))
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,identity-only
 
