@@ -1095,7 +1095,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci:previous-version')
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
       - name: Checkout code
@@ -1139,7 +1139,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci:previous-version')
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
       - name: Checkout code
@@ -1185,7 +1185,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci:previous-version')
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
       - name: Checkout code
@@ -1257,7 +1257,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
-        contains(github.event.pull_request.labels.*.name, 'ci:previous-version')
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     strategy:
       fail-fast: false
