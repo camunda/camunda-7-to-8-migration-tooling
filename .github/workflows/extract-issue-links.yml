@@ -15,5 +15,5 @@ jobs:
       versions: ${{ github.event.inputs.versions }}
       generate-release-notes: true
       support-webhook-secret: SUPPORT_CHANNEL_SLACK_WEBHOOK_URL
-      sec-webhook-secret: SEC_CHANNEL_SLACK_WEBHOOK_URL
-      sec-dri-secret: SEC_DRI_SLACK_ID
+      sec-webhook-secret: SEC_CHANNEL_MT_SLACK_WEBHOOK_URL
+      sec-dri-secret: SEC_MT_DRI_SLACK_ID
