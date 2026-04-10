@@ -181,7 +181,7 @@ export const task_local_variable = [
 			operation: "get",
 		},
 		mappedExplanation:
-			"In Camunda 8.9, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+			"In Camunda 8.9, documents can be uploaded and downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
 	},
 	{
 		origin: {
@@ -193,6 +193,6 @@ export const task_local_variable = [
 			operation: "post",
 		},
 		mappedExplanation:
-			"In Camunda 8.9, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+			"In Camunda 8.9, documents can be uploaded and downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
 	},
 ];

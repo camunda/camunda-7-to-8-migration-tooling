@@ -101,7 +101,7 @@ export const task_variable = [
 		},
 		target: {},
 		discontinuedExplanation:
-			"There is no endpoint yet to delete a process variables iN Camunda 8.9. You can update it to null or an empty string.",
+			"There is no endpoint yet to delete a process variables in Camunda 8.9. You can update it to null or an empty string.",
 	},
 	{
 		origin: {
@@ -181,7 +181,7 @@ export const task_variable = [
 			operation: "get",
 		},
 		mappedExplanation:
-			"In Camunda 8.9, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+			"In Camunda 8.9, documents can be uploaded and downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
 	},
 	{
 		origin: {
@@ -193,6 +193,6 @@ export const task_variable = [
 			operation: "post",
 		},
 		mappedExplanation:
-			"In Camunda 8.9, documents can be uploaded an downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
+			"In Camunda 8.9, documents can be uploaded and downloaded via file picker components in forms. The documents are not directly related to user tasks. Instead, the documentIds can be saved in a process variable to access the documents later in the process instance.",
 	},
 ];
