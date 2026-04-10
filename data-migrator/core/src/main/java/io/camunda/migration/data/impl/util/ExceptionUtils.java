@@ -10,6 +10,7 @@ package io.camunda.migration.data.impl.util;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.ProblemException;
 import io.camunda.migration.data.exception.HistoryMigratorException;
+import org.apache.hc.client5.http.HttpHostConnectException;
 import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
@@ -94,6 +95,21 @@ public class ExceptionUtils {
       LOGGER.error(message, exception);
     }
     return exception;
+  }
+
+  /**
+   * Traverses the full cause chain to check whether C8 is offline, indicated by an
+   * {@link HttpHostConnectException} (connection refused).
+   */
+  public static void rethrowIfC8Offline(MigratorException e) {
+    Throwable cause = e;
+    while (cause != null) {
+      if (cause instanceof HttpHostConnectException) {
+        throw e;
+      }
+      cause = cause.getCause();
+    }
+    return;
   }
 
 }

@@ -471,8 +471,8 @@ public class C8Client {
 
   public List<FlowNodeInstanceDbModel> findFlowNodes(String activityId, Long processInstanceKey) {
     return searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
-            builder -> builder.filter(FlowNodeInstanceFilter.of(
-                filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+        builder -> builder.filter(FlowNodeInstanceFilter.of(
+            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
   }
 
   public FlowNodeInstanceDbModel findFlowNodeOrThrow(Long flowNodeInstanceKey) {
