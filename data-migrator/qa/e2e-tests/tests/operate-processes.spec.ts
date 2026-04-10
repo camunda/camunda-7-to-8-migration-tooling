@@ -37,7 +37,10 @@ async function login(page: any) {
     await page.locator('input[name="username"]').fill('demo');
     await page.locator('input[name="password"]').fill('demo');
     await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+    // Wait for login to complete: either redirected away from login or login form disappears
+    await page
+      .locator('input[name="username"]')
+      .waitFor({ state: 'hidden', timeout: 15000 });
   }
 
   await dismissChangelogModal(page);
@@ -86,10 +89,11 @@ async function openProcessInstance(page: any, processName: string) {
  * 1. Process instances list shows migrated processes
  * 2. Instance details display BPMN diagram, instance header, and instance history
  * 3. Variables display with correct types and values (using data-testid="variable-*")
- * 4. Flow node instance history (audit log) via data-testid="instance-history"
- * 5. Call activity navigation via "View all called instances" link
- * 6. Child process (Multi Instance Process) shows subprocess and scoped variables
- * 7. No critical JS errors during navigation
+ * 4. Flow node instance history via data-testid="instance-history"
+ * 5. Operations Log (audit log) — migrated audit entries with operation type, entity, actor, date
+ * 6. Call activity navigation via "View all called instances" link
+ * 7. Child process (Multi Instance Process) shows subprocess and scoped variables
+ * 8. No critical JS errors during navigation
  */
 test.describe('Operate - Process Instances & Audit Logs', () => {
   test.describe.configure({ mode: 'serial' });
@@ -241,7 +245,72 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 5. Call activity – navigate to child process via "View all called instances"
+  // 5. Operations Log (audit log) – verify migrated audit entries are present
+  // ---------------------------------------------------------------------------
+  test('should display operations log with migrated audit entries', async ({
+    page,
+  }) => {
+    await goToProcesses(page);
+
+    // The migrator cancels instances after migration, so enable the "Canceled" filter
+    const canceledCheckbox = page.locator('label:has-text("Canceled")');
+    await canceledCheckbox.waitFor({ state: 'visible', timeout: 10000 });
+    await canceledCheckbox.click();
+    await page.waitForLoadState('networkidle');
+
+    // Select the second (middle) Invoice Receipt instance — it has audit log entries
+    const invoiceRows = page
+      .locator(
+        '[data-testid="data-list"] > div:has-text("Invoice Receipt"), table tbody tr:has-text("Invoice Receipt")',
+      );
+    await invoiceRows.first().waitFor({ state: 'visible', timeout: 10000 });
+    const instanceLink = invoiceRows.nth(2).locator('a[href*="/processes/"]').first();
+    await instanceLink.waitFor({ state: 'visible', timeout: 10000 });
+    await instanceLink.click();
+
+    await page.waitForURL('**/processes/**', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+
+    await dismissChangelogModal(page);
+
+    // "Operations Log" is a tab button in the right panel (next to Variables, Listeners)
+    const operationsLogTab = page
+      .locator('button[aria-label="Operations Log"]')
+      .first();
+    await operationsLogTab.waitFor({ state: 'visible', timeout: 10000 });
+    await operationsLogTab.click();
+
+    await page.waitForLoadState('networkidle');
+
+    await page.screenshot({
+      path: 'test-results/operate-operations-log.png',
+      fullPage: true,
+    });
+
+    // Verify the operations log table is rendered
+    const dataTable = page.locator('[data-testid="data-table-container"]');
+    await expect(dataTable).toBeVisible({ timeout: 10000 });
+
+    // Verify column headers are present
+    const headerLabel = dataTable.locator('.cds--table-header-label');
+    await expect(headerLabel.getByText('Operation Type')).toBeVisible();
+    await expect(headerLabel.getByText('Entity Type')).toBeVisible();
+
+    // Verify at least one audit log row exists with actual data
+    const tableRows = dataTable.locator('tbody tr');
+    const rowCount = await tableRows.count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // Invoice Receipt has user task operations (e.g. Complete) from the migrated history
+    await expect(dataTable.getByText('User task').first()).toBeVisible();
+
+    console.log(
+      `Verified operations log: ${rowCount} audit entries with User task entity type`,
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. Call activity — navigate to child process via "View all called instances"
   // ---------------------------------------------------------------------------
   test('should navigate from parent to child process via call activity', async ({
     page,
@@ -292,7 +361,7 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 6. Child process – flow node history and BPMN diagram
+  // 7. Child process — flow node history and BPMN diagram
   // ---------------------------------------------------------------------------
   test('should display child process details with subprocess in history', async ({
     page,
@@ -329,7 +398,7 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 7. Child process – scoped variables
+  // 8. Child process — scoped variables
   // ---------------------------------------------------------------------------
   test('should display scoped variables on child process', async ({
     page,
@@ -355,7 +424,7 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 8. No critical JS errors
+  // 9. No critical JS errors
   // ---------------------------------------------------------------------------
   test('should render process details without critical errors', async ({
     page,
