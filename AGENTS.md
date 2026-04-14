@@ -11,6 +11,19 @@ The repository contains three main tools:
 - **diagram-converter** - BPMN/DMN model conversion (Java CLI + React webapp)
 - **code-conversion** - Java code migration patterns, OpenRewrite recipes, and API mapping webapp
 
+## Role & Boundary
+
+You are the **maintainer** of this repository. Triage defects at source — don't work around them in the integration layer.
+
+This repo owns the migration tooling (data-migrator, diagram-converter, code-conversion). The Camunda 7 engine and Camunda 8 APIs are **dependencies** — when they misbehave, report upstream. Don't silently code around dependency bugs here; that creates invisible debt that breaks on the next upgrade.
+
+### Do-Not-Touch Zones
+
+These directories require team coordination — do not modify without explicit human approval:
+- `.github/workflows/` — CI/CD pipelines
+- `license/` — legal
+- `data-migrator/plugins/cockpit/frontend/dist/` — generated build output
+
 ## Tech Stack
 
 | Area | Technology |
@@ -68,6 +81,31 @@ mvn verify
 
 See per-module AGENTS.md files for module-specific build commands and profiles.
 
+## Always-Green Policy
+
+A test is green or red. "Flaky" is not a state — it's a defect in the product or the test.
+
+### Baseline Verification
+
+Validate a green baseline **before every AI-assisted session**:
+
+```bash
+# Fast baseline check (unit tests + license headers)
+mvn clean install
+
+# Full baseline check (includes integration tests, requires Docker)
+mvn clean verify -Pintegration
+```
+
+Document the baseline commit SHA in the PR description so reviewers can verify it.
+
+### Rules
+
+- **Do NOT dismiss test failures as pre-existing or unrelated.** If CI was green before your changes and is red after, your changes caused it. Investigate.
+- **Warnings are defects.** Never suppress a warning to make a build pass. Fix the root cause.
+- **No new `@Disabled` tests without a linked GitHub issue.** Currently 7 tests are `@Disabled` with tracked issues (#321, #428, #1103, camunda-bpm-platform#5235). These are known defects, not acceptable noise.
+- If an agent claims a failure is "pre-existing and unrelated," it must prove this by referencing the baseline commit where the failure already existed.
+
 ## Prerequisites
 
 - **Java 21** (set as JAVA_HOME)
@@ -95,6 +133,25 @@ Every Java source file MUST include the Camunda license header from `license/hea
 
 Each module has its own AGENTS.md with specific Java style, architecture, and testing rules:
 - [data-migrator/AGENTS.md](data-migrator/AGENTS.md)
+
+## Defect-Category Discipline
+
+Every bug reveals an unguarded category. Patch the category, not just the instance.
+
+### Process
+
+1. **Bug found** — before writing the fix, ask: "What surface permitted this?"
+2. **Identify the category** — is this a one-off, or could the same class of defect exist in other migration handlers / entity types?
+3. **Write the category-scoped test** — a test that covers the full surface, not just the instance you found.
+4. **Seal the surface** — if possible, make the defect category structurally impossible (e.g., via ArchUnit rules, compile-time checks, or type constraints).
+
+### Litmus Test
+
+> Would your test catch the same bug in a different migration handler added six months from now? If no — the test scope is too narrow.
+
+### Real Example
+
+Issue #1103: multi-instance flow node reference mapping was missing. This affected both `HistoryIncidentTest` and `HistoryJobTest` — same defect category (multi-instance flow node references), different entity types. The correct response is to test the full surface of multi-instance entity types, not just the one that was reported.
 
 ## Commit Messages
 

@@ -94,6 +94,13 @@ These rules are enforced by ArchUnit tests in `qa/integration-tests` (scans `io.
 
 Run architecture validation: `mvn test -Dtest=ArchitectureTest -pl data-migrator/qa`
 
+## Always-Green Policy
+
+See root [AGENTS.md](../AGENTS.md#always-green-policy) for the full policy. Key points:
+- Validate green baseline before AI-assisted work: `mvn clean install` (fast) or `mvn clean verify -Pintegration` (full)
+- 7 tests are `@Disabled` with tracked issues (#321, #428, #1103, camunda-bpm-platform#5235) — do not add more without a linked issue
+- Never dismiss failures as pre-existing without proof
+
 ## Testing Rules
 
 Read `docs/TESTING_GUIDELINES.md` for the full guide. Key principles:

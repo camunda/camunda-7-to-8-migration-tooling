@@ -4,6 +4,7 @@ Read and follow the instructions in [AGENTS.md](AGENTS.md) before starting any t
 
 ## Claude-Specific Notes
 
+- **Before starting work**, verify green baseline: `mvn clean install`. Do NOT dismiss any failures as pre-existing — investigate them.
 - When running builds, prefer `mvn clean install -DskipTests` for fast iteration, then run targeted tests
 - Use `mvn test -Dtest=ArchitectureTest -pl data-migrator/qa` to validate architecture rules after structural changes
 - The license header check runs automatically during `mvn verify` - ensure new Java files include it
