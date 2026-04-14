@@ -79,6 +79,8 @@ mvn verify
 - Integration tests: `mvn verify -Pintegration`
 - E2E tests: `mvn verify -Pe2e`
 
+When changes are scoped to a single submodule, run tests only for that module using `-pl <module-path>` (e.g., `mvn test -pl diagram-converter/cli`). Avoid full-module builds when the scope is clear.
+
 See per-module AGENTS.md files for module-specific build commands and profiles.
 
 ## Always-Green Policy
