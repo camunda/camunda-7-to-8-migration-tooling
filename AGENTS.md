@@ -1,39 +1,85 @@
-# Copilot Instructions for Camunda 7 to 8 Data Migrator
+# AI Agent Instructions for Camunda 7 to 8 Migration Tooling
+
+This file is the single source of truth for AI coding agents working in this repository.
 
 ## Project Overview
 
-This repository contains the Camunda 7 to 8 Data Migrator, a tool that helps organizations migrate their Camunda 7 process instances and data to Camunda 8 while preserving execution state and variables.
+The Camunda 7 to 8 Data Migrator Tooling helps organizations migrate Camunda 7 process instances and data and code to Camunda 8 while preserving execution state and variables. 
+The repository contains three main tools:
 
-**Key Points:**
-- The runtime migrator is targeting production readiness with Camunda 8.8 release
-- The history migrator is targeting production readiness with Camunda 8.9 release
-- This tool is critical for seamless migration with minimal disruption to business processes
+- **data-migrator** - Runtime and history data migration (Java/Spring Boot)
+- **diagram-converter** - BPMN/DMN model conversion (Java CLI + React webapp)
+- **code-conversion** - Java code migration patterns, OpenRewrite recipes, and API mapping webapp
 
-## Technology Stack
+## Tech Stack
 
-- **Java:** 21 (required)
-- **Maven:** 3.6+ for building
-- **Spring Boot:** 3.x
-- **Frontend:** React 18.x (Cockpit plugin only)
-- **Databases:** H2, PostgreSQL, Oracle
-- **Build Tool:** Maven with multi-module structure
+| Area | Technology |
+|------|-----------|
+| Language | Java 21 |
+| Build | Maven 3.6+ (multi-module) |
+| Framework | Spring Boot 4.x |
+| Frontend | React 18/19, Vite, TypeScript |
+| Databases | H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
+| Testing | JUnit Jupiter 6.x, AssertJ, ArchUnit, REST Assured, Testcontainers |
+| CI | GitHub Actions |
 
 ## Module Structure
 
-The project is organized as a multi-module Maven project:
+```
+/
+├── data-migrator/
+│   ├── core/                   # Core migration logic
+│   ├── distro/                 # Distribution packaging
+│   ├── assembly/               # Release assembly
+│   ├── plugins/cockpit/        # Camunda Cockpit plugin (React frontend)
+│   ├── examples/               # Example implementations (variable interceptors)
+│   └── qa/                     # Integration tests & e2e tests
+├── diagram-converter/
+│   ├── core/                   # Conversion engine
+│   ├── cli/                    # CLI application
+│   ├── webapp/                 # Web UI (React/TypeScript)
+│   └── extension-example/      # Custom extension reference
+├── code-conversion/
+│   ├── patterns/               # Best practices & code examples
+│   ├── recipes/                # OpenRewrite recipes
+│   └── api-mapping/            # Interactive API mapping webapp (React)
+└── docs/                       # Architecture rules, testing guidelines, review checklist
+```
 
-- `core/` - Core migration logic and application
-- `plugins/cockpit/` - Camunda Cockpit plugin (includes React frontend)
-- `examples/` - Example implementations (e.g., variable interceptors)
-- `qa/` - Quality assurance and integration tests
-- `distro/` - Distribution assembly
-- `assembly/` - Final packaging
+## Build Commands
 
-## Code Quality Standards
+```bash
+# Full build with tests
+mvn clean install
 
-### License Headers
+# Build without tests
+mvn clean install -DskipTests
 
-**CRITICAL:** Every source file must include the Camunda license header. Use the exact format from `license/header.txt`:
+# Run unit tests only
+mvn test
+
+# Run verification (unit tests + license checks, but NOT integration/e2e tests)
+mvn verify
+```
+
+**Important:** `mvn verify` from root does NOT run integration or e2e tests in the data-migrator tool. Those require explicit Maven profiles:
+- Integration tests: `mvn verify -Pintegration`
+- E2E tests: `mvn verify -Pe2e`
+
+See per-module AGENTS.md files for module-specific build commands and profiles.
+
+## Prerequisites
+
+- **Java 21** (set as JAVA_HOME)
+- **Maven 3.6+**
+- **Node.js v20.18.1** (for Cockpit plugin & frontend modules)
+- **Docker** (for database integration tests)
+
+## Code Conventions
+
+### License Headers (CRITICAL)
+
+Every Java source file MUST include the Camunda license header from `license/header.txt`:
 
 ```java
 /*
@@ -45,191 +91,75 @@ The project is organized as a multi-module Maven project:
  */
 ```
 
-### Java Conventions
+### Module-Specific Conventions
 
-- Follow standard Java coding conventions
-- Use meaningful variable and method names
-- Add JavaDoc comments for public APIs
-- Keep methods focused and concise
-- Prefer composition over inheritance where appropriate
+Each module has its own AGENTS.md with specific Java style, architecture, and testing rules:
+- [data-migrator/AGENTS.md](data-migrator/AGENTS.md)
 
-### Testing
+## Commit Messages
 
-- Write unit tests for all new functionality
-- Use JUnit Jupiter (version 6.0.1+) for tests
-- Integration tests go in the `qa/` module
-- Tests should be deterministic and isolated
-- Follow existing test patterns in the codebase
+Follow conventional commits:
 
-## Build and Test Commands
-
-### Maven Configuration
-
-The project uses Camunda dependencies from private repositories. The repository configuration is already included in the `pom.xml`. Maven will automatically use these repositories when building:
-- `https://artifacts.camunda.com/artifactory/zeebe-io-snapshots/` for snapshots
-- `https://artifacts.camunda.com/artifactory/camunda-bpm-snapshots/` for Camunda BPM snapshots
-
-No additional settings.xml configuration is required.
-
-### Building the Project
-
-```bash
-# Full build with all tests
-mvn clean install
-
-# Build without tests (faster for iteration)
-mvn clean install -DskipTests
-
-# Build excluding Cockpit plugin (requires Node.js)
-mvn clean install -pl '!plugins/cockpit'
-```
-
-### Running Tests
-
-```bash
-# All tests
-mvn verify
-
-# Unit tests only
-mvn test
-
-# Integration tests only
-mvn integration-test
-
-# Tests with specific database
-mvn verify -Ppostgresql
-mvn verify -Poracle
-```
-
-### Frontend Development (Cockpit Plugin)
-
-```bash
-cd plugins/cockpit/frontend
-
-# Install dependencies
-npm install
-
-# Development build with watch
-npm run dev
-
-# Production build
-npm run build
-```
-
-## Development Workflow
-
-### Prerequisites
-
-- Java 21 must be installed and set as JAVA_HOME
-- Maven 3.6+ must be available
-- Node.js is required only for the Cockpit plugin
-- Docker is recommended for database testing
-
-### Making Changes
-
-1. **Module-Specific Builds:** You can build individual modules by running Maven commands in their directories to speed up development
-2. **Incremental Testing:** Run tests relevant to your changes before running the full test suite
-3. **Database Testing:** Use Docker to test with PostgreSQL or Oracle if making database-related changes
-4. **Distribution Testing:** After significant changes, build the full distribution from `assembly/target/`
-
-### Code Changes Guidelines
-
-- Make minimal, focused changes that address the specific issue
-- Don't modify working code unnecessarily
-- Update documentation when adding or changing features:
-  - For complex changes, add comments in the code explaining the approach
-  - Update JavaDoc for all public API changes
-  - Update README.md if the changes affect installation, usage, or features
-  - If changes require updates to the official documentation at docs.camunda.io, note this in the PR description
-- Ensure changes are backward compatible unless explicitly intended otherwise
-- Be mindful of production readiness status (runtime vs. history migrator)
-
-## Common Patterns
-
-### Variable Interceptors
-
-When creating or modifying variable interceptors:
-- Extend the `VariableInterceptor` interface
-- Package as standalone JAR when needed
-- See `examples/variable-interceptor/` for reference implementation
-
-### Database Support
-
-When adding database-specific code:
-- Test with H2, PostgreSQL, and Oracle profiles
-- Use JDBC standards to maintain compatibility
-- Add profile-specific tests in the `qa/` module
-
-### Spring Boot Configuration
-
-- Use `application.properties` or `application.yml` for configuration
-- Support externalized configuration for deployment flexibility
-- Document all configuration properties
-
-## Pull Request Quality
-
-### Commit Messages
-
-Follow conventional commits format:
 ```
 <type>(<scope>): <description>
 
-[optional body]
-
-[optional footer]
+related to #<issue-number>
 ```
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `refactor`: Code refactoring
-- `chore`: Maintenance tasks (dependencies, build, etc.)
-- `docs`: Documentation changes
-- `test`: Test additions or modifications
-- `perf`: Performance improvements
+**Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`
+**Scopes:** `core`, `history`, `runtime`, `distro`, `deps`, `ci`, `e2e`
 
-**Scope:** Module or component affected (e.g., `core`, `history`, `distro`, `deps`)
-
-**Body:** Reference the related issue in the commit message body using `related to #<issue-number>`
-
-**Examples:**
+Examples:
 - `feat(runtime): add support for message correlation`
 - `fix(core): resolve variable serialization issue`
-- `chore(deps): update Spring Boot to 3.5.8`
-- `refactor(history): move MyBatis mappers into DbClient`
+- `chore(deps): update Spring Boot to 4.0.5`
 
-### Pull Request Guidelines
+## Pull Request Guidelines
 
-- Include clear, descriptive titles using conventional commits format
-- Provide detailed description explaining the changes and their purpose
-- Reference related issues using `related to #<issue-number>` (not `closes #<issue-number>`)
+- Use conventional commits format for PR titles
+- Reference issues with `related to #<issue-number>` (not `closes`)
 - Keep PRs focused on a single feature or fix
-- Ensure all tests pass locally before submitting
-- Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows builds)
+- Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows)
+- A human reviewer will merge - do not merge PRs
 
 ## CI/CD
 
-The project uses GitHub Actions for CI with multiple database environments:
-- `distro-h2`: Default build with H2 database
-- `postgresql`: Tests with PostgreSQL
-- `oracle`: Tests with Oracle
-- `windows-h2`: Windows-specific builds
+GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenance/*`, PRs, and nightly (weekdays 5 AM).
 
-**Note:** You cannot merge pull requests. Wait for CI checks to complete and address any failures. A human reviewer will merge the PR after approval.
+### Jobs per module
 
-## Additional Resources
+| Module | CI Job | What it does |
+|--------|--------|-------------|
+| data-migrator | `distro` | Builds distribution archives (tar.gz, zip) |
+| data-migrator | `it-runtime-h2`, `it-history-h2`, `it-identity-h2` | Integration tests on H2 |
+| data-migrator | `it-runtime-db`, `it-history-db`, `it-identity-db` | Integration tests on PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
+| data-migrator | `it-history-h2-windows` | Windows-specific build |
+| data-migrator | `e2e` | End-to-end tests (Playwright + Docker) |
+| code-conversion | `code-conversion` | Build + format check (`-PcheckFormat`) + pattern catalog validation |
+| diagram-converter | `diagram-converter` | Build + format check (`-PcheckFormat`) |
+| all | `compile-previous-version` | Compile against previous Camunda 8 version (API breakage detection) |
 
-- [Official Documentation](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/)
-- [Camunda 8 Documentation](https://docs.camunda.io/)
-- [Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)
-- [Issue Tracker](https://github.com/camunda/camunda-bpm-platform/issues?q=is%3Aissue%20state%3Aopen%20label%3Ascope%3Adata-migrator)
+### Running CI test scenarios locally
 
-## Code Review Philosophy
+See [data-migrator/AGENTS.md](data-migrator/AGENTS.md) for the full list of integration and e2e test commands.
 
-When reviewing code or providing suggestions:
-- Focus on correctness, security, and maintainability
-- Check for proper license headers
-- Verify test coverage is adequate
-- Ensure database compatibility is maintained
-- Validate that changes don't break existing functionality
-- Only suggest changes with high confidence in their value
+### Other workflows
+
+- **release.yml** - Manual: Maven release, artifact collection, Docker image, optional diagram-converter deploy
+- **deploy-diagram-converter.yml** - Manual/callable: Docker build + AWS ECS deployment
+- **deploy-code-conversion-to-pages.yml** - Auto on main: deploys API mapping webapp to GitHub Pages
+- **renovate-auto-merge.yml** - Auto-merges Renovate dependency PRs after checks pass
+- **backport.yml** - Backports merged PRs via `/backport` comment command
+
+## Key Documentation
+
+- [Official docs](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/)
+
+## Guidelines for Changes
+
+- Make minimal, focused changes addressing the specific issue
+- Don't modify working code unnecessarily
+- Ensure backward compatibility unless explicitly intended otherwise
+- Update JavaDoc for public API changes
+- Test with relevant database profiles when making DB-related changes
+- Note in PR description if changes affect docs.camunda.io documentation
