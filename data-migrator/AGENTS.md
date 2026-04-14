@@ -30,12 +30,12 @@ cd data-migrator && mvn clean install
 cd data-migrator && mvn clean install -DskipTests
 
 # Exclude Cockpit plugin (requires Node.js)
-mvn clean install -pl '!data-migrator/plugins/cockpit'
+cd data-migrator && mvn clean install -pl '!plugins/cockpit'
 
-# Database-specific profiles
-mvn verify -Ppostgresql
-mvn verify -Poracle
-mvn verify -Pmysql
+# Database-specific integration-test profiles
+mvn verify -Pintegration -Ppostgresql
+mvn verify -Pintegration -Poracle
+mvn verify -Pintegration -Pmysql
 ```
 
 ### Integration & E2E Tests

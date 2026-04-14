@@ -112,7 +112,7 @@ Document the baseline commit SHA in the PR description so reviewers can verify i
 
 - **Java 21** (set as JAVA_HOME)
 - **Maven 3.6+**
-- **Node.js v20.18.1** (for Cockpit plugin & frontend modules)
+- **Node.js >=20.19.0 or >=22.12.0** (for Cockpit plugin & frontend modules)
 - **Docker** (for database integration tests)
 
 ## Code Conventions
