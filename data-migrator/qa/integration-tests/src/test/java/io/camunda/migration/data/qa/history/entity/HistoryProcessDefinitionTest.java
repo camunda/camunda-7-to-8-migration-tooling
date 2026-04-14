@@ -28,7 +28,7 @@ public class HistoryProcessDefinitionTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<ProcessDefinitionEntity> processDefinitions = searchHistoricProcessDefinitions("userTaskProcessId");
+    List<ProcessDefinitionEntity> processDefinitions = searchHistoricProcessDefinitionsWithBpmnXml("userTaskProcessId");
     assertThat(processDefinitions).hasSize(2);
     processDefinitions.forEach(definition -> {
       assertThat(definition.processDefinitionKey()).isNotNull();

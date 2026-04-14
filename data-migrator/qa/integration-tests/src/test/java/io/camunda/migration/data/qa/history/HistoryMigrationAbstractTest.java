@@ -129,6 +129,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitions(String processDefinitionId) {
     return rdbmsService.getProcessDefinitionReader()
         .search(ProcessDefinitionQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
+  }
+
+  public List<ProcessDefinitionEntity> searchHistoricProcessDefinitionsWithBpmnXml(String processDefinitionId) {
+    return rdbmsService.getProcessDefinitionReader()
+        .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder
                 .filter(filterBuilder ->
                     filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))
