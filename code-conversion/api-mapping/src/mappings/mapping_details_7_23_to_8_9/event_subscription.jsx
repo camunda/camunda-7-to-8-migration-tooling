@@ -6,106 +6,44 @@
  * except in compliance with the Camunda License 1.0.
  */
 export const event_subscription = [
-	// {
-	// 	origin: {
-	// 		path: "/authorization",
-	// 		operation: "get",
-	// 	},
-	// 	target: {
-	// 		path: "/authorizations/search",
-	// 		operation: "post",
-	// 	},
-	// 	mappedExplanation: (
-	// 		<div>
-	// 			<div>
-	// 				Mapping of C7 endpoint parameters to C8 endpoint request
-	// 				body fields:
-	// 			</div>
-	// 			<table>
-	// 				<thead>
-	// 					<tr>
-	// 						<th>C7 Parameter</th>
-	// 						<th>C8 Field</th>
-	// 					</tr>
-	// 				</thead>
-	// 				<tbody>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string) id
-	// 								<br />
-	// 								(integer) type
-	// 								<br />
-	// 								(integer) resourceType
-	// 								<br />
-	// 								(string) resourceId
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(string) filter.ownerId
-	// 								<br />
-	// 								(enum) filter.ownerType
-	// 								<br />
-	// 								(string[]) filter.resourceIds
-	// 								<br />
-	// 								(enum) filter.resourceType
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string[]) userIdIn
-	// 								<br />
-	// 								(string[]) groupIdIn
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							Replaced by a combination of{" "}
-	// 							<code>resourceIds</code> and{" "}
-	// 							<code>resourceType</code>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sortBy
-	// 								<br />
-	// 								(string) sortOrder
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(string) sort[].field
-	// 								<br />
-	// 								(enum) sort[].order
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 					<tr>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) firstResult
-	// 								<br />
-	// 								(integer) maxResults
-	// 							</pre>
-	// 						</td>
-	// 						<td>
-	// 							<pre>
-	// 								(integer) page.from
-	// 								<br />
-	// 								(integer) page.limit
-	// 								<br />
-	// 								(object[]) page.searchAfter
-	// 								<br />
-	// 								(object[]) page.searchBefore
-	// 							</pre>
-	// 						</td>
-	// 					</tr>
-	// 				</tbody>
-	// 			</table>
-	// 		</div>
-	// 	),
-	// },
+	{
+		origin: {
+			path: "/event-subscription",
+			operation: "get",
+		},
+		target: {
+			path: "/message-subscriptions/search",
+			operation: "post",
+		},
+		mappedExplanation: (
+			<div>
+				In Camunda 8.9, the{" "}
+				<code>POST Search message subscriptions</code> endpoint can be
+				used to search for message subscriptions. Note that Camunda 8
+				only supports message-type event subscriptions via this endpoint.
+				Other event subscription types (signal, conditional, timer) do
+				not have a dedicated search endpoint in Camunda 8.9.
+			</div>
+		),
+	},
+	{
+		origin: {
+			path: "/event-subscription/count",
+			operation: "get",
+		},
+		target: {
+			path: "/message-subscriptions/search",
+			operation: "post",
+		},
+		mappedExplanation: (
+			<div>
+				In Camunda 8.9, the{" "}
+				<code>POST Search message subscriptions</code> endpoint can be
+				used to search for message subscriptions. The response includes a{" "}
+				<code>page.totalItems</code> field that provides the total count
+				of matching subscriptions. Note that this only covers
+				message-type event subscriptions.
+			</div>
+		),
+	},
 ];
