@@ -201,6 +201,10 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message multiInstanceExecutionListenerPreEvaluation() {
+    return INSTANCE.staticMessage("multi-instance-execution-listener-pre-evaluation");
+  }
+
   public static Message taskListenerNotSupported(String event, String type, String implementation) {
     return INSTANCE.composeMessage(
         "task-listener",

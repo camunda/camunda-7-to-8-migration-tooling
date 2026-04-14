@@ -10,6 +10,7 @@ package io.camunda.migration.diagram.converter.visitor.impl.element;
 import static io.camunda.migration.diagram.converter.visitor.AbstractDelegateImplementationVisitor.*;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.NamespaceUri;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener;
 import io.camunda.migration.diagram.converter.convertible.AbstractExecutionListenerConvertible.ZeebeExecutionListener.EventType;
@@ -19,6 +20,7 @@ import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor;
 import io.camunda.migration.diagram.converter.visitor.AbstractListenerVisitor.ListenerImplementation.DelegateExpressionImplementation;
 import java.util.regex.Matcher;
+import org.camunda.bpm.model.xml.instance.DomElement;
 
 public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
@@ -29,8 +31,8 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
   @Override
   protected Message visitListener(
       DomElementVisitorContext context, String event, ListenerImplementation implementation) {
-    if (isExecutionListenerSupported(
-        SemanticVersion.parse(context.getProperties().getPlatformVersion()), event)) {
+    SemanticVersion version = SemanticVersion.parse(context.getProperties().getPlatformVersion());
+    if (isExecutionListenerSupported(version, event)) {
       ZeebeExecutionListener executionListener = new ZeebeExecutionListener();
       executionListener.setEventType(EventType.valueOf(event));
       if (implementation instanceof DelegateExpressionImplementation) {
@@ -43,10 +45,36 @@ public class ExecutionListenerVisitor extends AbstractListenerVisitor {
       context.addConversion(
           AbstractExecutionListenerConvertible.class,
           c -> c.addZeebeExecutionListener(executionListener));
+      if (isStartListenerOnMultiInstanceBody(context, version, event)) {
+        context.addMessage(MessageFactory.multiInstanceExecutionListenerPreEvaluation());
+      }
       return MessageFactory.executionListenerSupported(event, implementation.implementation());
     }
     return MessageFactory.executionListenerNotSupported(
         event, ListenerImplementation.type(implementation), implementation.implementation());
+  }
+
+  private boolean isStartListenerOnMultiInstanceBody(
+      DomElementVisitorContext context, SemanticVersion version, String event) {
+    if (!"start".equals(event)) {
+      return false;
+    }
+    if (version.ordinal() < SemanticVersion._8_9.ordinal()) {
+      return false;
+    }
+    // executionListener -> extensionElements -> activity
+    DomElement extensionElements = context.getElement().getParentElement();
+    if (extensionElements == null) {
+      return false;
+    }
+    DomElement activity = extensionElements.getParentElement();
+    return activity != null && hasMultiInstanceLoopCharacteristics(activity);
+  }
+
+  private boolean hasMultiInstanceLoopCharacteristics(DomElement activity) {
+    return !activity
+        .getChildElementsByNameNs(NamespaceUri.BPMN, "multiInstanceLoopCharacteristics")
+        .isEmpty();
   }
 
   private boolean isExecutionListenerSupported(SemanticVersion version, String event) {
