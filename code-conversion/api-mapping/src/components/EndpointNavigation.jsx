@@ -10,6 +10,7 @@ import styles from "./endpointnavigation.module.css";
 
 export function EndpointNavigation({
 	reducedMappingIndex,
+	selectedMappingId,
 	handleSelectionClick,
 	displayedSections,
 	scrollToSection,
@@ -40,6 +41,7 @@ export function EndpointNavigation({
 					<span>Select Mapping:</span>
 					<Tabs
 						reducedMappingIndex={reducedMappingIndex}
+						selectedMappingId={selectedMappingId}
 						handleSelectionClick={handleSelectionClick}
 					/>
 				</label>
