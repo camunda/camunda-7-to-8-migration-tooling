@@ -62,14 +62,16 @@ export const external_task = [
 					rightEntry: <pre>(string) filter.elementId</pre>,
 				},
 				{
-					leftEntry: (
-						<pre>
-							(string[]) tenantIdIn
-							<br />
-							(boolean) withoutTenantId
-						</pre>
+					leftEntry: <pre>(string[]) tenantIdIn</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) filter.tenantId</pre>
+							<p>
+								Camunda 8.8 supports filtering by a single tenant
+								id value per request.
+							</p>
+						</>
 					),
-					rightEntry: <pre>(string) filter.tenantId</pre>,
 				},
 				{
 					leftEntry: <pre>(int32) retries</pre>,
@@ -135,6 +137,16 @@ export const external_task = [
 						<p>
 							Use <code>filter.elementId</code>, but only one
 							value at a time.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) withoutTenantId</pre>,
+					rightEntry: (
+						<p>
+							No direct equivalent in Camunda 8.8. Jobs always
+							have a tenant id value, including{" "}
+							<code>&lt;default&gt;</code>.
 						</p>
 					),
 				},

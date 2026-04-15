@@ -20,8 +20,10 @@ The OpenAPI specification lives in the Camunda monorepo:
 zeebe/gateway-protocol/src/main/proto/rest-api.yaml
 ```
 
-The API mapping always targets the last stable version (currently 8.8), so
-check out the first minor release tag (e.g. `8.8.0`). Patch releases do not change the endpoint surface.
+When a new Camunda 8 minor version is released, a new mapping is added
+(e.g. `mapping_7_23_to_8_9`). Existing mappings for older versions are
+generally not updated. Check out the corresponding release tag
+(e.g. `8.9.0`) — patch releases do not change the endpoint surface.
 
 ## Prerequisites
 
@@ -38,6 +40,10 @@ npm install
 
 ---
 
+> **Note:** The examples below use `c8_8` as the version. Replace file names,
+> export names, and directory paths with the actual target version
+> (e.g. `c8_9`, `mapping_details_7_23_to_8_9`).
+
 ## Phase 1: Replace the spec
 
 ### 1.1 Convert the YAML spec to JSON
@@ -49,7 +55,7 @@ npx -y js-yaml /path/to/camunda/zeebe/gateway-protocol/src/main/proto/rest-api.y
 ### 1.2 Back up the current spec
 
 ```bash
-cp src/openapi/camunda8/c8_8.js /tmp/old_c8_8.js
+cp src/openapi/camunda8/c8_8.js /tmp/old_c8_8.mjs
 ```
 
 ### 1.3 Create the new c8_8.js
@@ -89,7 +95,7 @@ Generate a sorted list of endpoints from the **old** and **new** spec:
 ```bash
 # Old spec (backed up in step 1.2)
 node --input-type=module -e "
-import('/tmp/old_c8_8.js').then(mod => {
+import('/tmp/old_c8_8.mjs').then(mod => {
   for (const [path, methods] of Object.entries(mod.c8_8.paths)) {
     for (const [method, details] of Object.entries(methods)) {
       if (['get','post','put','delete','patch'].includes(method))
