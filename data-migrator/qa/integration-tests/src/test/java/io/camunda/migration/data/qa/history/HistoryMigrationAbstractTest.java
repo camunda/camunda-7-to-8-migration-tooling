@@ -134,6 +134,16 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
+  public List<ProcessDefinitionEntity> searchHistoricProcessDefinitionsWithBpmnXml(String processDefinitionId) {
+    return rdbmsService.getProcessDefinitionReader()
+        .search(ProcessDefinitionQuery.of(queryBuilder ->
+            queryBuilder
+                .filter(filterBuilder ->
+                    filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))
+                .resultConfig(b -> b.includeXml(true))))
+        .items();
+  }
+
   public List<DecisionDefinitionEntity> searchHistoricDecisionDefinitions(String decisionDefinitionId) {
     return rdbmsService.getDecisionDefinitionReader()
         .search(DecisionDefinitionQuery.of(queryBuilder ->
