@@ -66,7 +66,6 @@ function App() {
 		showDiscontinuedEndpoints,
 		sortAlphabetically
 	);
-
 	return (
 		<>
 			<div className={styles.container}>
@@ -80,6 +79,7 @@ function App() {
 					reducedMappingIndex={mappingIndex.map(({ id, tabName }) => {
 						return { id, tabName };
 					})}
+					selectedMappingId={selectedMapping.id}
 					handleSelectionClick={handleSelectionClick}
 					displayedSections={mappedC7Endpoints.map(
 						(section) => section.section
