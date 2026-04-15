@@ -158,7 +158,7 @@ export const external_task = [
 					leftEntry: <pre>(string) topics[].businessKey</pre>,
 					rightEntry: (
 						<p>
-							No businessKey in Camunda 8.9. <a href="https://roadmap.camunda.com/c/296-business-key">Planned for a future release</a>, but unlikly to be required in this context.
+							No businessKey in Camunda 8.9. <a href="https://roadmap.camunda.com/c/296-business-key">Planned for a future release</a>, but unlikely to be required in this context.
 						</p>
 					),
 				},
