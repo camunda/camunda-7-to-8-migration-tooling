@@ -178,7 +178,7 @@ export const external_task = [
 					),
 					rightEntry: (
 						<p>
-							In Camunda 8.9, it is not possible to retrict the
+							In Camunda 8.9, it is not possible to restrict the
 							activation of jobs to specific process definitions.
 						</p>
 					),
@@ -187,7 +187,7 @@ export const external_task = [
 					leftEntry: <pre>(object) topics[].processVariables</pre>,
 					rightEntry: (
 						<p>
-							In Camunda 8.9, it is not possible to retrict the
+							In Camunda 8.9, it is not possible to restrict the
 							activation of jobs to process instances with
 							specific variables and their values.
 						</p>
