@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:conversion="http://camunda.org/schema/conversion/1.0" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" conversion:converterVersion="0.2.1" exporter="Camunda Modeler" exporterVersion="5.31.0" expressionLanguage="http://www.w3.org/1999/XPath" id="Definitions_04p2xpi" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0" targetNamespace="http://bpmn.io/schema/bpmn" typeLanguage="http://www.w3.org/2001/XMLSchema">
+  <bpmn:process id="miProcess" isClosed="false" isExecutable="true" name="Multi Instance Process" processType="None">
+    <bpmn:extensionElements>
+      <conversion:message severity="INFO">Unused attribute 'historyTimeToLive' on 'process' is removed.</conversion:message>
+    </bpmn:extensionElements>
+    <bpmn:startEvent id="startEvent" isInterrupting="true" name="Start Event" parallelMultiple="false">
+      <bpmn:extensionElements>
+        <zeebe:executionListeners>
+          <zeebe:executionListener eventType="end" type="migrator" />
+        </zeebe:executionListeners>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_1g3wbno</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="Event_0wud37j">
+      <bpmn:incoming>Flow_04um0d7</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:subProcess completionQuantity="1" id="Activity_1xhlwo5" isForCompensation="false" startQuantity="1" triggeredByEvent="false">
+      <bpmn:extensionElements>
+        <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'subProcess' is removed.</conversion:message>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1g3wbno</bpmn:incoming>
+      <bpmn:outgoing>Flow_0h01tz2</bpmn:outgoing>
+      <bpmn:startEvent id="startEvent_14gnty4" isInterrupting="true" parallelMultiple="false">
+      <bpmn:extensionElements>
+        <zeebe:executionListeners>
+            <zeebe:executionListener eventType="end" type="migrator" />
+          </zeebe:executionListeners>
+       </bpmn:extensionElements>
+        <bpmn:outgoing>Flow_04fw1kc</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:sequenceFlow id="Flow_04fw1kc" sourceRef="startEvent_14gnty4" targetRef="userTask1"/>
+      <bpmn:endEvent id="Event_1498r2f">
+        <bpmn:incoming>Flow_02ssdl4</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_02ssdl4" sourceRef="Activity_1kgtv00" targetRef="Event_1498r2f"/>
+      <bpmn:serviceTask completionQuantity="1" id="Activity_1kgtv00" implementation="##WebService" isForCompensation="false" startQuantity="1">
+        <bpmn:extensionElements>
+          <zeebe:taskDefinition type="${true}"/>
+        </bpmn:extensionElements>
+        <bpmn:incoming>Flow_0zgccgz</bpmn:incoming>
+        <bpmn:outgoing>Flow_02ssdl4</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask completionQuantity="1" id="userTask1" implementation="##unspecified" isForCompensation="false" name="User Task 1" startQuantity="1">
+        <bpmn:extensionElements>
+          <zeebe:userTask/>
+        </bpmn:extensionElements>
+        <bpmn:incoming>Flow_04fw1kc</bpmn:incoming>
+        <bpmn:outgoing>Flow_0zgccgz</bpmn:outgoing>
+        <bpmn:multiInstanceLoopCharacteristics>
+          <bpmn:extensionElements>
+            <zeebe:loopCharacteristics inputCollection="=[1,2,3]" />
+          </bpmn:extensionElements>
+        </bpmn:multiInstanceLoopCharacteristics>
+      </bpmn:userTask>
+      <bpmn:sequenceFlow id="Flow_0zgccgz" sourceRef="userTask1" targetRef="Activity_1kgtv00"/>
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="Flow_0h01tz2" sourceRef="Activity_1xhlwo5" targetRef="Activity_052wot9"/>
+    <bpmn:sequenceFlow id="Flow_1g3wbno" sourceRef="startEvent" targetRef="Activity_1xhlwo5"/>
+    <bpmn:sequenceFlow id="Flow_04um0d7" sourceRef="Activity_052wot9" targetRef="Event_0wud37j"/>
+    <bpmn:serviceTask completionQuantity="1" id="Activity_052wot9" implementation="##WebService" isForCompensation="false" name="failingTask" startQuantity="1">
+      <bpmn:extensionElements>
+        <conversion:message severity="REVIEW">Delegate class or expression 'no-op' has been transformed to job type 'no-op'.</conversion:message>
+        <zeebe:taskHeaders>
+          <zeebe:header key="class" value="no-op"/>
+        </zeebe:taskHeaders>
+        <zeebe:taskDefinition type="no-op"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0h01tz2</bpmn:incoming>
+      <bpmn:outgoing>Flow_04um0d7</bpmn:outgoing>
+    </bpmn:serviceTask>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane bpmnElement="miProcess" id="BPMNPlane_1">
+      <bpmndi:BPMNShape bpmnElement="startEvent" id="StartEvent_1_di">
+        <dc:Bounds height="36" width="36" x="162" y="162"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds height="14" width="56" x="153" y="205"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="Event_0wud37j" id="Event_0wud37j_di">
+        <dc:Bounds height="36" width="36" x="1282" y="162"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="Activity_052wot9" id="Activity_1yykuho_di">
+        <dc:Bounds height="80" width="100" x="1040" y="140"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="Activity_1xhlwo5" id="Activity_1xhlwo5_di" isExpanded="true">
+        <dc:Bounds height="200" width="630" x="340" y="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="startEvent_14gnty4" id="Event_14gnty4_di">
+        <dc:Bounds height="36" width="36" x="380" y="162"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="userTask1" id="Activity_1t5qa5o_di">
+        <dc:Bounds height="80" width="100" x="480" y="140"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="Event_1498r2f" id="Event_1498r2f_di">
+        <dc:Bounds height="36" width="36" x="832" y="162"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="Activity_1kgtv00" id="Activity_1i70ab3_di">
+        <dc:Bounds height="80" width="100" x="650" y="140"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="Flow_04fw1kc" id="Flow_04fw1kc_di">
+        <di:waypoint x="416" y="180"/>
+        <di:waypoint x="480" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="Flow_0zgccgz" id="Flow_0zgccgz_di">
+        <di:waypoint x="580" y="180"/>
+        <di:waypoint x="650" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="Flow_02ssdl4" id="Flow_02ssdl4_di">
+        <di:waypoint x="750" y="180"/>
+        <di:waypoint x="832" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="Flow_0h01tz2" id="Flow_0h01tz2_di">
+        <di:waypoint x="970" y="180"/>
+        <di:waypoint x="1040" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="Flow_1g3wbno" id="Flow_1g3wbno_di">
+        <di:waypoint x="198" y="180"/>
+        <di:waypoint x="340" y="180"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="Flow_04um0d7" id="Flow_04um0d7_di">
+        <di:waypoint x="1140" y="180"/>
+        <di:waypoint x="1282" y="180"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
