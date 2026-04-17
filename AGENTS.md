@@ -55,7 +55,7 @@ camunda-7-to-8-migration-tooling/
 
 ## Build Commands
 
-> **Note:** The build requires Camunda Nexus credentials. These are configured via Vault in CI. For local builds without Nexus, dependencies must already be cached in your local Maven repository, or you can build modules that don't require private Camunda dependencies.
+> **Note:** The `pom.xml` already configures the required Camunda snapshot and release repositories, so no additional `settings.xml` is needed. CI uses an internal Nexus mirror (via Vault) for faster resolution, but this is not required for local or agent builds.
 
 ### Full builds
 
