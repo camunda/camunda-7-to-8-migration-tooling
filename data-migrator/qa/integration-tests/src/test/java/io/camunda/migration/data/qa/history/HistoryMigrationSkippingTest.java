@@ -11,13 +11,15 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIPPIN
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_DECISION_REQUIREMENTS;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
-import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FORM;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FORM_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_INCIDENT;
@@ -39,10 +41,15 @@ import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.camunda.bpm.engine.ExternalTaskService;
 import org.camunda.bpm.engine.HistoryService;
+import org.camunda.bpm.engine.externaltask.LockedExternalTask;
+import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
+import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 import org.camunda.bpm.engine.variable.Variables;
+import org.camunda.bpm.model.bpmn.Bpmn;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -58,6 +65,9 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
 
   @Autowired
   protected HistoryService historyService;
+
+  @Autowired
+  protected ExternalTaskService externalTaskService;
 
   @Test
   public void shouldSkipElementsWhenProcessDefinitionIsSkipped() {
@@ -696,7 +706,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
     assertThat(incidents).isEmpty();
     incidentIds.forEach(id -> logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), id,
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
   }
 
 
@@ -719,7 +729,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
   }
 
   @Test
@@ -741,6 +751,90 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
-        SKIP_REASON_MISSING_FLOW_NODE_DUE_TO_MULTI_INSTANCE)));
+        SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
+  }
+
+  @Test
+  public void shouldSkipIncidentWhenExternalTaskIsNotMigrated() {
+    String PROCESS_KEY = "externalTaskProcess";
+    String TASK_ID = "externalTask";
+    String TOPIC_NAME = "myTopic";
+    String WORKER_ID = "myWorker";
+    // given: a process with an external task that fails with an error message and details
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+        .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // lock and report failure with remaining retries (no incident created)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+        .topic(TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    externalTaskService.handleFailure(
+        tasks.getFirst().getId(),
+        WORKER_ID,
+        "Address could not be validated: Address database not reachable",
+        "Super long error details",
+        0,
+        10L * 60L * 1000L);
+
+    List<HistoricIncident> list = historyService.createHistoricIncidentQuery().list();
+
+    // when: migration runs and external task is skipped
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_INCIDENT);
+
+    // then: the process instance was migrated
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).isEmpty();
+    List<IncidentEntity> incidentEntities = searchHistoricIncidents(PROCESS_KEY);
+    assertThat(incidentEntities).isEmpty();
+    logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), list.getFirst().getId(),
+        SKIP_REASON_MISSING_JOB_REFERENCE));
+  }
+
+  @Test
+  public void shouldSkipExternalTaskWhenProcessInstanceIsNotMigrated() {
+    String PROCESS_KEY = "externalTaskProcess";
+    String TASK_ID = "externalTask";
+    String TOPIC_NAME = "myTopic";
+    String WORKER_ID = "myWorker";
+    // given: a process with an external task that fails with an error message and details
+    var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
+        .startEvent()
+        .serviceTask(TASK_ID)
+        .camundaExternalTask(TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(PROCESS_KEY, c7Model);
+    runtimeService.startProcessInstanceByKey(PROCESS_KEY);
+
+    // lock and report failure with remaining retries (no incident created)
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, WORKER_ID)
+        .topic(TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+
+    List<HistoricExternalTaskLog> list = historyService.createHistoricExternalTaskLogQuery().list();
+
+    // when: migration runs and process instance is skipped
+    historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
+    historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
+
+    // then
+    List<JobEntity> c8Jobs = searchJobs();
+    assertThat(c8Jobs).isEmpty();
+    logs.assertContains(formatMessage(SKIPPING, HISTORY_EXTERNAL_TASK.getDisplayName(), list.getFirst().getExternalTaskId(),
+        SKIP_REASON_MISSING_PROCESS_INSTANCE));
   }
 }

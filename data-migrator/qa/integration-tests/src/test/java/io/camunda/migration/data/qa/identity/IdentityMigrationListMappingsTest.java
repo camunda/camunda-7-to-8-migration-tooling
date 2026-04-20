@@ -52,6 +52,52 @@ public class IdentityMigrationListMappingsTest extends IdentityMigrationAbstract
   }
 
   @Test
+  public void shouldListMigratedUsers(CapturedOutput output) {
+    // given migrated users
+    testHelper.createUserInC7("userId1", "name1", "lastName1");
+    testHelper.createUserInC7("userId2", "name2", "lastName2");
+    identityMigrator.start();
+
+    // when
+    identityMigrator.setMode(LIST_MIGRATED);
+    identityMigrator.start();
+
+    // then
+    String outputStr = output.getOut();
+    String userHeader =
+        "[" + TYPE.USER.getDisplayName() + "s] keys are not stored as migration metadata, only showing Camunda 7 ids. Migrated ["
+            + TYPE.USER.getDisplayName() + "s]:";
+    assertThat(outputStr).contains(userHeader);
+    // Verify user IDs appear after the header
+    String outputAfterHeader = outputStr.substring(outputStr.indexOf(userHeader));
+    assertThat(outputAfterHeader).contains("userId1");
+    assertThat(outputAfterHeader).contains("userId2");
+  }
+
+  @Test
+  public void shouldListMigratedGroups(CapturedOutput output) {
+    // given migrated groups
+    testHelper.createGroupInC7("groupId1", "groupName1");
+    testHelper.createGroupInC7("groupId2", "groupName2");
+    identityMigrator.start();
+
+    // when
+    identityMigrator.setMode(LIST_MIGRATED);
+    identityMigrator.start();
+
+    // then
+    String outputStr = output.getOut();
+    String groupHeader =
+        "[" + TYPE.GROUP.getDisplayName() + "s] keys are not stored as migration metadata, only showing Camunda 7 ids. Migrated ["
+            + TYPE.GROUP.getDisplayName() + "s]:";
+    assertThat(outputStr).contains(groupHeader);
+    // Verify group IDs appear after the header
+    String outputAfterHeader = outputStr.substring(outputStr.indexOf(groupHeader));
+    assertThat(outputAfterHeader).contains("groupId1");
+    assertThat(outputAfterHeader).contains("groupId2");
+  }
+
+  @Test
   public void shouldListMigratedTenants(CapturedOutput output) {
     // given migrated tenants
     testHelper.createTenantInC7("tenantId1", "tenantName1");

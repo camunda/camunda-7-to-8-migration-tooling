@@ -33,6 +33,7 @@ import io.camunda.migration.data.impl.history.migrator.JobMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessDefinitionMigrator;
 import io.camunda.migration.data.impl.history.migrator.AuditLogMigrator;
 import io.camunda.migration.data.impl.identity.AuthorizationManager;
+import io.camunda.migration.data.impl.history.migrator.ExternalTaskMigrator;
 import io.camunda.migration.data.impl.history.migrator.FlowNodeMigrator;
 import io.camunda.migration.data.impl.history.migrator.IncidentMigrator;
 import io.camunda.migration.data.impl.history.migrator.ProcessInstanceMigrator;
@@ -41,6 +42,7 @@ import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 
 import io.camunda.migration.data.impl.identity.DefinitionLookupService;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
+import io.camunda.migration.data.impl.identity.IdentitySync;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;
@@ -78,6 +80,7 @@ import org.springframework.context.annotation.Import;
     DecisionRequirementsMigrator.class,
     FlowNodeMigrator.class,
     JobMigrator.class,
+    ExternalTaskMigrator.class,
     IncidentMigrator.class,
     FormMigrator.class,
     ProcessDefinitionMigrator.class,
@@ -86,8 +89,9 @@ import org.springframework.context.annotation.Import;
     VariableMigrator.class,
     AuditLogMigrator.class,
     SchemaShutdownCleaner.class,
+    PartitionSupplier.class,
     DataSourceRegistry.class,
-    PartitionSupplier.class
+    IdentitySync.class
 })
 @Configuration
 @EnableConfigurationProperties(MigratorProperties.class)

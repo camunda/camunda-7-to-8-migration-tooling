@@ -6,5 +6,6 @@
  * except in compliance with the Camunda License 1.0.
  */
 import { mapping_7_23_to_8_8 } from "./mapping_7_23_to_8_8.jsx";
+import { mapping_7_23_to_8_9 } from "./mapping_7_23_to_8_9.jsx";
 
-export const mappingIndex = [mapping_7_23_to_8_8];
+export const mappingIndex = [mapping_7_23_to_8_8, mapping_7_23_to_8_9];

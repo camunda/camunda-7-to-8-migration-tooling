@@ -7,13 +7,15 @@
  */
 import styles from "./tabs.module.css";
 
-export function Tabs({ reducedMappingIndex, handleSelectionClick }) {
+export function Tabs({ reducedMappingIndex, selectedMappingId, handleSelectionClick }) {
 	return (
 		<div className={styles.tabs}>
 			{reducedMappingIndex.map((mapping) => {
+				const isActive = mapping.id === selectedMappingId;
 				return (
 					<button
 						key={mapping.id}
+						className={isActive ? styles.active : ""}
 						onClick={() => handleSelectionClick(mapping.id)}
 					>
 						{mapping.tabName}

@@ -7,14 +7,20 @@
  */
 package io.camunda.migration.data.config.property;
 
+import static io.camunda.migration.data.impl.logging.ConfigurationLogs.INVALID_IDENTITY_PROPERTIES_ERROR;
+
 import io.camunda.migration.data.config.property.history.HistoryProperties;
+import io.camunda.migration.data.impl.logging.ConfigurationLogs;
+import jakarta.validation.constraints.AssertTrue;
 import java.util.List;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Configuration properties for the migrator.
  */
+@Validated
 @ConfigurationProperties(MigratorProperties.PREFIX)
 public class MigratorProperties {
 
@@ -34,6 +40,7 @@ public class MigratorProperties {
   protected C7Properties c7;
   protected C8Properties c8;
   protected HistoryProperties history;
+  protected IdentityProperties identity = new IdentityProperties();
 
   protected List<InterceptorConfig> interceptors;
 
@@ -59,6 +66,14 @@ public class MigratorProperties {
 
   public void setC8(C8Properties c8) {
     this.c8 = c8;
+  }
+
+  public IdentityProperties getIdentity() {
+    return identity;
+  }
+
+  public void setIdentity(IdentityProperties identity) {
+    this.identity = identity;
   }
 
   public Boolean getAutoDdl() {
@@ -151,4 +166,12 @@ public class MigratorProperties {
     this.history = history;
   }
 
+  @AssertTrue(message = INVALID_IDENTITY_PROPERTIES_ERROR)
+  public boolean isCombinationValid() {
+    if (identity.getSkipGroups() && !identity.getSkipUsers()) {
+      ConfigurationLogs.logInvalidIdentityPropertyCombination();
+      return false;
+    }
+    return true;
+  }
 }

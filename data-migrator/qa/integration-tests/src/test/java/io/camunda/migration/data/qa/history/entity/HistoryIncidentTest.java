@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
+import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.FORM_NOT_FOUND;
@@ -22,22 +23,35 @@ import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Collections;
 import java.util.List;
+import org.camunda.bpm.engine.ExternalTaskService;
+import org.camunda.bpm.engine.externaltask.LockedExternalTask;
 import org.camunda.bpm.engine.history.HistoricIncident;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.runtime.Job;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
+  protected static final String EXT_PROCESS_KEY = "externalTaskProcess";
+  protected static final String EXT_TASK_ID = "externalTask";
+  protected static final String EXT_TOPIC_NAME = "myTopic";
+  protected static final String EXT_WORKER_ID = "myWorker";
+
   @Autowired
   protected ProcessEngineConfigurationImpl processEngineConfigurationImpl;
+
+  @Autowired
+  protected ExternalTaskService externalTaskService;
 
   @Test
   public void shouldMigrateIncidentTenant() {
@@ -512,6 +526,221 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(incidents.getFirst().flowNodeInstanceKey()).isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
   }
 
+  @Test
+  public void shouldMigrateIncidentForFailedExternalTask() {
+    // given: a process with an external task that fails with an error message and details
+    deployExternalTaskProcess();
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(EXT_PROCESS_KEY);
+
+    // lock and report failure with 0 retries to create an incident
+    lockAndFailExternalTask();
+
+    List<HistoricIncident> list = historyService.createHistoricIncidentQuery().list();
+    assertThat(list).hasSize(1);
+
+    // when: migration runs
+    historyMigrator.migrate();
+
+    // then: the process instance was migrated
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(EXT_PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    // and: exactly one C8 job entry was created (deduplicated by external task ID)
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
+
+    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    assertThat(incidents).hasSize(1);
+    assertOnIncidentBasicFields(incidents.getFirst(), list.getFirst(), processInstance, null, UNKNOWN, false, true);
+    assertThat(incidents.getFirst().jobKey()).isEqualTo(c8Jobs.getFirst().jobKey());
+  }
+
+  @Test
+  public void shouldMigrateIncidentTenantForFailedExternalTask() {
+    // given: external task processes deployed with default and custom tenants
+    String processKey2 = "externalTaskProcess2";
+
+    deployExternalTaskProcess();
+
+    var c7Model2 = Bpmn.createExecutableProcess(processKey2)
+        .startEvent()
+        .serviceTask("externalTask2").camundaExternalTask(EXT_TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(processKey2, c7Model2, "tenant1");
+
+    runtimeService.startProcessInstanceByKey(EXT_PROCESS_KEY);
+    runtimeService.startProcessInstanceByKey(processKey2);
+
+    // fail both external tasks with 0 retries to create incidents
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(2, EXT_WORKER_ID)
+        .topic(EXT_TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(2);
+    for (LockedExternalTask task : tasks) {
+      externalTaskService.handleFailure(task.getId(), EXT_WORKER_ID, "test error", 0, 0L);
+    }
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidentsDefaultTenant = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentEntity> incidentsTenant1 = searchHistoricIncidents(processKey2);
+    assertThat(incidentsDefaultTenant).singleElement()
+        .extracting(IncidentEntity::tenantId)
+        .isEqualTo(C8_DEFAULT_TENANT);
+    assertThat(incidentsTenant1).singleElement()
+        .extracting(IncidentEntity::tenantId)
+        .isEqualTo("tenant1");
+  }
+
+  @Test
+  public void shouldMigrateIncidentBasicFieldsForCompletedExternalTask() {
+    // given: a process with an external task that fails, then is retried and completed
+    deployExternalTaskProcess();
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey(EXT_PROCESS_KEY);
+
+    // lock and fail with 0 retries to create an incident
+    LockedExternalTask failedTask = lockAndFailExternalTask();
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+
+    // set retries to recover, then complete the task
+    recoverAndCompleteExternalTask(failedTask.getId());
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    assertThat(incidents).hasSize(1);
+    assertOnIncidentBasicFields(incidents.getFirst(), c7Incident, c7ProcessInstance, null, UNKNOWN, false, true);
+  }
+
+  @Test
+  public void shouldMigrateIncidentForFailedExternalTaskInNestedProcess() {
+    // given: a calling process with a user task followed by a call activity to a child with an external task
+    deployExternalTaskProcess();
+    deployCallingModelForExternalTask(EXT_PROCESS_KEY);
+
+    ProcessInstance parentProcess = runtimeService.startProcessInstanceByKey("callingProcessId");
+
+    // complete the user task to trigger the call activity
+    completeAllUserTasksWithDefaultUserTaskId();
+
+    ProcessInstance childProcess = runtimeService.createProcessInstanceQuery()
+        .processDefinitionKey(EXT_PROCESS_KEY)
+        .singleResult();
+    assertThat(childProcess).isNotNull();
+
+    // fail the external task with 0 retries to create an incident in the child process
+    lockAndFailExternalTask();
+
+    // verify incidents exist in both child and parent
+    HistoricIncident c7ChildIncident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(childProcess.getProcessInstanceId())
+        .singleResult();
+    assertThat(c7ChildIncident).isNotNull();
+
+    HistoricIncident c7ParentIncident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(parentProcess.getProcessInstanceId())
+        .singleResult();
+    assertThat(c7ParentIncident).isNotNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then: child incident is migrated with jobKey
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
+    assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
+
+    // and: parent incident is migrated without jobKey (propagated)
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents("callingProcessId");
+    assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
+    assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
+    assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
+    assertThat(parentIncidents.getFirst().state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
+  }
+
+  @Test
+  public void shouldGenerateTreePathForExternalTaskIncidentWithFlowNodeInstanceKey() {
+    // given: a process with an external task that fails, is recovered and completed
+    deployExternalTaskProcess();
+    runtimeService.startProcessInstanceByKey(EXT_PROCESS_KEY);
+
+    // fail with 0 retries to create an incident, then recover and complete
+    LockedExternalTask failedTask = lockAndFailExternalTask();
+    recoverAndCompleteExternalTask(failedTask.getId());
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(EXT_PROCESS_KEY);
+    assertThat(processInstances).hasSize(1);
+    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
+
+    List<FlowNodeInstanceDbModel> flowNodes = searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+    List<FlowNodeInstanceDbModel> serviceTaskNodes = flowNodes.stream()
+        .filter(fn -> EXT_TASK_ID.equals(fn.flowNodeId()))
+        .toList();
+    assertThat(serviceTaskNodes).hasSize(1);
+    Long flowNodeInstanceKey = serviceTaskNodes.getFirst().flowNodeInstanceKey();
+
+    List<IncidentDbModel> incidents = searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+    assertThat(incidents).singleElement()
+        .extracting(IncidentDbModel::treePath)
+        .isNotNull()
+        .isEqualTo("PI_" + processInstanceKey + "/FNI_" + flowNodeInstanceKey);
+  }
+
+  @Test
+  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
+  public void shouldMigrateMultiInstanceFlowNodeReferenceForExternalTask() {
+    // given: a process with a multi-instance external task (cardinality 2)
+    String processKey = "miExternalTaskProcess";
+
+    var c7Model = Bpmn.createExecutableProcess(processKey)
+        .startEvent()
+        .serviceTask(EXT_TASK_ID)
+          .camundaExternalTask(EXT_TOPIC_NAME)
+          .multiInstance()
+            .cardinality("2")
+          .multiInstanceDone()
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(processKey, c7Model);
+    runtimeService.startProcessInstanceByKey(processKey);
+
+    // fail both external task instances with 0 retries to create incidents
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(2, EXT_WORKER_ID)
+        .topic(EXT_TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(2);
+    for (LockedExternalTask task : tasks) {
+      externalTaskService.handleFailure(task.getId(), EXT_WORKER_ID, "test error", 0, 0L);
+    }
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processKey);
+    assertThat(processInstances).hasSize(1);
+
+    List<IncidentEntity> incidents = searchHistoricIncidents(processKey);
+    assertThat(incidents).hasSize(2);
+
+    assertThat(incidents.getFirst().flowNodeInstanceKey())
+        .isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
+  }
+
   protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
@@ -532,7 +761,6 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
         prefixDefinitionId(c7ChildInstance.getProcessDefinitionKey()));
     assertThat(c8Incident.flowNodeId()).isEqualTo(c7Incident.getActivityId());
     assertThat(c8Incident.state()).isEqualTo(IncidentEntity.IncidentState.RESOLVED);
-    assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
     assertThat(c8Incident.processInstanceKey()).isEqualTo(
         findMigratedProcessInstanceKey(c7ChildInstance.getProcessDefinitionKey()));
     String expectedRootProcessKey = c7ParentInstance != null ?
@@ -557,6 +785,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     } else {
       assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
     }
+
+    if (c7Incident.getIncidentMessage() != null) {
+      assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
+    } else {
+      assertThat(c8Incident.errorMessage()).isNullOrEmpty();
+    }
   }
 
   protected void executeJob(ProcessInstance c7ProcessInstance) {
@@ -575,6 +809,45 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     Task task = taskService.createTaskQuery().taskDefinitionKey(taskId).singleResult();
     String executionId = task.getExecutionId();
     runtimeService.createIncident("foo", executionId, "bar");
+  }
+
+  protected void deployCallingModelForExternalTask(String calledProcessKey) {
+    BpmnModelInstance callingProcess = Bpmn.createExecutableProcess("callingProcessId")
+        .startEvent()
+        .userTask(USER_TASK_ID)
+        .callActivity()
+        .calledElement(calledProcessKey)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance("callingProcessId", callingProcess);
+  }
+
+  protected void deployExternalTaskProcess() {
+    var c7Model = Bpmn.createExecutableProcess(EXT_PROCESS_KEY)
+        .startEvent()
+        .serviceTask(EXT_TASK_ID).camundaExternalTask(EXT_TOPIC_NAME)
+        .endEvent()
+        .done();
+    deployer.deployC7ModelInstance(EXT_PROCESS_KEY, c7Model);
+  }
+
+  protected LockedExternalTask lockAndFailExternalTask() {
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, EXT_WORKER_ID)
+        .topic(EXT_TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    LockedExternalTask task = tasks.getFirst();
+    externalTaskService.handleFailure(task.getId(), EXT_WORKER_ID, "test error", 0, 0L);
+    return task;
+  }
+
+  protected void recoverAndCompleteExternalTask(String externalTaskId) {
+    externalTaskService.setRetries(externalTaskId, 1);
+    List<LockedExternalTask> tasks = externalTaskService.fetchAndLock(1, EXT_WORKER_ID)
+        .topic(EXT_TOPIC_NAME, 10000L)
+        .execute();
+    assertThat(tasks).hasSize(1);
+    externalTaskService.complete(tasks.getFirst().getId(), EXT_WORKER_ID);
   }
 
 }

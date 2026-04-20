@@ -31,8 +31,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resources;
+import org.camunda.bpm.engine.identity.User;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,11 +52,6 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
   @Autowired
   protected IdKeyMapper idKeyMapper;
 
-  @BeforeEach
-  public void setup() {
-    testHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
-  }
-
   @AfterEach
   @Override
   public void cleanup() {
@@ -72,6 +67,7 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
   @Test
   @WhiteBox
   public void shouldMigrateSkippedAuthorizationsOnRetry() {
+    testHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME, "@@@"); // invalid email so user cannot get migrated
     migratorProperties.setSaveSkipReason(true);
     // given three skipped authorizations (owner does not exist in C8)
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.APPLICATION, "cockpit", Set.of(Permissions.ALL));
@@ -88,7 +84,9 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
         .containsOnly(FAILURE_OWNER_NOT_EXISTS);
 
     // when issue is fixed
-    testHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
+    User user = identityService.createUserQuery().userId(USERNAME).singleResult();
+    user.setEmail("valid@camunda.com");
+    identityService.saveUser(user);
 
     // and migration is retried
     identityMigrator.setMode(RETRY_SKIPPED);
@@ -110,6 +108,7 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
   public void shouldOnlyMigrateSkippedAuthorizationsOnRetry() {
     migratorProperties.setSaveSkipReason(true);
     // given one skipped and two migrated authorizations
+    testHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
     testHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ));
     var skippedAuth = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "batchId", Set.of(Permissions.READ));
@@ -144,6 +143,7 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
   public void shouldNotReattemptSkippedOnRerun() {
     migratorProperties.setSaveSkipReason(true);
     // given one skipped, one migrated authorization, and one non migrated authorization
+    testHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
     testHelper.createUserInC8(USERNAME, USER_FIRST_NAME, USER_LAST_NAME);
     testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.AUTHORIZATION, "*", Set.of(Permissions.READ));
     var skippedAuth = testHelper.createAuthorizationInC7(AUTH_TYPE_GRANT, USERNAME, null, Resources.BATCH, "batchId", Set.of(Permissions.READ));
@@ -173,6 +173,7 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
   @Test
   public void shouldListSkippedAuthorizations(CapturedOutput output) {
     // given skipped authorizations (owner does not exist in C8)
+    testHelper.createUserInC7(USERNAME, USER_FIRST_NAME, USER_LAST_NAME, "@@@"); // invalid email so user cannot get migrated
     List<String> authIds = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       authIds.add(testHelper

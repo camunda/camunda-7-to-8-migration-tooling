@@ -24,7 +24,7 @@ services:
         echo 'Installing JDK 21...'
         apk add --no-cache openjdk21
         export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-        export PATH=$JAVA_HOME/bin:$PATH
+        export PATH=$$JAVA_HOME/bin:$$PATH
         echo 'JDK 21 installed successfully'
         java -version
         echo 'Starting Camunda...'
@@ -63,7 +63,10 @@ services:
     image: eclipse-temurin:21-jdk
     volumes:
       - ../../assembly/target/camunda-7-to-8-data-migrator-${project.version}.zip:/tmp/migrator.zip:ro
-      - ./src/main/resources/invoice-example:/app/configuration/resources:ro
+      - ./src/main/resources/invoice-example:/app/configuration/resources/invoice:ro
+      - ./src/main/resources/process-example-c8:/app/configuration/resources/process:ro
+      - ./src/main/resources/process-example:/tmp/c7-bpmns:ro
+      - ./src/main/resources/seed-c7-test-data.sh:/tmp/seed-c7-test-data.sh:ro
     working_dir: /app
     environment:
       - CAMUNDA_MIGRATOR_C7_DATA_SOURCE_JDBC_URL=jdbc:postgresql://postgres:5432/camunda
@@ -85,10 +88,14 @@ services:
       - |
         set -e
         echo 'Extracting migrator distribution...'
-        apt-get update -qq && apt-get install -y -qq unzip wget > /dev/null
+        apt-get update -qq && apt-get install -y -qq unzip wget curl jq > /dev/null
         unzip -q /tmp/migrator.zip -d /app
         echo 'Downloading PostgreSQL driver...'
         wget -q https://jdbc.postgresql.org/download/postgresql-42.7.3.jar -O /app/configuration/userlib/postgresql.jar
+
+        echo 'Seeding C7 with test process instances...'
+        bash /tmp/seed-c7-test-data.sh http://camunda7:8080/engine-rest /tmp/c7-bpmns
+
         echo 'Starting data migration...'
         cd /app
         ./start.sh --history
@@ -105,7 +112,7 @@ services:
       - e2e-network
 
   camunda8: # Consolidated Zeebe + Operate + Tasklist - https://docs.camunda.io/docs/self-managed/setup/deploy/other/docker/#zeebe
-    image: camunda/camunda:SNAPSHOT
+    image: ${camunda8.docker.image}
     container_name: camunda8
     ports:
       - "26500:26500"

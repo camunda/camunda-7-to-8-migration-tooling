@@ -51,7 +51,12 @@ function SkippedEntities({camundaAPI}) {
         HISTORY_USER_TASK: "User Task ID",
         HISTORY_FLOW_NODE: "Flow Node ID",
         HISTORY_DECISION_INSTANCE: "Decision Instance ID",
-        HISTORY_DECISION_DEFINITION: "Decision Definition ID"
+        HISTORY_DECISION_DEFINITION: "Decision Definition ID",
+        HISTORY_DECISION_REQUIREMENT: "Decision Requirement ID",
+        HISTORY_AUDIT_LOG: "Audit Log ID",
+        HISTORY_FORM_DEFINITION: "Form Definition ID",
+        HISTORY_JOB: "Job ID",
+        HISTORY_EXTERNAL_TASK: "External Task ID"
       };
       return entityTypeMap[selectedType] || 'ID';
     }
@@ -219,6 +224,11 @@ function SkippedEntities({camundaAPI}) {
       HISTORY_FLOW_NODE: "Flow Node",
       HISTORY_DECISION_INSTANCE: "Decision Instance",
       HISTORY_DECISION_DEFINITION: "Decision Definition",
+      HISTORY_DECISION_REQUIREMENT: "Decision Requirement",
+      HISTORY_AUDIT_LOG: "Audit Log",
+      HISTORY_FORM_DEFINITION: "Form Definition",
+      HISTORY_JOB: "Job",
+      HISTORY_EXTERNAL_TASK: "External Task",
       RUNTIME_PROCESS_INSTANCE: "Process Instance"
     };
     return labels[entityType] || entityType;
@@ -252,18 +262,23 @@ function SkippedEntities({camundaAPI}) {
         }
       );
       const count = await response.json();
-      setTotalCount(typeof count === 'number' ? count : count.total || count.count || 0);
+      const resolvedCount = typeof count === 'number' ? count : count.total || count.count || 0;
+      setTotalCount(resolvedCount);
+      return resolvedCount;
     } catch (err) {
       console.error('Failed to fetch total count:', err);
       setTotalCount(0);
+      return 0;
     }
   };
 
-  const fetchData = async (pageIndex = 0, pageSize = 10) => {
+  const fetchData = async (pageIndex = 0, pageSize = 10, knownTotalCount) => {
     setLoading(true);
     try {
-      // If totalCount is 0, short-circuit and set empty array
-      if (totalCount === 0) {
+      // Use the passed count to avoid stale closure over totalCount
+      const effectiveCount = knownTotalCount !== undefined ? knownTotalCount : totalCount;
+      // If count is 0, short-circuit and set empty array
+      if (effectiveCount === 0) {
         setSkippedEntities([]);
         return;
       }
@@ -419,33 +434,14 @@ function SkippedEntities({camundaAPI}) {
     // Inject LiveReload for development
     injectLiveReload();
 
-    // Reset process instance IDs when changing entity type
-    if (selectedType !== ENTITY_TYPES.HISTORY_VARIABLE) {
-      setProcessInstanceIds({});
-      setVariableMetadata({}); // Also reset variable metadata
-    }
+    // Reset cached data when filters change
+    setProcessInstanceIds({});
+    setProcessDefinitionKeys({});
+    setVariableMetadata({});
 
-    // Reset process definition keys when changing entity type
-    if (selectedType !== ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE && selectedType !== ENTITY_TYPES.HISTORY_PROCESS_INSTANCE) {
-      setProcessDefinitionKeys({});
-    }
-
-    // Reset variable metadata when switching between skipped/migrated modes for variables
-    if (selectedType === ENTITY_TYPES.HISTORY_VARIABLE) {
-      setVariableMetadata({});
-    }
-
-    // When switching to runtime mode, set entity type to runtime process instance
-    if (viewMode === 'runtime') {
-      setSelectedType(ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE);
-    } else if (viewMode === 'history' && selectedType === ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE) {
-      // When switching to history mode from runtime, default to history process instance
-      setSelectedType(ENTITY_TYPES.HISTORY_PROCESS_INSTANCE);
-    }
-
-    // Fetch total count first, then fetch data
-    fetchTotalCount().then(() => {
-      fetchData(0, 10);
+    // Fetch total count first, then fetch data with the resolved count
+    fetchTotalCount().then((count) => {
+      fetchData(0, 10, count);
     });
   }, [selectedType, showSkipped, viewMode]); // Add viewMode to dependency array
 
@@ -493,7 +489,10 @@ function SkippedEntities({camundaAPI}) {
                   type="radio"
                   value="runtime"
                   checked={viewMode === 'runtime'}
-                  onChange={() => setViewMode('runtime')}
+                  onChange={() => {
+                    setViewMode('runtime');
+                    setSelectedType(ENTITY_TYPES.RUNTIME_PROCESS_INSTANCE);
+                  }}
                   style={{marginRight: '5px'}}
                 />
                 Runtime
@@ -503,7 +502,10 @@ function SkippedEntities({camundaAPI}) {
                   type="radio"
                   value="history"
                   checked={viewMode === 'history'}
-                  onChange={() => setViewMode('history')}
+                  onChange={() => {
+                    setViewMode('history');
+                    setSelectedType(ENTITY_TYPES.HISTORY_PROCESS_INSTANCE);
+                  }}
                   style={{marginRight: '5px'}}
                 />
                 History

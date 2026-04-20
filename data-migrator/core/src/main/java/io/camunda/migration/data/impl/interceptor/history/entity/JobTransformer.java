@@ -50,8 +50,8 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
    * @param builder        the Camunda 8 job builder to populate with converted data
    */
   @Override
-  public void execute(final HistoricJobLog historicJobLog, final JobDbModel.Builder builder) {
-    final var creationTime = convertDate(historicJobLog.getTimestamp());
+  public void execute(HistoricJobLog historicJobLog, JobDbModel.Builder builder) {
+    var creationTime = convertDate(historicJobLog.getTimestamp());
 
     builder
         .type(historicJobLog.getJobDefinitionType())
