@@ -1062,9 +1062,53 @@ categories:
             </bpmn:extensionElements>
           </bpmn:sequenceFlow>
         expectedBpmn: |
-          <bpmn:task completionQuantity="1" id="task1" isForCompensation="false" name="Task1" startQuantity="1"/>  
+          <bpmn:task completionQuantity="1" id="task1" isForCompensation="false" name="Task1" startQuantity="1"/>
           <bpmn:task completionQuantity="1" id="task2" isForCompensation="false" name="Task2" startQuantity="1"/>
           <bpmn:sequenceFlow id="takeListenerFlow" sourceRef="task1" targetRef="task2">
           </bpmn:sequenceFlow>
         expectedMessages: |
           <conversion:message severity="WARNING">Execution Listener at 'take' with implementation 'class' 'abc.def' cannot be transformed.</conversion:message>
+  - category: Job Priority
+    cases:
+      - name: Job priority literal on service task
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="90" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="90"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+      - name: Job priority FEEL variable on service task
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${jobPriority}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=jobPriority"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Job priority: Please review transformed expression: '${jobPriority}' -&gt; '=jobPriority'.</conversion:message>
+      - name: Job priority literal on send task
+        givenBpmn: |
+          <bpmn:sendTask id="notify" name="Notify" camunda:jobPriority="50" />
+        expectedBpmn: |
+          <bpmn:sendTask completionQuantity="1" id="notify" implementation="##WebService" isForCompensation="false" name="Notify" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="50"/>
+            </bpmn:extensionElements>
+          </bpmn:sendTask>
+        expectedMessages: |
+      - name: Job priority literal on user task
+        givenBpmn: |
+          <bpmn:userTask id="review" name="Review" camunda:jobPriority="30" />
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="review" implementation="##unspecified" isForCompensation="false" name="Review" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="30"/>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |

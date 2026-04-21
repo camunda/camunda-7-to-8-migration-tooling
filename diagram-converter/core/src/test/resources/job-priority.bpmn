@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  id="Definitions_jobPriority"
+                  targetNamespace="http://bpmn.io/schema/bpmn"
+                  modeler:executionPlatform="Camunda Platform"
+                  modeler:executionPlatformVersion="7.23.0">
+  <bpmn:process id="JobPriorityProcess" isExecutable="true" camunda:jobPriority="50">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="ServiceTaskLiteral" name="Pay" camunda:jobPriority="90">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="ServiceTaskFeel" name="Notify" camunda:jobPriority="${jobPriority}">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_1">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="ServiceTaskLiteral" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="ServiceTaskLiteral" targetRef="ServiceTaskFeel" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="ServiceTaskFeel" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

@@ -11,6 +11,7 @@ import static io.camunda.migration.diagram.converter.BpmnElementFactory.*;
 
 import io.camunda.migration.diagram.converter.NamespaceUri;
 import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible;
+import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible.ZeebeJobPriorityDefinition;
 import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible.ZeebeProperty;
 import org.camunda.bpm.model.xml.instance.DomDocument;
 import org.camunda.bpm.model.xml.instance.DomElement;
@@ -29,6 +30,18 @@ public class ProcessElementConversion
     if (convertible.getZeebeProperties() != null && !convertible.getZeebeProperties().isEmpty()) {
       extensionElements.appendChild(createProperties(element.getDocument(), convertible));
     }
+    if (convertible.getZeebeJobPriorityDefinition().getPriority() != null) {
+      extensionElements.appendChild(
+          createJobPriorityDefinition(
+              element.getDocument(), convertible.getZeebeJobPriorityDefinition()));
+    }
+  }
+
+  private DomElement createJobPriorityDefinition(
+      DomDocument document, ZeebeJobPriorityDefinition jobPriorityDefinition) {
+    DomElement element = document.createElement(NamespaceUri.ZEEBE, "jobPriorityDefinition");
+    element.setAttribute("priority", jobPriorityDefinition.getPriority());
+    return element;
   }
 
   private DomElement createProperties(
