@@ -8,7 +8,6 @@
 package io.camunda.migration.data.config.mybatis;
 
 import io.camunda.client.metrics.MetricsRecorder;
-import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.RdbmsReaderConfig;
 import io.camunda.db.rdbms.read.service.AuditLogDbReader;
@@ -563,85 +562,8 @@ public class C8Configuration extends AbstractConfiguration {
         historyDeletionMapper);
   }
 
-  @Bean
-  public RdbmsService rdbmsService(
-      RdbmsWriterFactory rdbmsWriterFactory,
-      AuditLogDbReader auditLogReader,
-      AuthorizationDbReader authorizationReader,
-      DecisionDefinitionDbReader decisionDefinitionReader,
-      DecisionInstanceDbReader decisionInstanceReader,
-      DecisionRequirementsDbReader decisionRequirementsReader,
-      FlowNodeInstanceDbReader flowNodeInstanceReader,
-      GroupDbReader groupReader,
-      GroupMemberDbReader groupMemberReader,
-      IncidentDbReader incidentReader,
-      ProcessDefinitionDbReader processDefinitionReader,
-      ProcessInstanceDbReader processInstanceReader,
-      VariableDbReader variableReader,
-      ClusterVariableDbReader clusterVariableReader,
-      RoleDbReader roleReader,
-      RoleMemberDbReader roleMemberReader,
-      TenantDbReader tenantReader,
-      TenantMemberDbReader tenantMemberReader,
-      UserDbReader userReader,
-      UserTaskDbReader userTaskReader,
-      FormDbReader formReader,
-      MappingRuleDbReader mappingRuleReader,
-      BatchOperationDbReader batchOperationReader,
-      SequenceFlowDbReader sequenceFlowReader,
-      BatchOperationItemDbReader batchOperationItemReader,
-      JobDbReader jobReader,
-      JobMetricsBatchDbReader jobMetricsBatchDbReader,
-      UsageMetricsDbReader usageMetricsReader,
-      UsageMetricTUDbReader usageMetricTUDbReader,
-      MessageSubscriptionDbReader messageSubscriptionDbReader,
-      ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
-      ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
-      ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
-      HistoryDeletionDbReader historyDeletionReader,
-      IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
-      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader,
-      GlobalListenerDbReader globalListenerReader) {
-    return new RdbmsService(
-        rdbmsWriterFactory,
-        auditLogReader,
-        authorizationReader,
-        decisionDefinitionReader,
-        decisionInstanceReader,
-        decisionRequirementsReader,
-        flowNodeInstanceReader,
-        groupReader,
-        groupMemberReader,
-        incidentReader,
-        processDefinitionReader,
-        processInstanceReader,
-        variableReader,
-        clusterVariableReader,
-        roleReader,
-        roleMemberReader,
-        tenantReader,
-        tenantMemberReader,
-        userReader,
-        userTaskReader,
-        formReader,
-        mappingRuleReader,
-        batchOperationReader,
-        sequenceFlowReader,
-        batchOperationItemReader,
-        jobReader,
-        jobMetricsBatchDbReader,
-        usageMetricsReader,
-        usageMetricTUDbReader,
-        messageSubscriptionDbReader,
-        processDefinitionMessageSubscriptionStatisticsDbReader,
-        correlatedMessageDbReader,
-        processDefinitionInstanceStatisticsDbReader,
-        processDefinitionInstanceVersionStatisticsDbReader,
-        historyDeletionReader,
-        incidentProcessInstanceStatisticsByErrorDbReader,
-        incidentProcessInstanceStatisticsByDefinitionDbReader,
-        globalListenerReader);
-  }
-
+  // The `rdbmsService` @Bean lives in `RdbmsServiceFactory`, which has a
+  // version-specific copy under `src/main/java-c8-current` (8.10) and
+  // `src/main/java-c8-previous` (8.9). Maven selects one of them at compile
+  // time via the `c8.compat.source.dir` property.
 }

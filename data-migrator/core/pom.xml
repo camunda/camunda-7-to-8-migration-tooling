@@ -15,6 +15,16 @@
 
   <name>Camunda 7 to 8 Migration Tooling - Data - Core</name>
 
+  <properties>
+    <!--
+      Selects which C8-version-specific source folder is compiled alongside
+      `src/main/java`. The `c8-previous-api` profile below flips this to
+      `src/main/java-c8-previous` when building against the previous C8 minor.
+    -->
+    <c8.compat.source.dir>src/main/java-c8-current</c8.compat.source.dir>
+    <plugin.version.build-helper>3.6.0</plugin.version.build-helper>
+  </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -263,6 +273,40 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.5</version>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>${plugin.version.build-helper}</version>
+        <executions>
+          <execution>
+            <id>add-c8-compat-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${c8.compat.source.dir}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>c8-previous-api</id>
+      <activation>
+        <property>
+          <name>version.camunda-8</name>
+          <value>8.9.0</value>
+        </property>
+      </activation>
+      <properties>
+        <c8.compat.source.dir>src/main/java-c8-previous</c8.compat.source.dir>
+      </properties>
+    </profile>
+  </profiles>
 </project>
