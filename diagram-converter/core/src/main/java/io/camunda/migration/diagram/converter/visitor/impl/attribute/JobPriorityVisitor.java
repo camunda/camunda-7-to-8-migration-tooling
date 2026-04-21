@@ -8,12 +8,14 @@
 package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.NamespaceUri;
 import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.visitor.AbstractSupportedAttributeVisitor;
+import org.apache.commons.lang3.StringUtils;
 
 public class JobPriorityVisitor extends AbstractSupportedAttributeVisitor {
   @Override
@@ -23,6 +25,15 @@ public class JobPriorityVisitor extends AbstractSupportedAttributeVisitor {
 
   @Override
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
+    // When camunda:taskPriority is also present, TaskPriorityVisitor owns the write and emits the
+    // collision message. Drop jobPriority here without transforming to avoid noise from the
+    // discarded expression.
+    String siblingTaskPriority =
+        context.getElement().getAttribute(NamespaceUri.CAMUNDA, "taskPriority");
+    if (StringUtils.isNotBlank(siblingTaskPriority)) {
+      return null;
+    }
+
     ExpressionTransformationResult priority =
         ExpressionTransformer.transformToFeel("Job priority", attribute);
     context.addConversion(

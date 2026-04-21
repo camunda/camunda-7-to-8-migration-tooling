@@ -659,6 +659,17 @@ public class MessageFactory {
     return INSTANCE.staticMessage("modeler-template");
   }
 
+  public static Message jobPriorityCollision(
+      String elementLocalName, String jobPriority, String taskPriority) {
+    return INSTANCE.composeMessage(
+        "job-priority-collision",
+        ContextBuilder.builder()
+            .entry("elementLocalName", elementLocalName)
+            .entry("jobPriority", jobPriority)
+            .entry("taskPriority", taskPriority)
+            .build());
+  }
+
   public static Message modelerTemplateVersion() {
     return INSTANCE.staticMessage("modeler-template-version");
   }

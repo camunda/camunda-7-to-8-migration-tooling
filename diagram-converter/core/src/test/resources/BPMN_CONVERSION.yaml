@@ -1112,3 +1112,48 @@ categories:
             </bpmn:extensionElements>
           </bpmn:userTask>
         expectedMessages: |
+      - name: Task priority literal on service task
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:taskPriority="80" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+      - name: Task priority FEEL variable on service task
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:taskPriority="${externalPriority}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=externalPriority"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Task priority: Please review transformed expression: '${externalPriority}' -&gt; '=externalPriority'.</conversion:message>
+      - name: Both jobPriority and taskPriority on same service task uses taskPriority
+        description: When both attributes are present on the same element, the converter uses taskPriority as the winner and emits a REVIEW message flagging the ignored jobPriority.
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="20" camunda:taskPriority="80" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on 'serviceTask'. The converter used 'taskPriority' per default policy; 'jobPriority' was ignored.</conversion:message>
+      - name: Both jobPriority and taskPriority with FEEL expressions
+        description: Collision detection runs before expression transformation, so only the winning taskPriority is transformed. The discarded jobPriority value is reported raw in the collision message.
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${jobPriority}" camunda:taskPriority="${externalPriority}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=externalPriority"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '${jobPriority}') and 'camunda:taskPriority' (value '${externalPriority}') are defined on 'serviceTask'. The converter used 'taskPriority' per default policy; 'jobPriority' was ignored.</conversion:message>

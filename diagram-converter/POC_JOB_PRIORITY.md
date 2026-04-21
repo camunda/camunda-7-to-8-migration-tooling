@@ -6,11 +6,13 @@ activation](https://github.com/camunda/camunda/issues) (C8 epic — Aug 2026).
 
 ## Scope
 
-- Source: `camunda:jobPriority` attribute, on any BPMN element the C7 engine
-  accepts it on (process, activities, events).
-- Target: `<zeebe:jobPriorityDefinition priority="..." />` extension element.
-- Out of scope for this POC: `camunda:taskPriority` (external task topics) and
-  `camunda:priority` (user task) — both remain unsupported as before.
+- Sources: `camunda:jobPriority` (internal job executor acquisition order) and
+  `camunda:taskPriority` (external-task worker fetch order) on any BPMN
+  element the C7 engine accepts them on (process, activities, events).
+- Target: single `<zeebe:jobPriorityDefinition priority="..." />` extension
+  element (C8 has one job-worker priority slot per element).
+- Out of scope: `camunda:priority` (user task priority) — remains unsupported
+  as before.
 
 ### Value handling
 
@@ -19,6 +21,28 @@ activation](https://github.com/camunda/camunda/issues) (C8 epic — Aug 2026).
   `ExpressionTransformer.transformToFeel(...)` → `priority="=jobPriority"`.
 
 This matches how `camunda:dueDate` is already handled.
+
+### Collision policy (both attributes on the same element)
+
+C7 defines two independent priority queues; C8 has one. When an element
+carries both `camunda:jobPriority` and `camunda:taskPriority`:
+
+1. **`taskPriority` wins** — it maps to how external-task users already
+   expect worker fetch order to behave, which is closer to C8's pull-based
+   job activation semantics.
+2. **`jobPriority` is dropped — never transformed.** Detection happens
+   before FEEL transformation to avoid polluting the message stream with
+   warnings about a discarded expression (e.g. `expression-execution-not-available`
+   messages for the loser).
+3. **A REVIEW message is emitted** on the element reporting both raw C7
+   values and the policy applied:
+
+   > Both `camunda:jobPriority` (value 'X') and `camunda:taskPriority` (value 'Y')
+   > are defined on 'serviceTask'. The converter used `taskPriority` per default
+   > policy; `jobPriority` was ignored.
+
+Raw C7 values (not FEEL-transformed) are used in the message so an author
+auditing against their C7 source sees what they wrote.
 
 ## Design decisions
 
@@ -92,11 +116,14 @@ fixtures. No API, no public extension-point surface depends on it.
 
 | File | Change |
 |---|---|
-| `convertible/AbstractProcessElementConvertible.java` | Added `ZeebeJobPriorityDefinition` holder + getter/setter. |
+| `convertible/AbstractProcessElementConvertible.java` | Added `ZeebeJobPriorityDefinition` holder. |
 | `conversion/ProcessElementConversion.java` | Emits `<zeebe:jobPriorityDefinition priority="..."/>` when set. |
-| `visitor/impl/attribute/JobPriorityVisitor.java` | Refactored to extend `AbstractSupportedAttributeVisitor`; transforms value and calls `addConversion`. |
-| `test/resources/BPMN_CONVERSION.yaml` | Test cases: literal on service task, FEEL on service task, literal on send task. |
-| `test/resources/collaboration.bpmn` | (unchanged, but the existing smoke-test now exercises the conversion on a process.) |
+| `visitor/impl/attribute/JobPriorityVisitor.java` | Refactored to extend `AbstractSupportedAttributeVisitor`; transforms value and calls `addConversion`. Short-circuits (no transform, no message) when sibling `camunda:taskPriority` present. |
+| `visitor/impl/attribute/TaskPriorityVisitor.java` | Refactored from "not supported" to converting visitor. Owns the write + emits the collision REVIEW message when both attributes present. |
+| `message/MessageFactory.java` + `resources/message-templates.properties` | New `job-priority-collision` REVIEW message. |
+| `test/resources/BPMN_CONVERSION.yaml` | Test cases: literal/FEEL on service/send/user task, literal/FEEL taskPriority, collision (both attrs). |
+| `test/resources/job-priority.bpmn` + Java test | Process-level + element-level assertions including the collision path. |
+| `test/resources/collaboration.bpmn` | (unchanged fixture; smoke-test still exercises the conversion on a process.) |
 
 ## Limitations / follow-ups
 
