@@ -5,6 +5,8 @@
   "main": "generate-catalog.js",
   "scripts": {
     "generate-catalog": "node generate-catalog.js",
-    "generate-all-in-one": "node generate-all-in-one.js"
+    "generate-all-in-one": "node generate-all-in-one.js",
+    "write-camunda-docs": "node generate-catalog.js && node generate-all-in-one.js",
+    "check-camunda-docs": "npm run write-camunda-docs && git diff --exit-code README.md ALL_IN_ONE.md"
   }
 }
