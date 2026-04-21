@@ -33,6 +33,16 @@ public class ExecutionListenerConversion
         createExecutionListener(executionListeners, executionListener);
       }
     }
+    if (convertible.getZeebeMultiInstanceBodyExecutionListeners() != null
+        && !convertible.getZeebeMultiInstanceBodyExecutionListeners().isEmpty()) {
+      DomElement miBody = getMultiInstanceLoopCharacteristics(element);
+      DomElement miExtensionElements = getExtensionElements(miBody);
+      DomElement executionListeners = createExecutionListeners(miExtensionElements);
+      for (ZeebeExecutionListener executionListener :
+          convertible.getZeebeMultiInstanceBodyExecutionListeners()) {
+        createExecutionListener(executionListeners, executionListener);
+      }
+    }
   }
 
   private void createExecutionListener(
