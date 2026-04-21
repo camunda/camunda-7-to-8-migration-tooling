@@ -44,6 +44,36 @@ carries both `camunda:jobPriority` and `camunda:taskPriority`:
 Raw C7 values (not FEEL-transformed) are used in the message so an author
 auditing against their C7 source sees what they wrote.
 
+### Out-of-range literals (C7 long → C8 int32)
+
+C7 stores priority as `long`; C8's `zeebe:jobPriorityDefinition priority`
+attribute is an int32. For literal numeric values outside
+`[-2147483648, 2147483647]`:
+
+- **No `zeebe:jobPriorityDefinition` is emitted.**
+- A **TASK** severity message is emitted telling the user to set a valid
+  value manually.
+
+**Why skip rather than clamp**: clamping to `Integer.MAX_VALUE` would turn
+"not representable" into a substantive business decision the converter
+cannot justify. For a C7 value like `-9999999999` (low priority),
+clamping to `Integer.MAX_VALUE` produces the opposite intent silently. Even
+sign-aware clamping leaves a large-magnitude value in the user's BPMN that
+looks deliberate. TASK severity matches the codebase convention for "manual
+action required" (vs. REVIEW which is "verify the converter's call").
+
+Expression values (`${x}` / `=x`) can't be validated at conversion time —
+they're passed through unchanged.
+
+**Edge case — taskPriority out-of-range on an element that also has a valid
+jobPriority**: the out-of-range TASK wins over the collision REVIEW and
+taskPriority is dropped per the usual policy; the in-range jobPriority is
+*also* dropped because `JobPriorityVisitor` short-circuits whenever a
+sibling `camunda:taskPriority` is present. Net effect: no priority set,
+single TASK message. A smarter policy could fall back to jobPriority in this
+niche case, but it wasn't requested and adds branching to something
+specified as a simple precedence rule. Flagged here for visibility.
+
 ## Design decisions
 
 ### Decision 1 — Refactor the existing `JobPriorityVisitor` (chosen)
@@ -120,7 +150,8 @@ fixtures. No API, no public extension-point surface depends on it.
 | `conversion/ProcessElementConversion.java` | Emits `<zeebe:jobPriorityDefinition priority="..."/>` when set. |
 | `visitor/impl/attribute/JobPriorityVisitor.java` | Refactored to extend `AbstractSupportedAttributeVisitor`; transforms value and calls `addConversion`. Short-circuits (no transform, no message) when sibling `camunda:taskPriority` present. |
 | `visitor/impl/attribute/TaskPriorityVisitor.java` | Refactored from "not supported" to converting visitor. Owns the write + emits the collision REVIEW message when both attributes present. |
-| `message/MessageFactory.java` + `resources/message-templates.properties` | New `job-priority-collision` REVIEW message. |
+| `visitor/impl/attribute/PriorityRangeValidator.java` | Shared helper: returns a TASK message when a literal priority is outside int32 range; null otherwise. |
+| `message/MessageFactory.java` + `resources/message-templates.properties` | New `job-priority-collision` REVIEW and `priority-out-of-range` TASK messages. |
 | `test/resources/BPMN_CONVERSION.yaml` | Test cases: literal/FEEL on service/send/user task, literal/FEEL taskPriority, collision (both attrs). |
 | `test/resources/job-priority.bpmn` + Java test | Process-level + element-level assertions including the collision path. |
 | `test/resources/collaboration.bpmn` | (unchanged fixture; smoke-test still exercises the conversion on a process.) |
@@ -130,9 +161,11 @@ fixtures. No API, no public extension-point surface depends on it.
 - No explicit filter on element type. The visitor runs whenever the attribute
   is present on any BPMN element — same as before. If C8 ends up restricting
   `jobPriorityDefinition` to a specific subset, add a `canVisit` override.
-- No priority-range validation (C7 allowed any long; C8 proposal does not
-  pin a range yet).
 - No message-template localization: the POC currently reuses the generic
   `ExpressionTransformationResultMessageFactory` message for expressions,
   which references the generic migration-docs link. A dedicated message
   entry + docs link can be added once the C8 docs page exists.
+- The taskPriority-out-of-range + in-range-jobPriority edge case
+  (documented above) could fall back to jobPriority instead of dropping
+  both. Intentionally not implemented — the precedence rule was specified
+  as deterministic.

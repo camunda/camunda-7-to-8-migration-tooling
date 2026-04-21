@@ -670,6 +670,15 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message priorityOutOfRange(String elementLocalName, String value) {
+    return INSTANCE.composeMessage(
+        "priority-out-of-range",
+        ContextBuilder.builder()
+            .entry("elementLocalName", elementLocalName)
+            .entry("value", value)
+            .build());
+  }
+
   public static Message modelerTemplateVersion() {
     return INSTANCE.staticMessage("modeler-template-version");
   }

@@ -28,6 +28,11 @@ public class TaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
   protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
     ExpressionTransformationResult priority =
         ExpressionTransformer.transformToFeel("Task priority", attribute);
+    Message outOfRange =
+        PriorityRangeValidator.outOfRangeOrNull(priority, context.getElement().getLocalName());
+    if (outOfRange != null) {
+      return outOfRange;
+    }
     context.addConversion(
         AbstractProcessElementConvertible.class,
         conv -> conv.getZeebeJobPriorityDefinition().setPriority(priority.result()));

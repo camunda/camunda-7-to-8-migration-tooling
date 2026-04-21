@@ -1157,3 +1157,36 @@ categories:
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '${jobPriority}') and 'camunda:taskPriority' (value '${externalPriority}') are defined on 'serviceTask'. The converter used 'taskPriority' per default policy; 'jobPriority' was ignored.</conversion:message>
+      - name: Job priority at int max boundary is accepted
+        description: C7 allows long priorities; C8 uses int32. Integer.MAX_VALUE (2147483647) is the largest value that still fits and should pass through.
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="2147483647" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="2147483647"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+      - name: Job priority above int max is skipped with TASK
+        description: C7 long value that does not fit in the C8 int32 priority slot. The converter emits no jobPriorityDefinition and flags the element as needing manual attention.
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="9999999999" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '9999999999' on 'serviceTask' is outside the Camunda 8 int range (-2147483648 to 2147483647). Priority was not set; please define a valid value manually.</conversion:message>
+      - name: Job priority below int min is skipped with TASK
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="-9999999999" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '-9999999999' on 'serviceTask' is outside the Camunda 8 int range (-2147483648 to 2147483647). Priority was not set; please define a valid value manually.</conversion:message>
+      - name: Task priority above int max is skipped with TASK
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:taskPriority="9999999999" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '9999999999' on 'serviceTask' is outside the Camunda 8 int range (-2147483648 to 2147483647). Priority was not set; please define a valid value manually.</conversion:message>

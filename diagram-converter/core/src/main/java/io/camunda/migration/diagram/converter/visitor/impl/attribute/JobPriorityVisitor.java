@@ -36,6 +36,11 @@ public class JobPriorityVisitor extends AbstractSupportedAttributeVisitor {
 
     ExpressionTransformationResult priority =
         ExpressionTransformer.transformToFeel("Job priority", attribute);
+    Message outOfRange =
+        PriorityRangeValidator.outOfRangeOrNull(priority, context.getElement().getLocalName());
+    if (outOfRange != null) {
+      return outOfRange;
+    }
     context.addConversion(
         AbstractProcessElementConvertible.class,
         conv -> conv.getZeebeJobPriorityDefinition().setPriority(priority.result()));
