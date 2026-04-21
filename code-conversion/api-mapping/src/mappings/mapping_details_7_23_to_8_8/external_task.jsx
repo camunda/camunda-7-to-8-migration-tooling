@@ -11,29 +11,162 @@ export const external_task = [
 			path: "/external-task",
 			operation: "get",
 		},
-		target: {},
-		discontinuedExplanation: (
-			<div>
-				There is no endpoint in Camunda 8.8 yet to search for jobs
-				without activating them. Please take a look at the{" "}
-				<code>POST Activate jobs</code> endpoint to check if it meets
-				your needs.
-			</div>
-		),
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		direct: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(string) externalTaskId</pre>,
+					rightEntry: <pre>(string) filter.jobKey</pre>,
+				},
+				{
+					leftEntry: <pre>(string) topicName</pre>,
+					rightEntry: <pre>(string) filter.type</pre>,
+				},
+				{
+					leftEntry: <pre>(string) workerId</pre>,
+					rightEntry: <pre>(string) filter.worker</pre>,
+				},
+				{
+					leftEntry: <pre>(string) processDefinitionId</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) filter.processDefinitionKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) processInstanceId</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) filter.processInstanceKey</pre>
+							<p>
+								See{" "}
+								<a href="#key-to-id">
+									Camunda 7 key → Camunda 8 id
+								</a>
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(string) activityId</pre>,
+					rightEntry: <pre>(string) filter.elementId</pre>,
+				},
+				{
+					leftEntry: <pre>(string[]) tenantIdIn</pre>,
+					rightEntry: (
+						<>
+							<pre>(string) filter.tenantId</pre>
+							<p>
+								Camunda 8.8 supports filtering by a single tenant
+								id value per request.
+							</p>
+						</>
+					),
+				},
+				{
+					leftEntry: <pre>(int32) retries</pre>,
+					rightEntry: <pre>(int32) filter.retries</pre>,
+				},
+				{
+					leftEntry: <pre>(string) sortBy / sortOrder</pre>,
+					rightEntry: <pre>(object[]) sort</pre>,
+				},
+			],
+			additionalInfo: "",
+		},
+		discontinued: {
+			rowInfo: [
+				{
+					leftEntry: <pre>(boolean) active / suspended</pre>,
+					rightEntry: (
+						<p>
+							Use <code>filter.state</code> to filter by job
+							state in Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) locked / notLocked</pre>,
+					rightEntry: (
+						<p>
+							No direct equivalent in Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) withRetriesLeft</pre>,
+					rightEntry: (
+						<p>
+							Use <code>filter.retries</code> to filter by
+							retries in Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: (
+						<pre>
+							(string) lockExpirationBefore
+							<br />
+							(string) lockExpirationAfter
+						</pre>
+					),
+					rightEntry: (
+						<p>
+							Use <code>filter.deadline</code> to filter by
+							deadline in Camunda 8.8.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(int64) priorityHigherThanOrEquals / priorityLowerThanOrEquals</pre>,
+					rightEntry: <p>No job priority in Camunda 8.8.</p>,
+				},
+				{
+					leftEntry: <pre>(string[]) activityIdIn</pre>,
+					rightEntry: (
+						<p>
+							Use <code>filter.elementId</code>, but only one
+							value at a time.
+						</p>
+					),
+				},
+				{
+					leftEntry: <pre>(boolean) withoutTenantId</pre>,
+					rightEntry: (
+						<p>
+							No direct equivalent in Camunda 8.8. Jobs always
+							have a tenant id value, including{" "}
+							<code>&lt;default&gt;</code>.
+						</p>
+					),
+				},
+			],
+			additionalInfo: "",
+		},
 	},
 	{
 		origin: {
 			path: "/external-task",
 			operation: "post",
 		},
-		target: {},
-		discontinuedExplanation: (
-			<div>
-				There is no endpoint in Camunda 8.8 yet to search for jobs
-				without activating them. Please take a look at the{" "}
-				<code>POST Activate jobs</code> endpoint to check if it meets
-				your needs.
-			</div>
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		mappedExplanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
 		),
 	},
 	{
@@ -41,14 +174,14 @@ export const external_task = [
 			path: "/external-task/count",
 			operation: "get",
 		},
-		target: {},
-		discontinuedExplanation: (
-			<div>
-				There is no endpoint in Camunda 8.8 yet to search for jobs
-				without activating them. Please take a look at the{" "}
-				<code>POST Activate jobs</code> endpoint to check if it meets
-				your needs.
-			</div>
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		mappedExplanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
 		),
 	},
 	{
@@ -56,14 +189,14 @@ export const external_task = [
 			path: "/external-task/count",
 			operation: "post",
 		},
-		target: {},
-		discontinuedExplanation: (
-			<div>
-				There is no endpoint in Camunda 8.8 yet to search for jobs
-				without activating them. Please take a look at the{" "}
-				<code>POST Activate jobs</code> endpoint to check if it meets
-				your needs.
-			</div>
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		mappedExplanation: (
+			<p>
+				See <code>Get List</code> endpoint for details.
+			</p>
 		),
 	},
 	{
@@ -148,7 +281,7 @@ export const external_task = [
 					leftEntry: <pre>(string) topics[].businessKey</pre>,
 					rightEntry: (
 						<p>
-							No businessKey in Camunda 8.8. <a href="https://roadmap.camunda.com/c/296-business-key">Planned for a future release</a>, but unlikly to be required in this context.
+							No businessKey in Camunda 8.8. <a href="https://roadmap.camunda.com/c/296-business-key">Planned for a future release</a>, but unlikely to be required in this context.
 						</p>
 					),
 				},
@@ -168,7 +301,7 @@ export const external_task = [
 					),
 					rightEntry: (
 						<p>
-							In Camunda 8.8, it is not possible to retrict the
+							In Camunda 8.8, it is not possible to restrict the
 							activation of jobs to specific process definitions.
 						</p>
 					),
@@ -177,7 +310,7 @@ export const external_task = [
 					leftEntry: <pre>(object) topics[].processVariables</pre>,
 					rightEntry: (
 						<p>
-							In Camunda 8.8, it is not possible to retrict the
+							In Camunda 8.8, it is not possible to restrict the
 							activation of jobs to process instances with
 							specific variables and their values.
 						</p>
@@ -370,11 +503,15 @@ export const external_task = [
 			path: "/external-task/{id}",
 			operation: "get",
 		},
-		target: {},
-		discontinuedExplanation: (
+		target: {
+			path: "/jobs/search",
+			operation: "post",
+		},
+		mappedExplanation: (
 			<div>
-				There is no endpoint in Camunda 8.8 yet to retrieve a specific
-				job by <code>jobKey</code>.
+				In Camunda 8.8, the <code>POST Search jobs</code> endpoint can
+				be used to retrieve a specific job by filtering on{" "}
+				<code>jobKey</code>.
 			</div>
 		),
 	},

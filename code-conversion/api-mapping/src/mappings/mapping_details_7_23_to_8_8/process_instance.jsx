@@ -296,7 +296,7 @@ export const process_instance = [
 			operation: "post",
 		},
 		target: {
-			path: "/process-instances/batch-operations/cancellation",
+			path: "/process-instances/cancellation",
 			operation: "post",
 		},
 		direct: {
@@ -390,7 +390,7 @@ export const process_instance = [
 			operation: "post",
 		},
 		target: {
-			path: "/process-instances/batch-operations/cancellation",
+			path: "/process-instances/cancellation",
 			operation: "post",
 		},
 		direct: {
@@ -777,11 +777,14 @@ export const process_instance = [
 			path: "/process-instance/{id}/activity-instances",
 			operation: "get",
 		},
-		target: {},
+		target: {
+			path: "/element-instances/search",
+			operation: "post",
+		},
 		mappedExplanation: (
 			<p>
-				Not yet possible in Camunda 8.8. You can retrieve all active
-				elements of a specific process instance using the{" "}
+				In Camunda 8.8, you can retrieve all active elements of a
+				specific process instance using the{" "}
 				<code>POST Search element instances</code> endpoint. But this
 				endpoint does not provide a tree structure or information about
 				the element hierarchy.
