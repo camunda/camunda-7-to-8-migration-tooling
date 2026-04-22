@@ -30,8 +30,33 @@
     <version.java>21</version.java>
 
     <version.camunda-7>7.24.6-ee</version.camunda-7>
+    <!--
+      `version.camunda-8` picks the C8 version that `core` (and the Spring
+      Boot fat jar) is compiled against. Defaults to the "current" C8 minor;
+      flipped to `${version.camunda-8.previous}` by the `c8-previous-api`
+      profile below.
+
+      `version.camunda-8.current` and `version.camunda-8.previous` pin the
+      two C8 minors the `c8-backend-*` modules build against. They are
+      **independent** of the active profile — both backends always compile,
+      in every CI run, so a C8 minor API break surfaces immediately.
+    -->
     <version.camunda-8>8.10.0-SNAPSHOT</version.camunda-8>
+    <version.camunda-8.current>8.10.0-SNAPSHOT</version.camunda-8.current>
     <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
+
+    <!--
+      Build-time C8 version knobs selected by the `c8-previous-api` profile.
+
+      - c8.backend.artifactId: which `c8-backend-*` module the `distro`
+        depends on. Only one backend is packaged into any given fat jar.
+      - c8.artifact.version.suffix: appended to distro/assembly filenames and
+        the e2e docker-compose template so the two C8 versions produce
+        side-by-side, non-colliding artifacts. Empty for the default
+        (current) build.
+    -->
+    <c8.backend.artifactId>camunda-7-to-8-data-migrator-c8-backend-current</c8.backend.artifactId>
+    <c8.artifact.version.suffix></c8.artifact.version.suffix>
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.5</version.spring-boot>
@@ -229,4 +254,20 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>c8-previous-api</id>
+      <activation>
+        <property>
+          <name>version.camunda-8</name>
+          <value>8.9.0</value>
+        </property>
+      </activation>
+      <properties>
+        <c8.backend.artifactId>camunda-7-to-8-data-migrator-c8-backend-previous</c8.backend.artifactId>
+        <c8.artifact.version.suffix>-c8-previous</c8.artifact.version.suffix>
+      </properties>
+    </profile>
+  </profiles>
 </project>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.camunda</groupId>
+    <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
+    <version>0.3.1-SNAPSHOT</version>
+    <relativePath>../</relativePath>
+  </parent>
+
+  <artifactId>camunda-7-to-8-data-migrator-c8-backend-previous</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Camunda 7 to 8 Migration Tooling - Data - C8 Backend (previous)</name>
+  <description>
+    `C8Backend` impl for the "previous" supported C8 minor. Pins to
+    `${version.camunda-8.previous}` independently of the active profile so
+    this module always compiles — surfaces C8-minor API breaks in every CI
+    run regardless of which backend the fat jar will ship with.
+  </description>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${version.spring-boot}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-7-to-8-data-migrator-c8-backend-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!--
+      See the sibling `c8-backend-current/pom.xml` for the core-dep rationale.
+    -->
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-7-to-8-data-migrator-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-db-rdbms</artifactId>
+      <version>${version.camunda-8.previous}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.micrometer</groupId>
+          <artifactId>micrometer-observation</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.springframework</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.camunda</groupId>
+          <artifactId>zeebe-auth</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+    </dependency>
+  </dependencies>
+
+</project>

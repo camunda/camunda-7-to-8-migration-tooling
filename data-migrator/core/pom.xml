@@ -29,6 +29,13 @@
 
   <dependencies>
 
+    <!-- C8 Backend SPI (version-agnostic marker interface) -->
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-7-to-8-data-migrator-c8-backend-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
     <!-- C7 Dependencies -->
     <dependency>
       <groupId>org.camunda.bpm</groupId>

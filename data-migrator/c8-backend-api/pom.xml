@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.camunda</groupId>
+    <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
+    <version>0.3.1-SNAPSHOT</version>
+    <relativePath>../</relativePath>
+  </parent>
+
+  <artifactId>camunda-7-to-8-data-migrator-c8-backend-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Camunda 7 to 8 Migration Tooling - Data - C8 Backend API</name>
+  <description>
+    Version-agnostic SPI that every `c8-backend-*` implementation module
+    fulfils. Kept free of `io.camunda.*` dependencies so it is safe for
+    `core` (which is profile-pinned to a single C8 minor) to consume
+    without dragging in a specific C8 version.
+  </description>
+
+</project>

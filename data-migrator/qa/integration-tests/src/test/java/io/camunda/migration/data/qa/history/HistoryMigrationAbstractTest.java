@@ -29,6 +29,7 @@ import io.camunda.migration.data.config.MigratorAutoConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.c8compat.C8QueryCompat;
 import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.AuditLogEntity;
@@ -136,11 +137,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitionsWithBpmnXml(String processDefinitionId) {
     return rdbmsService.getProcessDefinitionReader()
-        .search(ProcessDefinitionQuery.of(queryBuilder ->
-            queryBuilder
-                .filter(filterBuilder ->
-                    filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))
-                .resultConfig(b -> b.includeXml(true))))
+        .search(C8QueryCompat.processDefinitionQueryWithBpmnXml(prefixDefinitionId(processDefinitionId)))
         .items();
   }
 

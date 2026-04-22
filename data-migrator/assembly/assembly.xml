@@ -39,7 +39,13 @@
       <lineEnding>crlf</lineEnding>
     </file>
     <file>
-      <source>${project.build.directory}/dependency/camunda-7-to-8-data-migrator-distro-${project.version}.jar</source>
+      <!--
+        Sourced from the distro module's target/ directly (not via the copied
+        dependency in target/dependency/) so the C8-version suffix on distro's
+        finalName is honored — maven-dependency-plugin's copy-dependencies names
+        the copy by GAV, ignoring finalName.
+      -->
+      <source>${project.basedir}/../distro/target/camunda-7-to-8-data-migrator-distro-${project.version}${c8.artifact.version.suffix}.jar</source>
       <outputDirectory>internal</outputDirectory>
       <destName>camunda-7-to-8-data-migrator.jar</destName>
       <fileMode>0644</fileMode>

@@ -15,6 +15,7 @@ import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.qa.c8compat.C8QueryCompat;
 import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -255,9 +256,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
       throw new IllegalStateException("RdbmsService is not available in the Spring context");
     }
     return rdbmsService.getFlowNodeInstanceReader()
-        .search(FlowNodeInstanceQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.flowNodeIds(flowNodeIds))))
+        .search(C8QueryCompat.flowNodeInstanceQueryByIds(flowNodeIds))
         .items();
   }
 

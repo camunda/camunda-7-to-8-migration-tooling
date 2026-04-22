@@ -41,9 +41,27 @@
       <artifactId>camunda-7-to-8-data-migrator-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!--
+      Exactly one C8 backend impl is packaged into the fat jar. The
+      artifactId is indirected through `${c8.backend.artifactId}` (defined
+      in the root POM, flipped by the `c8-previous-api` profile) so the
+      profile switch is a single property flip rather than two parallel
+      dependency blocks.
+    -->
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>${c8.backend.artifactId}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
+    <!--
+      finalName gets `${c8.artifact.version.suffix}` appended so the default (current
+      C8) build keeps the historical filename and the `c8-previous-api` profile
+      produces `…-distro-${project.version}-c8-previous.jar`, a side-by-side output.
+    -->
+    <finalName>${project.artifactId}-${project.version}${c8.artifact.version.suffix}</finalName>
     <plugins>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>

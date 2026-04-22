@@ -35,7 +35,17 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <modules>
+        <module>c8-backend-api</module>
         <module>core</module>
+        <!--
+          Both backend impls are always built, each pinned to its own C8 minor
+          (see `version.camunda-8.{current,previous}` in the root POM) so C8
+          API breaks surface in every CI run. The `distro` module depends on
+          exactly one of them, selected by `c8.backend.artifactId` (flipped
+          by the `c8-previous-api` profile).
+        -->
+        <module>c8-backend-current</module>
+        <module>c8-backend-previous</module>
         <module>plugins/cockpit</module>
         <module>examples</module>
         <module>qa</module>
@@ -46,7 +56,10 @@
     <profile>
       <id>central-release</id>
       <modules>
+        <module>c8-backend-api</module>
         <module>core</module>
+        <module>c8-backend-current</module>
+        <module>c8-backend-previous</module>
         <module>plugins/cockpit</module>
       </modules>
     </profile>
