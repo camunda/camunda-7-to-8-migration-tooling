@@ -14,10 +14,20 @@ import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.U
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
+import io.camunda.db.rdbms.read.service.AuditLogDbReader;
+import io.camunda.db.rdbms.read.service.DecisionDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.DecisionInstanceDbReader;
+import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
+import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
 import io.camunda.db.rdbms.read.service.FormDbReader;
+import io.camunda.db.rdbms.read.service.IncidentDbReader;
+import io.camunda.db.rdbms.read.service.JobDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
+import io.camunda.db.rdbms.read.service.UserTaskDbReader;
+import io.camunda.db.rdbms.read.service.VariableDbReader;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
 import io.camunda.db.rdbms.sql.PurgeMapper;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
@@ -93,7 +103,40 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   protected RdbmsPurger rdbmsPurger;
 
   @Autowired
-  protected RdbmsService rdbmsService;
+  protected ProcessDefinitionDbReader processDefinitionReader;
+
+  @Autowired
+  protected DecisionDefinitionDbReader decisionDefinitionReader;
+
+  @Autowired
+  protected DecisionRequirementsDbReader decisionRequirementsReader;
+
+  @Autowired
+  protected AuditLogDbReader auditLogReader;
+
+  @Autowired
+  protected ProcessInstanceDbReader processInstanceReader;
+
+  @Autowired
+  protected DecisionInstanceDbReader decisionInstanceReader;
+
+  @Autowired
+  protected UserTaskDbReader userTaskReader;
+
+  @Autowired
+  protected FlowNodeInstanceDbReader flowNodeInstanceReader;
+
+  @Autowired
+  protected IncidentDbReader incidentReader;
+
+  @Autowired
+  protected VariableDbReader variableReader;
+
+  @Autowired
+  protected JobDbReader jobReader;
+
+  @Autowired
+  protected FormDbReader formReader;
 
   @Autowired
   protected FlowNodeInstanceMapper flowNodeInstanceMapper;
@@ -128,7 +171,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitions(String processDefinitionId) {
-    return rdbmsService.getProcessDefinitionReader()
+    return processDefinitionReader
         .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
@@ -136,13 +179,13 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitionsWithBpmnXml(String processDefinitionId) {
-    return rdbmsService.getProcessDefinitionReader()
+    return processDefinitionReader
         .search(C8QueryCompat.processDefinitionQueryWithBpmnXml(prefixDefinitionId(processDefinitionId)))
         .items();
   }
 
   public List<DecisionDefinitionEntity> searchHistoricDecisionDefinitions(String decisionDefinitionId) {
-    return rdbmsService.getDecisionDefinitionReader()
+    return decisionDefinitionReader
         .search(DecisionDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))))
@@ -150,7 +193,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<DecisionRequirementsEntity> searchHistoricDecisionRequirementsDefinition(String decisionRequirementsId) {
-    return rdbmsService.getDecisionRequirementsReader()
+    return decisionRequirementsReader
         .search(DecisionRequirementsQuery.of(queryBuilder -> queryBuilder.filter(
                 filterBuilder -> filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))
             .resultConfig(
@@ -163,14 +206,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<AuditLogEntity> searchAuditLogs(String processDefinitionId) {
-    return rdbmsService.getAuditLogReader()
+    return auditLogReader
         .search(AuditLogQuery.of(q -> q.filter(f ->
             f.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
         .items();
   }
 
   public List<AuditLogEntity> searchAuditLogsByCategory(String name) {
-    return rdbmsService.getAuditLogReader()
+    return auditLogReader
         .search(AuditLogQuery.of(q -> q.filter(f ->
             f.categories(name))))
         .items();
@@ -185,14 +228,14 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     String finalProcessDefinitionId = builtInTransformerDisabled ?
         processDefinitionId :
         prefixDefinitionId(processDefinitionId);
-    return rdbmsService.getProcessInstanceReader()
+    return processInstanceReader
         .search(ProcessInstanceQuery.of(queryBuilder -> queryBuilder.filter(
             filterBuilder -> filterBuilder.processDefinitionIds(finalProcessDefinitionId))))
         .items();
   }
 
   public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String... decisionDefinitionIds) {
-    return rdbmsService.getDecisionInstanceReader()
+    return decisionInstanceReader
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
                 filterBuilder -> filterBuilder.decisionDefinitionIds(Arrays.stream(decisionDefinitionIds).map(ConverterUtil::prefixDefinitionId).toList()))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
@@ -200,7 +243,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<UserTaskEntity> searchHistoricUserTasks(long processInstanceKey) {
-    return rdbmsService.getUserTaskReader()
+    return userTaskReader
         .search(UserTaskQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -208,13 +251,13 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<UserTaskEntity> searchHistoricUserTasks() {
-    return rdbmsService.getUserTaskReader()
+    return userTaskReader
         .search(new UserTaskQuery(FilterBuilders.userTask().build(), SortOptionBuilders.userTask().build(), SearchQueryPage.of((b) -> b)))
         .items();
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
-    return rdbmsService.getFlowNodeInstanceReader()
+    return flowNodeInstanceReader
         .search(FlowNodeInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey).types(type))))
@@ -222,7 +265,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodes(long processInstanceKey) {
-    return rdbmsService.getFlowNodeInstanceReader()
+    return flowNodeInstanceReader
         .search(FlowNodeInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -240,7 +283,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
-    return rdbmsService.getIncidentReader()
+    return incidentReader
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
@@ -282,7 +325,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<VariableEntity> searchHistoricVariables(String varName) {
-    return rdbmsService.getVariableReader()
+    return variableReader
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.names(varName))))
@@ -290,7 +333,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<VariableEntity> searchHistoricVariables(Long processInstanceKey) {
-    return rdbmsService.getVariableReader()
+    return variableReader
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -298,13 +341,13 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<VariableEntity> searchHistoricVariables() {
-    return rdbmsService.getVariableReader()
+    return variableReader
         .search(new VariableQuery(FilterBuilders.variable().build(), SortOptionBuilders.variable().build(), SearchQueryPage.of((b) -> b)))
         .items();
   }
 
   public List<JobEntity> searchJobs(long processInstanceKey) {
-    return rdbmsService.getJobReader()
+    return jobReader
         .search(JobQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -312,13 +355,12 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<JobEntity> searchJobs() {
-    return rdbmsService.getJobReader()
+    return jobReader
         .search(new JobQuery(FilterBuilders.job().build(), SortOptionBuilders.job().build(), SearchQueryPage.of((b) -> b)))
         .items();
   }
 
   public List<FormEntity> searchForms(String... formIds) {
-    FormDbReader formReader = rdbmsService.getFormReader();
     if (formIds.length != 0) {
       return formReader
           .search(FormQuery.of(queryBuilder ->

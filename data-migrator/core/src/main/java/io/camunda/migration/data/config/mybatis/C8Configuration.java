@@ -8,7 +8,6 @@
 package io.camunda.migration.data.config.mybatis;
 
 import io.camunda.client.metrics.MetricsRecorder;
-import io.camunda.db.rdbms.RdbmsService;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.RdbmsReaderConfig;
 import io.camunda.db.rdbms.read.service.AuditLogDbReader;
@@ -78,7 +77,6 @@ import io.camunda.db.rdbms.sql.UserMapper;
 import io.camunda.db.rdbms.sql.UserTaskMapper;
 import io.camunda.db.rdbms.sql.VariableMapper;
 import io.camunda.db.rdbms.sql.ClusterVariableMapper;
-import io.camunda.db.rdbms.write.RdbmsWriterFactory;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.impl.DataSourceRegistry;
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -504,144 +502,6 @@ public class C8Configuration extends AbstractConfiguration {
   @Bean
   public IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader(IncidentMapper incidentMapper, RdbmsReaderConfig rdbmsReaderConfig) {
     return new IncidentProcessInstanceStatisticsByDefinitionDbReader(incidentMapper, rdbmsReaderConfig);
-  }
-
-  @Bean
-  public RdbmsWriterFactory rdbmsWriterFactory(
-      @Qualifier("c8SqlSessionFactory") SqlSessionFactory c8SqlSessionFactory,
-      ExporterPositionMapper exporterPositionMapper,
-      VendorDatabaseProperties dbVendorProvider,
-      AuditLogMapper auditLogMapper,
-      DecisionInstanceMapper decisionInstanceMapper,
-      DecisionDefinitionMapper decisionDefinitionMapper,
-      DecisionRequirementsMapper decisionRequirementsMapper,
-      FlowNodeInstanceMapper flowNodeInstanceMapper,
-      IncidentMapper incidentMapper,
-      ProcessInstanceMapper processInstanceMapper,
-      ProcessDefinitionMapper processDefinitionMapper,
-      PurgeMapper purgeMapper,
-      UserTaskMapper userTaskMapper,
-      VariableMapper variableMapper,
-      MeterRegistry meterRegistry,
-      BatchOperationDbReader batchOperationReader,
-      JobMapper jobMapper,
-      JobMetricsBatchMapper jobMetricsBatchMapper,
-      SequenceFlowMapper sequenceFlowMapper,
-      UsageMetricMapper usageMetricMapper,
-      UsageMetricTUMapper usageMetricTUMapper,
-      BatchOperationMapper batchOperationMapper,
-      MessageSubscriptionMapper messageSubscriptionMapper,
-      CorrelatedMessageSubscriptionMapper correlatedMessageMapper,
-      ClusterVariableMapper clusterVariableMapper,
-      HistoryDeletionMapper historyDeletionMapper) {
-    return new RdbmsWriterFactory(
-        c8SqlSessionFactory,
-        exporterPositionMapper,
-        dbVendorProvider,
-        auditLogMapper,
-        decisionInstanceMapper,
-        decisionDefinitionMapper,
-        decisionRequirementsMapper,
-        flowNodeInstanceMapper,
-        incidentMapper,
-        processInstanceMapper,
-        processDefinitionMapper,
-        purgeMapper,
-        userTaskMapper,
-        variableMapper,
-        meterRegistry,
-        batchOperationReader,
-        jobMapper,
-        jobMetricsBatchMapper,
-        sequenceFlowMapper,
-        usageMetricMapper,
-        usageMetricTUMapper,
-        batchOperationMapper,
-        messageSubscriptionMapper,
-        correlatedMessageMapper,
-        clusterVariableMapper,
-        historyDeletionMapper);
-  }
-
-  @Bean
-  public RdbmsService rdbmsService(
-      RdbmsWriterFactory rdbmsWriterFactory,
-      AuditLogDbReader auditLogReader,
-      AuthorizationDbReader authorizationReader,
-      DecisionDefinitionDbReader decisionDefinitionReader,
-      DecisionInstanceDbReader decisionInstanceReader,
-      DecisionRequirementsDbReader decisionRequirementsReader,
-      FlowNodeInstanceDbReader flowNodeInstanceReader,
-      GroupDbReader groupReader,
-      GroupMemberDbReader groupMemberReader,
-      IncidentDbReader incidentReader,
-      ProcessDefinitionDbReader processDefinitionReader,
-      ProcessInstanceDbReader processInstanceReader,
-      VariableDbReader variableReader,
-      ClusterVariableDbReader clusterVariableReader,
-      RoleDbReader roleReader,
-      RoleMemberDbReader roleMemberReader,
-      TenantDbReader tenantReader,
-      TenantMemberDbReader tenantMemberReader,
-      UserDbReader userReader,
-      UserTaskDbReader userTaskReader,
-      FormDbReader formReader,
-      MappingRuleDbReader mappingRuleReader,
-      BatchOperationDbReader batchOperationReader,
-      SequenceFlowDbReader sequenceFlowReader,
-      BatchOperationItemDbReader batchOperationItemReader,
-      JobDbReader jobReader,
-      JobMetricsBatchDbReader jobMetricsBatchDbReader,
-      UsageMetricsDbReader usageMetricsReader,
-      UsageMetricTUDbReader usageMetricTUDbReader,
-      MessageSubscriptionDbReader messageSubscriptionDbReader,
-      ProcessDefinitionMessageSubscriptionStatisticsDbReader processDefinitionMessageSubscriptionStatisticsDbReader,
-      CorrelatedMessageSubscriptionDbReader correlatedMessageDbReader,
-      ProcessDefinitionInstanceStatisticsDbReader processDefinitionInstanceStatisticsDbReader,
-      ProcessDefinitionInstanceVersionStatisticsDbReader processDefinitionInstanceVersionStatisticsDbReader,
-      HistoryDeletionDbReader historyDeletionReader,
-      IncidentProcessInstanceStatisticsByErrorDbReader incidentProcessInstanceStatisticsByErrorDbReader,
-      IncidentProcessInstanceStatisticsByDefinitionDbReader incidentProcessInstanceStatisticsByDefinitionDbReader,
-      GlobalListenerDbReader globalListenerReader) {
-    return new RdbmsService(
-        rdbmsWriterFactory,
-        auditLogReader,
-        authorizationReader,
-        decisionDefinitionReader,
-        decisionInstanceReader,
-        decisionRequirementsReader,
-        flowNodeInstanceReader,
-        groupReader,
-        groupMemberReader,
-        incidentReader,
-        processDefinitionReader,
-        processInstanceReader,
-        variableReader,
-        clusterVariableReader,
-        roleReader,
-        roleMemberReader,
-        tenantReader,
-        tenantMemberReader,
-        userReader,
-        userTaskReader,
-        formReader,
-        mappingRuleReader,
-        batchOperationReader,
-        sequenceFlowReader,
-        batchOperationItemReader,
-        jobReader,
-        jobMetricsBatchDbReader,
-        usageMetricsReader,
-        usageMetricTUDbReader,
-        messageSubscriptionDbReader,
-        processDefinitionMessageSubscriptionStatisticsDbReader,
-        correlatedMessageDbReader,
-        processDefinitionInstanceStatisticsDbReader,
-        processDefinitionInstanceVersionStatisticsDbReader,
-        historyDeletionReader,
-        incidentProcessInstanceStatisticsByErrorDbReader,
-        incidentProcessInstanceStatisticsByDefinitionDbReader,
-        globalListenerReader);
   }
 
 }

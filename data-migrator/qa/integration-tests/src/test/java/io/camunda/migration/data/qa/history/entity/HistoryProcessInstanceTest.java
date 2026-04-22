@@ -269,7 +269,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     );
 
     // Verify that variables also have rootProcessInstanceKey
-    List<VariableEntity> variables = rdbmsService.getVariableReader()
+    List<VariableEntity> variables = variableReader
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(sub.processInstanceKey()))))
