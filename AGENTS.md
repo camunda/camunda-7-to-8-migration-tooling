@@ -4,7 +4,7 @@ This file is the single source of truth for AI coding agents working in this rep
 
 ## Project Overview
 
-The Camunda 7 to 8 Data Migrator Tooling helps organizations migrate Camunda 7 process instances and data and code to Camunda 8 while preserving execution state and variables. 
+The Camunda 7 to 8 Data Migrator Tooling helps organizations migrate Camunda 7 process instances, data and code to Camunda 8 while preserving execution state and variables. 
 The repository contains three main tools:
 
 - **data-migrator** - Runtime and history data migration (Java/Spring Boot)
@@ -105,7 +105,7 @@ Document the baseline commit SHA in the PR description so reviewers can verify i
 
 - **Do NOT dismiss test failures as pre-existing or unrelated.** If CI was green before your changes and is red after, your changes caused it. Investigate.
 - **Warnings are defects.** Never suppress a warning to make a build pass. Fix the root cause.
-- **No new `@Disabled` tests without a linked GitHub issue.** Currently 7 tests are `@Disabled` with tracked issues (#321, #428, #1103, camunda-bpm-platform#5235). These are known defects, not acceptable noise.
+- **No new `@Disabled` tests without a linked GitHub issue.** Some tests are `@Disabled` with tracked issues (eg #321, #428, #1103, camunda-bpm-platform#5235). These are known defects, not acceptable noise.
 - If an agent claims a failure is "pre-existing and unrelated," it must prove this by referencing the baseline commit where the failure already existed.
 
 ## Prerequisites
@@ -168,10 +168,10 @@ related to #<issue-number>
 **Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`
 **Scopes:** `core`, `history`, `runtime`, `distro`, `deps`, `ci`, `e2e`
 
-Examples:
-- `feat(runtime): add support for message correlation`
-- `fix(core): resolve variable serialization issue`
-- `chore(deps): update Spring Boot to 4.0.5`
+Examples (with the `related to #<issue-number>` body line shown inline for brevity):
+- `feat(runtime): add support for message correlation` — body: `related to #1234`
+- `fix(core): resolve variable serialization issue` — body: `related to #5678`
+- `chore(deps): update Spring Boot to 4.0.5` — body: `related to #9012`
 
 ## Pull Request Guidelines
 

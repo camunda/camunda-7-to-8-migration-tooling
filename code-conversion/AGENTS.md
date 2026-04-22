@@ -47,4 +47,4 @@ Markdown-based migration pattern catalog. Content is organized in numbered direc
 
 React 19 + Vite SPA deployed to GitHub Pages at https://camunda.github.io/camunda-7-to-8-migration-tooling/.
 
-Mapping data is written as JSX each mapping file in `src/mappings/` exports endpoint mapping arrays with rich HTML rendering via react-markdown. OpenAPI specs live in `src/openapi/`.
+Mapping data is written as JSX, each mapping file in `src/mappings/` exports endpoint mapping arrays with rich HTML rendering via react-markdown. OpenAPI specs live in `src/openapi/`.

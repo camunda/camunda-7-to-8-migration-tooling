@@ -98,7 +98,7 @@ Run architecture validation: `mvn test -Dtest=ArchitectureTest -pl data-migrator
 
 See root [AGENTS.md](../AGENTS.md#always-green-policy) for the full policy. Key points:
 - Validate green baseline before AI-assisted work: `mvn clean install` (fast) or `mvn clean verify -Pintegration` (full)
-- 7 tests are `@Disabled` with tracked issues (#321, #428, #1103, camunda-bpm-platform#5235) — do not add more without a linked issue
+- Some tests are `@Disabled` with tracked issues (eg #321, #428, #1103, camunda-bpm-platform#5235) — do not add more without a linked issue
 - Never dismiss failures as pre-existing without proof
 
 ## Testing Rules
@@ -112,6 +112,7 @@ Read `docs/TESTING_GUIDELINES.md` for the full guide. Key principles:
 - Test class names end with `Test`
 - Test method names start with `should`
 - Follow Given-When-Then structure
+- Keep comments to a minimum and do not add unnecessary comments when the code is self-explanatory
 - Base classes: `AbstractMigratorTest`, `RuntimeMigrationAbstractTest`, `HistoryMigrationAbstractTest`
 
 ## Key Documentation

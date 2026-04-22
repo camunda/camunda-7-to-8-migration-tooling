@@ -51,7 +51,7 @@ See `extension-example/` for a working reference showing both direct `DomElement
 
 ## Message Conventions
 
-`MessageFactory` produces messages with severity levels (WARNING, TASK, REVIEW, INFO) from Mustache templates in `core/src/main/resources/message-templates.properties`. When adding new messages:
+`MessageFactory` produces messages with severity levels (WARNING, TASK, REVIEW, INFO) from [Mustache](https://mustache.github.io/) templates in `core/src/main/resources/message-templates.properties`. When adding new messages:
 - Add a template entry in `message-templates.properties` with `.message`, `.severity`, and `.link` keys
 - **Always include a `.link` field** pointing to the relevant Camunda docs page
 - Add a static factory method in `MessageFactory`
