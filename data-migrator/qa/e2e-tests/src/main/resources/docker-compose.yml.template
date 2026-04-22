@@ -62,7 +62,7 @@ services:
   data-migrator:
     image: eclipse-temurin:21-jdk
     volumes:
-      - ../../assembly/target/camunda-7-to-8-data-migrator-${project.version}.zip:/tmp/migrator.zip:ro
+      - ../../assembly/target/camunda-7-to-8-data-migrator-${project.version}${c8.artifact.version.suffix}.zip:/tmp/migrator.zip:ro
       - ./src/main/resources/invoice-example:/app/configuration/resources/invoice:ro
       - ./src/main/resources/process-example-c8:/app/configuration/resources/process:ro
       - ./src/main/resources/process-example:/tmp/c7-bpmns:ro

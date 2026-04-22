@@ -32,6 +32,21 @@
     <version.camunda-7>7.24.6-ee</version.camunda-7>
     <version.camunda-8>8.10.0-SNAPSHOT</version.camunda-8>
     <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
+
+    <!--
+      C8-version-specific build knobs. Default values target the "current" C8 minor
+      (same as ${version.camunda-8}). The `c8-previous-api` profile below overrides
+      them to compile/package against ${version.camunda-8.previous}.
+
+      - c8.compat.source.dir: consumed by data-migrator/core; picks the parallel
+        source folder (java-c8-current vs. java-c8-previous) compiled alongside
+        src/main/java.
+      - c8.artifact.version.suffix: appended to distro/assembly filenames and the
+        e2e docker-compose template so the two C8 versions produce side-by-side,
+        non-colliding artifacts. Empty for the default (current) build.
+    -->
+    <c8.compat.source.dir>src/main/java-c8-current</c8.compat.source.dir>
+    <c8.artifact.version.suffix></c8.artifact.version.suffix>
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.5</version.spring-boot>
@@ -229,4 +244,20 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>c8-previous-api</id>
+      <activation>
+        <property>
+          <name>version.camunda-8</name>
+          <value>8.9.0</value>
+        </property>
+      </activation>
+      <properties>
+        <c8.compat.source.dir>src/main/java-c8-previous</c8.compat.source.dir>
+        <c8.artifact.version.suffix>-c8-previous</c8.artifact.version.suffix>
+      </properties>
+    </profile>
+  </profiles>
 </project>

@@ -58,6 +58,13 @@
           <appendAssemblyId>false</appendAssemblyId>
           <outputDirectory>target/</outputDirectory>
           <tarLongFileMode>gnu</tarLongFileMode>
+          <!--
+            finalName on the assembly matches the distro's suffix scheme so both
+            `camunda-7-to-8-data-migrator-${project.version}.zip` (default) and
+            `camunda-7-to-8-data-migrator-${project.version}-c8-previous.zip`
+            (under the `c8-previous-api` profile) coexist in target/.
+          -->
+          <finalName>camunda-7-to-8-data-migrator-${project.version}${c8.artifact.version.suffix}</finalName>
         </configuration>
         <executions>
           <execution>
