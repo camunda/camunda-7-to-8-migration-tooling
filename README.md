@@ -32,6 +32,32 @@ A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module 
 
 For detailed information, see the [Code Conversion README](./code-conversion/README.md).
 
+### Claude Code Skill
+
+If you use [Claude Code](https://claude.ai/code), you can install a `/migrate-c7-to-c8` skill that guides you through the full migration interactively — no copy-pasting prompts from docs.
+
+**Install:**
+
+```bash
+claude plugin install camunda-migration@github:camunda/camunda-7-to-8-migration-tooling
+```
+
+**Use** (from your project directory or any path):
+
+```
+/migrate-c7-to-c8
+```
+
+The skill will ask for your project path and walk you through three options:
+
+| Approach | What it does |
+|----------|-------------|
+| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves TODOs, config, and test code |
+| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
+
+The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
+
 
 ## Documentation
 
