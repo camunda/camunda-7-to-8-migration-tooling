@@ -255,15 +255,16 @@
       section wires in ${c8.compat.source.dir}; this profile overrides that
       property when building against the previous C8 version.
 
-      When bumping version.camunda-8.previous in the parent POM, update the
-      activation <value> below to match.
+      Activate via -Dc8.api=previous alongside -Dversion.camunda-8=<previous-version>.
+      Using a dedicated flag (rather than matching on the version literal)
+      decouples this activation from version bumps in the parent POM.
     -->
     <profile>
       <id>c8-previous-api</id>
       <activation>
         <property>
-          <name>version.camunda-8</name>
-          <value>8.9.0</value>
+          <name>c8.api</name>
+          <value>previous</value>
         </property>
       </activation>
       <properties>

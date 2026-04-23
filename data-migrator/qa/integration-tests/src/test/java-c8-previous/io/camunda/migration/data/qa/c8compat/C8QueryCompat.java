@@ -35,6 +35,9 @@ public final class C8QueryCompat {
   }
 
   public static FlowNodeInstanceQuery flowNodeInstanceQueryByIds(final String... flowNodeIds) {
+    if (flowNodeIds.length == 0) {
+      throw new IllegalArgumentException("At least one flowNodeId is required");
+    }
     return FlowNodeInstanceQuery.of(
         queryBuilder ->
             queryBuilder.filter(filterBuilder -> filterBuilder.flowNodeIds(flowNodeIds)));
