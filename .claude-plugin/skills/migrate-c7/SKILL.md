@@ -92,10 +92,10 @@ Work through each phase sequentially. Complete and verify each phase before movi
 - Use the "Glue code → External Task Worker" patterns
 
 **Phase 5: Test code**
-- Update test class setup (replace `@Rule` Camunda test rules with `@SpringBootTest` + `CamundaProcessTestContext`)
-- Update process instance startup patterns
+- Update test class setup (replace `@Rule`-based Camunda test rules with `@SpringBootTest` + `@CamundaSpringProcessTest`, using `CamundaProcessTestContext` as documented in `ALL_IN_ONE.md`)
+- Update test bootstrap and process instance startup patterns to follow the documented Camunda 8 Spring test setup
 - Replace assertion methods with Camunda 8 equivalents
-- Update message correlation, timer handling, user task completion in tests
+- Update message correlation, timer handling, and user task completion in tests to match the documented test setup
 - Use the "Test assertions" patterns
 
 ---
