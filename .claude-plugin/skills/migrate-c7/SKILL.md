@@ -119,6 +119,12 @@ For Maven — add to `pom.xml`:
       <recipe>io.camunda.migration.code.recipes.AllExternalWorkerRecipes</recipe>
     </activeRecipes>
   </configuration>
+  <dependencies>
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
+    </dependency>
+  </dependencies>
 </plugin>
 ```
 
