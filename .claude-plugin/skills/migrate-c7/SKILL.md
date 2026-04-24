@@ -70,8 +70,8 @@ Work through each phase sequentially. Complete and verify each phase before movi
 - Remove all `org.camunda.bpm.*` dependencies from `pom.xml` / `build.gradle`
 - Add `camunda-spring-boot-starter` and `camunda-process-test-spring`
 - Replace `@EnableProcessApplication` with `@Deployment`
-- Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `zeebe.*` / `camunda.client.*` equivalents
-- Use the patterns catalog section "Maven dependency and configuration"
+- Update `application.properties` / `application.yaml` — replace legacy `camunda.*` keys with the exact `camunda.client.*` properties documented in the patterns catalog
+- Use the patterns catalog section "Maven dependency and configuration" for the exact dependency and property mappings
 
 **Phase 2: Client code**
 - Replace `ProcessEngine` autowiring with `CamundaClient`
