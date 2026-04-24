@@ -88,11 +88,12 @@ For Maven — add to `pom.xml`:
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
-      <version>0.2.0</version>
+      <version>LATEST_RELEASE</version>
     </dependency>
   </dependencies>
 </plugin>
 ```
+Use the latest released version of `camunda-7-to-8-code-conversion-recipes` here (or align with the version used by your repository/examples).
 Run: `mvn rewrite:run`
 
 For Gradle — add to `build.gradle`:
