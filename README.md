@@ -32,12 +32,13 @@ A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module 
 
 For detailed information, see the [Code Conversion README](./code-conversion/README.md).
 
-### [Claude Code Skills](./agentic-migration-skills/)
+### [AI Agent Skill](./agentic-migration-skills/)
 
-If you use [Claude Code](https://claude.ai/code), you can install an agentic migration skill that guides you through the full migration interactively — no copy-pasting prompts from docs.
+An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. The skill follows the open [Agent Skills](https://agentskills.io/) format and works with any compatible AI coding agent, such as Claude Code.
 
-**Install:**
+**Install with Claude Code:**
 
+In case you use claude code, you can install the skill directly from this repository:
 ```bash
 claude plugin install camunda-migration@github:camunda/camunda-7-to-8-migration-tooling
 ```
