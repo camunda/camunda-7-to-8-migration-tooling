@@ -32,9 +32,9 @@ A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module 
 
 For detailed information, see the [Code Conversion README](./code-conversion/README.md).
 
-### Claude Code Skill
+### [Claude Code Skills](./agentic-migration-skills/)
 
-If you use [Claude Code](https://claude.ai/code), you can install a `/migrate-c7-to-c8` skill that guides you through the full migration interactively — no copy-pasting prompts from docs.
+If you use [Claude Code](https://claude.ai/code), you can install an agentic migration skill that guides you through the full migration interactively — no copy-pasting prompts from docs.
 
 **Install:**
 
@@ -45,7 +45,7 @@ claude plugin install camunda-migration@github:camunda/camunda-7-to-8-migration-
 **Use** (from your project directory or any path):
 
 ```
-/migrate-c7-to-c8
+/camunda-migration:migrate-c7-to-c8
 ```
 
 The skill will ask for your project path and walk you through three options:

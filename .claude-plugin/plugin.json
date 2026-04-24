@@ -6,7 +6,8 @@
     "name": "camunda"
   },
   "license": "Camunda License 1.0",
-  "commands": [],
+  "skills": "./agentic-migration-skills/skills/",
+  "commands": "./agentic-migration-skills/commands/",
   "keywords": [
     "camunda",
     "migration",
