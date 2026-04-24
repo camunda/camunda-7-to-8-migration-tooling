@@ -127,7 +127,7 @@ Work through each phase sequentially. Confirm completion of each phase before mo
 
 **Phase 1: Dependencies and configuration**
 - Remove all `org.camunda.bpm.*` dependencies from `pom.xml` / `build.gradle`
-- Add `spring-boot-starter-camunda-sdk` and `camunda-process-test-spring`
+- Add `io.camunda:camunda-spring-boot-starter` and `camunda-process-test-spring`
 - Replace `@EnableProcessApplication` with `@Deployment`
 - Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents
 - Reference: "Maven dependency and configuration" section in patterns
