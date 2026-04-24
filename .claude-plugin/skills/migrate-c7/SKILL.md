@@ -82,7 +82,7 @@ Work through each phase sequentially. Complete and verify each phase before movi
 - Remove `implements JavaDelegate`
 - Convert `execute(DelegateExecution execution)` to `@JobWorker`-annotated method
 - Update variable access: `execution.getVariable()` → method parameters or `@Variable` annotations
-- Map BPMN errors: `BpmnError` → `ZeebeBpmnError`
+- Map BPMN errors: `BpmnError` → `io.camunda.client.exception.CamundaError.bpmnError(...)`
 - Remove all `TypedValue` API usage
 - Use the "Glue code → JavaDelegate → Job Worker" patterns
 
