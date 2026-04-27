@@ -10,11 +10,20 @@ package io.camunda.migration.data.qa.extension;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.RdbmsService;
+import io.camunda.db.rdbms.read.service.DecisionDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.DecisionInstanceDbReader;
+import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
+import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
+import io.camunda.db.rdbms.read.service.IncidentDbReader;
+import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
+import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
+import io.camunda.db.rdbms.read.service.UserTaskDbReader;
+import io.camunda.db.rdbms.read.service.VariableDbReader;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.qa.c8compat.C8QueryCompat;
 import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -87,8 +96,12 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
     return applicationContext != null ? applicationContext.getBean(RdbmsPurger.class) : null;
   }
 
-  private RdbmsService getRdbmsServiceBean() {
-    return applicationContext != null ? applicationContext.getBean(RdbmsService.class) : null;
+  private static <T> T requireBean(Class<T> beanClass) {
+    if (applicationContext == null) {
+      throw new IllegalStateException(
+          beanClass.getSimpleName() + " is not available in the Spring context");
+    }
+    return applicationContext.getBean(beanClass);
   }
 
   private HistoryService getHistoryServiceBean() {
@@ -154,10 +167,6 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
     return getHistoryMigratorBean();
   }
 
-  public RdbmsService getRdbmsService() {
-    return getRdbmsServiceBean();
-  }
-
   public HistoryService getHistoryService() {
     return getHistoryServiceBean();
   }
@@ -167,11 +176,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<ProcessDefinitionEntity> searchHistoricProcessDefinitions(String processDefinitionId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getProcessDefinitionReader()
+    return requireBean(ProcessDefinitionDbReader.class)
         .search(ProcessDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
@@ -179,11 +184,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<DecisionDefinitionEntity> searchHistoricDecisionDefinitions(String decisionDefinitionId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getDecisionDefinitionReader()
+    return requireBean(DecisionDefinitionDbReader.class)
         .search(DecisionDefinitionQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))))
@@ -191,11 +192,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<DecisionRequirementsEntity> searchHistoricDecisionRequirementsDefinition(String decisionRequirementsId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getDecisionRequirementsReader()
+    return requireBean(DecisionRequirementsDbReader.class)
         .search(DecisionRequirementsQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.decisionRequirementsIds(prefixDefinitionId(decisionRequirementsId)))))
@@ -203,11 +200,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<ProcessInstanceEntity> searchHistoricProcessInstances(String processDefinitionId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getProcessInstanceReader()
+    return requireBean(ProcessInstanceDbReader.class)
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
@@ -215,11 +208,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String decisionDefinitionId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getDecisionInstanceReader()
+    return requireBean(DecisionInstanceDbReader.class)
         .search(DecisionInstanceQuery.of(queryBuilder -> queryBuilder.filter(
                 filterBuilder -> filterBuilder.decisionDefinitionIds(prefixDefinitionId(decisionDefinitionId)))
             .resultConfig(DecisionInstanceQueryResultConfig.of(DecisionInstanceQueryResultConfig.Builder::includeAll))))
@@ -227,11 +216,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<UserTaskEntity> searchHistoricUserTasks(long processInstanceKey) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getUserTaskReader()
+    return requireBean(UserTaskDbReader.class)
         .search(UserTaskQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processInstanceKeys(processInstanceKey))))
@@ -239,34 +224,20 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return new ArrayList<>(rdbmsService.getFlowNodeInstanceReader()
+    return new ArrayList<>(requireBean(FlowNodeInstanceDbReader.class)
         .search(FlowNodeInstanceQuery.of(queryBuilder -> queryBuilder.filter(
             filterBuilder -> filterBuilder.processInstanceKeys(processInstanceKey).types(type))))
         .items());
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesById(String... flowNodeIds) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getFlowNodeInstanceReader()
-        .search(FlowNodeInstanceQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.flowNodeIds(flowNodeIds))))
+    return requireBean(FlowNodeInstanceDbReader.class)
+        .search(C8QueryCompat.flowNodeInstanceQueryByIds(flowNodeIds))
         .items();
   }
 
   public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getIncidentReader()
+    return requireBean(IncidentDbReader.class)
         .search(IncidentQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
@@ -274,11 +245,7 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<VariableEntity> searchHistoricVariables(String... varName) {
-    RdbmsService rdbmsService = getRdbmsServiceBean();
-    if (rdbmsService == null) {
-      throw new IllegalStateException("RdbmsService is not available in the Spring context");
-    }
-    return rdbmsService.getVariableReader()
+    return requireBean(VariableDbReader.class)
         .search(VariableQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.names(Arrays.stream(varName).toList()))))
