@@ -34,16 +34,18 @@ For detailed information, see the [Code Conversion README](./code-conversion/REA
 
 ### [AI Agent Skill](./agentic-migration-skills/)
 
-An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. The skill follows the open [Agent Skills](https://agentskills.io/) format and works with any compatible AI coding agent, such as Claude Code.
+An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. Works with any [Agent Skills](https://agentskills.io/)-compatible AI coding agent.
 
 **Install with Claude Code:**
 
-In case you use claude code, you can install the skill directly from this repository:
 ```bash
-claude plugin install camunda-migration@github:camunda/camunda-7-to-8-migration-tooling
+claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
+claude plugin install camunda-migration
 ```
 
-**Use** (from your project directory or any path):
+**Other agents** — the skill follows the [Agent Skills](https://agentskills.io/) open format and works with any compatible agent. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for manual installation.
+
+**Use** (from your project directory):
 
 ```
 /camunda-migration:migrate-c7-to-c8
