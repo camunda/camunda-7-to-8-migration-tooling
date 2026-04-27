@@ -1,65 +1,95 @@
-# AI Agent Instructions for Camunda 7 to 8 Migration Tooling
+# AGENTS.md
 
-This file is the single source of truth for AI coding agents working in this repository.
+> **Note:** This file delegates to a central AGENTS.md. Read and apply it before proceeding.
 
-## Project Overview
+**URL:**
+https://github.com/camunda/.github/blob/main/AGENTS.md
 
-The Camunda 7 to 8 Data Migrator Tooling helps organizations migrate Camunda 7 process instances, data and code to Camunda 8 while preserving execution state and variables. 
+Treat the central file's contents as if they were written directly in this file.
+Instructions below extend those guidelines and take precedence if there is any conflict.
+
+## Repo-specific instructions
+
+### Role & boundary
+
+This repo owns the migration tooling for Camunda 7 to 8: data-migrator, diagram-converter, and code-conversion. You are the **maintainer** of this repository. Triage defects at source - do not work around them in the integration layer.
+
+The Camunda 7 engine and Camunda 8 APIs are **dependencies** - when they misbehave, report upstream. Do not silently code around dependency bugs here; that creates invisible debt that breaks on the next upgrade.
+
+**Do-not-touch zones** - do not modify without explicit human approval:
+
+- `.github/workflows/` - CI/CD pipelines
+- `license/` - legal
+- `data-migrator/plugins/cockpit/frontend/dist/` - generated build output
+
+**Path map:**
+
+| Path | Ownership and intent |
+| --- | --- |
+| `data-migrator/core/` | Core migration logic and Spring Boot application |
+| `data-migrator/distro/` | Distribution packaging |
+| `data-migrator/assembly/` | Release assembly |
+| `data-migrator/plugins/cockpit/` | Camunda Cockpit plugin (React frontend) |
+| `data-migrator/examples/` | Example implementations (variable interceptors) |
+| `data-migrator/qa/` | Integration tests and e2e tests |
+| `diagram-converter/core/` | Conversion engine |
+| `diagram-converter/cli/` | CLI application |
+| `diagram-converter/webapp/` | Web UI (React/TypeScript) |
+| `diagram-converter/extension-example/` | Custom extension reference, not released |
+| `code-conversion/patterns/` | Best practices and code examples |
+| `code-conversion/recipes/` | OpenRewrite automated refactoring recipes |
+| `code-conversion/api-mapping/` | Interactive API mapping webapp (React) |
+| `docs/` | Architecture rules, testing guidelines, and review checklist |
+| `license/` | Legal - do not edit |
+| `.github/workflows/` | CI/CD pipelines - do not edit |
+
+**Entry points:**
+
+- **data-migrator** Migration logic: `data-migrator/core/src/main/java/io/camunda/migration/data/RuntimeMigrator.java`, `HistoryMigrator.java`, `IdentityMigrator.java`
+- **diagram-converter**
+  - CLI main: `diagram-converter/cli/src/main/java/io/camunda/migration/diagram/converter/cli/ConvertCommand.java`
+  - Webapp Spring Boot main: `diagram-converter/webapp/src/main/java/io/camunda/migration/diagram/converter/webapp/ConverterApplication.java`
+- **code-conversion**
+  - API-mapping webapp (no Java main): `code-conversion/api-mapping/index.html`
+  - Patterns and recipes are libraries/data - no runtime entry point
+
+### Architecture
+
 The repository contains three main tools:
 
-- **data-migrator** - Runtime and history data migration (Java/Spring Boot)
-- **diagram-converter** - BPMN/DMN model conversion (Java CLI + React webapp)
-- **code-conversion** - Java code migration patterns, OpenRewrite recipes, and API mapping webapp
+- **data-migrator** - Runtime and history migration of Camunda 7 process instances to Camunda 8. Spring Boot application with multi-module Maven structure.
+- **diagram-converter** - BPMN/DMN model conversion from Camunda 7 to Camunda 8. Uses a **two-phase visitor + conversion pattern**: Phase 1 (visiting, read-only) walks the DOM; Phase 2 (conversion, DOM mutation) executes removals and transformations. Visitors must not modify the DOM.
+- **code-conversion** - Java code migration patterns, OpenRewrite recipes, and API mapping webapp. Recipes are organized by code type (client, delegate, external) and phase (prepare -> migrate -> cleanup). Phase ordering matters - composite recipes enforce the sequence.
 
-## Role & Boundary
+See per-module AGENTS.md files for detailed architecture and testing rules:
 
-You are the **maintainer** of this repository. Triage defects at source — don't work around them in the integration layer.
+- [data-migrator/AGENTS.md](data-migrator/AGENTS.md)
+- [diagram-converter/AGENTS.md](diagram-converter/AGENTS.md)
+- [code-conversion/AGENTS.md](code-conversion/AGENTS.md)
 
-This repo owns the migration tooling (data-migrator, diagram-converter, code-conversion). The Camunda 7 engine and Camunda 8 APIs are **dependencies** — when they misbehave, report upstream. Don't silently code around dependency bugs here; that creates invisible debt that breaks on the next upgrade.
+### Commit message guidelines
 
-### Do-Not-Touch Zones
+Follow conventional commits:
 
-These directories require team coordination — do not modify without explicit human approval:
-- `.github/workflows/` — CI/CD pipelines
-- `license/` — legal
-- `data-migrator/plugins/cockpit/frontend/dist/` — generated build output
+```text
+<type>(<scope>): <description>
 
-## Tech Stack
-
-| Area | Technology |
-|------|-----------|
-| Language | Java 21 |
-| Build | Maven 3.6+ (multi-module) |
-| Framework | Spring Boot 4.x |
-| Frontend | React 18/19, Vite, TypeScript |
-| Databases | H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
-| Testing | JUnit Jupiter 6.x, AssertJ, ArchUnit, REST Assured, Testcontainers |
-| CI | GitHub Actions |
-
-## Module Structure
-
-```
-/
-├── data-migrator/
-│   ├── core/                   # Core migration logic
-│   ├── distro/                 # Distribution packaging
-│   ├── assembly/               # Release assembly
-│   ├── plugins/cockpit/        # Camunda Cockpit plugin (React frontend)
-│   ├── examples/               # Example implementations (variable interceptors)
-│   └── qa/                     # Integration tests & e2e tests
-├── diagram-converter/
-│   ├── core/                   # Conversion engine
-│   ├── cli/                    # CLI application
-│   ├── webapp/                 # Web UI (React/TypeScript)
-│   └── extension-example/      # Custom extension reference
-├── code-conversion/
-│   ├── patterns/               # Best practices & code examples
-│   ├── recipes/                # OpenRewrite recipes
-│   └── api-mapping/            # Interactive API mapping webapp (React)
-└── docs/                       # Architecture rules, testing guidelines, review checklist
+related to #<issue-number>
 ```
 
-## Build Commands
+**Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`
+
+**Scopes:** `core`, `history`, `runtime`, `distro`, `deps`, `ci`, `e2e`
+
+Examples:
+
+- `feat(runtime): add support for message correlation` - body: `related to #1234`
+- `fix(core): resolve variable serialization issue` - body: `related to #5678`
+- `chore(deps): update Spring Boot to 4.0.5` - body: `related to #9012`
+
+### Build pipeline
+
+#### Build commands
 
 ```bash
 # Full build with tests
@@ -75,24 +105,21 @@ mvn test
 mvn verify
 ```
 
-**Important:** `mvn verify` from root does NOT run integration or e2e tests in the data-migrator tool. Those require explicit Maven profiles:
+`mvn verify` from the root does not run integration or e2e tests in the data-migrator tool. Those require explicit Maven profiles:
+
 - Integration tests: `mvn verify -Pintegration`
 - E2E tests: `mvn verify -Pe2e`
 
-When changes are scoped to a single submodule, run tests only for that module using `-pl <module-path>` (e.g., `mvn test -pl diagram-converter/cli`). Avoid full-module builds when the scope is clear.
+When changes are scoped to a single submodule, run tests only for that module using `-pl <module-path>` (for example, `mvn test -pl diagram-converter/cli`). Avoid full-module builds when the scope is clear.
 
-See per-module AGENTS.md files for module-specific build commands and profiles.
+#### Always-green policy
 
-## Always-Green Policy
-
-A test is green or red. "Flaky" is not a state — it's a defect in the product or the test.
-
-### Baseline Verification
+A test is green or red. "Flaky" is not a state - it is a defect in the product or the test.
 
 Validate a green baseline **before every AI-assisted session**:
 
 ```bash
-# Fast baseline check (unit tests + license headers)
+# Fast baseline check (unit tests and license headers)
 mvn clean install
 
 # Full baseline check (includes integration tests, requires Docker)
@@ -101,25 +128,41 @@ mvn clean verify -Pintegration
 
 Document the baseline commit SHA in the PR description so reviewers can verify it.
 
-Before editing, run the baseline from the intended base commit with the repository-required Java/toolchain and record its SHA. Investigate every failure rather than dismissing it as pre-existing. After editing, run the smallest complete validation for the changed surface and include the baseline, commands, and results in the PR description.
+Warnings are defects. Never suppress a warning to make a build pass, and do not treat a failure as pre-existing or unrelated without explicit confirmation from the engineer.
 
-### Rules
+Never skip lint and format-check steps before pushing. For diagram-converter and code-conversion, CI uses `-PcheckFormat`, which fails on formatting violations.
+
+#### Always-green rules
 
 - **Do NOT dismiss test failures as pre-existing or unrelated.** If CI was green before your changes and is red after, your changes caused it. Investigate.
 - **Warnings are defects.** Never suppress a warning to make a build pass. Fix the root cause.
-- **No new `@Disabled` tests without a linked GitHub issue.** Some tests are `@Disabled` with tracked issues (eg #321, #428, #1103, camunda-bpm-platform#5235). These are known defects, not acceptable noise.
+- **No new `@Disabled` tests without a linked GitHub issue.** Some tests are `@Disabled` with tracked issues (for example, #321, #428, #1103, camunda-bpm-platform#5235). These are known defects, not acceptable noise.
 - If an agent claims a failure is "pre-existing and unrelated," it must prove this by referencing the baseline commit where the failure already existed.
 
-## Prerequisites
+Document the baseline commit SHA in the PR description so reviewers can verify it.
 
-- **Java 21** (set as JAVA_HOME)
+### Tech stack
+
+| Area | Technology |
+|------|-----------|
+| Language | Java 21 |
+| Build | Maven 3.6+ (multi-module) |
+| Framework | Spring Boot 4.x |
+| Frontend | React 18/19, Vite, TypeScript |
+| Databases | H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
+| Testing | JUnit Jupiter 6.x, AssertJ, ArchUnit, REST Assured, Testcontainers |
+| CI | GitHub Actions |
+
+### Prerequisites
+
+- **Java 21** (set as `JAVA_HOME`)
 - **Maven 3.6+**
-- **Node.js >=24.15.0** (for Cockpit plugin & frontend modules)
+- **Node.js** for Cockpit plugin and frontend modules is installed via Maven and controlled by `pom.xml` (currently pinned to `v24.15.0`)
 - **Docker** (for database integration tests)
 
-## Code Conventions
+### Code conventions
 
-### License Headers (CRITICAL)
+#### License headers (CRITICAL)
 
 Every Java source file MUST include the Camunda license header from `license/header.txt`:
 
@@ -133,63 +176,24 @@ Every Java source file MUST include the Camunda license header from `license/hea
  */
 ```
 
-### Module-Specific Conventions
-
-Each module has its own AGENTS.md with specific Java style, architecture, and testing rules:
-- [data-migrator/AGENTS.md](data-migrator/AGENTS.md)
-
-## Defect-Category Discipline
+### Defect-category discipline
 
 Every bug reveals an unguarded category. Patch the category, not just the instance.
 
-### Process
+1. **Bug found** - before writing the fix, ask: "What surface permitted this?"
+2. **Identify the category** - is this a one-off, or could the same class of defect exist in other migration handlers or entity types?
+3. **Write the category-scoped test** - a test that covers the full surface, not just the instance you found.
+4. **Seal the surface** - if possible, make the defect category structurally impossible (for example, via ArchUnit rules, compile-time checks, or type constraints).
 
-1. **Bug found** — before writing the fix, ask: "What surface permitted this?"
-2. **Identify the category** — is this a one-off, or could the same class of defect exist in other migration handlers / entity types?
-3. **Write the category-scoped test** — a test that covers the full surface, not just the instance you found.
-4. **Seal the surface** — if possible, make the defect category structurally impossible (e.g., via ArchUnit rules, compile-time checks, or type constraints).
+**Litmus test:** Would your test catch the same bug in a different migration handler added six months from now? If no, the test scope is too narrow.
 
-### Litmus Test
+**Real example:** Issue #1103: multi-instance flow node reference mapping was missing. This affected both `HistoryIncidentTest` and `HistoryJobTest` - the same defect category (multi-instance flow node references), different entity types. The correct response is to test the full surface of multi-instance entity types, not just the one that was reported.
 
-> Would your test catch the same bug in a different migration handler added six months from now? If no — the test scope is too narrow.
+### CI/CD
 
-### Real Example
+GitHub Actions CI (`.github/workflows/ci.yml`) runs on pushes to `main` and `maintenance/*`, pull requests, and nightly (weekdays at 5 AM).
 
-Issue #1103: multi-instance flow node reference mapping was missing. This affected both `HistoryIncidentTest` and `HistoryJobTest` — same defect category (multi-instance flow node references), different entity types. The correct response is to test the full surface of multi-instance entity types, not just the one that was reported.
-
-## Commit Messages
-
-Follow conventional commits:
-
-```
-<type>(<scope>): <description>
-
-related to #<issue-number>
-```
-
-**Types:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`
-**Scopes:** `core`, `history`, `runtime`, `distro`, `deps`, `ci`, `e2e`
-
-Examples (with the `related to #<issue-number>` body line shown inline for brevity):
-- `feat(runtime): add support for message correlation` — body: `related to #1234`
-- `fix(core): resolve variable serialization issue` — body: `related to #5678`
-- `chore(deps): update Spring Boot to 4.0.5` — body: `related to #9012`
-
-## Pull Request Guidelines
-
-- Use conventional commits format for PR titles
-- Reference issues with `related to #<issue-number>` (not `closes`)
-- Keep PRs focused on a single feature or fix
-- Give each issue or self-contained change its own PR; split larger work when useful and use stacked PRs only for dependent layers.
-- Lead the PR description with the motivation, then summarize the approach and call out compatibility considerations, intentional deviations, baseline SHA, and validation results.
-- Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows)
-- A human reviewer will merge - do not merge PRs
-
-## CI/CD
-
-GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenance/*`, PRs, and nightly (weekdays 5 AM).
-
-### Maintenance Branch Mapping
+#### Maintenance branch mapping
 
 Use this explicit release-line mapping when choosing a backport target:
 
@@ -202,14 +206,14 @@ The `zeebe-platform.version` property and form converter default target values a
 
 For the diagram-converter, the target version is an input and is independent of the Camunda libraries used to build a release line. Camunda 8.9 is the current latest stable/default target on every maintenance branch; keep the webapp selector, backend default, and regression tests aligned. When a newer stable version is released, update it on `main` first and backport that same version-policy change unchanged to every maintenance branch rather than inferring the target from dependency versions.
 
-### Merge-blocking vs asynchronous checks
+#### Merge-blocking vs asynchronous checks
 
 - **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics. `compile-previous-version` is part of this blocking surface when in scope.
 - **Asynchronous/non-blocking:** broad compatibility coverage (`code-conversion-previous-version`, `diagram-converter-previous-version`, `e2e-previous-version`, and `it-database-camunda-matrix`) runs on schedule/main or explicit PR label escalation and is monitored separately from the merge gate.
 
-### Jobs per module
+#### Jobs per module
 
-| Module | CI Job | What it does |
+| Module | CI job | What it does |
 |--------|--------|-------------|
 | data-migrator | `distro` | Builds distribution archives (tar.gz, zip) |
 | data-migrator | `it-runtime-h2`, `it-history-h2`, `it-identity-h2` | Integration tests on H2 |
@@ -220,11 +224,7 @@ For the diagram-converter, the target version is an input and is independent of 
 | diagram-converter | `diagram-converter` | Build + format check (`-PcheckFormat`) |
 | all | `compile-previous-version` | Compile against previous Camunda 8 version (API breakage detection) |
 
-### Running CI test scenarios locally
-
-See [data-migrator/AGENTS.md](data-migrator/AGENTS.md) for the full list of integration and e2e test commands.
-
-### Other workflows
+#### Other workflows
 
 - **release.yml** - Manual: Maven release, artifact collection, Docker image, optional diagram-converter deploy
 - **deploy-diagram-converter.yml** - Manual/callable: Docker build + AWS ECS deployment
@@ -232,15 +232,28 @@ See [data-migrator/AGENTS.md](data-migrator/AGENTS.md) for the full list of inte
 - **renovate-auto-merge.yml** - Auto-merges Renovate dependency PRs after checks pass
 - **backport.yml** - Backports merged PRs via `/backport` comment command
 
-## Key Documentation
+### Pull request guidelines
+
+- Use conventional commits format for PR titles.
+- Reference issues with `related to #<issue-number>` (not `closes`).
+- Keep PRs focused on a single feature or fix.
+- Give each issue or self-contained change its own PR; split larger work when useful and use stacked PRs only for dependent layers.
+- Lead the PR description with the motivation, then summarize the approach and call out compatibility considerations, intentional deviations, baseline SHA, and validation results.
+- Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows).
+- A human reviewer will merge - do not merge PRs.
+
+### Guidelines for changes
+
+- Make minimal, focused changes addressing the specific issue.
+- Do not modify working code unnecessarily.
+- Ensure backward compatibility unless explicitly intended otherwise.
+- Update JavaDoc for public API changes.
+- Test with relevant database profiles when making DB-related changes.
+- Note in the PR description if changes affect docs.camunda.io documentation.
+
+### Key documentation
 
 - [Official docs](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/)
-
-## Guidelines for Changes
-
-- Make minimal, focused changes addressing the specific issue
-- Don't modify working code unnecessarily
-- Ensure backward compatibility unless explicitly intended otherwise
-- Update JavaDoc for public API changes
-- Test with relevant database profiles when making DB-related changes
-- Note in PR description if changes affect docs.camunda.io documentation
+- `docs/ARCHITECTURE_RULES.md` - Enforced architectural constraints
+- `docs/TESTING_GUIDELINES.md` - Comprehensive testing guide
+- `docs/CODE_REVIEW_CHECKLIST.md` - Review standards
