@@ -190,6 +190,312 @@ categories:
           <conversion:message severity="TASK">Task Listener at 'delete' with implementation 'com.camunda.consulting.TaskListenerExample' can be transformed to a job worker. Please adjust the job type.</conversion:message>
           <conversion:message severity="TASK">Task Listener at 'update' with implementation 'com.camunda.consulting.TaskListenerExample' can be transformed to a job worker. Please adjust the job type.</conversion:message>
           <conversion:message severity="WARNING">Task Listener at 'timeout' with implementation 'class' 'com.camunda.consulting.TaskListenerExample' cannot be transformed.</conversion:message>
+      - name: Multi-instance service task with start execution listener (8.9+)
+        description: When a C7 start execution listener is a sibling of a multi-instance body and the target is 8.9+, the listener is moved inside the multi-instance body with eventType 'beforeAll' so that it runs before multi-instance evaluation and can produce inputCollection variables.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="miWithListenerTask" name="MI with start listener" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${collectionProducer}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics camunda:collection="${items}" camunda:elementVariable="item" />
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miWithListenerTask" implementation="##WebService" isForCompensation="false" name="MI with start listener" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:loopCharacteristics inputCollection="=items" inputElement="item"/>
+                    <zeebe:executionListeners>
+                      <zeebe:executionListener eventType="beforeAll" type="collectionProducer"/>
+                    </zeebe:executionListeners>
+                  </extensionElements>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'beforeAll' with implementation '${collectionProducer}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Start execution listener '${collectionProducer}' on multi-instance activity was moved inside the multi-instance body as a 'beforeAll' listener to preserve pre-evaluation semantic (Camunda 8.9+).</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${items}' -&gt; '=items'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-instance service task with start execution listener (8.8, not moved)
+        description: When targeting pre-8.9, the start execution listener is NOT moved inside the multi-instance body and remains at task level with eventType 'start' (the 'beforeAll' event type is only available from Camunda 8.9+).
+        properties:
+          platformVersion: "8.8"
+        givenBpmn: |
+          <bpmn:serviceTask id="miWithListenerTask88" name="MI with start listener 8.8" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${collectionProducer}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics camunda:collection="${items}" camunda:elementVariable="item" />
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miWithListenerTask88" implementation="##WebService" isForCompensation="false" name="MI with start listener 8.8" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                  <zeebe:executionListeners>
+                    <zeebe:executionListener eventType="start" type="collectionProducer"/>
+                  </zeebe:executionListeners>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:loopCharacteristics inputCollection="=items" inputElement="item"/>
+                  </extensionElements>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${collectionProducer}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${items}' -&gt; '=items'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Start execution listener without multi-instance sibling (8.9+, not moved)
+        description: A start execution listener on an activity that has no multiInstanceLoopCharacteristics sibling remains at task level with eventType 'start'. The 'beforeAll' move only applies when a multi-instance body is a sibling of the listener.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="nonMiTask" name="Non-MI with start listener" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${producer}" event="start" />
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="nonMiTask" implementation="##WebService" isForCompensation="false" name="Non-MI with start listener" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                  <zeebe:executionListeners>
+                    <zeebe:executionListener eventType="start" type="producer"/>
+                  </zeebe:executionListeners>
+                </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${producer}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+      - name: Multi-instance service task with start execution listener and loopCardinality (8.9+)
+        description: When a C7 start execution listener is a sibling of a multi-instance body that uses loopCardinality (cardinality-based, not collection-based) and the target is 8.9+, the listener is moved inside the multi-instance body with eventType 'beforeAll'.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="miLoopCardTask" name="MI loopCardinality with start listener" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${cardinalityProducer}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics>
+              <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">5</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miLoopCardTask" implementation="##WebService" isForCompensation="false" name="MI loopCardinality with start listener" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:executionListeners>
+                      <zeebe:executionListener eventType="beforeAll" type="cardinalityProducer"/>
+                    </zeebe:executionListeners>
+                  </extensionElements>
+                  <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">5</bpmn:loopCardinality>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'beforeAll' with implementation '${cardinalityProducer}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Start execution listener '${cardinalityProducer}' on multi-instance activity was moved inside the multi-instance body as a 'beforeAll' listener to preserve pre-evaluation semantic (Camunda 8.9+).</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+          <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+      - name: Multi-instance service task with end execution listener (8.9+, not moved)
+        description: Only start execution listeners on a multi-instance sibling are moved into the multi-instance body. End listeners remain at task level with eventType 'end' even on 8.9+.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="miWithEndListenerTask" name="MI with end listener" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${cleanup}" event="end" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics camunda:collection="${items}" camunda:elementVariable="item" />
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miWithEndListenerTask" implementation="##WebService" isForCompensation="false" name="MI with end listener" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                  <zeebe:executionListeners>
+                    <zeebe:executionListener eventType="end" type="cleanup"/>
+                  </zeebe:executionListeners>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:loopCharacteristics inputCollection="=items" inputElement="item"/>
+                  </extensionElements>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'end' with implementation '${cleanup}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${items}' -&gt; '=items'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Multi-instance body without extensionElements and without loop source (8.9+)
+        description: The C7 multi-instance body has no extensionElements, no collection, and no loopCardinality. The converter must still create the MI body extensionElements on demand to host the 'beforeAll' listener. Exercises BpmnElementFactory.getExtensionElements(miBody) as a side-effectful creator.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="miMinimalTask" name="MI minimal" camunda:delegateExpression="${myService}">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${seed}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics />
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miMinimalTask" implementation="##WebService" isForCompensation="false" name="MI minimal" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:executionListeners>
+                      <zeebe:executionListener eventType="beforeAll" type="seed"/>
+                    </zeebe:executionListeners>
+                  </extensionElements>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'beforeAll' with implementation '${seed}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Start execution listener '${seed}' on multi-instance activity was moved inside the multi-instance body as a 'beforeAll' listener to preserve pre-evaluation semantic (Camunda 8.9+).</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+      - name: Multi-instance loopCardinality baseline without listener (8.9+)
+        description: Baseline showing current loopCardinality behavior WITHOUT any execution listener. The loopCardinality element is preserved unchanged in the output and a WARNING is emitted. Documents the pre-existing behavior that the MI start listener feature inherits but does not modify.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="miLoopCardOnly" name="MI loopCardinality only" camunda:delegateExpression="${myService}">
+            <bpmn:multiInstanceLoopCharacteristics>
+              <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">5</bpmn:loopCardinality>
+            </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="miLoopCardOnly" implementation="##WebService" isForCompensation="false" name="MI loopCardinality only" startQuantity="1">
+                <bpmn:extensionElements>
+                  <zeebe:taskHeaders>
+                    <zeebe:header key="delegateExpression" value="${myService}"/>
+                  </zeebe:taskHeaders>
+                  <zeebe:taskDefinition type="myService"/>
+                </bpmn:extensionElements>
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <bpmn:loopCardinality xsi:type="bpmn:tFormalExpression">5</bpmn:loopCardinality>
+                </bpmn:multiInstanceLoopCharacteristics>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Delegate class or expression '${myService}' has been transformed to job type 'myService'.</conversion:message>
+          <conversion:message severity="WARNING">Loop cardinality is currently not supported.</conversion:message>
+      - name: Multi-instance embedded subProcess with start execution listener (8.9+)
+        description: DOM-traversal positive case. The listener is on an embedded subProcess whose own 'multiInstanceLoopCharacteristics' is a direct child. isOnMultiInstanceActivity correctly detects the MI sibling on a non-task element and rewrites the listener to 'beforeAll'.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:subProcess id="miSubProc" name="MI embedded subprocess">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${prepare}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:multiInstanceLoopCharacteristics camunda:collection="${items}" camunda:elementVariable="item" />
+            <bpmn:startEvent id="subProcStart" />
+            <bpmn:endEvent id="subProcEnd" />
+          </bpmn:subProcess>
+        expectedBpmn: |
+          <bpmn:subProcess completionQuantity="1" id="miSubProc" isForCompensation="false" name="MI embedded subprocess" startQuantity="1" triggeredByEvent="false">
+                <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                  <documentation/>
+                  <extensionElements>
+                    <zeebe:loopCharacteristics inputCollection="=items" inputElement="item"/>
+                    <zeebe:executionListeners>
+                      <zeebe:executionListener eventType="beforeAll" type="prepare"/>
+                    </zeebe:executionListeners>
+                  </extensionElements>
+                </bpmn:multiInstanceLoopCharacteristics>
+                <bpmn:startEvent id="subProcStart" isInterrupting="true" parallelMultiple="false"/>
+                <bpmn:endEvent id="subProcEnd"/>
+          </bpmn:subProcess>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'beforeAll' with implementation '${prepare}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Start execution listener '${prepare}' on multi-instance activity was moved inside the multi-instance body as a 'beforeAll' listener to preserve pre-evaluation semantic (Camunda 8.9+).</conversion:message>
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${items}' -&gt; '=items'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
+      - name: Start execution listener on non-MI subProcess containing MI child task (8.9+)
+        description: DOM-traversal negative case / fragility guard. The listener is on a plain subProcess whose CHILD task is multi-instance (but the subProcess itself is not). isOnMultiInstanceActivity must only inspect direct children of the listener's grandparent, so the listener on the subProcess stays 'start', while the (unrelated) listener on the inner MI task is rewritten to 'beforeAll'. This pins the contract that a MI descendant does NOT trigger the move on a parent scope.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:subProcess id="outerSubProc" name="Non-MI subprocess with MI child">
+            <bpmn:extensionElements>
+              <camunda:executionListener delegateExpression="${outerStart}" event="start" />
+            </bpmn:extensionElements>
+            <bpmn:serviceTask id="innerMiTask" name="Inner MI task" camunda:delegateExpression="${innerService}">
+              <bpmn:extensionElements>
+                <camunda:executionListener delegateExpression="${innerStart}" event="start" />
+              </bpmn:extensionElements>
+              <bpmn:multiInstanceLoopCharacteristics camunda:collection="${items}" camunda:elementVariable="item" />
+            </bpmn:serviceTask>
+          </bpmn:subProcess>
+        expectedBpmn: |
+          <bpmn:subProcess completionQuantity="1" id="outerSubProc" isForCompensation="false" name="Non-MI subprocess with MI child" startQuantity="1" triggeredByEvent="false">
+                <bpmn:extensionElements>
+                  <zeebe:executionListeners>
+                    <zeebe:executionListener eventType="start" type="outerStart"/>
+                  </zeebe:executionListeners>
+                </bpmn:extensionElements>
+                <bpmn:serviceTask completionQuantity="1" id="innerMiTask" implementation="##WebService" isForCompensation="false" name="Inner MI task" startQuantity="1">
+                  <bpmn:extensionElements>
+                    <zeebe:taskHeaders>
+                      <zeebe:header key="delegateExpression" value="${innerService}"/>
+                    </zeebe:taskHeaders>
+                    <zeebe:taskDefinition type="innerService"/>
+                  </bpmn:extensionElements>
+                  <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="false">
+                    <documentation/>
+                    <extensionElements>
+                      <zeebe:loopCharacteristics inputCollection="=items" inputElement="item"/>
+                      <zeebe:executionListeners>
+                        <zeebe:executionListener eventType="beforeAll" type="innerStart"/>
+                      </zeebe:executionListeners>
+                    </extensionElements>
+                  </bpmn:multiInstanceLoopCharacteristics>
+                </bpmn:serviceTask>
+          </bpmn:subProcess>
+        expectedMessages: |
+          <conversion:message severity="TASK">Execution Listener at 'start' with implementation '${outerStart}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="TASK">Execution Listener at 'beforeAll' with implementation '${innerStart}' can be transformed to a job worker. Please adjust the job type.</conversion:message>
+          <conversion:message severity="REVIEW">Start execution listener '${innerStart}' on multi-instance activity was moved inside the multi-instance body as a 'beforeAll' listener to preserve pre-evaluation semantic (Camunda 8.9+).</conversion:message>
+          <conversion:message severity="REVIEW">Delegate class or expression '${innerService}' has been transformed to job type 'innerService'.</conversion:message>
+          <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${items}' -&gt; '=items'.</conversion:message>
+          <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
   - category: service tasks
     cases:
       - name: Service Task with class
