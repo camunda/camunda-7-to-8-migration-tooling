@@ -32,6 +32,35 @@ A comprehensive toolkit for converting Camunda 7 code to Camunda 8. This module 
 
 For detailed information, see the [Code Conversion README](./code-conversion/README.md).
 
+### [AI Agent Skill](./agentic-migration-skills/)
+
+An [Agent Skill](https://agentskills.io/) that guides you through the full migration interactively — no copy-pasting prompts from docs. Works with any [Agent Skills](https://agentskills.io/)-compatible AI coding agent.
+
+**Install with Claude Code:**
+
+```bash
+claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
+claude plugin install camunda-migration
+```
+
+**Other agents** — the skill follows the [Agent Skills](https://agentskills.io/) open format and works with any compatible agent. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for manual installation.
+
+**Use** (from your project directory):
+
+```
+/camunda-migration:migrate-c7-to-c8
+```
+
+The skill will ask for your project path and walk you through three options:
+
+| Approach | What it does |
+|----------|-------------|
+| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves TODOs, config, and test code |
+| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
+| **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
+
+The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
+
 
 ## Documentation
 
@@ -91,7 +120,7 @@ The source files in this repository are made available under the [Camunda Licens
 ## Additional Resources
 
 - **[Camunda 8 Documentation](https://docs.camunda.io/)** - Official Camunda 8 documentation
-- **[Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)** - General migration guidance
-- **[Migration Analyzer](https://migration-analyzer.consulting-sandbox.camunda.cloud/)** - Tool for migrating BPMN models
+- **[Migration Guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/)** - General migration guidance
+- **[Migration Analyzer & Diagram Converter](https://diagram-converter.camunda.io/)** - Tool for migrating BPMN models and analyzing migration effort
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
-- **[GitHub Issues](https://github.com/camunda/camunda-bpm-platform/issues)** - Report bugs and request features in the issue tracker
+- **[GitHub Issues](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues)** - Report bugs and request features in the issue tracker
