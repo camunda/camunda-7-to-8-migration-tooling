@@ -10,12 +10,14 @@ package io.camunda.migration.diagram.converter.webapp;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverterResultDTO;
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -101,6 +103,15 @@ public class ConverterController {
     for (Iterator diagramFilesIterator = diagramFiles.iterator();
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
+
+      // Form files have no diagram elements to analyze - return an empty result
+      if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+        DiagramCheckResult formResult = new DiagramCheckResult();
+        formResult.setFilename(diagramFile.getOriginalFilename());
+        resultList.add(formResult);
+        continue;
+      }
+
       DiagramType diagramType = determineDiagramType(diagramFile);
 
       try (InputStream in = diagramFile.getInputStream()) {
@@ -179,13 +190,13 @@ public class ConverterController {
   }
 
   /**
-   * POST method to actually convert a BPMN or DMN model.
+   * POST method to actually convert a BPMN, DMN or form model.
    *
    * @throws InterruptedException
    */
   @PostMapping(
       value = "/convert",
-      produces = {"application/bpmn+xml", "application/dmn+xml"},
+      produces = {"application/bpmn+xml", "application/dmn+xml", MediaType.APPLICATION_JSON_VALUE},
       consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
   public ResponseEntity<?> getFile(
       @RequestParam("file") MultipartFile diagramFile,
@@ -207,6 +218,23 @@ public class ConverterController {
               required = false,
               defaultValue = "migrator")
           String dataMigrationExecutionListenerJobType) {
+
+    // Form files are converted by updating the JSON metadata fields
+    if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+      try (InputStream in = diagramFile.getInputStream()) {
+        String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        String converted = FormConverter.convert(content);
+        Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
+        return ResponseEntity.ok()
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"converted-c8-" + diagramFile.getOriginalFilename() + "\"")
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body(file);
+      } catch (IOException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+      }
+    }
 
     DiagramType diagramType = determineDiagramType(diagramFile);
     try (InputStream in = diagramFile.getInputStream()) {
@@ -271,6 +299,20 @@ public class ConverterController {
     for (Iterator diagramFilesIterator = diagramFiles.iterator();
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
+
+      // Form files are converted by updating the JSON metadata fields
+      if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+        try (InputStream in = diagramFile.getInputStream()) {
+          String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+          String converted = FormConverter.convert(content);
+          Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
+          resultList.put("converted-c8-" + diagramFile.getOriginalFilename(), file);
+        } catch (IOException e) {
+          LOG.error("IO Error while converting form file in batch", e);
+          return ResponseEntity.badRequest().body(e.getMessage());
+        }
+        continue;
+      }
 
       DiagramType diagramType = determineDiagramType(diagramFile);
       try (InputStream in = diagramFile.getInputStream()) {
