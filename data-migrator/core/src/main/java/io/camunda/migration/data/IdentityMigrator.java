@@ -11,6 +11,7 @@ import static io.camunda.migration.data.MigratorMode.LIST_MIGRATED;
 import static io.camunda.migration.data.MigratorMode.LIST_SKIPPED;
 import static io.camunda.migration.data.MigratorMode.MIGRATE;
 import static io.camunda.migration.data.MigratorMode.RETRY_SKIPPED;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.rethrowIfC8Offline;
 
 import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.migration.data.config.property.MigratorProperties;
@@ -160,6 +161,7 @@ public class IdentityMigrator {
       identitySync.waitUserVisible(user.getId());
     } catch (MigratorException e) {
       markUserAsSkipped(user.getId(), e.getMessage());
+      rethrowIfC8Offline(e);
     }
   }
 
@@ -172,6 +174,7 @@ public class IdentityMigrator {
       identitySync.waitGroupVisible(group.getId());
     } catch (MigratorException e) {
       markGroupAsSkipped(group, e.getMessage());
+      rethrowIfC8Offline(e);
       return; // Only migrate memberships if group migration was successful
     }
     migrateGroupMemberships(group.getId());
@@ -186,6 +189,7 @@ public class IdentityMigrator {
       identitySync.waitTenantVisible(tenant.getId());
     } catch (MigratorException e) {
       markTenantAsSkipped(tenant, e.getMessage());
+      rethrowIfC8Offline(e);
       return; // Only migrate memberships if tenant migration was successful
     }
     migrateTenantMemberships(tenant.getId());
@@ -213,6 +217,7 @@ public class IdentityMigrator {
         saveRecord(IdKeyMapper.TYPE.AUTHORIZATION, authorization.getId(), migratedAuths.getFirst().getAuthorizationKey());
       } catch (MigratorException e) {
         markAuthorizationAsSkipped(authorization, e.getMessage());
+        rethrowIfC8Offline(e);
       }
     } else {
       markAuthorizationAsSkipped(authorization, mappingResult.getReason());
@@ -229,6 +234,7 @@ public class IdentityMigrator {
         IdentityMigratorLogs.logMigratedGroupMembership(groupId, user.getId());
       } catch (MigratorException e) {
         IdentityMigratorLogs.logCannotMigrateGroupMembership(groupId, user.getId(), e.getMessage());
+        rethrowIfC8Offline(e);
       }
     }
   }
@@ -245,6 +251,7 @@ public class IdentityMigrator {
         IdentityMigratorLogs.logMigratedTenantMembership(tenantId, OwnerType.USER.name(), user.getId());
       } catch (MigratorException e) {
         IdentityMigratorLogs.logCannotMigrateTenantMembership(tenantId, OwnerType.USER.name(), user.getId(), e.getMessage());
+        rethrowIfC8Offline(e);
       }
     }
 
@@ -256,7 +263,8 @@ public class IdentityMigrator {
         c8Client.createGroupTenantAssignment(tenantId, group.getId());
         IdentityMigratorLogs.logMigratedTenantMembership(tenantId, OwnerType.GROUP.name(), group.getId());
       } catch (MigratorException e) {
-        IdentityMigratorLogs.logCannotMigrateTenantMembership(tenantId, OwnerType.USER.name(), group.getId(), e.getMessage());
+        IdentityMigratorLogs.logCannotMigrateTenantMembership(tenantId, OwnerType.GROUP.name(), group.getId(), e.getMessage());
+        rethrowIfC8Offline(e);
       }
     }
   }

@@ -17,6 +17,7 @@ import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILUR
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
+import static io.camunda.migration.data.impl.util.ExceptionUtils.rethrowIfC8Offline;
 import static java.lang.String.format;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.camunda.bpm.engine.authorization.Resources.APPLICATION;
@@ -67,6 +68,7 @@ public class AuthorizationManager {
     try {
       return attemptToMapAuthorization(authorization);
     } catch (MigratorException e) {
+      rethrowIfC8Offline(e);
       return AuthorizationMappingResult.failure(format(FAILURE_UNEXPECTED_ERROR, authorization.getId(), e.getMessage()));
     }
   }
