@@ -7,11 +7,44 @@
  */
 package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
-import io.camunda.migration.diagram.converter.visitor.AbstractCurrentlyNotSupportedAttributeVisitor;
+import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.NamespaceUri;
+import io.camunda.migration.diagram.converter.convertible.AbstractProcessElementConvertible;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
+import io.camunda.migration.diagram.converter.message.Message;
+import io.camunda.migration.diagram.converter.message.MessageFactory;
+import io.camunda.migration.diagram.converter.visitor.AbstractSupportedAttributeVisitor;
+import org.apache.commons.lang3.StringUtils;
 
-public class TaskPriorityVisitor extends AbstractCurrentlyNotSupportedAttributeVisitor {
+public class TaskPriorityVisitor extends AbstractSupportedAttributeVisitor {
   @Override
   public String attributeLocalName() {
     return "taskPriority";
+  }
+
+  @Override
+  protected Message visitSupportedAttribute(DomElementVisitorContext context, String attribute) {
+    ExpressionTransformationResult priority =
+        ExpressionTransformer.transformToFeel("Task priority", attribute);
+    Message outOfRange =
+        PriorityRangeValidator.outOfRangeOrNull(priority, context.getElement().getLocalName());
+    if (outOfRange != null) {
+      return outOfRange;
+    }
+    context.addConversion(
+        AbstractProcessElementConvertible.class,
+        conv -> conv.getZeebeJobPriorityDefinition().setPriority(priority.result()));
+
+    String siblingJobPriority =
+        context.getElement().getAttribute(NamespaceUri.CAMUNDA, "jobPriority");
+    if (StringUtils.isNotBlank(siblingJobPriority)) {
+      return MessageFactory.jobPriorityCollision(
+          context.getElement().getLocalName(), siblingJobPriority, attribute);
+    }
+    return ExpressionTransformationResultMessageFactory.getMessage(
+        priority,
+        "https://docs.camunda.io/docs/components/concepts/job-workers/#job-prioritization");
   }
 }

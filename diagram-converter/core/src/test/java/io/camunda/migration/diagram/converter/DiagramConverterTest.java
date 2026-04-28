@@ -572,6 +572,49 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void testJobPriorityOnProcessAndServiceTask() {
+    BpmnModelInstance modelInstance = loadAndConvert("job-priority.bpmn");
+
+    DomElement process = modelInstance.getDocument().getElementById("JobPriorityProcess");
+    assertThat(jobPriority(process)).isEqualTo("70");
+
+    DomElement literalTask = modelInstance.getDocument().getElementById("ServiceTaskLiteral");
+    assertThat(jobPriority(literalTask)).isEqualTo("90");
+
+    DomElement feelTask = modelInstance.getDocument().getElementById("ServiceTaskFeel");
+    assertThat(jobPriority(feelTask)).isEqualTo("=jobPriority");
+
+    DomElement externalOnly = modelInstance.getDocument().getElementById("ServiceTaskExternalOnly");
+    assertThat(jobPriority(externalOnly)).isEqualTo("60");
+
+    DiagramCheckResult result = loadAndCheck("job-priority.bpmn");
+    assertThat(result.getResult("ServiceTaskFeel").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(
+            m ->
+                m.contains("Job priority")
+                    && m.contains("${jobPriority}")
+                    && m.contains("=jobPriority"));
+    assertThat(result.getResult("JobPriorityProcess").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(
+            m ->
+                m.contains("Both 'camunda:jobPriority'")
+                    && m.contains("'50'")
+                    && m.contains("'70'")
+                    && m.contains("used 'taskPriority'"));
+  }
+
+  private static String jobPriority(DomElement element) {
+    DomElement extensionElements =
+        element.getChildElementsByNameNs(BPMN, "extensionElements").get(0);
+    return extensionElements
+        .getChildElementsByNameNs(ZEEBE, "jobPriorityDefinition")
+        .get(0)
+        .getAttribute("priority");
+  }
+
+  @Test
   void shouldGenerateReviewMessageForConditionalEventDefinitionWithGeneratedId() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setPlatformVersion("8.9");
