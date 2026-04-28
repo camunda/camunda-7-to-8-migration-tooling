@@ -32,7 +32,7 @@
     <version.camunda-7>7.24.3-ee</version.camunda-7>
     <version.camunda-8>8.8.19</version.camunda-8>
     <version.elasticsearch>8.19.6</version.elasticsearch>
-    <version.spring-boot>3.5.13</version.spring-boot>
+    <version.spring-boot>4.0.6</version.spring-boot>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.0.3</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
