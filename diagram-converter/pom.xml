@@ -16,7 +16,7 @@
   <properties>
     <version.jsoup>1.22.2</version.jsoup>
     <version.picocli>4.7.7</version.picocli>
-    <version.commons-io>2.21.0</version.commons-io>
+    <version.commons-io>2.22.0</version.commons-io>
     <version.slack-api-client>1.48.1</version.slack-api-client>
     <version.opencsv>5.12.0</version.opencsv>
     <version.grpc>1.80.0</version.grpc>
