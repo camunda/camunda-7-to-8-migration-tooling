@@ -143,7 +143,7 @@ jobs:
         run: mvn verify -PcheckFormat --batch-mode
 
       - name: Set up Node.js for pattern validation
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
 
@@ -277,6 +277,7 @@ jobs:
         run: >-
           mvn compile test-compile
           -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dc8.api=previous
           -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
           --batch-mode
 
@@ -845,8 +846,10 @@ jobs:
         include:
           - camunda-version: ${{ needs.read-versions.outputs.camunda-8-version }}
             camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-docker-image-version }}
+            c8-api: current
           - camunda-version: ${{ needs.read-versions.outputs.camunda-8-previous-version }}
             camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
+            c8-api: previous
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -877,6 +880,7 @@ jobs:
         run: >-
           mvn verify -P${{ matrix.database }},integration
           -Dversion.camunda-8=${{ matrix.camunda-version }}
+          -Dc8.api=${{ matrix.c8-api }}
           -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption

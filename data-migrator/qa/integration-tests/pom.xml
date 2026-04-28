@@ -15,13 +15,19 @@
   <description>Integration tests for the data migrator</description>
 
   <properties>
-    <version.testcontainers>2.0.4</version.testcontainers>
+    <version.testcontainers>2.0.5</version.testcontainers>
     <version.postgres>42.7.10</version.postgres>
     <version.oracle>23.26.1.0.0</version.oracle>
-    <version.mysql>9.6.0</version.mysql>
+    <version.mysql>9.7.0</version.mysql>
     <version.mariadb>3.5.8</version.mariadb>
     <version.sqlserver>13.4.0.jre11</version.sqlserver>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
+    <!--
+      Camunda 8 API compat source directory. Defaults to the current C8 version.
+      Overridden by the c8-previous-api profile when building against the previous C8 version.
+      See the c8-previous-api profile below and C8QueryCompat.java for details.
+    -->
+    <c8.compat.source.dir>src/test/java-c8-current</c8.compat.source.dir>
   </properties>
 
   <dependencies>
@@ -121,7 +127,7 @@
     <dependency>
       <groupId>com.tngtech.archunit</groupId>
       <artifactId>archunit-junit5</artifactId>
-      <version>1.4.1</version>
+      <version>1.4.2</version>
       <scope>test</scope>
     </dependency>
     <!-- H2 -->
@@ -216,10 +222,55 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.5</version>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>add-c8-compat-test-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${c8.compat.source.dir}</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
   <profiles>
+    <!--
+      Camunda 8 API compatibility profile.
+
+      The integration tests delegate version-specific query construction to
+      io.camunda.migration.data.qa.c8compat.C8QueryCompat. Two parallel
+      implementations live under src/test/java-c8-current (default) and
+      src/test/java-c8-previous. The build-helper plugin in the main <build>
+      section wires in ${c8.compat.source.dir}; this profile overrides that
+      property when building against the previous C8 version.
+
+      Activate via -Dc8.api=previous alongside -Dversion.camunda-8=<previous-version>.
+      Using a dedicated flag (rather than matching on the version literal)
+      decouples this activation from version bumps in the parent POM.
+    -->
+    <profile>
+      <id>c8-previous-api</id>
+      <activation>
+        <property>
+          <name>c8.api</name>
+          <value>previous</value>
+        </property>
+      </activation>
+      <properties>
+        <c8.compat.source.dir>src/test/java-c8-previous</c8.compat.source.dir>
+      </properties>
+    </profile>
     <profile>
       <id>postgresql</id>
       <build>

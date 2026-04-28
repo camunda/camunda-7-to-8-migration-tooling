@@ -8,8 +8,12 @@
 export const c8_8 = {
 	openapi: "3.0.3",
 	info: {
-		title: "Camunda 8 REST API",
+		title: "Orchestration Cluster API",
 		version: "0.1",
+		contact: {
+			name: "Camunda Engineering",
+			url: "https://github.com/camunda/camunda/issues",
+		},
 		description: "API for communicating with a Camunda 8 cluster.",
 		license: {
 			name: "Camunda License Version 1.0",
@@ -18,7 +22,7 @@ export const c8_8 = {
 	},
 	externalDocs: {
 		description: "Find out more",
-		url: "https://docs.camunda.io/docs/apis-tools/camunda-api-rest/camunda-api-rest-overview/",
+		url: "https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/",
 	},
 	servers: [
 		{
@@ -26,15 +30,17 @@ export const c8_8 = {
 			variables: {
 				host: {
 					default: "localhost",
-					description: "The hostname of the Camunda 8 REST Gateway.",
+					description:
+						"The hostname of the Orchestration Cluster REST Gateway.",
 				},
 				port: {
 					default: "8080",
-					description: "The port of the Camunda 8 REST API server.",
+					description: "The port of the Orchestration Cluster REST API server.",
 				},
 				schema: {
 					default: "http",
-					description: "The schema of the Camunda 8 REST API server.",
+					description:
+						"The schema of the Orchestration Cluster REST API server.",
 				},
 			},
 		},
@@ -92,6 +98,9 @@ export const c8_8 = {
 			name: "Message",
 		},
 		{
+			name: "Message subscription",
+		},
+		{
 			name: "Process definition",
 		},
 		{
@@ -104,16 +113,19 @@ export const c8_8 = {
 			name: "Role",
 		},
 		{
+			name: "Setup",
+		},
+		{
 			name: "Signal",
+		},
+		{
+			name: "System",
 		},
 		{
 			name: "Tenant",
 		},
 		{
 			name: "User",
-		},
-		{
-			name: "Usage metrics",
 		},
 		{
 			name: "User task",
@@ -125,6 +137,7 @@ export const c8_8 = {
 	paths: {
 		"/topology": {
 			get: {
+				"x-eventually-consistent": false,
 				tags: ["Cluster"],
 				operationId: "getTopology",
 				summary: "Get cluster topology",
@@ -142,8 +155,31 @@ export const c8_8 = {
 							},
 						},
 					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/status": {
+			get: {
+				"x-eventually-consistent": false,
+				tags: ["Cluster"],
+				operationId: "getStatus",
+				summary: "Get cluster status",
+				description:
+					"Checks the health status of the cluster by verifying if there's at least one partition with a healthy leader.",
+				responses: {
+					204: {
+						description:
+							"The cluster is UP and has at least one partition with a healthy leader.",
+					},
+					503: {
+						description:
+							"The cluster is DOWN and does not have any partition with a healthy leader.",
 					},
 				},
 			},
@@ -153,12 +189,10 @@ export const c8_8 = {
 				tags: ["License"],
 				operationId: "getLicense",
 				summary: "Get license status",
-				description:
-					"Obtains the status of the current Camunda license.",
+				description: "Obtains the status of the current Camunda license.",
 				responses: {
 					200: {
-						description:
-							"Obtains the current status of the Camunda license.",
+						description: "Obtains the current status of the Camunda license.",
 						content: {
 							"application/json": {
 								schema: {
@@ -171,6 +205,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/authentication/me": {
@@ -179,10 +214,14 @@ export const c8_8 = {
 				operationId: "getAuthentication",
 				summary: "Get current user",
 				description: "Retrieves the current authenticated user.",
+				security: [
+					{
+						BearerAuth: [],
+					},
+				],
 				responses: {
 					200: {
-						description:
-							"The current user is successfully returned.",
+						description: "The current user is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -194,10 +233,14 @@ export const c8_8 = {
 					401: {
 						$ref: "#/components/responses/Unauthorized",
 					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/jobs/activation": {
@@ -207,6 +250,7 @@ export const c8_8 = {
 				summary: "Activate jobs",
 				description:
 					"Iterate through all known partitions and activate jobs up to the requested maximum.\n",
+				"x-eventually-consistent": false,
 				requestBody: {
 					required: true,
 					content: {
@@ -231,10 +275,67 @@ export const c8_8 = {
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					500: {
+						description:
+							"An Internal Error occurred. More details are provided in the response body. If the response body contains RESOURCE_EXHAUSTED, this signals back pressure.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
+				},
+			},
+		},
+		"/jobs/search": {
+			post: {
+				tags: ["Job"],
+				operationId: "searchJobs",
+				summary: "Search jobs",
+				description: "Search for jobs based on given criteria.",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/JobSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The job search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/JobSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/jobs/{jobKey}/failure": {
@@ -250,7 +351,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the job to fail.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/JobKey",
 						},
 					},
 				],
@@ -273,7 +374,7 @@ export const c8_8 = {
 					},
 					404: {
 						description:
-							"The job with the given jobKey is not found.\n",
+							"The job with the given jobKey is not found. It was completed by another worker, or the process instance itself was canceled.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -284,7 +385,7 @@ export const c8_8 = {
 					},
 					409: {
 						description:
-							"The job with the given key is in the wrong state currently. More details are provided in the response body.\n",
+							"The job with the given key is in the wrong state (i.e: not ACTIVATED or ACTIVATABLE). The job was failed by another worker with retries = 0, and the process is now in an incident state.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -296,7 +397,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/jobs/{jobKey}/error": {
@@ -313,7 +418,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the job.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/JobKey",
 						},
 					},
 				],
@@ -335,8 +440,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The job with the given jobKey is not found.\n",
+						description: "The job with the given jobKey is not found.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -359,7 +463,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/jobs/{jobKey}/completion": {
@@ -376,7 +484,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the job to complete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/JobKey",
 						},
 					},
 				],
@@ -398,8 +506,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The job with the given key was not found.",
+						description: "The job with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -422,7 +529,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/jobs/{jobKey}": {
@@ -438,7 +549,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the job to update.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/JobKey",
 						},
 					},
 				],
@@ -483,7 +594,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/incidents/{incidentKey}/resolution": {
@@ -500,10 +615,20 @@ export const c8_8 = {
 						required: true,
 						description: "Key of the incident to resolve.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/IncidentKey",
 						},
 					},
 				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/IncidentResolutionRequest",
+							},
+						},
+					},
+				},
 				responses: {
 					204: {
 						description: "The incident is marked as resolved.",
@@ -512,8 +637,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The incident with the incidentKey is not found.",
+						description: "The incident with the incidentKey is not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -525,7 +649,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/tenants": {
@@ -571,10 +699,17 @@ export const c8_8 = {
 							},
 						},
 					},
+					409: {
+						description: "Tenant with this id already exists.",
+					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/tenants/{tenantId}": {
@@ -588,9 +723,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -628,6 +762,10 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
+				"x-operation-kind": {
+					kind: "query",
+				},
 			},
 			put: {
 				tags: ["Tenant"],
@@ -639,9 +777,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -685,6 +822,13 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
+				},
+				"x-eventually-consistent": false,
+				"x-operation-kind": {
+					kind: "update",
 				},
 			},
 			delete: {
@@ -697,9 +841,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -726,6 +869,13 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
+				},
+				"x-eventually-consistent": false,
+				"x-operation-kind": {
+					kind: "delete",
 				},
 			},
 		},
@@ -734,7 +884,8 @@ export const c8_8 = {
 				tags: ["Tenant"],
 				operationId: "assignUserToTenant",
 				summary: "Assign a user to a tenant",
-				description: "Assign a single user to a specified tenant.",
+				description:
+					"Assign a single user to a specified tenant. The user can then access tenant data and perform authorized actions.",
 				parameters: [
 					{
 						name: "tenantId",
@@ -742,7 +893,7 @@ export const c8_8 = {
 						required: true,
 						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -751,14 +902,13 @@ export const c8_8 = {
 						required: true,
 						description: "The username of the user to assign.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
 					204: {
-						description:
-							"The user was successfully assigned to the tenant.",
+						description: "The user was successfully assigned to the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -767,8 +917,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or user was not found.",
+						description: "Not found. The tenant or user was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -780,14 +929,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Tenant"],
-				operationId: "removeUserFromTenant",
-				summary: "Remove a user from a tenant",
+				operationId: "unassignUserFromTenant",
+				summary: "Unassign a user from a tenant",
 				description:
-					"Removes a single user from a specified tenant without deleting the user.",
+					"Unassigns the user from the specified tenant.\nThe user can no longer access tenant data.\n",
 				parameters: [
 					{
 						name: "tenantId",
@@ -795,7 +948,7 @@ export const c8_8 = {
 						required: true,
 						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -804,14 +957,14 @@ export const c8_8 = {
 						required: true,
 						description: "The unique identifier of the user.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
 					204: {
 						description:
-							"The user was successfully removed from the tenant.",
+							"The user was successfully unassigned from the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -820,8 +973,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or user was not found.",
+						description: "Not found. The tenant or user was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -833,7 +985,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/tenants/{tenantId}/users/search": {
@@ -848,9 +1004,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -866,8 +1021,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The search result of users for the tenant.",
+						description: "The search result of users for the tenant.",
 						content: {
 							"application/json": {
 								schema: {
@@ -876,6 +1030,10 @@ export const c8_8 = {
 							},
 						},
 					},
+				},
+				"x-eventually-consistent": true,
+				"x-operation-kind": {
+					kind: "query",
 				},
 			},
 		},
@@ -891,9 +1049,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -909,8 +1066,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The search result of users for the tenant.",
+						description: "The search result of users for the tenant.",
 						content: {
 							"application/json": {
 								schema: {
@@ -920,12 +1076,16 @@ export const c8_8 = {
 						},
 					},
 				},
+				"x-eventually-consistent": true,
+				"x-operation-kind": {
+					kind: "query",
+				},
 			},
 		},
 		"/tenants/{tenantId}/groups/search": {
 			post: {
 				tags: ["Tenant"],
-				operationId: "searchGroupsForTenant",
+				operationId: "searchGroupIdsForTenant",
 				summary: "Search groups for tenant",
 				description:
 					"Retrieves a filtered and sorted list of groups for a specified tenant.",
@@ -934,9 +1094,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -945,23 +1104,26 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/GroupSearchQueryRequest",
+								$ref: "#/components/schemas/TenantGroupSearchQueryRequest",
 							},
 						},
 					},
 				},
 				responses: {
 					200: {
-						description:
-							"The search result of groups for the tenant.",
+						description: "The search result of groups for the tenant.",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/GroupSearchQueryResult",
+									$ref: "#/components/schemas/TenantGroupSearchResult",
 								},
 							},
 						},
 					},
+				},
+				"x-eventually-consistent": true,
+				"x-operation-kind": {
+					kind: "query",
 				},
 			},
 		},
@@ -977,9 +1139,8 @@ export const c8_8 = {
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -995,8 +1156,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The search result of roles for the tenant.",
+						description: "The search result of roles for the tenant.",
 						content: {
 							"application/json": {
 								schema: {
@@ -1006,6 +1166,10 @@ export const c8_8 = {
 						},
 					},
 				},
+				"x-eventually-consistent": true,
+				"x-operation-kind": {
+					kind: "query",
+				},
 			},
 		},
 		"/tenants/{tenantId}/clients/{clientId}": {
@@ -1013,15 +1177,15 @@ export const c8_8 = {
 				tags: ["Tenant"],
 				operationId: "assignClientToTenant",
 				summary: "Assign a client to a tenant",
-				description: "Assign a client to a specified tenant.",
+				description:
+					"Assign the client to the specified tenant.\nThe client can then access tenant data and perform authorized actions.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -1036,8 +1200,7 @@ export const c8_8 = {
 				],
 				responses: {
 					204: {
-						description:
-							"The client was successfully assigned to the tenant.",
+						description: "The client was successfully assigned to the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1058,29 +1221,32 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Tenant"],
-				operationId: "removeClientFromTenant",
-				summary: "Remove a client from a tenant",
-				description: "Removes a single client from a specified tenant.",
+				operationId: "unassignClientFromTenant",
+				summary: "Unassign a client from a tenant",
+				description:
+					"Unassigns the client from the specified tenant.\nThe client can no longer access tenant data.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
 						name: "clientId",
 						in: "path",
 						required: true,
-						description:
-							"The unique identifier of the application.",
+						description: "The unique identifier of the application.",
 						schema: {
 							type: "string",
 						},
@@ -1089,7 +1255,7 @@ export const c8_8 = {
 				responses: {
 					204: {
 						description:
-							"The client was successfully removed from the tenant.",
+							"The client was successfully unassigned from the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1111,32 +1277,33 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/tenants/{tenantId}/mappings/{mappingId}": {
+		"/tenants/{tenantId}/mapping-rules/{mappingRuleId}": {
 			put: {
 				tags: ["Tenant"],
 				operationId: "assignMappingRuleToTenant",
 				summary: "Assign a mapping rule to a tenant",
-				description:
-					"Assign a single mapping rule to a specified tenant.",
+				description: "Assign a single mapping rule to a specified tenant.",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
-						description:
-							"The unique identifier of the mapping rule.",
+						description: "The unique identifier of the mapping rule.",
 						schema: {
 							type: "string",
 						},
@@ -1154,8 +1321,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or mapping rule was not found.",
+						description: "Not found. The tenant or mapping rule was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1167,30 +1333,32 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Tenant"],
-				operationId: "removeMappingRuleFromTenant",
-				summary: "Remove a mapping rule from a tenant",
+				operationId: "unassignMappingRuleFromTenant",
+				summary: "Unassign a mapping rule from a tenant",
 				description:
-					"Removes a single mapping rule from a specified tenant without deleting the rule.",
+					"Unassigns a single mapping rule from a specified tenant without deleting the rule.",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
-						description:
-							"The unique identifier of the mapping rule.",
+						description: "The unique identifier of the mapping rule.",
 						schema: {
 							type: "string",
 						},
@@ -1199,7 +1367,7 @@ export const c8_8 = {
 				responses: {
 					204: {
 						description:
-							"The mapping rule was successfully removed from the tenant.",
+							"The mapping rule was successfully unassigned from the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1208,8 +1376,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or mapping rule was not found.",
+						description: "Not found. The tenant or mapping rule was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1221,24 +1388,27 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/tenants/{tenantId}/mappings/search": {
+		"/tenants/{tenantId}/mapping-rules/search": {
 			post: {
 				tags: ["Tenant"],
-				operationId: "searchMappingsForTenant",
-				summary: "Search mappings for tenant",
+				operationId: "searchMappingRulesForTenant",
+				summary: "Search mapping rules for tenant",
 				description:
-					"Retrieves a filtered and sorted list of mappings for a specified tenant.",
+					"Retrieves a filtered and sorted list of MappingRules for a specified tenant.",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 				],
@@ -1247,24 +1417,24 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/MappingSearchQueryRequest",
+								$ref: "#/components/schemas/MappingRuleSearchQueryRequest",
 							},
 						},
 					},
 				},
 				responses: {
 					200: {
-						description:
-							"The search result of mappings for the tenant.",
+						description: "The search result of MappingRules for the tenant.",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/MappingSearchQueryResult",
+									$ref: "#/components/schemas/MappingRuleSearchQueryResult",
 								},
 							},
 						},
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/tenants/{tenantId}/groups/{groupId}": {
@@ -1272,15 +1442,15 @@ export const c8_8 = {
 				tags: ["Tenant"],
 				operationId: "assignGroupToTenant",
 				summary: "Assign a group to a tenant",
-				description: "Assign a single group to a specified tenant.",
+				description:
+					"Assigns a group to a specified tenant.\nGroup members (users, clients) can then access tenant data and perform authorized actions.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -1295,8 +1465,7 @@ export const c8_8 = {
 				],
 				responses: {
 					204: {
-						description:
-							"The group was successfully assigned to the tenant.",
+						description: "The group was successfully assigned to the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1305,8 +1474,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or group was not found.",
+						description: "Not found. The tenant or group was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1318,22 +1486,25 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Tenant"],
-				operationId: "removeGroupFromTenant",
-				summary: "Remove a group from a tenant",
+				operationId: "unassignGroupFromTenant",
+				summary: "Unassign a group from a tenant",
 				description:
-					"Removes a single group from a specified tenant without deleting the group.",
+					"Unassigns a group from a specified tenant.\nMembers of the group (users, clients) will no longer have access to the tenant's data - except they are assigned directly to the tenant.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -1349,7 +1520,7 @@ export const c8_8 = {
 				responses: {
 					204: {
 						description:
-							"The group was successfully removed from the tenant.",
+							"The group was successfully unassigned from the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1358,8 +1529,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or group was not found.",
+						description: "Not found. The tenant or group was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1371,7 +1541,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/tenants/{tenantId}/roles/{roleId}": {
@@ -1379,15 +1553,15 @@ export const c8_8 = {
 				tags: ["Tenant"],
 				operationId: "assignRoleToTenant",
 				summary: "Assign a role to a tenant",
-				description: "Assign a single role to a specified tenant.",
+				description:
+					"Assigns a role to a specified tenant.\nUsers, Clients or Groups, that have the role assigned, will get access to the tenant's data and can perform actions according to their authorizations.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -1402,8 +1576,7 @@ export const c8_8 = {
 				],
 				responses: {
 					204: {
-						description:
-							"The role was successfully assigned to the tenant.",
+						description: "The role was successfully assigned to the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1412,8 +1585,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or role was not found.",
+						description: "Not found. The tenant or role was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1425,22 +1597,25 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Tenant"],
-				operationId: "removeRoleFromTenant",
-				summary: "Remove a role from a tenant",
+				operationId: "unassignRoleFromTenant",
+				summary: "Unassign a role from a tenant",
 				description:
-					"Removes a single role from a specified tenant without deleting the role.",
+					"Unassigns a role from a specified tenant.\nUsers, Clients or Groups, that have the role assigned, will no longer have access to the\ntenant's data - unless they are assigned directly to the tenant.\n",
 				parameters: [
 					{
 						name: "tenantId",
 						in: "path",
 						required: true,
-						description: "The unique identifier of the tenant.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
 					},
 					{
@@ -1456,7 +1631,7 @@ export const c8_8 = {
 				responses: {
 					204: {
 						description:
-							"The role was successfully removed from the tenant.",
+							"The role was successfully unassigned from the tenant.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1465,8 +1640,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The tenant or role was not found.",
+						description: "Not found. The tenant or role was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1478,7 +1652,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/tenants/search": {
@@ -1531,6 +1709,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/user-tasks/{userTaskKey}/completion": {
@@ -1546,7 +1725,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the user task to complete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
@@ -1562,15 +1741,13 @@ export const c8_8 = {
 				},
 				responses: {
 					204: {
-						description:
-							"The user task was completed successfully.",
+						description: "The user task was completed successfully.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The user task with the given key was not found.",
+						description: "The user task with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1593,7 +1770,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/user-tasks/{userTaskKey}/assignment": {
@@ -1610,7 +1791,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the user task to assign.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
@@ -1632,8 +1813,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The user task with the given key was not found.",
+						description: "The user task with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1656,11 +1836,16 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/user-tasks/{userTaskKey}": {
 			get: {
+				"x-eventually-consistent": true,
 				tags: ["User task"],
 				operationId: "getUserTask",
 				summary: "Get user task",
@@ -1672,14 +1857,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user task key.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The user task is successfully returned.\n",
+						description: "The user task is successfully returned.\n",
 						content: {
 							"application/json": {
 								schema: {
@@ -1698,8 +1882,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The user task with the given key was not found.",
+						description: "The user task with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1725,7 +1908,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the user task to update.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
@@ -1747,8 +1930,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The user task with the given key was not found.",
+						description: "The user task with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1771,11 +1953,16 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/user-tasks/{userTaskKey}/form": {
 			get: {
+				"x-eventually-consistent": true,
 				tags: ["User task"],
 				operationId: "getUserTaskForm",
 				summary: "Get user task form",
@@ -1788,13 +1975,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user task key.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description: "The form is successfully returned.\n",
+						description: "The form is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -1805,7 +1992,7 @@ export const c8_8 = {
 					},
 					204: {
 						description:
-							"The user task was found, but no form is associated with it.\n",
+							"The user task was found, but no form is associated with it.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -1837,8 +2024,7 @@ export const c8_8 = {
 				tags: ["User task"],
 				operationId: "unassignUserTask",
 				summary: "Unassign user task",
-				description:
-					"Removes the assignee of a task with the given key.",
+				description: "Removes the assignee of a task with the given key.",
 				parameters: [
 					{
 						name: "userTaskKey",
@@ -1846,21 +2032,19 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the user task.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
 						},
 					},
 				],
 				responses: {
 					204: {
-						description:
-							"The user task was unassigned successfully.",
+						description: "The user task was unassigned successfully.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
 					404: {
-						description:
-							"The user task with the given key was not found.",
+						description: "The user task with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -1883,7 +2067,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/user-tasks/search": {
@@ -1904,7 +2092,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The user task search result.\n",
+						description: "The user task search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -1926,15 +2114,17 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/user-tasks/{userTaskKey}/variables/search": {
 			post: {
+				"x-eventually-consistent": true,
 				tags: ["User task"],
 				operationId: "searchUserTaskVariables",
 				summary: "Search user task variables",
 				description:
-					"Search for user task variables based on given criteria.\n",
+					"Search for user task variables based on given criteria. By default, long variable values in the response are truncated.\n",
 				parameters: [
 					{
 						name: "userTaskKey",
@@ -1942,7 +2132,17 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the user task.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/UserTaskKey",
+						},
+					},
+					{
+						name: "truncateValues",
+						in: "query",
+						required: false,
+						description:
+							"When true (default), long variable values in the response are truncated. When false, full variable values are returned.",
+						schema: {
+							type: "boolean",
 						},
 					},
 				],
@@ -1958,8 +2158,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The user task variables search response.\n",
+						description: "The user task variables search response.\n",
 						content: {
 							"application/json": {
 								schema: {
@@ -1983,7 +2182,19 @@ export const c8_8 = {
 				operationId: "searchVariables",
 				summary: "Search variables",
 				description:
-					"Search for process and local variables based on given criteria.\n",
+					"Search for process and local variables based on given criteria. By default, long variable values in the response are truncated.\n",
+				parameters: [
+					{
+						name: "truncateValues",
+						in: "query",
+						required: false,
+						description:
+							"When true (default), long variable values in the response are truncated. When false, full variable values are returned.",
+						schema: {
+							type: "boolean",
+						},
+					},
+				],
 				requestBody: {
 					required: false,
 					content: {
@@ -1996,7 +2207,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The variable search result.\n",
+						description: "The variable search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2018,6 +2229,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/variables/{variableKey}": {
@@ -2033,13 +2245,13 @@ export const c8_8 = {
 						required: true,
 						description: "The variable key.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/VariableKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description: "The variable is successfully returned.\n",
+						description: "The variable is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2071,6 +2283,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/clock": {
@@ -2101,7 +2314,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/clock/reset": {
@@ -2113,13 +2330,16 @@ export const c8_8 = {
 					"Resets the Zeebe engine’s internal clock to the current system time, enabling it to tick in real-time.\nThis operation is useful for returning the clock to\nnormal behavior after it has been pinned to a specific time.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
 				responses: {
 					204: {
-						description:
-							"The clock was successfully reset to the system time.",
+						description: "The clock was successfully reset to the system time.",
 					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-definitions/search": {
@@ -2141,7 +2361,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The process definition search result.\n",
+						description: "The process definition search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2163,6 +2383,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-definitions/{processDefinitionKey}": {
@@ -2177,16 +2398,15 @@ export const c8_8 = {
 						in: "path",
 						required: true,
 						description:
-							"The assigned key of the process definition, which acts as a unique identifier for this process definition.",
+							"The assigned key of the process definition, which acts as a unique identifier for this process definition.\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessDefinitionKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The process definition is successfully returned.\n",
+						description: "The process definition is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2219,6 +2439,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-definitions/{processDefinitionKey}/xml": {
@@ -2233,16 +2454,16 @@ export const c8_8 = {
 						in: "path",
 						required: true,
 						description:
-							"The assigned key of the process definition, which acts as a unique identifier for this process.",
+							"The assigned key of the process definition, which acts as a unique identifier for this process definition.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessDefinitionKey",
 						},
 					},
 				],
 				responses: {
 					200: {
 						description:
-							"The XML of the process definition is successfully returned.\n",
+							"The XML of the process definition is successfully returned.",
 						content: {
 							"text/xml": {
 								schema: {
@@ -2253,7 +2474,7 @@ export const c8_8 = {
 					},
 					204: {
 						description:
-							"The process definition was found but does not have XML.\n",
+							"The process definition was found but does not have XML.",
 						content: {
 							"text/plain": {
 								schema: {
@@ -2286,6 +2507,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-definitions/{processDefinitionKey}/form": {
@@ -2302,13 +2524,13 @@ export const c8_8 = {
 						required: true,
 						description: "The process key.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessDefinitionKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description: "The form is successfully returned.\n",
+						description: "The form is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2319,7 +2541,7 @@ export const c8_8 = {
 					},
 					204: {
 						description:
-							"The process was found, but no form is associated with it.\n",
+							"The process was found, but no form is associated with it.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -2344,6 +2566,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-definitions/{processDefinitionKey}/statistics/element-instances":
@@ -2362,7 +2585,7 @@ export const c8_8 = {
 							description:
 								"The assigned key of the process definition, which acts as a unique identifier for this process definition.",
 							schema: {
-								type: "string",
+								$ref: "#/components/schemas/ProcessDefinitionKey",
 							},
 						},
 					],
@@ -2378,8 +2601,7 @@ export const c8_8 = {
 					},
 					responses: {
 						200: {
-							description:
-								"The process definition statistics result.",
+							description: "The process definition statistics result.",
 							content: {
 								"application/json": {
 									schema: {
@@ -2401,6 +2623,7 @@ export const c8_8 = {
 							$ref: "#/components/responses/InternalServerError",
 						},
 					},
+					"x-eventually-consistent": true,
 				},
 			},
 		"/process-instances": {
@@ -2419,10 +2642,9 @@ export const c8_8 = {
 							},
 							examples: {
 								"By process definition key": {
-									summary:
-										"Create a process instance by processDefinitionKey.",
+									summary: "Create a process instance by processDefinitionKey.",
 									value: {
-										processDefinitionKey: "12345",
+										processDefinitionKey: "12345543223453245",
 										variables: {},
 									},
 								},
@@ -2430,8 +2652,8 @@ export const c8_8 = {
 									summary:
 										"Create a process instance by processDefinitionId and version.",
 									value: {
-										processDefinitionId: "1234-5678",
-										version: 1,
+										processDefinitionId: "my-business-process",
+										processDefinitionVersion: 1,
 										variables: {},
 									},
 								},
@@ -2456,6 +2678,9 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 					504: {
 						description:
 							"The process instance creation request timed out in the gateway.\n\nThis can happen if the `awaitCompletion` request parameter is set to `true`\nand the created process instance did not complete within the defined request timeout.\nThis often happens when the created instance is not fully automated or contains wait states.\n",
@@ -2468,6 +2693,7 @@ export const c8_8 = {
 						},
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/{processInstanceKey}": {
@@ -2475,8 +2701,7 @@ export const c8_8 = {
 				tags: ["Process instance"],
 				operationId: "getProcessInstance",
 				summary: "Get process instance",
-				description:
-					"Get the process instance by the process instance key.\n",
+				description: "Get the process instance by the process instance key.\n",
 				parameters: [
 					{
 						name: "processInstanceKey",
@@ -2484,14 +2709,13 @@ export const c8_8 = {
 						required: true,
 						description: "The process instance key.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The process instance is successfully returned.",
+						description: "The process instance is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2524,6 +2748,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-instances/{processInstanceKey}/sequence-flows": {
@@ -2531,8 +2756,7 @@ export const c8_8 = {
 				tags: ["Process instance"],
 				operationId: "getProcessInstanceSequenceFlows",
 				summary: "Get process instance sequence flows",
-				description:
-					"Get sequence flows taken by the process instance.\n",
+				description: "Get sequence flows taken by the process instance.\n",
 				parameters: [
 					{
 						name: "processInstanceKey",
@@ -2541,14 +2765,13 @@ export const c8_8 = {
 						description:
 							"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The process instance sequence flows result.",
+						description: "The process instance sequence flows result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -2570,62 +2793,61 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
-		"/process-instances/{processInstanceKey}/statistics/element-instances":
-			{
-				get: {
-					tags: ["Process instance"],
-					operationId: "getProcessInstanceStatistics",
-					summary: "Get process instance statistics",
-					description:
-						"Get statistics about elements by the process instance key.\n",
-					parameters: [
-						{
-							name: "processInstanceKey",
-							in: "path",
-							required: true,
-							description:
-								"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
-							schema: {
-								type: "string",
-							},
+		"/process-instances/{processInstanceKey}/statistics/element-instances": {
+			get: {
+				tags: ["Process instance"],
+				operationId: "getProcessInstanceStatistics",
+				summary: "Get process instance statistics",
+				description:
+					"Get statistics about elements by the process instance key.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+						schema: {
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
-					],
-					responses: {
-						200: {
-							description:
-								"The process instance statistics result.",
-							content: {
-								"application/json": {
-									schema: {
-										$ref: "#/components/schemas/ProcessInstanceElementStatisticsQueryResult",
-									},
+					},
+				],
+				responses: {
+					200: {
+						description: "The process instance statistics result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/ProcessInstanceElementStatisticsQueryResult",
 								},
 							},
 						},
-						400: {
-							$ref: "#/components/responses/InvalidData",
-						},
-						401: {
-							$ref: "#/components/responses/Unauthorized",
-						},
-						403: {
-							$ref: "#/components/responses/Forbidden",
-						},
-						500: {
-							$ref: "#/components/responses/InternalServerError",
-						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
+		},
 		"/process-instances/search": {
 			post: {
 				tags: ["Process instance"],
 				operationId: "searchProcessInstances",
 				summary: "Search process instances",
-				description:
-					"Search for process instances based on given criteria.\n",
+				description: "Search for process instances based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -2660,6 +2882,74 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
+			},
+		},
+		"/process-instances/{processInstanceKey}/incidents/search": {
+			post: {
+				tags: ["Process instance"],
+				operationId: "searchProcessInstanceIncidents",
+				summary: "Search for incidents associated with a process instance",
+				description:
+					"Search for incidents caused by the process instance or any of its called process or decision instances.\n",
+				parameters: [
+					{
+						name: "processInstanceKey",
+						in: "path",
+						required: true,
+						description:
+							"The assigned key of the process instance, which acts as a unique identifier for this process instance.",
+						schema: {
+							$ref: "#/components/schemas/ProcessInstanceKey",
+						},
+					},
+				],
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/ProcessInstanceIncidentSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The process instance search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/IncidentSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					404: {
+						description:
+							"The process instance with the given key was not found.",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/process-instances/{processInstanceKey}/cancellation": {
@@ -2674,10 +2964,9 @@ export const c8_8 = {
 						name: "processInstanceKey",
 						in: "path",
 						required: true,
-						description:
-							"The key of the process instance to cancel.",
+						description: "The key of the process instance to cancel.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
@@ -2711,7 +3000,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/cancellation": {
@@ -2720,13 +3013,13 @@ export const c8_8 = {
 				operationId: "cancelProcessInstancesBatchOperation",
 				summary: "Create a batch operation to cancel process instances",
 				description:
-					"Cancels multiple running process instances.\nSince only ACTIVE root instances can be cancelled, any given filters for state and\nparentProcessInstanceKey are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Cancels multiple running process instances.\nSince only ACTIVE root instances can be cancelled, any given filters for state and\nparentProcessInstanceKey are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationKey from the response and the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				requestBody: {
-					required: false,
+					required: true,
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/ProcessInstanceFilter",
+								$ref: "#/components/schemas/ProcessInstanceCancellationBatchOperationRequest",
 							},
 						},
 					},
@@ -2763,6 +3056,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/incident-resolution": {
@@ -2772,13 +3066,13 @@ export const c8_8 = {
 				summary:
 					"Create a batch operation to resolve incidents of process instances",
 				description:
-					"Resolves multiple instances of process instances.\nSince only process instances with ACTIVE state can have unresolved incidents, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Resolves multiple instances of process instances.\nSince only process instances with ACTIVE state can have unresolved incidents, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationKey from the response and the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				requestBody: {
 					required: false,
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/ProcessInstanceFilter",
+								$ref: "#/components/schemas/ProcessInstanceIncidentResolutionBatchOperationRequest",
 							},
 						},
 					},
@@ -2815,16 +3109,16 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/migration": {
 			post: {
 				tags: ["Process instance"],
 				operationId: "migrateProcessInstancesBatchOperation",
-				summary:
-					"Create a batch operation to migrate process instances",
+				summary: "Create a batch operation to migrate process instances",
 				description:
-					"Migrate multiple instances of process instances.\nSince only process instances with ACTIVE state can be migrated, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Migrate multiple instances of process instances.\nSince only process instances with ACTIVE state can be migrated, any given\nfilters for state are ignored and overridden during this batch operation.\nThis is done asynchronously, the progress can be tracked using the batchOperationKey from the response and the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				requestBody: {
 					required: true,
 					content: {
@@ -2867,6 +3161,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/modification": {
@@ -2875,7 +3170,7 @@ export const c8_8 = {
 				operationId: "modifyProcessInstancesBatchOperation",
 				summary: "Create a batch operation to modify process instances",
 				description:
-					"Modify multiple process instances.\nSince only process instances with ACTIVE state can be modified, any given\nfilters for state are ignored and overridden during this batch operation.\nIn contrast to single modification operation, it is not possible to add variable instructions or modify by element key.\nIt is only possible to use the element id of the source and target.\nThis is done asynchronously, the progress can be tracked using the batchOperationId from the response and the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Modify multiple process instances.\nSince only process instances with ACTIVE state can be modified, any given\nfilters for state are ignored and overridden during this batch operation.\nIn contrast to single modification operation, it is not possible to add variable instructions or modify by element key.\nIt is only possible to use the element id of the source and target.\nThis is done asynchronously, the progress can be tracked using the batchOperationKey from the response and the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				requestBody: {
 					required: true,
 					content: {
@@ -2918,6 +3213,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/{processInstanceKey}/migration": {
@@ -2935,7 +3231,7 @@ export const c8_8 = {
 						description:
 							"The key of the process instance that should be migrated.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
@@ -2966,10 +3262,25 @@ export const c8_8 = {
 							},
 						},
 					},
+					409: {
+						description:
+							"The process instance migration failed. More details are provided in the response body.\n",
+						content: {
+							"application/problem+json": {
+								schema: {
+									$ref: "#/components/schemas/ProblemDetail",
+								},
+							},
+						},
+					},
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/{processInstanceKey}/modification": {
@@ -2987,7 +3298,7 @@ export const c8_8 = {
 						description:
 							"The key of the process instance that should be modified.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
@@ -3021,7 +3332,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/process-instances/{processInstanceKey}/call-hierarchy": {
@@ -3039,14 +3354,13 @@ export const c8_8 = {
 						description:
 							"The key of the process instance to fetch the hierarchy for.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ProcessInstanceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The call hierarchy is successfully returned.",
+						description: "The call hierarchy is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3081,6 +3395,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/element-instances/search": {
@@ -3088,8 +3403,7 @@ export const c8_8 = {
 				tags: ["Element instance"],
 				operationId: "searchElementInstances",
 				summary: "Search element instances",
-				description:
-					"Search for element instances based on given criteria.\n",
+				description: "Search for element instances based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -3102,7 +3416,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The element instance search result.\n",
+						description: "The element instance search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3124,6 +3438,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/element-instances/{elementInstanceKey}": {
@@ -3140,14 +3455,13 @@ export const c8_8 = {
 						description:
 							"The assigned key of the element instance, which acts as a unique identifier for this element instance.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ElementInstanceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The element instance is successfully returned.\n",
+						description: "The element instance is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3180,6 +3494,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-definitions/search": {
@@ -3201,7 +3516,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The decision definition search result.\n",
+						description: "The decision definition search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3223,6 +3538,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-definitions/{decisionDefinitionKey}": {
@@ -3239,14 +3555,13 @@ export const c8_8 = {
 						description:
 							"The assigned key of the decision definition, which acts as a unique identifier for this decision.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DecisionDefinitionKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The decision definition is successfully returned.\n",
+						description: "The decision definition is successfully returned.\n",
 						content: {
 							"application/json": {
 								schema: {
@@ -3279,6 +3594,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-definitions/{decisionDefinitionKey}/xml": {
@@ -3295,14 +3611,14 @@ export const c8_8 = {
 						description:
 							"The assigned key of the decision definition, which acts as a unique identifier for this decision.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DecisionDefinitionKey",
 						},
 					},
 				],
 				responses: {
 					200: {
 						description:
-							"The XML of the decision definition is successfully returned.\n",
+							"The XML of the decision definition is successfully returned.",
 						content: {
 							"text/xml": {
 								schema: {
@@ -3335,6 +3651,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-requirements/search": {
@@ -3356,8 +3673,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The decision requirements search result.\n",
+						description: "The decision requirements search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3379,6 +3695,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-requirements/{decisionRequirementsKey}": {
@@ -3395,14 +3712,13 @@ export const c8_8 = {
 						description:
 							"The assigned key of the decision requirements, which acts as a unique identifier for this decision requirements.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DecisionRequirementsKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The decision requirements is successfully returned.\n",
+						description: "The decision requirements is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3435,6 +3751,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-requirements/{decisionRequirementsKey}/xml": {
@@ -3451,14 +3768,14 @@ export const c8_8 = {
 						description:
 							"The assigned key of the decision requirements, which acts as a unique identifier for this decision.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DecisionRequirementsKey",
 						},
 					},
 				],
 				responses: {
 					200: {
 						description:
-							"The XML of the decision requirements is successfully returned.\n",
+							"The XML of the decision requirements is successfully returned.",
 						content: {
 							"text/xml": {
 								schema: {
@@ -3491,6 +3808,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-instances/search": {
@@ -3498,8 +3816,7 @@ export const c8_8 = {
 				tags: ["Decision instance"],
 				operationId: "searchDecisionInstances",
 				summary: "Search decision instances",
-				description:
-					"Search for decision instances based on given criteria.\n",
+				description: "Search for decision instances based on given criteria.\n",
 				requestBody: {
 					required: false,
 					content: {
@@ -3512,7 +3829,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The decision instance search result.\n",
+						description: "The decision instance search result.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3534,9 +3851,10 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
-		"/decision-instances/{decisionInstanceId}": {
+		"/decision-instances/{decisionEvaluationInstanceKey}": {
 			get: {
 				tags: ["Decision instance"],
 				operationId: "getDecisionInstance",
@@ -3544,20 +3862,17 @@ export const c8_8 = {
 				description: "Returns a decision instance.\n",
 				parameters: [
 					{
-						name: "decisionInstanceId",
+						name: "decisionEvaluationInstanceKey",
 						in: "path",
 						required: true,
-						description:
-							"The assigned ID of the decision instance, which acts as a unique identifier for this decision instance.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DecisionEvaluationInstanceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The decision instance is successfully returned.\n",
+						description: "The decision instance is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3590,6 +3905,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/decision-definitions/evaluation": {
@@ -3608,16 +3924,14 @@ export const c8_8 = {
 							},
 							examples: {
 								"By decision definition key": {
-									summary:
-										"Evaluate the decision by decisionDefinitionKey.",
+									summary: "Evaluate the decision by decisionDefinitionKey.",
 									value: {
 										decisionDefinitionKey: "12345",
 										variables: {},
 									},
 								},
 								"By decision definition ID": {
-									summary:
-										"Evaluate the decision by decisionDefinitionId.",
+									summary: "Evaluate the decision by decisionDefinitionId.",
 									value: {
 										decisionDefinitionId: "1234-5678",
 										variables: {},
@@ -3654,7 +3968,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/authorizations": {
@@ -3675,8 +3993,7 @@ export const c8_8 = {
 				},
 				responses: {
 					201: {
-						description:
-							"The authorization was created successfully.\n",
+						description: "The authorization was created successfully.\n",
 						content: {
 							"application/json": {
 								schema: {
@@ -3707,7 +4024,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/authorizations/{authorizationKey}": {
@@ -3723,7 +4044,7 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the authorization to delete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/AuthorizationKey",
 						},
 					},
 				],
@@ -3739,8 +4060,7 @@ export const c8_8 = {
 				},
 				responses: {
 					204: {
-						description:
-							"The authorization was updated successfully.",
+						description: "The authorization was updated successfully.",
 					},
 					401: {
 						$ref: "#/components/responses/Unauthorized",
@@ -3759,7 +4079,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			get: {
 				tags: ["Authorization"],
@@ -3773,14 +4097,13 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the authorization to get.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/AuthorizationKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The authorization was successfully returned.",
+						description: "The authorization was successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -3796,8 +4119,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The authorization with the given key was not found.",
+						description: "The authorization with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -3810,6 +4132,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 			delete: {
 				tags: ["Authorization"],
@@ -3823,14 +4146,13 @@ export const c8_8 = {
 						required: true,
 						description: "The key of the authorization to delete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/AuthorizationKey",
 						},
 					},
 				],
 				responses: {
 					204: {
-						description:
-							"The authorization was deleted successfully.",
+						description: "The authorization was deleted successfully.",
 					},
 					401: {
 						$ref: "#/components/responses/Unauthorized",
@@ -3849,15 +4171,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/authorizations/search": {
 			post: {
 				tags: ["Authorization"],
 				summary: "Search authorizations",
-				description:
-					"Search for authorizations based on given criteria.\n",
+				description: "Search for authorizations based on given criteria.\n",
 				operationId: "searchAuthorizations",
 				requestBody: {
 					content: {
@@ -3867,7 +4192,6 @@ export const c8_8 = {
 							},
 						},
 					},
-					required: true,
 				},
 				responses: {
 					200: {
@@ -3893,6 +4217,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/roles": {
@@ -3933,7 +4258,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/{roleId}": {
@@ -3971,8 +4300,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -3985,6 +4313,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 			put: {
 				tags: ["Role"],
@@ -4042,7 +4371,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Role"],
@@ -4080,7 +4413,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/{roleId}/users/search": {
@@ -4088,7 +4425,7 @@ export const c8_8 = {
 				tags: ["Role"],
 				operationId: "searchUsersForRole",
 				summary: "Search role users",
-				description: "Search users assigned to a role.\n",
+				description: "Search users with assigned role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4112,7 +4449,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The users assigned to the role.",
+						description: "The users with the assigned role.",
 						content: {
 							"application/json": {
 								schema: {
@@ -4131,8 +4468,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4145,6 +4481,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/roles/{roleId}/clients/search": {
@@ -4152,7 +4489,7 @@ export const c8_8 = {
 				tags: ["Role"],
 				operationId: "searchClientsForRole",
 				summary: "Search role clients",
-				description: "Search clients assigned to a role.\n",
+				description: "Search clients with assigned role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4176,7 +4513,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description: "The clients assigned to the role.",
+						description: "The clients with the assigned role.",
 						content: {
 							"application/json": {
 								schema: {
@@ -4195,8 +4532,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4209,14 +4545,16 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/roles/{roleId}/users/{username}": {
 			put: {
 				tags: ["Role"],
-				operationId: "addUserToRole",
-				summary: "Assign a user to a role",
-				description: "Assigns a user to a role.\n",
+				operationId: "assignRoleToUser",
+				summary: "Assign a role to a user",
+				description:
+					"Assigns the specified role to the user.\nThe user will inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4233,14 +4571,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user username.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The user was assigned successfully to the role.",
+					204: {
+						description: "The role was assigned successfully to the user.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4261,7 +4598,7 @@ export const c8_8 = {
 					},
 					409: {
 						description:
-							"The user with the given ID is already assigned to the role.",
+							"The role is already assigned to the user with the given ID.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4273,13 +4610,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Role"],
-				operationId: "removeUserFromRole",
-				summary: "Unassign a user from a role",
-				description: "Unassigns a user from a role.\n",
+				operationId: "unassignRoleFromUser",
+				summary: "Unassign a role from a user",
+				description:
+					"Unassigns a role from a user.\nThe user will no longer inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4296,14 +4638,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user username.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The user was unassigned successfully from the role.",
+					204: {
+						description: "The role was unassigned successfully from the user.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4325,15 +4666,20 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/{roleId}/clients/{clientId}": {
 			put: {
 				tags: ["Role"],
-				operationId: "addClientToRole",
-				summary: "Assign a client to a role",
-				description: "Assigns a client to a role.\n",
+				operationId: "assignRoleToClient",
+				summary: "Assign a role to a client",
+				description:
+					"Assigns the specified role to the client.\nThe client will inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4355,9 +4701,8 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The client was assigned successfully to the role.",
+					204: {
+						description: "The role was assigned successfully to the client.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4366,8 +4711,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4378,7 +4722,7 @@ export const c8_8 = {
 					},
 					409: {
 						description:
-							"The client with the given ID is already assigned to the role.",
+							"The role was already assigned to the client with the given ID.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4390,13 +4734,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Role"],
-				operationId: "removeClientFromRole",
-				summary: "Unassign a client from a role",
-				description: "Unassigns a client from a role.\n",
+				operationId: "unassignRoleFromClient",
+				summary: "Unassign a role from a client",
+				description:
+					"Unassigns the specified role from the client.\nThe client will no longer inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4418,9 +4767,9 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
-							"The client was unassigned successfully from the role.",
+							"The role was unassigned successfully from the client.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4442,7 +4791,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/search": {
@@ -4493,14 +4846,16 @@ export const c8_8 = {
 						},
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/roles/{roleId}/groups/{groupId}": {
 			put: {
 				tags: ["Role"],
-				operationId: "addGroupToRole",
-				summary: "Assign a group to a role",
-				description: "Assigns a group to a role.\n",
+				operationId: "assignRoleToGroup",
+				summary: "Assign a role to a group",
+				description:
+					"Assigns the specified role to the group.\nEvery member of the group (user or client) will inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4522,9 +4877,8 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The group was assigned successfully to the role.",
+					204: {
+						description: "The role was assigned successfully to the group.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4533,8 +4887,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role or group with the given ID was not found.",
+						description: "The role or group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4545,7 +4898,7 @@ export const c8_8 = {
 					},
 					409: {
 						description:
-							"The group with the given ID is already assigned to the role.",
+							"The role is already assigned to the group with the given ID.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4557,13 +4910,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Role"],
-				operationId: "removeGroupFromRole",
-				summary: "Unassign a group from a role",
-				description: "Unassigns a group from a role.\n",
+				operationId: "unassignRoleFromGroup",
+				summary: "Unassign a role from a group",
+				description:
+					"Unassigns the specified role from the group.\nAll group members (user or client) no longer inherit the authorizations associated with this role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4585,9 +4943,8 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The group was unassigned successfully from the role.",
+					204: {
+						description: "The role was unassigned successfully from the group.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4596,8 +4953,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role or group with the given ID was not found.",
+						description: "The role or group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4609,7 +4965,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/{roleId}/groups/search": {
@@ -4617,7 +4977,7 @@ export const c8_8 = {
 				tags: ["Role"],
 				operationId: "searchGroupsForRole",
 				summary: "Search role groups",
-				description: "Search groups assigned to a role.\n",
+				description: "Search groups with assigned role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4634,18 +4994,18 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/GroupSearchQueryRequest",
+								$ref: "#/components/schemas/RoleGroupSearchQueryRequest",
 							},
 						},
 					},
 				},
 				responses: {
 					200: {
-						description: "The groups assigned to the role.",
+						description: "The groups with assigned role.",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/GroupSearchQueryResult",
+									$ref: "#/components/schemas/RoleGroupSearchResult",
 								},
 							},
 						},
@@ -4660,8 +5020,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4674,14 +5033,15 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
-		"/roles/{roleId}/mappings/{mappingId}": {
+		"/roles/{roleId}/mapping-rules/{mappingRuleId}": {
 			put: {
 				tags: ["Role"],
-				operationId: "addMappingToRole",
-				summary: "Assign a mapping to a role",
-				description: "Assigns a mapping to a role.\n",
+				operationId: "assignRoleToMappingRule",
+				summary: "Assign a role to a mapping rule",
+				description: "Assigns a role to a mapping rule.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4693,19 +5053,19 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
-						description: "The mapping ID.",
+						description: "The mapping rule ID.",
 						schema: {
 							type: "string",
 						},
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
-							"The mapping was assigned successfully to the role.",
+							"The role was assigned successfully to the mapping rule.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4715,7 +5075,7 @@ export const c8_8 = {
 					},
 					404: {
 						description:
-							"The role or mapping with the given ID was not found.",
+							"The role or mapping rule with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4726,7 +5086,7 @@ export const c8_8 = {
 					},
 					409: {
 						description:
-							"The mapping with the given ID is already assigned to the role.",
+							"The role is already assigned to the mapping rule with the given ID.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4738,13 +5098,17 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Role"],
-				operationId: "removeMappingFromRole",
-				summary: "Unassign a mapping from a role",
-				description: "Unassigns a mapping from a role.\n",
+				operationId: "unassignRoleFromMappingRule",
+				summary: "Unassign a role from a mapping rule",
+				description: "Unassigns a role from a mapping rule.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4756,19 +5120,19 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
-						description: "The mapping ID.",
+						description: "The mapping rule ID.",
 						schema: {
 							type: "string",
 						},
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
-							"The mapping was unassigned successfully from the role.",
+							"The role was unassigned successfully from the mapping rule.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -4778,7 +5142,7 @@ export const c8_8 = {
 					},
 					404: {
 						description:
-							"The role or mapping with the given ID was not found.",
+							"The role or mapping rule with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4790,7 +5154,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/roles/{roleId}/mapping-rules/search": {
@@ -4798,7 +5166,7 @@ export const c8_8 = {
 				tags: ["Role"],
 				operationId: "searchMappingRulesForRole",
 				summary: "Search role mapping rules",
-				description: "Search mapping rules assigned to a role.\n",
+				description: "Search mapping rules with assigned role.\n",
 				parameters: [
 					{
 						name: "roleId",
@@ -4815,18 +5183,18 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/MappingSearchQueryRequest",
+								$ref: "#/components/schemas/MappingRuleSearchQueryRequest",
 							},
 						},
 					},
 				},
 				responses: {
 					200: {
-						description: "The mapping rules assigned to the role.",
+						description: "The mapping rules with assigned role.",
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/MappingSearchQueryResult",
+									$ref: "#/components/schemas/MappingRuleSearchQueryResult",
 								},
 							},
 						},
@@ -4841,8 +5209,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The role with the given ID was not found.",
+						description: "The role with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4855,6 +5222,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/groups": {
@@ -4895,7 +5263,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/groups/{groupId}": {
@@ -4933,8 +5305,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -4947,6 +5318,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 			put: {
 				tags: ["Group"],
@@ -4992,8 +5364,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Unauthorized",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5005,7 +5376,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Group"],
@@ -5031,8 +5406,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Unauthorized",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5044,7 +5418,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/groups/{groupId}/users/search": {
@@ -5095,8 +5473,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5109,6 +5486,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/groups/{groupId}/mapping-rules/search": {
@@ -5116,7 +5494,7 @@ export const c8_8 = {
 				tags: ["Group"],
 				operationId: "searchMappingRulesForGroup",
 				summary: "Search group mapping rules",
-				description: "Search mapping rules to a group.\n",
+				description: "Search mapping rules assigned to a group.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -5133,7 +5511,7 @@ export const c8_8 = {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/MappingSearchQueryRequest",
+								$ref: "#/components/schemas/MappingRuleSearchQueryRequest",
 							},
 						},
 					},
@@ -5144,7 +5522,7 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/MappingSearchQueryResult",
+									$ref: "#/components/schemas/MappingRuleSearchQueryResult",
 								},
 							},
 						},
@@ -5159,8 +5537,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5173,6 +5550,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/groups/{groupId}/roles/search": {
@@ -5223,8 +5601,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5237,6 +5614,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/groups/{groupId}/clients/search": {
@@ -5287,8 +5665,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5301,14 +5678,16 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/groups/{groupId}/users/{username}": {
 			put: {
 				tags: ["Group"],
-				operationId: "addUserToGroup",
+				operationId: "assignUserToGroup",
 				summary: "Assign a user to a group",
-				description: "Assigns a user to a group.\n",
+				description:
+					"Assigns a user to a group, making the user a member of the group.\nGroup members inherit the group authorizations, roles, and tenant assignments.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -5325,14 +5704,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user username.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The user was assigned successfully to the group.",
+					204: {
+						description: "The user was assigned successfully to the group.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -5365,13 +5743,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Group"],
 				operationId: "unassignUserFromGroup",
 				summary: "Unassign a user from a group",
-				description: "Unassigns a user from a group.\n",
+				description:
+					"Unassigns a user from a group.\nThe user is removed as a group member, with associated authorizations, roles, and tenant assignments no longer applied.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -5388,14 +5771,13 @@ export const c8_8 = {
 						required: true,
 						description: "The user username.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The user was unassigned successfully from the group.",
+					204: {
+						description: "The user was unassigned successfully from the group.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -5417,15 +5799,20 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/groups/{groupId}/clients/{clientId}": {
 			put: {
 				tags: ["Group"],
-				operationId: "addClientToGroup",
+				operationId: "assignClientToGroup",
 				summary: "Assign a client to a group",
-				description: "Assigns a client to a group.\n",
+				description:
+					"Assigns a client to a group, making it a member of the group.\nMembers of the group inherit the group authorizations, roles, and tenant assignments.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -5447,9 +5834,8 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
-						description:
-							"The client was assigned successfully to the group.",
+					204: {
+						description: "The client was assigned successfully to the group.",
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -5458,8 +5844,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The group with the given ID was not found.",
+						description: "The group with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5482,13 +5867,18 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Group"],
 				operationId: "unassignClientFromGroup",
 				summary: "Unassign a client from a group",
-				description: "Unassigns a client from a group.\n",
+				description:
+					"Unassigns a client from a group.\nThe client is removed as a group member, with associated authorizations, roles, and tenant assignments no longer applied.\n",
 				parameters: [
 					{
 						name: "groupId",
@@ -5510,7 +5900,7 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
 							"The client was unassigned successfully from the group.",
 					},
@@ -5534,13 +5924,17 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/groups/{groupId}/mapping-rules/{mappingId}": {
+		"/groups/{groupId}/mapping-rules/{mappingRuleId}": {
 			put: {
 				tags: ["Group"],
-				operationId: "assignMappingToGroup",
+				operationId: "assignMappingRuleToGroup",
 				summary: "Assign a mapping rule to a group",
 				description: "Assigns a mapping rule to a group.\n",
 				parameters: [
@@ -5554,7 +5948,7 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
 						description: "The mapping rule ID.",
@@ -5564,7 +5958,7 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
 							"The mapping rule was assigned successfully to the group.",
 					},
@@ -5599,11 +5993,15 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Group"],
-				operationId: "unassignMappingFromGroup",
+				operationId: "unassignMappingRuleFromGroup",
 				summary: "Unassign a mapping rule from a group",
 				description: "Unassigns a mapping rule from a group.\n",
 				parameters: [
@@ -5617,7 +6015,7 @@ export const c8_8 = {
 						},
 					},
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
 						description: "The mapping rule ID.",
@@ -5627,7 +6025,7 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					202: {
+					204: {
 						description:
 							"The mapping rule was unassigned successfully from the group.",
 					},
@@ -5651,7 +6049,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/groups/search": {
@@ -5702,6 +6104,7 @@ export const c8_8 = {
 						},
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/mapping-rules": {
@@ -5721,8 +6124,7 @@ export const c8_8 = {
 				},
 				responses: {
 					201: {
-						description:
-							"The mapping rule was created successfully.",
+						description: "The mapping rule was created successfully.",
 						content: {
 							"application/json": {
 								schema: {
@@ -5746,8 +6148,7 @@ export const c8_8 = {
 						},
 					},
 					404: {
-						description:
-							"The request to create a mapping rule was denied.",
+						description: "The request to create a mapping rule was denied.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5760,9 +6161,10 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/mapping-rules/{mappingId}": {
+		"/mapping-rules/{mappingRuleId}": {
 			put: {
 				tags: ["Mapping rule"],
 				operationId: "updateMappingRule",
@@ -5770,7 +6172,7 @@ export const c8_8 = {
 				description: "Update a mapping rule.\n",
 				parameters: [
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
 						description: "The ID of the mapping rule to update.",
@@ -5790,8 +6192,7 @@ export const c8_8 = {
 				},
 				responses: {
 					200: {
-						description:
-							"The mapping rule was updated successfully.",
+						description: "The mapping rule was updated successfully.",
 						content: {
 							"application/json": {
 								schema: {
@@ -5815,8 +6216,7 @@ export const c8_8 = {
 						},
 					},
 					404: {
-						description:
-							"The request to update a mapping rule was denied.",
+						description: "The request to update a mapping rule was denied.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5828,7 +6228,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Mapping rule"],
@@ -5837,7 +6241,7 @@ export const c8_8 = {
 				description: "Deletes the mapping rule with the given ID.\n",
 				parameters: [
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
 						description: "The ID of the mapping rule to delete.",
@@ -5848,15 +6252,14 @@ export const c8_8 = {
 				],
 				responses: {
 					204: {
-						description:
-							"The mapping rule was deleted successfully.",
+						description: "The mapping rule was deleted successfully.",
 					},
 					401: {
 						$ref: "#/components/responses/Unauthorized",
 					},
 					404: {
 						description:
-							"The mapping rule with the mappingId was not found.",
+							"The mapping rule with the mappingRuleId was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5868,7 +6271,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 			get: {
 				tags: ["Mapping rule"],
@@ -5877,7 +6284,7 @@ export const c8_8 = {
 				description: "Gets the mapping rule with the given ID.\n",
 				parameters: [
 					{
-						name: "mappingId",
+						name: "mappingRuleId",
 						in: "path",
 						required: true,
 						description: "The ID of the mapping rule to get.",
@@ -5888,15 +6295,21 @@ export const c8_8 = {
 				],
 				responses: {
 					200: {
-						description:
-							"The mapping rule was returned successfully.",
+						description: "The mapping rule was returned successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MappingRuleResult",
+								},
+							},
+						},
 					},
 					401: {
 						$ref: "#/components/responses/Unauthorized",
 					},
 					404: {
 						description:
-							"The mapping rule with the mappingId was not found.",
+							"The mapping rule with the mappingRuleId was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -5909,24 +6322,23 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/mapping-rules/search": {
 			post: {
 				tags: ["Mapping rule"],
-				operationId: "searchMappings",
-				summary: "Search mappings",
-				description:
-					"Search for mapping rules based on given criteria.\n",
+				operationId: "searchMappingRule",
+				summary: "Search mapping rules",
+				description: "Search for mapping rules based on given criteria.\n",
 				requestBody: {
 					content: {
 						"application/json": {
 							schema: {
-								$ref: "#/components/schemas/MappingSearchQueryRequest",
+								$ref: "#/components/schemas/MappingRuleSearchQueryRequest",
 							},
 						},
 					},
-					required: true,
 				},
 				responses: {
 					200: {
@@ -5934,7 +6346,7 @@ export const c8_8 = {
 						content: {
 							"application/json": {
 								schema: {
-									$ref: "#/components/schemas/MappingSearchQueryResult",
+									$ref: "#/components/schemas/MappingRuleSearchQueryResult",
 								},
 							},
 						},
@@ -5952,6 +6364,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/messages/publication": {
@@ -5988,7 +6401,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/messages/correlation": {
@@ -6039,7 +6456,99 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
+			},
+		},
+		"/correlated-message-subscriptions/search": {
+			post: {
+				tags: ["Message subscription"],
+				operationId: "searchCorrelatedMessageSubscriptions",
+				summary: "Search correlated message subscriptions",
+				description:
+					"Search correlated message subscriptions based on given criteria.",
+				"x-eventually-consistent": true,
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/CorrelatedMessageSubscriptionSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The correlated message subscriptions search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/CorrelatedMessageSubscriptionSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+			},
+		},
+		"/message-subscriptions/search": {
+			post: {
+				tags: ["Message subscription"],
+				operationId: "searchMessageSubscriptions",
+				summary: "Search message subscriptions",
+				description:
+					"Search for message subscriptions based on given criteria.\n",
+				requestBody: {
+					required: false,
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/MessageSubscriptionSearchQuery",
+							},
+						},
+					},
+				},
+				responses: {
+					200: {
+						description: "The message subscription search result.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/MessageSubscriptionSearchQueryResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					401: {
+						$ref: "#/components/responses/Unauthorized",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/documents": {
@@ -6076,6 +6585,7 @@ export const c8_8 = {
 					content: {
 						"multipart/form-data": {
 							schema: {
+								additionalProperties: false,
 								type: "object",
 								properties: {
 									file: {
@@ -6110,7 +6620,11 @@ export const c8_8 = {
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
+					415: {
+						$ref: "#/components/responses/UnsupportedMediaType",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/documents/batch": {
@@ -6119,7 +6633,7 @@ export const c8_8 = {
 				operationId: "createDocuments",
 				summary: "Upload multiple documents",
 				description:
-					'Upload multiple documents to the Camunda 8 cluster.\n\nThe caller must provide a file name for each document, which will be used in case of a multi-status response\nto identify which documents failed to upload. The file name can be provided in the `Content-Disposition` header\nof the file part or in the `fileName` field of the metadata, which can be configured with\nthe `X-Document-Metadata` header for each file part. If both are provided, the `fileName` metadata field\ntakes precedence. For example, given the following headers for a file:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"fileName": "invoice.pdf", "size": 1234567}\n```\n\nThe filename will be `invoice.pdf`, but in the following example:\n```\nContent-Disposition: form-data; name="files"; filename="bill.pdf"\nX-Document-Metadata: {"size": 1234567}\n```\n\nit would be `bill.pdf`.\n\nIn case of a multi-status response, the response body will contain a list of `DocumentBatchProblemDetail` objects,\neach of which contains the file name of the document that failed to upload and the reason for the failure.\nThe client can choose to retry the whole batch or individual documents based on the response.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n',
+					"Upload multiple documents to the Camunda 8 cluster.\n\nThe caller must provide a file name for each document, which will be used in case of a multi-status response\nto identify which documents failed to upload. The file name can be provided in the `Content-Disposition` header\nof the file part or in the `fileName` field of the metadata. You can add a parallel array of metadata objects. These\nare matched with the files based on index, and must have the same length as the files array.\nTo pass homogenous metadata for all files, spread the metadata over the metadata array.\nA filename value provided explicitly via the metadata array in the request overrides the `Content-Disposition` header\nof the file part.\n\nIn case of a multi-status response, the response body will contain a list of `DocumentBatchProblemDetail` objects,\neach of which contains the file name of the document that failed to upload and the reason for the failure.\nThe client can choose to retry the whole batch or individual documents based on the response.\n\nNote that this is currently supported for document stores of type: AWS, GCP, in-memory (non-production), local (non-production)\n",
 				parameters: [
 					{
 						name: "storeId",
@@ -6137,6 +6651,7 @@ export const c8_8 = {
 					content: {
 						"multipart/form-data": {
 							schema: {
+								additionalProperties: false,
 								type: "object",
 								properties: {
 									files: {
@@ -6146,6 +6661,15 @@ export const c8_8 = {
 											type: "string",
 											format: "binary",
 										},
+										minItems: 1,
+									},
+									metadataList: {
+										type: "array",
+										description:
+											"Optional JSON array of metadata object whose index aligns with each file entry. The metadata array must have the same length as the files array.\n",
+										items: {
+											$ref: "#/components/schemas/DocumentMetadata",
+										},
 									},
 								},
 								required: ["files"],
@@ -6154,13 +6678,9 @@ export const c8_8 = {
 								files: {
 									headers: {
 										"X-Document-Metadata": {
+											description: "DEPRECATED - prefer metadataList.",
 											schema: {
 												$ref: "#/components/schemas/DocumentMetadata",
-											},
-										},
-										"X-Document-Id": {
-											schema: {
-												type: "string",
 											},
 										},
 									},
@@ -6171,8 +6691,7 @@ export const c8_8 = {
 				},
 				responses: {
 					201: {
-						description:
-							"All documents were uploaded successfully.",
+						description: "All documents were uploaded successfully.",
 						content: {
 							"application/json": {
 								schema: {
@@ -6195,7 +6714,11 @@ export const c8_8 = {
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
+					415: {
+						$ref: "#/components/responses/UnsupportedMediaType",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/documents/{documentId}": {
@@ -6212,7 +6735,7 @@ export const c8_8 = {
 						required: true,
 						description: "The ID of the document to download.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DocumentId",
 						},
 					},
 					{
@@ -6228,7 +6751,7 @@ export const c8_8 = {
 					{
 						name: "contentHash",
 						in: "query",
-						required: false,
+						required: true,
 						schema: {
 							type: "string",
 						},
@@ -6238,8 +6761,7 @@ export const c8_8 = {
 				],
 				responses: {
 					200: {
-						description:
-							"The document was downloaded successfully.",
+						description: "The document was downloaded successfully.",
 						content: {
 							"application/octet-stream": {
 								schema: {
@@ -6250,8 +6772,7 @@ export const c8_8 = {
 						},
 					},
 					404: {
-						description:
-							"The document with the given ID was not found.\n",
+						description: "The document with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6264,6 +6785,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 			delete: {
 				tags: ["Document"],
@@ -6278,7 +6800,7 @@ export const c8_8 = {
 						required: true,
 						description: "The ID of the document to delete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DocumentId",
 						},
 					},
 					{
@@ -6293,12 +6815,11 @@ export const c8_8 = {
 					},
 				],
 				responses: {
-					200: {
+					204: {
 						description: "The document was deleted successfully.",
 					},
 					404: {
-						description:
-							"The document with the given ID was not found.\n",
+						description: "The document with the given ID was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6311,6 +6832,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/documents/{documentId}/links": {
@@ -6327,7 +6849,7 @@ export const c8_8 = {
 						required: true,
 						description: "The ID of the document to link.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/DocumentId",
 						},
 					},
 					{
@@ -6343,7 +6865,7 @@ export const c8_8 = {
 					{
 						name: "contentHash",
 						in: "query",
-						required: false,
+						required: true,
 						schema: {
 							type: "string",
 						},
@@ -6363,8 +6885,7 @@ export const c8_8 = {
 				},
 				responses: {
 					201: {
-						description:
-							"The document link was created successfully.",
+						description: "The document link was created successfully.",
 						content: {
 							"application/json": {
 								schema: {
@@ -6377,6 +6898,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InvalidData",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/users": {
@@ -6416,8 +6938,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					409: {
-						description:
-							"A user with the given username already exists.\n",
+						description: "A user with the given username already exists.\n",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6429,7 +6950,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/users/search": {
@@ -6446,7 +6971,6 @@ export const c8_8 = {
 							},
 						},
 					},
-					required: true,
 				},
 				responses: {
 					200: {
@@ -6472,6 +6996,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/users/{username}": {
@@ -6487,7 +7012,7 @@ export const c8_8 = {
 						required: true,
 						description: "The username of the user.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
@@ -6509,8 +7034,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"The user with the given username was not found.",
+						description: "The user with the given username was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6523,6 +7047,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 			delete: {
 				tags: ["User"],
@@ -6536,7 +7061,7 @@ export const c8_8 = {
 						required: true,
 						description: "The username of the user to delete.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
@@ -6560,9 +7085,14 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
-			patch: {
+			put: {
+				"x-eventually-consistent": false,
 				tags: ["User"],
 				operationId: "updateUser",
 				summary: "Update user",
@@ -6574,7 +7104,7 @@ export const c8_8 = {
 						required: true,
 						description: "The username of the user to update.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/Username",
 						},
 					},
 				],
@@ -6589,8 +7119,15 @@ export const c8_8 = {
 					required: true,
 				},
 				responses: {
-					204: {
+					200: {
 						description: "The user was updated successfully.",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserUpdateResult",
+								},
+							},
+						},
 					},
 					400: {
 						$ref: "#/components/responses/InvalidData",
@@ -6611,7 +7148,55 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+			},
+		},
+		"/setup/user": {
+			post: {
+				tags: ["Setup"],
+				operationId: "createAdminUser",
+				summary: "Create admin user",
+				description:
+					"Creates a new user and assigns the admin role to it. This endpoint is only usable when users are managed in the Orchestration Cluster and while no user is assigned to the admin role.",
+				requestBody: {
+					content: {
+						"application/json": {
+							schema: {
+								$ref: "#/components/schemas/UserRequest",
+							},
+						},
+					},
+					required: true,
+				},
+				responses: {
+					201: {
+						description:
+							"The user was created and got assigned the admin role successfully.\n",
+						content: {
+							"application/json": {
+								schema: {
+									$ref: "#/components/schemas/UserCreateResult",
+								},
+							},
+						},
+					},
+					400: {
+						$ref: "#/components/responses/InvalidData",
+					},
+					403: {
+						$ref: "#/components/responses/Forbidden",
+					},
+					500: {
+						$ref: "#/components/responses/InternalServerError",
+					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
+				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/incidents/search": {
@@ -6654,6 +7239,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/incidents/{incidentKey}": {
@@ -6670,13 +7256,13 @@ export const c8_8 = {
 						description:
 							"The assigned key of the incident, which acts as a unique identifier for this incident.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/IncidentKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description: "The incident is successfully returned.\n",
+						description: "The incident is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -6709,25 +7295,26 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
-		"/usage-metrics": {
+		"/system/usage-metrics": {
 			get: {
-				tags: ["Usage metrics"],
+				tags: ["System"],
 				operationId: "getUsageMetrics",
 				summary: "Get usage metrics",
-				description:
-					"Retrieve the usage metrics by given start and end date.",
+				description: "Retrieve the usage metrics based on given criteria.",
 				parameters: [
 					{
 						name: "startTime",
 						in: "query",
 						required: true,
 						description:
-							"The start date for usage metrics, including this date.",
+							"The start date for usage metrics, including this date. Value in ISO 8601 format.",
 						schema: {
 							type: "string",
 							format: "date-time",
+							example: "2025-06-07T13:14:15Z",
 						},
 					},
 					{
@@ -6735,20 +7322,73 @@ export const c8_8 = {
 						in: "query",
 						required: true,
 						description:
-							"The end date for usage metrics, including this date.",
+							"The end date for usage metrics, including this date. Value in ISO 8601 format.",
 						schema: {
 							type: "string",
 							format: "date-time",
+							example: "2025-06-07T13:14:15Z",
+						},
+					},
+					{
+						name: "tenantId",
+						in: "query",
+						required: false,
+						description:
+							"Restrict results to a specific tenant ID. If not provided, results for all tenants are returned.",
+						schema: {
+							$ref: "#/components/schemas/TenantId",
+						},
+					},
+					{
+						name: "withTenants",
+						in: "query",
+						required: false,
+						description:
+							"Whether to return tenant metrics in addition to the total metrics or not. Default false.",
+						schema: {
+							type: "boolean",
+							default: false,
 						},
 					},
 				],
 				responses: {
 					200: {
-						description: "The usage metrics search result.\n",
+						description: "The usage metrics search result.",
 						content: {
 							"application/json": {
 								schema: {
 									$ref: "#/components/schemas/UsageMetricsResponse",
+								},
+								examples: {
+									"Response without tenants": {
+										value: {
+											processInstances: 5,
+											decisionInstances: 23,
+											activeTenants: 2,
+											assignees: 3,
+											tenants: {},
+										},
+									},
+									"Response with tenants": {
+										value: {
+											processInstances: 5,
+											decisionInstances: 23,
+											activeTenants: 2,
+											assignees: 3,
+											tenants: {
+												tenant1: {
+													processInstances: 1,
+													decisionInstances: 2,
+													assignees: 1,
+												},
+												tenant2: {
+													processInstances: 4,
+													decisionInstances: 21,
+													assignees: 3,
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -6766,6 +7406,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/deployments": {
@@ -6780,6 +7421,7 @@ export const c8_8 = {
 					content: {
 						"multipart/form-data": {
 							schema: {
+								additionalProperties: false,
 								type: "object",
 								properties: {
 									resources: {
@@ -6793,8 +7435,7 @@ export const c8_8 = {
 									},
 									tenantId: {
 										type: "string",
-										description:
-											"The tenant to deploy the resources to.",
+										description: "The tenant to deploy the resources to.",
 									},
 								},
 								required: ["resources"],
@@ -6816,7 +7457,11 @@ export const c8_8 = {
 					400: {
 						$ref: "#/components/responses/InvalidData",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/resources/{resourceKey}/deletion": {
@@ -6825,7 +7470,7 @@ export const c8_8 = {
 				operationId: "deleteResource",
 				summary: "Delete resource",
 				description:
-					"Deletes a deployed resource.\nThis can be a process definition, decision requirements definition, or form definition\ndeployed using the deploy resources endpoint. Specify the resource you want to delete in the `resourceKey` parameter.\n",
+					"Deletes a deployed resource. This can be a process definition, decision requirements\ndefinition, or form definition deployed using the deploy resources endpoint. Specify the\nresource you want to delete in the `resourceKey` parameter.\n\nOnce a resource has been deleted it cannot be recovered. If the resource needs to be\navailable again, a new deployment of the resource is required.\n\nOnly the resource itself is deleted from the runtime state. Deleting historic data\nassociated with a resource is not supported.",
 				parameters: [
 					{
 						name: "resourceKey",
@@ -6834,7 +7479,7 @@ export const c8_8 = {
 						description:
 							"The key of the resource to delete.\nThis can be the key of a process definition, the key of a decision requirements\ndefinition or the key of a form definition\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ResourceKey",
 						},
 					},
 				],
@@ -6868,7 +7513,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/resources/{resourceKey}": {
@@ -6885,7 +7534,7 @@ export const c8_8 = {
 						required: true,
 						description: "The unique key identifying the resource.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ResourceKey",
 						},
 					},
 				],
@@ -6901,8 +7550,7 @@ export const c8_8 = {
 						},
 					},
 					404: {
-						description:
-							"A resource with the given key was not found.",
+						description: "A resource with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6915,6 +7563,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/resources/{resourceKey}/content": {
@@ -6931,14 +7580,13 @@ export const c8_8 = {
 						required: true,
 						description: "The unique key identifying the resource.",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ResourceKey",
 						},
 					},
 				],
 				responses: {
 					200: {
-						description:
-							"The resource content is successfully returned.",
+						description: "The resource content is successfully returned.",
 						content: {
 							"application/json": {
 								schema: {
@@ -6948,8 +7596,7 @@ export const c8_8 = {
 						},
 					},
 					404: {
-						description:
-							"A resource with the given key was not found.",
+						description: "A resource with the given key was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -6962,6 +7609,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/element-instances/{elementInstanceKey}/variables": {
@@ -6979,7 +7627,7 @@ export const c8_8 = {
 						description:
 							"The key of the element instance to update the variables for.\nThis can be the process instance key (as obtained during instance creation), or a given\nelement, such as a service task (see the `elementInstanceKey` on the job message).\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/ElementInstanceKey",
 						},
 					},
 				],
@@ -7003,59 +7651,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
-				},
-			},
-		},
-		"/element-instances/ad-hoc-activities/search": {
-			post: {
-				tags: ["Ad-hoc sub-process"],
-				operationId: "searchAdHocSubProcessActivities",
-				summary: "Search activatable activities (alpha)",
-				description:
-					"Search for activatable activities within ad-hoc sub-processes based on given criteria.\n\nNote that this API currently requires filters for both process definition key and ad-hoc\nsub-process ID and does not support paging or sorting.\n\nThis endpoint is an alpha feature and may be subject to change\nin future releases.\n",
-				requestBody: {
-					required: true,
-					content: {
-						"application/json": {
-							schema: {
-								$ref: "#/components/schemas/AdHocSubProcessActivitySearchQuery",
-							},
-						},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
 					},
 				},
-				responses: {
-					200: {
-						description:
-							"The ad-hoc sub-process activities search result.\n",
-						content: {
-							"application/json": {
-								schema: {
-									$ref: "#/components/schemas/AdHocSubProcessActivitySearchQueryResult",
-								},
-							},
-						},
-					},
-					400: {
-						description:
-							"The ad-hoc sub-process activities search query failed. More details are provided in the response body.\n",
-						content: {
-							"application/problem+json": {
-								schema: {
-									$ref: "#/components/schemas/ProblemDetail",
-								},
-							},
-						},
-					},
-					401: {
-						$ref: "#/components/responses/Unauthorized",
-					},
-					403: {
-						$ref: "#/components/responses/Forbidden",
-					},
-					500: {
-						$ref: "#/components/responses/InternalServerError",
-					},
-				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/element-instances/ad-hoc-activities/{adHocSubProcessInstanceKey}/activation":
@@ -7074,7 +7674,7 @@ export const c8_8 = {
 							description:
 								"The key of the ad-hoc sub-process instance that contains the activities.",
 							schema: {
-								type: "string",
+								$ref: "#/components/schemas/ElementInstanceKey",
 							},
 						},
 					],
@@ -7090,8 +7690,7 @@ export const c8_8 = {
 					},
 					responses: {
 						204: {
-							description:
-								"The ad-hoc sub-process instance is modified.",
+							description: "The ad-hoc sub-process instance is modified.",
 						},
 						400: {
 							$ref: "#/components/responses/InvalidData",
@@ -7116,7 +7715,11 @@ export const c8_8 = {
 						500: {
 							$ref: "#/components/responses/InternalServerError",
 						},
+						503: {
+							$ref: "#/components/responses/ServiceUnavailable",
+						},
 					},
+					"x-eventually-consistent": false,
 				},
 			},
 		"/signals/broadcast": {
@@ -7162,10 +7765,14 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/batch-operations/{batchOperationId}": {
+		"/batch-operations/{batchOperationKey}": {
 			get: {
 				tags: ["Batch operation"],
 				operationId: "getBatchOperation",
@@ -7173,13 +7780,13 @@ export const c8_8 = {
 				description: "Get batch operation by key.",
 				parameters: [
 					{
-						name: "batchOperationId",
+						name: "batchOperationKey",
 						in: "path",
 						required: true,
 						description:
 							"The key (or operate legacy ID) of the batch operation.\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/BatchOperationKey",
 						},
 					},
 				],
@@ -7218,6 +7825,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 		"/batch-operations/search": {
@@ -7225,8 +7833,7 @@ export const c8_8 = {
 				tags: ["Batch operation"],
 				operationId: "searchBatchOperations",
 				summary: "Search batch operations",
-				description:
-					"Search for batch operations based on given criteria.",
+				description: "Search for batch operations based on given criteria.",
 				requestBody: {
 					required: false,
 					content: {
@@ -7262,42 +7869,37 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
-		"/batch-operations/{batchOperationId}/cancellation": {
-			put: {
+		"/batch-operations/{batchOperationKey}/cancellation": {
+			post: {
 				tags: ["Batch operation"],
 				operationId: "cancelBatchOperation",
 				summary: "Cancel Batch operation",
 				description:
-					"Cancels a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Cancels a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				parameters: [
 					{
-						name: "batchOperationId",
+						name: "batchOperationKey",
 						in: "path",
 						required: true,
 						description:
 							"The key (or operate legacy ID) of the batch operation.\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/BatchOperationKey",
 						},
 					},
 				],
 				requestBody: {
 					content: {
-						"application/json": {
-							schema: {
-								type: "object",
-								nullable: true,
-							},
-						},
+						"application/json": {},
 					},
 					required: false,
 				},
 				responses: {
 					204: {
-						description:
-							"The batch operation cancel request was created.",
+						description: "The batch operation cancel request was created.",
 						content: {},
 					},
 					400: {
@@ -7307,8 +7909,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The batch operation was not found.",
+						description: "Not found. The batch operation was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -7321,42 +7922,37 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/batch-operations/{batchOperationId}/suspension": {
-			put: {
+		"/batch-operations/{batchOperationKey}/suspension": {
+			post: {
 				tags: ["Batch operation"],
 				operationId: "suspendBatchOperation",
 				summary: "Suspend Batch operation",
 				description:
-					"Suspends a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Suspends a running batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				parameters: [
 					{
-						name: "batchOperationId",
+						name: "batchOperationKey",
 						in: "path",
 						required: true,
 						description:
 							"The key (or operate legacy ID) of the batch operation.\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/BatchOperationKey",
 						},
 					},
 				],
 				requestBody: {
 					content: {
-						"application/json": {
-							schema: {
-								type: "object",
-								nullable: true,
-							},
-						},
+						"application/json": {},
 					},
 					required: false,
 				},
 				responses: {
 					204: {
-						description:
-							"The batch operation pause request was created.",
+						description: "The batch operation pause request was created.",
 						content: {},
 					},
 					400: {
@@ -7366,8 +7962,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The batch operation was not found.",
+						description: "Not found. The batch operation was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -7379,43 +7974,41 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
-		"/batch-operations/{batchOperationId}/resumption": {
-			put: {
+		"/batch-operations/{batchOperationKey}/resumption": {
+			post: {
 				tags: ["Batch operation"],
 				operationId: "resumeBatchOperation",
 				summary: "Resume Batch operation",
 				description:
-					"Resumes a suspended batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationId}).\n",
+					"Resumes a suspended batch operation.\nThis is done asynchronously, the progress can be tracked using the batch operation status endpoint (/batch-operations/{batchOperationKey}).\n",
 				parameters: [
 					{
-						name: "batchOperationId",
+						name: "batchOperationKey",
 						in: "path",
 						required: true,
 						description:
 							"The key (or operate legacy ID) of the batch operation.\n",
 						schema: {
-							type: "string",
+							$ref: "#/components/schemas/BatchOperationKey",
 						},
 					},
 				],
 				requestBody: {
 					content: {
-						"application/json": {
-							schema: {
-								type: "object",
-								nullable: true,
-							},
-						},
+						"application/json": {},
 					},
 					required: false,
 				},
 				responses: {
 					204: {
-						description:
-							"The batch operation resume request was created.",
+						description: "The batch operation resume request was created.",
 						content: {},
 					},
 					400: {
@@ -7425,8 +8018,7 @@ export const c8_8 = {
 						$ref: "#/components/responses/Forbidden",
 					},
 					404: {
-						description:
-							"Not found. The batch operation was not found.",
+						description: "Not found. The batch operation was not found.",
 						content: {
 							"application/problem+json": {
 								schema: {
@@ -7438,7 +8030,11 @@ export const c8_8 = {
 					500: {
 						$ref: "#/components/responses/InternalServerError",
 					},
+					503: {
+						$ref: "#/components/responses/ServiceUnavailable",
+					},
 				},
+				"x-eventually-consistent": false,
 			},
 		},
 		"/batch-operation-items/search": {
@@ -7483,17 +8079,341 @@ export const c8_8 = {
 						$ref: "#/components/responses/InternalServerError",
 					},
 				},
+				"x-eventually-consistent": true,
 			},
 		},
 	},
 	components: {
 		schemas: {
+			LongKey: {
+				description:
+					"Zeebe Engine resource key (Java long serialized as string)",
+				type: "string",
+				pattern: "^-?[0-9]+$",
+				minLength: 1,
+				maxLength: 25,
+			},
+			StartCursor: {
+				description: "The start cursor in a search query result set.",
+				format: "base64",
+				type: "string",
+				"x-semantic-type": "StartCursor",
+				pattern:
+					"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=)?$",
+				minLength: 2,
+				maxLength: 300,
+				example: "WzIyNTE3OTk4MTM2ODcxMDJd",
+			},
+			EndCursor: {
+				description: "The end cursor in a search query result set.",
+				format: "base64",
+				"x-semantic-type": "EndCursor",
+				type: "string",
+				pattern:
+					"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=)?$",
+				minLength: 2,
+				maxLength: 300,
+				example: "WzIyNTE3OTk4MTM2ODcxMDJd",
+			},
+			ProcessInstanceKey: {
+				description: "System-generated key for a process instance.",
+				format: "ProcessInstanceKey",
+				"x-semantic-type": "ProcessInstanceKey",
+				example: "2251799813690746",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			DeploymentKey: {
+				description: "Key for a deployment.",
+				format: "DeploymentKey",
+				"x-semantic-type": "DeploymentKey",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			UserTaskKey: {
+				description: "System-generated key for a user task.",
+				format: "UserTaskKey",
+				type: "string",
+				"x-semantic-type": "UserTaskKey",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			ProcessDefinitionKey: {
+				description: "System-generated key for a deployed process definition.",
+				format: "ProcessDefinitionKey",
+				"x-semantic-type": "ProcessDefinitionKey",
+				example: "2251799813686749",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			ProcessDefinitionId: {
+				description:
+					"Id of a process definition, from the model. Only ids of process definitions that are deployed are useful.",
+				format: "ProcessDefinitionId",
+				type: "string",
+				"x-semantic-type": "ProcessDefinitionId",
+				minLength: 1,
+				pattern: "^[a-zA-Z_][a-zA-Z0-9_\\-\\.]*$",
+				example: "new-account-onboarding-workflow",
+			},
+			ElementInstanceKey: {
+				description: "System-generated key for a element instance.",
+				format: "ElementInstanceKey",
+				"x-semantic-type": "ElementInstanceKey",
+				example: "2251799813686789",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			ElementId: {
+				description: "The model-defined id of an element.",
+				format: "ElementId",
+				type: "string",
+				"x-semantic-type": "ElementId",
+				example: "Activity_106kosb",
+			},
+			FormKey: {
+				description: "System-generated key for a deployed form.",
+				format: "FormKey",
+				"x-semantic-type": "FormKey",
+				example: "2251799813684365",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			FormId: {
+				description: "The user-defined id for the form",
+				type: "string",
+				format: "FormId",
+				"x-semantic-type": "FormId",
+				example: "Form_1nx5hav",
+			},
+			VariableKey: {
+				description: "System-generated key for a variable.",
+				format: "VariableKey",
+				"x-semantic-type": "VariableKey",
+				example: "2251799813683287",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			ResourceKey: {
+				type: "string",
+				oneOf: [
+					{
+						$ref: "#/components/schemas/ProcessDefinitionKey",
+					},
+					{
+						$ref: "#/components/schemas/DecisionRequirementsKey",
+					},
+					{
+						$ref: "#/components/schemas/FormKey",
+					},
+					{
+						$ref: "#/components/schemas/DecisionDefinitionKey",
+					},
+				],
+				description: "The system-assigned key for this resource.",
+				format: "ResourceKey",
+			},
+			ScopeKey: {
+				description: "System-generated key for a scope.",
+				format: "ScopeKey",
+				"x-semantic-type": "ScopeKey",
+				example: "2251799813683890",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			IncidentKey: {
+				description: "System-generated key for a incident.",
+				format: "IncidentKey",
+				"x-semantic-type": "IncidentKey",
+				example: "2251799813689432",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			JobKey: {
+				description: "System-generated key for a job.",
+				format: "JobKey",
+				"x-semantic-type": "JobKey",
+				example: "2251799813653498",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			MessageSubscriptionKey: {
+				description: "System-generated key for a message subscription.",
+				format: "MessageSubscriptionKey",
+				"x-semantic-type": "MessageSubscriptionKey",
+				example: "2251799813632456",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			DecisionDefinitionKey: {
+				description: "System-generated key for a decision definition.",
+				format: "DecisionDefinitionKey",
+				"x-semantic-type": "DecisionDefinitionKey",
+				example: "2251799813326547",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			DecisionDefinitionId: {
+				description:
+					"Id of a decision definition, from the model. Only ids of decision definitions that are deployed are useful.",
+				format: "DecisionDefinitionId",
+				"x-semantic-type": "DecisionDefinitionId",
+				type: "string",
+				minLength: 1,
+				maxLength: 256,
+				pattern: "^[A-Za-z0-9_@.+-]+$",
+				example: "new-hire-onboarding-workflow",
+			},
+			DecisionEvaluationInstanceKey: {
+				description: "System-generated key for a decision evaluation instance.",
+				format: "DecisionEvaluationInstanceKey",
+				"x-semantic-type": "DecisionEvaluationInstanceKey",
+				example: "2251799813684367",
+				type: "string",
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+			},
+			DecisionEvaluationKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description: "System-generated key for a decision evaluation.",
+				format: "DecisionEvaluationKey",
+				"x-semantic-type": "DecisionEvaluationKey",
+				example: "2251792362345323",
+				type: "string",
+			},
+			DecisionRequirementsKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description:
+					"System-generated key for a deployed decision requirements definition.",
+				format: "DecisionRequirementsKey",
+				"x-semantic-type": "DecisionRequirementsKey",
+				example: "2251799813683346",
+				type: "string",
+			},
+			AuthorizationKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description: "System-generated key for an authorization.",
+				format: "AuthorizationKey",
+				"x-semantic-type": "AuthorizationKey",
+				example: "2251799813684332",
+				type: "string",
+			},
+			MessageKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description: "System-generated key for an message.",
+				format: "MessageKey",
+				"x-semantic-type": "MessageKey",
+				example: "2251799813683467",
+				type: "string",
+			},
+			DecisionInstanceKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description: "System-generated key for a deployed decision instance.",
+				format: "DecisionInstanceKey",
+				"x-semantic-type": "DecisionInstanceKey",
+				example: "22517998136843567",
+				type: "string",
+			},
+			SignalKey: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/LongKey",
+					},
+				],
+				description: "System-generated key for an signal.",
+				format: "SignalKey",
+				"x-semantic-type": "SignalKey",
+				example: "22517998136987467",
+				type: "string",
+			},
+			BatchOperationKey: {
+				"x-semantic-type": "BatchOperationKey",
+				format: "BatchOperationKey | uuid",
+				type: "string",
+				description: "System-generated key for an batch operation.",
+				example: "2251799813684321",
+			},
 			TenantCreateRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					tenantId: {
 						type: "string",
-						description: "The unique external tenant ID",
+						description:
+							"The unique ID for the tenant. Must be 255 characters or less. Can contain letters, numbers, [`_`, `-`, `+`, `.`, `@`].",
+						minLength: 1,
+						maxLength: 256,
+						pattern: "^[A-Za-z0-9_@.+-]+$",
 					},
 					name: {
 						type: "string",
@@ -7508,28 +8428,26 @@ export const c8_8 = {
 			},
 			TenantCreateResult: {
 				type: "object",
+				"x-semantic-provider": ["tenantId"],
 				properties: {
-					tenantKey: {
-						description:
-							"The unique system-generated internal tenant ID.",
-						type: "string",
-					},
 					tenantId: {
-						type: "string",
-						description: "The unique external tenant ID",
+						$ref: "#/components/schemas/TenantId",
 					},
 					name: {
 						type: "string",
 						description: "The name of the tenant.",
+						example: "Customer Service Department",
 					},
 					description: {
 						type: "string",
 						description: "The description of the tenant.",
+						example: "Customer Service department business processes",
 					},
 				},
 			},
 			TenantUpdateRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					name: {
 						type: "string",
@@ -7546,8 +8464,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					tenantId: {
-						type: "string",
-						description: "The unique external tenant ID",
+						$ref: "#/components/schemas/TenantId",
 					},
 					name: {
 						type: "string",
@@ -7556,11 +8473,6 @@ export const c8_8 = {
 					description: {
 						type: "string",
 						description: "The description of the tenant.",
-					},
-					tenantKey: {
-						type: "string",
-						description:
-							"The unique system-generated internal tenant ID.",
 					},
 				},
 			},
@@ -7571,19 +8483,15 @@ export const c8_8 = {
 					name: {
 						type: "string",
 						description: "The tenant name.",
+						example: "Customer Service department",
 					},
 					tenantId: {
-						type: "string",
-						description: "The unique external tenant ID.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					description: {
 						type: "string",
 						description: "The tenant description.",
-					},
-					tenantKey: {
-						type: "string",
-						description:
-							"The unique system-generated internal tenant ID.",
+						example: "Customer Service department business processes",
 					},
 				},
 			},
@@ -7603,6 +8511,7 @@ export const c8_8 = {
 			},
 			TenantSearchQueryRequest: {
 				description: "Tenant search request",
+				additionalProperties: false,
 				type: "object",
 				allOf: [
 					{
@@ -7621,19 +8530,18 @@ export const c8_8 = {
 						description: "The tenant search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/TenantFilterRequest",
+								$ref: "#/components/schemas/TenantFilter",
 							},
 						],
 					},
 				},
 			},
-			TenantFilterRequest: {
+			TenantFilter: {
 				description: "Tenant filter request",
 				type: "object",
 				properties: {
 					tenantId: {
-						type: "string",
-						description: "The ID of the tenant.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					name: {
 						type: "string",
@@ -7671,6 +8579,7 @@ export const c8_8 = {
 							"followUpDate",
 							"dueDate",
 							"priority",
+							"name",
 						],
 					},
 					order: {
@@ -7681,6 +8590,7 @@ export const c8_8 = {
 			},
 			UserTaskSearchQuery: {
 				description: "User task search query request.",
+				additionalProperties: false,
 				type: "object",
 				allOf: [
 					{
@@ -7733,6 +8643,7 @@ export const c8_8 = {
 					},
 				],
 				description: "User task search query request.",
+				additionalProperties: false,
 				type: "object",
 				properties: {
 					sort: {
@@ -7746,7 +8657,7 @@ export const c8_8 = {
 						description: "The user task variable search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/UserTaskVariableFilterRequest",
+								$ref: "#/components/schemas/UserTaskVariableFilter",
 							},
 						],
 					},
@@ -7769,15 +8680,19 @@ export const c8_8 = {
 						},
 					},
 				},
+				required: ["items"],
 			},
 			UserTaskFilter: {
 				description: "User task filter request.",
 				type: "object",
 				properties: {
 					state: {
-						type: "string",
-						description: "The state of the user task.",
-						enum: ["CREATED", "COMPLETED", "CANCELED", "FAILED"],
+						description: "The user task state.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskStateFilterProperty",
+							},
+						],
 					},
 					assignee: {
 						description: "The assignee of the user task.",
@@ -7796,8 +8711,17 @@ export const c8_8 = {
 						],
 					},
 					elementId: {
-						type: "string",
 						description: "The element ID of the user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+					name: {
+						type: "string",
+						description:
+							"The task name. This only works for data created with 8.8 and onwards. Instances from prior versions don't contain this data and cannot be found.\n",
 					},
 					candidateGroup: {
 						description: "The candidate group for this user task.",
@@ -7816,11 +8740,19 @@ export const c8_8 = {
 						],
 					},
 					tenantId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 						description: "Tenant ID of this user task.",
 					},
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description: "The ID of the process definition.",
 					},
 					creationDate: {
@@ -7860,36 +8792,109 @@ export const c8_8 = {
 						description:
 							"Process instance variables associated with the user task.",
 						items: {
-							$ref: "#/components/schemas/VariableValueFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterProperty",
 						},
 					},
 					localVariables: {
 						type: "array",
-						description:
-							"Local variables associated with the user task.",
+						description: "Local variables associated with the user task.",
 						items: {
-							$ref: "#/components/schemas/VariableValueFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterProperty",
 						},
 					},
 					userTaskKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskKey",
+							},
+						],
 						description: "The key for this user task.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the process definition.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of the process instance.",
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description: "The key of the element instance.",
 					},
 				},
 			},
-			VariableValueFilterRequest: {
+			UserTaskStateFilterProperty: {
+				description:
+					"UserTaskStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedUserTaskStateFilter",
+					},
+				],
+			},
+			AdvancedUserTaskStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced UserTaskStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/UserTaskStateEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			VariableValueFilterProperty: {
 				type: "object",
 				properties: {
 					name: {
@@ -7907,7 +8912,7 @@ export const c8_8 = {
 				},
 				required: ["name", "value"],
 			},
-			UserTaskVariableFilterRequest: {
+			UserTaskVariableFilter: {
 				description: "The user task variable search filters.",
 				type: "object",
 				properties: {
@@ -7923,23 +8928,26 @@ export const c8_8 = {
 			},
 			UserTaskResult: {
 				type: "object",
+				required: ["userTaskKey"],
 				properties: {
 					name: {
 						type: "string",
 						description: "The name for this user task.",
 					},
 					state: {
-						type: "string",
-						description: "The state of the user task.",
-						enum: ["CREATED", "COMPLETED", "CANCELED", "FAILED"],
+						$ref: "#/components/schemas/UserTaskStateEnum",
 					},
 					assignee: {
 						description: "The assignee of the user task.",
 						type: "string",
 					},
 					elementId: {
-						type: "string",
 						description: "The element ID of the user task.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					candidateGroups: {
 						type: "array",
@@ -7956,7 +8964,11 @@ export const c8_8 = {
 						},
 					},
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description: "The ID of the process definition.",
 					},
 					creationDate: {
@@ -7980,8 +8992,7 @@ export const c8_8 = {
 						format: "date-time",
 					},
 					tenantId: {
-						type: "string",
-						description: "Tenant ID of this user task.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					externalFormReference: {
 						type: "string",
@@ -8008,26 +9019,65 @@ export const c8_8 = {
 						default: 50,
 					},
 					userTaskKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskKey",
+							},
+						],
 						description: "The key of the user task.",
-						type: "string",
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description: "The key of the element instance.",
 					},
-					processDefinitionKey: {
+					processName: {
 						type: "string",
+						description: "The name of the process definition.",
+					},
+					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the process definition.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of the process instance.",
 					},
 					formKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormKey",
+							},
+						],
 						description: "The key of the form.",
 					},
 				},
+			},
+			UserTaskStateEnum: {
+				description: "The state of the user task.",
+				type: "string",
+				enum: [
+					"CREATING",
+					"CREATED",
+					"ASSIGNING",
+					"UPDATING",
+					"COMPLETING",
+					"COMPLETED",
+					"CANCELING",
+					"CANCELED",
+					"FAILED",
+				],
 			},
 			VariableSearchQuerySortRequest: {
 				type: "object",
@@ -8052,6 +9102,7 @@ export const c8_8 = {
 			},
 			VariableSearchQuery: {
 				description: "Variable search query request.",
+				additionalProperties: false,
 				type: "object",
 				allOf: [
 					{
@@ -8098,7 +9149,11 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "Tenant ID of this variable.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					isTruncated: {
 						description: "Whether the value is truncated or not.",
@@ -8108,7 +9163,7 @@ export const c8_8 = {
 						description: "The key for this variable.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/VariableKeyFilterProperty",
 							},
 						],
 					},
@@ -8116,16 +9171,15 @@ export const c8_8 = {
 						description: "The key of the scope of this variable.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ScopeKeyFilterProperty",
 							},
 						],
 					},
 					processInstanceKey: {
-						description:
-							"The key of the process instance of this variable.",
+						description: "The key of the process instance of this variable.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
 							},
 						],
 					},
@@ -8148,10 +9202,12 @@ export const c8_8 = {
 						},
 					},
 				},
+				required: ["items"],
 			},
 			VariableSearchResult: {
 				description: "Variable search response item.",
 				type: "object",
+				required: ["value", "isTruncated"],
 				allOf: [
 					{
 						$ref: "#/components/schemas/VariableResultBase",
@@ -8159,8 +9215,7 @@ export const c8_8 = {
 				],
 				properties: {
 					value: {
-						description:
-							"Value of this variable. Can be truncated.",
+						description: "Value of this variable. Can be truncated.",
 						type: "string",
 					},
 					isTruncated: {
@@ -8183,10 +9238,18 @@ export const c8_8 = {
 						type: "string",
 					},
 				},
+				required: ["value"],
 			},
 			VariableResultBase: {
 				description: "Variable response item.",
 				type: "object",
+				required: [
+					"name",
+					"processInstanceKey",
+					"tenantId",
+					"variableKey",
+					"scopeKey",
+				],
 				properties: {
 					name: {
 						description: "Name of this variable.",
@@ -8194,20 +9257,35 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "Tenant ID of this variable.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					variableKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/VariableKey",
+							},
+						],
 						description: "The key for this variable.",
-						type: "string",
 					},
 					scopeKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ScopeKey",
+							},
+						],
 						description: "The key of the scope of this variable.",
-						type: "string",
 					},
 					processInstanceKey: {
-						description:
-							"The key of the process instance of this variable.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+						description: "The key of the process instance of this variable.",
 					},
 				},
 			},
@@ -8235,6 +9313,7 @@ export const c8_8 = {
 			},
 			ProcessDefinitionSearchQuery: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -8264,11 +9343,19 @@ export const c8_8 = {
 				properties: {
 					name: {
 						description: "Name of this process definition.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					isLatestVersion: {
+						description:
+							"Whether to only return the latest version of each process definition.\nWhen using this filter, pagination functionality is limited, you can only paginate forward using `after` and `limit`.\nThe response contains no `startCursor` in the `page`, and requests ignore the `from` and `before` in the `page`.\nWhen using this filter, sorting is limited to `processDefinitionId` and `tenantId` fields only.\n",
+						type: "boolean",
 					},
 					resourceName: {
-						description:
-							"Resource name of this process definition.",
+						description: "Resource name of this process definition.",
 						type: "string",
 					},
 					version: {
@@ -8281,17 +9368,33 @@ export const c8_8 = {
 						type: "string",
 					},
 					processDefinitionId: {
-						description:
-							"Process definition ID of this process definition.",
-						type: "string",
+						description: "Process definition ID of this process definition.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 					},
 					tenantId: {
 						description: "Tenant ID of this process definition.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key for this process definition.",
-						type: "string",
+					},
+					hasStartForm: {
+						description:
+							"Indicates whether the start event of the process has an associated Form Key.",
+						type: "boolean",
 					},
 				},
 			},
@@ -8320,8 +9423,7 @@ export const c8_8 = {
 						type: "string",
 					},
 					resourceName: {
-						description:
-							"Resource name for this process definition.",
+						description: "Resource name for this process definition.",
 						type: "string",
 					},
 					version: {
@@ -8334,17 +9436,33 @@ export const c8_8 = {
 						type: "string",
 					},
 					processDefinitionId: {
-						description:
-							"Process definition ID of this process definition.",
-						type: "string",
+						description: "Process definition ID of this process definition.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 					},
 					tenantId: {
 						description: "Tenant ID of this process definition.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key for this process definition.",
-						type: "string",
+					},
+					hasStartForm: {
+						description:
+							"Indicates whether the start event of the process has an associated Form Key.",
+						type: "boolean",
 					},
 				},
 			},
@@ -8379,6 +9497,7 @@ export const c8_8 = {
 			ProcessInstanceSearchQuery: {
 				description: "Process instance search request.",
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -8402,20 +9521,36 @@ export const c8_8 = {
 					},
 				},
 			},
+			ProcessInstanceIncidentSearchQuery: {
+				type: "object",
+				additionalProperties: false,
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/IncidentSearchQuerySortRequest",
+						},
+					},
+				},
+			},
 			AdvancedIntegerFilter: {
 				title: "Advanced filter",
 				description: "Advanced integer (int32) filter.",
 				type: "object",
 				properties: {
 					$eq: {
-						description:
-							"Checks for equality with the provided value.",
+						description: "Checks for equality with the provided value.",
 						type: "integer",
 						format: "int32",
 					},
 					$neq: {
-						description:
-							"Checks for inequality with the provided value.",
+						description: "Checks for inequality with the provided value.",
 						type: "integer",
 						format: "int32",
 					},
@@ -8424,8 +9559,7 @@ export const c8_8 = {
 						type: "boolean",
 					},
 					$gt: {
-						description:
-							"Greater than comparison with the provided value.",
+						description: "Greater than comparison with the provided value.",
 						type: "integer",
 						format: "int32",
 					},
@@ -8436,8 +9570,7 @@ export const c8_8 = {
 						format: "int32",
 					},
 					$lt: {
-						description:
-							"Lower than comparison with the provided value.",
+						description: "Lower than comparison with the provided value.",
 						type: "integer",
 						format: "int32",
 					},
@@ -8459,8 +9592,7 @@ export const c8_8 = {
 				},
 			},
 			IntegerFilterProperty: {
-				description:
-					"Integer property with advanced search capabilities.",
+				description: "Integer property with advanced search capabilities.",
 				type: "object",
 				oneOf: [
 					{
@@ -8480,13 +9612,11 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					$eq: {
-						description:
-							"Checks for equality with the provided value.",
+						description: "Checks for equality with the provided value.",
 						type: "string",
 					},
 					$neq: {
-						description:
-							"Checks for inequality with the provided value.",
+						description: "Checks for inequality with the provided value.",
 						type: "string",
 					},
 					$exists: {
@@ -8522,9 +9652,7 @@ export const c8_8 = {
 						type: "object",
 						properties: {
 							$like: {
-								description:
-									"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
-								type: "string",
+								$ref: "#/components/schemas/LikeFilter",
 							},
 						},
 					},
@@ -8536,8 +9664,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					$eq: {
-						description:
-							"Checks for equality with the provided value.",
+						description: "Checks for equality with the provided value.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ProcessInstanceStateEnum",
@@ -8545,8 +9672,7 @@ export const c8_8 = {
 						],
 					},
 					$neq: {
-						description:
-							"Checks for inequality with the provided value.",
+						description: "Checks for inequality with the provided value.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ProcessInstanceStateEnum",
@@ -8566,9 +9692,7 @@ export const c8_8 = {
 						},
 					},
 					$like: {
-						description:
-							"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
-						type: "string",
+						$ref: "#/components/schemas/LikeFilter",
 					},
 				},
 			},
@@ -8578,8 +9702,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					$eq: {
-						description:
-							"Checks for equality with the provided value.",
+						description: "Checks for equality with the provided value.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ElementInstanceStateEnum",
@@ -8587,8 +9710,7 @@ export const c8_8 = {
 						],
 					},
 					$neq: {
-						description:
-							"Checks for inequality with the provided value.",
+						description: "Checks for inequality with the provided value.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ElementInstanceStateEnum",
@@ -8608,11 +9730,72 @@ export const c8_8 = {
 						},
 					},
 					$like: {
-						description:
-							"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
-						type: "string",
+						$ref: "#/components/schemas/LikeFilter",
 					},
 				},
+			},
+			AdvancedDecisionDefinitionKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced DecisionDefinitionKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionDefinitionKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/DecisionDefinitionKey",
+						},
+					},
+				},
+			},
+			DecisionDefinitionKeyFilterProperty: {
+				description:
+					"DecisionDefinitionKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedDecisionDefinitionKeyFilter",
+					},
+				],
 			},
 			AdvancedDateTimeFilter: {
 				title: "Advanced filter",
@@ -8620,14 +9803,12 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					$eq: {
-						description:
-							"Checks for equality with the provided value.",
+						description: "Checks for equality with the provided value.",
 						type: "string",
 						format: "date-time",
 					},
 					$neq: {
-						description:
-							"Checks for inequality with the provided value.",
+						description: "Checks for inequality with the provided value.",
 						type: "string",
 						format: "date-time",
 					},
@@ -8636,8 +9817,7 @@ export const c8_8 = {
 						type: "boolean",
 					},
 					$gt: {
-						description:
-							"Greater than comparison with the provided value.",
+						description: "Greater than comparison with the provided value.",
 						type: "string",
 						format: "date-time",
 					},
@@ -8648,8 +9828,7 @@ export const c8_8 = {
 						format: "date-time",
 					},
 					$lt: {
-						description:
-							"Lower than comparison with the provided value.",
+						description: "Lower than comparison with the provided value.",
 						type: "string",
 						format: "date-time",
 					},
@@ -8671,8 +9850,7 @@ export const c8_8 = {
 				},
 			},
 			BasicStringFilterProperty: {
-				description:
-					"String property with basic advanced search capabilities.",
+				description: "String property with basic advanced search capabilities.",
 				type: "object",
 				oneOf: [
 					{
@@ -8686,8 +9864,7 @@ export const c8_8 = {
 				],
 			},
 			StringFilterProperty: {
-				description:
-					"String property with full advanced search capabilities.",
+				description: "String property with full advanced search capabilities.",
 				type: "object",
 				oneOf: [
 					{
@@ -8699,6 +9876,11 @@ export const c8_8 = {
 						$ref: "#/components/schemas/AdvancedStringFilter",
 					},
 				],
+			},
+			LikeFilter: {
+				type: "string",
+				description:
+					"Checks if the property matches the provided like value.\n\nSupported wildcard characters are:\n\n* `*`: matches zero, one, or multiple characters.\n* `?`: matches one, single character.\n\nWildcard characters can be escaped with backslash, for instance: `\\*`.\n",
 			},
 			ProcessInstanceStateFilterProperty: {
 				description:
@@ -8756,6 +9938,446 @@ export const c8_8 = {
 					},
 				],
 			},
+			AdvancedProcessDefinitionKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced ProcessDefinitionKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessDefinitionKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessDefinitionKey",
+						},
+					},
+				},
+			},
+			ProcessDefinitionKeyFilterProperty: {
+				description:
+					"ProcessDefinitionKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedProcessDefinitionKeyFilter",
+					},
+				],
+			},
+			AdvancedProcessInstanceKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced ProcessInstanceKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceKey",
+						},
+					},
+				},
+			},
+			ProcessInstanceKeyFilterProperty: {
+				description:
+					"ProcessInstanceKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedProcessInstanceKeyFilter",
+					},
+				],
+			},
+			AdvancedElementInstanceKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced ElementInstanceKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ElementInstanceKey",
+						},
+					},
+				},
+			},
+			ElementInstanceKeyFilterProperty: {
+				description:
+					"ElementInstanceKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedElementInstanceKeyFilter",
+					},
+				],
+			},
+			AdvancedVariableKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced VariableKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/VariableKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/VariableKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/VariableKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/VariableKey",
+						},
+					},
+				},
+			},
+			VariableKeyFilterProperty: {
+				description:
+					"VariableKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/VariableKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedVariableKeyFilter",
+					},
+				],
+			},
+			AdvancedScopeKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced ScopeKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ScopeKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ScopeKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ScopeKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ScopeKey",
+						},
+					},
+				},
+			},
+			ScopeKeyFilterProperty: {
+				description:
+					"ScopeKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ScopeKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedScopeKeyFilter",
+					},
+				],
+			},
+			AdvancedMessageSubscriptionKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced MessageSubscriptionKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MessageSubscriptionKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MessageSubscriptionKey",
+						},
+					},
+				},
+			},
+			MessageSubscriptionKeyFilterProperty: {
+				description:
+					"MessageSubscriptionKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedMessageSubscriptionKeyFilter",
+					},
+				],
+			},
+			AdvancedJobKeyFilter: {
+				title: "Advanced filter",
+				description: "Advanced JobKey filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobKey",
+						},
+					},
+					$notIn: {
+						description:
+							"Checks if the property matches none of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobKey",
+						},
+					},
+				},
+			},
+			JobKeyFilterProperty: {
+				description: "JobKey property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedJobKeyFilter",
+					},
+				],
+			},
 			BaseProcessInstanceFilterFields: {
 				description: "Base process instance search filter.",
 				type: "object",
@@ -8801,14 +10423,14 @@ export const c8_8 = {
 						description: "The process instance variables.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/VariableValueFilterRequest",
+							$ref: "#/components/schemas/VariableValueFilterProperty",
 						},
 					},
 					processInstanceKey: {
 						description: "The key of this process instance.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
 							},
 						],
 					},
@@ -8816,7 +10438,7 @@ export const c8_8 = {
 						description: "The parent process instance key.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
 							},
 						],
 					},
@@ -8824,7 +10446,7 @@ export const c8_8 = {
 						description: "The parent element instance key.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ElementInstanceKeyFilterProperty",
 							},
 						],
 					},
@@ -8837,8 +10459,7 @@ export const c8_8 = {
 						],
 					},
 					errorMessage: {
-						description:
-							"The error message related to the process.",
+						description: "The error message related to the process.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/StringFilterProperty",
@@ -8860,8 +10481,7 @@ export const c8_8 = {
 						],
 					},
 					elementId: {
-						description:
-							"The element ID associated with the process instance.",
+						description: "The element ID associated with the process instance.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/StringFilterProperty",
@@ -8869,15 +10489,20 @@ export const c8_8 = {
 						],
 					},
 					hasElementInstanceIncident: {
-						description:
-							"Whether the element instance has an incident or not.",
+						description: "Whether the element instance has an incident or not.",
 						type: "boolean",
 					},
 					incidentErrorHashCode: {
 						description:
 							"The incident error hash code, associated with this process.",
-						type: "integer",
-						format: "int32",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IntegerFilterProperty",
+							},
+						],
+					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
 					},
 				},
 			},
@@ -8892,7 +10517,7 @@ export const c8_8 = {
 						properties: {
 							$or: {
 								description:
-									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processInstanceId": "process_v1" },\n    { "processInstanceId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processInstanceId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
+									'Defines a list of alternative filter groups combined using OR logic. Each object in the array is evaluated independently, and the filter matches if any one of them is satisfied.\n\nTop-level fields and the `$or` clause are combined using AND logic — meaning: (top-level filters) AND (any of the `$or` filters) must match.\n<br>\n<em>Example:</em>\n\n```json\n{\n  "state": "ACTIVE",\n  "tenantId": 123,\n  "$or": [\n    { "processDefinitionId": "process_v1" },\n    { "processDefinitionId": "process_v2", "hasIncident": true }\n  ]\n}\n```\nThis matches process instances that:\n\n<ul style="padding-left: 20px; margin-left: 20px;">\n  <li style="list-style-type: disc;">are in <em>ACTIVE</em> state</li>\n  <li style="list-style-type: disc;">have tenant ID equal to <em>123</em></li>\n  <li style="list-style-type: disc;">and match either:\n    <ul style="padding-left: 20px; margin-left: 20px;">\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v1</em>, or</li>\n      <li style="list-style-type: circle;"><code>processDefinitionId</code> is <em>process_v2</em> and <code>hasIncident</code> is <em>true</em></li>\n    </ul>\n  </li>\n</ul>\n<br>\n<p>Note: Using complex <code>$or</code> conditions may impact performance, use with caution in high-volume environments.\n',
 								type: "array",
 								items: {
 									$ref: "#/components/schemas/BaseProcessInstanceFilterFields",
@@ -8947,7 +10572,7 @@ export const c8_8 = {
 						description: "The process definition key.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/ProcessDefinitionKeyFilterProperty",
 							},
 						],
 					},
@@ -8982,6 +10607,7 @@ export const c8_8 = {
 						$ref: "#/components/schemas/SearchQueryResponse",
 					},
 				],
+				required: ["items"],
 				properties: {
 					items: {
 						description: "The matching process instances.",
@@ -8995,10 +10621,20 @@ export const c8_8 = {
 			ProcessInstanceResult: {
 				description: "Process instance search response item.",
 				type: "object",
+				required: [
+					"processDefinitionId",
+					"processDefinitionName",
+					"processDefinitionVersion",
+					"startDate",
+					"state",
+					"hasIncident",
+					"tenantId",
+					"processInstanceKey",
+					"processDefinitionKey",
+				],
 				properties: {
 					processDefinitionId: {
-						type: "string",
-						description: "The process definition ID.",
+						$ref: "#/components/schemas/ProcessDefinitionId",
 					},
 					processDefinitionName: {
 						type: "string",
@@ -9032,34 +10668,53 @@ export const c8_8 = {
 							"Whether this process instance has a related incident or not.",
 					},
 					tenantId: {
-						type: "string",
-						description: "The tenant ID.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of this process instance.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The process definition key.",
 					},
 					parentProcessInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The parent process instance key.",
 					},
 					parentElementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description: "The parent element instance key.",
+					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
 					},
 				},
 			},
 			ProcessInstanceStateEnum: {
-				description: "The state, one of ACTIVE, COMPLETED, TERMINATED.",
+				description: "Process instance states",
+				type: "string",
 				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
 			},
 			ElementInstanceStateEnum: {
-				description:
-					"Element states, one of ACTIVE, COMPLETED, TERMINATED.",
+				description: "Element states",
+				type: "string",
 				enum: ["ACTIVE", "COMPLETED", "TERMINATED"],
 			},
 			ProcessInstanceCallHierarchyEntry: {
@@ -9071,11 +10726,19 @@ export const c8_8 = {
 				],
 				properties: {
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of the process instance.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the process definition.",
 					},
 					processDefinitionName: {
@@ -9107,35 +10770,50 @@ export const c8_8 = {
 						description: "The sequence flow ID.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of this process instance.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The process definition key.",
 					},
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description: "The process definition ID.",
 					},
 					elementId: {
-						type: "string",
 						description:
 							"The element ID for this sequence flow, as provided in the BPMN process.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					tenantId: {
-						description: "The tenant ID for this sequence flow.",
-						type: "string",
+						$ref: "#/components/schemas/TenantId",
 					},
 				},
 			},
 			ProcessDefinitionElementStatisticsQuery: {
 				description: "Process definition element statistics request.",
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					filter: {
-						description:
-							"The process definition statistics search filters.",
+						description: "The process definition statistics search filters.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ProcessDefinitionStatisticsFilter",
@@ -9145,8 +10823,7 @@ export const c8_8 = {
 				},
 			},
 			ProcessDefinitionElementStatisticsQueryResult: {
-				description:
-					"Process definition element statistics query response.",
+				description: "Process definition element statistics query response.",
 				type: "object",
 				properties: {
 					items: {
@@ -9159,8 +10836,7 @@ export const c8_8 = {
 				},
 			},
 			ProcessInstanceElementStatisticsQueryResult: {
-				description:
-					"Process instance element statistics query response.",
+				description: "Process instance element statistics query response.",
 				type: "object",
 				properties: {
 					items: {
@@ -9177,13 +10853,15 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					elementId: {
-						description:
-							"The element ID for which the results are aggregated.",
-						type: "string",
+						description: "The element ID for which the results are aggregated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					active: {
-						description:
-							"The total number of active instances of the element.",
+						description: "The total number of active instances of the element.",
 						type: "integer",
 						format: "int64",
 					},
@@ -9194,8 +10872,7 @@ export const c8_8 = {
 						format: "int64",
 					},
 					incidents: {
-						description:
-							"The total number of incidents for the element.",
+						description: "The total number of incidents for the element.",
 						type: "integer",
 						format: "int64",
 					},
@@ -9210,13 +10887,10 @@ export const c8_8 = {
 			CancelProcessInstanceRequest: {
 				type: "object",
 				nullable: true,
+				additionalProperties: false,
 				properties: {
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be > 0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 				},
 			},
@@ -9234,6 +10908,7 @@ export const c8_8 = {
 							"startDate",
 							"endDate",
 							"elementId",
+							"elementName",
 							"type",
 							"state",
 							"incidentKey",
@@ -9249,6 +10924,7 @@ export const c8_8 = {
 			ElementInstanceSearchQuery: {
 				description: "Element instance search request.",
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -9279,11 +10955,14 @@ export const c8_8 = {
 					processDefinitionId: {
 						description:
 							"The process definition ID associated to this element instance.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 					},
 					state: {
-						description:
-							"State of element instance as defined set of values.",
+						description: "State of element instance as defined set of values.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ElementInstanceStateFilterProperty",
@@ -9291,8 +10970,7 @@ export const c8_8 = {
 						],
 					},
 					type: {
-						description:
-							"Type of element as defined set of values.",
+						description: "Type of element as defined set of values.",
 						type: "string",
 						enum: [
 							"UNSPECIFIED",
@@ -9300,6 +10978,7 @@ export const c8_8 = {
 							"SUB_PROCESS",
 							"EVENT_SUB_PROCESS",
 							"AD_HOC_SUB_PROCESS",
+							"AD_HOC_SUB_PROCESS_INNER_INSTANCE",
 							"START_EVENT",
 							"INTERMEDIATE_CATCH_EVENT",
 							"INTERMEDIATE_THROW_EVENT",
@@ -9324,13 +11003,17 @@ export const c8_8 = {
 						],
 					},
 					elementId: {
-						type: "string",
-						description:
-							"The element ID for this element instance.",
+						description: "The element ID for this element instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					elementName: {
 						type: "string",
-						description: "The element name.",
+						description:
+							"The element name. This only works for data created with 8.8 and onwards. Instances from prior versions don't contain this data and cannot be found.\n",
 					},
 					hasIncident: {
 						type: "boolean",
@@ -9338,28 +11021,71 @@ export const c8_8 = {
 							"Shows whether this element instance has an incident related to.",
 					},
 					tenantId: {
-						description: "The tenant ID.",
-						type: "string",
+						$ref: "#/components/schemas/TenantId",
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this element instance.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description:
 							"The process instance key associated to this element instance.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The process definition key associated to this element instance.",
 					},
 					incidentKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/IncidentKey",
+							},
+						],
+						description: "The key of incident if field incident is true.",
+					},
+					startDate: {
+						description: "The start date of this element instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					endDate: {
+						description: "The end date of this element instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					elementInstanceScopeKey: {
 						type: "string",
 						description:
-							"The key of incident if field incident is true.",
+							"The scope key of this element instance. If provided with a process instance key it will return element instances that are immediate children of the process instance. If provided with an element instance key it will return element instances that are immediate children of the element instance.\n",
+						oneOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 					},
 				},
 			},
@@ -9382,11 +11108,28 @@ export const c8_8 = {
 			},
 			ElementInstanceResult: {
 				type: "object",
+				required: [
+					"processDefinitionId",
+					"startDate",
+					"elementId",
+					"elementName",
+					"type",
+					"state",
+					"hasIncident",
+					"tenantId",
+					"elementInstanceKey",
+					"processInstanceKey",
+					"processDefinitionKey",
+				],
 				properties: {
 					processDefinitionId: {
 						description:
 							"The process definition ID associated to this element instance.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 					},
 					startDate: {
 						description: "Date when element instance started.",
@@ -9399,18 +11142,19 @@ export const c8_8 = {
 						format: "date-time",
 					},
 					elementId: {
-						description:
-							"The element ID for this element instance.",
-						type: "string",
+						description: "The element ID for this element instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					elementName: {
-						description:
-							"The element name for this element instance.",
+						description: "The element name for this element instance.",
 						type: "string",
 					},
 					type: {
-						description:
-							"Type of element as defined set of values.",
+						description: "Type of element as defined set of values.",
 						type: "string",
 						enum: [
 							"UNSPECIFIED",
@@ -9418,6 +11162,7 @@ export const c8_8 = {
 							"SUB_PROCESS",
 							"EVENT_SUB_PROCESS",
 							"AD_HOC_SUB_PROCESS",
+							"AD_HOC_SUB_PROCESS_INNER_INSTANCE",
 							"START_EVENT",
 							"INTERMEDIATE_CATCH_EVENT",
 							"INTERMEDIATE_THROW_EVENT",
@@ -9442,8 +11187,7 @@ export const c8_8 = {
 						],
 					},
 					state: {
-						description:
-							"State of element instance as defined set of values.",
+						description: "State of element instance as defined set of values.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ElementInstanceStateEnum",
@@ -9457,131 +11201,46 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of the incident.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this element instance.",
 					},
 					processInstanceKey: {
-						description:
-							"The process instance key associated to this element instance.",
-						type: "string",
-					},
-					processDefinitionKey: {
-						description:
-							"The process definition key associated to this element instance.",
-						type: "string",
-					},
-					incidentKey: {
-						description:
-							"Incident key associated with this element instance.",
-						type: "string",
-					},
-				},
-			},
-			AdHocSubProcessActivitySearchQuery: {
-				description: "Ad-hoc sub-process activities search request.",
-				type: "object",
-				required: ["filter"],
-				properties: {
-					filter: {
-						description:
-							"The ad-hoc sub-process activity search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/AdHocSubProcessActivityFilter",
+								$ref: "#/components/schemas/ProcessInstanceKey",
 							},
 						],
+						description:
+							"The process instance key associated to this element instance.",
 					},
-				},
-			},
-			AdHocSubProcessActivityFilter: {
-				description: "Element instance filter.",
-				type: "object",
-				required: ["processDefinitionKey", "adHocSubProcessId"],
-				properties: {
 					processDefinitionKey: {
-						description: "The process definition key.",
-						type: "string",
-					},
-					adHocSubProcessId: {
-						description: "The ad-hoc sub-process element ID.",
-						type: "string",
-					},
-				},
-			},
-			AdHocSubProcessActivitySearchQueryResult: {
-				type: "object",
-				properties: {
-					items: {
-						description:
-							"The matching ad-hoc sub-process activities.",
-						type: "array",
-						items: {
-							$ref: "#/components/schemas/AdHocSubProcessActivityResult",
-						},
-					},
-				},
-			},
-			AdHocSubProcessActivityResult: {
-				type: "object",
-				properties: {
-					processDefinitionKey: {
-						description:
-							"The process definition key associated to this activity.",
-						type: "string",
-					},
-					processDefinitionId: {
-						description:
-							"The process definition ID associated to this activity.",
-						type: "string",
-					},
-					adHocSubProcessId: {
-						description: "The ad-hoc sub-process element ID.",
-						type: "string",
-					},
-					elementId: {
-						description: "The element ID for this activity.",
-						type: "string",
-					},
-					elementName: {
-						description: "The element name for this activity.",
-						type: "string",
-					},
-					type: {
-						description:
-							"Type of activity with a defined set of values.",
-						type: "string",
-						enum: [
-							"UNSPECIFIED",
-							"PROCESS",
-							"SUB_PROCESS",
-							"EVENT_SUB_PROCESS",
-							"INTERMEDIATE_CATCH_EVENT",
-							"INTERMEDIATE_THROW_EVENT",
-							"BOUNDARY_EVENT",
-							"SERVICE_TASK",
-							"RECEIVE_TASK",
-							"USER_TASK",
-							"MANUAL_TASK",
-							"TASK",
-							"MULTI_INSTANCE_BODY",
-							"CALL_ACTIVITY",
-							"BUSINESS_RULE_TASK",
-							"SCRIPT_TASK",
-							"SEND_TASK",
-							"UNKNOWN",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
 						],
+						description:
+							"The process definition key associated to this element instance.",
 					},
-					documentation: {
-						description: "The documentation for this activity.",
-						type: "string",
-					},
-					tenantId: {
-						description: "The tenant ID for this activity.",
-						type: "string",
+					incidentKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/IncidentKey",
+							},
+						],
+						description: "Incident key associated with this element instance.",
 					},
 				},
 			},
@@ -9595,6 +11254,12 @@ export const c8_8 = {
 							$ref: "#/components/schemas/AdHocSubProcessActivateActivityReference",
 						},
 					},
+					cancelRemainingInstances: {
+						description:
+							"Whether to cancel remaining instances of the ad-hoc sub-process.",
+						type: "boolean",
+						default: false,
+					},
 				},
 				required: ["elements"],
 			},
@@ -9602,9 +11267,17 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					elementId: {
-						description:
-							"The ID of the element that should be activated.",
-						type: "string",
+						description: "The ID of the element that should be activated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+					variables: {
+						description: "Variables to be set when activating the element.",
+						type: "object",
+						additionalProperties: true,
 					},
 				},
 				required: ["elementId"],
@@ -9633,6 +11306,7 @@ export const c8_8 = {
 			},
 			DecisionDefinitionSearchQuery: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -9661,7 +11335,11 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					decisionDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 						description: "The DMN ID of the decision definition.",
 					},
 					name: {
@@ -9671,8 +11349,7 @@ export const c8_8 = {
 					version: {
 						type: "integer",
 						format: "int32",
-						description:
-							"The assigned version of the decision definition.",
+						description: "The assigned version of the decision definition.",
 					},
 					decisionRequirementsId: {
 						type: "string",
@@ -9680,17 +11357,28 @@ export const c8_8 = {
 							"the DMN ID of the decision requirements graph that the decision definition is part of.",
 					},
 					tenantId: {
-						type: "string",
-						description:
-							"The tenant ID of the decision definition.",
+						description: "The tenant ID of the decision definition.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this decision definition.",
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned key of the decision requirements graph that the decision definition is part of.",
 					},
@@ -9724,6 +11412,7 @@ export const c8_8 = {
 				required: ["field"],
 			},
 			IncidentSearchQuery: {
+				additionalProperties: false,
 				type: "object",
 				allOf: [
 					{
@@ -9753,14 +11442,17 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description:
 							"The process definition ID associated to this incident.",
 					},
 					errorType: {
 						type: "string",
-						description:
-							"Incident error type with a defined set of values.",
+						description: "Incident error type with a defined set of values.",
 						enum: [
 							"UNSPECIFIED",
 							"UNKNOWN",
@@ -9768,6 +11460,7 @@ export const c8_8 = {
 							"JOB_NO_RETRIES",
 							"EXECUTION_LISTENER_NO_RETRIES",
 							"TASK_LISTENER_NO_RETRIES",
+							"AD_HOC_SUB_PROCESS_NO_RETRIES",
 							"CONDITION_ERROR",
 							"EXTRACT_VALUE_ERROR",
 							"CALLED_ELEMENT_ERROR",
@@ -9785,47 +11478,76 @@ export const c8_8 = {
 							"Error message which describes the error in more detail.",
 					},
 					elementId: {
-						type: "string",
-						description:
-							"The element ID associated to this incident.",
+						description: "The element ID associated to this incident.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					creationTime: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
 						description: "Date of incident creation.",
-						format: "date-time",
 					},
 					state: {
 						type: "string",
-						description:
-							"State of this incident with a defined set of values.",
+						description: "State of this incident with a defined set of values.",
 						enum: ["ACTIVE", "MIGRATED", "RESOLVED", "PENDING"],
 					},
 					tenantId: {
 						description: "The tenant ID of the incident.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					incidentKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IncidentKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this incident.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The process definition key associated to this incident.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description:
 							"The process instance key associated to this incident.",
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description:
 							"The element instance key associated to this incident.",
 					},
 					jobKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
 						description:
 							"The job key, if exists, associated with this incident.",
 					},
@@ -9848,18 +11570,598 @@ export const c8_8 = {
 					},
 				},
 			},
+			CorrelatedMessageSubscriptionSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching correlated message subscriptions.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/CorrelatedMessageSubscriptionResult",
+						},
+					},
+				},
+			},
+			CorrelatedMessageSubscriptionResult: {
+				type: "object",
+				properties: {
+					correlationKey: {
+						description: "The correlation key of the message.",
+						type: "string",
+					},
+					correlationTime: {
+						description: "The time when the message was correlated.",
+						type: "string",
+						format: "date-time",
+					},
+					elementId: {
+						description: "The element ID that received the message.",
+						type: "string",
+					},
+					elementInstanceKey: {
+						description: "The element instance key that received the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+					},
+					messageKey: {
+						description: "The message key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageKey",
+							},
+						],
+					},
+					messageName: {
+						description: "The name of the message.",
+						type: "string",
+					},
+					partitionId: {
+						description: "The partition ID that correlated the message.",
+						type: "integer",
+						format: "int32",
+					},
+					processDefinitionId: {
+						description:
+							"The process definition ID associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
+					},
+					processDefinitionKey: {
+						description:
+							"The process definition key associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+					},
+					subscriptionKey: {
+						description: "The subscription key that received the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKey",
+							},
+						],
+					},
+					tenantId: {
+						description:
+							"The tenant ID associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
+					},
+				},
+				required: [
+					"correlationKey",
+					"correlationTime",
+					"elementId",
+					"messageKey",
+					"messageName",
+					"partitionId",
+					"processDefinitionId",
+					"processInstanceKey",
+					"subscriptionKey",
+					"tenantId",
+				],
+			},
+			CorrelatedMessageSubscriptionSearchQuery: {
+				type: "object",
+				additionalProperties: false,
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/CorrelatedMessageSubscriptionSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The correlated message subscriptions search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/CorrelatedMessageSubscriptionFilter",
+							},
+						],
+					},
+				},
+			},
+			CorrelatedMessageSubscriptionSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"correlationKey",
+							"correlationTime",
+							"elementId",
+							"elementInstanceKey",
+							"messageKey",
+							"messageName",
+							"partitionId",
+							"processDefinitionId",
+							"processDefinitionKey",
+							"processInstanceKey",
+							"subscriptionKey",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			CorrelatedMessageSubscriptionFilter: {
+				description: "Correlated message subscriptions search filter.",
+				type: "object",
+				properties: {
+					correlationKey: {
+						description: "The correlation key of the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					correlationTime: {
+						description: "The time when the message was correlated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						description: "The element ID that received the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					elementInstanceKey: {
+						description: "The element instance key that received the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKeyFilterProperty",
+							},
+						],
+					},
+					messageKey: {
+						description: "The message key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					messageName: {
+						description: "The name of the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					partitionId: {
+						description: "The partition ID that correlated the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IntegerFilterProperty",
+							},
+						],
+					},
+					processDefinitionId: {
+						description:
+							"The process definition ID associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processDefinitionKey: {
+						description:
+							"The process definition key associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					subscriptionKey: {
+						description: "The subscription key that received the message.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
+					},
+					tenantId: {
+						description:
+							"The tenant ID associated with this correlated message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			MessageSubscriptionSearchQueryResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching message subscriptions.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MessageSubscriptionResult",
+						},
+					},
+				},
+			},
+			MessageSubscriptionResult: {
+				type: "object",
+				properties: {
+					messageSubscriptionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKey",
+							},
+						],
+						description:
+							"The message subscription key associated with this message subscription.",
+					},
+					processDefinitionId: {
+						description:
+							"The process definition ID associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
+					},
+					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+						description:
+							"The process definition key associated with this message subscription.",
+					},
+					processInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+						description:
+							"The process instance key associated with this message subscription.",
+					},
+					elementId: {
+						description:
+							"The element ID associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+					elementInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+						description:
+							"The element instance key associated with this message subscription.",
+					},
+					messageSubscriptionState: {
+						$ref: "#/components/schemas/MessageSubscriptionStateEnum",
+					},
+					lastUpdatedDate: {
+						description: "The last updated date of the message subscription.",
+						type: "string",
+						format: "date-time",
+					},
+					messageName: {
+						description:
+							"The name of the message associated with the message subscription.",
+						type: "string",
+					},
+					correlationKey: {
+						type: "string",
+						description: "The correlation key of the message subscription.",
+					},
+					tenantId: {
+						$ref: "#/components/schemas/TenantId",
+					},
+				},
+			},
+			MessageSubscriptionSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"messageSubscriptionKey",
+							"processDefinitionId",
+							"processInstanceKey",
+							"elementId",
+							"elementInstanceKey",
+							"messageSubscriptionState",
+							"lastUpdatedDate",
+							"messageName",
+							"correlationKey",
+							"tenantId",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			MessageSubscriptionSearchQuery: {
+				type: "object",
+				additionalProperties: false,
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MessageSubscriptionSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The incident search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionFilter",
+							},
+						],
+					},
+				},
+			},
+			MessageSubscriptionFilter: {
+				description: "Message subscription search filter.",
+				type: "object",
+				properties: {
+					messageSubscriptionKey: {
+						description:
+							"The message subscription key associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionKeyFilterProperty",
+							},
+						],
+					},
+					processDefinitionId: {
+						description:
+							"The process definition ID associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processInstanceKey: {
+						description:
+							"The process instance key associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						description:
+							"The element ID associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					elementInstanceKey: {
+						description:
+							"The element instance key associated with this message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKeyFilterProperty",
+							},
+						],
+					},
+					messageSubscriptionState: {
+						description: "The message subscription state.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionStateFilterProperty",
+							},
+						],
+					},
+					lastUpdatedDate: {
+						description: "The last updated date of the message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					messageName: {
+						description:
+							"The name of the message associated with the message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					correlationKey: {
+						description: "The correlation key of the message subscription.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					tenantId: {
+						description: "The unique external tenant ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			MessageSubscriptionStateFilterProperty: {
+				description:
+					"MessageSubscriptionStateEnum with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedMessageSubscriptionStateFilter",
+					},
+				],
+			},
+			MessageSubscriptionStateEnum: {
+				description: "The state of message subscription.",
+				type: "string",
+				enum: ["CORRELATED", "CREATED", "DELETED", "MIGRATED"],
+			},
+			AdvancedMessageSubscriptionStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced MessageSubscriptionStateEnum filter",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageSubscriptionStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/MessageSubscriptionStateEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
 			IncidentResult: {
 				type: "object",
 				properties: {
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description:
 							"The process definition ID associated to this incident.",
 					},
 					errorType: {
 						type: "string",
-						description:
-							"Incident error type with a defined set of values.",
+						description: "Incident error type with a defined set of values.",
 						enum: [
 							"UNSPECIFIED",
 							"UNKNOWN",
@@ -9867,6 +12169,7 @@ export const c8_8 = {
 							"JOB_NO_RETRIES",
 							"EXECUTION_LISTENER_NO_RETRIES",
 							"TASK_LISTENER_NO_RETRIES",
+							"AD_HOC_SUB_PROCESS_NO_RETRIES",
 							"CONDITION_ERROR",
 							"EXTRACT_VALUE_ERROR",
 							"CALLED_ELEMENT_ERROR",
@@ -9884,9 +12187,12 @@ export const c8_8 = {
 							"Error message which describes the error in more detail.",
 					},
 					elementId: {
-						type: "string",
-						description:
-							"The element ID associated to this incident.",
+						description: "The element ID associated to this incident.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					creationTime: {
 						type: "string",
@@ -9895,36 +12201,59 @@ export const c8_8 = {
 					},
 					state: {
 						type: "string",
-						description:
-							"State of this incident with a defined set of values.",
+						description: "State of this incident with a defined set of values.",
 						enum: ["ACTIVE", "MIGRATED", "RESOLVED", "PENDING"],
 					},
 					tenantId: {
 						description: "The tenant ID of the incident.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					incidentKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IncidentKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this incident.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The process definition key associated to this incident.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description:
 							"The process instance key associated to this incident.",
 					},
 					elementInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description:
 							"The element instance key associated to this incident.",
 					},
 					jobKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
 						description:
 							"The job key, if exists, associated with this incident.",
 					},
@@ -9941,6 +12270,7 @@ export const c8_8 = {
 					items: {
 						description: "The matching decision definitions.",
 						type: "array",
+						required: ["items"],
 						items: {
 							$ref: "#/components/schemas/DecisionDefinitionResult",
 						},
@@ -9951,7 +12281,11 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					decisionDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 						description: "The DMN ID of the decision definition.",
 					},
 					name: {
@@ -9961,8 +12295,7 @@ export const c8_8 = {
 					version: {
 						type: "integer",
 						format: "int32",
-						description:
-							"The assigned version of the decision definition.",
+						description: "The assigned version of the decision definition.",
 					},
 					decisionRequirementsId: {
 						type: "string",
@@ -9970,17 +12303,28 @@ export const c8_8 = {
 							"the DMN ID of the decision requirements graph that the decision definition is part of.",
 					},
 					tenantId: {
-						type: "string",
-						description:
-							"The tenant ID of the decision definition.",
+						description: "The tenant ID of the decision definition.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this decision definition.",
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned key of the decision requirements graph that the decision definition is part of.",
 					},
@@ -9988,21 +12332,49 @@ export const c8_8 = {
 			},
 			UsageMetricsResponse: {
 				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/UsageMetricsResponseItem",
+					},
+				],
 				properties: {
-					assignees: {
-						description: "The amount of unique active users.",
+					activeTenants: {
+						description: "The amount of active tenants.",
 						type: "integer",
 						format: "int64",
 					},
-					processInstances: {
+					tenants: {
 						description:
-							"The amount of created root process instances.",
+							"The usage metrics by tenants. Only available if request `withTenants` query parameter was `true`.",
+						type: "object",
+						additionalProperties: {
+							type: "object",
+							title: "The tenant ID.",
+							description: "The usage metrics for the specific tenant.",
+							allOf: [
+								{
+									$ref: "#/components/schemas/UsageMetricsResponseItem",
+								},
+							],
+						},
+					},
+				},
+			},
+			UsageMetricsResponseItem: {
+				type: "object",
+				properties: {
+					processInstances: {
+						description: "The amount of created root process instances.",
 						type: "integer",
 						format: "int64",
 					},
 					decisionInstances: {
-						description:
-							"The amount of executed decision instances.",
+						description: "The amount of executed decision instances.",
+						type: "integer",
+						format: "int64",
+					},
+					assignees: {
+						description: "The amount of unique active task users.",
 						type: "integer",
 						format: "int64",
 					},
@@ -10010,6 +12382,7 @@ export const c8_8 = {
 			},
 			PermissionTypeEnum: {
 				description: "Specifies the type of permissions.",
+				type: "string",
 				enum: [
 					"ACCESS",
 					"CREATE",
@@ -10029,9 +12402,12 @@ export const c8_8 = {
 					"READ_DECISION_INSTANCE",
 					"READ_PROCESS_DEFINITION",
 					"READ_DECISION_DEFINITION",
+					"READ_USAGE_METRIC",
 					"UPDATE",
 					"UPDATE_PROCESS_INSTANCE",
 					"UPDATE_USER_TASK",
+					"CANCEL_PROCESS_INSTANCE",
+					"MODIFY_PROCESS_INSTANCE",
 					"DELETE",
 					"DELETE_PROCESS",
 					"DELETE_DRD",
@@ -10042,15 +12418,14 @@ export const c8_8 = {
 				],
 			},
 			ResourceTypeEnum: {
-				description:
-					"The type of resource to add/remove permissions to/from.",
+				description: "The type of resource to add/remove permissions to/from.",
+				type: "string",
 				enum: [
 					"AUTHORIZATION",
 					"MAPPING_RULE",
 					"MESSAGE",
 					"BATCH",
-					"BATCH_OPERATION",
-					"APPLICATION",
+					"COMPONENT",
 					"SYSTEM",
 					"TENANT",
 					"RESOURCE",
@@ -10060,45 +12435,39 @@ export const c8_8 = {
 					"GROUP",
 					"USER",
 					"ROLE",
+					"DOCUMENT",
 				],
 			},
 			OwnerTypeEnum: {
+				type: "string",
 				description: "The type of the owner of permissions.",
 				enum: [
 					"USER",
 					"CLIENT",
 					"ROLE",
 					"GROUP",
-					"MAPPING",
+					"MAPPING_RULE",
 					"UNSPECIFIED",
 				],
 			},
 			AuthorizationRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					ownerId: {
 						description: "The ID of the owner of the permissions.",
 						type: "string",
 					},
 					ownerType: {
-						description:
-							"The type of the owner of the permissions.",
-						type: "object",
-						allOf: [
-							{
-								$ref: "#/components/schemas/OwnerTypeEnum",
-							},
-						],
+						$ref: "#/components/schemas/OwnerTypeEnum",
 					},
 					resourceId: {
-						description:
-							"The ID of the resource to add permissions to.",
+						description: "The ID of the resource to add permissions to.",
 						type: "string",
 					},
 					resourceType: {
-						description:
-							"The type of resource to add permissions to.",
-						type: "object",
+						description: "The type of resource to add permissions to.",
+						type: "string",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ResourceTypeEnum",
@@ -10109,7 +12478,6 @@ export const c8_8 = {
 						type: "array",
 						description: "The permission types to add.",
 						items: {
-							type: "string",
 							allOf: [
 								{
 									$ref: "#/components/schemas/PermissionTypeEnum",
@@ -10130,8 +12498,12 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					authorizationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/AuthorizationKey",
+							},
+						],
 						description: "The key of the created authorization.",
-						type: "string",
 					},
 				},
 			},
@@ -10141,12 +12513,7 @@ export const c8_8 = {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
-						enum: [
-							"ownerId",
-							"ownerType",
-							"resourceId",
-							"resourceType",
-						],
+						enum: ["ownerId", "ownerType", "resourceId", "resourceType"],
 					},
 					order: {
 						$ref: "#/components/schemas/SortOrderEnum",
@@ -10156,6 +12523,7 @@ export const c8_8 = {
 			},
 			AuthorizationSearchQuery: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -10188,26 +12556,18 @@ export const c8_8 = {
 						type: "string",
 					},
 					ownerType: {
-						description: "The type of the owner of permissions.",
-						type: "object",
-						allOf: [
-							{
-								$ref: "#/components/schemas/OwnerTypeEnum",
-							},
-						],
+						$ref: "#/components/schemas/OwnerTypeEnum",
 					},
 					resourceIds: {
-						description:
-							"The IDs of the resource to search permissions for.",
+						description: "The IDs of the resource to search permissions for.",
 						type: "array",
 						items: {
 							type: "string",
 						},
 					},
 					resourceType: {
-						description:
-							"The type of resource to search permissions for.",
-						type: "object",
+						description: "The type of resource to search permissions for.",
+						type: "string",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ResourceTypeEnum",
@@ -10224,18 +12584,11 @@ export const c8_8 = {
 						type: "string",
 					},
 					ownerType: {
-						description: "The type of the owner of permissions.",
-						type: "object",
-						allOf: [
-							{
-								$ref: "#/components/schemas/OwnerTypeEnum",
-							},
-						],
+						$ref: "#/components/schemas/OwnerTypeEnum",
 					},
 					resourceType: {
-						description:
-							"The type of resource that owner have permissions.",
-						type: "object",
+						description: "The type of resource that the permissions relate to.",
+						type: "string",
 						allOf: [
 							{
 								$ref: "#/components/schemas/ResourceTypeEnum",
@@ -10243,20 +12596,27 @@ export const c8_8 = {
 						],
 					},
 					resourceId: {
-						description:
-							"ID of the resource the permission relates to.",
+						description: "ID of the resource the permission relates to.",
 						type: "string",
 					},
 					permissionTypes: {
 						description: "Specifies the types of the permissions.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/PermissionTypeEnum",
+							allOf: [
+								{
+									$ref: "#/components/schemas/PermissionTypeEnum",
+								},
+							],
 						},
 					},
 					authorizationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/AuthorizationKey",
+							},
+						],
 						description: "The key of the authorization.",
-						type: "string",
 					},
 				},
 			},
@@ -10279,6 +12639,7 @@ export const c8_8 = {
 			},
 			UserRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					password: {
 						description: "The password of the user.",
@@ -10297,13 +12658,14 @@ export const c8_8 = {
 						type: "string",
 					},
 				},
+				required: ["username", "password"],
 			},
 			UserCreateResult: {
 				type: "object",
+				"x-semantic-provider": ["username"],
 				properties: {
 					username: {
-						description: "The username of the user.",
-						type: "string",
+						$ref: "#/components/schemas/Username",
 					},
 					name: {
 						description: "The name of the user.",
@@ -10313,8 +12675,20 @@ export const c8_8 = {
 						description: "The email of the user.",
 						type: "string",
 					},
-					userKey: {
-						description: "The key of the created user",
+				},
+			},
+			UserUpdateResult: {
+				type: "object",
+				properties: {
+					username: {
+						$ref: "#/components/schemas/Username",
+					},
+					name: {
+						description: "The name of the user.",
+						type: "string",
+					},
+					email: {
+						description: "The email of the user.",
 						type: "string",
 					},
 				},
@@ -10340,6 +12714,7 @@ export const c8_8 = {
 					},
 				],
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					sort: {
 						description: "Sort field criteria.",
@@ -10352,19 +12727,19 @@ export const c8_8 = {
 						description: "The user search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/UserFilterRequest",
+								$ref: "#/components/schemas/UserFilter",
 							},
 						],
 					},
 				},
 			},
-			MappingSearchQuerySortRequest: {
+			MappingRuleSearchQuerySortRequest: {
 				type: "object",
 				properties: {
 					field: {
 						description: "The field to sort by.",
 						type: "string",
-						enum: ["mappingId", "claimName", "claimValue", "name"],
+						enum: ["mappingRuleId", "claimName", "claimValue", "name"],
 					},
 					order: {
 						$ref: "#/components/schemas/SortOrderEnum",
@@ -10372,7 +12747,8 @@ export const c8_8 = {
 				},
 				required: ["field"],
 			},
-			MappingSearchQueryRequest: {
+			MappingRuleSearchQueryRequest: {
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -10384,20 +12760,20 @@ export const c8_8 = {
 						description: "Sort field criteria.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/MappingSearchQuerySortRequest",
+							$ref: "#/components/schemas/MappingRuleSearchQuerySortRequest",
 						},
 					},
 					filter: {
-						description: "The mapping search filters.",
+						description: "The mapping rule search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/MappingFilterRequest",
+								$ref: "#/components/schemas/MappingRuleFilter",
 							},
 						],
 					},
 				},
 			},
-			UserFilterRequest: {
+			UserFilter: {
 				description: "User search filter.",
 				type: "object",
 				properties: {
@@ -10427,8 +12803,8 @@ export const c8_8 = {
 					},
 				},
 			},
-			MappingFilterRequest: {
-				description: "Mapping search filter.",
+			MappingRuleFilter: {
+				description: "Mapping rule search filter.",
 				type: "object",
 				properties: {
 					claimName: {
@@ -10441,29 +12817,50 @@ export const c8_8 = {
 					},
 					name: {
 						type: "string",
-						description: "The name of the mapping.",
+						description: "The name of the mapping rule.",
 					},
-					mappingId: {
+					mappingRuleId: {
 						type: "string",
-						description: "The ID of the mapping.",
+						description: "The ID of the mapping rule.",
 					},
 				},
 			},
 			CamundaUserResult: {
 				type: "object",
+				required: [
+					"tenants",
+					"groups",
+					"roles",
+					"salesPlanType",
+					"c8Links",
+					"canLogout",
+				],
 				properties: {
-					userId: {
-						description: "The ID of the user.",
-						type: "string",
+					username: {
+						description: "The username of the user.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/Username",
+							},
+						],
+						nullable: true,
 					},
 					displayName: {
 						description: "The display name of the user.",
 						type: "string",
+						example: "Samantha Willis",
+						nullable: true,
 					},
-					authorizedApplications: {
-						description:
-							"The applications the user is authorized to use.",
+					email: {
+						description: "The email of the user.",
+						type: "string",
+						example: "swillis@acme.com",
+						nullable: true,
+					},
+					authorizedComponents: {
+						description: "The web components the user is authorized to use.",
 						type: "array",
+						example: ["*"],
 						items: {
 							type: "string",
 						},
@@ -10472,22 +12869,13 @@ export const c8_8 = {
 						description: "The tenants the user is a member of.",
 						type: "array",
 						items: {
-							type: "object",
-							properties: {
-								tenantId: {
-									type: "string",
-									description: "The ID of the tenant.",
-								},
-								name: {
-									type: "string",
-									description: "The name of the tenant.",
-								},
-							},
+							$ref: "#/components/schemas/TenantResult",
 						},
 					},
 					groups: {
 						description: "The groups assigned to the user.",
 						type: "array",
+						example: ["customer-service"],
 						items: {
 							type: "string",
 						},
@@ -10495,6 +12883,7 @@ export const c8_8 = {
 					roles: {
 						description: "The roles assigned to the user.",
 						type: "array",
+						example: ["frontline-support"],
 						items: {
 							type: "string",
 						},
@@ -10502,23 +12891,14 @@ export const c8_8 = {
 					salesPlanType: {
 						description: "The plan of the user.",
 						type: "string",
+						example: "",
 					},
 					c8Links: {
-						description:
-							"The links to the components in the C8 stack.",
-						type: "array",
-						items: {
-							type: "object",
-							properties: {
-								name: {
-									type: "string",
-									description: "The name of the component.",
-								},
-								link: {
-									type: "string",
-									description: "A link to the component.",
-								},
-							},
+						description: "The links to the components in the C8 stack.",
+						type: "object",
+						example: {},
+						additionalProperties: {
+							type: "string",
 						},
 					},
 					canLogout: {
@@ -10526,23 +12906,13 @@ export const c8_8 = {
 							"Flag for understanding if the user is able to perform logout.",
 						type: "boolean",
 					},
-					apiUser: {
-						description:
-							"Flag for understanding if the user is an API user.",
-						type: "boolean",
-					},
-					userKey: {
-						description: "The system generated key of the user.",
-						type: "string",
-					},
 				},
 			},
 			UserResult: {
 				type: "object",
 				properties: {
 					username: {
-						description: "The username of the user.",
-						type: "string",
+						$ref: "#/components/schemas/Username",
 					},
 					name: {
 						description: "The name of the user.",
@@ -10550,10 +12920,6 @@ export const c8_8 = {
 					},
 					email: {
 						description: "The email of the user.",
-						type: "string",
-					},
-					userKey: {
-						description: "The key of the user.",
 						type: "string",
 					},
 				},
@@ -10565,6 +12931,7 @@ export const c8_8 = {
 						$ref: "#/components/schemas/SearchQueryResponse",
 					},
 				],
+				required: ["items"],
 				properties: {
 					items: {
 						description: "The matching users.",
@@ -10579,7 +12946,8 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					password: {
-						description: "The password of the user.",
+						description:
+							"The password of the user. If blank, the password is unchanged.",
 						type: "string",
 					},
 					name: {
@@ -10619,6 +12987,7 @@ export const c8_8 = {
 				},
 			},
 			TenantClientSearchQueryRequest: {
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -10653,8 +13022,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					username: {
-						description: "The username of the user.",
-						type: "string",
+						$ref: "#/components/schemas/Username",
 					},
 				},
 			},
@@ -10676,6 +13044,7 @@ export const c8_8 = {
 				},
 			},
 			TenantUserSearchQueryRequest: {
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -10706,7 +13075,67 @@ export const c8_8 = {
 				},
 				required: ["field"],
 			},
+			TenantGroupResult: {
+				type: "object",
+				properties: {
+					groupId: {
+						description: "The groupId of the group.",
+						type: "string",
+					},
+				},
+			},
+			TenantGroupSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching groups.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantGroupResult",
+						},
+					},
+				},
+			},
+			TenantGroupSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/TenantGroupSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			TenantGroupSearchQuerySortRequest: {
+				type: "object",
+				additionalProperties: false,
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["groupId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
 			RoleCreateRequest: {
+				additionalProperties: false,
 				type: "object",
 				properties: {
 					roleId: {
@@ -10806,6 +13235,7 @@ export const c8_8 = {
 			},
 			RoleSearchQueryRequest: {
 				description: "Role search request.",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -10824,13 +13254,13 @@ export const c8_8 = {
 						description: "The role search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/RoleFilterRequest",
+								$ref: "#/components/schemas/RoleFilter",
 							},
 						],
 					},
 				},
 			},
-			RoleFilterRequest: {
+			RoleFilter: {
 				description: "Role filter request",
 				type: "object",
 				properties: {
@@ -10866,8 +13296,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					username: {
-						description: "The username of the user.",
-						type: "string",
+						$ref: "#/components/schemas/Username",
 					},
 				},
 			},
@@ -10976,8 +13405,66 @@ export const c8_8 = {
 				},
 				required: ["field"],
 			},
+			RoleGroupResult: {
+				type: "object",
+				properties: {
+					groupId: {
+						description: "The id of the group.",
+						type: "string",
+					},
+				},
+			},
+			RoleGroupSearchResult: {
+				type: "object",
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching groups.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleGroupResult",
+						},
+					},
+				},
+			},
+			RoleGroupSearchQueryRequest: {
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				type: "object",
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/RoleGroupSearchQuerySortRequest",
+						},
+					},
+				},
+			},
+			RoleGroupSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: ["groupId"],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
 			GroupCreateRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					groupId: {
 						type: "string",
@@ -11062,6 +13549,7 @@ export const c8_8 = {
 			},
 			GroupSearchQuerySortRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					field: {
 						description: "The field to sort by.",
@@ -11076,6 +13564,7 @@ export const c8_8 = {
 			},
 			GroupSearchQueryRequest: {
 				description: "Group search request.",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -11094,19 +13583,23 @@ export const c8_8 = {
 						description: "The group search filters.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/GroupFilterRequest",
+								$ref: "#/components/schemas/GroupFilter",
 							},
 						],
 					},
 				},
 			},
-			GroupFilterRequest: {
+			GroupFilter: {
 				description: "Group filter request",
 				type: "object",
 				properties: {
 					groupId: {
 						description: "The group ID search filters.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
 					},
 					name: {
 						description: "The group name search filters.",
@@ -11136,8 +13629,7 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					username: {
-						description: "The username of the user.",
-						type: "string",
+						$ref: "#/components/schemas/Username",
 					},
 				},
 			},
@@ -11259,25 +13751,26 @@ export const c8_8 = {
 					},
 					name: {
 						type: "string",
-						description: "The name of the mapping.",
+						description: "The name of the mapping rule.",
 					},
 				},
 				required: ["claimName", "claimValue", "name"],
 			},
 			MappingRuleCreateRequest: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/MappingRuleCreateUpdateRequest",
 					},
 				],
 				properties: {
-					mappingId: {
+					mappingRuleId: {
 						type: "string",
-						description: "The unique ID of the mapping.",
+						description: "The unique ID of the mapping rule.",
 					},
 				},
-				required: ["mappingId"],
+				required: ["mappingRuleId"],
 			},
 			MappingRuleUpdateRequest: {
 				type: "object",
@@ -11300,11 +13793,11 @@ export const c8_8 = {
 					},
 					name: {
 						type: "string",
-						description: "The name of the mapping.",
+						description: "The name of the mapping rule.",
 					},
-					mappingId: {
+					mappingRuleId: {
 						type: "string",
-						description: "The unique ID of the mapping.",
+						description: "The unique ID of the mapping rule.",
 					},
 				},
 			},
@@ -11324,7 +13817,7 @@ export const c8_8 = {
 					},
 				],
 			},
-			MappingSearchQueryResult: {
+			MappingRuleSearchQueryResult: {
 				type: "object",
 				allOf: [
 					{
@@ -11336,12 +13829,12 @@ export const c8_8 = {
 						description: "The matching mapping rules.",
 						type: "array",
 						items: {
-							$ref: "#/components/schemas/MappingResult",
+							$ref: "#/components/schemas/MappingRuleResult",
 						},
 					},
 				},
 			},
-			MappingResult: {
+			MappingRuleResult: {
 				type: "object",
 				properties: {
 					claimName: {
@@ -11354,23 +13847,29 @@ export const c8_8 = {
 					},
 					name: {
 						type: "string",
-						description: "The name of the mapping.",
+						description: "The name of the mapping rule.",
 					},
-					mappingId: {
+					mappingRuleId: {
 						type: "string",
-						description: "The ID of the mapping.",
+						description: "The ID of the mapping rule.",
 					},
 				},
 			},
 			TopologyResponse: {
 				description: "The response of a topology request.",
 				type: "object",
+				required: [
+					"brokers",
+					"clusterSize",
+					"partitionsCount",
+					"replicationFactor",
+					"gatewayVersion",
+					"lastCompletedChangeId",
+				],
 				properties: {
 					brokers: {
-						description:
-							"A list of brokers that are part of this cluster.",
+						description: "A list of brokers that are part of this cluster.",
 						type: "array",
-						nullable: true,
 						items: {
 							$ref: "#/components/schemas/BrokerInfo",
 						},
@@ -11379,48 +13878,49 @@ export const c8_8 = {
 						description: "The number of brokers in the cluster.",
 						type: "integer",
 						format: "int32",
-						nullable: true,
+						example: 3,
 					},
 					partitionsCount: {
 						description:
 							"The number of partitions are spread across the cluster.",
 						type: "integer",
 						format: "int32",
-						nullable: true,
+						example: 3,
 					},
 					replicationFactor: {
-						description:
-							"The configured replication factor for this cluster.",
+						description: "The configured replication factor for this cluster.",
 						type: "integer",
 						format: "int32",
-						nullable: true,
+						example: 3,
 					},
 					gatewayVersion: {
 						description: "The version of the Zeebe Gateway.",
 						type: "string",
-						nullable: true,
+						example: "8.8.0",
 					},
 					lastCompletedChangeId: {
 						description: "ID of the last completed change",
 						type: "string",
-						nullable: true,
+						example: "-1",
 					},
 				},
 			},
 			LicenseResponse: {
 				description: "The response of a license request.",
 				type: "object",
+				required: ["validLicense", "licenseType", "isCommercial"],
 				properties: {
 					validLicense: {
 						description:
 							"True if the Camunda license is valid, false if otherwise",
 						type: "boolean",
-						nullable: false,
+						example: true,
 					},
 					licenseType: {
 						description:
 							"Will return the license type property of the Camunda license",
 						type: "string",
+						example: "saas",
 					},
 					isCommercial: {
 						description:
@@ -11428,8 +13928,7 @@ export const c8_8 = {
 						type: "boolean",
 					},
 					expiresAt: {
-						description:
-							"The date when the Camunda license expires",
+						description: "The date when the Camunda license expires",
 						type: "string",
 						format: "date-time",
 						nullable: true,
@@ -11439,21 +13938,26 @@ export const c8_8 = {
 			BrokerInfo: {
 				description: "Provides information on a broker node.",
 				type: "object",
+				required: ["nodeId", "host", "port", "partitions", "version"],
 				properties: {
 					nodeId: {
 						description:
 							"The unique (within a cluster) node ID for the broker.",
 						type: "integer",
 						format: "int32",
+						example: 0,
 					},
 					host: {
 						description: "The hostname for reaching the broker.",
 						type: "string",
+						example:
+							"zeebe-0.zeebe-broker-service.b7fd7aa3-b973-4128-8789-74cd2318992c-zeebe.svc.cluster.local",
 					},
 					port: {
 						description: "The port for reaching the broker.",
 						type: "integer",
 						format: "int32",
+						example: 26501,
 					},
 					partitions: {
 						description:
@@ -11466,6 +13970,7 @@ export const c8_8 = {
 					version: {
 						description: "The broker version.",
 						type: "string",
+						example: "8.8.0",
 					},
 				},
 			},
@@ -11473,33 +13978,36 @@ export const c8_8 = {
 				description:
 					"Provides information on a partition within a broker node.",
 				type: "object",
+				required: ["partitionId", "role", "health"],
 				properties: {
 					partitionId: {
 						description: "The unique ID of this partition.",
 						type: "integer",
 						format: "int32",
+						example: 1,
 					},
 					role: {
 						description:
 							"Describes the Raft role of the broker for a given partition.",
 						type: "string",
+						example: "leader",
 						enum: ["leader", "follower", "inactive"],
 					},
 					health: {
-						description:
-							"Describes the current health of the partition.",
+						description: "Describes the current health of the partition.",
 						type: "string",
+						example: "healthy",
 						enum: ["healthy", "unhealthy", "dead"],
 					},
 				},
 			},
 			UserTaskCompletionRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					variables: {
 						additionalProperties: true,
-						description:
-							"The variables to complete the user task with.",
+						description: "The variables to complete the user task with.",
 						type: "object",
 						nullable: true,
 					},
@@ -11513,6 +14021,8 @@ export const c8_8 = {
 			},
 			UserTaskAssignmentRequest: {
 				type: "object",
+				additionalProperties: false,
+				required: ["assignee"],
 				properties: {
 					assignee: {
 						description:
@@ -11536,6 +14046,7 @@ export const c8_8 = {
 			},
 			UserTaskUpdateRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					changeset: {
 						$ref: "#/components/schemas/Changeset",
@@ -11600,6 +14111,7 @@ export const c8_8 = {
 			},
 			ClockPinRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					timestamp: {
 						description:
@@ -11612,35 +14124,38 @@ export const c8_8 = {
 			},
 			JobActivationRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					type: {
 						description:
 							'The job type, as defined in the BPMN process (e.g. <zeebe:taskDefinition type="payment-service" />).\n',
 						type: "string",
+						example: "create-new-user-record",
 					},
 					worker: {
 						description:
 							"The name of the worker activating the jobs, mostly used for logging purposes.",
 						type: "string",
-						nullable: true,
+						example: "worker-324",
 					},
 					timeout: {
 						description:
 							"A job returned after this call will not be activated by another call until the timeout (in ms) has been reached.\n",
 						type: "integer",
 						format: "int64",
+						example: 20000,
 					},
 					maxJobsToActivate: {
-						description:
-							"The maximum jobs to activate by this request.",
+						description: "The maximum jobs to activate by this request.",
 						type: "integer",
 						format: "int32",
+						example: 5,
 					},
 					fetchVariable: {
 						description:
 							"A list of variables to fetch as the job variables; if empty, all visible variables at the time of activation for the scope of the job will be returned.\n",
 						type: "array",
-						nullable: true,
+						example: ["firstName", "lastName", "email"],
 						items: {
 							type: "string",
 						},
@@ -11651,16 +14166,14 @@ export const c8_8 = {
 						type: "integer",
 						format: "int64",
 						default: 0,
-						nullable: true,
+						example: 60000,
 					},
 					tenantIds: {
-						description:
-							"A list of IDs of tenants for which to activate jobs.",
+						description: "A list of IDs of tenants for which to activate jobs.",
 						type: "array",
 						items: {
-							type: "string",
+							$ref: "#/components/schemas/TenantId",
 						},
-						nullable: true,
 					},
 				},
 				required: ["type", "timeout", "maxJobsToActivate"],
@@ -11668,6 +14181,7 @@ export const c8_8 = {
 			JobActivationResult: {
 				description: "The list of activated jobs",
 				type: "object",
+				required: ["jobs"],
 				properties: {
 					jobs: {
 						description: "The activated jobs.",
@@ -11679,87 +14193,228 @@ export const c8_8 = {
 				},
 			},
 			ActivatedJobResult: {
+				"x-semantic-provider": ["elementId", "jobKey", "elementInstanceKey"],
 				type: "object",
+				required: [
+					"type",
+					"processDefinitionId",
+					"processDefinitionVersion",
+					"elementId",
+					"customHeaders",
+					"worker",
+					"retries",
+					"deadline",
+					"variables",
+					"tenantId",
+					"jobKey",
+					"processInstanceKey",
+					"processDefinitionKey",
+					"elementInstanceKey",
+					"kind",
+					"listenerEventType",
+				],
 				properties: {
 					type: {
 						description:
 							"The type of the job (should match what was requested).",
 						type: "string",
+						example: "create-new-user-record",
 					},
 					processDefinitionId: {
-						description:
-							"The bpmn process ID of the job's process definition.",
-						type: "string",
+						description: "The bpmn process ID of the job's process definition.",
+						example: "new-customer-flow",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 					},
 					processDefinitionVersion: {
-						description:
-							"The version of the job's process definition.",
+						description: "The version of the job's process definition.",
 						type: "integer",
 						format: "int32",
+						example: 1,
 					},
 					elementId: {
 						description: "The associated task element ID.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					customHeaders: {
 						description:
 							"A set of custom headers defined during modelling; returned as a serialized JSON document.",
 						type: "object",
 						additionalProperties: true,
+						example: {},
 					},
 					worker: {
-						description:
-							"The name of the worker which activated this job.",
+						description: "The name of the worker which activated this job.",
 						type: "string",
+						example: "worker-324",
 					},
 					retries: {
 						description:
 							"The amount of retries left to this job (should always be positive).",
 						type: "integer",
 						format: "int32",
+						example: 3,
 					},
 					deadline: {
 						description:
 							"When the job can be activated again, sent as a UNIX epoch timestamp.",
 						type: "integer",
 						format: "int64",
+						example: 1757280974277,
 					},
 					variables: {
 						description:
 							"All variables visible to the task scope, computed at activation time.",
 						type: "object",
+						example: {
+							firstName: "John",
+							lastName: "Doe",
+							email: "johndoe@acme.com",
+						},
 						additionalProperties: true,
 					},
 					tenantId: {
 						description: "The ID of the tenant that owns the job.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					jobKey: {
-						description:
-							"The key, a unique identifier for the job.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
+						description: "The key, a unique identifier for the job.",
 					},
 					processInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The job's process instance key.",
-						type: "string",
 					},
 					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the job's process definition.",
-						type: "string",
 					},
 					elementInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 						description:
 							"The unique key identifying the associated task, unique within the scope of the process instance.\n",
+					},
+					kind: {
+						$ref: "#/components/schemas/JobKindEnum",
+					},
+					listenerEventType: {
+						$ref: "#/components/schemas/JobListenerEventTypeEnum",
+					},
+					userTask: {
+						$ref: "#/components/schemas/UserTaskProperties",
+					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
+					},
+				},
+			},
+			UserTaskProperties: {
+				type: "object",
+				description: "Contains properties of a user task.",
+				properties: {
+					action: {
+						description: "The action performed on the user task.",
 						type: "string",
+					},
+					assignee: {
+						description: "The user assigned to the task.",
+						type: "string",
+						nullable: true,
+					},
+					candidateGroups: {
+						description: "The groups eligible to claim the task.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					candidateUsers: {
+						description: "The users eligible to claim the task.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					changedAttributes: {
+						description: "The attributes that were changed in the task.",
+						type: "array",
+						items: {
+							type: "string",
+						},
+					},
+					dueDate: {
+						description: "The due date of the user task in ISO 8601 format.",
+						type: "string",
+						format: "date-time",
+						nullable: true,
+					},
+					followUpDate: {
+						description:
+							"The follow-up date of the user task in ISO 8601 format.",
+						type: "string",
+						format: "date-time",
+						nullable: true,
+					},
+					formKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormKey",
+							},
+						],
+						description: "The key of the form associated with the user task.",
+					},
+					priority: {
+						description: "The priority of the user task.",
+						type: "integer",
+						format: "int32",
+						minimum: 0,
+						maximum: 100,
+						nullable: true,
+					},
+					userTaskKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/UserTaskKey",
+							},
+						],
+						description: "The unique key identifying the user task.",
+						nullable: true,
 					},
 				},
 			},
 			JobFailRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					retries: {
-						description:
-							"The amount of retries the job should have left\n",
+						description: "The amount of retries the job should have left\n",
 						type: "integer",
 						format: "int32",
 						default: 0,
@@ -11768,11 +14423,9 @@ export const c8_8 = {
 						description:
 							"An optional message describing why the job failed. This is particularly useful if a job runs out of retries and an incident is raised, as this message can help explain why an incident was raised.\n",
 						type: "string",
-						nullable: true,
 					},
 					retryBackOff: {
-						description:
-							"The backoff timeout (in ms) for the next retry.\n",
+						description: "The backoff timeout (in ms) for the next retry.\n",
 						type: "integer",
 						format: "int64",
 						default: 0,
@@ -11782,12 +14435,12 @@ export const c8_8 = {
 						description:
 							"JSON object that will instantiate the variables at the local scope of the job's associated task.\n",
 						type: "object",
-						nullable: true,
 					},
 				},
 			},
 			JobErrorRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					errorCode: {
 						description:
@@ -11795,8 +14448,7 @@ export const c8_8 = {
 						type: "string",
 					},
 					errorMessage: {
-						description:
-							"An error message that provides additional context.\n",
+						description: "An error message that provides additional context.\n",
 						type: "string",
 						nullable: true,
 					},
@@ -11812,6 +14464,7 @@ export const c8_8 = {
 			},
 			JobCompletionRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					variables: {
 						additionalProperties: true,
@@ -11825,10 +14478,37 @@ export const c8_8 = {
 				},
 			},
 			JobResult: {
+				description:
+					"The result of the completed job as determined by the worker.\n",
+				discriminator: {
+					propertyName: "type",
+					mapping: {
+						userTask: "#/components/schemas/JobResultUserTask",
+						adHocSubProcess: "#/components/schemas/JobResultAdHocSubProcess",
+					},
+				},
+				required: ["type"],
+				properties: {
+					type: {
+						type: "string",
+						description:
+							"Used to distinguish between different types of job results.",
+						enum: ["userTask", "adHocSubProcess"],
+						default: "userTask",
+					},
+				},
+				oneOf: [
+					{
+						$ref: "#/components/schemas/JobResultUserTask",
+					},
+					{
+						$ref: "#/components/schemas/JobResultAdHocSubProcess",
+					},
+				],
+			},
+			JobResultUserTask: {
 				type: "object",
 				nullable: true,
-				description:
-					"The result of the completed job as determined by the worker. This functionality is currently supported only by user task listeners.\n",
 				properties: {
 					denied: {
 						type: "boolean",
@@ -11880,8 +14560,7 @@ export const c8_8 = {
 					},
 					candidateGroups: {
 						type: "array",
-						description:
-							"The list of candidate groups of the task.",
+						description: "The list of candidate groups of the task.",
 						items: {
 							type: "string",
 						},
@@ -11897,11 +14576,63 @@ export const c8_8 = {
 					},
 				},
 			},
+			JobResultAdHocSubProcess: {
+				type: "object",
+				nullable: true,
+				properties: {
+					activateElements: {
+						type: "array",
+						description:
+							"Indicates which elements need to be activated in the ad-hoc subprocess.",
+						items: {
+							$ref: "#/components/schemas/JobResultActivateElement",
+						},
+					},
+					isCompletionConditionFulfilled: {
+						type: "boolean",
+						description:
+							"Indicates whether the completion condition of the ad-hoc subprocess is fulfilled.",
+						default: false,
+						nullable: false,
+					},
+					isCancelRemainingInstances: {
+						type: "boolean",
+						description:
+							"Indicates whether the remaining instances of the ad-hoc subprocess should be canceled.",
+						default: false,
+						nullable: false,
+					},
+				},
+			},
+			JobResultActivateElement: {
+				type: "object",
+				properties: {
+					elementId: {
+						description: "The ID of the element to activate.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+					variables: {
+						description:
+							"JSON document that will create the variables on the scope of the activated element.\nIt must be a JSON object, as variables will be mapped in a key-value fashion.\n",
+						additionalProperties: true,
+						type: "object",
+						nullable: true,
+					},
+				},
+			},
 			JobUpdateRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					changeset: {
 						$ref: "#/components/schemas/JobChangeset",
+					},
+					operationReference: {
+						$ref: "#/components/schemas/OperationReference",
 					},
 				},
 				required: ["changeset"],
@@ -11927,6 +14658,607 @@ export const c8_8 = {
 					},
 				},
 			},
+			JobSearchQuery: {
+				description: "Job search request.",
+				type: "object",
+				additionalProperties: false,
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryRequest",
+					},
+				],
+				properties: {
+					sort: {
+						description: "Sort field criteria.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobSearchQuerySortRequest",
+						},
+					},
+					filter: {
+						description: "The job search filters.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobFilter",
+							},
+						],
+					},
+				},
+			},
+			JobSearchQuerySortRequest: {
+				type: "object",
+				properties: {
+					field: {
+						description: "The field to sort by.",
+						type: "string",
+						enum: [
+							"deadline",
+							"deniedReason",
+							"elementId",
+							"elementInstanceKey",
+							"endTime",
+							"errorCode",
+							"errorMessage",
+							"isDenied",
+							"jobKey",
+							"kind",
+							"listenerEventType",
+							"processDefinitionId",
+							"processDefinitionKey",
+							"processInstanceKey",
+							"retries",
+							"state",
+							"tenantId",
+							"type",
+							"worker",
+						],
+					},
+					order: {
+						$ref: "#/components/schemas/SortOrderEnum",
+					},
+				},
+				required: ["field"],
+			},
+			JobFilter: {
+				description: "Job search filter.",
+				type: "object",
+				properties: {
+					deadline: {
+						description: "When the job can next be activated.",
+						nullable: true,
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					deniedReason: {
+						description:
+							"The reason provided by the user task listener for denying the work.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					elementId: {
+						description: "The element ID associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					elementInstanceKey: {
+						description: "The element instance key associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKeyFilterProperty",
+							},
+						],
+					},
+					endTime: {
+						description: "When the job ended.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DateTimeFilterProperty",
+							},
+						],
+					},
+					errorCode: {
+						description: "The error code provided for the failed job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					errorMessage: {
+						description:
+							"The error message that provides additional context for a failed job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					hasFailedWithRetriesLeft: {
+						description:
+							"Indicates whether the job has failed with retries left.",
+						type: "boolean",
+					},
+					isDenied: {
+						description:
+							"Indicates whether the user task listener denies the work.",
+						type: "boolean",
+						nullable: true,
+					},
+					jobKey: {
+						description: "The key, a unique identifier for the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKeyFilterProperty",
+							},
+						],
+					},
+					kind: {
+						description: "The kind of the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKindFilterProperty",
+							},
+						],
+					},
+					listenerEventType: {
+						description: "The listener event type of the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobListenerEventTypeFilterProperty",
+							},
+						],
+					},
+					processDefinitionId: {
+						description: "The process definition ID associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					processDefinitionKey: {
+						description: "The process definition key associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKeyFilterProperty",
+							},
+						],
+					},
+					processInstanceKey: {
+						description: "The process instance key associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
+							},
+						],
+					},
+					retries: {
+						description: "The number of retries left.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/IntegerFilterProperty",
+							},
+						],
+					},
+					state: {
+						description: "The state of the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobStateFilterProperty",
+							},
+						],
+					},
+					tenantId: {
+						description: "The tenant ID.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					type: {
+						description: "The type of the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+					worker: {
+						description: "The name of the worker for this job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StringFilterProperty",
+							},
+						],
+					},
+				},
+			},
+			JobSearchQueryResult: {
+				description: "Job search response.",
+				type: "object",
+				required: ["items"],
+				allOf: [
+					{
+						$ref: "#/components/schemas/SearchQueryResponse",
+					},
+				],
+				properties: {
+					items: {
+						description: "The matching jobs.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobSearchResult",
+						},
+					},
+				},
+			},
+			JobSearchResult: {
+				type: "object",
+				required: [
+					"customHeaders",
+					"elementId",
+					"elementInstanceKey",
+					"hasFailedWithRetriesLeft",
+					"jobKey",
+					"kind",
+					"listenerEventType",
+					"processDefinitionId",
+					"processDefinitionKey",
+					"processInstanceKey",
+					"retries",
+					"state",
+					"tenantId",
+					"type",
+					"worker",
+				],
+				properties: {
+					customHeaders: {
+						description: "A set of custom headers defined during modelling.",
+						type: "object",
+						additionalProperties: {
+							type: "string",
+						},
+					},
+					deadline: {
+						description:
+							"If the job has been activated, when it will next be available to be activated.",
+						type: "string",
+						format: "date-time",
+						nullable: true,
+					},
+					deniedReason: {
+						description:
+							"The reason provided by the user task listener for denying the work.",
+						type: "string",
+						nullable: true,
+					},
+					elementId: {
+						description: "The element ID associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+					elementInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+						description: "The element instance key associated with the job.",
+					},
+					endTime: {
+						description: "When the job ended.",
+						type: "string",
+						format: "date-time",
+					},
+					errorCode: {
+						description: "The error code provided for a failed job.",
+						type: "string",
+						nullable: true,
+					},
+					errorMessage: {
+						description:
+							"The error message that provides additional context for a failed job.",
+						type: "string",
+						nullable: true,
+					},
+					hasFailedWithRetriesLeft: {
+						description:
+							"Indicates whether the job has failed with retries left.",
+						type: "boolean",
+					},
+					isDenied: {
+						description:
+							"Indicates whether the user task listener denies the work.",
+						type: "boolean",
+						nullable: true,
+					},
+					jobKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKey",
+							},
+						],
+						description: "The key, a unique identifier for the job.",
+					},
+					kind: {
+						$ref: "#/components/schemas/JobKindEnum",
+					},
+					listenerEventType: {
+						$ref: "#/components/schemas/JobListenerEventTypeEnum",
+					},
+					processDefinitionId: {
+						description: "The process definition ID associated with the job.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
+					},
+					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
+						description: "The process definition key associated with the job.",
+					},
+					processInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+						description: "The process instance key associated with the job.",
+					},
+					retries: {
+						description: "The amount of retries left to this job.",
+						type: "integer",
+						format: "int32",
+					},
+					state: {
+						$ref: "#/components/schemas/JobStateEnum",
+					},
+					tenantId: {
+						$ref: "#/components/schemas/TenantId",
+					},
+					type: {
+						description: "The type of the job.",
+						type: "string",
+					},
+					worker: {
+						description: "The name of the worker of this job.",
+						type: "string",
+					},
+				},
+			},
+			JobStateEnum: {
+				description: "The state of the job.",
+				type: "string",
+				enum: [
+					"CANCELED",
+					"COMPLETED",
+					"CREATED",
+					"ERROR_THROWN",
+					"FAILED",
+					"MIGRATED",
+					"RETRIES_UPDATED",
+					"TIMED_OUT",
+				],
+			},
+			JobKindEnum: {
+				description: "The job kind.",
+				example: "BPMN_ELEMENT",
+				type: "string",
+				enum: [
+					"BPMN_ELEMENT",
+					"EXECUTION_LISTENER",
+					"TASK_LISTENER",
+					"AD_HOC_SUB_PROCESS",
+				],
+			},
+			JobListenerEventTypeEnum: {
+				example: "UNSPECIFIED",
+				description: "The listener event type of the job.",
+				type: "string",
+				enum: [
+					"ASSIGNING",
+					"CANCELING",
+					"COMPLETING",
+					"CREATING",
+					"END",
+					"START",
+					"UNSPECIFIED",
+					"UPDATING",
+				],
+			},
+			JobStateFilterProperty: {
+				description:
+					"JobStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						format: "JobStateEnum",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedJobStateFilter",
+					},
+				],
+			},
+			AdvancedJobStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced JobStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobStateEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			JobKindFilterProperty: {
+				description:
+					"JobKindEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKindEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedJobKindFilter",
+					},
+				],
+			},
+			AdvancedJobKindFilter: {
+				title: "Advanced filter",
+				description: "Advanced JobKindEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKindEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobKindEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobKindEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			JobListenerEventTypeFilterProperty: {
+				description:
+					"JobListenerEventTypeEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobListenerEventTypeEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedJobListenerEventTypeFilter",
+					},
+				],
+			},
+			AdvancedJobListenerEventTypeFilter: {
+				title: "Advanced filter",
+				description: "Advanced JobListenerEventTypeEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobListenerEventTypeEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/JobListenerEventTypeEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/JobListenerEventTypeEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
 			ProblemDetail: {
 				description:
 					"A Problem detail object as described in [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457). There may be additional properties specific to the problem type.\n",
@@ -11937,28 +15269,31 @@ export const c8_8 = {
 						format: "uri",
 						description: "A URI identifying the problem type.",
 						default: "about:blank",
+						example: "about:blank",
 					},
 					title: {
 						type: "string",
 						description: "A summary of the problem type.",
+						example: "Bad Request",
 					},
 					status: {
 						type: "integer",
 						format: "int32",
 						description: "The HTTP status code for this problem.",
+						example: 400,
 						minimum: 400,
 						maximum: 600,
 					},
 					detail: {
 						type: "string",
-						description:
-							"An explanation of the problem in more detail.",
+						description: "An explanation of the problem in more detail.",
+						example: "Request property [maxJobsToActivates] cannot be parsed",
 					},
 					instance: {
 						type: "string",
 						format: "uri",
-						description:
-							"A URI identifying the origin of the problem.",
+						description: "A URI path identifying the origin of the problem.",
+						example: "/v2/jobs/activation",
 					},
 				},
 			},
@@ -11977,13 +15312,55 @@ export const c8_8 = {
 				},
 			},
 			SearchQueryPageRequest: {
+				"x-polymorphic-schema": true,
+				description:
+					"Pagination criteria. Can use offset-based pagination (from/limit) OR cursor-based pagination (after/before + limit), but not both.",
+				oneOf: [
+					{
+						$ref: "#/components/schemas/OffsetPagination",
+					},
+					{
+						$ref: "#/components/schemas/CursorForwardPagination",
+					},
+					{
+						$ref: "#/components/schemas/CursorBackwardPagination",
+					},
+				],
+			},
+			OffsetPagination: {
 				type: "object",
+				title: "Offset-based pagination",
 				properties: {
 					from: {
-						description:
-							"The index of items to start searching from.",
+						description: "The index of items to start searching from.",
 						type: "integer",
 						format: "int32",
+						default: 0,
+						minimum: 0,
+					},
+					limit: {
+						description:
+							"The maximum number of items to return in one request.",
+						type: "integer",
+						format: "int32",
+						default: 100,
+						minimum: 1,
+					},
+				},
+			},
+			CursorForwardPagination: {
+				type: "object",
+				title: "Cursor-based forward pagination",
+				required: ["after"],
+				properties: {
+					after: {
+						description:
+							"Use the `endCursor` value from the previous response to fetch the next page of results.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/EndCursor",
+							},
+						],
 					},
 					limit: {
 						description:
@@ -11992,30 +15369,37 @@ export const c8_8 = {
 						format: "int32",
 						default: 100,
 					},
-					searchAfter: {
+				},
+			},
+			CursorBackwardPagination: {
+				type: "object",
+				title: "Cursor-based backward pagination",
+				required: ["before"],
+				properties: {
+					before: {
 						description:
-							"Items to search after. Correlates to the `lastSortValues` property of a previous search response.",
-						type: "array",
-						items: {
-							type: "object",
-						},
+							"Use the `startCursor` value from the previous response to fetch the previous page of results.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StartCursor",
+							},
+						],
 					},
-					searchBefore: {
+					limit: {
 						description:
-							"Items to search before. Correlates to the `firstSortValues` property of a previous search response.",
-						type: "array",
-						items: {
-							type: "object",
-						},
+							"The maximum number of items to return in one request.",
+						type: "integer",
+						format: "int32",
+						default: 100,
 					},
 				},
 			},
 			SearchQueryResponse: {
 				type: "object",
+				required: ["page"],
 				properties: {
 					page: {
-						description:
-							"Pagination information about the search results.",
+						description: "Pagination information about the search results.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/SearchQueryPageResponse",
@@ -12027,28 +15411,43 @@ export const c8_8 = {
 			SearchQueryPageResponse: {
 				description: "Pagination information about the search results.",
 				type: "object",
+				required: ["totalItems"],
+				"x-semantic-provider": ["startCursor", "endCursor"],
 				properties: {
 					totalItems: {
 						description: "Total items matching the criteria.",
 						type: "integer",
 						format: "int64",
+						example: 1,
 					},
-					firstSortValues: {
+					hasMoreTotalItems: {
 						description:
-							"The sort values of the first item in the result set. Use this in the `searchBefore` field of an ensuing request.",
-						type: "array",
-						items: {
-							type: "object",
-						},
+							"Indicates if more results exist beyond the reported totalItems value. Due to system limitations, the totalItems value can be capped.\n",
+						type: "boolean",
+						example: false,
 					},
-					lastSortValues: {
+					startCursor: {
 						description:
-							"The sort values of the last item in the result set. Use this in the `searchAfter` field of an ensuing request.",
-						type: "array",
-						items: {
-							type: "object",
-						},
+							"The cursor value for getting the previous page of results. Use this in the `before` field of an ensuing request.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/StartCursor",
+							},
+						],
 					},
+					endCursor: {
+						description:
+							"The cursor value for getting the next page of results. Use this in the `after` field of an ensuing request.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/EndCursor",
+							},
+						],
+					},
+				},
+				example: {
+					totalItems: 1,
+					hasMoreTotalItems: false,
 				},
 			},
 			DecisionRequirementsSearchQuerySortRequest: {
@@ -12073,6 +15472,7 @@ export const c8_8 = {
 			},
 			DecisionRequirementsSearchQuery: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -12102,26 +15502,31 @@ export const c8_8 = {
 				properties: {
 					decisionRequirementsName: {
 						type: "string",
-						description:
-							"The DMN name of the decision requirements.",
+						description: "The DMN name of the decision requirements.",
 					},
 					version: {
 						type: "integer",
 						format: "int32",
-						description:
-							"The assigned version of the decision requirements.",
+						description: "The assigned version of the decision requirements.",
 					},
 					decisionRequirementsId: {
 						type: "string",
 						description: "the DMN ID of the decision requirements.",
 					},
 					tenantId: {
-						type: "string",
-						description:
-							"The tenant ID of the decision requirements.",
+						description: "The tenant ID of the decision requirements.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this decision requirements.",
 					},
@@ -12151,17 +15556,16 @@ export const c8_8 = {
 			},
 			DecisionRequirementsResult: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					decisionRequirementsName: {
 						type: "string",
-						description:
-							"The DMN name of the decision requirements.",
+						description: "The DMN name of the decision requirements.",
 					},
 					version: {
 						type: "integer",
 						format: "int32",
-						description:
-							"The assigned version of the decision requirements.",
+						description: "The assigned version of the decision requirements.",
 					},
 					decisionRequirementsId: {
 						type: "string",
@@ -12173,24 +15577,49 @@ export const c8_8 = {
 							"The name of the resource from which this decision requirements was parsed.",
 					},
 					tenantId: {
-						type: "string",
-						description:
-							"The tenant ID of the decision requirements.",
+						description: "The tenant ID of the decision requirements.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this decision requirements.",
 					},
 				},
 			},
 			DecisionEvaluationInstruction: {
+				"x-polymorphic-schema": true,
 				type: "object",
+				oneOf: [
+					{
+						$ref: "#/components/schemas/DecisionEvaluationById",
+					},
+					{
+						$ref: "#/components/schemas/DecisionEvaluationByKey",
+					},
+				],
+			},
+			DecisionEvaluationById: {
+				type: "object",
+				additionalProperties: false,
+				title: "Decision evaluation by ID",
 				properties: {
 					decisionDefinitionId: {
 						description:
-							"The ID of the decision to be evaluated.\nCannot be used together with decisionDefinitionKey. When using the decision ID, the latest\ndeployed version of the decision is used.\n",
-						type: "string",
+							"The ID of the decision to be evaluated.\nWhen using the decision ID, the latest\ndeployed version of the decision is used.\n",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 					},
 					variables: {
 						description: "The message variables as JSON document.",
@@ -12199,31 +15628,71 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of the decision.",
-						type: "string",
-					},
-					decisionDefinitionKey: {
-						description:
-							"The unique key identifying the decision to be evaluated.\nCannot be used together with decisionDefinitionId.\n",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 				},
+				required: ["decisionDefinitionId"],
+			},
+			DecisionEvaluationByKey: {
+				type: "object",
+				title: "Decision evaluation by key",
+				additionalProperties: false,
+				properties: {
+					decisionDefinitionKey: {
+						$ref: "#/components/schemas/DecisionDefinitionKey",
+					},
+					variables: {
+						description: "The message variables as JSON document.",
+						additionalProperties: true,
+						type: "object",
+					},
+					tenantId: {
+						description: "The tenant ID of the decision.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
+					},
+				},
+				required: ["decisionDefinitionKey"],
 			},
 			EvaluateDecisionResult: {
+				"x-semantic-provider": ["decisionEvaluationKey"],
 				type: "object",
+				required: [
+					"decisionDefinitionId",
+					"decisionDefinitionName",
+					"decisionDefinitionVersion",
+					"decisionRequirementsId",
+					"output",
+					"failedDecisionDefinitionId",
+					"failureMessage",
+					"decisionDefinitionKey",
+					"tenantId",
+					"decisionRequirementsKey",
+					"decisionEvaluationKey",
+					"evaluatedDecisions",
+				],
 				properties: {
 					decisionDefinitionId: {
-						description:
-							"The ID of the decision which was evaluated.",
-						type: "string",
+						description: "The ID of the decision which was evaluated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 					},
 					decisionDefinitionName: {
-						description:
-							"The name of the decision which was evaluated.",
+						description: "The name of the decision which was evaluated.",
 						type: "string",
 					},
 					decisionDefinitionVersion: {
-						description:
-							"The version of the decision which was evaluated.",
+						description: "The version of the decision which was evaluated.",
 						type: "integer",
 						format: "int32",
 					},
@@ -12240,7 +15709,11 @@ export const c8_8 = {
 					failedDecisionDefinitionId: {
 						description:
 							"The ID of the decision which failed during evaluation.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 					},
 					failureMessage: {
 						description:
@@ -12249,22 +15722,46 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of the evaluated decision.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description:
 							"The unique key identifying the decision which was evaluated.",
-						type: "string",
 					},
 					decisionRequirementsKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The unique key identifying the decision requirements graph that the decision which was evaluated is part of.",
-						type: "string",
 					},
 					decisionInstanceKey: {
-						description:
-							"The unique key identifying this decision evaluation.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionInstanceKey",
+							},
+						],
+						description: "Deprecated, please refer to `decisionEvaluationKey`.",
+						deprecated: true,
+					},
+					decisionEvaluationKey: {
+						description: "The unique key identifying this decision evaluation.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionEvaluationKey",
+							},
+						],
 					},
 					evaluatedDecisions: {
 						description:
@@ -12277,28 +15774,29 @@ export const c8_8 = {
 				},
 			},
 			EvaluatedDecisionResult: {
+				"x-semantic-provider": ["decisionEvaluationInstanceKey"],
 				type: "object",
 				description: "A decision that was evaluated.",
 				properties: {
 					decisionDefinitionId: {
-						description:
-							"The ID of the decision which was evaluated.",
-						type: "string",
+						description: "The ID of the decision which was evaluated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 					},
 					decisionDefinitionName: {
-						description:
-							"The name of the decision which was evaluated.",
+						description: "The name of the decision which was evaluated.",
 						type: "string",
 					},
 					decisionDefinitionVersion: {
-						description:
-							"The version of the decision which was evaluated.",
+						description: "The version of the decision which was evaluated.",
 						type: "integer",
 						format: "int32",
 					},
 					decisionDefinitionType: {
-						description:
-							"The type of the decision which was evaluated.",
+						description: "The type of the decision which was evaluated.",
 						type: "string",
 					},
 					output: {
@@ -12308,7 +15806,11 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of the evaluated decision.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					matchedRules: {
 						description:
@@ -12327,9 +15829,22 @@ export const c8_8 = {
 						},
 					},
 					decisionDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description:
 							"The unique key identifying the decision which was evaluate.",
-						type: "string",
+					},
+					decisionEvaluationInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionEvaluationInstanceKey",
+							},
+						],
+						description:
+							"The unique key identifying this decision evaluation instance.",
 					},
 				},
 			},
@@ -12366,13 +15881,11 @@ export const c8_8 = {
 						type: "string",
 					},
 					inputName: {
-						description:
-							"The name of the evaluated decision input.",
+						description: "The name of the evaluated decision input.",
 						type: "string",
 					},
 					inputValue: {
-						description:
-							"The value of the evaluated decision input.",
+						description: "The value of the evaluated decision input.",
 						type: "string",
 					},
 				},
@@ -12386,13 +15899,11 @@ export const c8_8 = {
 						type: "string",
 					},
 					outputName: {
-						description:
-							"The name of the evaluated decision output.",
+						description: "The name of the evaluated decision output.",
 						type: "string",
 					},
 					outputValue: {
-						description:
-							"The value of the evaluated decision output.",
+						description: "The value of the evaluated decision output.",
 						type: "string",
 					},
 				},
@@ -12404,19 +15915,19 @@ export const c8_8 = {
 						description: "The field to sort by.",
 						type: "string",
 						enum: [
-							"decisionInstanceKey",
-							"decisionInstanceId",
-							"state",
+							"decisionDefinitionId",
+							"decisionDefinitionKey",
+							"decisionDefinitionName",
+							"decisionDefinitionType",
+							"decisionDefinitionVersion",
+							"decisionEvaluationInstanceKey",
+							"decisionEvaluationKey",
+							"elementInstanceKey",
 							"evaluationDate",
 							"evaluationFailure",
 							"processDefinitionKey",
 							"processInstanceKey",
-							"processInstanceId",
-							"decisionDefinitionKey",
-							"decisionDefinitionId",
-							"decisionDefinitionName",
-							"decisionDefinitionVersion",
-							"decisionDefinitionType",
+							"state",
 							"tenantId",
 						],
 					},
@@ -12428,6 +15939,7 @@ export const c8_8 = {
 			},
 			DecisionInstanceSearchQuery: {
 				type: "object",
+				additionalProperties: false,
 				allOf: [
 					{
 						$ref: "#/components/schemas/SearchQueryRequest",
@@ -12455,21 +15967,18 @@ export const c8_8 = {
 				description: "Decision instance search filter.",
 				type: "object",
 				properties: {
-					decisionInstanceId: {
-						type: "string",
-						description: "The ID of the decision instance.",
+					decisionEvaluationInstanceKey: {
+						$ref: "#/components/schemas/DecisionEvaluationInstanceKey",
 					},
 					state: {
 						$ref: "#/components/schemas/DecisionInstanceStateEnum",
 					},
 					evaluationFailure: {
 						type: "string",
-						description:
-							"The evaluation failure of the decision instance.",
+						description: "The evaluation failure of the decision instance.",
 					},
 					evaluationDate: {
-						description:
-							"The evaluation date of the decision instance.",
+						description: "The evaluation date of the decision instance.",
 						allOf: [
 							{
 								$ref: "#/components/schemas/DateTimeFilterProperty",
@@ -12477,7 +15986,11 @@ export const c8_8 = {
 						],
 					},
 					decisionDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 						description: "The ID of the DMN decision.",
 					},
 					decisionDefinitionName: {
@@ -12493,27 +16006,52 @@ export const c8_8 = {
 						$ref: "#/components/schemas/DecisionDefinitionTypeEnum",
 					},
 					tenantId: {
-						type: "string",
 						description: "The tenant ID of the decision instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
-					decisionInstanceKey: {
-						type: "string",
+					decisionEvaluationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionEvaluationKey",
+							},
+						],
 						description:
-							"The key of the decision instance. Note that this is not the unique identifier of the entity itself; the `decisionInstanceId` serves as the primary identifier.\n",
+							"The key of the parent decision evaluation. Note that this is not the identifier of an individual decision instance; the `decisionEvaluationInstanceKey` is the identifier for a decision instance.\n",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the process definition.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of the process instance.",
 					},
 					decisionDefinitionKey: {
 						description: "The key of the decision.",
 						allOf: [
 							{
-								$ref: "#/components/schemas/BasicStringFilterProperty",
+								$ref: "#/components/schemas/DecisionDefinitionKeyFilterProperty",
+							},
+						],
+					},
+					elementInstanceKey: {
+						description:
+							"The key of the element instance this decision instance is linked to.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKeyFilterProperty",
 							},
 						],
 					},
@@ -12539,9 +16077,8 @@ export const c8_8 = {
 			DecisionInstanceResult: {
 				type: "object",
 				properties: {
-					decisionInstanceId: {
-						type: "string",
-						description: "The ID of the decision instance.",
+					decisionEvaluationInstanceKey: {
+						$ref: "#/components/schemas/DecisionEvaluationInstanceKey",
 					},
 					state: {
 						$ref: "#/components/schemas/DecisionInstanceStateEnum",
@@ -12549,16 +16086,18 @@ export const c8_8 = {
 					evaluationDate: {
 						type: "string",
 						format: "date-time",
-						description:
-							"The evaluation date of the decision instance.",
+						description: "The evaluation date of the decision instance.",
 					},
 					evaluationFailure: {
 						type: "string",
-						description:
-							"The evaluation failure of the decision instance.",
+						description: "The evaluation failure of the decision instance.",
 					},
 					decisionDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 						description: "The ID of the DMN decision.",
 					},
 					decisionDefinitionName: {
@@ -12578,25 +16117,54 @@ export const c8_8 = {
 						description: "The result of the decision instance.",
 					},
 					tenantId: {
-						type: "string",
 						description: "The tenant ID of the decision instance.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
-					decisionInstanceKey: {
-						type: "string",
+					decisionEvaluationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionEvaluationKey",
+							},
+						],
 						description:
-							"The key of the decision instance. Note that this is not the unique identifier of the entity itself; the `decisionInstanceId` serves as the primary identifier.",
+							"The key of the decision evaluation where this instance was created.",
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description: "The key of the process definition.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description: "The key of the process instance.",
 					},
 					decisionDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description: "The key of the decision.",
+					},
+					elementInstanceKey: {
+						description:
+							"The key of the element instance this decision instance is linked to.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 					},
 				},
 			},
@@ -12613,16 +16181,14 @@ export const c8_8 = {
 								items: {
 									$ref: "#/components/schemas/EvaluatedDecisionInputItem",
 								},
-								description:
-									"The evaluated inputs of the decision instance.\n",
+								description: "The evaluated inputs of the decision instance.\n",
 							},
 							matchedRules: {
 								type: "array",
 								items: {
 									$ref: "#/components/schemas/MatchedDecisionRuleItem",
 								},
-								description:
-									"The matched rules of the decision instance.\n",
+								description: "The matched rules of the decision instance.\n",
 							},
 						},
 					},
@@ -12630,6 +16196,7 @@ export const c8_8 = {
 			},
 			DecisionDefinitionTypeEnum: {
 				description: "The type of the decision.",
+				type: "string",
 				enum: [
 					"DECISION_TABLE",
 					"LITERAL_EXPRESSION",
@@ -12639,6 +16206,7 @@ export const c8_8 = {
 			},
 			DecisionInstanceStateEnum: {
 				description: "The state of the decision instance.",
+				type: "string",
 				enum: ["EVALUATED", "FAILED", "UNSPECIFIED", "UNKNOWN"],
 			},
 			SortOrderEnum: {
@@ -12647,30 +16215,40 @@ export const c8_8 = {
 				enum: ["ASC", "DESC"],
 				default: "ASC",
 			},
+			OperationReference: {
+				description:
+					"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be > 0 if provided.\n",
+				type: "integer",
+				format: "int64",
+				minimum: 1,
+			},
 			MessageCorrelationRequest: {
 				type: "object",
+				additionalProperties: false,
+				required: ["name"],
 				properties: {
 					name: {
-						description:
-							"The message name as defined in the BPMN process\n",
+						description: "The message name as defined in the BPMN process\n",
 						type: "string",
 					},
 					correlationKey: {
-						description: "The correlation key of the message",
+						description: "The correlation key of the message.",
 						type: "string",
+						example: "customer-43421",
 						default: "",
 					},
 					variables: {
 						description: "The message variables as JSON document",
 						additionalProperties: true,
 						type: "object",
-						nullable: true,
 					},
 					tenantId: {
-						description:
-							"the tenant for which the message is published",
-						type: "string",
-						nullable: true,
+						description: "the tenant for which the message is published",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 				},
 			},
@@ -12681,21 +16259,34 @@ export const c8_8 = {
 				properties: {
 					tenantId: {
 						description: "The tenant ID of the correlated message",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					messageKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageKey",
+							},
+						],
 						description: "The key of the correlated message",
-						type: "string",
 					},
 					processInstanceKey: {
 						description:
 							"The key of the first process instance the message correlated with",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 					},
 				},
 			},
 			MessagePublicationRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					name: {
 						description: "The name of the message.",
@@ -12704,6 +16295,7 @@ export const c8_8 = {
 					correlationKey: {
 						description: "The correlation key of the message.",
 						type: "string",
+						example: "customer-43421",
 						default: "",
 					},
 					timeToLive: {
@@ -12715,23 +16307,24 @@ export const c8_8 = {
 					},
 					messageId: {
 						description:
-							"The unique ID of the message. Only useful to ensure only one message with the given ID\nwill ever be published (during its lifetime).\n",
+							"The unique ID of the message. This is used to ensure only one message with the given ID\nwill be published during the lifetime of the message (if `timeToLive` is set).\n",
 						type: "string",
-						nullable: true,
 					},
 					variables: {
 						description: "The message variables as JSON document.",
 						additionalProperties: true,
 						type: "object",
-						nullable: true,
 					},
 					tenantId: {
 						description: "The tenant of the message sender.",
-						type: "string",
-						nullable: true,
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 				},
-				required: ["name", "correlationKey"],
+				required: ["name"],
 			},
 			MessagePublicationResult: {
 				description: "The message key of the published message.",
@@ -12739,11 +16332,19 @@ export const c8_8 = {
 				properties: {
 					tenantId: {
 						description: "The tenant ID of the message.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					messageKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/MessageKey",
+							},
+						],
 						description: "The key of the message",
-						type: "string",
 					},
 				},
 			},
@@ -12752,8 +16353,7 @@ export const c8_8 = {
 				properties: {
 					"camunda.document.type": {
 						type: "string",
-						description:
-							'Document discriminator. Always set to "camunda".',
+						description: 'Document discriminator. Always set to "camunda".',
 						enum: ["camunda"],
 					},
 					storeId: {
@@ -12761,7 +16361,11 @@ export const c8_8 = {
 						description: "The ID of the document store.",
 					},
 					documentId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DocumentId",
+							},
+						],
 						description: "The ID of the document.",
 					},
 					contentHash: {
@@ -12793,8 +16397,7 @@ export const c8_8 = {
 						properties: {
 							createdDocuments: {
 								type: "array",
-								description:
-									"Documents that were successfully created.",
+								description: "Documents that were successfully created.",
 								items: {
 									$ref: "#/components/schemas/DocumentReference",
 								},
@@ -12809,6 +16412,12 @@ export const c8_8 = {
 						},
 					},
 				],
+			},
+			DocumentId: {
+				description: "Document Id that uniquely identifies a document.",
+				format: "DocumentId",
+				"x-semantic-type": "DocumentId",
+				type: "string",
 			},
 			DocumentMetadata: {
 				description: "Information about the document.",
@@ -12825,8 +16434,7 @@ export const c8_8 = {
 					expiresAt: {
 						type: "string",
 						format: "date-time",
-						description:
-							"The date and time when the document expires.",
+						description: "The date and time when the document expires.",
 					},
 					size: {
 						type: "integer",
@@ -12834,12 +16442,20 @@ export const c8_8 = {
 						description: "The size of the document in bytes.",
 					},
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description:
 							"The ID of the process definition that created the document.",
 					},
 					processInstanceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description:
 							"The key of the process instance that created the document.",
 					},
@@ -12856,8 +16472,7 @@ export const c8_8 = {
 					timeToLive: {
 						type: "integer",
 						format: "int64",
-						description:
-							"The time-to-live of the document link in ms.",
+						description: "The time-to-live of the document link in ms.",
 						default: 3600000,
 					},
 				},
@@ -12878,16 +16493,23 @@ export const c8_8 = {
 			},
 			DeploymentResult: {
 				type: "object",
+				required: ["tenantId", "deploymentKey", "deployments"],
 				properties: {
 					tenantId: {
-						description:
-							"The tenant ID associated with the deployment.",
-						type: "string",
+						description: "The tenant ID associated with the deployment.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					deploymentKey: {
-						type: "string",
-						description:
-							"The unique key identifying the deployment.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DeploymentKey",
+							},
+						],
+						description: "The unique key identifying the deployment.",
 					},
 					deployments: {
 						description: "Items deployed by the request.",
@@ -12920,10 +16542,22 @@ export const c8_8 = {
 			},
 			DeploymentProcessResult: {
 				description: "A deployed process.",
+				"x-semantic-provider": ["processDefinitionKey", "processDefinitionId"],
 				type: "object",
+				required: [
+					"processDefinitionId",
+					"processDefinitionVersion",
+					"resourceName",
+					"processDefinitionKey",
+					"tenantId",
+				],
 				properties: {
 					processDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 						description:
 							"The bpmn process ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific process definition.\n",
 					},
@@ -12938,11 +16572,19 @@ export const c8_8 = {
 							"The resource name from which this process was parsed.",
 					},
 					tenantId: {
-						type: "string",
 						description: "The tenant ID of the deployed process.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					processDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this process.",
 					},
@@ -12951,9 +16593,17 @@ export const c8_8 = {
 			DeploymentDecisionResult: {
 				description: "A deployed decision.",
 				type: "object",
+				"x-semantic-provider": [
+					"decisionDefinitionKey",
+					"decisionRequirementsKey",
+				],
 				properties: {
 					decisionDefinitionId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionId",
+							},
+						],
 						description:
 							"The dmn decision ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific decision.\n",
 					},
@@ -12968,8 +16618,12 @@ export const c8_8 = {
 							"The DMN name of the decision, as parsed during deployment.",
 					},
 					tenantId: {
-						type: "string",
 						description: "The tenant ID of the deployed decision.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					decisionRequirementsId: {
 						type: "string",
@@ -12977,12 +16631,20 @@ export const c8_8 = {
 							"The dmn ID of the decision requirements graph that this decision is part of, as parsed during deployment.\n",
 					},
 					decisionDefinitionKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionDefinitionKey",
+							},
+						],
 						description:
 							"The assigned decision key, which acts as a unique identifier for this decision.\n",
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned key of the decision requirements graph that this decision is part of.\n",
 					},
@@ -12991,6 +16653,7 @@ export const c8_8 = {
 			DeploymentDecisionRequirementsResult: {
 				description: "Deployed decision requirements.",
 				type: "object",
+				"x-semantic-provider": ["decisionRequirementsKey"],
 				properties: {
 					decisionRequirementsId: {
 						type: "string",
@@ -13000,8 +16663,7 @@ export const c8_8 = {
 					version: {
 						type: "integer",
 						format: "int32",
-						description:
-							"The assigned decision requirements version.",
+						description: "The assigned decision requirements version.",
 					},
 					decisionRequirementsName: {
 						type: "string",
@@ -13009,9 +16671,12 @@ export const c8_8 = {
 							"The DMN name of the decision requirements, as parsed during deployment.",
 					},
 					tenantId: {
-						type: "string",
-						description:
-							"The tenant ID of the deployed decision requirements.",
+						description: "The tenant ID of the deployed decision requirements.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					resourceName: {
 						type: "string",
@@ -13019,7 +16684,11 @@ export const c8_8 = {
 							"The resource name from which this decision requirements was parsed.",
 					},
 					decisionRequirementsKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/DecisionRequirementsKey",
+							},
+						],
 						description:
 							"The assigned decision requirements key, which acts as a unique identifier for this decision requirements.\n",
 					},
@@ -13028,9 +16697,14 @@ export const c8_8 = {
 			DeploymentFormResult: {
 				description: "A deployed form.",
 				type: "object",
+				"x-semantic-provider": ["formKey"],
 				properties: {
 					formId: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormId",
+							},
+						],
 						description:
 							"The form ID, as parsed during deployment, together with the version forms a\nunique identifier for a specific form.\n",
 					},
@@ -13041,15 +16715,17 @@ export const c8_8 = {
 					},
 					resourceName: {
 						type: "string",
-						description:
-							"The resource name from which this form was parsed.",
+						description: "The resource name from which this form was parsed.",
 					},
 					tenantId: {
-						type: "string",
-						description: "The tenant ID of the deployed form.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					formKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this form.",
 					},
@@ -13057,6 +16733,7 @@ export const c8_8 = {
 			},
 			DeploymentResourceResult: {
 				description: "A deployed Resource.",
+				"x-semantic-provider": ["resourceKey"],
 				type: "object",
 				properties: {
 					resourceId: {
@@ -13075,27 +16752,59 @@ export const c8_8 = {
 							"The resource name from which this resource was parsed.",
 					},
 					tenantId: {
-						type: "string",
-						description: "The tenant ID of the deployed form.",
+						$ref: "#/components/schemas/TenantId",
 					},
 					resourceKey: {
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ResourceKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this Resource.",
 					},
 				},
 			},
-			ProcessInstanceCreationInstruction: {
+			IncidentResolutionRequest: {
 				type: "object",
+				additionalProperties: false,
+				properties: {
+					operationReference: {
+						$ref: "#/components/schemas/OperationReference",
+					},
+				},
+			},
+			ProcessInstanceCreationInstruction: {
+				"x-polymorphic-schema": true,
+				description:
+					"Instructions for creating a process instance. The process definition can be specified\neither by ID or by key.\n",
+				oneOf: [
+					{
+						$ref: "#/components/schemas/ProcessInstanceCreationInstructionById",
+					},
+					{
+						$ref: "#/components/schemas/ProcessInstanceCreationInstructionByKey",
+					},
+				],
+			},
+			ProcessInstanceCreationInstructionById: {
+				type: "object",
+				title: "Process creation by ID",
+				required: ["processDefinitionId"],
+				additionalProperties: false,
 				properties: {
 					processDefinitionId: {
 						description:
-							"The BPMN process ID of the process definition to start an instance of.\nCannot be used together with processDefinitionKey.\n",
-						type: "string",
+							"The BPMN process ID of the process definition to start an instance of.\n",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
 					},
 					processDefinitionVersion: {
 						description:
-							"The version of the process. Only considered when a processDefinitionId is provided.\nBy default, the latest version of the process is used.\n",
+							"The version of the process. By default, the latest version of the process is used.\n",
 						type: "integer",
 						format: "int32",
 						default: -1,
@@ -13108,14 +16817,14 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of the process definition.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be >0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 					startInstructions: {
 						description:
@@ -13123,6 +16832,14 @@ export const c8_8 = {
 						type: "array",
 						items: {
 							$ref: "#/components/schemas/ProcessInstanceCreationStartInstruction",
+						},
+					},
+					runtimeInstructions: {
+						description:
+							"Runtime instructions (alpha). List of instructions that affect the runtime behavior of\nthe process instance. Refer to specific instruction types for more details.\n\nThis parameter is an alpha feature and may be subject to change\nin future releases.\n",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceCreationRuntimeInstruction",
 						},
 					},
 					awaitCompletion: {
@@ -13135,6 +16852,7 @@ export const c8_8 = {
 						description:
 							"List of variables by name to be included in the response when awaitCompletion is set to true.\nIf empty, all visible variables in the root scope will be returned.\n",
 						type: "array",
+						example: [],
 						items: {
 							type: "string",
 						},
@@ -13144,63 +16862,214 @@ export const c8_8 = {
 							"Timeout (in ms) the request waits for the process to complete. By default or\nwhen set to 0, the generic request timeout configured in the cluster is applied.\n",
 						type: "integer",
 						format: "int64",
+						default: 0,
 					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
+					},
+				},
+			},
+			ProcessInstanceCreationInstructionByKey: {
+				type: "object",
+				title: "Process creation by key",
+				required: ["processDefinitionKey"],
+				additionalProperties: false,
+				properties: {
 					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
-							"The unique key identifying the process definition, for example, returned for a process in the\ndeploy resources endpoint. Cannot be used together with processDefinitionId.\n",
-						type: "string",
+							"The unique key identifying the process definition, for example, returned for a process in the\ndeploy resources endpoint.\n",
+					},
+					variables: {
+						description:
+							"JSON object that will instantiate the variables for the root variable scope\nof the process instance.\n",
+						type: "object",
+						additionalProperties: true,
+					},
+					tenantId: {
+						description: "The tenant ID of the process definition.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
+					},
+					operationReference: {
+						$ref: "#/components/schemas/OperationReference",
+					},
+					startInstructions: {
+						description:
+							"List of start instructions. By default, the process instance will start at\nthe start event. If provided, the process instance will apply start instructions\nafter it has been created.\n",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceCreationStartInstruction",
+						},
+					},
+					runtimeInstructions: {
+						description:
+							"Runtime instructions (alpha). List of instructions that affect the runtime behavior of\nthe process instance. Refer to specific instruction types for more details.\n\nThis parameter is an alpha feature and may be subject to change\nin future releases.\n",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/ProcessInstanceCreationRuntimeInstruction",
+						},
+					},
+					awaitCompletion: {
+						description:
+							"Wait for the process instance to complete. If the process instance completion does\nnot occur within the requestTimeout, the request will be closed. This can lead to a 504\nresponse status. Disabled by default.\n",
+						type: "boolean",
+						default: false,
+					},
+					fetchVariables: {
+						description:
+							"List of variables by name to be included in the response when awaitCompletion is set to true.\nIf empty, all visible variables in the root scope will be returned.\n",
+						type: "array",
+						example: [],
+						items: {
+							type: "string",
+						},
+					},
+					requestTimeout: {
+						description:
+							"Timeout (in ms) the request waits for the process to complete. By default or\nwhen set to 0, the generic request timeout configured in the cluster is applied.\n",
+						type: "integer",
+						format: "int64",
+						default: 0,
+					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
 					},
 				},
 			},
 			ProcessInstanceCreationStartInstruction: {
 				type: "object",
+				required: ["elementId"],
 				properties: {
 					elementId: {
 						description:
 							'Future extensions might include:\n  - different types of start instructions\n  - ability to set local variables for different flow scopes\n\nFor now, however, the start instruction is implicitly a "startBeforeElement" instruction\n',
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
+					},
+				},
+			},
+			ProcessInstanceCreationRuntimeInstruction: {
+				type: "object",
+				description: "Runtime instructions",
+				required: ["type"],
+				properties: {
+					type: {
+						description: "The type of the runtime instruction",
 						type: "string",
+						enum: ["TERMINATE_PROCESS_INSTANCE"],
+					},
+				},
+				oneOf: [
+					{
+						$ref: "#/components/schemas/ProcessInstanceCreationTerminateInstruction",
+					},
+				],
+				discriminator: {
+					propertyName: "type",
+					mapping: {
+						TERMINATE_PROCESS_INSTANCE:
+							"#/components/schemas/ProcessInstanceCreationTerminateInstruction",
+					},
+				},
+			},
+			ProcessInstanceCreationTerminateInstruction: {
+				description:
+					"Terminates the process instance after a specific BPMN element is completed or terminated.\n",
+				type: "object",
+				required: ["afterElementId"],
+				properties: {
+					afterElementId: {
+						description:
+							"The ID of the element that, once completed or terminated, will cause the process to be terminated.\n",
+						example: "Activity_106kosb",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 				},
 			},
 			CreateProcessInstanceResult: {
+				"x-semantic-provider": ["processInstanceKey"],
+				required: [
+					"processDefinitionId",
+					"processDefinitionKey",
+					"processDefinitionVersion",
+					"tenantId",
+					"variables",
+					"processInstanceKey",
+				],
 				type: "object",
 				properties: {
 					processDefinitionId: {
 						description:
 							"The BPMN process ID of the process definition which was used to create the process.\ninstance\n",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionId",
+							},
+						],
+						example: "my-process-model-1",
 					},
 					processDefinitionVersion: {
 						description:
 							"The version of the process definition which was used to create the process instance.\n",
 						type: "integer",
 						format: "int32",
+						example: 3,
 					},
 					tenantId: {
-						description:
-							"The tenant ID of the created process instance.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
+						description: "The tenant ID of the created process instance.",
+						example: "<default>",
 					},
 					variables: {
 						additionalProperties: true,
-						description:
-							"All the variables visible in the root scope.",
+						description: "All the variables visible in the root scope.",
 						type: "object",
 					},
 					processDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The key of the process definition which was used to create the process instance.\n",
-						type: "string",
 					},
 					processInstanceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
 						description:
 							"The unique identifier of the created process instance; to be used wherever a request\nneeds a process instance key (e.g. CancelProcessInstanceRequest).\n",
-						type: "string",
+					},
+					tags: {
+						$ref: "#/components/schemas/TagSet",
 					},
 				},
 			},
 			ProcessInstanceMigrationBatchOperationRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					filter: {
 						$ref: "#/components/schemas/ProcessInstanceFilter",
@@ -13225,15 +17094,20 @@ export const c8_8 = {
 						},
 					},
 					targetProcessDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The key of process definition to migrate the process instance to.",
-						type: "string",
 					},
 				},
 				required: ["targetProcessDefinitionKey", "mappingInstructions"],
 			},
 			ProcessInstanceMigrationInstruction: {
 				type: "object",
+				additionalProperties: false,
 				description:
 					"The migration instructions describe how to migrate a process instance from one process definition to another.\n",
 				properties: {
@@ -13246,16 +17120,16 @@ export const c8_8 = {
 						},
 					},
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 					targetProcessDefinitionKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessDefinitionKey",
+							},
+						],
 						description:
 							"The key of process definition to migrate the process instance to.",
-						type: "string",
 					},
 				},
 				required: ["targetProcessDefinitionKey", "mappingInstructions"],
@@ -13267,24 +17141,29 @@ export const c8_8 = {
 				properties: {
 					sourceElementId: {
 						description: "The element ID to migrate from.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					targetElementId: {
 						description: "The element ID to migrate into.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 				},
 				required: ["sourceElementId", "targetElementId"],
 			},
 			ProcessInstanceModificationInstruction: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 					activateInstructions: {
 						description:
@@ -13310,9 +17189,12 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					elementId: {
-						description:
-							"The ID of the element that should be activated.",
-						type: "string",
+						description: "The ID of the element that should be activated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					variableInstructions: {
 						description:
@@ -13325,8 +17207,15 @@ export const c8_8 = {
 					ancestorElementInstanceKey: {
 						description:
 							"The key of the ancestor scope the element instance should be created in.\nSet to -1 to create the new element instance within an existing element instance of the\nflow scope.\n",
-						type: "string",
-						default: -1,
+						oneOf: [
+							{
+								type: "string",
+								default: "-1",
+							},
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
 					},
 				},
 				required: ["elementId"],
@@ -13357,15 +17246,19 @@ export const c8_8 = {
 					"Instructions describing which elements should be terminated.",
 				properties: {
 					elementInstanceKey: {
-						description:
-							"The ID of the element that should be terminated.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementInstanceKey",
+							},
+						],
+						description: "The ID of the element that should be terminated.",
 					},
 				},
 				required: ["elementInstanceKey"],
 			},
 			SetVariableRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					variables: {
 						description:
@@ -13380,11 +17273,7 @@ export const c8_8 = {
 						default: false,
 					},
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation. Must be > 0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 				},
 				required: ["variables"],
@@ -13392,18 +17281,16 @@ export const c8_8 = {
 			DeleteResourceRequest: {
 				type: "object",
 				nullable: true,
+				additionalProperties: false,
 				properties: {
 					operationReference: {
-						description:
-							"A reference key chosen by the user that will be part of all records resulting from this operation.\nMust be > 0 if provided.\n",
-						type: "integer",
-						format: "int64",
-						minimum: 1,
+						$ref: "#/components/schemas/OperationReference",
 					},
 				},
 			},
 			SignalBroadcastRequest: {
 				type: "object",
+				additionalProperties: false,
 				properties: {
 					signalName: {
 						description: "The name of the signal to broadcast.",
@@ -13415,43 +17302,63 @@ export const c8_8 = {
 						type: "object",
 					},
 					tenantId: {
-						description:
-							"The ID of the tenant that owns the signal.",
-						type: "string",
+						description: "The ID of the tenant that owns the signal.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 				},
 				required: ["signalName"],
 			},
 			SignalBroadcastResult: {
 				type: "object",
+				required: ["tenantId", "signalKey"],
+				"x-semantic-provider": ["signalKey"],
 				properties: {
 					tenantId: {
-						description:
-							"The tenant ID of the signal that was broadcast.",
-						type: "string",
+						description: "The tenant ID of the signal that was broadcast.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					signalKey: {
-						description:
-							"The unique ID of the signal that was broadcast.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/SignalKey",
+							},
+						],
+						description: "The unique ID of the signal that was broadcast.",
 					},
 				},
 			},
 			FormResult: {
 				type: "object",
+				"x-semantic-provider": ["formId", "formKey"],
 				properties: {
 					tenantId: {
 						description: "The tenant ID of the form.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					formId: {
-						description:
-							"The user-provided identifier of the form.",
-						type: "string",
+						description: "The user-provided identifier of the form.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormId",
+							},
+						],
 					},
 					schema: {
-						description: "The form content.",
-						type: "object",
+						description:
+							"The form schema as a JSON document serialized as a string.",
+						type: "string",
 					},
 					version: {
 						description: "The version of the the deployed form.",
@@ -13459,9 +17366,13 @@ export const c8_8 = {
 						format: "int64",
 					},
 					formKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/FormKey",
+							},
+						],
 						description:
 							"The assigned key, which acts as a unique identifier for this form.",
-						type: "string",
 					},
 				},
 			},
@@ -13488,11 +17399,19 @@ export const c8_8 = {
 					},
 					tenantId: {
 						description: "The tenant ID of this resource.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/TenantId",
+							},
+						],
 					},
 					resourceKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/ResourceKey",
+							},
+						],
 						description: "The unique key of this resource.",
-						type: "string",
 					},
 				},
 			},
@@ -13504,14 +17423,24 @@ export const c8_8 = {
 					"RESOLVE_INCIDENT",
 					"MIGRATE_PROCESS_INSTANCE",
 					"MODIFY_PROCESS_INSTANCE",
+					"DELETE_PROCESS_INSTANCE",
+					"ADD_VARIABLE",
+					"UPDATE_VARIABLE",
+					"DELETE_DECISION_DEFINITION",
+					"DELETE_PROCESS_DEFINITION",
 				],
 			},
 			BatchOperationCreatedResult: {
+				description: "The created batch operation.",
 				type: "object",
 				properties: {
-					batchOperationId: {
-						description: "Id of the batch operation.",
-						type: "string",
+					batchOperationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationKey",
+							},
+						],
+						description: "Key of the batch operation.",
 					},
 					batchOperationType: {
 						$ref: "#/components/schemas/BatchOperationTypeEnum",
@@ -13525,7 +17454,7 @@ export const c8_8 = {
 						description: "The field to sort by.",
 						type: "string",
 						enum: [
-							"batchOperationId",
+							"batchOperationKey",
 							"operationType",
 							"state",
 							"startDate",
@@ -13539,6 +17468,7 @@ export const c8_8 = {
 				required: ["field"],
 			},
 			BatchOperationSearchQuery: {
+				additionalProperties: false,
 				description: "Batch operation search request.",
 				type: "object",
 				allOf: [
@@ -13568,28 +17498,161 @@ export const c8_8 = {
 				description: "Batch operation filter request.",
 				type: "object",
 				properties: {
-					batchOperationId: {
+					batchOperationKey: {
 						description:
 							"The key (or operate legacy ID) of the batch operation.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
 					},
 					operationType: {
-						$ref: "#/components/schemas/BatchOperationTypeEnum",
+						description: "The type of the batch operation.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationTypeFilterProperty",
+							},
+						],
 					},
 					state: {
-						type: "string",
 						description: "The state of the batch operation.",
-						enum: [
-							"CREATED",
-							"ACTIVE",
-							"SUSPENDED",
-							"COMPLETED",
-							"COMPLETED_WITH_ERRORS",
-							"CANCELED",
-							"INCOMPLETED",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationStateFilterProperty",
+							},
 						],
 					},
 				},
+			},
+			BatchOperationTypeFilterProperty: {
+				description:
+					"BatchOperationTypeEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationTypeEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedBatchOperationTypeFilter",
+					},
+				],
+			},
+			AdvancedBatchOperationTypeFilter: {
+				title: "Advanced filter",
+				description: "Advanced BatchOperationTypeEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationTypeEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationTypeEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationTypeEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			BatchOperationStateFilterProperty: {
+				description:
+					"BatchOperationStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedBatchOperationStateFilter",
+					},
+				],
+			},
+			AdvancedBatchOperationStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced BatchOperationStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationStateEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			BatchOperationStateEnum: {
+				description: "The batch operation state.",
+				type: "string",
+				enum: [
+					"ACTIVE",
+					"CANCELED",
+					"COMPLETED",
+					"CREATED",
+					"FAILED",
+					"PARTIALLY_COMPLETED",
+					"SUSPENDED",
+				],
 			},
 			BatchOperationItemSearchQuerySortRequest: {
 				type: "object",
@@ -13598,7 +17661,7 @@ export const c8_8 = {
 						description: "The field to sort by.",
 						type: "string",
 						enum: [
-							"batchOperationId",
+							"batchOperationKey",
 							"itemKey",
 							"processInstanceKey",
 							"state",
@@ -13612,6 +17675,7 @@ export const c8_8 = {
 			},
 			BatchOperationItemSearchQuery: {
 				description: "Batch operation item search request.",
+				additionalProperties: false,
 				type: "object",
 				allOf: [
 					{
@@ -13640,29 +17704,107 @@ export const c8_8 = {
 				description: "Batch operation item filter request.",
 				type: "object",
 				properties: {
-					batchOperationId: {
+					batchOperationKey: {
 						description:
 							"The key (or operate legacy ID) of the batch operation.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
 					},
 					itemKey: {
-						description:
-							"The key of the item, e.g. a process instance key.",
-						type: "string",
+						description: "The key of the item, e.g. a process instance key.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BasicStringFilterProperty",
+							},
+						],
 					},
 					processInstanceKey: {
-						description:
-							"The process instance key of the processed item.",
-						type: "string",
+						description: "The process instance key of the processed item.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKeyFilterProperty",
+							},
+						],
 					},
 					state: {
 						type: "string",
 						description: "The state of the batch operation.",
-						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemStateFilterProperty",
+							},
+						],
 					},
 				},
 			},
+			BatchOperationItemStateFilterProperty: {
+				description:
+					"BatchOperationItemStateEnum property with full advanced search capabilities.",
+				type: "object",
+				oneOf: [
+					{
+						type: "string",
+						title: "Exact match",
+						description: "Matches the value exactly.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemStateEnum",
+							},
+						],
+					},
+					{
+						$ref: "#/components/schemas/AdvancedBatchOperationItemStateFilter",
+					},
+				],
+			},
+			AdvancedBatchOperationItemStateFilter: {
+				title: "Advanced filter",
+				description: "Advanced BatchOperationItemStateEnum filter.",
+				type: "object",
+				properties: {
+					$eq: {
+						description: "Checks for equality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemStateEnum",
+							},
+						],
+					},
+					$neq: {
+						description: "Checks for inequality with the provided value.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationItemStateEnum",
+							},
+						],
+					},
+					$exists: {
+						description: "Checks if the current property exists.",
+						type: "boolean",
+					},
+					$in: {
+						description:
+							"Checks if the property matches any of the provided values.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationItemStateEnum",
+						},
+					},
+					$like: {
+						$ref: "#/components/schemas/LikeFilter",
+					},
+				},
+			},
+			BatchOperationItemStateEnum: {
+				description: "The state, one of ACTIVE, COMPLETED, TERMINATED.",
+				type: "string",
+				enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+			},
 			BatchOperationSearchQueryResult: {
+				description: "The batch operation search query result.",
 				type: "object",
 				allOf: [
 					{
@@ -13682,22 +17824,26 @@ export const c8_8 = {
 			BatchOperationResponse: {
 				type: "object",
 				properties: {
-					batchOperationId: {
+					batchOperationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationKey",
+							},
+						],
 						description:
 							"Key or (Operate Legacy ID = UUID) of the batch operation.",
-						type: "string",
 					},
 					state: {
 						description: "The state of the batch operation.",
 						type: "string",
 						enum: [
-							"CREATED",
 							"ACTIVE",
-							"SUSPENDED",
-							"COMPLETED",
-							"COMPLETED_WITH_ERRORS",
 							"CANCELED",
-							"INCOMPLETED",
+							"COMPLETED",
+							"CREATED",
+							"FAILED",
+							"PARTIALLY_COMPLETED",
+							"SUSPENDED",
 						],
 					},
 					batchOperationType: {
@@ -13716,20 +17862,48 @@ export const c8_8 = {
 					operationsTotalCount: {
 						type: "integer",
 						description:
-							"The total number of items contained in this stacking process.",
+							"The total number of items contained in this batch operation.",
 						format: "int32",
 					},
 					operationsFailedCount: {
 						type: "integer",
 						description:
-							"The number of items which failed during execution of the batch operation. (e.g. because they are rejected by the machine)",
+							"The number of items which failed during execution of the batch operation. (e.g. because they are rejected by the Zeebe engine).",
 						format: "int32",
 					},
 					operationsCompletedCount: {
 						type: "integer",
-						description:
-							"The number of successfully completed tasks.",
+						description: "The number of successfully completed tasks.",
 						format: "int32",
+					},
+					errors: {
+						description:
+							"The errors that occurred per partition during the batch operation.",
+						type: "array",
+						items: {
+							$ref: "#/components/schemas/BatchOperationError",
+						},
+					},
+				},
+			},
+			BatchOperationError: {
+				type: "object",
+				properties: {
+					partitionId: {
+						description: "The partition ID where the error occurred.",
+						type: "integer",
+						format: "int32",
+					},
+					type: {
+						description:
+							"The type of the error that occurred during the batch operation.",
+						type: "string",
+						enum: ["QUERY_FAILED", "RESULT_BUFFER_SIZE_EXCEEDED"],
+					},
+					message: {
+						description:
+							"The error message that occurred during the batch operation.",
+						type: "string",
 					},
 				},
 			},
@@ -13753,29 +17927,37 @@ export const c8_8 = {
 			BatchOperationItemResponse: {
 				type: "object",
 				properties: {
-					batchOperationId: {
+					operationType: {
+						$ref: "#/components/schemas/BatchOperationTypeEnum",
+					},
+					batchOperationKey: {
+						allOf: [
+							{
+								$ref: "#/components/schemas/BatchOperationKey",
+							},
+						],
 						description:
 							"The key (or operate legacy ID) of the batch operation.",
-						type: "string",
 					},
 					itemKey: {
-						description:
-							"Key of the item, e.g. a process instance key.",
+						description: "Key of the item, e.g. a process instance key.",
 						type: "string",
 					},
 					processInstanceKey: {
-						description:
-							"the process instance key of the processed item.",
-						type: "string",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ProcessInstanceKey",
+							},
+						],
+						description: "the process instance key of the processed item.",
 					},
 					state: {
 						description: "State of the item.",
 						type: "string",
-						enum: ["ACTIVE", "COMPLETED", "CANCELED", "FAILED"],
+						enum: ["ACTIVE", "COMPLETED", "SKIPPED", "CANCELED", "FAILED"],
 					},
 					processedDate: {
-						description:
-							"the date this item was processed. This can be either completed, canceled or failed.",
+						description: "the date this item was processed.",
 						type: "string",
 						format: "date-time",
 					},
@@ -13786,7 +17968,32 @@ export const c8_8 = {
 					},
 				},
 			},
+			ProcessInstanceCancellationBatchOperationRequest: {
+				type: "object",
+				additionalProperties: false,
+				description:
+					"The process instance filter that defines which process instances should be canceled.",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+				},
+				required: ["filter"],
+			},
+			ProcessInstanceIncidentResolutionBatchOperationRequest: {
+				type: "object",
+				additionalProperties: false,
+				description:
+					"The process instance filter that defines which process instances should have their incidents resolved.",
+				properties: {
+					filter: {
+						$ref: "#/components/schemas/ProcessInstanceFilter",
+					},
+				},
+				required: ["filter"],
+			},
 			ProcessInstanceModificationBatchOperationRequest: {
+				additionalProperties: false,
 				type: "object",
 				description:
 					"The process instance filter to define on which process instances tokens should be moved,\nas well as mapping instructions which active element instances should be terminated and which\nnew element instances should be activated\n",
@@ -13811,17 +18018,66 @@ export const c8_8 = {
 				type: "object",
 				properties: {
 					sourceElementId: {
-						description:
-							"The ID of the element that should be terminated.",
-						type: "string",
+						description: "The ID of the element that should be terminated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 					targetElementId: {
-						description:
-							"The ID of the element that should be activated.",
-						type: "string",
+						description: "The ID of the element that should be activated.",
+						allOf: [
+							{
+								$ref: "#/components/schemas/ElementId",
+							},
+						],
 					},
 				},
 				required: ["sourceElementId", "targetElementId"],
+			},
+			Tag: {
+				description:
+					"A tag. Needs to start with a letter; then alphanumerics, `_`, `-`, `:`, or `.`; length ≤ 100.",
+				example: "business_key:1234",
+				format: "Tag",
+				"x-semantic-type": "Tag",
+				type: "string",
+				minLength: 1,
+				maxLength: 100,
+				pattern: "^[A-Za-z][A-Za-z0-9_\\-:.]{0,99}$",
+			},
+			TagSet: {
+				description:
+					"List of tags. Tags need to start with a letter; then alphanumerics, `_`, `-`, `:`, or `.`; length ≤ 100.",
+				type: "array",
+				format: "string<Tag>[]",
+				example: ["high-touch", "remediation"],
+				items: {
+					$ref: "#/components/schemas/Tag",
+				},
+				uniqueItems: true,
+				maxItems: 10,
+			},
+			TenantId: {
+				example: "customer-service",
+				description: "The unique identifier of the tenant.",
+				format: "TenantId",
+				type: "string",
+				"x-semantic-type": "TenantId",
+				minLength: 1,
+				maxLength: 256,
+				pattern: "^(<default>|[A-Za-z0-9_@.+-]+)$",
+			},
+			Username: {
+				example: "swillis",
+				format: "Username",
+				description: "The unique name of a user.",
+				"x-semantic-type": "Username",
+				type: "string",
+				minLength: 1,
+				maxLength: 256,
+				pattern: "^(<default>|[A-Za-z0-9_@.+-]+)$",
 			},
 		},
 		responses: {
@@ -13837,8 +18093,14 @@ export const c8_8 = {
 				},
 			},
 			Unauthorized: {
-				description:
-					"The request lacks valid authentication credentials.",
+				description: "The request lacks valid authentication credentials.",
+				headers: {
+					"WWW-Authenticate": {
+						schema: {
+							type: "string",
+						},
+					},
+				},
 				content: {
 					"application/problem+json": {
 						schema: {
@@ -13867,12 +18129,38 @@ export const c8_8 = {
 					},
 				},
 			},
+			UnsupportedMediaType: {
+				description:
+					"The server cannot process the request because the media type (Content-Type) of the request payload is not supported  by the server for the requested resource and method.\n",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
+			ServiceUnavailable: {
+				description:
+					"The service is currently unavailable. This may happen only on some requests where the system creates backpressure to prevent the server's compute resources from being exhausted, avoiding more severe failures. In this case, the title of the error object contains `RESOURCE_EXHAUSTED`. Clients are recommended to eventually retry those requests after a backoff period. You can learn more about the backpressure mechanism here: https://docs.camunda.io/docs/components/zeebe/technical-concepts/internal-processing/#handling-backpressure .\n",
+				content: {
+					"application/problem+json": {
+						schema: {
+							$ref: "#/components/schemas/ProblemDetail",
+						},
+					},
+				},
+			},
 		},
 		securitySchemes: {
-			bearerAuth: {
+			BearerAuth: {
 				type: "http",
 				scheme: "bearer",
 				bearerFormat: "JWT",
+			},
+			basicAuth: {
+				type: "http",
+				scheme: "basic",
 			},
 		},
 	},

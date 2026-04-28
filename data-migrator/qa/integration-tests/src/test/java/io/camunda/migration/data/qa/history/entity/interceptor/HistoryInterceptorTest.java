@@ -73,7 +73,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
 
     // Verify flow nodes were migrated with modified tenant ID
     List<FlowNodeInstanceEntity> migratedFlowNodes =
-        rdbmsService.getFlowNodeInstanceReader()
+        flowNodeInstanceReader
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
                 queryBuilder.filter(filterBuilder ->
                     filterBuilder.processInstanceKeys(processInstanceKey))))

@@ -11,14 +11,20 @@ import { test, expect } from '@playwright/test';
 const OPERATE_URL = 'http://localhost:8088/operate';
 
 /**
- * Helper: dismiss the "Here's what moved in Operate" changelog modal if present.
+ * Helper: install a persistent handler that auto-dismisses Operate's
+ * "Here's what moved in Operate" changelog modal whenever it appears.
+ *
+ * The modal can render asynchronously after login and intercept pointer
+ * events on tab buttons — particularly on Firefox, which hydrates the
+ * Operate React UI more slowly on CI and often misses a one-shot probe.
+ * `page.addLocatorHandler` makes Playwright dismiss the modal before every
+ * subsequent action, eliminating the race.
  */
-async function dismissChangelogModal(page: any) {
+async function installChangelogHandler(page: any) {
   const gotItButton = page.locator('button:has-text("Got it")');
-  if (await gotItButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+  await page.addLocatorHandler(gotItButton, async () => {
     await gotItButton.click();
-    await gotItButton.waitFor({ state: 'hidden', timeout: 5000 });
-  }
+  });
 }
 
 /**
@@ -43,7 +49,7 @@ async function login(page: any) {
       .waitFor({ state: 'hidden', timeout: 15000 });
   }
 
-  await dismissChangelogModal(page);
+  await installChangelogHandler(page);
 }
 
 /**
@@ -78,8 +84,6 @@ async function openProcessInstance(page: any, processName: string) {
 
   await page.waitForURL('**/processes/**', { timeout: 10000 });
   await page.waitForTimeout(3000);
-
-  await dismissChangelogModal(page);
 }
 
 /**
@@ -270,8 +274,6 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
 
     await page.waitForURL('**/processes/**', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
-
-    await dismissChangelogModal(page);
 
     // "Operations Log" is a tab button in the right panel (next to Variables, Listeners)
     const operationsLogTab = page
