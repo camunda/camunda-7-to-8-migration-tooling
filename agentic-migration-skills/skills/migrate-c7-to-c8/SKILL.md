@@ -75,6 +75,13 @@ Wait for user confirmation before proceeding.
 
 **1. Run OpenRewrite**
 
+Before adding the plugin, resolve the latest released versions via WebFetch:
+
+- `rewrite-maven-plugin` (OpenRewrite): `https://search.maven.org/solrsearch/select?q=g:org.openrewrite.maven+AND+a:rewrite-maven-plugin&rows=1&wt=json` → read `response.docs[0].latestVersion`
+- `camunda-7-to-8-code-conversion-recipes`: `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-7-to-8-code-conversion-recipes&rows=1&wt=json` → read `response.docs[0].latestVersion`
+
+Use those resolved versions in the snippets below (replacing `REWRITE_VERSION` and `RECIPES_VERSION`).
+
 Check if the OpenRewrite plugin is already in the build file. If not, add it:
 
 For Maven — add to `pom.xml`:
@@ -82,7 +89,7 @@ For Maven — add to `pom.xml`:
 <plugin>
   <groupId>org.openrewrite.maven</groupId>
   <artifactId>rewrite-maven-plugin</artifactId>
-  <version>6.29.0</version>
+  <version>REWRITE_VERSION</version>
   <configuration>
     <activeRecipes>
       <recipe>io.camunda.migration.code.recipes.AllClientRecipes</recipe>
@@ -95,12 +102,11 @@ For Maven — add to `pom.xml`:
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
-      <version>LATEST_RELEASE</version>
+      <version>RECIPES_VERSION</version>
     </dependency>
   </dependencies>
 </plugin>
 ```
-Use the latest released version of `camunda-7-to-8-code-conversion-recipes` here (or align with the version used by your repository/examples).
 
 **Before running**, check for Spotless + Java version incompatibility and fix proactively:
 
@@ -124,7 +130,7 @@ Use the latest released version of `camunda-7-to-8-code-conversion-recipes` here
 For Gradle — add to `build.gradle`:
 ```groovy
 plugins {
-    id("org.openrewrite.rewrite") version "6.29.0"
+    id("org.openrewrite.rewrite") version "REWRITE_VERSION"
 }
 rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllClientRecipes")
