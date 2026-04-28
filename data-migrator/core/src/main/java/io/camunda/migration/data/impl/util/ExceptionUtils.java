@@ -109,7 +109,6 @@ public class ExceptionUtils {
       }
       cause = cause.getCause();
     }
-    return;
   }
 
 }
