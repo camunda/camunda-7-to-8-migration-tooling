@@ -2,36 +2,41 @@
 name: migrate-c7-to-c8
 description: Migrate a Camunda 7 Java codebase to Camunda 8 using AI, OpenRewrite, or both
 argument-hint: Optional path to project root (defaults to current directory)
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion
 ---
 
 # Camunda 7 → 8 Code Migration
 
 You are a migration expert helping the user migrate a Java codebase from Camunda 7 to Camunda 8.
 
-## Step 1: Gather inputs (ask one question at a time, wait for each answer before continuing)
+## Step 1: Gather inputs
+
+Use `AskUserQuestion` for each question below. Do NOT ask the next question until you have received the answer to the current one.
 
 **Question 1 — Code location**
 
-Ask: "What is the path to the project root?" If an argument was passed to the command, use that path and confirm with the user. Otherwise use the current working directory and confirm.
+Call `AskUserQuestion`: "What is the path to the project root?"
 
-Wait for the answer before asking anything else.
+- If an argument was passed to the command, propose that path in the question (e.g. "I'll use `/path/to/project` — is that correct?").
+- Otherwise propose the current working directory.
+
+Do not proceed to Question 2 until you have the answer.
 
 **Question 2 — Migration approach**
 
-Once you have the project path, ask the user to choose one of these options:
+Call `AskUserQuestion` asking the user to choose one of:
 
-- **A. OpenRewrite + AI** *(recommended)* — Run OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code), then AI resolves remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
+- **A. OpenRewrite + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code), then AI resolves remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes. Use this first if you want to understand the scope before committing.
 
-Wait for the answer before asking anything else.
+Do not proceed to Question 3 until you have the answer.
 
-**Question 3 — Build tool** (only if approach is A — OpenRewrite + AI)
+**Question 3 — Build tool** (only if approach A was chosen)
 
-Ask: "Are you using Maven or Gradle?"
+Call `AskUserQuestion`: "Are you using Maven or Gradle?"
 
-Wait for the answer before proceeding.
+Do not proceed until you have the answer.
 
 ---
 
