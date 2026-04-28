@@ -120,7 +120,7 @@ The source files in this repository are made available under the [Camunda Licens
 ## Additional Resources
 
 - **[Camunda 8 Documentation](https://docs.camunda.io/)** - Official Camunda 8 documentation
-- **[Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)** - General migration guidance
-- **[Migration Analyzer](https://migration-analyzer.consulting-sandbox.camunda.cloud/)** - Tool for migrating BPMN models
+- **[Migration Guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/)** - General migration guidance
+- **[Migration Analyzer & Diagram Converter](https://diagram-converter.camunda.io/)** - Tool for migrating BPMN models and analyzing migration effort
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
-- **[GitHub Issues](https://github.com/camunda/camunda-bpm-platform/issues)** - Report bugs and request features in the issue tracker
+- **[GitHub Issues](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues)** - Report bugs and request features in the issue tracker
