@@ -15,7 +15,7 @@
   <description>Integration tests for the data migrator</description>
 
   <properties>
-    <version.testcontainers>2.0.4</version.testcontainers>
+    <version.testcontainers>2.0.5</version.testcontainers>
     <version.postgres>42.7.10</version.postgres>
     <version.oracle>23.26.1.0.0</version.oracle>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
