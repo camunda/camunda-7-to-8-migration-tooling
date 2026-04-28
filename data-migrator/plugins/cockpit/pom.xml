@@ -189,9 +189,9 @@
 
   <repositories>
     <repository>
-      <id>camunda-bpm-nexus</id>
+      <id>camunda-bpm-nexus-ee</id>
       <name>camunda-bpm-nexus</name>
-      <url>https://artifacts.camunda.com/artifactory/public/</url>
+      <url>https://artifacts.camunda.com/artifactory/private/</url>
     </repository>
   </repositories>
 </project>
