@@ -34,25 +34,16 @@ Do not proceed to Question 3 until you have the answer.
 
 **Question 3 — Build tool** (only if approach A was chosen)
 
-Call `AskUserQuestion`: "Are you using Maven or Gradle?"
+Before asking, check the project root for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle).
+
+- If exactly one is found, call `AskUserQuestion` to confirm: e.g. "I detected Maven (`pom.xml`) — is that correct?"
+- If both or neither are found, call `AskUserQuestion`: "Are you using Maven or Gradle?"
 
 Do not proceed until you have the answer.
 
 ---
 
-## Step 2: Load patterns
-
-Before doing any migration work, fetch the latest pattern catalog:
-
-```
-https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md
-```
-
-Fetch this via WebFetch. This is your primary reference for all C7→C8 transformations. Do not rely on training knowledge for specific API mappings — always use this file.
-
----
-
-## Step 3: Assessment (always runs, regardless of approach)
+## Step 2: Assessment (always runs, regardless of approach)
 
 Scan the codebase at the provided path. Identify and classify all Camunda 7 related files:
 
@@ -66,7 +57,7 @@ Scan the codebase at the provided path. Identify and classify all Camunda 7 rela
 - `ProcessEngine`, `RuntimeService`, `TaskService` autowired → Client code
 - `@Test` + Camunda 7 test rules → Test code
 - `application.properties` / `application.yaml` with `camunda.*` keys → Config
-- `.bpmn` files with `camunda:` namespace attributes → BPMN (flag only — use the diagram converter separately)
+- `.bpmn` files with `camunda:` namespace attributes → BPMN (flag only — convert using the online tool, see below)
 
 After the table, present:
 - Total files to migrate
@@ -110,7 +101,25 @@ For Maven — add to `pom.xml`:
 </plugin>
 ```
 Use the latest released version of `camunda-7-to-8-code-conversion-recipes` here (or align with the version used by your repository/examples).
-Run: `mvn rewrite:run`
+
+**Before running**, check for Spotless + Java version incompatibility and fix proactively:
+
+1. Detect Java major version: `java -version 2>&1 | head -1`
+2. Check if Spotless is configured: `grep -r "spotless" pom.xml build.gradle build.gradle.kts 2>/dev/null`
+3. If Spotless is present **and** Java major version ≥ 17:
+   - Run with the JVM flags Spotless needs on Java 17+:
+     ```
+     MAVEN_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED \
+       --add-opens=java.base/java.util=ALL-UNNAMED \
+       --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+       --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+       --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+       --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+       --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED" \
+     mvn rewrite:run
+     ```
+   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to Java 11/17 first?"
+4. If Spotless is not present, or Java < 17: run `mvn rewrite:run` directly.
 
 For Gradle — add to `build.gradle`:
 ```groovy
@@ -127,6 +136,11 @@ Run: `./gradlew rewriteRun`
 
 **2. AI cleanup — after OpenRewrite has run**
 
+First, fetch the pattern catalog via WebFetch — this is your reference for resolving TODOs, config, tests, and JUEL. Do not rely on training knowledge for API mappings:
+```
+https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md
+```
+
 Work through each of the following. Confirm each before moving on.
 
 - Find all `// TODO` comments inserted by OpenRewrite and resolve using the pattern catalog
@@ -138,6 +152,11 @@ Work through each of the following. Confirm each before moving on.
 ---
 
 ### Approach B — AI only
+
+First, fetch the pattern catalog via WebFetch — this is your primary reference for all C7→C8 transformations. Do not rely on training knowledge for API mappings:
+```
+https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md
+```
 
 Work through each phase sequentially. Confirm completion of each phase before moving to the next.
 
@@ -221,6 +240,6 @@ For any remaining issues, ask the user: fix now, skip, or flag for manual review
 - **Always load `ALL_IN_ONE.md` before touching any code.** Never guess API mappings.
 - **One phase at a time.** Confirm each phase before starting the next.
 - **Don't rewrite what OpenRewrite already changed.** In Approach A, check for existing transforms before rewriting.
-- **Flag BPMN files.** If `.bpmn` files use `camunda:` attributes, mention them — they need the diagram converter, which is out of scope here.
+- **Flag BPMN files.** If `.bpmn` files use `camunda:` attributes, mention them in the assessment summary and recommend the user convert them at **https://diagram-converter.camunda.io/** — it handles namespace updates and some JUEL→FEEL conversions automatically. Suggest running it after the code migration.
 - **Ask before High complexity files.** Describe the options and confirm before proceeding.
 - **Keep changes minimal.** Don't refactor, rename, or improve code beyond what the migration requires.
