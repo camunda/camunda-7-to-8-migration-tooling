@@ -65,7 +65,7 @@ After the table, present:
 - Whether OpenRewrite would help (JavaDelegates or ExternalTaskWorkers present?)
 - Any blockers requiring manual decision before starting
 
-Wait for user confirmation before proceeding.
+Use `AskUserQuestion` to wait for user confirmation before proceeding.
 
 ---
 
@@ -249,3 +249,4 @@ For any remaining issues, ask the user: fix now, skip, or flag for manual review
 - **Flag BPMN files.** If `.bpmn` files use `camunda:` attributes, mention them in the assessment summary and recommend the user convert them at **https://diagram-converter.camunda.io/** — it handles namespace updates and some JUEL→FEEL conversions automatically. Suggest running it after the code migration.
 - **Ask before High complexity files.** Describe the options and confirm before proceeding.
 - **Keep changes minimal.** Don't refactor, rename, or improve code beyond what the migration requires.
+- **Consult on edge cases, don't auto-fix.** Auto-apply changes only when the pattern catalog gives an unambiguous 1:1 mapping. For anything else — JUEL expressions, BPMN error mapping, async/correlation, history/batch APIs, ambiguous TODOs from OpenRewrite, or compile errors whose fix isn't a direct catalog match — propose the change via `AskUserQuestion` before applying. When unsure whether a case is unambiguous, ask.
