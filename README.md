@@ -64,7 +64,7 @@ The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN
 
 ## Documentation
 
-- **[Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/)** - Official migration documentation
+- **[Camunda 7 to 8 Migration Guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/)** - Official migration documentation
 - **[Data Migrator Documentation](./data-migrator/README.md)** - Detailed data migrator documentation
 - **[Diagram Converter Documentation](./diagram-converter/README.md)** - Model analysis and conversion tools
 - **[Code Conversion Documentation](./code-conversion/README.md)** - Code conversion patterns and tools
@@ -120,7 +120,6 @@ The source files in this repository are made available under the [Camunda Licens
 ## Additional Resources
 
 - **[Camunda 8 Documentation](https://docs.camunda.io/)** - Official Camunda 8 documentation
-- **[Migration Guide](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/)** - General migration guidance
 - **[Migration Analyzer & Diagram Converter](https://diagram-converter.camunda.io/)** - Tool for migrating BPMN models and analyzing migration effort
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
 - **[GitHub Issues](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues)** - Report bugs and request features in the issue tracker
