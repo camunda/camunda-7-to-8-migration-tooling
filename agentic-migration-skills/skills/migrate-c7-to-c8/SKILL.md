@@ -69,7 +69,7 @@ Wait for user confirmation before proceeding.
 
 ---
 
-## Step 4: Execute migration
+## Step 3: Execute migration
 
 ### Approach A — OpenRewrite + AI (recommended)
 
