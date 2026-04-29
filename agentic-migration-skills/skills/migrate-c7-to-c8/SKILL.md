@@ -203,7 +203,7 @@ Work through each phase sequentially. Confirm completion of each phase before mo
 
 ### Approach C — Assessment only
 
-Present the assessment table from Step 3 with additional detail:
+Present the assessment table from Step 2 with additional detail:
 - Per-file effort estimate (hours)
 - Total estimated effort
 - Which files OpenRewrite can handle automatically vs. require manual AI work
@@ -214,7 +214,7 @@ Then stop — make no code changes.
 
 ---
 
-## Step 5: Validation (always runs)
+## Step 4: Validation (always runs)
 
 1. **Compile**: `mvn compile` or `./gradlew compileJava` — fix all errors
 2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
