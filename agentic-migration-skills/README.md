@@ -22,7 +22,7 @@ Check your agent's documentation for its exact skills directory path.
 From your Camunda 7 project directory:
 
 ```
-/camunda-migration:migrate-c7-to-c8
+/camunda-migration:migrate-c7-to-c8-code
 ```
 
 The skill will assess your codebase and walk you through three options:
@@ -39,7 +39,7 @@ The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_I
 
 ```
 skills/
-└── migrate-c7-to-c8/
+└── migrate-c7-to-c8-code/
     └── SKILL.md    ← skill definition (agentskills.io format)
 ```
 

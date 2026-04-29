@@ -1,6 +1,6 @@
 ---
-name: migrate-c7-to-c8
-description: Migrate a Camunda 7 Java codebase to Camunda 8 using AI, OpenRewrite, or both
+name: migrate-c7-to-c8-code
+description: Use this when migrating or converting a Camunda 7 / camunda-bpm Java/Spring codebase to Camunda 8 — including JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, and application.properties/application.yaml with camunda.* keys.
 argument-hint: Optional path to project root (defaults to current directory)
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion
 ---

@@ -48,7 +48,7 @@ claude plugin install camunda-migration
 **Use** (from your project directory):
 
 ```
-/camunda-migration:migrate-c7-to-c8
+/camunda-migration:migrate-c7-to-c8-code
 ```
 
 The skill will ask for your project path and walk you through three options:
