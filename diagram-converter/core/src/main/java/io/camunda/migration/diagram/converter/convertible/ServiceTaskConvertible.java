@@ -7,11 +7,19 @@
  */
 package io.camunda.migration.diagram.converter.convertible;
 
-public class ServiceTaskConvertible extends AbstractActivityConvertible {
+public class ServiceTaskConvertible extends AbstractActivityConvertible
+    implements ZeebeJobPriorityConvertible {
   private final ZeebeTaskDefinition zeebeTaskDefinition = new ZeebeTaskDefinition();
+  private final ZeebeJobPriorityDefinition zeebeJobPriorityDefinition =
+      new ZeebeJobPriorityDefinition();
 
   public ZeebeTaskDefinition getZeebeTaskDefinition() {
     return zeebeTaskDefinition;
+  }
+
+  @Override
+  public ZeebeJobPriorityDefinition getZeebeJobPriorityDefinition() {
+    return zeebeJobPriorityDefinition;
   }
 
   public static class ZeebeTaskDefinition {

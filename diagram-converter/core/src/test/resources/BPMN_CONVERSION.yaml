@@ -1062,9 +1062,285 @@ categories:
             </bpmn:extensionElements>
           </bpmn:sequenceFlow>
         expectedBpmn: |
-          <bpmn:task completionQuantity="1" id="task1" isForCompensation="false" name="Task1" startQuantity="1"/>  
+          <bpmn:task completionQuantity="1" id="task1" isForCompensation="false" name="Task1" startQuantity="1"/>
           <bpmn:task completionQuantity="1" id="task2" isForCompensation="false" name="Task2" startQuantity="1"/>
           <bpmn:sequenceFlow id="takeListenerFlow" sourceRef="task1" targetRef="task2">
           </bpmn:sequenceFlow>
         expectedMessages: |
           <conversion:message severity="WARNING">Execution Listener at 'take' with implementation 'class' 'abc.def' cannot be transformed.</conversion:message>
+  - category: Job Priority
+    cases:
+      - name: Job priority literal on service task
+        description: Literal C7 priority maps to zeebe:jobPriorityDefinition on the converted service task. A REVIEW message flags the merged-scales.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="90" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="90"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Job priority literal on send task
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:sendTask id="notify" name="Notify" camunda:jobPriority="50" />
+        expectedBpmn: |
+          <bpmn:sendTask completionQuantity="1" id="notify" implementation="##WebService" isForCompensation="false" name="Notify" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="50"/>
+            </bpmn:extensionElements>
+          </bpmn:sendTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Job priority literal on external business rule task
+        description: Business rule task without a DMN decisionRef is converted to a job worker, so the priority applies.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:businessRuleTask id="rules" name="Rules" camunda:type="external" camunda:topic="rules-topic" camunda:jobPriority="40" />
+        expectedBpmn: |
+          <bpmn:businessRuleTask completionQuantity="1" id="rules" implementation="##unspecified" isForCompensation="false" name="Rules" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:taskDefinition type="rules-topic"/>
+              <zeebe:jobPriorityDefinition priority="40"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Unused attribute 'type' on 'businessRuleTask' is removed.</conversion:message>
+          <conversion:message severity="REVIEW">Attribute 'topic' on 'businessRuleTask' was mapped. Is set as job type.</conversion:message>
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Priority on DMN-backed business rule task is not migrated
+        description: A business rule task with a decisionRef is a DMN call, not a job worker, so no jobPriorityDefinition is emitted. The C7 attribute is stripped and a REVIEW message surfaces the dropped priority.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:businessRuleTask id="rules" name="Rules" camunda:decisionRef="myDecision" camunda:jobPriority="40" />
+        expectedBpmn: |
+          <bpmn:businessRuleTask completionQuantity="1" id="rules" implementation="##unspecified" isForCompensation="false" name="Rules" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:calledDecision decisionId="myDecision" resultVariable="decisionResult"/>
+            </bpmn:extensionElements>
+          </bpmn:businessRuleTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'businessRuleTask' 'rules' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+      - name: Job priority literal on external script task
+        description: A non-FEEL script task is converted to a service-task-style job worker, so the priority applies. Locks in the eligible branch of JobPriorityScope#scriptTask.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:scriptTask id="run" name="Run" scriptFormat="groovy" camunda:jobPriority="40">
+            <bpmn:script>print("hi")</bpmn:script>
+          </bpmn:scriptTask>
+        expectedBpmn: |
+          <bpmn:scriptTask completionQuantity="1" id="run" isForCompensation="false" name="Run" scriptFormat="groovy" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:taskHeaders>
+                <zeebe:header key="script" value="print(&quot;hi&quot;)"/>
+                <zeebe:header key="language" value="groovy"/>
+              </zeebe:taskHeaders>
+              <zeebe:taskDefinition type="script"/>
+              <zeebe:jobPriorityDefinition priority="40"/>
+            </bpmn:extensionElements>
+          </bpmn:scriptTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">Script format 'groovy' was set to header 'language'. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">Element 'scriptTask' was transformed. Currently, script tasks are implemented like service tasks with job type 'script'. Please review your implementation.</conversion:message>
+          <conversion:message severity="REVIEW">Script was set to header 'script'. Please review.</conversion:message>
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Priority on internal FEEL script task is not migrated
+        description: A FEEL script task at platform 8.2+ is run in-engine (not as a job worker), so no jobPriorityDefinition is emitted. The C7 attribute is stripped and a REVIEW message surfaces the dropped priority. Locks in the ineligible branch of JobPriorityScope#scriptTask.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:scriptTask id="calc" name="Calc" scriptFormat="feel" camunda:jobPriority="40">
+            <bpmn:script>a + b</bpmn:script>
+          </bpmn:scriptTask>
+        expectedBpmn: |
+          <bpmn:scriptTask completionQuantity="1" id="calc" isForCompensation="false" name="Calc" scriptFormat="feel" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:script expression="=a + b"/>
+            </bpmn:extensionElements>
+          </bpmn:scriptTask>
+        expectedMessages: |
+          <conversion:message severity="INFO">Script is transformed to Zeebe script.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'scriptTask' 'calc' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+      - name: Priority on user task is not migrated
+        description: User tasks are out of scope for this conversion; the C8 user task priority is a separate, bounded concept. The C7 attribute is stripped and a REVIEW message surfaces the dropped priority.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:userTask id="review" name="Review" camunda:jobPriority="30" />
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="review" implementation="##unspecified" isForCompensation="false" name="Review" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '30' on 'userTask' 'review' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+      - name: Task priority on external message throw event is not migrated
+        description: The realistic C7 carrier for camunda:taskPriority on a messageEventDefinition is the external-task throw pattern (camunda:type="external" + camunda:topic). The topic still maps to a zeebe:taskDefinition on the throw event, but C8 has no priority slot for messageEventDefinition (it doesn't implement ZeebeJobPriorityConvertible). The priority attribute is dropped and a WARNING surfaces the lost value. Locks in the realistic edge case the eligibility guard in TaskPriorityVisitor protects against.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:intermediateThrowEvent id="msgThrow">
+            <bpmn:messageEventDefinition id="msgDef" camunda:type="external" camunda:topic="topic" camunda:taskPriority="23" />
+          </bpmn:intermediateThrowEvent>
+        expectedBpmn: |
+          <bpmn:intermediateThrowEvent id="msgThrow">
+            <bpmn:extensionElements>
+              <zeebe:taskDefinition type="topic"/>
+            </bpmn:extensionElements>
+            <bpmn:messageEventDefinition id="msgDef" />
+          </bpmn:intermediateThrowEvent>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' 'msgDef' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="REVIEW">Attribute 'topic' on 'messageEventDefinition' was mapped. Is set as job type.</conversion:message>
+          <conversion:message severity="INFO">Unused attribute 'type' on 'messageEventDefinition' is removed.</conversion:message>
+      - name: Job priority JUEL expression on service task is transformed to FEEL
+        description: JUEL expressions are transformed the same way as other expression-carrying attributes (dueDate, followUpDate, …), with the standard "review transformed expression" message.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${jobPriority}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=jobPriority"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="REVIEW">Job priority: Please review transformed expression: '${jobPriority}' -&gt; '=jobPriority'.</conversion:message>
+      - name: Job priority JUEL expression with method invocation surfaces the unconvertible-method warning
+        description: A JUEL expression that calls a method on a variable cannot be expressed in FEEL. The transformer's hasMethodInvocation flag should fire and produce the standard "method invocation not possible" TASK message — same diagnostic peers like dueDate / assignee emit for the same shape of expression.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${order.getPriority()}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=order.getPriority()"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${order.getPriority()}' -&gt; '=order.getPriority()'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Job priority JUEL expression referencing execution surfaces the execution-not-available warning
+        description: A JUEL expression that references the C7 'execution' object cannot run in C8. The transformer's hasExecutionOnly flag should fire and produce the standard "'execution' not available in FEEL" TASK message — same diagnostic peers emit for execution-bound expressions.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${execution.getProcessInstanceId()}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=execution.getProcessInstanceId()"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${execution.getProcessInstanceId()}' -&gt; '=execution.getProcessInstanceId()'. 'execution' is not available in FEEL.</conversion:message>
+      - name: Task priority literal on service task
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:taskPriority="80" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Both jobPriority and taskPriority on same service task uses taskPriority
+        description: When both attributes are present, the converter uses taskPriority as the winner and emits a REVIEW flagging the ignored jobPriority.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="20" camunda:taskPriority="80" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="80"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on 'serviceTask'. Camunda 8 has a single job priority slot; the converter used 'taskPriority' and ignored 'jobPriority'.</conversion:message>
+      - name: Both jobPriority and taskPriority as JUEL expressions
+        description: Only the winning taskPriority is FEEL-transformed; the discarded jobPriority value is reported raw in the collision REVIEW.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${jobPriority}" camunda:taskPriority="${externalPriority}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="=externalPriority"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="REVIEW">Task priority: Please review transformed expression: '${externalPriority}' -&gt; '=externalPriority'.</conversion:message>
+          <conversion:message severity="REVIEW">Both 'camunda:jobPriority' (value '${jobPriority}') and 'camunda:taskPriority' (value '${externalPriority}') are defined on 'serviceTask'. Camunda 8 has a single job priority slot; the converter used 'taskPriority' and ignored 'jobPriority'.</conversion:message>
+      - name: Job priority at int max boundary is accepted
+        description: C7 allows long priorities; C8 uses int32. Integer.MAX_VALUE (2147483647) is the largest value that still fits and should pass through.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="2147483647" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="2147483647"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+      - name: Job priority above int max is skipped with TASK
+        description: A C7 long value that does not fit in the C8 int32 priority slot is dropped; the element is flagged for manual attention.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="9999999999" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '9999999999' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Job priority below int min is skipped with TASK
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="-9999999999" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority '-9999999999' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Non-numeric job priority literal is skipped with TASK
+        description: A literal that is neither a JUEL expression nor a parseable integer (e.g. malformed C7 input) must not be written verbatim to the C8 priority attribute. The converter drops the conversion and flags the element for manual attention.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="abc" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Priority 'abc' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.</conversion:message>
+      - name: Priority on pre-8.10 target platform is flagged as unsupported
+        description: The zeebe:jobPriorityDefinition extension only exists from Camunda 8.10 onward. Converting against an older target platform drops the conversion and emits the standard "attribute not supported" message.
+        properties:
+          platformVersion: "8.9"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="90" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1"/>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'jobPriority' with value '90' on 'serviceTask' is not supported.</conversion:message>
