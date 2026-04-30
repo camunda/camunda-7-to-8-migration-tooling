@@ -1189,17 +1189,17 @@ categories:
           platformVersion: "8.10"
         givenBpmn: |
           <bpmn:intermediateThrowEvent id="msgThrow">
-            <bpmn:messageEventDefinition id="msgDef" camunda:type="external" camunda:topic="topic" camunda:taskPriority="23" />
+            <bpmn:messageEventDefinition camunda:type="external" camunda:topic="topic" camunda:taskPriority="23" />
           </bpmn:intermediateThrowEvent>
         expectedBpmn: |
           <bpmn:intermediateThrowEvent id="msgThrow">
             <bpmn:extensionElements>
               <zeebe:taskDefinition type="topic"/>
             </bpmn:extensionElements>
-            <bpmn:messageEventDefinition id="msgDef" />
+            <bpmn:messageEventDefinition />
           </bpmn:intermediateThrowEvent>
         expectedMessages: |
-          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' 'msgDef' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
           <conversion:message severity="REVIEW">Attribute 'topic' on 'messageEventDefinition' was mapped. Is set as job type.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'type' on 'messageEventDefinition' is removed.</conversion:message>
       - name: Job priority JUEL expression on service task is transformed to FEEL

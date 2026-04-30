@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.message;
 
 import java.util.Collections;
 import java.util.Map;
+import org.apache.commons.lang3.StringUtils;
 
 public class MessageFactory {
   private static final MessageFactory INSTANCE = new MessageFactory();
@@ -684,11 +685,12 @@ public class MessageFactory {
   }
 
   public static Message priorityNotMigrated(String elementType, String elementId, String value) {
+    String elementIdLabel = StringUtils.isBlank(elementId) ? "with null id" : "'" + elementId + "'";
     return INSTANCE.composeMessage(
         "priority-not-migrated",
         ContextBuilder.builder()
             .entry("elementType", elementType)
-            .entry("elementId", elementId)
+            .entry("elementId", elementIdLabel)
             .entry("value", value)
             .build());
   }

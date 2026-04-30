@@ -630,6 +630,16 @@ public class MessageFactoryTest {
   }
 
   @Test
+  void shouldBuildPriorityNotMigratedWithBlankId() {
+    Message message = priorityNotMigrated("messageEventDefinition", null, "23");
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.WARNING);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.");
+  }
+
+  @Test
   void shouldBuildGeneratedIdOnConditionalEventDefinition() {
     String parentElementId = random();
     String generatedId = "ConditionalEventDefinition_" + random();
