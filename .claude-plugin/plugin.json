@@ -1,0 +1,19 @@
+{
+  "name": "camunda-migration",
+  "version": "0.1.0",
+  "description": "Claude Code skills for migrating Camunda 7 projects to Camunda 8",
+  "author": {
+    "name": "camunda"
+  },
+  "license": "Camunda License 1.0",
+  "skills": "./agentic-migration-skills/skills/",
+  "keywords": [
+    "camunda",
+    "migration",
+    "camunda7",
+    "camunda8",
+    "zeebe",
+    "java"
+  ],
+  "repository": "https://github.com/camunda/camunda-7-to-8-migration-tooling"
+}

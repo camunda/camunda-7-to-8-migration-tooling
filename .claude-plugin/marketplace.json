@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "camunda-migration",
+  "owner": {
+    "name": "camunda",
+    "url": "https://github.com/camunda"
+  },
+  "plugins": [
+    {
+      "name": "camunda-migration",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/camunda/camunda-7-to-8-migration-tooling.git",
+        "path": "agentic-migration-skills"
+      },
+      "description": "Migrate Camunda 7 Java codebases to Camunda 8 using AI, OpenRewrite, or both.",
+      "version": "0.1.0",
+      "author": {
+        "name": "camunda"
+      }
+    }
+  ]
+}
