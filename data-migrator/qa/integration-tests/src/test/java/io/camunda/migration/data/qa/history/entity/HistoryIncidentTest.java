@@ -21,9 +21,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
+import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
-import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Collections;
 import java.util.List;
@@ -67,12 +67,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidentsDefaultTenant = searchHistoricIncidents("incidentProcessId");
-    List<IncidentEntity> incidentsTenant1 = searchHistoricIncidents("incidentProcessId2");
+    List<IncidentDbModel> incidentsDefaultTenant = searchHistoricIncidents("incidentProcessId");
+    List<IncidentDbModel> incidentsTenant1 = searchHistoricIncidents("incidentProcessId2");
     assertThat(incidentsDefaultTenant).singleElement()
-        .extracting(IncidentEntity::tenantId)
+        .extracting(IncidentDbModel::tenantId)
         .isEqualTo(C8_DEFAULT_TENANT);
-    assertThat(incidentsTenant1).singleElement().extracting(IncidentEntity::tenantId).isEqualTo("tenant1");
+    assertThat(incidentsTenant1).singleElement().extracting(IncidentDbModel::tenantId).isEqualTo("tenant1");
   }
 
   @Test
@@ -92,9 +92,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -117,9 +117,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -150,13 +150,13 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     // then
 
     // child incident is migrated
-    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    List<IncidentDbModel> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
     assertThat(childIncidents).hasSize(1);
     assertOnIncidentBasicFields(childIncidents.getFirst(), c7ChildIncident, childProcess, parentProcess, UNKNOWN,
         false, false);
 
     // parent incident is migrated
-    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    List<IncidentDbModel> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
     assertThat(parentIncidents).hasSize(1);
     assertOnIncidentBasicFields(parentIncidents.getFirst(), c7ParentIncident, parentProcess, parentProcess);
   }
@@ -194,12 +194,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     // then both incidents are migrated
 
     // child incident has a job key (the failed job was migrated)
-    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    List<IncidentDbModel> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
     assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
     assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
 
     // parent incident is migrated without a job key (propagated incident has no direct job reference)
-    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    List<IncidentDbModel> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
     assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
     assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
     assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
@@ -224,9 +224,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -247,9 +247,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -273,9 +273,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -298,9 +298,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -320,9 +320,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("incidentProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, RESOURCE_NOT_FOUND, true, true);
   }
 
@@ -342,9 +342,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("formNotFoundProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("formNotFoundProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, FORM_NOT_FOUND, true, true);
   }
 
@@ -366,9 +366,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("ruleTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("ruleTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, DECISION_EVALUATION_ERROR, true, true);
   }
 
@@ -388,9 +388,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("conditionErrorProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("conditionErrorProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, CONDITION_ERROR, true, true);
   }
 
@@ -411,9 +411,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("unhandledErrorProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("unhandledErrorProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, UNHANDLED_ERROR_EVENT, true, true);
   }
 
@@ -434,9 +434,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("noJobRetriesProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("noJobRetriesProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentEntity c8Incident = incidents.getFirst();
+    IncidentDbModel c8Incident = incidents.getFirst();
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, JOB_NO_RETRIES, true, true);
   }
 
@@ -520,7 +520,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
     assertThat(processInstances).hasSize(1);
 
-    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("miProcess");
     assertThat(incidents).hasSize(2);
 
     assertThat(incidents.getFirst().flowNodeInstanceKey()).isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
@@ -547,10 +547,10 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by external task ID)
-    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
+    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
-    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentDbModel> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(incidents).hasSize(1);
     assertOnIncidentBasicFields(incidents.getFirst(), list.getFirst(), processInstance, null, UNKNOWN, false, true);
     assertThat(incidents.getFirst().jobKey()).isEqualTo(c8Jobs.getFirst().jobKey());
@@ -586,13 +586,13 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidentsDefaultTenant = searchHistoricIncidents(EXT_PROCESS_KEY);
-    List<IncidentEntity> incidentsTenant1 = searchHistoricIncidents(processKey2);
+    List<IncidentDbModel> incidentsDefaultTenant = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentDbModel> incidentsTenant1 = searchHistoricIncidents(processKey2);
     assertThat(incidentsDefaultTenant).singleElement()
-        .extracting(IncidentEntity::tenantId)
+        .extracting(IncidentDbModel::tenantId)
         .isEqualTo(C8_DEFAULT_TENANT);
     assertThat(incidentsTenant1).singleElement()
-        .extracting(IncidentEntity::tenantId)
+        .extracting(IncidentDbModel::tenantId)
         .isEqualTo("tenant1");
   }
 
@@ -617,7 +617,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentDbModel> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(incidents).hasSize(1);
     assertOnIncidentBasicFields(incidents.getFirst(), c7Incident, c7ProcessInstance, null, UNKNOWN, false, true);
   }
@@ -656,12 +656,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then: child incident is migrated with jobKey
-    List<IncidentEntity> childIncidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentDbModel> childIncidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
     assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
 
     // and: parent incident is migrated without jobKey (propagated)
-    List<IncidentEntity> parentIncidents = searchHistoricIncidents("callingProcessId");
+    List<IncidentDbModel> parentIncidents = searchHistoricIncidents("callingProcessId");
     assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
     assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
     assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
@@ -734,21 +734,21 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processKey);
     assertThat(processInstances).hasSize(1);
 
-    List<IncidentEntity> incidents = searchHistoricIncidents(processKey);
+    List<IncidentDbModel> incidents = searchHistoricIncidents(processKey);
     assertThat(incidents).hasSize(2);
 
     assertThat(incidents.getFirst().flowNodeInstanceKey())
         .isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
   }
 
-  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
+  protected void assertOnIncidentBasicFields(IncidentDbModel c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
                                              ProcessInstance c7ParentInstance) {
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ChildInstance, c7ParentInstance, UNKNOWN, false, false);
   }
 
-  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
+  protected void assertOnIncidentBasicFields(IncidentDbModel c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
                                              ProcessInstance c7ParentInstance,
@@ -771,7 +771,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // non-null values
     assertThat(c8Incident.incidentKey()).isNotNull();
-    assertThat(c8Incident.creationTime()).isNotNull();
+    assertThat(c8Incident.creationDate()).isNotNull();
 
     if (hasMigratedJob) {
       assertThat(c8Incident.jobKey()).isNotNull();

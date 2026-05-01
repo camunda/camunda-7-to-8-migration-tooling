@@ -18,10 +18,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.DecisionInstanceEntity;
-import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
@@ -225,10 +225,10 @@ public class HistoryPresetParentPropertiesTest extends HistoryMigrationAbstractT
     historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     // then
-    List<IncidentEntity> incidents = searchHistoricIncidents("failingServiceTaskProcessId");
+    List<IncidentDbModel> incidents = searchHistoricIncidents("failingServiceTaskProcessId");
     assertThat(incidents).isNotEmpty();
 
-    IncidentEntity incident = incidents.getFirst();
+    IncidentDbModel incident = incidents.getFirst();
     assertThat(incident.processDefinitionKey()).isEqualTo(1L);
     assertThat(incident.processInstanceKey()).isEqualTo(2L);
     assertThat(incident.jobKey()).isEqualTo(3L);

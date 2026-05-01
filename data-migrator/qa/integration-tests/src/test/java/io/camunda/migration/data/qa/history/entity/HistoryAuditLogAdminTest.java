@@ -10,6 +10,7 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import java.util.List;
@@ -62,9 +63,9 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
-    AuditLogEntity log = logs.getFirst();
+    AuditLogDbModel log = logs.getFirst();
 
     assertThat(log.auditLogKey()).isNotNull();
     assertThat(log.processInstanceKey()).isNull();
@@ -100,13 +101,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newUserId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newUserId");
   }
 
   @Test
@@ -128,13 +129,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newUserId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newUserId");
   }
 
   @Test
@@ -154,13 +155,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newUserId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newUserId");
   }
 
   @Test
@@ -178,12 +179,12 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
-    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newGroupId");
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogDbModel::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newGroupId");
   }
 
   @Test
@@ -205,13 +206,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newGroupId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newGroupId");
   }
 
   @Test
@@ -232,13 +233,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newGroupId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newGroupId");
   }
 
   @Test
@@ -257,12 +258,12 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newTenantId");
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newTenantId");
   }
 
   @Test
@@ -284,13 +285,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newTenantId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newTenantId");
   }
 
   @Test
@@ -311,13 +312,13 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
-    assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newTenantId");
+    assertThat(logs).extracting(AuditLogDbModel::entityDescription).contains("newTenantId");
   }
 
   @Test
@@ -341,11 +342,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
   }
 
@@ -372,11 +373,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
   }
 
@@ -403,11 +404,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.DELETE);
   }
 
@@ -429,11 +430,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
 
@@ -456,11 +457,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
   }
 
@@ -482,11 +483,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
 
@@ -509,11 +510,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
   }
 
@@ -535,11 +536,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
 
@@ -563,11 +564,11 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<AuditLogEntity> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
 
-    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
-    assertThat(logs).extracting(AuditLogEntity::operationType)
+    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
+    assertThat(logs).extracting(AuditLogDbModel::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UNASSIGN);
   }
 
