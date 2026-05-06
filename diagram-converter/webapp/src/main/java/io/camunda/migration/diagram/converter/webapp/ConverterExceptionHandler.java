@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.diagram.converter.webapp;
 
+import io.camunda.migration.diagram.converter.exception.DiagramAlreadyConvertedException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.apache.tomcat.util.http.fileupload.impl.FileCountLimitExceededException;
@@ -14,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MultipartException;
@@ -22,6 +24,12 @@ import org.springframework.web.multipart.MultipartException;
 public class ConverterExceptionHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(ConverterExceptionHandler.class);
+
+  @ExceptionHandler(DiagramAlreadyConvertedException.class)
+  public ResponseEntity<String> handleDiagramAlreadyConverted(DiagramAlreadyConvertedException ex) {
+    LOG.warn("Rejecting diagram that is already a Camunda 8 model: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ex.getMessage());
+  }
 
   @ExceptionHandler(MultipartException.class)
   public void handleMultipartException(MultipartException ex, HttpServletResponse response)
