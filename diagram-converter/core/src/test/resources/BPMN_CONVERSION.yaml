@@ -1119,7 +1119,7 @@ categories:
         properties:
           platformVersion: "8.10"
         givenBpmn: |
-          <bpmn:businessRuleTask id="rules" name="Rules" camunda:decisionRef="myDecision" camunda:jobPriority="40" />
+          <bpmn:businessRuleTask id="rules" name="Rules" camunda:asyncBefore="true" camunda:decisionRef="myDecision" camunda:jobPriority="40" />
         expectedBpmn: |
           <bpmn:businessRuleTask completionQuantity="1" id="rules" implementation="##unspecified" isForCompensation="false" name="Rules" startQuantity="1">
             <bpmn:extensionElements>
@@ -1127,6 +1127,7 @@ categories:
             </bpmn:extensionElements>
           </bpmn:businessRuleTask>
         expectedMessages: |
+          <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'businessRuleTask' is removed.</conversion:message>
           <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'businessRuleTask' 'rules' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
       - name: Job priority literal on external script task
         description: A non-FEEL script task is converted to a service-task-style job worker, so the priority applies. Locks in the eligible branch of JobPriorityScope#scriptTask.
@@ -1202,6 +1203,17 @@ categories:
           <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
           <conversion:message severity="REVIEW">Attribute 'topic' on 'messageEventDefinition' was mapped. Is set as job type.</conversion:message>
           <conversion:message severity="INFO">Unused attribute 'type' on 'messageEventDefinition' is removed.</conversion:message>
+      - name: Job priority on async-before gateway is not migrated
+        description: In C7, camunda:asyncBefore (or asyncAfter) on any flow node promotes execution at that node into an asynchronous job, and camunda:jobPriority then governs that job's activation order. C8 has no async-continuation concept and no priority slot for non-task flow nodes — gateways do not implement ZeebeJobPriorityConvertible. The priority is dropped and a WARNING surfaces the lost value. Locks in the eligibility guard for the broader "async-job carrier" category in C7.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:exclusiveGateway id="gw" name="Decide" camunda:asyncBefore="true" camunda:jobPriority="40" />
+        expectedBpmn: |
+          <bpmn:exclusiveGateway id="gw" name="Decide" gatewayDirection="Unspecified" />
+        expectedMessages: |
+          <conversion:message severity="WARNING">Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '40' on 'exclusiveGateway' 'gw' was not migrated. If you need priority for this work, model it as a service task instead.</conversion:message>
+          <conversion:message severity="INFO">Unused attribute 'asyncBefore' on 'exclusiveGateway' is removed.</conversion:message>
       - name: Job priority JUEL expression on service task is transformed to FEEL
         description: JUEL expressions are transformed the same way as other expression-carrying attributes (dueDate, followUpDate, …), with the standard "review transformed expression" message.
         properties:
