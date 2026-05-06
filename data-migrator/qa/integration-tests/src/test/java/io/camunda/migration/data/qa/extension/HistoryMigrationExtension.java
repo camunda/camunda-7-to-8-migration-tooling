@@ -19,17 +19,18 @@ import io.camunda.db.rdbms.read.service.ProcessDefinitionDbReader;
 import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
+import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.c8compat.C8QueryCompat;
+import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.SpringProfileResolver;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
-import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
@@ -38,7 +39,6 @@ import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
-import io.camunda.search.query.IncidentQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
@@ -236,12 +236,11 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
         .items();
   }
 
-  public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
-    return requireBean(IncidentDbReader.class)
-        .search(IncidentQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
-        .items();
+  public List<IncidentDbModel> searchHistoricIncidents(String processDefinitionId) {
+    return C8QueryCompat.searchHistoricIncidents(
+        requireBean(IncidentDbReader.class),
+        requireBean(RdbmsQueryExtension.class),
+        prefixDefinitionId(processDefinitionId));
   }
 
   public List<VariableEntity> searchHistoricVariables(String... varName) {
