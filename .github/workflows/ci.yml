@@ -32,8 +32,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -81,8 +81,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -152,8 +152,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -210,8 +210,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -250,8 +250,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -290,8 +290,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -330,8 +330,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -370,8 +370,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -410,8 +410,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -454,8 +454,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -494,8 +494,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -534,8 +534,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -574,8 +574,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -608,8 +608,10 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
+            secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -622,8 +624,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: registry.camunda.cloud
-          username: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_USR }}
-          password: ${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_PSW }}
+          username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
 
       - name: Run E2E tests via Maven
         working-directory: data-migrator
