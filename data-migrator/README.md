@@ -84,7 +84,8 @@ start.bat --help
    ```
    This will build all submodules and execute unit tests. You can restrict the build to the module you are changing by running the same command in the corresponding directory.
    
-   The Cockpit plugin module requires Node.js. You can exclude building it by running:
+   The Cockpit plugin module requires Node.js and authenticated access to Camunda's private Maven artifactory. Configure your Camunda Enterprise credentials in `~/.m2/settings.xml` as described in [Apache Maven – Enterprise edition](https://docs.camunda.org/get-started/apache-maven/#enterprise-edition-1).
+    You can exclude building the Cockpit plugin by running:
    ```bash
    mvn clean install -pl '!data-migrator/plugins/cockpit'
    ```
