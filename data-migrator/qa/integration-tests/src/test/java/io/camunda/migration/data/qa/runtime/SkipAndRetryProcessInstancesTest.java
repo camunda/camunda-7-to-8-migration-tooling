@@ -18,10 +18,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.ProcessInstance;
-import io.camunda.db.rdbms.RdbmsService;
+import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.search.clients.reader.ProcessInstanceReader;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
@@ -59,7 +60,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
   protected HistoryMigrator historyMigrator;
 
   @Autowired
-  protected RdbmsService rdbmsService;
+  protected ProcessInstanceDbReader processInstanceReader;
 
   @Test
   public void shouldSkipMultiInstanceProcessMigration() {
@@ -286,7 +287,7 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
 
 
     // and verify historic process instance exists in RDBMS
-    List<ProcessInstanceEntity> historicProcessInstances = rdbmsService.getProcessInstanceReader()
+    List<ProcessInstanceEntity> historicProcessInstances = processInstanceReader
         .search(ProcessInstanceQuery.of(queryBuilder ->
             queryBuilder.filter(filterBuilder ->
                 filterBuilder.processDefinitionIds(prefixDefinitionId(c7ProcDefKey))))).items();
