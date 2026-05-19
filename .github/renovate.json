@@ -4,6 +4,7 @@
   "baseBranchPatterns": [
     "main",
     "maintenance/0.2",
+    "maintenance/0.3",
   ],
   "packageRules": [
     {
