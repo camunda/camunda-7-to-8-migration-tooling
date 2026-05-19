@@ -12,6 +12,8 @@ import java.util.Set;
 
 public abstract class AbstractProcessElementConvertible implements Convertible {
   private Set<ZeebeProperty> zeebeProperties;
+  private final ZeebeJobPriorityDefinition zeebeJobPriorityDefinition =
+      new ZeebeJobPriorityDefinition();
 
   public Set<ZeebeProperty> getZeebeProperties() {
     return zeebeProperties;
@@ -29,6 +31,22 @@ public abstract class AbstractProcessElementConvertible implements Convertible {
       zeebeProperties = new HashSet<>();
     }
     zeebeProperties.add(property);
+  }
+
+  public ZeebeJobPriorityDefinition getZeebeJobPriorityDefinition() {
+    return zeebeJobPriorityDefinition;
+  }
+
+  public static class ZeebeJobPriorityDefinition {
+    private String priority;
+
+    public String getPriority() {
+      return priority;
+    }
+
+    public void setPriority(String priority) {
+      this.priority = priority;
+    }
   }
 
   public static class ZeebeProperty {
