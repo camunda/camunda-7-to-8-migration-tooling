@@ -201,6 +201,12 @@ public class MessageFactory {
             .build());
   }
 
+  public static Message multiInstanceStartExecutionListenerMoved(String implementation) {
+    return INSTANCE.composeMessage(
+        "multi-instance-start-execution-listener-moved",
+        ContextBuilder.builder().entry("implementation", implementation).build());
+  }
+
   public static Message taskListenerNotSupported(String event, String type, String implementation) {
     return INSTANCE.composeMessage(
         "task-listener",

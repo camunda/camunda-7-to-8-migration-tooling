@@ -13,6 +13,7 @@ import java.util.List;
 public abstract class AbstractExecutionListenerConvertible
     extends AbstractProcessElementConvertible {
   private List<ZeebeExecutionListener> zeebeExecutionListeners = new ArrayList<>();
+  private List<ZeebeExecutionListener> zeebeMultiInstanceBodyExecutionListeners = new ArrayList<>();
 
   public List<ZeebeExecutionListener> getZeebeExecutionListeners() {
     return zeebeExecutionListeners;
@@ -24,6 +25,15 @@ public abstract class AbstractExecutionListenerConvertible
 
   public void addZeebeExecutionListener(ZeebeExecutionListener zeebeExecutionListener) {
     zeebeExecutionListeners.add(zeebeExecutionListener);
+  }
+
+  public List<ZeebeExecutionListener> getZeebeMultiInstanceBodyExecutionListeners() {
+    return zeebeMultiInstanceBodyExecutionListeners;
+  }
+
+  public void addZeebeMultiInstanceBodyExecutionListener(
+      ZeebeExecutionListener zeebeExecutionListener) {
+    zeebeMultiInstanceBodyExecutionListeners.add(zeebeExecutionListener);
   }
 
   public static class ZeebeExecutionListener {
@@ -57,7 +67,8 @@ public abstract class AbstractExecutionListenerConvertible
 
     public enum EventType {
       start,
-      end
+      end,
+      beforeAll
     }
   }
 }
