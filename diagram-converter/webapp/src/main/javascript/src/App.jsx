@@ -421,7 +421,7 @@ function App() {
             <section>
               <h4>Instructions:</h4>
               <p>
-                Upload your BPMN and DMN models. You can upload one or more
+                Upload your BPMN, DMN and form models. You can upload one or more
                 files at once.
               </p>
             </section>

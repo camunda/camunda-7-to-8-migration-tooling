@@ -14,11 +14,14 @@ import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
+import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -124,7 +127,40 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     Map<File, ModelInstance> modelInstances = modelInstances();
     List<DiagramCheckResult> results = checkModels(modelInstances);
     writeResults(modelInstances, results);
+    convertFormFiles(formFiles());
     return returnCode;
+  }
+
+  protected List<File> formFiles() {
+    return List.of();
+  }
+
+  private void convertFormFiles(List<File> formFileList) {
+    if (check) {
+      return;
+    }
+    for (File formFile : formFileList) {
+      File outFile = determineFileName(prefixFileName(formFile));
+      if (!override && outFile.exists()) {
+        LOG_CLI.error("File does already exist: {}", outFile);
+        returnCode = 1;
+        continue;
+      }
+      try (FileInputStream fis = new FileInputStream(formFile)) {
+        String content = new String(fis.readAllBytes(), StandardCharsets.UTF_8);
+        String converted = FormConverter.convert(content);
+        try (FileWriter fw = new FileWriter(outFile, StandardCharsets.UTF_8)) {
+          fw.write(converted);
+        }
+        LOG_CLI.info("Created {}", outFile);
+      } catch (IOException e) {
+        LOG_CLI.error(
+            "Error while converting form file {}: {}",
+            formFile.getAbsolutePath(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
   }
 
   private void writeResults(
