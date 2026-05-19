@@ -155,9 +155,12 @@ function App() {
         });
 
         if (!checkResponse.ok) {
+          const reason = (await checkResponse.text())?.trim();
           const result = {
             status: "error",
-            errorMessage: `Analysis failed (HTTP ${checkResponse.status})`,
+            errorMessage: reason
+              ? `Analysis failed (HTTP ${checkResponse.status}): ${reason}`
+              : `Analysis failed (HTTP ${checkResponse.status})`,
             originalModelXml: originalModelXml,
             checkResponseJson: null,
           };
