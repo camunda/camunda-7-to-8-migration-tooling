@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.config.mybatis;
 
+import static io.camunda.db.rdbms.config.VendorDatabaseProperties.DATABASE_ID;
+
 import io.camunda.client.metrics.MetricsRecorder;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.RdbmsReaderConfig;
@@ -135,8 +137,9 @@ public class C8Configuration extends AbstractConfiguration {
   public VendorDatabaseProperties vendorDatabaseProperties(DbVendorProvider dbVendorProvider) throws Exception {
     String c8DbVendor = dbVendorProvider.getDatabaseId(getC8DataSource());
     String c8File = "db/vendor-properties/" + c8DbVendor + ".properties";
-
-    return new VendorDatabaseProperties(loadPropertiesFile(c8DbVendor, c8File));
+    Properties properties = loadPropertiesFile(c8DbVendor, c8File);
+    properties.put(DATABASE_ID, c8DbVendor);
+    return new VendorDatabaseProperties(properties);
   }
 
   @Bean
