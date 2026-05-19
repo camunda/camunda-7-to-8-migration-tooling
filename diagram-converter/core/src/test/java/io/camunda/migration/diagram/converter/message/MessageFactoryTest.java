@@ -11,6 +11,7 @@ import static io.camunda.migration.diagram.converter.message.MessageFactory.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 
@@ -578,6 +579,64 @@ public class MessageFactoryTest {
         .isEqualTo(
             "Variable name filter is not supported in conditional event on '%s'. Camunda 8 determines when to evaluate the FEEL expression from the expression itself.",
             elementId);
+  }
+
+  @Test
+  void shouldBuildPriorityScalesMerged() {
+    Message message = priorityScalesMerged();
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.");
+  }
+
+  @Test
+  void shouldBuildJobPriorityCollision() {
+    String elementLocalName = "serviceTask";
+    String jobPriority = "20";
+    String taskPriority = "80";
+    Message message = jobPriorityCollision(elementLocalName, jobPriority, taskPriority);
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Both 'camunda:jobPriority' (value '20') and 'camunda:taskPriority' (value '80') are defined on 'serviceTask'. Camunda 8 has a single job priority slot; the converter used 'taskPriority' and ignored 'jobPriority'.");
+  }
+
+  @Test
+  void shouldBuildPriorityInvalid() {
+    String elementLocalName = "serviceTask";
+    String value = "9999999999";
+    Message message = priorityInvalid(elementLocalName, value);
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Priority '9999999999' on 'serviceTask' is not a valid Camunda 8 priority value. Priority was not set; please define a valid expression or integer value manually.");
+  }
+
+  @Test
+  void shouldBuildPriorityNotMigrated() {
+    String elementType = "userTask";
+    String elementId = "review";
+    String value = "30";
+    Message message = priorityNotMigrated(elementType, elementId, value);
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.WARNING);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '30' on 'userTask' 'review' was not migrated. If you need priority for this work, model it as a service task instead.");
+  }
+
+  @Test
+  void shouldBuildPriorityNotMigratedWithBlankId() {
+    Message message = priorityNotMigrated("messageEventDefinition", null, "23");
+    assertThat(message).isNotNull();
+    assertThat(message.getSeverity()).isEqualTo(Severity.WARNING);
+    assertThat(message.getMessage())
+        .isEqualTo(
+            "Camunda 8 only supports job priority on job-worker tasks (service / send / business rule / script task) and on the process. Priority '23' on 'messageEventDefinition' with null id was not migrated. If you need priority for this work, model it as a service task instead.");
   }
 
   @Test

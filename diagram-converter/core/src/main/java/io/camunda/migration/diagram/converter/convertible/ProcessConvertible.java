@@ -8,8 +8,10 @@
 package io.camunda.migration.diagram.converter.convertible;
 
 public class ProcessConvertible extends AbstractExecutionListenerConvertible
-    implements ZeebeVersionTagConvertible {
+    implements ZeebeVersionTagConvertible, ZeebeJobPriorityConvertible {
   private String zeebeVersionTag;
+  private final ZeebeJobPriorityDefinition zeebeJobPriorityDefinition =
+      new ZeebeJobPriorityDefinition();
 
   @Override
   public String getZeebeVersionTag() {
@@ -19,5 +21,10 @@ public class ProcessConvertible extends AbstractExecutionListenerConvertible
   @Override
   public void setZeebeVersionTag(String zeebeVersionTag) {
     this.zeebeVersionTag = zeebeVersionTag;
+  }
+
+  @Override
+  public ZeebeJobPriorityDefinition getZeebeJobPriorityDefinition() {
+    return zeebeJobPriorityDefinition;
   }
 }
