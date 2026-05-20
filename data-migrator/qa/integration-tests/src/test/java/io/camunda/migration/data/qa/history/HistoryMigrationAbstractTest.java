@@ -15,6 +15,7 @@ import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstance
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientHttpException;
 import io.camunda.client.api.search.enums.AuditLogCategoryEnum;
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.task.Task;
@@ -207,15 +209,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   public List<DecisionInstanceEntity> searchHistoricDecisionInstances(String... decisionDefinitionIds) {
-    Set<String> prefixedDecisionDefinitionIds = Arrays.stream(decisionDefinitionIds)
+    return Arrays.stream(decisionDefinitionIds)
         .map(ConverterUtil::prefixDefinitionId)
-        .collect(Collectors.toSet());
-    return camundaClient.newDecisionInstanceSearchRequest()
-        .execute()
-        .items()
-        .stream()
-        .filter(instance -> prefixedDecisionDefinitionIds.contains(instance.getDecisionDefinitionId()))
-        .map(this::toDecisionInstanceEntity)
+        .flatMap(this::searchHistoricDecisionInstancesByDefinitionId)
         .toList();
   }
 
@@ -240,12 +236,13 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
     var mappedType = mapEnum(io.camunda.client.api.search.enums.ElementInstanceType.class, type.name());
+    if (mappedType == null) {
+      throw new IllegalArgumentException("Unsupported flow node type mapping for " + type);
+    }
     return camundaClient.newElementInstanceSearchRequest()
         .filter(f -> {
           f.processInstanceKey(processInstanceKey);
-          if (mappedType != null) {
-            f.type(mappedType);
-          }
+          f.type(mappedType);
         })
         .execute()
         .items()
@@ -372,6 +369,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .collect(Collectors.toSet());
     Map<Long, FormEntity> formsByKey = new LinkedHashMap<>();
 
+    // There is no dedicated bulk form search request in the Camunda Client API.
     for (var processDefinition : camundaClient.newProcessDefinitionSearchRequest().execute().items()) {
       try {
         var form = camundaClient.newProcessDefinitionGetFormRequest(processDefinition.getProcessDefinitionKey()).execute();
@@ -399,6 +397,16 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     }
 
     return new ArrayList<>(formsByKey.values());
+  }
+
+  private Stream<DecisionInstanceEntity> searchHistoricDecisionInstancesByDefinitionId(
+      String prefixedDecisionDefinitionId) {
+    return camundaClient.newDecisionInstanceSearchRequest()
+        .filter(f -> f.decisionDefinitionId(prefixedDecisionDefinitionId))
+        .execute()
+        .items()
+        .stream()
+        .map(this::toDecisionInstanceEntity);
   }
 
   private ProcessDefinitionEntity toProcessDefinitionEntity(
@@ -670,7 +678,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   private boolean isNotFound(RuntimeException exception) {
-    return exception.getMessage() != null && exception.getMessage().contains("NOT_FOUND");
+    return exception instanceof ClientHttpException clientHttpException && clientHttpException.code() == 404;
   }
 
   private <S extends Enum<S>, T extends Enum<T>> T mapEnum(Class<T> target, S source) {

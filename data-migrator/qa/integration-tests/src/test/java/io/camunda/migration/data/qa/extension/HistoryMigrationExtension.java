@@ -29,8 +29,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.TaskService;
@@ -220,12 +219,13 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesForType(long processInstanceKey, FlowNodeInstanceEntity.FlowNodeType type) {
     var mappedType = mapEnum(io.camunda.client.api.search.enums.ElementInstanceType.class, type.name());
+    if (mappedType == null) {
+      throw new IllegalArgumentException("Unsupported flow node type mapping for " + type);
+    }
     return new ArrayList<>(requireBean(CamundaClient.class).newElementInstanceSearchRequest()
         .filter(f -> {
           f.processInstanceKey(processInstanceKey);
-          if (mappedType != null) {
-            f.type(mappedType);
-          }
+          f.type(mappedType);
         })
         .execute()
         .items()
@@ -235,13 +235,8 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesById(String... flowNodeIds) {
-    Set<String> flowNodeIdsSet = Arrays.stream(flowNodeIds).collect(Collectors.toSet());
-    return requireBean(CamundaClient.class).newElementInstanceSearchRequest()
-        .execute()
-        .items()
-        .stream()
-        .filter(elementInstance -> flowNodeIdsSet.contains(elementInstance.getElementId()))
-        .map(this::toFlowNodeInstanceEntity)
+    return Arrays.stream(flowNodeIds)
+        .flatMap(this::searchHistoricFlowNodesById)
         .toList();
   }
 
@@ -256,14 +251,36 @@ public class HistoryMigrationExtension implements BeforeEachCallback, AfterEachC
   }
 
   public List<VariableEntity> searchHistoricVariables(String... varName) {
-    Set<String> variableNames = Arrays.stream(varName).collect(Collectors.toSet());
-    return requireBean(CamundaClient.class).newVariableSearchRequest()
+    if (varName.length == 0) {
+      return requireBean(CamundaClient.class).newVariableSearchRequest()
+          .execute()
+          .items()
+          .stream()
+          .map(this::toVariableEntity)
+          .toList();
+    }
+    return Arrays.stream(varName)
+        .flatMap(this::searchHistoricVariablesByName)
+        .toList();
+  }
+
+  private Stream<FlowNodeInstanceEntity> searchHistoricFlowNodesById(String flowNodeId) {
+    return requireBean(CamundaClient.class).newElementInstanceSearchRequest()
+        .filter(f -> f.elementId(flowNodeId))
         .execute()
         .items()
         .stream()
-        .filter(variable -> variableNames.isEmpty() || variableNames.contains(variable.getName()))
+        .map(this::toFlowNodeInstanceEntity);
+  }
+
+  private Stream<VariableEntity> searchHistoricVariablesByName(String variableName) {
+    return requireBean(CamundaClient.class).newVariableSearchRequest()
+        .filter(f -> f.name(variableName))
+        .execute()
+        .items()
+        .stream()
         .map(this::toVariableEntity)
-        .toList();
+        .distinct();
   }
 
   private ProcessDefinitionEntity toProcessDefinitionEntity(
