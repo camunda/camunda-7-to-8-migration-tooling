@@ -127,7 +127,10 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
-    List<FlowNodeInstanceEntity> migratedFlowNodes = searchHistoricFlowNodes(processInstanceKey);
+    List<FlowNodeInstanceEntity> migratedFlowNodes = searchHistoricFlowNodes(processInstanceKey)
+        .stream()
+        .filter(flowNode -> "complex-tenant".equals(flowNode.tenantId()))
+        .toList();
 
     assertThat(migratedFlowNodes).isNotEmpty();
 
