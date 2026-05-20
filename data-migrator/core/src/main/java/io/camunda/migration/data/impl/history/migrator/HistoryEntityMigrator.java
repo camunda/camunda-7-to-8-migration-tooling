@@ -20,8 +20,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 
-import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
-import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -37,7 +35,6 @@ import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import io.camunda.search.filter.FlowNodeInstanceFilter;
 import io.camunda.util.ObjectBuilder;
 import java.time.OffsetDateTime;
 import java.time.Period;
@@ -349,9 +346,7 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       return null;
     }
 
-    List<FlowNodeInstanceDbModel> flowNodes = c8Client.searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
-        builder -> builder.filter(FlowNodeInstanceFilter.of(
-            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+    var flowNodes = c8Client.searchFlowNodeInstances(activityId, processInstanceKey);
 
     if (!flowNodes.isEmpty()) {
       // only some of the flow nodes might have been migrated at this point so first check how many entities are in C7
@@ -379,4 +374,3 @@ public abstract class HistoryEntityMigrator<C7, C8> {
     return !dbClient.checkExistsByC7IdAndType(id, type);
   }
 }
-

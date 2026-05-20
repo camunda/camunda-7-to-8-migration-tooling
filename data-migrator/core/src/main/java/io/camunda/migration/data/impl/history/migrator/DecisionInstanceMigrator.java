@@ -25,16 +25,13 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionDefinitionType;
 
-import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
-import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
-import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.time.OffsetDateTime;
 import java.time.Period;
 import java.util.Date;
@@ -288,4 +285,3 @@ public class DecisionInstanceMigrator extends HistoryEntityMigrator<HistoricDeci
   }
 
 }
-

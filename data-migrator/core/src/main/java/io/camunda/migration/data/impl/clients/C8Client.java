@@ -72,15 +72,15 @@ import io.camunda.client.api.response.CreateAuthorizationResponse;
 import io.camunda.client.api.response.PartitionInfo;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.client.api.search.enums.PermissionType;
+import io.camunda.client.api.search.response.DecisionDefinition;
+import io.camunda.client.api.search.response.DecisionRequirements;
+import io.camunda.client.api.search.response.ElementInstance;
+import io.camunda.client.api.search.response.ProcessInstance;
+import io.camunda.client.api.search.response.UserTask;
 import io.camunda.client.api.search.response.Group;
 import io.camunda.client.api.search.response.ProcessDefinition;
 import io.camunda.client.api.search.response.SearchResponse;
 import io.camunda.client.api.search.response.User;
-import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.DecisionRequirementsDbQuery;
-import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
-import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
-import io.camunda.db.rdbms.read.domain.UserTaskDbQuery;
 import io.camunda.db.rdbms.sql.AuditLogMapper;
 import io.camunda.db.rdbms.sql.DecisionDefinitionMapper;
 import io.camunda.db.rdbms.sql.DecisionInstanceMapper;
@@ -114,11 +114,10 @@ import io.camunda.migration.data.impl.identity.SecurePasswordGenerator;
 import io.camunda.migration.data.impl.model.FlowNodeActivation;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.search.entities.DecisionDefinitionEntity;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
-import io.camunda.search.filter.DecisionRequirementsFilter;
-import io.camunda.search.filter.FlowNodeInstanceFilter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -306,7 +305,16 @@ public class C8Client {
    * Finds a ProcessInstance by key.
    */
   protected ProcessInstanceEntity findProcessInstance(Long key) {
-    return callApi(() -> processInstanceMapper.findOne(key), FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY + key);
+    return callApi(
+            () -> camundaClient.newProcessInstanceSearchRequest()
+                .filter(filter -> filter.processInstanceKey(key))
+                .execute()
+                .items(),
+            FAILED_TO_FIND_PROCESS_INSTANCE_BY_KEY + key)
+        .stream()
+        .findFirst()
+        .map(this::toProcessInstanceEntity)
+        .orElse(null);
   }
 
   /**
@@ -338,8 +346,16 @@ public class C8Client {
   /**
    * Searches for DecisionRequirementsDefinition matching the query
    */
-  protected List<DecisionRequirementsEntity> searchDecisionRequirements(DecisionRequirementsDbQuery query) {
-    return callApi(() -> decisionRequirementsMapper.search(query), FAILED_TO_SEARCH_DECISION_REQUIREMENTS);
+  protected List<DecisionRequirementsEntity> searchDecisionRequirementsByKey(Long decisionRequirementsKey) {
+    return callApi(
+            () -> camundaClient.newDecisionRequirementsSearchRequest()
+                .filter(filter -> filter.decisionRequirementsKey(decisionRequirementsKey))
+                .execute()
+                .items(),
+            FAILED_TO_SEARCH_DECISION_REQUIREMENTS)
+        .stream()
+        .map(this::toDecisionRequirementsEntity)
+        .toList();
   }
 
   /**
@@ -355,8 +371,7 @@ public class C8Client {
    */
   public DecisionRequirementsEntity findDecisionRequirementsOrThrow(Long decisionRequirementsKey) {
     return C8EntityQuery
-        .of(() -> searchDecisionRequirements(DecisionRequirementsDbQuery.of(b -> b.filter(
-            new DecisionRequirementsFilter.Builder().decisionRequirementsKeys(decisionRequirementsKey).build()))))
+        .of(() -> searchDecisionRequirementsByKey(decisionRequirementsKey))
         .findOneOrThrow(HISTORY_DECISION_REQUIREMENT, decisionRequirementsKey);
   }
 
@@ -370,8 +385,16 @@ public class C8Client {
   /**
    * Searches for DecisionDefinitions matching the query.
    */
-  protected List<DecisionDefinitionEntity> searchDecisionDefinitions(DecisionDefinitionDbQuery query) {
-    return callApi(() -> decisionDefinitionMapper.search(query), FAILED_TO_SEARCH_DECISION_DEFINITIONS);
+  protected List<DecisionDefinitionEntity> searchDecisionDefinitionsByKey(Long decisionDefinitionKey) {
+    return callApi(
+            () -> camundaClient.newDecisionDefinitionSearchRequest()
+                .filter(filter -> filter.decisionDefinitionKey(decisionDefinitionKey))
+                .execute()
+                .items(),
+            FAILED_TO_SEARCH_DECISION_DEFINITIONS)
+        .stream()
+        .map(this::toDecisionDefinitionEntity)
+        .toList();
   }
 
   /**
@@ -387,8 +410,7 @@ public class C8Client {
    */
   public DecisionDefinitionEntity findDecisionDefinitionOrThrow(Long decisionDefinitionKey) {
     return C8EntityQuery
-        .of(() -> searchDecisionDefinitions(DecisionDefinitionDbQuery.of(b -> b.filter(
-            value -> value.decisionDefinitionKeys(decisionDefinitionKey)))))
+        .of(() -> searchDecisionDefinitionsByKey(decisionDefinitionKey))
         .findOneOrThrow(HISTORY_DECISION_DEFINITION, decisionDefinitionKey);
   }
 
@@ -465,29 +487,49 @@ public class C8Client {
   /**
    * Searches for FlowNodeInstances matching the query.
    */
-  public List<FlowNodeInstanceDbModel> searchFlowNodeInstances(FlowNodeInstanceDbQuery query) {
-    return callApi(() -> flowNodeInstanceMapper.search(query), FAILED_TO_SEARCH_FLOW_NODE_INSTANCES);
+  public List<FlowNodeInstanceEntity> searchFlowNodeInstances(String activityId, Long processInstanceKey) {
+    return callApi(
+            () -> camundaClient.newElementInstanceSearchRequest()
+                .filter(filter -> filter.elementId(activityId).processInstanceKey(processInstanceKey))
+                .execute()
+                .items(),
+            FAILED_TO_SEARCH_FLOW_NODE_INSTANCES)
+        .stream()
+        .map(this::toFlowNodeInstanceEntity)
+        .toList();
   }
 
-  public List<FlowNodeInstanceDbModel> findFlowNodes(String activityId, Long processInstanceKey) {
-    return searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
-        builder -> builder.filter(FlowNodeInstanceFilter.of(
-            filter -> filter.flowNodeIds(activityId).processInstanceKeys(processInstanceKey)))));
+  public List<FlowNodeInstanceEntity> findFlowNodes(String activityId, Long processInstanceKey) {
+    return searchFlowNodeInstances(activityId, processInstanceKey);
   }
 
-  public FlowNodeInstanceDbModel findFlowNodeOrThrow(Long flowNodeInstanceKey) {
+  public FlowNodeInstanceEntity findFlowNodeOrThrow(Long flowNodeInstanceKey) {
     return C8EntityQuery
-        .of(() -> searchFlowNodeInstances(FlowNodeInstanceDbQuery.of(
-            builder -> builder.filter(FlowNodeInstanceFilter.of(
-                filter -> filter.flowNodeInstanceKeys(flowNodeInstanceKey))))))
+        .of(() -> callApi(
+                () -> camundaClient.newElementInstanceSearchRequest()
+                    .filter(filter -> filter.elementInstanceKey(flowNodeInstanceKey))
+                    .execute()
+                    .items(),
+                FAILED_TO_SEARCH_FLOW_NODE_INSTANCES)
+            .stream()
+            .map(this::toFlowNodeInstanceEntity)
+            .toList())
         .findOneOrThrow(HISTORY_FLOW_NODE, flowNodeInstanceKey);
   }
 
   /**
    * Searches for User tasks matching the query.
    */
-  protected List<UserTaskDbModel> searchUserTasks(UserTaskDbQuery query){
-    return callApi(() -> userTaskMapper.search(query), FAILED_TO_SEARCH_USER_TASKS);
+  protected List<io.camunda.search.entities.UserTaskEntity> searchUserTasksByKey(Long userTaskKey) {
+    return callApi(
+            () -> camundaClient.newUserTaskSearchRequest()
+                .filter(filter -> filter.userTaskKey(userTaskKey))
+                .execute()
+                .items(),
+            FAILED_TO_SEARCH_USER_TASKS)
+        .stream()
+        .map(this::toUserTaskEntity)
+        .toList();
   }
 
   /**
@@ -501,17 +543,25 @@ public class C8Client {
    * @return the found user task
    * @throws C8EntityNotFoundException if not found
    */
-  public UserTaskDbModel findUserTaskOrThrow(Long userTaskKey) {
+  public io.camunda.search.entities.UserTaskEntity findUserTaskOrThrow(Long userTaskKey) {
     return C8EntityQuery
-        .of(() -> searchUserTasks(UserTaskDbQuery.of(b -> b.filter(f -> f.userTaskKeys(userTaskKey)))))
+        .of(() -> searchUserTasksByKey(userTaskKey))
         .findOneOrThrow(HISTORY_USER_TASK, userTaskKey);
   }
 
   /**
    * Searches for ProcessDefinitions matching the query.
    */
-  protected List<ProcessDefinitionEntity> searchProcessDefinitions(ProcessDefinitionDbQuery query) {
-    return callApi(() -> processDefinitionMapper.search(query), FAILED_TO_SEARCH_PROCESS_DEFINITIONS);
+  protected List<ProcessDefinitionEntity> searchProcessDefinitionsByKey(Long processDefinitionKey) {
+    return callApi(
+            () -> camundaClient.newProcessDefinitionSearchRequest()
+                .filter(filter -> filter.processDefinitionKey(processDefinitionKey))
+                .execute()
+                .items(),
+            FAILED_TO_SEARCH_PROCESS_DEFINITIONS)
+        .stream()
+        .map(this::toProcessDefinitionEntity)
+        .toList();
   }
 
   /**
@@ -527,9 +577,125 @@ public class C8Client {
    */
   public ProcessDefinitionEntity findProcessDefinitionOrThrow(Long processDefinitionKey) {
     return C8EntityQuery
-        .of(() -> searchProcessDefinitions(ProcessDefinitionDbQuery.of(b -> b.filter(
-            value -> value.processDefinitionKeys(processDefinitionKey)))))
+        .of(() -> searchProcessDefinitionsByKey(processDefinitionKey))
         .findOneOrThrow(HISTORY_PROCESS_DEFINITION, processDefinitionKey);
+  }
+
+  protected ProcessInstanceEntity toProcessInstanceEntity(ProcessInstance processInstance) {
+    return new ProcessInstanceEntity(
+        processInstance.getProcessInstanceKey(),
+        processInstance.getRootProcessInstanceKey(),
+        processInstance.getProcessDefinitionId(),
+        processInstance.getProcessDefinitionName(),
+        processInstance.getProcessDefinitionVersion(),
+        processInstance.getProcessDefinitionVersionTag(),
+        processInstance.getProcessDefinitionKey(),
+        processInstance.getParentProcessInstanceKey(),
+        processInstance.getParentElementInstanceKey(),
+        processInstance.getStartDate(),
+        processInstance.getEndDate(),
+        mapEnum(io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState.class, processInstance.getState()),
+        processInstance.getHasIncident(),
+        processInstance.getTenantId(),
+        null,
+        processInstance.getTags(),
+        processInstance.getBusinessId());
+  }
+
+  protected DecisionRequirementsEntity toDecisionRequirementsEntity(DecisionRequirements decisionRequirements) {
+    return new DecisionRequirementsEntity(
+        decisionRequirements.getDecisionRequirementsKey(),
+        decisionRequirements.getDmnDecisionRequirementsId(),
+        decisionRequirements.getDmnDecisionRequirementsName(),
+        decisionRequirements.getVersion(),
+        decisionRequirements.getResourceName(),
+        null,
+        decisionRequirements.getTenantId());
+  }
+
+  protected DecisionDefinitionEntity toDecisionDefinitionEntity(DecisionDefinition decisionDefinition) {
+    return new DecisionDefinitionEntity(
+        decisionDefinition.getDecisionKey(),
+        decisionDefinition.getDmnDecisionId(),
+        decisionDefinition.getDmnDecisionName(),
+        decisionDefinition.getVersion(),
+        decisionDefinition.getDmnDecisionRequirementsId(),
+        decisionDefinition.getDecisionRequirementsKey(),
+        decisionDefinition.getDecisionRequirementsName(),
+        decisionDefinition.getDecisionRequirementsVersion(),
+        decisionDefinition.getTenantId());
+  }
+
+  protected ProcessDefinitionEntity toProcessDefinitionEntity(ProcessDefinition processDefinition) {
+    return new ProcessDefinitionEntity(
+        processDefinition.getProcessDefinitionKey(),
+        processDefinition.getName(),
+        processDefinition.getProcessDefinitionId(),
+        null,
+        processDefinition.getResourceName(),
+        processDefinition.getVersion(),
+        processDefinition.getVersionTag(),
+        processDefinition.getTenantId(),
+        null);
+  }
+
+  protected FlowNodeInstanceEntity toFlowNodeInstanceEntity(ElementInstance elementInstance) {
+    return new FlowNodeInstanceEntity(
+        elementInstance.getElementInstanceKey(),
+        elementInstance.getProcessInstanceKey(),
+        elementInstance.getRootProcessInstanceKey(),
+        elementInstance.getProcessDefinitionKey(),
+        elementInstance.getStartDate(),
+        elementInstance.getEndDate(),
+        elementInstance.getElementId(),
+        elementInstance.getElementName(),
+        null,
+        mapEnum(io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.class, elementInstance.getType()),
+        mapEnum(io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.class, elementInstance.getState()),
+        elementInstance.getIncident(),
+        elementInstance.getIncidentKey(),
+        elementInstance.getProcessDefinitionId(),
+        elementInstance.getTenantId(),
+        null);
+  }
+
+  protected io.camunda.search.entities.UserTaskEntity toUserTaskEntity(UserTask userTask) {
+    return new io.camunda.search.entities.UserTaskEntity(
+        userTask.getUserTaskKey(),
+        userTask.getElementId(),
+        userTask.getName(),
+        userTask.getBpmnProcessId(),
+        userTask.getProcessName(),
+        userTask.getCreationDate(),
+        userTask.getCompletionDate(),
+        userTask.getAssignee(),
+        mapEnum(io.camunda.search.entities.UserTaskEntity.UserTaskState.class, userTask.getState()),
+        userTask.getFormKey(),
+        userTask.getProcessDefinitionKey(),
+        userTask.getProcessInstanceKey(),
+        userTask.getRootProcessInstanceKey(),
+        userTask.getElementInstanceKey(),
+        userTask.getTenantId(),
+        userTask.getDueDate(),
+        userTask.getFollowUpDate(),
+        userTask.getCandidateGroups(),
+        userTask.getCandidateUsers(),
+        userTask.getExternalFormReference(),
+        userTask.getProcessDefinitionVersion(),
+        userTask.getCustomHeaders(),
+        userTask.getPriority(),
+        userTask.getTags());
+  }
+
+  protected <T extends Enum<T>> T mapEnum(Class<T> target, Enum<?> source) {
+    if (source == null) {
+      return null;
+    }
+    try {
+      return Enum.valueOf(target, source.name());
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
   }
 
   /**
