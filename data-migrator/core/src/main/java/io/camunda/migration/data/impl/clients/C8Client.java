@@ -499,10 +499,6 @@ public class C8Client {
         .toList();
   }
 
-  public List<FlowNodeInstanceEntity> findFlowNodes(String activityId, Long processInstanceKey) {
-    return searchFlowNodeInstances(activityId, processInstanceKey);
-  }
-
   public FlowNodeInstanceEntity findFlowNodeOrThrow(Long flowNodeInstanceKey) {
     return C8EntityQuery
         .of(() -> callApi(
@@ -597,7 +593,7 @@ public class C8Client {
         mapEnum(io.camunda.search.entities.ProcessInstanceEntity.ProcessInstanceState.class, processInstance.getState()),
         processInstance.getHasIncident(),
         processInstance.getTenantId(),
-        null,
+        null, // treePath is not returned by Camunda Client search response
         processInstance.getTags(),
         processInstance.getBusinessId());
   }
@@ -609,7 +605,7 @@ public class C8Client {
         decisionRequirements.getDmnDecisionRequirementsName(),
         decisionRequirements.getVersion(),
         decisionRequirements.getResourceName(),
-        null,
+        null, // XML content requires dedicated get-xml API and is not in search response
         decisionRequirements.getTenantId());
   }
 
@@ -631,7 +627,7 @@ public class C8Client {
         processDefinition.getProcessDefinitionKey(),
         processDefinition.getName(),
         processDefinition.getProcessDefinitionId(),
-        null,
+        null, // BPMN XML content requires dedicated get-xml API and is not in search response
         processDefinition.getResourceName(),
         processDefinition.getVersion(),
         processDefinition.getVersionTag(),
@@ -649,14 +645,14 @@ public class C8Client {
         elementInstance.getEndDate(),
         elementInstance.getElementId(),
         elementInstance.getElementName(),
-        null,
+        null, // treePath is not returned by Camunda Client search response
         mapEnum(io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.class, elementInstance.getType()),
         mapEnum(io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeState.class, elementInstance.getState()),
         elementInstance.getIncident(),
         elementInstance.getIncidentKey(),
         elementInstance.getProcessDefinitionId(),
         elementInstance.getTenantId(),
-        null);
+        null); // hierarchy level is not returned by Camunda Client search response
   }
 
   protected io.camunda.search.entities.UserTaskEntity toUserTaskEntity(UserTask userTask) {
@@ -687,6 +683,14 @@ public class C8Client {
         userTask.getTags());
   }
 
+  /**
+   * Maps enum values by name across client/search model types.
+   * <p>
+   * Returns {@code null} if the source enum is {@code null} or if no target enum constant with the
+   * same name exists. This can happen when Camunda Client and search-domain enums evolve
+   * independently.
+   * </p>
+   */
   protected <T extends Enum<T>> T mapEnum(Class<T> target, Enum<?> source) {
     if (source == null) {
       return null;
