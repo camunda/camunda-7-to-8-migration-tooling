@@ -33,6 +33,7 @@
     <version.camunda-8>8.9.5</version.camunda-8>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.6</version.spring-boot>
+    <version.netty>4.2.13.Final</version.netty>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.0.3</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
