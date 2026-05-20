@@ -55,6 +55,8 @@ runs:
       secrets: |
         secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
         secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+        secret/data/products/cambpm/ci/artifactory USER | ARTIFACTORY_USR;
+        secret/data/products/cambpm/ci/artifactory TOKEN | ARTIFACTORY_PSW;
   - name: Setup Java
     uses: actions/setup-java@v5
     with:
@@ -87,6 +89,11 @@ runs:
           "id": "camunda-nexus",
           "username": "${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_USR }}",
           "password": "${{ steps.secrets.outputs.NEXUS_APP_CAMUNDA_COM_PSW }}"
+        },
+        {
+          "id": "camunda-artifactory",
+          "username": "${{ steps.secrets.outputs.ARTIFACTORY_USR }}",
+          "password": "${{ steps.secrets.outputs.ARTIFACTORY_PSW }}"
         }]
       EXTRA_MAVEN_MIRRORS: ${{ inputs.maven-mirrors }}
       EXTRA_MAVEN_SERVERS: ${{ inputs.maven-servers }}
