@@ -261,6 +261,16 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .toList();
   }
 
+  public List<FlowNodeInstanceEntity> searchHistoricFlowNodesByTenant(String tenantId) {
+    return camundaClient.newElementInstanceSearchRequest()
+        .filter(f -> f.tenantIds(tenantId))
+        .execute()
+        .items()
+        .stream()
+        .map(this::toFlowNodeInstanceEntity)
+        .toList();
+  }
+
   public List<FlowNodeInstanceDbModel> searchFlowNodeInstancesByName(String flowNodeName) {
     return flowNodeInstanceMapper.search(
         FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.flowNodeNames(flowNodeName))));
