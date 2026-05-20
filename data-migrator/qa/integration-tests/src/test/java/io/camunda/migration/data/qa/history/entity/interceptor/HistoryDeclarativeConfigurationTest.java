@@ -15,7 +15,6 @@ import io.camunda.migration.data.impl.interceptor.history.entity.ProcessInstance
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
-import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -127,10 +126,10 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
-    List<FlowNodeInstanceEntity> migratedFlowNodes = searchHistoricFlowNodes(processInstanceKey)
-        .stream()
-        .filter(flowNode -> "complex-tenant".equals(flowNode.tenantId()))
-        .toList();
+    var migratedFlowNodes = camundaClient.newElementInstanceSearchRequest()
+        .filter(filter -> filter.tenantIds("complex-tenant").processInstanceKey(processInstanceKey))
+        .execute()
+        .items();
 
     assertThat(migratedFlowNodes).isNotEmpty();
 
@@ -138,8 +137,8 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     ProcessInstanceEntity migratedInstance = migratedProcessInstances.getFirst();
     assertThat(migratedInstance.tenantId()).isEqualTo("complex-tenant");
 
-    for (FlowNodeInstanceEntity flowNode : migratedFlowNodes) {
-      assertThat(flowNode.tenantId()).isEqualTo("complex-tenant");
+    for (var flowNode : migratedFlowNodes) {
+      assertThat(flowNode.getTenantId()).isEqualTo("complex-tenant");
     }
   }
 }
