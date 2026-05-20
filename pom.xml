@@ -57,7 +57,10 @@
     <project.build.resourceEncoding>UTF-8</project.build.resourceEncoding>
 
     <nexus.snapshot.repository>https://artifacts.camunda.com/artifactory/zeebe-io-snapshots/</nexus.snapshot.repository>
+    <nexus.snapshot.repository.id>camunda-artifactory</nexus.snapshot.repository.id>
     <nexus.release.repository>https://artifacts.camunda.com/artifactory/zeebe-io/</nexus.release.repository>
+    <nexus.release.repository.id>camunda-artifactory</nexus.release.repository.id>
+    <nexus.staging.deploy.id>camunda-artifactory</nexus.staging.deploy.id>
     <central.sonatype.deployment.name>${project.groupId}:${project.artifactId}:${project.version}</central.sonatype.deployment.name>
   </properties>
 
