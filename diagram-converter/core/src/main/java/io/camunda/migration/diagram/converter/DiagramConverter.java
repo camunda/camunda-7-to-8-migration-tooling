@@ -21,6 +21,7 @@ import io.camunda.migration.diagram.converter.DiagramConverter.MustacheContext.M
 import io.camunda.migration.diagram.converter.DiagramConverter.MustacheContext.MustacheResultContext.MustacheElementResultContext.MustacheSeverityContext.MustacheMessageContext;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext.DefaultDomElementVisitorContext;
 import io.camunda.migration.diagram.converter.conversion.Conversion;
+import io.camunda.migration.diagram.converter.exception.DiagramAlreadyConvertedException;
 import io.camunda.migration.diagram.converter.visitor.AbstractDecisionElementVisitor;
 import io.camunda.migration.diagram.converter.visitor.AbstractProcessElementVisitor;
 import io.camunda.migration.diagram.converter.visitor.DomElementVisitor;
@@ -90,6 +91,10 @@ public class DiagramConverter {
   private DiagramCheckResult check(
       String filename, DomElement rootElement, ConverterProperties properties) {
     LOG.info("Start checking " + filename);
+    String executionPlatformVersion = rootElement.getAttribute(MODELER, "executionPlatformVersion");
+    if (executionPlatformVersion != null && executionPlatformVersion.startsWith("8")) {
+      throw new DiagramAlreadyConvertedException(executionPlatformVersion);
+    }
     DiagramCheckResult result = new DiagramCheckResult();
     result.setFilename(filename);
     result.setConverterVersion(getClass().getPackage().getImplementationVersion());
