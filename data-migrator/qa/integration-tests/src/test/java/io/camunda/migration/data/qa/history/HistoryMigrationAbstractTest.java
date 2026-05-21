@@ -263,7 +263,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   public List<FlowNodeInstanceEntity> searchHistoricFlowNodesByTenant(String tenantId) {
     return camundaClient.newElementInstanceSearchRequest()
-        .filter(f -> f.tenantIds(tenantId))
+        .filter(f -> f.tenantIds(List.of(tenantId)))
         .execute()
         .items()
         .stream()
