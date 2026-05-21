@@ -32,6 +32,7 @@ import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
@@ -69,6 +70,7 @@ import org.springframework.context.annotation.Import;
     HistoryMigrationAbstractTest.HistoryCustomConfiguration.class,
     MigratorAutoConfiguration.class
 })
+@CamundaSpringProcessTest
 @WithSpringProfile("history-level-full")
 public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest {
 
