@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.*;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
+import io.camunda.migration.diagram.converter.message.MessageFactory;
 import java.io.ByteArrayInputStream;
 import java.io.StringWriter;
 import java.util.List;
@@ -569,6 +570,130 @@ public class DiagramConverterTest {
     assertThat(generatedId).startsWith("ConditionalEventDefinition_");
     assertThat(generatedId)
         .hasSize("ConditionalEventDefinition_".length() + BpmnIdGenerator.SUFFIX_LENGTH);
+  }
+
+  @Test
+  void testJobPriorityOnProcessAndServiceTask() {
+    BpmnModelInstance modelInstance = loadAndConvert("job-priority.bpmn", "8.10");
+
+    DomElement process = modelInstance.getDocument().getElementById("JobPriorityProcess");
+    assertThat(jobPriority(process)).isEqualTo("70");
+    assertThat(process.getAttribute(CAMUNDA, "jobPriority")).isNull();
+    assertThat(process.getAttribute(CAMUNDA, "taskPriority")).isNull();
+
+    DomElement literalTask = modelInstance.getDocument().getElementById("ServiceTaskLiteral");
+    assertThat(jobPriority(literalTask)).isEqualTo("90");
+    assertThat(literalTask.getAttribute(CAMUNDA, "jobPriority")).isNull();
+
+    DomElement feelTask = modelInstance.getDocument().getElementById("ServiceTaskFeel");
+    assertThat(jobPriority(feelTask)).isEqualTo("=jobPriority");
+    assertThat(feelTask.getAttribute(CAMUNDA, "jobPriority")).isNull();
+
+    DomElement externalOnly = modelInstance.getDocument().getElementById("ServiceTaskExternalOnly");
+    assertThat(jobPriority(externalOnly)).isEqualTo("60");
+    assertThat(externalOnly.getAttribute(CAMUNDA, "taskPriority")).isNull();
+
+    DiagramCheckResult result = loadAndCheckAgainstVersion("job-priority.bpmn", "8.10");
+    assertThat(result.getResult("ServiceTaskFeel").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(m -> m.contains("${jobPriority}") && m.contains("=jobPriority"));
+    assertThat(result.getResult("JobPriorityProcess").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(
+            m ->
+                m.contains("Both 'camunda:jobPriority'")
+                    && m.contains("'50'")
+                    && m.contains("'70'")
+                    && m.contains("used 'taskPriority'"));
+    assertThat(result.getResult("ServiceTaskLiteral").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(m -> m.contains("mapped into a single Camunda 8 priority range"));
+  }
+
+  @Test
+  void testJobPriorityNotEmittedForPre_8_10TargetPlatform() {
+    BpmnModelInstance modelInstance = loadAndConvert("job-priority.bpmn", "8.9");
+
+    DomElement literalTask = modelInstance.getDocument().getElementById("ServiceTaskLiteral");
+    assertThat(jobPriorityDefinitionOrNull(literalTask)).isNull();
+    // attributeNotSupported is emitted but the framework still removes the attribute by default,
+    // matching how VersionTagVisitor and other version-gated attribute visitors behave.
+    assertThat(literalTask.getAttribute(CAMUNDA, "jobPriority")).isNull();
+
+    DiagramCheckResult result = loadAndCheckAgainstVersion("job-priority.bpmn", "8.9");
+    assertThat(result.getResult("ServiceTaskLiteral").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(m -> m.contains("'jobPriority'") && m.contains("is not supported"))
+        .doesNotContain(MessageFactory.priorityScalesMerged().getMessage());
+  }
+
+  @Test
+  void testJobPriorityNotMigratedAcrossUnsupportedCarriers() {
+    // Element id -> jobPriority value declared on it in the fixture. The priority value is
+    // included in the priorityNotMigrated WARNING ("Priority '<value>' on ..."), so asserting on
+    // it pins each WARNING to the correct element rather than just any "was not migrated" message.
+    record IneligibleCarrier(String id, String priority, String howIntroduced) {}
+    List<IneligibleCarrier> ineligibleCarriers =
+        List.of(
+            new IneligibleCarrier("SubProc", "150", "subProcess + asyncBefore"),
+            new IneligibleCarrier("SubProcStart", "177", "start event in subprocess + asyncAfter"),
+            new IneligibleCarrier("SubProcEnd", "32", "end event in subprocess + asyncBefore"),
+            new IneligibleCarrier("FeelTask", "160", "internal FEEL script task + asyncBefore"),
+            new IneligibleCarrier("ParallelGw", "12", "parallel gateway + asyncBefore"),
+            new IneligibleCarrier("DmnTask", "15", "DMN-backed business rule task + asyncBefore"),
+            new IneligibleCarrier("BoundaryEvt", "43", "boundary event + asyncBefore"),
+            new IneligibleCarrier("Reviewer", "5", "user task + asyncAfter"));
+
+    BpmnModelInstance model = loadAndConvert("job-priority-unsupported.bpmn", "8.10");
+
+    for (IneligibleCarrier carrier : ineligibleCarriers) {
+      DomElement element = model.getDocument().getElementById(carrier.id());
+      assertThat(element)
+          .as(
+              "element '%s' (%s) should be present after conversion",
+              carrier.id(), carrier.howIntroduced())
+          .isNotNull();
+      assertThat(jobPriorityDefinitionOrNull(element))
+          .as("zeebe:jobPriorityDefinition must not be emitted on '%s'", carrier.id())
+          .isNull();
+      assertThat(element.getAttribute(CAMUNDA, "jobPriority"))
+          .as("camunda:jobPriority must be stripped on '%s'", carrier.id())
+          .isNull();
+    }
+
+    DiagramCheckResult result = loadAndCheckAgainstVersion("job-priority-unsupported.bpmn", "8.10");
+    for (IneligibleCarrier carrier : ineligibleCarriers) {
+      assertThat(result.getResult(carrier.id()))
+          .as("ElementCheckResult expected for element '%s'", carrier.id())
+          .isNotNull();
+      assertThat(result.getResult(carrier.id()).getMessages())
+          .as(
+              "priorityNotMigrated WARNING expected for element '%s' with priority '%s'",
+              carrier.id(), carrier.priority())
+          .extracting(ElementCheckMessage::getMessage)
+          .anyMatch(
+              m ->
+                  m.contains("was not migrated")
+                      && m.contains("'" + carrier.id() + "'")
+                      && m.contains("Priority '" + carrier.priority() + "'"));
+    }
+  }
+
+  private static String jobPriority(DomElement element) {
+    DomElement definition = jobPriorityDefinitionOrNull(element);
+    assertThat(definition).isNotNull();
+    return definition.getAttribute("priority");
+  }
+
+  private static DomElement jobPriorityDefinitionOrNull(DomElement element) {
+    List<DomElement> extensionElements =
+        element.getChildElementsByNameNs(BPMN, "extensionElements");
+    if (extensionElements.isEmpty()) {
+      return null;
+    }
+    List<DomElement> defs =
+        extensionElements.get(0).getChildElementsByNameNs(ZEEBE, "jobPriorityDefinition");
+    return defs.isEmpty() ? null : defs.get(0);
   }
 
   @Test

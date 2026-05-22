@@ -13,6 +13,7 @@ io.camunda.migration.diagram.converter.conversion.ScriptTaskConversion
 io.camunda.migration.diagram.converter.conversion.AbstractCatchEventConversion
 io.camunda.migration.diagram.converter.conversion.ExecutionListenerConversion
 io.camunda.migration.diagram.converter.conversion.ZeebeVersionTagConversion
+io.camunda.migration.diagram.converter.conversion.ZeebeJobPriorityConversion
 io.camunda.migration.diagram.converter.conversion.TypeRefConversion
 io.camunda.migration.diagram.converter.conversion.TextConversion
 io.camunda.migration.diagram.converter.conversion.FormDefinitionConversion

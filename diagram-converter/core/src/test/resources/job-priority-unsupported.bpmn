@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_jobPriorityUnsupported" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.31.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.22.0">
+  <bpmn:process id="JobPriorityUnsupportedProcess" name="JobPriorityUnsupportedProcess" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_StartToDmn</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:subProcess id="SubProc" camunda:asyncBefore="true" camunda:jobPriority="150">
+      <bpmn:incoming>Flow_ParallelGwToSubProc</bpmn:incoming>
+      <bpmn:outgoing>Flow_SubProcToParallelJoin</bpmn:outgoing>
+      <bpmn:outgoing>Flow_SubProcToThrow</bpmn:outgoing>
+      <bpmn:startEvent id="SubProcStart" camunda:asyncAfter="true" camunda:jobPriority="177">
+        <bpmn:outgoing>Flow_SubProcStartToFeel</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:endEvent id="SubProcEnd" camunda:asyncBefore="true" camunda:jobPriority="32">
+        <bpmn:incoming>Flow_FeelToSubProcEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_SubProcStartToFeel" sourceRef="SubProcStart" targetRef="FeelTask" />
+      <bpmn:sequenceFlow id="Flow_FeelToSubProcEnd" sourceRef="FeelTask" targetRef="SubProcEnd" />
+      <bpmn:scriptTask id="FeelTask" camunda:asyncBefore="true" camunda:jobPriority="160" scriptFormat="Feel" camunda:resultVariable="sumVal">
+        <bpmn:incoming>Flow_SubProcStartToFeel</bpmn:incoming>
+        <bpmn:outgoing>Flow_FeelToSubProcEnd</bpmn:outgoing>
+        <bpmn:script>1 + 1</bpmn:script>
+      </bpmn:scriptTask>
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="Flow_StartToDmn" sourceRef="StartEvent_1" targetRef="DmnTask" />
+    <bpmn:sequenceFlow id="Flow_DmnToParallelGw" sourceRef="DmnTask" targetRef="ParallelGw" />
+    <bpmn:sequenceFlow id="Flow_ParallelGwToSubProc" sourceRef="ParallelGw" targetRef="SubProc" />
+    <bpmn:parallelGateway id="ParallelGw" camunda:asyncBefore="true" camunda:jobPriority="12">
+      <bpmn:incoming>Flow_DmnToParallelGw</bpmn:incoming>
+      <bpmn:outgoing>Flow_ParallelGwToSubProc</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ParallelGwToReviewer</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:sequenceFlow id="Flow_ParallelGwToReviewer" sourceRef="ParallelGw" targetRef="Reviewer" />
+    <bpmn:parallelGateway id="ParallelJoin">
+      <bpmn:incoming>Flow_ReviewerToParallelJoin</bpmn:incoming>
+      <bpmn:incoming>Flow_SubProcToParallelJoin</bpmn:incoming>
+      <bpmn:outgoing>Flow_ParallelJoinToEnd</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:sequenceFlow id="Flow_ReviewerToParallelJoin" sourceRef="Reviewer" targetRef="ParallelJoin" />
+    <bpmn:sequenceFlow id="Flow_SubProcToParallelJoin" sourceRef="SubProc" targetRef="ParallelJoin" />
+    <bpmn:endEvent id="EndEvent_1">
+      <bpmn:incoming>Flow_ParallelJoinToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_ParallelJoinToEnd" sourceRef="ParallelJoin" targetRef="EndEvent_1" />
+    <bpmn:businessRuleTask id="DmnTask" camunda:asyncBefore="true" camunda:jobPriority="15" camunda:resultVariable="result" camunda:decisionRef="dmnTask" camunda:mapDecisionResult="singleEntry">
+      <bpmn:incoming>Flow_StartToDmn</bpmn:incoming>
+      <bpmn:outgoing>Flow_DmnToParallelGw</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:intermediateThrowEvent id="Throw">
+      <bpmn:incoming>Flow_SubProcToThrow</bpmn:incoming>
+    </bpmn:intermediateThrowEvent>
+    <bpmn:sequenceFlow id="Flow_SubProcToThrow" sourceRef="SubProc" targetRef="Throw" />
+    <bpmn:boundaryEvent id="BoundaryEvt" camunda:asyncBefore="true" camunda:jobPriority="43" attachedToRef="SubProc" />
+    <bpmn:userTask id="Reviewer" camunda:asyncAfter="true" camunda:jobPriority="5">
+      <bpmn:incoming>Flow_ParallelGwToReviewer</bpmn:incoming>
+      <bpmn:outgoing>Flow_ReviewerToParallelJoin</bpmn:outgoing>
+    </bpmn:userTask>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="JobPriorityUnsupportedProcess">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="182" y="272" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ParallelGw_di" bpmnElement="ParallelGw">
+        <dc:Bounds x="465" y="265" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ParallelJoin_di" bpmnElement="ParallelJoin">
+        <dc:Bounds x="1075" y="265" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
+        <dc:Bounds x="1242" y="272" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DmnTask_di" bpmnElement="DmnTask">
+        <dc:Bounds x="300" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Throw_di" bpmnElement="Throw">
+        <dc:Bounds x="1082" y="162" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Reviewer_di" bpmnElement="Reviewer">
+        <dc:Bounds x="720" y="350" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProc_di" bpmnElement="SubProc" isExpanded="true">
+        <dc:Bounds x="610" y="80" width="350" height="200" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcStart_di" bpmnElement="SubProcStart">
+        <dc:Bounds x="650" y="162" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcEnd_di" bpmnElement="SubProcEnd">
+        <dc:Bounds x="892" y="162" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="FeelTask_di" bpmnElement="FeelTask">
+        <dc:Bounds x="740" y="140" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_SubProcStartToFeel_di" bpmnElement="Flow_SubProcStartToFeel">
+        <di:waypoint x="686" y="180" />
+        <di:waypoint x="740" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_FeelToSubProcEnd_di" bpmnElement="Flow_FeelToSubProcEnd">
+        <di:waypoint x="840" y="180" />
+        <di:waypoint x="892" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="BoundaryEvt_di" bpmnElement="BoundaryEvt">
+        <dc:Bounds x="942" y="62" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToDmn_di" bpmnElement="Flow_StartToDmn">
+        <di:waypoint x="218" y="290" />
+        <di:waypoint x="300" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DmnToParallelGw_di" bpmnElement="Flow_DmnToParallelGw">
+        <di:waypoint x="400" y="290" />
+        <di:waypoint x="465" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ParallelGwToReviewer_di" bpmnElement="Flow_ParallelGwToReviewer">
+        <di:waypoint x="490" y="315" />
+        <di:waypoint x="490" y="390" />
+        <di:waypoint x="720" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ParallelGwToSubProc_di" bpmnElement="Flow_ParallelGwToSubProc">
+        <di:waypoint x="515" y="290" />
+        <di:waypoint x="563" y="290" />
+        <di:waypoint x="563" y="180" />
+        <di:waypoint x="610" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ReviewerToParallelJoin_di" bpmnElement="Flow_ReviewerToParallelJoin">
+        <di:waypoint x="820" y="390" />
+        <di:waypoint x="1100" y="390" />
+        <di:waypoint x="1100" y="315" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SubProcToParallelJoin_di" bpmnElement="Flow_SubProcToParallelJoin">
+        <di:waypoint x="960" y="180" />
+        <di:waypoint x="1018" y="180" />
+        <di:waypoint x="1018" y="290" />
+        <di:waypoint x="1075" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ParallelJoinToEnd_di" bpmnElement="Flow_ParallelJoinToEnd">
+        <di:waypoint x="1125" y="290" />
+        <di:waypoint x="1242" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SubProcToThrow_di" bpmnElement="Flow_SubProcToThrow">
+        <di:waypoint x="960" y="180" />
+        <di:waypoint x="1082" y="180" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
