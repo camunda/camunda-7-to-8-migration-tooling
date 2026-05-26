@@ -21,6 +21,7 @@ import org.openrewrite.Preconditions;
 import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.java.JavaIsoVisitor;
+import org.openrewrite.java.JavaVisitor;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.UsesMethod;
@@ -277,7 +278,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
   public @NonNull TreeVisitor<?, ExecutionContext> getVisitor() {
     TreeVisitor<?, ExecutionContext> base = MigrateMessageMethodsRecipe.super.getVisitor();
 
-    return new TreeVisitor<>() {
+    return new JavaVisitor<>() {
       @Override
       public J visit(@Nullable Tree tree, ExecutionContext ctx) {
         J afterBase = (J) base.visit(tree, ctx);
