@@ -192,7 +192,7 @@ public class C8Client {
         .tenantId(getTenantId(tenantId));
 
     if (businessKey != null && !businessKey.isBlank()) {
-      createProcessInstance = createProcessInstance.businessKey(businessKey);
+      createProcessInstance = createProcessInstance.businessId(businessKey);
     }
 
     return callApi(createProcessInstance::execute, FAILED_TO_CREATE_PROCESS_INSTANCE + bpmnProcessId);

@@ -30,7 +30,7 @@ class BusinessKeyMigrationTest extends RuntimeMigrationAbstractTest {
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<ProcessInstance> c8Instances = camundaClient.newProcessInstanceSearchRequest().execute().items();
       assertThat(c8Instances).hasSize(1);
-      assertThat(c8Instances.getFirst().getBusinessKey()).isEqualTo("myBusinessKey");
+      assertThat(c8Instances.getFirst().getBusinessId()).isEqualTo("myBusinessKey");
     });
   }
 
@@ -47,7 +47,7 @@ class BusinessKeyMigrationTest extends RuntimeMigrationAbstractTest {
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<ProcessInstance> c8Instances = camundaClient.newProcessInstanceSearchRequest().execute().items();
       assertThat(c8Instances).hasSize(1);
-      assertThat(c8Instances.getFirst().getBusinessKey()).isNull();
+      assertThat(c8Instances.getFirst().getBusinessId()).isNull();
     });
   }
 }
