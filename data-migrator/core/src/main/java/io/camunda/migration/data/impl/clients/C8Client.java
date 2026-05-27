@@ -181,16 +181,19 @@ public class C8Client {
   protected JobMapper jobMapper;
 
   /**
-   * Creates a new process instance with the given BPMN process ID and variables.
+   * Creates a new process instance with the given BPMN process ID, variables, and optional business key.
    */
   public ProcessInstanceEvent createProcessInstance(String bpmnProcessId, String tenantId,
-                                                    Map<String, Object> variables) {
+                                                    Map<String, Object> variables, String businessKey) {
     var createProcessInstance = camundaClient.newCreateInstanceCommand()
         .bpmnProcessId(bpmnProcessId)
         .latestVersion()
         .variables(variables)
         .tenantId(getTenantId(tenantId));
 
+    if (businessKey != null && !businessKey.isBlank()) {
+      createProcessInstance = createProcessInstance.businessKey(businessKey);
+    }
 
     return callApi(createProcessInstance::execute, FAILED_TO_CREATE_PROCESS_INSTANCE + bpmnProcessId);
   }
