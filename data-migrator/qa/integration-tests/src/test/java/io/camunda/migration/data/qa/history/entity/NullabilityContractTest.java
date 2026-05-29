@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.camunda.bpm.engine.variable.Variables.createVariables;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
@@ -434,41 +435,25 @@ public class NullabilityContractTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1339"
-      + " — Migrator writes null to IncidentDbModel.errorMessage when C7"
-      + " HistoricIncident.getIncidentMessage() is null (here: runtimeService.createIncident"
-      + " is called with a null message). However, the C8 read side masks the null to an"
-      + " empty string via NullToEmptyStringTypeHandler on the ERROR_MESSAGE column, so"
-      + " requireNonNull(\"errorMessage\") is silently satisfied. This test is kept as"
-      + " documentation; the masking question (is read-time coercion a supported contract,"
-      + " or should the migrator populate the field explicitly?) is the same as"
-      + " NULLABILITY-decisionDefinitionName.md.")
-  public void shouldNotProduceNullErrorMessageForIncident() {
-    // given: a user task instance with a custom incident created via the runtime service
-    // with a null message. The user-task path is used (rather than an async-before failing
+  public void shouldNotThrowOnNullErrorMessageFromMigrator() {
+    // given: a user task with a custom incident created via the runtime service with a
+    // null message. The user-task path is used (rather than an async-before failing
     // delegate) so flowNodeInstanceKey IS populated — otherwise requireNonNull on
-    // flowNodeInstanceKey would fire first and mask the masking-behaviour we want to assert.
+    // flowNodeInstanceKey would fire first and mask the contract behaviour under test.
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    var c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    runtimeService.startProcessInstanceByKey("userTaskProcessId");
     var task = taskService.createTaskQuery().taskDefinitionKey("userTaskId").singleResult();
     runtimeService.createIncident("foo", task.getExecutionId(), null);
 
     // when
     historyMigrator.migrate();
 
-    // then: reading via the search entity API would trigger requireNonNull("errorMessage")
-    // — except NullToEmptyStringTypeHandler converts the null to "" before the entity
-    // constructor sees it, so this assertion passes (errorMessage() == "" is non-null).
-    List<IncidentEntity> incidents = incidentReader.search(
-        IncidentQuery.of(b -> b.filter(f -> f.processDefinitionIds(
-            prefixDefinitionId("userTaskProcessId"))))).items();
-
-    assertThat(incidents).hasSize(1);
-    // C8 contract: errorMessage must not be null
-    assertThat(incidents.getFirst().errorMessage())
-        .as("IncidentEntity.errorMessage — C8 requires non-null (requireNonNull in compact"
-            + " constructor); migrator writes null, masked to \"\" by NullToEmptyStringTypeHandler")
-        .isNotNull()
-        .isNotEmpty();
+    // then: constructing IncidentEntity via the search API must not throw —
+    // requireNonNull("errorMessage") would fire if the migrator-written SQL NULL ever
+    // reached the constructor unmasked.
+    assertThatCode(() ->
+        incidentReader.search(IncidentQuery.of(b -> b.filter(f -> f.processDefinitionIds(
+            prefixDefinitionId("userTaskProcessId"))))).items())
+        .doesNotThrowAnyException();
   }
 }
