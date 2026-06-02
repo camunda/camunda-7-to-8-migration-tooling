@@ -86,8 +86,15 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
         }
       } else {
         // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
-        Long decisionRequirementsKey = decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
-        builder.decisionRequirementsKey(decisionRequirementsKey);
+        DecisionRequirementsMigrator.SyntheticDrd syntheticDrd =
+            decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
+        if (syntheticDrd != null) {
+          builder.decisionRequirementsKey(syntheticDrd.key())
+              // Wire the FK reference to the synthetic DRD's id so the decision row is never
+              // written with a NULL decisionRequirementsId. The transformer only sets the id when
+              // the C7 source carries a parent DRD id, so this value survives the conversion.
+              .decisionRequirementsId(syntheticDrd.id());
+        }
         // For standalone decisions, use the decision's own name and version as the DRD values
         builder.decisionRequirementsName(c7DecisionDefinition.getName())
             .decisionRequirementsVersion(c7DecisionDefinition.getVersion());

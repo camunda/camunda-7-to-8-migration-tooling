@@ -32,9 +32,15 @@ public class DecisionDefinitionTransformer implements EntityInterceptor<Decision
     builder.decisionDefinitionKey(getNextKey())
         .name(entity.getName())
         .decisionDefinitionId(prefixDefinitionId(entity.getKey()))
-        .decisionRequirementsId(prefixDefinitionId(entity.getDecisionRequirementsDefinitionKey()))
         .tenantId(getTenantId(entity.getTenantId()))
         .version(entity.getVersion());
+    // Only set decisionRequirementsId from the C7 source when the parent DRD exists. For
+    // standalone DMNs the migrator wires the synthetic DRD id onto the builder beforehand;
+    // skipping the set here preserves that value and keeps the field non-null on the C8 row.
+    String c7DrdKey = entity.getDecisionRequirementsDefinitionKey();
+    if (c7DrdKey != null) {
+      builder.decisionRequirementsId(prefixDefinitionId(c7DrdKey));
+    }
     // Note: decisionRequirementsKey is set externally
   }
 }
