@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Used to seed nullability edge case (issue #1339):
+    * DecisionDefinitionEntity.decisionRequirementsId — null for single-decision DMN
+      deployments. Camunda 7 does not create a separate DecisionRequirementsDefinition
+      entity for DMN resources that contain only one <decision> element, so
+      getDecisionRequirementsDefinitionKey() returns null. The migrator passes that
+      null through to the C8 DECISION_DEFINITION.DECISION_REQUIREMENTS_ID column.
+-->
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:camunda="http://camunda.org/schema/1.0/dmn"
+             id="nullStandaloneDmnId"
+             name="nullStandaloneDmnName"
+             namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="nullStandaloneDecisionId" name="Null Standalone Decision"
+            camunda:historyTimeToLive="999">
+    <decisionTable id="nullStandaloneDecisionTableId">
+      <input id="Input_1" label="inputA" camunda:inputVariable="inputA">
+        <inputExpression id="InputExpression_1" typeRef="string">
+          <text>inputA</text>
+        </inputExpression>
+      </input>
+      <output id="Output_1" label="outputB" name="outputB" typeRef="string"/>
+      <rule id="DecisionRule_1">
+        <inputEntry id="UnaryTests_1">
+          <text>"A"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1">
+          <text>"B"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram>
+      <dmndi:DMNShape dmnElementRef="nullStandaloneDecisionId">
+        <dc:Bounds height="80" width="180" x="160" y="100"/>
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

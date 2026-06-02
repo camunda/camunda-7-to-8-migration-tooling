@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_nullExternalTask"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <!--
+    Used to seed nullability edge cases (issue #1339):
+      * JobEntity.worker — null when an external task is never locked
+      * AuditLogEntity.entityKey — null on EXTERNAL_TASK user-operation-log entries
+        (triggered separately by the seed script via POST /external-task/{id}/setPriority)
+  -->
+  <bpmn:process id="nullExternalTaskProcessId" name="Null External Task Process"
+                isExecutable="true" camunda:historyTimeToLive="999">
+    <bpmn:startEvent id="startEvent">
+      <bpmn:outgoing>Flow_start_to_ext</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_start_to_ext" sourceRef="startEvent" targetRef="externalTask"/>
+    <bpmn:serviceTask id="externalTask" name="External Task (never locked)"
+                      camunda:type="external" camunda:topic="nullabilityTopic">
+      <bpmn:incoming>Flow_start_to_ext</bpmn:incoming>
+      <bpmn:outgoing>Flow_ext_to_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_ext_to_end" sourceRef="externalTask" targetRef="endEvent"/>
+    <bpmn:endEvent id="endEvent">
+      <bpmn:incoming>Flow_ext_to_end</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="nullExternalTaskProcessId">
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="startEvent">
+        <dc:Bounds x="179" y="99" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ExternalTask_di" bpmnElement="externalTask">
+        <dc:Bounds x="270" y="77" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="endEvent">
+        <dc:Bounds x="432" y="99" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
