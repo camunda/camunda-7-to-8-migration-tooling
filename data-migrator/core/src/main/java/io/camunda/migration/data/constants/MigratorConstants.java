@@ -24,4 +24,11 @@ public final class MigratorConstants {
   public static final String C8_DEFAULT_TENANT = "<default>";
   public static final String C7_LEGACY_PREFIX = "c7-legacy";
   public static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
+
+  /**
+   * Placeholder written to non-null C8 columns when the corresponding C7 source value is missing.
+   * Used to satisfy non-null contracts (e.g. {@code AuditLogEntity.entityKey}) for rows that have
+   * no natural target value in C7.
+   */
+  public static final String NO_C7_VALUE_MIGRATED_PLACEHOLDER = "C7_MIGRATED";
 }

@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.NO_C7_VALUE_MIGRATED_PLACEHOLDER;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
@@ -103,11 +104,11 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       // Ensure entityKey is never null: C8's AuditLogEntity contract requires a non-null
       // entityKey. For C7 audit log entries that have no natural target entity (e.g. USER,
       // GROUP, TENANT, AUTHORIZATION operations or entries whose target was not migrated),
-      // the resolvers above leave entityKey unset. Fill it with a per-row sentinel so the
-      // row can be inserted and remain uniquely identifiable as a C7-migrated entry.
+      // the resolvers above leave entityKey unset. Fill it with a uniform placeholder so the
+      // row can be inserted and remain identifiable as a C7-migrated entry.
       if (dbModel.entityKey() == null) {
         dbModel = dbModel.copy(b ->
-            ((Builder) b).entityKey(dbModel.entityType() + ":" + dbModel.auditLogKey()));
+            ((Builder) b).entityKey(NO_C7_VALUE_MIGRATED_PLACEHOLDER));
       }
 
       if (c7AuditLog.getProcessDefinitionKey() != null && dbModel.processDefinitionKey() == null) {

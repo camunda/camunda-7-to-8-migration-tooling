@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.NO_C7_VALUE_MIGRATED_PLACEHOLDER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
@@ -103,13 +104,12 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     // when: full migration
     historyMigrator.migrate();
 
-    // then: the entity-less audit log row carries the sentinel, not null
+    // then: the entity-less audit log row carries the placeholder, not null
     List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
     assertThat(logs).hasSize(1);
     assertThat(logs.getFirst().entityKey())
-        .as("AuditLogEntity.entityKey — entity-less rows must carry a per-row sentinel")
-        .isNotNull()
-        .matches("^[A-Z_]+:.+$");
+        .as("AuditLogEntity.entityKey — entity-less rows must carry the C7-migrated placeholder")
+        .isEqualTo(NO_C7_VALUE_MIGRATED_PLACEHOLDER);
   }
 
   @Test
