@@ -100,6 +100,16 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
 
+      // Ensure entityKey is never null: C8's AuditLogEntity contract requires a non-null
+      // entityKey. For C7 audit log entries that have no natural target entity (e.g. USER,
+      // GROUP, TENANT, AUTHORIZATION operations or entries whose target was not migrated),
+      // the resolvers above leave entityKey unset. Fill it with a per-row sentinel so the
+      // row can be inserted and remain uniquely identifiable as a C7-migrated entry.
+      if (dbModel.entityKey() == null) {
+        dbModel = dbModel.copy(b ->
+            ((Builder) b).entityKey(dbModel.entityType() + ":" + dbModel.auditLogKey()));
+      }
+
       if (c7AuditLog.getProcessDefinitionKey() != null && dbModel.processDefinitionKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);
       }

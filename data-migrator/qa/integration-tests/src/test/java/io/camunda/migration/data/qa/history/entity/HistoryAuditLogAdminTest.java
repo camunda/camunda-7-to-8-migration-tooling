@@ -87,6 +87,32 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
+  public void shouldNotProduceNullEntityKeyForEntitylessAuditLog() {
+    // given: an audit log entry with no natural target entity (USER create) — the
+    // existing resolvers leave entityKey unset for non-PROCESS_INSTANCE/PROCESS_DEFINITION/TASK
+    // entity types, so the migrator must fill it with a per-row sentinel.
+    identityService.setAuthenticatedUserId("demo");
+    var user = identityService.newUser("entitylessUserId");
+    identityService.saveUser(user);
+
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when: full migration
+    historyMigrator.migrate();
+
+    // then: the entity-less audit log row carries the sentinel, not null
+    List<AuditLogDbModel> logs = searchAuditLogsByCategory(AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+    assertThat(logs.getFirst().entityKey())
+        .as("AuditLogEntity.entityKey — entity-less rows must carry a per-row sentinel")
+        .isNotNull()
+        .matches("^[A-Z_]+:.+$");
+  }
+
+  @Test
   public void shouldMigrateAuditLogsForCreateUser() {
     // given
     identityService.setAuthenticatedUserId("demo");
