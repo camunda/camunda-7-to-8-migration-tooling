@@ -20,6 +20,7 @@ import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.IncidentEntity;
@@ -241,6 +242,37 @@ public class NullabilityContractTest extends HistoryMigrationAbstractTest {
     assertThat(logs.getFirst().entityKey())
         .as("AuditLogEntity.entityKey — C8 requires non-null; EXTERNAL_TASK audit logs must populate this")
         .isNotNull();
+  }
+
+  @Test
+  public void shouldNotProduceNullEntityKeyForEntitylessAuditLog() {
+    // given: an audit log entry with no natural target entity in the resolvers
+    //   (USER CREATE — none of resolveProcessInstanceKeys / resolveProcessDefinitionKey /
+    //    resolveUserTaskKey / resolveJobKey applies, so entityKey would be null without the
+    //    per-row sentinel fallback in AuditLogMigrator).
+    identityService.setAuthenticatedUserId("demo");
+    var user = identityService.newUser("entitylessUser");
+    identityService.saveUser(user);
+
+    long auditLogCount = historyService.createUserOperationLogQuery()
+        .operationType(UserOperationLogEntry.OPERATION_TYPE_CREATE)
+        .count();
+    assertThat(auditLogCount).isEqualTo(1);
+
+    // when: full migration
+    historyMigrator.migrate();
+
+    // then: the entity-less audit log row carries the sentinel "<entityType>:<auditLogKey>",
+    // not null. The shape is intentionally non-colliding with C8-emitted numeric entityKeys
+    // (String.valueOf(record.getKey())) thanks to the ':' separator. The regex is loose so
+    // the exact sentinel format can evolve without breaking this test.
+    var logs = searchAuditLogsByCategory(
+        AuditLogEntity.AuditLogOperationCategory.ADMIN.name());
+    assertThat(logs).hasSize(1);
+    assertThat(logs.getFirst().entityKey())
+        .as("AuditLogEntity.entityKey — entity-less rows must carry a per-row sentinel")
+        .isNotNull()
+        .matches("^[A-Z_]+:.+$");
   }
 
   // ---------------------------------------------------------------------------

@@ -72,6 +72,12 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(log.rootProcessInstanceKey()).isNull();
     assertThat(log.processDefinitionKey()).isNull();
     assertThat(log.userTaskKey()).isNull();
+    // entityKey carries the per-row sentinel "<entityType>:<auditLogKey>" because none
+    // of the AuditLogMigrator resolvers apply to USER operations.
+    assertThat(log.entityKey())
+        .isNotNull()
+        .matches("^[A-Z_]+:.+$")
+        .isEqualTo(AuditLogEntity.AuditLogEntityType.USER + ":" + log.auditLogKey());
     assertThat(log.timestamp()).isNotNull();
     assertThat(log.actorId()).isEqualTo("demo");
     assertThat(log.actorType()).isEqualTo(AuditLogEntity.AuditLogActorType.USER);
