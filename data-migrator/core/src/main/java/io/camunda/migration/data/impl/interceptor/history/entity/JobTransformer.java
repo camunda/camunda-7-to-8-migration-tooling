@@ -63,7 +63,8 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
         .processDefinitionId(prefixDefinitionId(historicJobLog.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(historicJobLog.getActivityId()))
         .tenantId(getTenantId(historicJobLog.getTenantId()))
-        .creationTime(creationTime);
+        .creationTime(creationTime)
+        .lastUpdateTime(creationTime);
     // Note: partitionId is set externally by JobMigrator to match the parent process instance
     // jobKey, processDefinitionKey, processInstanceKey, rootProcessInstanceKey,
     // and elementInstanceKey are set externally in JobMigrator.

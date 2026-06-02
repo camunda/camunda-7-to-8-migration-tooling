@@ -60,6 +60,7 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
         .creationTime(creationTime)
+        .lastUpdateTime(creationTime)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
         .worker(null)
