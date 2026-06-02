@@ -20,6 +20,8 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 
+import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.MigratorMode;
@@ -36,6 +38,8 @@ import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
 import io.camunda.util.ObjectBuilder;
@@ -366,6 +370,48 @@ public abstract class HistoryEntityMigrator<C7, C8> {
       }
     }
     return null;
+  }
+
+  /**
+   * Creates a synthetic FlowNodeInstance for activities that have no corresponding
+   * HistoricActivityInstance in C7 (e.g., async-before service tasks that fail on every retry).
+   *
+   * @param activityId             the BPMN element ID (flow node ID)
+   * @param processInstanceKey     the C8 process instance key
+   * @param processDefinitionKey   the C8 process definition key
+   * @param rootProcessInstanceKey the C8 root process instance key
+   * @param partitionId            the partition ID
+   * @return the generated flow node instance key
+   */
+  protected Long createSyntheticFlowNodeInstance(String activityId, Long processInstanceKey,
+                                                 Long processDefinitionKey, Long rootProcessInstanceKey,
+                                                 Integer partitionId) {
+    var flowNodeInstanceKey = getNextKey();
+    var builder = new FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder();
+    builder.flowNodeInstanceKey(flowNodeInstanceKey)
+        .flowNodeId(activityId)
+        .processInstanceKey(processInstanceKey)
+        .processDefinitionKey(processDefinitionKey)
+        .treePath(FlowNodeMigrator.generateTreePath(processInstanceKey, flowNodeInstanceKey))
+        .flowNodeScopeKey(processInstanceKey)
+        .rootProcessInstanceKey(rootProcessInstanceKey)
+        .partitionId(partitionId)
+        .state(FlowNodeInstanceEntity.FlowNodeState.TERMINATED)
+        .type(FlowNodeType.UNKNOWN);
+    c8Client.insertFlowNodeInstance(builder.build());
+    return flowNodeInstanceKey;
+  }
+
+  /**
+   * Checks whether a HistoricActivityInstance exists in C7 for the given activity and process instance.
+   *
+   * @param activityId        the BPMN element ID
+   * @param processInstanceId the C7 process instance ID
+   * @return true if at least one HistoricActivityInstance exists
+   */
+  protected boolean hasHistoricActivityInstance(String activityId, String processInstanceId) {
+    var instances = c7Client.findHistoricActivityInstances(activityId, processInstanceId);
+    return instances != null && !instances.isEmpty();
   }
 
   protected boolean isMigrated(String id, TYPE type) {

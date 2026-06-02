@@ -109,19 +109,29 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
       String c7ProcessInstanceId = c7JobLog.getProcessInstanceId();
       ProcessInstanceEntity processInstance = findProcessInstanceByC7Id(c7ProcessInstanceId);
       if (processInstance != null) {
-        builder.processInstanceKey(processInstance.processInstanceKey());
+        Long processInstanceKey = processInstance.processInstanceKey();
+        builder.processInstanceKey(processInstanceKey);
 
+        Long rootProcessInstanceKey = null;
+        Integer partitionId = null;
         String c7RootProcessInstanceId = c7JobLog.getRootProcessInstanceId();
         if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
           ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
           if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-            builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
-                .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
+            rootProcessInstanceKey = rootProcessInstance.processInstanceKey();
+            partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId);
+            builder.rootProcessInstanceKey(rootProcessInstanceKey)
+                .partitionId(partitionId);
           }
         }
 
         Long elementInstanceKey = findFlowNodeInstanceKey(c7JobLog.getActivityId(), c7ProcessInstanceId,
             hasMultipleFlowNodes);
+        if (elementInstanceKey == null && !hasMultipleFlowNodes.get()
+            && !hasHistoricActivityInstance(c7JobLog.getActivityId(), c7ProcessInstanceId)) {
+          elementInstanceKey = createSyntheticFlowNodeInstance(c7JobLog.getActivityId(),
+              processInstanceKey, processDefinitionKey, rootProcessInstanceKey, partitionId);
+        }
         if (elementInstanceKey != null) {
           builder.elementInstanceKey(elementInstanceKey);
         }

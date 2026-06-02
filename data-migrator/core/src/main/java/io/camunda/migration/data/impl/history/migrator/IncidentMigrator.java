@@ -94,18 +94,28 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
         processInstanceKey = c7ProcessInstance.processInstanceKey();
         builder.processInstanceKey(processInstanceKey);
         if (processInstanceKey != null) {
-          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
-              hasMultipleFlowNodes);
-          builder.flowNodeInstanceKey(flowNodeInstanceKey);
-
+          Long rootProcessInstanceKey = null;
+          Integer partitionId = null;
           String c7RootProcessInstanceId = c7Incident.getRootProcessInstanceId();
           if (c7RootProcessInstanceId != null && isMigrated(c7RootProcessInstanceId, HISTORY_PROCESS_INSTANCE)) {
             ProcessInstanceEntity rootProcessInstance = findProcessInstanceByC7Id(c7RootProcessInstanceId);
             if (rootProcessInstance != null && rootProcessInstance.processInstanceKey() != null) {
-              builder.rootProcessInstanceKey(rootProcessInstance.processInstanceKey())
-                  .partitionId(partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId));
+              rootProcessInstanceKey = rootProcessInstance.processInstanceKey();
+              partitionId = partitionSupplier.getPartitionIdByRootProcessInstance(c7RootProcessInstanceId);
+              builder.rootProcessInstanceKey(rootProcessInstanceKey)
+                  .partitionId(partitionId);
             }
           }
+
+          flowNodeInstanceKey = findFlowNodeInstanceKey(c7Incident.getActivityId(), c7Incident.getProcessInstanceId(),
+              hasMultipleFlowNodes);
+          if (flowNodeInstanceKey == null && !hasMultipleFlowNodes.get()
+              && !hasHistoricActivityInstance(c7Incident.getActivityId(), c7Incident.getProcessInstanceId())) {
+            flowNodeInstanceKey = createSyntheticFlowNodeInstance(c7Incident.getActivityId(),
+                processInstanceKey, processDefinitionKey, rootProcessInstanceKey, partitionId);
+          }
+          builder.flowNodeInstanceKey(flowNodeInstanceKey);
+
           builder.treePath(generateTreePath(processInstanceKey, flowNodeInstanceKey));
         }
       }
@@ -133,10 +143,7 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
           // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
           throw new EntitySkippedException(c7Incident, SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE);
         }
-        // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
-        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
-          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
-        }
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
       }
 
       if ((isFailedJobIncident(c7Incident) || isFailedExternalTaskIncident(c7Incident))

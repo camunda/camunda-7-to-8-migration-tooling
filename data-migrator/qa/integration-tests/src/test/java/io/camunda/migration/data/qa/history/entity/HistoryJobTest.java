@@ -61,6 +61,8 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     JobDbModel job = c8Jobs.getFirst();
     assertJobProperties(job, processInstanceKey, "asyncBeforeUserTaskProcessId", "asyncUserTaskId", false,
         processInstances.getFirst().processDefinitionKey());
+    // elementInstanceKey is null because flow node migration was intentionally skipped
+    assertThat(job.elementInstanceKey()).isNull();
   }
 
   @Test
@@ -124,6 +126,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     JobDbModel job = c8Jobs.getFirst();
 
     assertJobProperties(job, processInstanceKey, "failingServiceTaskProcessId", "serviceTaskId", false, processInstances.getFirst().processDefinitionKey());
+    // elementInstanceKey is non-null because a synthetic flow node instance is created
+    // for activities that have no HistoricActivityInstance (async-before that always fails)
+    assertThat(job.elementInstanceKey()).isNotNull();
 
     // and: the incident was migrated with jobKey pointing to the C8 job
     var incidents = searchHistoricIncidents("failingServiceTaskProcessId");
@@ -343,13 +348,6 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.processDefinitionKey()).isEqualTo(processDefinitionKey);
-    if (isAsyncAfter) {
-      assertThat(job.elementInstanceKey()).isNotNull();
-    } else {
-      // elementInstanceKey is null for async-before because the flow node instance does not yet
-      // exist at the time the job was created and executed
-      assertThat(job.elementInstanceKey()).isNull();
-    }
 
     assertThat(job.type()).isEqualTo("async-continuation");
     assertThat(job.worker()).isNotNull();

@@ -474,7 +474,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldGenerateTreePathForIncidentsWithoutFlowNodeInstanceKey() {
+  public void shouldCreateSyntheticFlowNodeInstanceForIncidentsWithoutHistoricActivityInstance() {
     // given
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("incidentProcessId");
@@ -495,9 +495,18 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     List<IncidentDbModel> incidents = searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
     assertThat(incidents).singleElement()
-        .extracting(IncidentDbModel::treePath)
-        .isNotNull()
-        .isEqualTo("PI_" + processInstanceKey);
+        .satisfies(incident -> {
+          assertThat(incident.flowNodeInstanceKey()).isNotNull();
+          assertThat(incident.treePath())
+              .isNotNull()
+              .isEqualTo("PI_" + processInstanceKey + "/FNI_" + incident.flowNodeInstanceKey());
+        });
+
+    // Verify synthetic flow node instance was created
+    List<FlowNodeInstanceDbModel> flowNodes =
+        searchFlowNodeInstancesByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
+    assertThat(flowNodes).isNotEmpty();
+    assertThat(flowNodes).anyMatch(fn -> "incidentTask1Id".equals(fn.flowNodeId()));
   }
 
   @Test
@@ -779,12 +788,8 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
       assertThat(c8Incident.jobKey()).isNull();
     }
 
-    // conditional
-    if (waitingExecution) {
-      assertThat(c8Incident.flowNodeInstanceKey()).isNull();
-    } else {
-      assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
-    }
+    // flowNodeInstanceKey is always non-null: either from migrated flow node or synthetic FNI
+    assertThat(c8Incident.flowNodeInstanceKey()).isNotNull();
 
     if (c7Incident.getIncidentMessage() != null) {
       assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
