@@ -100,6 +100,17 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
 
+      // POC fallback: ensure entityKey is never null. The C8 search-domain
+      // AuditLogEntity constructor enforces non-null via Objects.requireNonNull.
+      // When none of the resolvers above set a natural entityKey, fill a per-row
+      // sentinel shaped as "<entityType>:<auditLogKey>". The ':' separator makes
+      // it structurally non-colliding with C8-emitted numeric entityKeys
+      // (String.valueOf(record.getKey())). See issue: POC for Row 12 Sub-decision 3.
+      if (dbModel.entityKey() == null) {
+        final String entityKeySentinel = dbModel.entityType() + ":" + dbModel.auditLogKey();
+        dbModel = dbModel.copy(b -> ((AuditLogDbModel.Builder) b).entityKey(entityKeySentinel));
+      }
+
       if (c7AuditLog.getProcessDefinitionKey() != null && dbModel.processDefinitionKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);
       }
