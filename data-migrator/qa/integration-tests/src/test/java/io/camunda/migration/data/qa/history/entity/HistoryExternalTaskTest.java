@@ -11,6 +11,7 @@ import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_T
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -423,6 +424,9 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.processDefinitionId()).isEqualTo(prefixDefinitionId(PROCESS_KEY));
     assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(job.creationTime()).isNotNull();
+    assertThat(job.lastUpdateTime())
+      .isNotNull()
+      .isAfterOrEqualTo(job.creationTime());
     if (worker != null) {
       assertThat(job.worker()).isEqualTo(worker);
     } else {
