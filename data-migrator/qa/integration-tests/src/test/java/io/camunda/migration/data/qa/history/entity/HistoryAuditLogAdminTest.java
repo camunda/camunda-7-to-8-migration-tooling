@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
@@ -78,6 +79,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(log.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.GLOBAL);
     assertThat(log.entityType()).isEqualTo(AuditLogEntity.AuditLogEntityType.USER);
+    assertThat(log.entityKey()).isEqualTo(C7_NULL_PLACEHOLDER);
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.CREATE);
     assertThat(log.result()).isEqualTo(AuditLogEntity.AuditLogOperationResult.SUCCESS);
     assertThat(log.agentElementId()).isNull();
@@ -184,6 +186,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.GROUP);
     assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
     assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newGroupId");
+    assertThat(logs).extracting(AuditLogEntity::entityKey).containsOnly(C7_NULL_PLACEHOLDER);
   }
 
   @Test
@@ -263,6 +266,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.TENANT);
     assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.CREATE);
     assertThat(logs).extracting(AuditLogEntity::entityDescription).contains("newTenantId");
+    assertThat(logs).extracting(AuditLogEntity::entityKey).containsOnly(C7_NULL_PLACEHOLDER);
   }
 
   @Test
@@ -378,6 +382,7 @@ public class HistoryAuditLogAdminTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.AUTHORIZATION);
     assertThat(logs).extracting(AuditLogEntity::operationType)
         .containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
+    assertThat(logs).extracting(AuditLogEntity::entityKey).containsOnly(C7_NULL_PLACEHOLDER);
   }
 
   @Test

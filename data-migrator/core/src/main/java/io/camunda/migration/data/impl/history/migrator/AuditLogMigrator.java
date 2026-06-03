@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_BELONGS_TO_SKIPPED_TASK;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_JOB_REFERENCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
@@ -99,6 +100,12 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
 
       setHistoryCleanupDate(c7AuditLog, auditLogDbModelBuilder);
       AuditLogDbModel dbModel = convert(C7Entity.of(c7AuditLog), auditLogDbModelBuilder);
+
+      // Ensure entityKey is never null: C8's AuditLogEntity contract requires a non-null entityKey.
+      if (dbModel.entityKey() == null) {
+        dbModel = dbModel.copy(b ->
+            ((Builder) b).entityKey(C7_NULL_PLACEHOLDER));
+      }
 
       if (c7AuditLog.getProcessDefinitionKey() != null && dbModel.processDefinitionKey() == null) {
         throw new EntitySkippedException(c7AuditLog, SKIP_REASON_MISSING_PROCESS_DEFINITION);
