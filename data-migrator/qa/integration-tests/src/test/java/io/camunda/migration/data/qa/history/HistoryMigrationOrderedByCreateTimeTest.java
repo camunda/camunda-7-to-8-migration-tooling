@@ -10,10 +10,10 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.INTERMEDIATE_CATCH_EVENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.VariableEntity;
@@ -312,7 +312,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     String instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
     triggerIncident(instanceId);
-    Supplier<List<IncidentDbModel>> incidentSupplier =
+    Supplier<List<IncidentEntity>> incidentSupplier =
         () -> searchHistoricIncidents("incidentProcessId");
 
     // when

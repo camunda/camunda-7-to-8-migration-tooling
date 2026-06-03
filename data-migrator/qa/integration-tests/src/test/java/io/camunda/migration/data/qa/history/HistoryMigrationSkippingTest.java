@@ -33,9 +33,9 @@ import static io.camunda.migration.data.qa.util.LogMessageFormatter.formatMessag
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.camunda.bpm.engine.variable.Variables.stringValue;
 
-import io.camunda.db.rdbms.write.domain.IncidentDbModel;
-import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.HistoryMigrator;
+import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
@@ -703,7 +703,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
     assertThat(processInstances).hasSize(1);
 
-    List<IncidentDbModel> incidents = searchHistoricIncidents("miProcess");
+    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
     assertThat(incidents).isEmpty();
     incidentIds.forEach(id -> logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), id,
         SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
@@ -726,7 +726,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
     assertThat(processInstances).hasSize(1);
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
         SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
@@ -748,7 +748,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
     assertThat(processInstances).hasSize(1);
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
     jobs.forEach(j -> logs.assertContains(formatMessage(SKIPPING, HISTORY_JOB.getDisplayName(), j.getId(),
         SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE)));
@@ -795,9 +795,9 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).isEmpty();
-    List<IncidentDbModel> incidentEntities = searchHistoricIncidents(PROCESS_KEY);
+    List<IncidentEntity> incidentEntities = searchHistoricIncidents(PROCESS_KEY);
     assertThat(incidentEntities).isEmpty();
     logs.assertContains(formatMessage(SKIPPING, HISTORY_INCIDENT.getDisplayName(), list.getFirst().getId(),
         SKIP_REASON_MISSING_JOB_REFERENCE));
@@ -832,7 +832,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
     // then
-    List<JobDbModel> c8Jobs = searchJobs();
+    List<JobEntity> c8Jobs = searchJobs();
     assertThat(c8Jobs).isEmpty();
     logs.assertContains(formatMessage(SKIPPING, HISTORY_EXTERNAL_TASK.getDisplayName(), list.getFirst().getExternalTaskId(),
         SKIP_REASON_MISSING_PROCESS_INSTANCE));

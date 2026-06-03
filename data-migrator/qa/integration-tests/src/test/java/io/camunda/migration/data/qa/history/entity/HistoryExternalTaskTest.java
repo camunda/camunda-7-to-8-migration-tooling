@@ -15,8 +15,8 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinition
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
@@ -65,11 +65,11 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by external task ID)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
     // and: the job has the expected properties
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
         null);
   }
@@ -107,13 +107,13 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by external task ID)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
     // and: the job has the expected properties
     // Note: worker is null because the migrator picks up the first (creation) log entry per
     // external task ID, and the creation event does not yet have a workerId
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
         null);
   }
@@ -161,7 +161,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // then: only ONE C8 job entry created despite multiple log entries
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
     assertThat(processInstances).hasSize(1);
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Exactly one C8 job per C7 external task despite multiple log entries").hasSize(1);
   }
 
@@ -189,7 +189,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
     assertThat(processInstances).hasSize(1);
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).hasSize(1);
     assertThat(c8Jobs.getFirst().tenantId()).isEqualTo("tenantId");
   }
@@ -225,9 +225,9 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Exactly one C8 job entry").hasSize(1);
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
 
     // and: the incident was migrated with jobKey pointing to the C8 job
     var incidents = searchHistoricIncidents(PROCESS_KEY);
@@ -264,7 +264,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("External task should be migrated even without flow node").hasSize(1);
     assertThat(c8Jobs.getFirst().elementInstanceKey())
         .as("elementInstanceKey should be null when flow nodes are not migrated")
@@ -304,7 +304,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Completed external task should be migrated even without flow node").hasSize(1);
     assertThat(c8Jobs.getFirst().elementInstanceKey())
         .as("elementInstanceKey should be null when flow nodes are not migrated")
@@ -344,7 +344,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
 
     // and: exactly one C8 job entry was created for the external task
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("One C8 job entry per C7 external task").hasSize(1);
 
     // and: the rootProcessInstanceKey points to the root (calling) process instance
@@ -389,10 +389,10 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by external task ID)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
         null);
   }
@@ -408,7 +408,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     deployer.deployC7ModelInstance("callingProcessId", callingProcess);
   }
 
-  protected void assertExternalTaskJobProperties(JobDbModel job, long processInstanceKey, Long processDefinitionKey,
+  protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey,
                                                  String worker) {
     assertThat(job.jobKey()).isNotNull();
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);

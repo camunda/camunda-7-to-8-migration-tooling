@@ -28,11 +28,11 @@ import static org.mockito.Mockito.doAnswer;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
 import io.camunda.migration.data.qa.util.WhiteBox;
-import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
@@ -240,13 +240,13 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         c7Id,
         () -> historyMigrator.migrateByType(HISTORY_INCIDENT),
         () -> {
-          List<IncidentDbModel> incidents = searchHistoricIncidents("incidentProcessId");
+          List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
           assertThat(incidents)
               .as("C8 should contain NO incidents after rollback")
               .isEmpty();
         },
         () -> {
-          List<IncidentDbModel> incidents = searchHistoricIncidents("incidentProcessId");
+          List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
           assertThat(incidents)
               .as("After retry, C8 should contain incidents")
               .isNotEmpty();
