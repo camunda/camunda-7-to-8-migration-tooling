@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_AUDIT_LOG;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -156,6 +157,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(logs).extracting(AuditLogEntity::category).contains(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.VARIABLE);
     assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(AuditLogEntity.AuditLogOperationType.UPDATE);
+    assertThat(logs).extracting(AuditLogEntity::entityKey).containsOnly(C7_NULL_PLACEHOLDER);
   }
 
   @Test
@@ -434,6 +436,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(logs).hasSize(1);
     assertThat(logs).extracting(AuditLogEntity::entityType).contains(AuditLogEntity.AuditLogEntityType.RESOURCE);
     assertThat(logs).extracting(AuditLogEntity::operationType).contains(AuditLogEntity.AuditLogOperationType.CREATE);
+    assertThat(logs).extracting(AuditLogEntity::entityKey).containsOnly(C7_NULL_PLACEHOLDER);
   }
 
   @Test
@@ -583,6 +586,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.COMPLETE);
     assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(log.jobKey()).isNotNull();
+    assertThat(log.entityKey()).isEqualTo(C7_NULL_PLACEHOLDER);
     assertThat(log.actorId()).isEqualTo("demo");
   }
 
@@ -625,6 +629,7 @@ public class HistoryAuditLogTest extends HistoryMigrationAbstractTest {
     assertThat(log.operationType()).isEqualTo(AuditLogEntity.AuditLogOperationType.UPDATE);
     assertThat(log.category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.DEPLOYED_RESOURCES);
     assertThat(log.actorId()).isEqualTo("demo");
+    assertThat(log.entityKey()).isEqualTo(C7_NULL_PLACEHOLDER);
   }
 
   @Test
