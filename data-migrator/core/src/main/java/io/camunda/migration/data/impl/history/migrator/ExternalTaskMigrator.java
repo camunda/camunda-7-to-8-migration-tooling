@@ -14,6 +14,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingExternalTask;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
@@ -116,6 +117,8 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
           builder.elementInstanceKey(elementInstanceKey);
         }
       }
+
+      builder.lastUpdateTime(convertDate(c7Client.getHistoricExternalTaskLogLatest(c7ExternalTaskId).getTimestamp()));
 
       JobDbModel dbModel = convert(C7Entity.of(c7ExternalTaskLog), builder);
 

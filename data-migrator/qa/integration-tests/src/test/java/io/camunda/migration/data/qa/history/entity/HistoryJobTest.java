@@ -370,7 +370,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(job.hasFailedWithRetriesLeft()).isFalse();
     // returns `false` in 8.9; returns `null` in 8.10
     assertThat(job.isDenied()).isIn(null, false);
-    assertThat(job.lastUpdateTime()).isNull();
+    assertThat(job.lastUpdateTime())
+        .isNotNull()
+        .isAfterOrEqualTo(job.creationTime());
   }
 
   protected void deployModel() {
