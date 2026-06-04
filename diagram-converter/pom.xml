@@ -31,7 +31,7 @@
     <version.commons-collections4>4.5.0</version.commons-collections4>
     <version.rest-assured>6.0.0</version.rest-assured>
     <plugin.version.spotless-maven-plugin>3.4.0</plugin.version.spotless-maven-plugin>
-    <plugin.version.maven-site-plugin>3.21.0</plugin.version.maven-site-plugin>
+    <plugin.version.maven-site-plugin>3.22.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
     <plugin.version.maven-source-plugin>3.4.0</plugin.version.maven-source-plugin>
     <plugin.version.maven-install-plugin>3.1.4</plugin.version.maven-install-plugin>
