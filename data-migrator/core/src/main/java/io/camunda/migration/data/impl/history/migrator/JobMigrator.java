@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_FLOW_NODE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
@@ -148,8 +149,11 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         throw new EntitySkippedException(c7JobLog, SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE);
       }
 
-      // For async-after jobs, element instance key is required
-      if (isAsyncAfter && dbModel.elementInstanceKey() == null) {
+      if (dbModel.elementInstanceKey() == null) {
+        if (isAsyncBefore) {
+          // C7 did not persist a HistoricActivityInstance for this activity
+          throw new EntitySkippedException(c7JobLog, SKIP_REASON_MISSING_FLOW_NODE);
+        }
         throw new C8EntityNotFoundException(HISTORY_FLOW_NODE, dbModel.processInstanceKey(), c7JobLog.getActivityId());
       }
 
