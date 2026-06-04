@@ -90,9 +90,6 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
             decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
         if (syntheticDrd != null) {
           builder.decisionRequirementsKey(syntheticDrd.key())
-              // Wire the FK reference to the synthetic DRD's id so the decision row is never
-              // written with a NULL decisionRequirementsId. The transformer only sets the id when
-              // the C7 source carries a parent DRD id, so this value survives the conversion.
               .decisionRequirementsId(syntheticDrd.id());
         }
         // For standalone decisions, use the decision's own name and version as the DRD values
@@ -102,7 +99,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
 
       DecisionDefinitionDbModel dbModel = convert(C7Entity.of(c7DecisionDefinition, creationTime), builder);
 
-      if (dbModel.decisionRequirementsKey() == null) {
+      if (dbModel.decisionRequirementsKey() == null || dbModel.decisionRequirementsId() == null) {
         throw new EntitySkippedException(c7DecisionDefinition, creationTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
       }
 
