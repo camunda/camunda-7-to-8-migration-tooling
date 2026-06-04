@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_MIGRATED;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
@@ -426,7 +427,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     if (worker != null) {
       assertThat(job.worker()).isEqualTo(worker);
     } else {
-      assertThat(job.worker()).isNullOrEmpty();
+      assertThat(job.worker()).isEqualTo(C7_MIGRATED);
     }
   }
 }

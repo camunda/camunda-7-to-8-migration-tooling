@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.db.rdbms.write.domain.IncidentDbModel.Builder;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NO_MESSAGE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -41,11 +42,12 @@ public class IncidentTransformer implements EntityInterceptor<HistoricIncident, 
 
   @Override
   public void execute(HistoricIncident entity, Builder builder) {
+    var incidentMessage = entity.getIncidentMessage();
     builder.incidentKey(getNextKey())
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .flowNodeId(sanitizeFlowNodeId(entity.getActivityId()))
         .errorType(determineErrorType(entity))
-        .errorMessage(entity.getIncidentMessage())
+        .errorMessage(incidentMessage != null ? incidentMessage : C7_NO_MESSAGE)
         .creationDate(convertDate(entity.getCreateTime()))
         .errorMessageHash(null)
         .state(IncidentEntity.IncidentState.RESOLVED)

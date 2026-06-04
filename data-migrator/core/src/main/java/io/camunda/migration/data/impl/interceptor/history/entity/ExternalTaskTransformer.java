@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_MIGRATED;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -62,7 +63,7 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .creationTime(creationTime)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
-        .worker(null)
+        .worker(C7_MIGRATED)
         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(entity.getActivityId()))
         .tenantId(getTenantId(entity.getTenantId()));

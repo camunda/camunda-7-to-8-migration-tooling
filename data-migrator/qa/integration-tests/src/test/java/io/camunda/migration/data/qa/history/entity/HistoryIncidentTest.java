@@ -8,6 +8,7 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NO_MESSAGE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
@@ -789,7 +790,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     if (c7Incident.getIncidentMessage() != null) {
       assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
     } else {
-      assertThat(c8Incident.errorMessage()).isNullOrEmpty();
+      assertThat(c8Incident.errorMessage()).isEqualTo(C7_NO_MESSAGE);
     }
   }
 
