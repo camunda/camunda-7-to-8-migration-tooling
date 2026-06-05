@@ -788,6 +788,7 @@ public class HistoryMigrationSkippingTest extends HistoryMigrationAbstractTest {
     // when: migration runs and external task is skipped
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
     historyMigrator.migrateByType(HISTORY_INCIDENT);
 
     // then: the process instance was migrated
