@@ -21,6 +21,7 @@ import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -35,6 +36,11 @@ public class FlowNodeRequiredFieldSkipTest extends HistoryMigrationAbstractTest 
 
   @Autowired
   protected List<EntityInterceptor> configuredEntityInterceptors;
+
+  @AfterEach
+  void resetNullingInterceptor() {
+    nullingInterceptor().setFieldToNull(null);
+  }
 
   @ParameterizedTest
   @ValueSource(strings = {"flowNodeInstanceKey", "flowNodeId", "type", "state", "processDefinitionId", "tenantId"})

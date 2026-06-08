@@ -119,6 +119,7 @@ public class ExternalTaskMigrator extends HistoryEntityMigrator<HistoricExternal
         }
       }
 
+      // A log entry exists for this external task — it is what triggered this migration call — so null is not possible here.
       builder.lastUpdateTime(convertDate(c7Client.getHistoricExternalTaskLogLatest(c7ExternalTaskId).getTimestamp()));
 
       JobDbModel dbModel = convert(C7Entity.of(c7ExternalTaskLog), builder);
