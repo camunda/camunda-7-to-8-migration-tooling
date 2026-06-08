@@ -129,6 +129,7 @@ public class JobMigrator extends HistoryEntityMigrator<HistoricJobLog, JobDbMode
         }
       }
 
+      // A log entry exists for this job — it is what triggered this migration call — so null is not possible here.
       builder.lastUpdateTime(convertDate(c7Client.getHistoricJobLogLatest(c7JobId).getTimestamp()));
 
       JobDbModel dbModel = convert(C7Entity.of(c7JobLog), builder);
