@@ -17,8 +17,8 @@ import static io.camunda.migration.data.qa.history.element.HistoryAbstractElemen
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
-import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
@@ -55,10 +55,10 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by job ID across multiple log entries)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
 
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertJobProperties(job, processInstanceKey, "asyncBeforeUserTaskProcessId", "asyncUserTaskId", false,
         processInstances.getFirst().processDefinitionKey());
   }
@@ -81,10 +81,10 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by job ID across multiple log entries)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
 
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertJobProperties(job, processInstanceKey, PROCESS, "startEvent", true, processInstances.getFirst().processDefinitionKey());
 
     List<FlowNodeInstanceDbModel> startEvent = searchFlowNodeInstancesByName("startEvent");
@@ -119,9 +119,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: the failed job was migrated to C8
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Exactly one C8 job entry (deduplication by job ID)").hasSize(1);
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
 
     assertJobProperties(job, processInstanceKey, "failingServiceTaskProcessId", "serviceTaskId", false, processInstances.getFirst().processDefinitionKey());
 
@@ -153,9 +153,9 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: the failed job was migrated to C8
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Exactly one C8 job entry (deduplication by job ID)").hasSize(1);
-    JobDbModel job = c8Jobs.getFirst();
+    JobEntity job = c8Jobs.getFirst();
     assertThat(job.tenantId()).isEqualTo("tenantId");
   }
 
@@ -190,7 +190,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     // then: only ONE C8 job entry created despite multiple log entries (tracked by job ID)
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("failingServiceTaskProcessId");
     assertThat(processInstances).hasSize(1);
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Exactly one C8 job per C7 job despite multiple log entries").hasSize(1);
   }
 
@@ -214,7 +214,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
 
     // and: exactly one C8 job entry was created
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("One C8 job entry per C7 job ").hasSize(1);
 
     assertThat(c8Jobs.getFirst().rootProcessInstanceKey()).isEqualTo(root.getFirst().processInstanceKey());
@@ -236,7 +236,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("timerDurationBoundaryEventProcessId");
     assertThat(processInstances).hasSize(1);
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).isEmpty();
   }
 
@@ -264,7 +264,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("Async-before job should be migrated even without flow node").hasSize(1);
     assertThat(c8Jobs.getFirst().elementInstanceKey())
         .as("elementInstanceKey should be null for async-before without migrated flow node")
@@ -289,7 +289,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS);
     assertThat(processInstances).hasSize(1);
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
+    List<JobEntity> c8Jobs = searchJobs(processInstances.getFirst().processInstanceKey());
     assertThat(c8Jobs).as("Async-after job should NOT be migrated without flow node").isEmpty();
   }
 
@@ -311,7 +311,7 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs.getFirst().elementInstanceKey()).isNotEqualTo(c8Jobs.getLast().elementInstanceKey());
   }
 
@@ -333,11 +333,11 @@ public class HistoryJobTest extends HistoryMigrationAbstractTest {
     assertThat(processInstances).hasSize(1);
     Long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs.getFirst().elementInstanceKey()).isNotEqualTo(c8Jobs.getLast().elementInstanceKey());
   }
 
-  protected void assertJobProperties(JobDbModel job, long processInstanceKey, String c7ProcessDefinitionKey,
+  protected void assertJobProperties(JobEntity job, long processInstanceKey, String c7ProcessDefinitionKey,
                                      String taskId, boolean isAsyncAfter, Long processDefinitionKey) {
     assertThat(job.jobKey()).isNotNull();
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
