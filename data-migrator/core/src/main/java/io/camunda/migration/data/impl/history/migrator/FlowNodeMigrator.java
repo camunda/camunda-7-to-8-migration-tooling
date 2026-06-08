@@ -11,6 +11,7 @@ import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_RE
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE;
+import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.SKIP_REASON_REQUIRED_FIELD_NULL;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
@@ -131,6 +132,15 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
         throw new EntitySkippedException(c7FlowNode, SKIP_REASON_MISSING_ROOT_PROCESS_INSTANCE);
       }
 
+      // The built-in FlowNodeTransformer always sets these, but a custom interceptor may null them.
+      // C8 enforces them as non-null, so skip rather than write a row Operate cannot read.
+      assertRequiredFieldPresent(c7FlowNode, "flowNodeInstanceKey", dbModel.flowNodeInstanceKey());
+      assertRequiredFieldPresent(c7FlowNode, "flowNodeId", dbModel.flowNodeId());
+      assertRequiredFieldPresent(c7FlowNode, "type", dbModel.type());
+      assertRequiredFieldPresent(c7FlowNode, "state", dbModel.state());
+      assertRequiredFieldPresent(c7FlowNode, "processDefinitionId", dbModel.processDefinitionId());
+      assertRequiredFieldPresent(c7FlowNode, "tenantId", dbModel.tenantId());
+
       c8Client.insertFlowNodeInstance(dbModel);
 
       return MigrationResult.of(dbModel.flowNodeInstanceKey());
@@ -148,6 +158,12 @@ public class FlowNodeMigrator extends HistoryEntityMigrator<HistoricActivityInst
    */
   public static String generateTreePath(Long processInstanceKey, Long elementInstanceKey) {
     return processInstanceKey + "/" + elementInstanceKey;
+  }
+
+  protected void assertRequiredFieldPresent(HistoricActivityInstance c7FlowNode, String field, Object value) {
+    if (value == null) {
+      throw new EntitySkippedException(c7FlowNode, String.format(SKIP_REASON_REQUIRED_FIELD_NULL, field));
+    }
   }
 
   protected Long resolveFlowNodeScopeKey(HistoricActivityInstance c7FlowNode,
