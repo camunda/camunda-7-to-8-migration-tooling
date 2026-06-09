@@ -24,7 +24,6 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.write.domain.AuditLogDbModel.Builder;
-import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.history.C7Entity;
 import io.camunda.migration.data.impl.history.EntitySkippedException;
@@ -204,7 +203,7 @@ public class AuditLogMigrator extends HistoryEntityMigrator<UserOperationLogEntr
       if (EntityTypes.TASK.equals(c7AuditLog.getEntityType())){
         builder.entityKey(String.valueOf(taskKey));
       }
-      UserTaskDbModel userTaskDbModel = c8Client.findUserTaskOrThrow(taskKey);
+      var userTaskDbModel = c8Client.findUserTaskOrThrow(taskKey);
       builder.userTaskKey(taskKey)
           .elementInstanceKey(userTaskDbModel.elementInstanceKey());
     }

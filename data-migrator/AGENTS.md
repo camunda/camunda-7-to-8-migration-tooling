@@ -72,6 +72,8 @@ mvn verify -Pe2e
 mvn verify -Pintegration -Pe2e
 ```
 
+For `history-only` integration tests, ensure Camunda 8 is running with **secondary storage set to RDBMS** and connected to the **same database** configured for `camunda.migrator.c8.data-source`; CamundaClient-based history assertions depend on that setup.
+
 ### Frontend (Cockpit Plugin)
 
 ```bash

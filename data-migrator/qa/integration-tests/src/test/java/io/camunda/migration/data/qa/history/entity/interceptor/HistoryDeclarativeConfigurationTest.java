@@ -125,14 +125,7 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
-    Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
-
-    List<FlowNodeInstanceEntity> migratedFlowNodes =
-        flowNodeInstanceReader
-            .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
-                queryBuilder.filter(filterBuilder ->
-                    filterBuilder.tenantIds("complex-tenant"))))
-            .items();
+    List<FlowNodeInstanceEntity> migratedFlowNodes = searchHistoricFlowNodesByTenant("complex-tenant");
 
     assertThat(migratedFlowNodes).isNotEmpty();
 
@@ -145,4 +138,3 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
     }
   }
 }
-

@@ -72,12 +72,7 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
 
     // Verify flow nodes were migrated with modified tenant ID
-    List<FlowNodeInstanceEntity> migratedFlowNodes =
-        flowNodeInstanceReader
-            .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
-                queryBuilder.filter(filterBuilder ->
-                    filterBuilder.processInstanceKeys(processInstanceKey))))
-            .items();
+    List<FlowNodeInstanceEntity> migratedFlowNodes = searchHistoricFlowNodes(processInstanceKey);
 
     assertThat(migratedFlowNodes).isNotEmpty();
 
@@ -127,4 +122,3 @@ public class HistoryInterceptorTest extends HistoryMigrationAbstractTest {
     assertThat(migratedInstance.tenantId()).contains("C7_DEPLOY_" + deploymentId);
   }
 }
-

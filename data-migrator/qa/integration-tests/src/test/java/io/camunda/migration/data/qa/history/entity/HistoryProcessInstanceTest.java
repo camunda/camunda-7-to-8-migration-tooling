@@ -27,7 +27,6 @@ import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
-import io.camunda.search.query.VariableQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.Date;
 import java.util.List;
@@ -269,11 +268,7 @@ public class HistoryProcessInstanceTest extends HistoryMigrationAbstractTest {
     );
 
     // Verify that variables also have rootProcessInstanceKey
-    List<VariableEntity> variables = variableReader
-        .search(VariableQuery.of(queryBuilder ->
-            queryBuilder.filter(filterBuilder ->
-                filterBuilder.processInstanceKeys(sub.processInstanceKey()))))
-        .items();
+    List<VariableEntity> variables = searchHistoricVariables(sub.processInstanceKey());
     if (!variables.isEmpty()) {
       variables.forEach(variable ->
           assertThat(variable.rootProcessInstanceKey()).isEqualTo(parent.processInstanceKey())
