@@ -8,7 +8,6 @@
 package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.constants.MigratorConstants.C7_MIGRATED;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
