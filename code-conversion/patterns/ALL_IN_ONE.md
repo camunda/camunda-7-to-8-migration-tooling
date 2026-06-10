@@ -63,6 +63,18 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 
 Also, configure your the connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
+**Spring Boot version**: `camunda-spring-boot-starter` requires Spring Boot 4.0.x as of Camunda 8.9. If you are not yet on Spring Boot 4.x, use `camunda-spring-boot-3-starter` instead:
+
+```
+<dependency>
+	<groupId>io.camunda</groupId>
+	<artifactId>camunda-spring-boot-3-starter</artifactId>
+	<version>{version}</version>
+</dependency>
+```
+
+**Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
+
 ---
 
 ### Handling Process Variables
@@ -324,7 +336,7 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
     }
 ```
 
--   no business key in Camunda 8.8
+-   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message
@@ -537,7 +549,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 
 ###### Deleting Variables
 
-Deleting variables is not possible in Camunda 8.8. You can set a variable to null or empty string.
+Deleting variables is not supported in Camunda 8. You can set a variable to null or empty string.
 
 ---
 
@@ -884,7 +896,22 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByBPMNModelIdentifierWithBusinessId(String processDefinitionId, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
+-   `businessId` is immutable after creation and propagates to child instances created through call activities
+-   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ###### By Key Assigned on Deployment (specific version)
@@ -923,7 +950,19 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByKeyAssignedOnDeploymentWithBusinessId(Long processDefinitionKey, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .processDefinitionKey(processDefinitionKey)
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ###### By Message (And ProcessDefinitionId)
@@ -960,7 +999,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
--   no business key in Camunda 8.8
+-   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
 -   it is also possible to publish a message with a time to live
 
 ---
@@ -1071,7 +1110,7 @@ When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration 
 ```
 
 
-For more information, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/get-started/).
+For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/get-started/).
 
 ---
 
@@ -1527,7 +1566,7 @@ public class RetrievePaymentWorker {
 }
 ```
 
-For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/configuration/).
+For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/configuration/).
 
 The code conversion patterns will not cover the above class-level changes between JavaDelegates and job workers. Instead, they focus on method-level changes.
 
