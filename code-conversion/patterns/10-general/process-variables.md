@@ -6,7 +6,7 @@ In Camunda 8, all common value types are stored in JSON representation. This sim
 
 The code conversion examples cover both Camunda 7 approaches to handle process variables. Naturally, both approaches are converted into the simplified JSON representation approach in Camunda 8.
 
-TODO: Add proper links to:
+See the detailed patterns:
 
 * [Process variables in client code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/handle-process-variables.md)
 * [Process variables in glue code (Java Delegate)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/10-java-spring-delegate/handling-process-variables.md)
