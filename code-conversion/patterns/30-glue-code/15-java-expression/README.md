@@ -4,7 +4,11 @@ In Camunda 7, you can use arbitrary expression in JUEL, the Java Unified Express
 
 JUEL is not supported in Camunda 8. And more importantly, Camunda cannot directly evaluate any expressions that might include your own applications context, like its Spring beans.
 
-The default way to migrate now is to add a custom JUEL job worker, that evaluates the expression in your application.
+**Triage your expressions before reaching for a JUEL job worker** — most expressions do not need one:
+
+1. **Pure data expressions** (e.g. `${amount > 5000}`, `${order.customer.name}`) — convert to FEEL. The [Diagram Converter](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/) converts simple JUEL expressions to FEEL automatically.
+2. **Conditional events** with JUEL conditions — since **Camunda 8.9**, BPMN conditional events (start, intermediate catch, and boundary) are supported natively with FEEL conditions; the Diagram Converter detects and converts them.
+3. **Expressions invoking Spring beans** (e.g. `${someBean.doStuff(x)}` as a service task expression or delegate expression) — preferably refactor into a regular job worker (one worker per bean method, clean and testable). Only if you have many such expressions and want a mechanical migration, use the generic JUEL job worker described below.
 
 ## Camunda 7: Expression
 
