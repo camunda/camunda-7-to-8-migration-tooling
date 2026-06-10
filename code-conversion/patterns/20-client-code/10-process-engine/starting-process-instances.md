@@ -46,7 +46,22 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByBPMNModelIdentifierWithBusinessId(String processDefinitionId, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
+-   `businessId` is immutable after creation and propagates to child instances created through call activities
+-   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ## By Key Assigned on Deployment (specific version)
@@ -85,7 +100,19 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByKeyAssignedOnDeploymentWithBusinessId(Long processDefinitionKey, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .processDefinitionKey(processDefinitionKey)
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ## By Message (And ProcessDefinitionId)
@@ -122,5 +149,5 @@ The following patterns focus on various methods to start process instances in Ca
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
--   no business key in Camunda 8.8
+-   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
 -   it is also possible to publish a message with a time to live

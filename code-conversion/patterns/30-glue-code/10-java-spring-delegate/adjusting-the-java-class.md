@@ -66,5 +66,5 @@ When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration 
 ```
 
 
-For more information, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/get-started/).
+For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/get-started/).
 

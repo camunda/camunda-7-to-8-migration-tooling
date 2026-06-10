@@ -71,7 +71,7 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
     }
 ```
 
--   no business key in Camunda 8.8
+-   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message
