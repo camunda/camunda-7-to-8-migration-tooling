@@ -180,15 +180,7 @@ public class C8Client {
   @Autowired(required = false)
   protected JobMapper jobMapper;
 
-  /**
-   * Creates a new process instance with the given BPMN process ID, tenant ID, and variables.
-   */
-  public ProcessInstanceEvent createProcessInstance(String bpmnProcessId, String tenantId,
-                                                    Map<String, Object> variables) {
-    return createProcessInstance(bpmnProcessId, tenantId, variables, null);
-  }
-
-  /**
+   /**
    * Creates a new process instance with the given BPMN process ID, tenant ID, variables, and
    * optional business ID (mapped from the Camunda 7 business key). Blank business IDs are ignored.
    */
@@ -198,11 +190,8 @@ public class C8Client {
         .bpmnProcessId(bpmnProcessId)
         .latestVersion()
         .variables(variables)
-        .tenantId(getTenantId(tenantId));
-
-    if (businessId != null && !businessId.isBlank()) {
-      createProcessInstance = createProcessInstance.businessId(businessId);
-    }
+        .tenantId(getTenantId(tenantId))
+        .businessId(businessId); 
 
     return callApi(createProcessInstance::execute, FAILED_TO_CREATE_PROCESS_INSTANCE + bpmnProcessId);
   }
