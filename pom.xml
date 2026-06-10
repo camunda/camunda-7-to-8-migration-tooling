@@ -30,7 +30,7 @@
     <version.java>21</version.java>
 
     <version.camunda-7>7.24.6-ee</version.camunda-7>
-    <version.camunda-8>8.9.5</version.camunda-8>
+    <version.camunda-8>8.9.8</version.camunda-8>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.6</version.spring-boot>
     <version.netty>4.2.13.Final</version.netty>
