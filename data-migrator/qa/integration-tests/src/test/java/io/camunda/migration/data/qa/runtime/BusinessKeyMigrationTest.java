@@ -12,33 +12,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.search.response.ProcessInstance;
 import java.util.List;
+import java.util.stream.Stream;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.api.Test;
 
 class BusinessKeyMigrationTest extends RuntimeMigrationAbstractTest {
 
-  @Test
-  public void shouldMigrateProcessInstanceWithBusinessKey() {
-    // given
-    deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("simpleProcess", "myBusinessKey");
-
-    // when
-    runtimeMigrator.start();
-
-    // then
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      List<ProcessInstance> c8Instances = camundaClient.newProcessInstanceSearchRequest().execute().items();
-      assertThat(c8Instances).hasSize(1);
-      assertThat(c8Instances.getFirst().getBusinessId()).isEqualTo("myBusinessKey");
-    });
+  static Stream<Arguments> businessKeyScenarios() {
+    return Stream.of(
+        Arguments.of(null, null, true),
+      Arguments.of("", null, false),
+        Arguments.of("myBusinessKey", "myBusinessKey", false));
   }
 
-  @Test
-  public void shouldMigrateProcessInstanceWithoutBusinessKey() {
+  @ParameterizedTest
+  @MethodSource("businessKeyScenarios")
+  public void shouldMigrateProcessInstanceWithBusinessKey(String businessKey,
+                                                           String expectedBusinessId,
+                                                           boolean startWithoutBusinessKey) {
     // given
     deployer.deployProcessInC7AndC8("simpleProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("simpleProcess");
+
+    if (startWithoutBusinessKey) {
+      runtimeService.startProcessInstanceByKey("simpleProcess");
+    } else {
+      runtimeService.startProcessInstanceByKey("simpleProcess", businessKey);
+    }
 
     // when
     runtimeMigrator.start();
@@ -47,7 +49,7 @@ class BusinessKeyMigrationTest extends RuntimeMigrationAbstractTest {
     Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
       List<ProcessInstance> c8Instances = camundaClient.newProcessInstanceSearchRequest().execute().items();
       assertThat(c8Instances).hasSize(1);
-      assertThat(c8Instances.getFirst().getBusinessId()).isNull();
+      assertThat(c8Instances.getFirst().getBusinessId()).isEqualTo(expectedBusinessId);
     });
   }
 }
