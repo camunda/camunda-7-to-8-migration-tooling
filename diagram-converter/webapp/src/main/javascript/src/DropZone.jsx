@@ -11,7 +11,7 @@ export default function DropZone({ onFiles }) {
   function selectFileToUpload() {
     const input = document.createElement("input");
     input.setAttribute("type", "file");
-    input.setAttribute("accept", ".xml, .bpmn, .dmn");
+    input.setAttribute("accept", ".xml, .bpmn, .dmn, .form");
     input.setAttribute("multiple", "true");
 
     input.addEventListener("change", () => {
@@ -39,7 +39,7 @@ export default function DropZone({ onFiles }) {
     >
       <img src={InboxIcon} />
       <h2>Click or drag file to this area to upload</h2>
-      <p>Upload .xml .bpmn and .dmn files. </p>
+      <p>Upload .xml .bpmn .dmn and .form files. </p>
     </div>
   );
 }
