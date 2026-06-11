@@ -45,7 +45,8 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     ExpressionTransformationResult transformationResult =
         ExpressionTransformer.transformToFeel(
             direction.getName() + " parameter '" + name + "'", expression);
-    // Zeebe I/O mapping source must be a FEEL expression (prefixed with '=')
+    // Zeebe I/O mapping source is normally FEEL (prefixed with '='). For expressions that cannot
+    // be converted to FEEL, keep the original JUEL wrapper (${...}/#{...}) for manual follow-up.
     String source = transformationResult.result();
     if (shouldPrefixFeelMarker(source, transformationResult)) {
       source = "=" + source;

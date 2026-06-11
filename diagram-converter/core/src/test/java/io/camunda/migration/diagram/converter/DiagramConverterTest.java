@@ -289,6 +289,33 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void testExpressionCodesShouldKeepWarningsAndFallbackValue() {
+    DiagramCheckResult result = loadAndCheck("error-escalation-expression-codes.bpmn");
+    List<String> messages =
+        result.getResults().stream()
+            .flatMap(r -> r.getMessages().stream())
+            .map(ElementCheckMessage::getMessage)
+            .collect(Collectors.toList());
+    assertThat(messages)
+        .contains("Error code cannot be an expression.")
+        .contains("Escalation code cannot be an expression.");
+
+    BpmnModelInstance modelInstance = loadAndConvert("error-escalation-expression-codes.bpmn");
+    assertThat(
+            modelInstance
+                .getDocument()
+                .getElementById("Error_16zktjx")
+                .getAttribute(BPMN, "errorCode"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
+    assertThat(
+            modelInstance
+                .getDocument()
+                .getElementById("Escalation_2ja61hj")
+                .getAttribute(BPMN, "escalationCode"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
+  }
+
+  @Test
   void testMessageEventDefinitionOnThrowEvents() {
     BpmnModelInstance modelInstance = loadAndConvert("message-event-definition-handling.bpmn");
     DomElement catchEvent = modelInstance.getDocument().getElementById("CatchEvent");
