@@ -14,7 +14,6 @@ import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTOR
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
@@ -70,9 +69,9 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8ProcessInstance).hasSize(1);
     List<UserTaskEntity> userTaskEntities = searchHistoricUserTasks(c8ProcessInstance.getFirst().processInstanceKey());
     assertThat(userTaskEntities).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
-    AuditLogDbModel log = logs.getFirst();
+    AuditLogEntity log = logs.getFirst();
 
     assertThat(log.auditLogKey()).isNotNull();
     assertThat(log.entityKey()).isEqualTo(String.valueOf(log.userTaskKey()));
@@ -115,9 +114,9 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
-    AuditLogDbModel log = logs.getFirst();
+    AuditLogEntity log = logs.getFirst();
 
     assertThat(log.tenantId()).isEqualTo("tenantA");
     assertThat(log.tenantScope()).isEqualTo(AuditLogEntity.AuditLogTenantScope.TENANT);
@@ -145,7 +144,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.COMPLETE);
   }
@@ -174,7 +173,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
@@ -203,7 +202,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
@@ -232,7 +231,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs.size()).isEqualTo(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.ASSIGN);
   }
@@ -261,10 +260,10 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs.stream().filter(log -> log.operationType().equals(AuditLogEntity.AuditLogOperationType.UPDATE)).count()).isEqualTo(1);
-    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
-    assertThat(logs).extracting(AuditLogDbModel::category).containsOnly(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
+    assertThat(logs).extracting(AuditLogEntity::category).containsOnly(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
   }
 
   @Test
@@ -291,7 +290,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.UPDATE);
   }
@@ -320,7 +319,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.UPDATE);
   }
@@ -350,7 +349,7 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(1);
     assertAuditLogProperties(logs, AuditLogEntity.AuditLogOperationType.UPDATE);
   }
@@ -379,14 +378,14 @@ public class HistoryAuditLogUserTaskTest extends HistoryMigrationAbstractTest {
     // then
     List<ProcessInstanceEntity> c8ProcessInstance = searchHistoricProcessInstances("userTaskProcessId");
     assertThat(c8ProcessInstance).hasSize(1);
-    List<AuditLogDbModel> logs = searchAuditLogs("userTaskProcessId");
+    List<AuditLogEntity> logs = searchAuditLogs("userTaskProcessId");
     assertThat(logs).hasSize(0);
   }
 
-  protected void assertAuditLogProperties(List<AuditLogDbModel> logs, AuditLogEntity.AuditLogOperationType opType) {
+  protected void assertAuditLogProperties(List<AuditLogEntity> logs, AuditLogEntity.AuditLogOperationType opType) {
     assertThat(logs.getFirst().category()).isEqualTo(AuditLogEntity.AuditLogOperationCategory.USER_TASKS);
-    assertThat(logs).extracting(AuditLogDbModel::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
-    assertThat(logs).extracting(AuditLogDbModel::operationType).containsOnly(opType);
+    assertThat(logs).extracting(AuditLogEntity::entityType).containsOnly(AuditLogEntity.AuditLogEntityType.USER_TASK);
+    assertThat(logs).extracting(AuditLogEntity::operationType).containsOnly(opType);
   }
 
 }

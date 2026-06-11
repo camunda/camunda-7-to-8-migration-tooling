@@ -44,6 +44,7 @@ public class HistoryMigratorLogs {
   public static final String SKIP_REASON_MISSING_FLOW_NODE = "Missing flow node";
   public static final String SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE =
       "Flow node cannot be determined. Possible causes: multi-instance or performed process instance modification.";
+  public static final String SKIP_REASON_REQUIRED_FIELD_NULL = "Required field [%s] is null";
   public static final String SKIP_REASON_MISSING_FORM = "Missing form";
   public static final String SKIP_REASON_MISSING_PARENT_FLOW_NODE = "Missing parent flow node";
   public static final String SKIP_REASON_MISSING_DECISION_REQUIREMENTS = "Missing decision requirements definition";

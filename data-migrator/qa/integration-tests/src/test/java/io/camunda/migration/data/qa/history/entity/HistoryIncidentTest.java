@@ -10,20 +10,14 @@ package io.camunda.migration.data.qa.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.CONDITION_ERROR;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.DECISION_EVALUATION_ERROR;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.FORM_NOT_FOUND;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.JOB_NO_RETRIES;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.RESOURCE_NOT_FOUND;
-import static io.camunda.search.entities.IncidentEntity.ErrorType.UNHANDLED_ERROR_EVENT;
 import static io.camunda.search.entities.IncidentEntity.ErrorType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
-import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest;
 import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import java.util.Collections;
 import java.util.List;
@@ -54,8 +48,10 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
   protected ExternalTaskService externalTaskService;
 
   @Test
-  public void shouldMigrateIncidentTenant() {
-    // given
+  public void shouldSkipFailingTaskIncidentRegardlessOfTenant() {
+    // given: incidents on a failing async-before service task across two tenants. The activity
+    // has no HistoricActivityInstance in C7 (class-load fails before activity entry), so both
+    // incidents are skipped under the C8 non-null flowNodeInstanceKey contract.
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     deployer.deployCamunda7Process("incidentProcess2.bpmn", "tenant1");
     ProcessInstance c7ProcessDefaultTenant = runtimeService.startProcessInstanceByKey("incidentProcessId");
@@ -66,13 +62,11 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
 
-    // then
-    List<IncidentDbModel> incidentsDefaultTenant = searchHistoricIncidents("incidentProcessId");
-    List<IncidentDbModel> incidentsTenant1 = searchHistoricIncidents("incidentProcessId2");
-    assertThat(incidentsDefaultTenant).singleElement()
-        .extracting(IncidentDbModel::tenantId)
-        .isEqualTo(C8_DEFAULT_TENANT);
-    assertThat(incidentsTenant1).singleElement().extracting(IncidentDbModel::tenantId).isEqualTo("tenant1");
+    // then: incidents skipped on both tenants — the skip behavior is tenant-agnostic
+    assertThat(searchHistoricIncidents("incidentProcessId"))
+        .as("Default-tenant failing-task incident should be skipped").isEmpty();
+    assertThat(searchHistoricIncidents("incidentProcessId2"))
+        .as("Tenant1 failing-task incident should be skipped").isEmpty();
   }
 
   @Test
@@ -92,9 +86,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -117,9 +111,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -150,20 +144,22 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     // then
 
     // child incident is migrated
-    List<IncidentDbModel> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
     assertThat(childIncidents).hasSize(1);
     assertOnIncidentBasicFields(childIncidents.getFirst(), c7ChildIncident, childProcess, parentProcess, UNKNOWN,
         false, false);
 
     // parent incident is migrated
-    List<IncidentDbModel> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
     assertThat(parentIncidents).hasSize(1);
     assertOnIncidentBasicFields(parentIncidents.getFirst(), c7ParentIncident, parentProcess, parentProcess);
   }
 
   @Test
-  public void shouldMigrateFailedJobIncidentForNestedProcessInstance() {
-    // given a parent process that calls a child process containing a failing async service task
+  public void shouldMigratePropagatedParentIncidentEvenWhenChildIncidentIsSkipped() {
+    // given a parent process that calls a child process containing a failing async service task.
+    // Child incident: points to the failing activity, which has no HAI in C7 → skipped.
+    // Parent incident: propagated from the call activity, which HAS HAI → migrates.
     deployer.deployCamunda7Process("callActivityWithIncidentSubprocess.bpmn");
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     ProcessInstance parentProcess = runtimeService.startProcessInstanceByKey("callActivityWithIncidentSubprocessId");
@@ -191,15 +187,15 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     // when
     historyMigrator.migrate();
 
-    // then both incidents are migrated
+    // then: child incident is skipped (failing activity has no HAI in C7)
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
+    assertThat(childIncidents)
+        .as("child incident should be skipped — failing activity has no HAI in C7")
+        .isEmpty();
 
-    // child incident has a job key (the failed job was migrated)
-    List<IncidentDbModel> childIncidents = searchHistoricIncidents(childProcess.getProcessDefinitionKey());
-    assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
-    assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
-
-    // parent incident is migrated without a job key (propagated incident has no direct job reference)
-    List<IncidentDbModel> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
+    // and: parent incident is migrated — the call activity has a HAI, and the propagated
+    // incident has no job reference so it doesn't cascade-skip
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents(parentProcess.getProcessDefinitionKey());
     assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
     assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
     assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
@@ -224,9 +220,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -247,9 +243,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -273,9 +269,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
@@ -298,146 +294,123 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("userTaskProcessId");
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
     assertThat(incidents).hasSize(1);
-    IncidentDbModel incident = incidents.getFirst();
+    IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
   }
 
   @Test
-  public void shouldMigrateIncidentBasicFieldsForServiceTask() {
-    // given
+  public void shouldSkipIncidentForFailingServiceTask() {
+    // given: async-before service task with an unresolvable delegate → C7 records the incident
+    // but never persists a HistoricActivityInstance for the activity
     deployer.deployCamunda7Process("incidentProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("incidentProcessId");
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the incident even though no HAI is committed").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
-    // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("incidentProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, RESOURCE_NOT_FOUND, true, true);
+    // then: incident is skipped — C8 requires non-null flowNodeInstanceKey
+    assertThat(searchHistoricIncidents("incidentProcessId"))
+        .as("Failing-service-task incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
-  public void shouldMigrateIncidentWithFormNotFoundErrorType() {
-    // given
+  public void shouldSkipIncidentWithFormNotFoundErrorType() {
+    // given: form-not-found scenario produces an incident on an activity that has no HAI in C7
     deployer.deployCamunda7Process("formNotFoundProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("formNotFoundProcessId");
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the FORM_NOT_FOUND incident").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("formNotFoundProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, FORM_NOT_FOUND, true, true);
+    assertThat(searchHistoricIncidents("formNotFoundProcessId"))
+        .as("FORM_NOT_FOUND incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
-  public void shouldMigrateIncidentWithDecisionEvaluationErrorType() {
-    // given
+  public void shouldSkipIncidentWithDecisionEvaluationErrorType() {
+    // given: decision-evaluation failure produces an incident on an activity that has no HAI in C7
     deployer.deployCamunda7Process("ruleTaskProcess.bpmn");
     deployer.deployCamunda7Decision("mappingFailureDmn.dmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("ruleTaskProcessId",
         Collections.singletonMap("input", "single entry list"));
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the DECISION_EVALUATION incident").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("ruleTaskProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, DECISION_EVALUATION_ERROR, true, true);
+    assertThat(searchHistoricIncidents("ruleTaskProcessId"))
+        .as("DECISION_EVALUATION incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
-  public void shouldMigrateIncidentWithConditionalErrorType() {
-    // given
+  public void shouldSkipIncidentWithConditionalErrorType() {
+    // given: conditional-error scenario produces an incident on an activity that has no HAI in C7
     deployer.deployCamunda7Process("conditionErrorProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("conditionErrorProcessId");
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the CONDITION_ERROR incident").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("conditionErrorProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, CONDITION_ERROR, true, true);
+    assertThat(searchHistoricIncidents("conditionErrorProcessId"))
+        .as("CONDITION_ERROR incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
-  public void shouldMigrateIncidentWithUnhandledErrorType() {
-    // given
+  public void shouldSkipIncidentWithUnhandledErrorType() {
+    // given: unhandled BPMN error produces an incident on an activity that has no HAI in C7
     processEngineConfigurationImpl.setEnableExceptionsAfterUnhandledBpmnError(true);
     deployer.deployCamunda7Process("unhandledErrorProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("unhandledErrorProcessId");
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the UNHANDLED_ERROR_EVENT incident").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("unhandledErrorProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, UNHANDLED_ERROR_EVENT, true, true);
+    assertThat(searchHistoricIncidents("unhandledErrorProcessId"))
+        .as("UNHANDLED_ERROR_EVENT incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
-  public void shouldMigrateIncidentWithNoJobRetriesErrorType() {
-    // given
+  public void shouldSkipIncidentWithNoJobRetriesErrorType() {
+    // given: async-before failing delegate exhausts retries → incident with no HAI for the activity
     processEngineConfigurationImpl.setEnableExceptionsAfterUnhandledBpmnError(true);
     deployer.deployCamunda7Process("noJobRetriesProcess.bpmn");
     ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("noJobRetriesProcessId");
     triggerIncident(c7ProcessInstance.getId());
 
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
+    assertThat(historyService.createHistoricIncidentQuery().processInstanceId(c7ProcessInstance.getId()).count())
+        .as("C7 should record the JOB_NO_RETRIES incident").isEqualTo(1);
 
     // when
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents("noJobRetriesProcessId");
-    assertThat(incidents).hasSize(1);
-    IncidentDbModel c8Incident = incidents.getFirst();
-    assertOnIncidentBasicFields(c8Incident, c7Incident, c7ProcessInstance, null, JOB_NO_RETRIES, true, true);
+    assertThat(searchHistoricIncidents("noJobRetriesProcessId"))
+        .as("JOB_NO_RETRIES incident is skipped (no HAI in C7)").isEmpty();
   }
 
   @Test
@@ -473,32 +446,9 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
         .isEqualTo("PI_" + processInstanceKey + "/FNI_" + flownodeInstanceKey);
   }
 
-  @Test
-  public void shouldGenerateTreePathForIncidentsWithoutFlowNodeInstanceKey() {
-    // given
-    deployer.deployCamunda7Process("incidentProcess.bpmn");
-    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("incidentProcessId");
-    triggerIncident(c7ProcessInstance.getId());
-
-    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
-        .processInstanceId(c7ProcessInstance.getId())
-        .singleResult();
-    assertThat(c7Incident).isNotNull();
-
-    // when
-    historyMigrator.migrate();
-
-    // then
-    List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("incidentProcessId");
-    assertThat(processInstances).hasSize(1);
-    Long processInstanceKey = processInstances.getFirst().processInstanceKey();
-
-    List<IncidentDbModel> incidents = searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(processInstanceKey);
-    assertThat(incidents).singleElement()
-        .extracting(IncidentDbModel::treePath)
-        .isNotNull()
-        .isEqualTo("PI_" + processInstanceKey);
-  }
+  // Note: the sister test `shouldGenerateTreePathForIncidentsWithoutFlowNodeInstanceKey` was
+  // removed when IncidentMigrator stopped writing null flowNodeInstanceKey (see context/decisions.md).
+  // The "without FNI" path is now a skip — covered by the `shouldSkipIncident*` tests above.
 
   @Test
   @Disabled("https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103")
@@ -520,7 +470,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances("miProcess");
     assertThat(processInstances).hasSize(1);
 
-    List<IncidentDbModel> incidents = searchHistoricIncidents("miProcess");
+    List<IncidentEntity> incidents = searchHistoricIncidents("miProcess");
     assertThat(incidents).hasSize(2);
 
     assertThat(incidents.getFirst().flowNodeInstanceKey()).isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
@@ -547,10 +497,10 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     // and: exactly one C8 job entry was created (deduplicated by external task ID)
-    List<JobDbModel> c8Jobs = searchJobs(processInstanceKey);
+    List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
-    List<IncidentDbModel> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(incidents).hasSize(1);
     assertOnIncidentBasicFields(incidents.getFirst(), list.getFirst(), processInstance, null, UNKNOWN, false, true);
     assertThat(incidents.getFirst().jobKey()).isEqualTo(c8Jobs.getFirst().jobKey());
@@ -586,13 +536,13 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidentsDefaultTenant = searchHistoricIncidents(EXT_PROCESS_KEY);
-    List<IncidentDbModel> incidentsTenant1 = searchHistoricIncidents(processKey2);
+    List<IncidentEntity> incidentsDefaultTenant = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentEntity> incidentsTenant1 = searchHistoricIncidents(processKey2);
     assertThat(incidentsDefaultTenant).singleElement()
-        .extracting(IncidentDbModel::tenantId)
+        .extracting(IncidentEntity::tenantId)
         .isEqualTo(C8_DEFAULT_TENANT);
     assertThat(incidentsTenant1).singleElement()
-        .extracting(IncidentDbModel::tenantId)
+        .extracting(IncidentEntity::tenantId)
         .isEqualTo("tenant1");
   }
 
@@ -617,7 +567,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then
-    List<IncidentDbModel> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentEntity> incidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(incidents).hasSize(1);
     assertOnIncidentBasicFields(incidents.getFirst(), c7Incident, c7ProcessInstance, null, UNKNOWN, false, true);
   }
@@ -656,12 +606,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     historyMigrator.migrate();
 
     // then: child incident is migrated with jobKey
-    List<IncidentDbModel> childIncidents = searchHistoricIncidents(EXT_PROCESS_KEY);
+    List<IncidentEntity> childIncidents = searchHistoricIncidents(EXT_PROCESS_KEY);
     assertThat(childIncidents).as("child process incident should be migrated").hasSize(1);
     assertThat(childIncidents.getFirst().jobKey()).as("child incident should have a job key").isNotNull();
 
     // and: parent incident is migrated without jobKey (propagated)
-    List<IncidentDbModel> parentIncidents = searchHistoricIncidents("callingProcessId");
+    List<IncidentEntity> parentIncidents = searchHistoricIncidents("callingProcessId");
     assertThat(parentIncidents).as("parent process incident should be migrated").hasSize(1);
     assertThat(parentIncidents.getFirst().jobKey()).as("propagated parent incident should have no job key").isNull();
     assertThat(parentIncidents.getFirst().processInstanceKey()).isNotNull();
@@ -734,21 +684,21 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(processKey);
     assertThat(processInstances).hasSize(1);
 
-    List<IncidentDbModel> incidents = searchHistoricIncidents(processKey);
+    List<IncidentEntity> incidents = searchHistoricIncidents(processKey);
     assertThat(incidents).hasSize(2);
 
     assertThat(incidents.getFirst().flowNodeInstanceKey())
         .isNotEqualTo(incidents.getLast().flowNodeInstanceKey());
   }
 
-  protected void assertOnIncidentBasicFields(IncidentDbModel c8Incident,
+  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
                                              ProcessInstance c7ParentInstance) {
     assertOnIncidentBasicFields(c8Incident, c7Incident, c7ChildInstance, c7ParentInstance, UNKNOWN, false, false);
   }
 
-  protected void assertOnIncidentBasicFields(IncidentDbModel c8Incident,
+  protected void assertOnIncidentBasicFields(IncidentEntity c8Incident,
                                              HistoricIncident c7Incident,
                                              ProcessInstance c7ChildInstance,
                                              ProcessInstance c7ParentInstance,
@@ -771,7 +721,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
 
     // non-null values
     assertThat(c8Incident.incidentKey()).isNotNull();
-    assertThat(c8Incident.creationDate()).isNotNull();
+    assertThat(c8Incident.creationTime()).isNotNull();
 
     if (hasMigratedJob) {
       assertThat(c8Incident.jobKey()).isNotNull();

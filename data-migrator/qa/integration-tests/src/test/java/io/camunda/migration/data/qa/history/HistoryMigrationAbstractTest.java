@@ -16,11 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
-import io.camunda.db.rdbms.read.domain.JobDbQuery;
 import io.camunda.db.rdbms.read.service.AuditLogDbReader;
 import io.camunda.db.rdbms.read.service.DecisionDefinitionDbReader;
-import io.camunda.db.rdbms.sql.AuditLogMapper;
-import io.camunda.db.rdbms.write.domain.AuditLogDbModel;
 import io.camunda.db.rdbms.read.service.DecisionInstanceDbReader;
 import io.camunda.db.rdbms.read.service.DecisionRequirementsDbReader;
 import io.camunda.db.rdbms.read.service.FlowNodeInstanceDbReader;
@@ -32,11 +29,9 @@ import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
-import io.camunda.db.rdbms.sql.JobMapper;
 import io.camunda.db.rdbms.sql.PurgeMapper;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
-import io.camunda.db.rdbms.write.domain.JobDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.config.C8DataSourceConfigured;
@@ -47,22 +42,28 @@ import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.migration.data.qa.c8compat.C8QueryCompat;
 import io.camunda.migration.data.qa.extension.RdbmsQueryExtension;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
+import io.camunda.search.entities.AuditLogEntity;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.search.entities.FormEntity;
+import io.camunda.search.entities.IncidentEntity;
+import io.camunda.search.entities.JobEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.UserTaskEntity;
 import io.camunda.search.entities.VariableEntity;
 import io.camunda.search.filter.FilterBuilders;
 import io.camunda.search.page.SearchQueryPage;
+import io.camunda.search.query.AuditLogQuery;
 import io.camunda.search.query.DecisionDefinitionQuery;
 import io.camunda.search.query.DecisionInstanceQuery;
 import io.camunda.search.query.DecisionRequirementsQuery;
 import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.FormQuery;
+import io.camunda.search.query.IncidentQuery;
+import io.camunda.search.query.JobQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.camunda.search.query.UserTaskQuery;
@@ -114,9 +115,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
   protected AuditLogDbReader auditLogReader;
 
   @Autowired
-  protected AuditLogMapper auditLogMapper;
-
-  @Autowired
   protected ProcessInstanceDbReader processInstanceReader;
 
   @Autowired
@@ -142,9 +140,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
 
   @Autowired
   protected FlowNodeInstanceMapper flowNodeInstanceMapper;
-
-  @Autowired
-  protected JobMapper jobMapper;
 
   @RegisterExtension
   @Autowired
@@ -210,13 +205,18 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     return searchHistoricProcessInstances(processDefinitionId, false);
   }
 
-  public List<AuditLogDbModel> searchAuditLogs(String processDefinitionId) {
-    return C8QueryCompat.searchAuditLogs(auditLogMapper, auditLogReader,
-        prefixDefinitionId(processDefinitionId));
+  public List<AuditLogEntity> searchAuditLogs(String processDefinitionId) {
+    return auditLogReader
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
   }
 
-  public List<AuditLogDbModel> searchAuditLogsByCategory(String name) {
-    return C8QueryCompat.searchAuditLogsByCategory(auditLogMapper, auditLogReader, name);
+  public List<AuditLogEntity> searchAuditLogsByCategory(String name) {
+    return auditLogReader
+        .search(AuditLogQuery.of(q -> q.filter(f ->
+            f.categories(name))))
+        .items();
   }
 
   /**
@@ -282,13 +282,12 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.processInstanceKeys(processInstanceKey))));
   }
 
-  public List<FlowNodeInstanceDbModel> searchFlowNodesByTenantId(String tenantId) {
-    return flowNodeInstanceMapper.search(
-        FlowNodeInstanceDbQuery.of(b -> b.filter(f -> f.tenantIds(tenantId))));
-  }
-
-  public List<IncidentDbModel> searchHistoricIncidents(String processDefinitionId) {
-    return C8QueryCompat.searchHistoricIncidents(incidentReader, rdbmsQuery, prefixDefinitionId(processDefinitionId));
+  public List<IncidentEntity> searchHistoricIncidents(String processDefinitionId) {
+    return incidentReader
+        .search(IncidentQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processDefinitionIds(prefixDefinitionId(processDefinitionId)))))
+        .items();
   }
 
   public List<IncidentDbModel> searchIncidentsByProcessInstanceKeyAndReturnAsDbModel(Long processInstanceKey) {
@@ -347,12 +346,18 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
         .items();
   }
 
-  public List<JobDbModel> searchJobs(long processInstanceKey) {
-    return jobMapper.search(JobDbQuery.of(b -> b.filter(f -> f.processInstanceKeys(processInstanceKey))));
+  public List<JobEntity> searchJobs(long processInstanceKey) {
+    return jobReader
+        .search(JobQuery.of(queryBuilder ->
+            queryBuilder.filter(filterBuilder ->
+                filterBuilder.processInstanceKeys(processInstanceKey))))
+        .items();
   }
 
-  public List<JobDbModel> searchJobs() {
-    return jobMapper.search(JobDbQuery.of(b -> b));
+  public List<JobEntity> searchJobs() {
+    return jobReader
+        .search(new JobQuery(FilterBuilders.job().build(), SortOptionBuilders.job().build(), SearchQueryPage.of((b) -> b)))
+        .items();
   }
 
   public List<FormEntity> searchForms(String... formIds) {
