@@ -12,12 +12,16 @@ Patterns:
 - [Client code](#client-code)
   - [`ProcessEngine`](#processengine)
     - [Class-level Changes](#class-level-changes)
+    - [Batch Operations](#batch-operations)
     - [Broadcast Signals](#broadcast-signals)
+    - [Business Key &#8594; Business ID / Tags](#business-key-8594-business-id-tags)
     - [Cancel Process Instance](#cancel-process-instance)
     - [Correlate Messages](#correlate-messages)
+    - [Evaluate Decisions (DMN)](#evaluate-decisions-dmn)
     - [Handle Variables](#handle-variables)
     - [Handle Resources](#handle-resources)
     - [Handle User Tasks](#handle-user-tasks)
+    - [Query History](#query-history)
     - [Raise Incidents](#raise-incidents)
     - [Search Process Definitions](#search-process-definitions)
     - [Starting Process Instances](#starting-process-instances)
@@ -35,6 +39,9 @@ Patterns:
     - [Handling a Failure](#handling-a-failure)
     - [Handling an Incident](#handling-an-incident)
     - [Handling Process Variables](#handling-process-variables)
+  - [Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners](#listeners-execution-listener-task-listener-8594-camunda-8-listeners)
+    - [Execution Listener &#8594; Execution Listener Job Worker (Spring)](#execution-listener-8594-execution-listener-job-worker-spring)
+    - [Task Listener &#8594; User Task Listener Job Worker (Spring)](#task-listener-8594-user-task-listener-job-worker-spring)
 - [Test Code](#test-code)
   - [Camunda Platform Assert &#8594; Camunda Process Test (CPT)](#camunda-platform-assert-8594-camunda-process-test-cpt)
     - [Complete Test Case](#complete-test-case)
@@ -63,6 +70,18 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 
 Also, configure your the connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
+**Spring Boot version**: `camunda-spring-boot-starter` requires Spring Boot 4.0.x as of Camunda 8.9. If you are not yet on Spring Boot 4.x, use `camunda-spring-boot-3-starter` instead:
+
+```
+<dependency>
+	<groupId>io.camunda</groupId>
+	<artifactId>camunda-spring-boot-3-starter</artifactId>
+	<version>{version}</version>
+</dependency>
+```
+
+**Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
+
 ---
 
 ### Handling Process Variables
@@ -73,7 +92,7 @@ In Camunda 8, all common value types are stored in JSON representation. This sim
 
 The code conversion examples cover both Camunda 7 approaches to handle process variables. Naturally, both approaches are converted into the simplified JSON representation approach in Camunda 8.
 
-TODO: Add proper links to:
+See the detailed patterns:
 
 * [Process variables in client code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/handle-process-variables.md)
 * [Process variables in glue code (Java Delegate)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/10-java-spring-delegate/handling-process-variables.md)
@@ -145,6 +164,62 @@ public class SomeClass {
 
 ---
 
+#### Batch Operations
+
+In Camunda 7, batch operations are created via `RuntimeService` and `HistoryService` methods (typically the `...Async` variants) and managed via the `ManagementService`.
+
+Since **Camunda 8.8**, batch operations are a first-class concept of the Orchestration Cluster: they are executed by Zeebe itself, addressed by filter criteria, and can be monitored, suspended, resumed, and cancelled. Available types:
+
+| Operation                  | Camunda 7                                            | Camunda 8 (Orchestration Cluster API)                       |
+| -------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| Cancel process instances   | `runtimeService.deleteProcessInstancesAsync(...)`    | `POST /process-instances/cancellation` (8.8+)               |
+| Resolve incidents / retry  | `managementService.setJobRetriesAsync(...)`          | `POST /process-instances/incident-resolution` (8.8+)        |
+| Migrate process instances  | `runtimeService.newMigration(plan).executeAsync()`   | `POST /process-instances/migration` (8.8+)                  |
+| Modify process instances   | `runtimeService.createModification(...).executeAsync()` | `POST /process-instances/modification` (8.8+)            |
+| Delete historic instances  | `historyService.deleteHistoricProcessInstancesAsync(...)` | `POST /process-instances/deletion` (8.9+)              |
+| Delete decision instances  | `historyService.deleteHistoricDecisionInstancesAsync(...)` | `POST /decision-instances/deletion` (8.9+)            |
+
+###### Cancel Process Instances in Batch
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public Batch cancelProcessInstances(List<String> processInstanceIds, String reason) {
+        return engine.getRuntimeService().deleteProcessInstancesAsync(processInstanceIds, reason);
+    }
+```
+
+###### Orchestration Cluster API (Camunda 8)
+
+In Camunda 8, the batch is defined by a *filter* instead of an explicit ID list — matching instances are determined at execution time:
+
+```
+POST /v2/process-instances/cancellation
+{
+  "filter": {
+    "processDefinitionId": "order-process",
+    "hasIncident": true
+  }
+}
+```
+
+The response contains a `batchOperationKey`. Track progress via `GET /v2/batch-operations/{batchOperationKey}`, and search batches via `POST /v2/batch-operations/search`.
+
+The Camunda Java client exposes the same batch operation endpoints — see the [Java client documentation](https://docs.camunda.io/docs/apis-tools/java-client/getting-started/) and the [batch operations docs](https://docs.camunda.io/docs/components/concepts/batch-operations/) for the current command API. To target an explicit list of instances, filter on `processInstanceKey` with an `$in` operator.
+
+-   batch operations run asynchronously and are resilient to leader changes and region failovers (Zeebe-managed since 8.8)
+-   batches can be suspended, resumed, and cancelled via the API; Operate provides a dedicated Batch Operations monitoring view (8.9)
+-   only ACTIVE root instances can be cancelled — state filters are overridden during a cancellation batch
+-   cancelling a batch does not roll back already-processed items
+
+###### Notes for Migration
+
+-   do **not** flag Camunda 7 batch code as "no equivalent in Camunda 8" — since 8.8 there is a direct mapping for the common cases listed above
+-   Camunda 7 *seed/execution job* tuning (`batchJobsPerSeed`, invocation counts) has no equivalent and can be dropped; Zeebe partitions the work internally
+-   custom batch handlers (`ManagementService#createBatch` with custom job handlers) have no generic equivalent — implement those as a regular client-side loop over a search request, or as a process
+
+---
+
 #### Broadcast Signals
 
 The following patterns focus on methods how to broadcast signals in Camunda 7 and how they convert to Camunda 8.
@@ -205,6 +280,97 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
 
 -   in Camunda 8, a signal is always correlated to all suitable signal subscriptions
 -   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/modify-process-instance/)
+
+---
+
+#### Business Key &#8594; Business ID / Tags
+
+In Camunda 7, a process instance can carry a **business key**: a domain identifier (order number, claim ID) that is set on start and used to find instances later.
+
+Camunda 8 did not support business keys for a long time. Since **Camunda 8.9**, the direct successor is the **Business ID**. Since **Camunda 8.8**, **process instance tags** are available as a lightweight alternative.
+
+| Camunda 7              | Camunda 8                                                                 |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `businessKey`          | `businessId` (8.9+) — immutable, propagated to call-activity children, searchable, optional cluster-level uniqueness enforcement |
+| (no equivalent)        | `tags` (8.8+) — up to 10 immutable labels per instance, included in search responses and activated jobs |
+
+If your target version is **8.8**, use tags (for example, `order:1234`) or store the identifier as a regular process variable and filter by variable in searches.
+
+###### Setting the Business Key
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public ProcessInstance startProcessWithBusinessKey(String processDefinitionKey, String businessKey, VariableMap variableMap) {
+        return engine.getRuntimeService().startProcessInstanceByKey(processDefinitionKey, businessKey, variableMap);
+    }
+```
+
+###### CamundaClient (Camunda 8.9+)
+
+```java
+    public ProcessInstanceEvent startProcessWithBusinessId(String processDefinitionId, String businessId, Map<String, Object> variableMap) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .businessId(businessId)
+                .variables(variableMap)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   the Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not)
+-   the Business ID is automatically propagated to child instances created via call activities
+-   uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts
+-   maximum length is 256 characters
+-   for more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+
+###### Searching by Business Key
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public List<ProcessInstance> findByBusinessKey(String businessKey) {
+        return engine.getRuntimeService().createProcessInstanceQuery()
+                .processInstanceBusinessKey(businessKey)
+                .list();
+    }
+```
+
+###### CamundaClient (Camunda 8.9+)
+
+```java
+    public List<ProcessInstance> findByBusinessId(String businessId) {
+        return camundaClient.newProcessInstanceSearchRequest()
+                .filter(filter -> filter.businessId(businessId))
+                .send()
+                .join()
+                .items();
+    }
+```
+
+###### Alternative: Tags (Camunda 8.8+)
+
+If the identifier is only needed for routing, correlation, or filtering — not for uniqueness — tags are sufficient and available from 8.8:
+
+```java
+    public ProcessInstanceEvent startProcessWithTag(String processDefinitionId, String orderId, Map<String, Object> variableMap) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .tags("order:" + orderId)
+                .variables(variableMap)
+                .send()
+                .join();
+    }
+```
+
+-   tags are immutable after creation, maximum of 10 unique tags per process instance
+-   tags are inherited by all jobs created from that instance, so job workers can read them without inspecting variables
+-   tags are API/client-only metadata — they are not shown in Operate or Tasklist
+-   do not store secrets or PII in tags, they propagate with jobs and exports
+-   for more information, see [the docs on tags](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#tags)
 
 ---
 
@@ -324,12 +490,64 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
     }
 ```
 
--   no business key in Camunda 8.8
+-   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message
 -   messages are correlated once to a process based on BPMN process id (processDefinitionId), but can be correlated to different processes
 -   for more information, see [the docs](https://docs.camunda.io/docs/next/components/concepts/messages)
+
+---
+
+#### Evaluate Decisions (DMN)
+
+In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 8, use the `newEvaluateDecisionCommand` of the `CamundaClient` (available since 8.6 via the REST API).
+
+###### Evaluate a Decision by Id
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public DmnDecisionTableResult evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
+        return engine.getDecisionService().evaluateDecisionTableByKey(decisionDefinitionKey, variableMap);
+    }
+```
+
+```java
+    public DmnDecisionResult evaluateDecision(String decisionDefinitionKey, VariableMap variableMap) {
+        return engine.getDecisionService().evaluateDecisionByKey(decisionDefinitionKey)
+                .variables(variableMap)
+                .evaluate();
+    }
+```
+
+###### CamundaClient (Camunda 8)
+
+```java
+    public EvaluateDecisionResponse evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionId, Map<String, Object> variableMap) {
+        return camundaClient.newEvaluateDecisionCommand()
+                .decisionId(decisionDefinitionId)
+                .variables(variableMap)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+```java
+    public EvaluateDecisionResponse evaluateDecisionByKeyAssignedOnDeployment(long decisionDefinitionKey, Map<String, Object> variableMap) {
+        return camundaClient.newEvaluateDecisionCommand()
+                .decisionKey(decisionDefinitionKey)
+                .variables(variableMap)
+                .send()
+                .join();
+    }
+```
+
+-   naming follows the same swap as process definitions: the C7 *decision definition key* (the id in the DMN XML) is the C8 `decisionId`; the C8 `decisionKey` is the unique key assigned on deployment
+-   using `decisionId` evaluates the latest deployed version
+-   the result is returned as JSON: `response.getDecisionOutput()` contains the output, `response.getEvaluatedDecisions()` the details of all evaluated (required) decisions
+-   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
+-   decisions evaluated *inside* a process should be modeled as a BPMN business rule task instead of being evaluated from glue code; the task's binding (`latest`, `deployment`, `versionTag`) controls version selection
 
 ---
 
@@ -537,7 +755,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 
 ###### Deleting Variables
 
-Deleting variables is not possible in Camunda 8.8. You can set a variable to null or empty string.
+Deleting variables is not supported in Camunda 8. You can set a variable to null or empty string.
 
 ---
 
@@ -692,9 +910,9 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 ###### CamundaClient (Camunda 8)
 
 ```java
-    public List<UserTask> searchUserTasksByBPMNModelIdentifier(String processDefinitionKey) {
+    public List<UserTask> searchUserTasksByBPMNModelIdentifier(String processDefinitionId) {
         return camundaClient.newUserTaskSearchRequest()
-                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(processDefinitionKey))
+                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(processDefinitionId))
                 .send()
                 .join()
                 .items();
@@ -702,6 +920,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 ```
 
 -   in place of the taskQuery, various filters can be used
+-   note the naming swap: the C7 `processDefinitionKey` (the id in the BPMN XML) is called `processDefinitionId` / `bpmnProcessId` in Camunda 8
 
 ###### Claim User Task
 
@@ -770,6 +989,63 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 -   Variable is a type which carries information about the variable
 -   use .getValue() to access its String-value, cast as necessary
+
+---
+
+#### Query History
+
+In Camunda 7, the `HistoryService` exposes queries over historic process instances, activity instances, variables, and the user operation log — all served from the engine's relational database.
+
+In Camunda 8, runtime and history data are separated: historic data is exported to *secondary storage* (Elasticsearch, OpenSearch, or — since 8.9 — an RDBMS) and queried via the **Orchestration Cluster API search endpoints**, which cover both running and finished entities. The `CamundaClient` exposes them as search requests.
+
+| Camunda 7 (`HistoryService`)                       | Camunda 8 (`CamundaClient` / Orchestration Cluster API)   |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `createHistoricProcessInstanceQuery()`             | `newProcessInstanceSearchRequest()`                        |
+| `createHistoricActivityInstanceQuery()`            | `newElementInstanceSearchRequest()`                        |
+| `createHistoricVariableInstanceQuery()`            | `newVariableSearchRequest()`                               |
+| `createHistoricIncidentQuery()`                    | `newIncidentSearchRequest()`                               |
+| `createHistoricTaskInstanceQuery()`                | `newUserTaskSearchRequest()`                               |
+| `createHistoricDecisionInstanceQuery()`            | `newDecisionInstanceSearchRequest()`                       |
+| `createUserOperationLogQuery()`                    | Audit log search (`POST /audit-logs/search`, 8.9+)         |
+
+###### Searching Finished Process Instances
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public List<HistoricProcessInstance> findFinishedInstances(String processDefinitionKey) {
+        return engine.getHistoryService().createHistoricProcessInstanceQuery()
+                .processDefinitionKey(processDefinitionKey)
+                .finished()
+                .list();
+    }
+```
+
+###### CamundaClient (Camunda 8)
+
+```java
+    public List<ProcessInstance> findFinishedInstances(String processDefinitionId) {
+        return camundaClient.newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                        .processDefinitionId(processDefinitionId)
+                        .state(ProcessInstanceState.COMPLETED))
+                .send()
+                .join()
+                .items();
+    }
+```
+
+-   the same search endpoints serve running *and* finished entities — there is no separate "history API"
+-   search results are *eventually consistent*: data becomes visible after export to secondary storage, typically within a second; do not use search requests for read-after-write logic inside a worker
+-   history time to live (HTTL) and data retention are configured on the cluster, not per query
+-   element instances are the equivalent of C7 activity instances; filter by `processInstanceKey` to get the execution trace (audit trail) of one instance
+
+###### Notes for Migration
+
+-   **historic data itself does not migrate via code** — to carry Camunda 7 audit data over, use the [History Data Migrator](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/history/) (available since 8.9, requires RDBMS secondary storage)
+-   `UserOperationLog` entries are converted into the Camunda 8 [audit log](https://docs.camunda.io/docs/components/audit-log/overview/) format by the History Data Migrator (8.9)
+-   C7 history levels (`FULL`, `AUDIT`, `ACTIVITY`, `NONE`) have no equivalent — Camunda 8 always exports; retention is controlled via TTL
+-   reporting/BI use cases should consider Optimize or consuming exported data instead of polling search endpoints
 
 ---
 
@@ -884,7 +1160,23 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByBPMNModelIdentifierWithBusinessId(String processDefinitionId, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .bpmnProcessId(processDefinitionId)
+                .latestVersion()
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
+-   `businessId` is immutable after creation and propagates to child instances created through call activities
+-   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ###### By Key Assigned on Deployment (specific version)
@@ -923,7 +1215,20 @@ The following patterns focus on various methods to start process instances in Ca
     }
 ```
 
--   no business key in Camunda 8.8
+```java
+    public ProcessInstanceEvent startProcessByKeyAssignedOnDeploymentWithBusinessId(Long processDefinitionKey, String businessId, Map<String, Object> variableMap, String tenantId) {
+        return camundaClient.newCreateInstanceCommand()
+                .processDefinitionKey(processDefinitionKey)
+                .businessId(businessId)
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
 -   _.join()_ can be specified with a timeout to wait for the process instance to complete
 
 ###### By Message (And ProcessDefinitionId)
@@ -960,7 +1265,8 @@ The following patterns focus on various methods to start process instances in Ca
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
--   no business key in Camunda 8.8
+-   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
 -   it is also possible to publish a message with a time to live
 
 ---
@@ -1071,7 +1377,7 @@ When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration 
 ```
 
 
-For more information, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/get-started/).
+For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/get-started/).
 
 ---
 
@@ -1409,7 +1715,11 @@ In Camunda 7, you can use arbitrary expression in JUEL, the Java Unified Express
 
 JUEL is not supported in Camunda 8. And more importantly, Camunda cannot directly evaluate any expressions that might include your own applications context, like its Spring beans.
 
-The default way to migrate now is to add a custom JUEL job worker, that evaluates the expression in your application.
+**Triage your expressions before reaching for a JUEL job worker** — most expressions do not need one:
+
+1. **Pure data expressions** (e.g. `${amount > 5000}`, `${order.customer.name}`) — convert to FEEL. The [Diagram Converter](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/) converts simple JUEL expressions to FEEL automatically.
+2. **Conditional events** with JUEL conditions — since **Camunda 8.9**, BPMN conditional events (start, intermediate catch, and boundary) are supported natively with FEEL conditions; the Diagram Converter detects and converts them.
+3. **Expressions invoking Spring beans** (e.g. `${someBean.doStuff(x)}` as a service task expression or delegate expression) — preferably refactor into a regular job worker (one worker per bean method, clean and testable). Only if you have many such expressions and want a mechanical migration, use the generic JUEL job worker described below.
 
 ###### Camunda 7: Expression
 
@@ -1527,7 +1837,7 @@ public class RetrievePaymentWorker {
 }
 ```
 
-For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/configuration/).
+For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/configuration/).
 
 The code conversion patterns will not cover the above class-level changes between JavaDelegates and job workers. Instead, they focus on method-level changes.
 
@@ -1881,6 +2191,183 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   without _.join()_, the method _.send()_ returns a non-blocking _CamundaFuture_. With _thenApply()_ and _exceptionally()_ the response can be processed
 -   this non-blocking programming style is **recommended** by Camunda
+
+---
+
+### Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners
+
+In Camunda 7, *execution listeners* (`org.camunda.bpm.engine.delegate.ExecutionListener`) and *task listeners* (`org.camunda.bpm.engine.delegate.TaskListener`) run Java code synchronously inside the engine when an element or user task reaches a lifecycle event. They are common for assignment logic, auditing, notifications, and variable preparation.
+
+Camunda 8 has equivalents, implemented as **job workers** instead of in-engine Java callbacks:
+
+| Camunda 7                                          | Camunda 8                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------- |
+| `ExecutionListener` (`start` / `end` events)        | [Execution listeners](https://docs.camunda.io/docs/components/concepts/execution-listeners/) (8.6+), `zeebe:executionListener` with `eventType` `start` / `end` |
+| `TaskListener` (`create`, `assignment`, `complete`, `update`, `delete`) | [User task listeners](https://docs.camunda.io/docs/components/concepts/user-task-listeners/) (8.8+), `zeebe:taskListener` with `eventType` `creating`, `assigning`, `updating`, `completing`, `canceling` |
+| Global listeners via `ProcessEnginePlugin` / parse listeners | [Global user task listeners](https://docs.camunda.io/docs/components/concepts/global-user-task-listeners/) (8.9+), configured cluster-wide via configuration files or environment variables — no BPMN change needed |
+
+Key conceptual differences:
+
+-   Camunda 8 listeners are **blocking jobs**: the lifecycle transition waits until the listener job completes. Failures create incidents just like service task jobs.
+-   Listener code runs in *your application* (job worker), not inside the engine — no access to engine internals or a `DelegateExecution`/`DelegateTask` object.
+-   User task listeners can **correct** task attributes (assignee, due date, candidate groups, priority) and **deny** lifecycle transitions — covering the typical C7 task listener use cases.
+-   Execution listener jobs cannot throw BPMN errors.
+-   Limitation: execution listeners on a multi-instance body run *after* the collection is evaluated — the C7 pattern of computing the collection variable in a listener on the multi-instance activity does not work. Compute the collection in a preceding service task instead, and flag such cases during assessment.
+
+
+#### Execution Listener &#8594; Execution Listener Job Worker (Spring)
+
+###### Camunda 7: Execution Listener
+
+A Spring bean implementing `ExecutionListener`, attached to an element in the BPMN XML:
+
+```java
+@Component
+public class LogStartListener implements ExecutionListener {
+
+    @Override
+    public void notify(DelegateExecution execution) throws Exception {
+        String orderId = (String) execution.getVariable("orderId");
+        execution.setVariable("auditedAt", Instant.now().toString());
+        // custom logic, e.g. audit log entry
+    }
+}
+```
+
+```xml
+<bpmn:serviceTask id="ship-order">
+  <bpmn:extensionElements>
+    <camunda:executionListener event="start" delegateExpression="${logStartListener}" />
+  </bpmn:extensionElements>
+</bpmn:serviceTask>
+```
+
+###### Camunda 8: Execution Listener (Job Worker)
+
+In the BPMN model, define an execution listener with a job `type` (the [Diagram Converter](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/) maps `camunda:executionListener` elements for you):
+
+```xml
+<bpmn:serviceTask id="ship-order">
+  <bpmn:extensionElements>
+    <zeebe:executionListeners>
+      <zeebe:executionListener eventType="start" type="log-start-listener" retries="3" />
+    </zeebe:executionListeners>
+  </bpmn:extensionElements>
+</bpmn:serviceTask>
+```
+
+Implement the listener as a regular `@JobWorker` — listener jobs use the same job infrastructure as service tasks:
+
+```java
+@Component
+public class LogStartListenerWorker {
+
+    @JobWorker(type = "log-start-listener")
+    public Map<String, Object> handle(@Variable String orderId) {
+        // custom logic, e.g. audit log entry
+        return Map.of("auditedAt", Instant.now().toString());
+    }
+}
+```
+
+-   `event="start"` maps to `eventType="start"`, `event="end"` maps to `eventType="end"`; the C7 `take` event on sequence flows has no equivalent — move the logic into a `start` listener of the target element or a dedicated service task
+-   the listener is blocking: the element is not entered/left until the job completes; failures create incidents
+-   returned variables are merged into the process instance, like for any job worker
+-   throwing a BPMN error from an execution listener job is **not** supported
+-   execution listeners can be defined on the process level, subprocesses, tasks, events, and gateways
+-   multiple listeners of the same `eventType` execute sequentially in model order
+-   listeners attached to a multi-instance *body* fire after the collection is evaluated — collection-preparing listeners must become a preceding service task
+
+---
+
+#### Task Listener &#8594; User Task Listener Job Worker (Spring)
+
+###### Camunda 7: Task Listener
+
+A Spring bean implementing `TaskListener`, attached to a user task:
+
+```java
+@Component
+public class AssignmentListener implements TaskListener {
+
+    @Override
+    public void notify(DelegateTask delegateTask) {
+        String teamManager = (String) delegateTask.getVariable("teamManager");
+        delegateTask.setAssignee(teamManager);
+        delegateTask.setPriority(80);
+    }
+}
+```
+
+```xml
+<bpmn:userTask id="approve-order">
+  <bpmn:extensionElements>
+    <camunda:taskListener event="create" delegateExpression="${assignmentListener}" />
+  </bpmn:extensionElements>
+</bpmn:userTask>
+```
+
+###### Camunda 8: User Task Listener (Job Worker)
+
+Available since **Camunda 8.8**. Define a task listener with a job `type` on the user task:
+
+```xml
+<bpmn:userTask id="approve-order">
+  <bpmn:extensionElements>
+    <zeebe:userTask />
+    <zeebe:taskListeners>
+      <zeebe:taskListener eventType="creating" type="assign-team-manager" retries="3" />
+    </zeebe:taskListeners>
+  </bpmn:extensionElements>
+</bpmn:userTask>
+```
+
+Implement it as a job worker that completes the listener job with a **job result**. Use `autoComplete = false` and complete the command with corrections:
+
+```java
+@Component
+public class AssignmentListenerWorker {
+
+    @JobWorker(type = "assign-team-manager", autoComplete = false)
+    public void handle(JobClient jobClient, ActivatedJob job) {
+        String teamManager = (String) job.getVariable("teamManager");
+
+        jobClient
+            .newCompleteCommand(job)
+            .withResult(r -> r.forUserTask()
+                .correctAssignee(teamManager)
+                .correctPriority(80))
+            .send()
+            .join();
+    }
+}
+```
+
+###### Denying a Lifecycle Transition
+
+Camunda 7 task listeners often veto transitions by throwing an exception. In Camunda 8, deny explicitly (supported for `assigning`, `updating`, and `completing` events):
+
+```java
+    @JobWorker(type = "validate-completion", autoComplete = false)
+    public void handle(JobClient jobClient, ActivatedJob job) {
+        boolean valid = validate(job.getVariablesAsMap());
+
+        jobClient
+            .newCompleteCommand(job)
+            .withResult(r -> r.forUserTask()
+                .deny(!valid)
+                .deniedReason("Policy violation"))
+            .send()
+            .join();
+    }
+```
+
+-   event mapping: `create` &#8594; `creating`, `assignment` &#8594; `assigning`, `update` &#8594; `updating`, `complete` &#8594; `completing`, `delete` &#8594; `canceling`; the C7 `timeout` listener event has no equivalent — model a boundary timer event instead
+-   correctable attributes: assignee, due date, follow-up date, candidate users, candidate groups, priority
+-   corrections and `deny(true)` cannot be combined in one job result
+-   the listener is blocking: the task transition waits until the listener job completes
+-   since **Camunda 8.9**, [global user task listeners](https://docs.camunda.io/docs/components/concepts/global-user-task-listeners/) can be configured cluster-wide (configuration file or environment variables) — the right target for C7 patterns that registered listeners globally via `ProcessEnginePlugin` or BPMN parse listeners, e.g. for SLAs, governance, or notifications across all processes
+-   in tests, use Camunda Process Test's `processTestContext.completeJobOfUserTaskListener(...)` to simulate listener behavior
 
 ---
 
