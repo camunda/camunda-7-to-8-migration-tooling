@@ -74,11 +74,24 @@ public class ExpressionTransformerTest {
             expressionToFeel("${not(empty donut || coffee)}")
                 .isMappedTo("=not(donut=null or coffee)"),
             expressionToFeel("${execution.getVariable(\"a\")}").isMappedTo("=a"),
-            expressionToFeel("${execution.getProcessInstanceId()}").hasUsedExecution(true),
-            expressionToFeel("${myexecutionContext.isSpecial()}").hasUsedExecution(false),
-            expressionToFeel("${var.getSomething()}").hasMethodInvocation(true),
-            expressionToFeel("${!dauerbuchungVoat21Ids.isEmpty()}").hasMethodInvocation(true),
+            expressionToFeel("${execution.getProcessInstanceId()}")
+                .isMappedTo("${execution.getProcessInstanceId()}")
+                .hasUsedExecution(true),
+            expressionToFeel("${execution.hasVariable('whatever')}")
+                .isMappedTo("${execution.hasVariable('whatever')}")
+                .hasUsedExecution(true),
+            expressionToFeel("${myexecutionContext.isSpecial()}")
+                .isMappedTo("${myexecutionContext.isSpecial()}")
+                .hasUsedExecution(false)
+                .hasMethodInvocation(true),
+            expressionToFeel("${var.getSomething()}")
+                .isMappedTo("${var.getSomething()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("${!dauerbuchungVoat21Ids.isEmpty()}")
+                .isMappedTo("${!dauerbuchungVoat21Ids.isEmpty()}")
+                .hasMethodInvocation(true),
             expressionToFeel("${!dauerbuchungVoat21Ids.contains(\"someText\")}")
+                .isMappedTo("${!dauerbuchungVoat21Ids.contains(\"someText\")}")
                 .hasMethodInvocation(true),
             expressionToFeel("${input > 5.5}").hasMethodInvocation(false),
             expressionToFeel("${input != ''}").isMappedTo("=input != \"\""),
