@@ -43,8 +43,7 @@ public class EscalationVisitor extends AbstractEventReferenceVisitor {
       context.addConversion(
           EscalationConvertible.class,
           c -> c.setEscalationCode(expressionTransformationResult.result()));
-      if (expressionTransformationResult != null
-          && expressionTransformationResult.result().startsWith("=")) {
+      if (isExpressionValue(expressionTransformationResult)) {
         context.addMessage(MessageFactory.escalationCodeNoExpression());
       }
     }
@@ -68,5 +67,11 @@ public class EscalationVisitor extends AbstractEventReferenceVisitor {
                   expressionTransformationResult.getNewExpression()));
       }
     }*/
+  }
+
+  private static boolean isExpressionValue(ExpressionTransformationResult result) {
+    return result.result().startsWith("=")
+        || result.hasMethodInvocation()
+        || result.hasExecutionOnly();
   }
 }

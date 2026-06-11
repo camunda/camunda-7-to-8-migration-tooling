@@ -56,8 +56,15 @@ public class ExpressionTransformer {
       return null;
     }
     String transform = INSTANCE.doTransform(juelExpression, false);
-    boolean hasMethodInvocation = INSTANCE.hasMethodInvocation(juelExpression);
-    boolean hasExecutionOnly = INSTANCE.hasExecutionOnly(juelExpression);
+    boolean hasMethodInvocation =
+        INSTANCE.hasMethodInvocation(juelExpression)
+            || (transform != null && INSTANCE.hasMethodInvocation(transform));
+    boolean hasExecutionOnly =
+        INSTANCE.hasExecutionOnly(juelExpression)
+            || (transform != null && INSTANCE.hasExecutionOnly(transform));
+    if (hasMethodInvocation || hasExecutionOnly) {
+      transform = juelExpression;
+    }
     return new ExpressionTransformationResult(
         context, juelExpression, transform, hasMethodInvocation, hasExecutionOnly);
   }
@@ -68,8 +75,15 @@ public class ExpressionTransformer {
       return null;
     }
     String transform = INSTANCE.doTransform(juelExpression, true);
-    boolean hasMethodInvocation = INSTANCE.hasMethodInvocation(juelExpression);
-    boolean hasExecutionOnly = INSTANCE.hasExecutionOnly(juelExpression);
+    boolean hasMethodInvocation =
+        INSTANCE.hasMethodInvocation(juelExpression)
+            || (transform != null && INSTANCE.hasMethodInvocation(transform));
+    boolean hasExecutionOnly =
+        INSTANCE.hasExecutionOnly(juelExpression)
+            || (transform != null && INSTANCE.hasExecutionOnly(transform));
+    if (hasMethodInvocation || hasExecutionOnly) {
+      transform = juelExpression;
+    }
     return new ExpressionTransformationResult(
         context, juelExpression, transform, hasMethodInvocation, hasExecutionOnly);
   }
