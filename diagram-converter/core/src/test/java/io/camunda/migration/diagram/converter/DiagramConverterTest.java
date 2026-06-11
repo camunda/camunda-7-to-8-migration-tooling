@@ -490,8 +490,8 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(simpleVarInput.getAttribute(ZEEBE, "source"))
-        .isEqualTo("=myVariable")
-        .as("Convertible expression should have = prefix");
+        .as("Convertible expression should have = prefix")
+        .isEqualTo("=myVariable");
 
     // Verify unconvertible expression with method invocation preserves JUEL wrapper without =
     // prefix
@@ -501,8 +501,8 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(methodResultInput.getAttribute(ZEEBE, "source"))
-        .isEqualTo("${order.getPriority()}")
-        .as("Unconvertible expression with method invocation should preserve JUEL wrapper");
+        .as("Unconvertible expression with method invocation should preserve JUEL wrapper")
+        .isEqualTo("${order.getPriority()}");
 
     // Verify chained method call after execution.getVariable preserves JUEL wrapper
     DomElement variableSizeInput =
@@ -511,9 +511,9 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(variableSizeInput.getAttribute(ZEEBE, "source"))
-        .isEqualTo("${execution.getVariable(\"a\").size()}")
         .as(
-            "Unconvertible expression with chained method invocation after execution.getVariable should preserve JUEL wrapper");
+            "Unconvertible expression with chained method invocation after execution.getVariable should preserve JUEL wrapper")
+        .isEqualTo("${execution.getVariable(\"a\").size()}");
 
     // Verify unconvertible expression with execution reference preserves JUEL wrapper without =
     // prefix
@@ -523,8 +523,8 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(processIdInput.getAttribute(ZEEBE, "source"))
-        .isEqualTo("${execution.getProcessInstanceId()}")
-        .as("Unconvertible expression with execution reference should preserve JUEL wrapper");
+        .as("Unconvertible expression with execution reference should preserve JUEL wrapper")
+        .isEqualTo("${execution.getProcessInstanceId()}");
 
     // Verify output parameter with method invocation also preserves JUEL wrapper
     DomElement priorityOutput =
@@ -533,8 +533,8 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(priorityOutput.getAttribute(ZEEBE, "source"))
-        .isEqualTo("${resultSet.getCount()}")
-        .as("Output parameter with method invocation should preserve JUEL wrapper");
+        .as("Output parameter with method invocation should preserve JUEL wrapper")
+        .isEqualTo("${resultSet.getCount()}");
   }
 
   @Test
