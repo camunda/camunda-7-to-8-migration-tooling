@@ -9,6 +9,7 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel.*;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
+import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -70,11 +71,26 @@ public class DecisionRequirementsMigrator extends HistoryEntityMigrator<Decision
     return null;
   }
 
-  protected Long migrateSyntheticDrd(DecisionDefinition c7DecisionDefinition) {
+  /**
+   * Migrates a synthetic DRD for a standalone C7 decision (one without a parent DRD) and returns
+   * both the C8 key and the {@code c7-legacy-<definitionsId>} id under which the synthetic DRD is
+   * stored. The id is the single source of truth for the foreign-key reference the decision row
+   * needs to point at, and is provided here so callers do not have to duplicate the prefix scheme.
+   */
+  protected SyntheticDrd migrateSyntheticDrd(DecisionDefinition c7DecisionDefinition) {
     var newDrd = newDrd(c7DecisionDefinition);
     MigrationResult result = migrateTransactionally(newDrd);
-    return result != null ? Long.parseLong(result.c8Key()) : null;
+    if (result == null) {
+      return null;
+    }
+    return new SyntheticDrd(Long.parseLong(result.c8Key()), prefixDefinitionId(newDrd.getKey()));
   }
+
+  /**
+   * Identity of a synthetic DRD created for a standalone C7 decision: the C8 key used as the FK
+   * value and the {@code c7-legacy-<definitionsId>} string id stored on the DRD row.
+   */
+  public record SyntheticDrd(Long key, String id) {}
 
   protected DecisionRequirementsDefinition newDrd(DecisionDefinition c7DecisionDefinition) {
     var newDrd = new DecisionRequirementsDefinitionEntity();
