@@ -504,6 +504,17 @@ public class DiagramConverterTest {
         .isEqualTo("${order.getPriority()}")
         .as("Unconvertible expression with method invocation should preserve JUEL wrapper");
 
+    // Verify chained method call after execution.getVariable preserves JUEL wrapper
+    DomElement variableSizeInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("variableSize"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(variableSizeInput.getAttribute(ZEEBE, "source"))
+        .isEqualTo("${execution.getVariable(\"a\").size()}")
+        .as(
+            "Unconvertible expression with chained method invocation after execution.getVariable should preserve JUEL wrapper");
+
     // Verify unconvertible expression with execution reference preserves JUEL wrapper without =
     // prefix
     DomElement processIdInput =

@@ -1244,6 +1244,21 @@ categories:
         expectedMessages: |
           <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
           <conversion:message severity="TASK">Job priority: Transformed expression: '${order.getPriority()}' -&gt; '${order.getPriority()}'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Job priority JUEL expression with execution.getVariable chained method invocation keeps wrapper
+        description: execution.getVariable itself can be transformed, but if a method call remains after replacement (e.g., .size()), the expression is still not FEEL-convertible and must stay JUEL-wrapped with a method-invocation TASK warning.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${execution.getVariable(&quot;a&quot;).size()}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="${execution.getVariable(&quot;a&quot;).size()}"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${execution.getVariable("a").size()}' -&gt; '${execution.getVariable("a").size()}'. Method invocation is not possible in FEEL.</conversion:message>
       - name: Job priority JUEL expression referencing execution surfaces the execution-not-available warning
         description: A JUEL expression that references the C7 'execution' object cannot run in C8. The transformer's hasExecutionOnly flag should fire and produce the standard "'execution' not available in FEEL" TASK message — same diagnostic peers emit for execution-bound expressions.
         properties:

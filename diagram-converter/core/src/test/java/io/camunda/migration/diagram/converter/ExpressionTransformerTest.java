@@ -78,6 +78,15 @@ public class ExpressionTransformerTest {
             expressionToFeel("${not(empty donut || coffee)}")
                 .isMappedTo("=not(donut=null or coffee)"),
             expressionToFeel("${execution.getVariable(\"a\")}").isMappedTo("=a"),
+            expressionToFeel("${execution.getVariable(\"a\").size()}")
+                .isMappedTo("${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("#{execution.getVariable(\"a\").size()}")
+                .isMappedTo("#{execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("size: ${execution.getVariable(\"a\").size()}")
+                .isMappedTo("size: ${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
             expressionToFeel("${execution.getProcessInstanceId()}")
                 .isMappedTo("${execution.getProcessInstanceId()}")
                 .hasUsedExecution(true),
@@ -133,6 +142,12 @@ public class ExpressionTransformerTest {
             expressionToFeelDmn("").isMappedTo(null),
             expressionToFeelDmn("${someVariable}").isMappedTo("someVariable"),
             expressionToFeelDmn("${execution.getVariable(\"a\")}").isMappedTo("a"),
+            expressionToFeelDmn("${execution.getVariable(\"a\").size()}")
+                .isMappedTo("${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeelDmn("#{execution.getVariable(\"a\").size()}")
+                .isMappedTo("#{execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
             expressionToFeelDmn("${execution.getProcessInstanceId()}")
                 .isMappedTo("${execution.getProcessInstanceId()}")
                 .hasUsedExecution(true),

@@ -21,8 +21,7 @@ public class ExpressionTransformationResultMessageFactory {
           transformationResult.juelExpression(),
           transformationResult.result(),
           link);
-
-    } else
+    }
     // check for method invocation
     if (transformationResult.hasMethodInvocation()) {
       return MessageFactory.expressionMethodNotPossible(

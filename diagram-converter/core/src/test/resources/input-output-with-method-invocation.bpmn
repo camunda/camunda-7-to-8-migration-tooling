@@ -21,6 +21,7 @@
         <camunda:inputOutput>
           <camunda:inputParameter name="simpleVar">${myVariable}</camunda:inputParameter>
           <camunda:inputParameter name="methodResult">${order.getPriority()}</camunda:inputParameter>
+          <camunda:inputParameter name="variableSize">${execution.getVariable("a").size()}</camunda:inputParameter>
           <camunda:inputParameter name="processId">${execution.getProcessInstanceId()}</camunda:inputParameter>
           <camunda:outputParameter name="priority">${resultSet.getCount()}</camunda:outputParameter>
         </camunda:inputOutput>
