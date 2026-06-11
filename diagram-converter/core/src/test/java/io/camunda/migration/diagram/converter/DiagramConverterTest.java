@@ -472,6 +472,61 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void testInputOutputWithMethodInvocationShouldPreserveFallbackJuel() {
+    BpmnModelInstance modelInstance = loadAndConvert("input-output-with-method-invocation.bpmn");
+    DomElement serviceTask =
+        modelInstance.getDocument().getElementById("ServiceTaskWithMethodInvocation");
+    assertThat(serviceTask).isNotNull();
+    DomElement extensionElements =
+        serviceTask.getChildElementsByNameNs(BPMN, "extensionElements").get(0);
+    assertThat(extensionElements).isNotNull();
+    DomElement ioMapping = extensionElements.getChildElementsByNameNs(ZEEBE, "ioMapping").get(0);
+    assertThat(ioMapping).isNotNull();
+
+    // Verify convertible expression gets = prefix
+    DomElement simpleVarInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("simpleVar"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(simpleVarInput.getAttribute(ZEEBE, "source"))
+        .isEqualTo("=myVariable")
+        .as("Convertible expression should have = prefix");
+
+    // Verify unconvertible expression with method invocation preserves JUEL wrapper without =
+    // prefix
+    DomElement methodResultInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("methodResult"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(methodResultInput.getAttribute(ZEEBE, "source"))
+        .isEqualTo("${order.getPriority()}")
+        .as("Unconvertible expression with method invocation should preserve JUEL wrapper");
+
+    // Verify unconvertible expression with execution reference preserves JUEL wrapper without =
+    // prefix
+    DomElement processIdInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("processId"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(processIdInput.getAttribute(ZEEBE, "source"))
+        .isEqualTo("${execution.getProcessInstanceId()}")
+        .as("Unconvertible expression with execution reference should preserve JUEL wrapper");
+
+    // Verify output parameter with method invocation also preserves JUEL wrapper
+    DomElement priorityOutput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "output").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("priority"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(priorityOutput.getAttribute(ZEEBE, "source"))
+        .isEqualTo("${resultSet.getCount()}")
+        .as("Output parameter with method invocation should preserve JUEL wrapper");
+  }
+
+  @Test
   void testDefaultResultVariable() {
     BpmnModelInstance modelInstance = loadAndConvert("default-result-variable.bpmn");
     DomElement businessRuleTask = modelInstance.getDocument().getElementById("businessRuleTask");
