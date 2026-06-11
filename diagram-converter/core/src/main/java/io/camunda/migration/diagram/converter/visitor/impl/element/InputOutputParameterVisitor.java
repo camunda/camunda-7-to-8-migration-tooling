@@ -47,7 +47,7 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
             direction.getName() + " parameter '" + name + "'", expression);
     // Zeebe I/O mapping source must be a FEEL expression (prefixed with '=')
     String source = transformationResult.result();
-    if (source != null && !source.startsWith("=")) {
+    if (shouldPrefixFeelMarker(source, transformationResult)) {
       source = "=" + source;
     }
     String finalSource = source;
@@ -58,6 +58,15 @@ public abstract class InputOutputParameterVisitor extends AbstractCamundaElement
     return ExpressionTransformationResultMessageFactory.getMessage(
         transformationResult,
         "https://docs.camunda.io/docs/components/concepts/variables/#inputoutput-variable-mappings");
+  }
+
+  private boolean shouldPrefixFeelMarker(
+      String source, ExpressionTransformationResult transformationResult) {
+    if (source == null || source.startsWith("=")) {
+      return false;
+    }
+    // Keep original JUEL wrapper intact for unconvertible expressions to support manual follow-up.
+    return !(transformationResult.hasMethodInvocation() || transformationResult.hasExecutionOnly());
   }
 
   private boolean isScript(DomElement element) {
