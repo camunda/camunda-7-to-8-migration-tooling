@@ -68,7 +68,7 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 </dependency>
 ```
 
-Also, configure your the connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
+Also, configure your connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
 **Spring Boot version**: `camunda-spring-boot-starter` requires Spring Boot 4.0.x as of Camunda 8.9. If you are not yet on Spring Boot 4.x, use `camunda-spring-boot-3-starter` instead:
 
@@ -508,7 +508,7 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ###### ProcessEngine (Camunda 7)
 
 ```java
-    public DmnDecisionTableResult evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
+    public DmnDecisionTableResult evaluateDecisionByDMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
         return engine.getDecisionService().evaluateDecisionTableByKey(decisionDefinitionKey, variableMap);
     }
 ```
@@ -524,7 +524,7 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ###### CamundaClient (Camunda 8)
 
 ```java
-    public EvaluateDecisionResponse evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionId, Map<String, Object> variableMap) {
+    public EvaluateDecisionResponse evaluateDecisionByDMNModelIdentifier(String decisionDefinitionId, Map<String, Object> variableMap) {
         return camundaClient.newEvaluateDecisionCommand()
                 .decisionId(decisionDefinitionId)
                 .variables(variableMap)
@@ -1177,7 +1177,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   `businessId` is immutable after creation and propagates to child instances created through call activities
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
--   _.join()_ can be specified with a timeout to wait for the process instance to complete
+-   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ###### By Key Assigned on Deployment (specific version)
 
