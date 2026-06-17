@@ -42,6 +42,7 @@ Ask the user to choose one of:
 **Question 4 — Build tool** (include only when detection is ambiguous; relevant only if the user later chooses approach A)
 
 - If exactly one build tool was detected, do not ask — state the detection in the question text of Question 3 (e.g. "Detected Maven."). Only ask if both or neither were found.
+- When you do ask it, use explicit question text such as: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?"
 
 ---
 
@@ -276,11 +277,11 @@ Write the full report to `MIGRATION_REPORT.md`. Then stop — make no code chang
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
 6. **Run tests**: `mvn test` or `./gradlew test` — fix failures
 7. **Check common pitfalls**:
-   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`/`processDefinitionId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
-   - Process instance IDs changed from `String` to `Long` — check all ID handling
-   - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
-   - `HistoryService` references — map to Orchestration Cluster search endpoints (eventually consistent — no read-after-write inside workers); historic *data* needs the History Data Migrator (8.9, RDBMS)
-   - Batch operations — available since 8.8 via the Orchestration Cluster API (cancel/resolve/migrate/modify; delete since 8.9); only *custom* batch handlers need manual design
+  - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
+  - Process instance IDs changed from `String` to `Long` — check all ID handling
+  - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
+  - `HistoryService` references — map to Orchestration Cluster search endpoints (eventually consistent — no read-after-write inside workers); historic *data* needs the History Data Migrator (8.9, RDBMS)
+  - Batch operations — available since 8.8 via the Orchestration Cluster API (cancel/resolve/migrate/modify; delete since 8.9); only *custom* batch handlers need manual design
 
 Present a summary:
 ```
@@ -299,7 +300,7 @@ Record the summary in `MIGRATION_REPORT.md`. For any remaining issues, ask the u
 
 ## Behavior rules
 
-- **Always load the pattern catalog before touching any code.** Never guess API mappings. For API details not covered by the catalog, prefer the official Camunda docs (the Camunda Docs MCP server, if available, or docs.camunda.io) over training knowledge.
+- **Always load the pattern catalog before touching any code.** Never guess API mappings. For API details not covered by the catalog, prefer the official Camunda docs (`docs.camunda.io`) via `WebFetch` over training knowledge.
 - **Respect the target version.** Do not recommend 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, and do not send 8.9 targets down 8.8 workarounds.
 - **One phase at a time; commits are opt-in.** Confirm each phase before starting the next. Never start on a dirty working tree. Ask before each commit and proceed only when the user explicitly allows it.
 - **Keep `MIGRATION_REPORT.md` current.** Assessment, decisions, phase status, validation results.
