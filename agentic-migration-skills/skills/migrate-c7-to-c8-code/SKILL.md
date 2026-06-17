@@ -200,13 +200,18 @@ Detect the Spring Boot version from the existing `pom.xml` or `build.gradle`:
 - Spring Boot 4.x → use `io.camunda:camunda-spring-boot-starter`
 
 Add the Camunda public repository if not already present (some Camunda artifacts may not be on Maven Central):
-```xml
-<repository>
-  <id>camunda-public</id>
-  <name>Camunda Public Repository</name>
-  <url>https://artifacts.camunda.com/artifactory/public/</url>
-</repository>
-```
+
+- **Maven (`pom.xml`)**:
+    <repository>
+      <id>camunda-public</id>
+      <name>Camunda Public Repository</name>
+      <url>https://artifacts.camunda.com/artifactory/public/</url>
+    </repository>
+
+- **Gradle (`build.gradle` / `build.gradle.kts`)**:
+    repositories {
+      maven { url "https://artifacts.camunda.com/artifactory/public/" }
+    }
 
 Then:
 - Remove all `org.camunda.bpm.*` dependencies and `camunda-bom` from `pom.xml` / `build.gradle`
