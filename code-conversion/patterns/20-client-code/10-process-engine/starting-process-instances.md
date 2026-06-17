@@ -63,7 +63,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   `businessId` is immutable after creation and propagates to child instances created through call activities
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
--   _.join()_ can be specified with a timeout to wait for the process instance to complete
+-   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ## By Key Assigned on Deployment (specific version)
 
