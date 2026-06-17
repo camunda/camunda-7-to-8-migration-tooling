@@ -11,9 +11,9 @@ You are a migration expert helping the user migrate a Java codebase from Camunda
 
 ## Step 1: Gather inputs
 
-Call `AskUserQuestion` to confirm the project root first (use the provided argument if present, otherwise the current working directory as a proposed default).
-After you have the confirmed project root, detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle).
-Use a single `AskUserQuestion` call for Questions 1–3 below; only ask the build-tool question as a follow-up if needed.
+Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle).
+
+Then call `AskUserQuestion` **once** with Questions 1-3 below (combine them in a single call — do not ask one at a time):
 
 **Question 1 — Code location**
 
@@ -39,10 +39,16 @@ Ask the user to choose one of:
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes. Use this first if you want to understand the scope before committing.
 
-**Question 4 — Build tool** (include only when detection is ambiguous; relevant only if the user later chooses approach A)
+**Question 4 — Build tool**
 
-- If exactly one build tool was detected, do not ask — state the detection in the question text of Question 3 (e.g. "Detected Maven."). Only ask if both or neither were found.
-- When you do ask it, use explicit question text such as: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?"
+Ask this only as a follow-up `AskUserQuestion` call after the user answers Question 3, and only if both conditions are true:
+
+- The user chose **A. OpenRewrite + AI**.
+- Build-tool detection was ambiguous (both Maven and Gradle were found, or neither was found).
+
+If exactly one build tool was detected, do not ask Question 4; state the detection in the question text of Question 3 instead (for example, "Detected Maven.").
+
+When you do ask Question 4, use explicit question text such as: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" Do not proceed until you have the answer.
 
 ---
 
