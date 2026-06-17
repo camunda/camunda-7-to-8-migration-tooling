@@ -170,14 +170,14 @@ In Camunda 7, batch operations are created via `RuntimeService` and `HistoryServ
 
 Since **Camunda 8.8**, batch operations are a first-class concept of the Orchestration Cluster: they are executed by Zeebe itself, addressed by filter criteria, and can be monitored, suspended, resumed, and cancelled. Available types:
 
-| Operation                  | Camunda 7                                            | Camunda 8 (Orchestration Cluster API)                       |
-| -------------------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
-| Cancel process instances   | `runtimeService.deleteProcessInstancesAsync(...)`    | `POST /process-instances/cancellation` (8.8+)               |
-| Resolve incidents / retry  | `managementService.setJobRetriesAsync(...)`          | `POST /process-instances/incident-resolution` (8.8+)        |
-| Migrate process instances  | `runtimeService.newMigration(plan).executeAsync()`   | `POST /process-instances/migration` (8.8+)                  |
-| Modify process instances   | `runtimeService.createModification(...).executeAsync()` | `POST /process-instances/modification` (8.8+)            |
-| Delete historic instances  | `historyService.deleteHistoricProcessInstancesAsync(...)` | `POST /process-instances/deletion` (8.9+)              |
-| Delete decision instances  | `historyService.deleteHistoricDecisionInstancesAsync(...)` | `POST /decision-instances/deletion` (8.9+)            |
+| Operation                  | Camunda 7                                            | Camunda 8 (Orchestration Cluster API)                           |
+| -------------------------- | ---------------------------------------------------- | --------------------------------------------------------------- |
+| Cancel process instances   | `runtimeService.deleteProcessInstancesAsync(...)`    | `POST /v2/process-instances/cancellation` (8.8+)                 |
+| Resolve incidents / retry  | `managementService.setJobRetriesAsync(...)`          | `POST /v2/process-instances/incident-resolution` (8.8+)          |
+| Migrate process instances  | `runtimeService.newMigration(plan).executeAsync()`   | `POST /v2/process-instances/migration` (8.8+)                    |
+| Modify process instances   | `runtimeService.createModification(...).executeAsync()` | `POST /v2/process-instances/modification` (8.8+)              |
+| Delete historic instances  | `historyService.deleteHistoricProcessInstancesAsync(...)` | `POST /v2/process-instances/deletion` (8.9+)                  |
+| Delete decision instances  | `historyService.deleteHistoricDecisionInstancesAsync(...)` | `POST /v2/decision-instances/deletion` (8.9+)                |
 
 ###### Cancel Process Instances in Batch
 
