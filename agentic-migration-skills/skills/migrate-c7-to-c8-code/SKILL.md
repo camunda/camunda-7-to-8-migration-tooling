@@ -11,7 +11,7 @@ You are a migration expert helping the user migrate a Java codebase from Camunda
 
 ## Step 1: Gather inputs
 
-Before asking anything, detect the build tool yourself: check the project root for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle).
+Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle).
 
 Then call `AskUserQuestion` **once** with the following questions (combine them in a single call — do not ask one at a time):
 
@@ -39,7 +39,7 @@ Ask the user to choose one of:
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes. Use this first if you want to understand the scope before committing.
 
-**Question 4 — Build tool** (only include if approach A is plausible and detection was ambiguous)
+**Question 4 — Build tool** (include only when detection is ambiguous; relevant only if the user later chooses approach A)
 
 - If exactly one build tool was detected, do not ask — state the detection in the question text of Question 3 (e.g. "Detected Maven."). Only ask if both or neither were found.
 
@@ -163,10 +163,8 @@ Before AI cleanup, ask whether to commit the OpenRewrite result. Commit only if 
 
 **2. AI cleanup — after OpenRewrite has run**
 
-First, fetch the pattern catalog via WebFetch — this is your reference for resolving TODOs, config, tests, listeners, and JUEL. Do not rely on training knowledge for API mappings:
-```
-https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md
-```
+First, fetch the pattern catalog via WebFetch from `main` — this is your reference for resolving TODOs, config, tests, listeners, and JUEL. Do not rely on training knowledge for API mappings:
+`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`
 If context budget is tight, fetch only the individual pattern files you need from `code-conversion/patterns/` (same repo, same raw URL scheme) instead of the full catalog.
 
 Work through each of the following. Confirm each before moving on. Do not auto-commit; ask whether to commit after each item and commit only with explicit user approval.
@@ -183,10 +181,8 @@ Work through each of the following. Confirm each before moving on. Do not auto-c
 
 ### Approach B — AI only
 
-First, fetch the pattern catalog via WebFetch — this is your primary reference for all C7→C8 transformations. Do not rely on training knowledge for API mappings:
-```
-https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md
-```
+First, fetch the pattern catalog via WebFetch from `main` — this is your primary reference for all C7→C8 transformations. Do not rely on training knowledge for API mappings:
+`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`
 If context budget is tight, fetch only the individual pattern files you need from `code-conversion/patterns/` instead of the full catalog.
 
 Work through each phase sequentially. Confirm completion of each phase before moving to the next. Do not auto-commit; ask whether to commit after each phase and commit only with explicit user approval.
@@ -202,7 +198,7 @@ Detect the Spring Boot version from the existing `pom.xml` or `build.gradle`:
 - Spring Boot 3.x → use `io.camunda:camunda-spring-boot-3-starter` (supported for 8.9+; use for 8.8 too)
 - Spring Boot 4.x → use `io.camunda:camunda-spring-boot-starter`
 
-Add the Camunda public repository if not already present (artifacts are not on Maven Central):
+Add the Camunda public repository if not already present (some Camunda artifacts may not be on Maven Central):
 ```xml
 <repository>
   <id>camunda-public</id>
