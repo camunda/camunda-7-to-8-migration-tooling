@@ -94,9 +94,9 @@ The code conversion examples cover both Camunda 7 approaches to handle process v
 
 See the detailed patterns:
 
-* [Process variables in client code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/handle-process-variables.md)
-* [Process variables in glue code (Java Delegate)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/10-java-spring-delegate/handling-process-variables.md)
-* [Process variables in glue code (External Task Worker)](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
+* [Process variables in client code](../20-client-code/10-process-engine/handle-process-variables.md)
+* [Process variables in glue code (Java Delegate)](../30-glue-code/10-java-spring-delegate/handling-process-variables.md)
+* [Process variables in glue code (External Task Worker)](../30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
 
 ---
 
@@ -1176,7 +1176,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
 -   `businessId` is immutable after creation and propagates to child instances created through call activities
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ###### By Key Assigned on Deployment (specific version)
@@ -1226,9 +1226,8 @@ The following patterns focus on various methods to start process instances in Ca
                 .join(); // add reactive response and error handling instead of join()
     }
 ```
-
 -   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ###### By Message (And ProcessDefinitionId)
@@ -1266,7 +1265,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
 -   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
--   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
+-   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   it is also possible to publish a message with a time to live
 
 ---
@@ -2403,7 +2402,7 @@ The test cases starts a process instance and either wait for a user task or a ti
 
 ###### Camunda 7 
 
-[View full source code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/examples/process-solution-camunda-7/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
+[View full source code](../../../examples/process-solution-camunda-7/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
 
 ```java
 import org.junit.jupiter.api.Test;
@@ -2462,7 +2461,7 @@ public class ApplicationTest {
 
 Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
 
- [View full source code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
+ [View full source code](../../../examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
 
 ```java
 import org.junit.jupiter.api.Test;
