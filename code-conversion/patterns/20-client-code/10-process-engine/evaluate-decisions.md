@@ -7,7 +7,7 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ### ProcessEngine (Camunda 7)
 
 ```java
-    public DmnDecisionTableResult evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
+    public DmnDecisionTableResult evaluateDecisionByDMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
         return engine.getDecisionService().evaluateDecisionTableByKey(decisionDefinitionKey, variableMap);
     }
 ```
