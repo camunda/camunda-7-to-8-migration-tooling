@@ -217,7 +217,7 @@ Then:
 - Remove all `org.camunda.bpm.*` dependencies and `camunda-bom` from `pom.xml` / `build.gradle`
 - Remove embedded-engine dependencies (H2, JDBC starter) — no longer needed without the embedded engine
 - Add the resolved starter at the resolved version; add `io.camunda:camunda-process-test-spring` at the same version in test scope if tests exist
-- Also add `org.springframework.boot:spring-boot-starter` if not already transitively available (needed for `jakarta.annotation` and common Spring Boot auto-config)
+- Ensure Spring Boot dependency management is correctly configured (e.g., `spring-boot-starter-parent` or the Spring Boot BOM); avoid adding `org.springframework.boot:spring-boot-starter` solely to “get jakarta.annotation”.
 - Replace `@EnableProcessApplication` with `@Deployment`
 - Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents (see the [properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/))
 - Reference: "Maven dependency and configuration" section in patterns
