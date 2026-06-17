@@ -192,10 +192,32 @@ If context budget is tight, fetch only the individual pattern files you need fro
 Work through each phase sequentially. Confirm completion of each phase before moving to the next. Do not auto-commit; ask whether to commit after each phase and commit only with explicit user approval.
 
 **Phase 1: Dependencies and configuration**
-- Remove all `org.camunda.bpm.*` dependencies from `pom.xml` / `build.gradle`
-- Add `io.camunda:camunda-spring-boot-starter` and `camunda-process-test-spring` (pick the release matching the target minor version)
+
+Before modifying the build file, resolve the latest released Camunda version via WebFetch:
+- `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-spring-boot-starter&rows=1&wt=json` → read `response.docs[0].latestVersion` as `CAMUNDA_VERSION`
+
+If the user's target is 8.8, use the latest 8.8.x patch (`8.8.x`); if 8.9+, `CAMUNDA_VERSION` is fine as-is.
+
+Detect the Spring Boot version from the existing `pom.xml` or `build.gradle`:
+- Spring Boot 3.x → use `io.camunda:camunda-spring-boot-3-starter` (supported for 8.9+; use for 8.8 too)
+- Spring Boot 4.x → use `io.camunda:camunda-spring-boot-starter`
+
+Add the Camunda public repository if not already present (artifacts are not on Maven Central):
+```xml
+<repository>
+  <id>camunda-public</id>
+  <name>Camunda Public Repository</name>
+  <url>https://artifacts.camunda.com/artifactory/public/</url>
+</repository>
+```
+
+Then:
+- Remove all `org.camunda.bpm.*` dependencies and `camunda-bom` from `pom.xml` / `build.gradle`
+- Remove embedded-engine dependencies (H2, JDBC starter) — no longer needed without the embedded engine
+- Add the resolved starter at the resolved version; add `io.camunda:camunda-process-test-spring` at the same version in test scope if tests exist
+- Also add `org.springframework.boot:spring-boot-starter` if not already transitively available (needed for `jakarta.annotation` and common Spring Boot auto-config)
 - Replace `@EnableProcessApplication` with `@Deployment`
-- Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents
+- Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents (see the [properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/))
 - Reference: "Maven dependency and configuration" section in patterns
 
 **Phase 2: Client code**
