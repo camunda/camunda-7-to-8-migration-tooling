@@ -23,7 +23,7 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ### CamundaClient (Camunda 8)
 
 ```java
-    public EvaluateDecisionResponse evaluateDecisionByBPMNModelIdentifier(String decisionDefinitionId, Map<String, Object> variableMap) {
+    public EvaluateDecisionResponse evaluateDecisionByDMNModelIdentifier(String decisionDefinitionId, Map<String, Object> variableMap) {
         return camundaClient.newEvaluateDecisionCommand()
                 .decisionId(decisionDefinitionId)
                 .variables(variableMap)
