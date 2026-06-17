@@ -35,12 +35,16 @@ The ProcessEngine offers various services (think RuntimeService) to interact wit
 Patterns:
 
 - [Class-level Changes](20-client-code/10-process-engine/adjusting-the-java-class.md)
+- [Batch Operations](20-client-code/10-process-engine/batch-operations.md)
 - [Broadcast Signals](20-client-code/10-process-engine/broadcast-signals.md)
+- [Business Key &#8594; Business ID / Tags](20-client-code/10-process-engine/business-key-and-tags.md)
 - [Cancel Process Instance](20-client-code/10-process-engine/cancel-process-instance.md)
 - [Correlate Messages](20-client-code/10-process-engine/correlate-messages.md)
+- [Evaluate Decisions (DMN)](20-client-code/10-process-engine/evaluate-decisions.md)
 - [Handle Variables](20-client-code/10-process-engine/handle-process-variables.md)
 - [Handle Resources](20-client-code/10-process-engine/handle-resources.md)
 - [Handle User Tasks](20-client-code/10-process-engine/handle-user-tasks.md)
+- [Query History](20-client-code/10-process-engine/query-history.md)
 - [Raise Incidents](20-client-code/10-process-engine/raise-incidents.md)
 - [Search Process Definitions](20-client-code/10-process-engine/search-process-definitions.md)
 - [Starting Process Instances](20-client-code/10-process-engine/starting-process-instances.md)
@@ -78,6 +82,15 @@ Patterns:
 - [Handling a Failure](30-glue-code/20-java-spring-external-task-worker/handling-a-failure.md)
 - [Handling an Incident](30-glue-code/20-java-spring-external-task-worker/handling-an-incident.md)
 - [Handling Process Variables](30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
+
+### Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners
+
+In Camunda 7, *execution listeners* (`org.camunda.bpm.engine.delegate.ExecutionListener`) and *task listeners* (`org.camunda.bpm.engine.delegate.TaskListener`) run Java code synchronously inside the engine when an element or user task reaches a lifecycle event. They are common for assignment logic, auditing, notifications, and variable preparation.
+
+Patterns:
+
+- [Execution Listener &#8594; Execution Listener Job Worker (Spring)](30-glue-code/30-java-spring-listeners/execution-listener.md)
+- [Task Listener &#8594; User Task Listener Job Worker (Spring)](30-glue-code/30-java-spring-listeners/task-listener.md)
 
 ## Test Code
 
