@@ -1229,7 +1229,7 @@ The following patterns focus on various methods to start process instances in Ca
 
 -   C7 `businessKey` maps to C8 `businessId` (available since Camunda 8.9) — set via `.businessId()` on the create instance command
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md)
--   _.join()_ can be specified with a timeout to wait for the process instance to complete
+-   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
 
 ###### By Message (And ProcessDefinitionId)
 
