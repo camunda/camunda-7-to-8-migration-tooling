@@ -10,7 +10,7 @@ As part of the code migration, remove all Camunda 7 dependencies. Import the **C
 </dependency>
 ```
 
-Also, configure your the connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
+Also, configure your connection to the Camunda 8 cluster in the `application.properties` or `application.yaml`.
 
 **Spring Boot version**: `camunda-spring-boot-starter` requires Spring Boot 4.0.x as of Camunda 8.9. If you are not yet on Spring Boot 4.x, use `camunda-spring-boot-3-starter` instead:
 
