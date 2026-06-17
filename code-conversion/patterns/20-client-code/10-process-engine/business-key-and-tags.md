@@ -70,15 +70,13 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
 If the identifier is only needed for routing, correlation, or filtering — not for uniqueness — tags are sufficient and available from 8.8:
 
 ```java
-    public ProcessInstanceEvent startProcessWithTag(String processDefinitionId, String orderId, Map<String, Object> variableMap) {
-        return camundaClient.newCreateInstanceCommand()
-                .bpmnProcessId(processDefinitionId)
-                .latestVersion()
-                .tags("order:" + orderId)
-                .variables(variableMap)
-                .send()
-                .join();
-    }
+camundaClient.newCreateInstanceCommand()
+    .bpmnProcessId(processDefinitionId)
+    .latestVersion()
+    .tags("order:" + orderId)
+    .variables(variableMap)
+    .send()
+    .join();
 ```
 
 -   tags are immutable after creation, maximum of 10 unique tags per process instance

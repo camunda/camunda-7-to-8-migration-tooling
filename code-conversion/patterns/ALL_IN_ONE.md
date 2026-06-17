@@ -39,9 +39,8 @@ Patterns:
     - [Handling a Failure](#handling-a-failure)
     - [Handling an Incident](#handling-an-incident)
     - [Handling Process Variables](#handling-process-variables)
-  - [Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners](#listeners-execution-listener-task-listener-8594-camunda-8-listeners)
-    - [Execution Listener &#8594; Execution Listener Job Worker (Spring)](#execution-listener-8594-execution-listener-job-worker-spring)
-    - [Task Listener &#8594; User Task Listener Job Worker (Spring)](#task-listener-8594-user-task-listener-job-worker-spring)
+  - [Glue Code — Listeners](#glue-code-listeners)
+    - [Listeners (Execution Listener / Task Listener) → Camunda 8 Listeners](#listeners-execution-listener-task-listener-camunda-8-listeners)
 - [Test Code](#test-code)
   - [Camunda Platform Assert &#8594; Camunda Process Test (CPT)](#camunda-platform-assert-8594-camunda-process-test-cpt)
     - [Complete Test Case](#complete-test-case)
@@ -355,15 +354,13 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
 If the identifier is only needed for routing, correlation, or filtering — not for uniqueness — tags are sufficient and available from 8.8:
 
 ```java
-    public ProcessInstanceEvent startProcessWithTag(String processDefinitionId, String orderId, Map<String, Object> variableMap) {
-        return camundaClient.newCreateInstanceCommand()
-                .bpmnProcessId(processDefinitionId)
-                .latestVersion()
-                .tags("order:" + orderId)
-                .variables(variableMap)
-                .send()
-                .join();
-    }
+camundaClient.newCreateInstanceCommand()
+    .bpmnProcessId(processDefinitionId)
+    .latestVersion()
+    .tags("order:" + orderId)
+    .variables(variableMap)
+    .send()
+    .join();
 ```
 
 -   tags are immutable after creation, maximum of 10 unique tags per process instance
@@ -508,18 +505,12 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ###### ProcessEngine (Camunda 7)
 
 ```java
-    public DmnDecisionTableResult evaluateDecisionByDMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
+    public DmnDecisionTableResult evaluateDecision(String decisionDefinitionKey, VariableMap variableMap) {
         return engine.getDecisionService().evaluateDecisionTableByKey(decisionDefinitionKey, variableMap);
     }
 ```
 
-```java
-    public DmnDecisionResult evaluateDecision(String decisionDefinitionKey, VariableMap variableMap) {
-        return engine.getDecisionService().evaluateDecisionByKey(decisionDefinitionKey)
-                .variables(variableMap)
-                .evaluate();
-    }
-```
+-   the fluent variant (`evaluateDecisionByKey().variables(...).evaluate()`) returns a `DmnDecisionResult` rather than `DmnDecisionTableResult`, but both are evaluated the same way in C8
 
 ###### CamundaClient (Camunda 8)
 
@@ -2193,7 +2184,10 @@ Check the [README](./README.md) for more details on class-level changes.
 
 ---
 
-### Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners
+### Glue Code — Listeners
+
+
+#### Listeners (Execution Listener / Task Listener) → Camunda 8 Listeners
 
 In Camunda 7, *execution listeners* (`org.camunda.bpm.engine.delegate.ExecutionListener`) and *task listeners* (`org.camunda.bpm.engine.delegate.TaskListener`) run Java code synchronously inside the engine when an element or user task reaches a lifecycle event. They are common for assignment logic, auditing, notifications, and variable preparation.
 
@@ -2213,8 +2207,7 @@ Key conceptual differences:
 -   Execution listener jobs cannot throw BPMN errors.
 -   Limitation: execution listeners on a multi-instance body run *after* the collection is evaluated — the C7 pattern of computing the collection variable in a listener on the multi-instance activity does not work. Compute the collection in a preceding service task instead, and flag such cases during assessment.
 
-
-#### Execution Listener &#8594; Execution Listener Job Worker (Spring)
+###### Execution Listener → Execution Listener Job Worker (Spring)
 
 ###### Camunda 7: Execution Listener
 
@@ -2277,9 +2270,7 @@ public class LogStartListenerWorker {
 -   multiple listeners of the same `eventType` execute sequentially in model order
 -   listeners attached to a multi-instance *body* fire after the collection is evaluated — collection-preparing listeners must become a preceding service task
 
----
-
-#### Task Listener &#8594; User Task Listener Job Worker (Spring)
+###### Task Listener → User Task Listener Job Worker (Spring)
 
 ###### Camunda 7: Task Listener
 
@@ -2361,7 +2352,7 @@ Camunda 7 task listeners often veto transitions by throwing an exception. In Cam
     }
 ```
 
--   event mapping: `create` &#8594; `creating`, `assignment` &#8594; `assigning`, `update` &#8594; `updating`, `complete` &#8594; `completing`, `delete` &#8594; `canceling`; the C7 `timeout` listener event has no equivalent — model a boundary timer event instead
+-   event mapping: `create` → `creating`, `assignment` → `assigning`, `update` → `updating`, `complete` → `completing`, `delete` → `canceling`; the C7 `timeout` listener event has no equivalent — model a boundary timer event instead
 -   correctable attributes: assignee, due date, follow-up date, candidate users, candidate groups, priority
 -   corrections and `deny(true)` cannot be combined in one job result
 -   the listener is blocking: the task transition waits until the listener job completes

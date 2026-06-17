@@ -83,14 +83,11 @@ Patterns:
 - [Handling an Incident](30-glue-code/20-java-spring-external-task-worker/handling-an-incident.md)
 - [Handling Process Variables](30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md)
 
-### Listeners (Execution Listener / Task Listener) &#8594; Camunda 8 Listeners
-
-In Camunda 7, *execution listeners* (`org.camunda.bpm.engine.delegate.ExecutionListener`) and *task listeners* (`org.camunda.bpm.engine.delegate.TaskListener`) run Java code synchronously inside the engine when an element or user task reaches a lifecycle event. They are common for assignment logic, auditing, notifications, and variable preparation.
+### Glue Code — Listeners
 
 Patterns:
 
-- [Execution Listener &#8594; Execution Listener Job Worker (Spring)](30-glue-code/30-java-spring-listeners/execution-listener.md)
-- [Task Listener &#8594; User Task Listener Job Worker (Spring)](30-glue-code/30-java-spring-listeners/task-listener.md)
+- [Listeners (Execution Listener / Task Listener) → Camunda 8 Listeners](30-glue-code/30-java-spring-listeners/listeners.md)
 
 ## Test Code
 

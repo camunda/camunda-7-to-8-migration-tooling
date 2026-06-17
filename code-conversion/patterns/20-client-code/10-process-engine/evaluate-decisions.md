@@ -7,18 +7,12 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 ### ProcessEngine (Camunda 7)
 
 ```java
-    public DmnDecisionTableResult evaluateDecisionByDMNModelIdentifier(String decisionDefinitionKey, VariableMap variableMap) {
+    public DmnDecisionTableResult evaluateDecision(String decisionDefinitionKey, VariableMap variableMap) {
         return engine.getDecisionService().evaluateDecisionTableByKey(decisionDefinitionKey, variableMap);
     }
 ```
 
-```java
-    public DmnDecisionResult evaluateDecision(String decisionDefinitionKey, VariableMap variableMap) {
-        return engine.getDecisionService().evaluateDecisionByKey(decisionDefinitionKey)
-                .variables(variableMap)
-                .evaluate();
-    }
-```
+-   the fluent variant (`evaluateDecisionByKey().variables(...).evaluate()`) returns a `DmnDecisionResult` rather than `DmnDecisionTableResult`, but both are evaluated the same way in C8
 
 ### CamundaClient (Camunda 8)
 
