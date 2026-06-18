@@ -89,7 +89,8 @@ public class ExpressionTransformerTest {
                 .hasMethodInvocation(true),
             expressionToFeel("${execution.getProcessInstanceId()}")
                 .isMappedTo("${execution.getProcessInstanceId()}")
-                .hasUsedExecution(true),
+                .hasUsedExecution(true)
+                .hasMethodInvocation(true),
             expressionToFeel("${execution.hasVariable('whatever')}")
                 .isMappedTo("${execution.hasVariable('whatever')}")
                 .hasUsedExecution(true),

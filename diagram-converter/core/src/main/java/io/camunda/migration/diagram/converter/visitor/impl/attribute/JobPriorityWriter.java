@@ -69,7 +69,7 @@ final class JobPriorityWriter {
    * runtime.
    */
   private static boolean isInvalidLiteral(ExpressionTransformationResult priority) {
-    if (isJuelWrapped(priority.result())) {
+    if (priority.hasMethodInvocation() || priority.hasExecutionOnly()) {
       return false;
     }
     if (!Objects.equals(priority.result(), priority.juelExpression())) {
@@ -81,13 +81,5 @@ final class JobPriorityWriter {
     } catch (NumberFormatException e) {
       return true;
     }
-  }
-
-  private static boolean isJuelWrapped(String expression) {
-    if (expression == null) {
-      return false;
-    }
-    String trimmed = expression.trim();
-    return (trimmed.startsWith("${") || trimmed.startsWith("#{")) && trimmed.endsWith("}");
   }
 }

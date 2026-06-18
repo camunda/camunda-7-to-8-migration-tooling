@@ -27,7 +27,9 @@ public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElement
       context.addConversion(
           AbstractCatchEventConvertible.class,
           con -> setNewExpression(con, transformationResult.result()));
-      if (!Objects.equals(transformationResult.result(), transformationResult.juelExpression())) {
+      if (!Objects.equals(transformationResult.result(), transformationResult.juelExpression())
+          || transformationResult.hasMethodInvocation()
+          || transformationResult.hasExecutionOnly()) {
         context.addMessage(
             MessageFactory.timerExpressionMapped(
                 transformationResult.juelExpression(), transformationResult.result()));
