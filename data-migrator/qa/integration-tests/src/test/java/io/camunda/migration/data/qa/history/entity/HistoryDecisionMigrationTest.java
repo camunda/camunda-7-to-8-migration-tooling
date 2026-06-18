@@ -104,7 +104,8 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
 
     assertThat(decisionReqs).hasSize(2);
     assertThat(migratedDecisions).hasSize(2);
-    assertThat(migratedDecisions).allSatisfy(decision -> assertThat(decision.decisionRequirementsId()).isNullOrEmpty());
+    assertThat(migratedDecisions).allSatisfy(
+        decision -> assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId("simpleDmnId")));
     assertThat(migratedDecisions).allSatisfy(
         decision -> assertThat(decision.decisionRequirementsName()).isEqualTo("simpleDecisionName"));
     assertThat(migratedDecisions).extracting(DecisionDefinitionEntity::decisionRequirementsKey)
@@ -688,7 +689,9 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     if (decisionRequirementsId != null) {
       assertThat(decision.decisionRequirementsId()).isEqualTo(prefixDefinitionId(decisionRequirementsId));
     } else {
-      assertThat(decision.decisionRequirementsId()).isNullOrEmpty();
+      // Standalone DMNs are written with a c7-legacy-<definitionsId> FK to the synthetic DRD;
+      // the exact id depends on the DMN file, but the field must never be null.
+      assertThat(decision.decisionRequirementsId()).isNotEmpty();
     }
     if (decisionRequirementsName != null) {
       assertThat(decision.decisionRequirementsName()).isEqualTo(decisionRequirementsName);
@@ -700,6 +703,55 @@ public class HistoryDecisionMigrationTest extends HistoryMigrationAbstractTest {
     } else {
       assertThat(decision.decisionRequirementsVersion()).isNull();
     }
+  }
+
+  @Test
+  public void shouldMigrateStandaloneDecisionWithSyntheticDrdReference() {
+    // given: a standalone DMN (no parent DRD on the C7 side)
+    deployer.deployCamunda7Decision("simpleDmn.dmn");
+
+    // when
+    historyMigrator.migrate();
+
+    // then: the migrated decision row references the synthetic DRD via c7-legacy-<definitionsId>
+    List<DecisionDefinitionEntity> migratedDecisions = searchHistoricDecisionDefinitions("simpleDecisionId");
+    List<DecisionRequirementsEntity> decisionReqs =
+        searchHistoricDecisionRequirementsDefinition("simpleDmnId");
+
+    assertThat(decisionReqs).singleElement()
+        .satisfies(drd -> assertThat(drd.decisionRequirementsId()).isEqualTo("c7-legacy-simpleDmnId"));
+    Long syntheticDrdKey = decisionReqs.getFirst().decisionRequirementsKey();
+
+    assertThat(migratedDecisions).singleElement().satisfies(decision -> {
+      assertThat(decision.decisionRequirementsId())
+          .as("Standalone DMNs must reference the synthetic DRD's id, never SQL NULL")
+          .isNotNull()
+          .isEqualTo("c7-legacy-simpleDmnId");
+      assertThat(decision.decisionRequirementsKey()).isEqualTo(syntheticDrdKey);
+    });
+  }
+
+  @Test
+  public void shouldMigrateDecisionResult_CollectMaxNoMatch() {
+    // given: a COLLECT-aggregation decision evaluated with an input that matches no rules
+    deployer.deployCamunda7Decision("hitPolicyCollectMaxDmn.dmn");
+    deployBusinessRuleProcessReferencingDecision("hitPolicyCollectMaxDecisionId");
+    // Input "B" matches neither rule ("A" / not("B"))
+    Map<String, Object> variables = Variables.createVariables().putValue("input", stringValue("B"));
+    runtimeService.startProcessInstanceByKey(
+        String.format(BUSINESS_RULE_PROCESS_ID_PATTERN, "hitPolicyCollectMaxDecisionId"), variables);
+
+    // when
+    historyMigrator.migrate();
+
+    // then: result is the non-null JSON literal "null" instead of SQL NULL
+    List<DecisionInstanceEntity> migratedInstances =
+        searchHistoricDecisionInstances("hitPolicyCollectMaxDecisionId");
+    assertThat(migratedInstances).singleElement()
+        .extracting(DecisionInstanceEntity::result)
+        .as("No-match COLLECT decision instances must carry a non-null JSON literal result")
+        .isNotNull()
+        .isEqualTo("null");
   }
 
 }

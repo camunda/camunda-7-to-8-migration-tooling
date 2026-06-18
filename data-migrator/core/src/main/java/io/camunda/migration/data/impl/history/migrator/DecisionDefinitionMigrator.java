@@ -86,8 +86,12 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
         }
       } else {
         // For single c7 decisions (no DRD), generate a C8 DecisionRequirementsDefinition to store the DMN XML
-        Long decisionRequirementsKey = decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
-        builder.decisionRequirementsKey(decisionRequirementsKey);
+        DecisionRequirementsMigrator.SyntheticDrd syntheticDrd =
+            decisionRequirementsMigrator.migrateSyntheticDrd(c7DecisionDefinition);
+        if (syntheticDrd != null) {
+          builder.decisionRequirementsKey(syntheticDrd.key())
+              .decisionRequirementsId(syntheticDrd.id());
+        }
         // For standalone decisions, use the decision's own name and version as the DRD values
         builder.decisionRequirementsName(c7DecisionDefinition.getName())
             .decisionRequirementsVersion(c7DecisionDefinition.getVersion());
@@ -95,7 +99,7 @@ public class DecisionDefinitionMigrator extends HistoryEntityMigrator<DecisionDe
 
       DecisionDefinitionDbModel dbModel = convert(C7Entity.of(c7DecisionDefinition, creationTime), builder);
 
-      if (dbModel.decisionRequirementsKey() == null) {
+      if (dbModel.decisionRequirementsKey() == null || dbModel.decisionRequirementsId() == null) {
         throw new EntitySkippedException(c7DecisionDefinition, creationTime, SKIP_REASON_MISSING_DECISION_REQUIREMENTS);
       }
 
