@@ -133,7 +133,8 @@ public class ConvertLocalCommandTest {
     try {
       ConvertLocalCommand command = new ConvertLocalCommand();
       command.file = tempDir;
-      command.call();
+      Integer call = command.call();
+      assertEquals(1, call);
       assertThat(listAppender.list)
           .anyMatch(
               event ->
@@ -141,6 +142,7 @@ public class ConvertLocalCommandTest {
                       && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
+      listAppender.stop();
     }
   }
 
@@ -155,7 +157,8 @@ public class ConvertLocalCommandTest {
     try {
       ConvertLocalCommand command = new ConvertLocalCommand();
       command.file = tempDir;
-      command.call();
+      Integer call = command.call();
+      assertEquals(1, call);
       assertThat(listAppender.list)
           .anyMatch(
               event ->
@@ -163,6 +166,7 @@ public class ConvertLocalCommandTest {
                       && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
+      listAppender.stop();
     }
   }
 }
