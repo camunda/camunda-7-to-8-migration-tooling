@@ -114,7 +114,7 @@ public class ConvertLocalCommandTest {
   }
 
   @Test
-  void shouldNotConvertAlreadyCamunda8Dmn(@TempDir File tempDir) {
+  void shouldReturnErrorCodeForAlreadyCamunda8Dmn(@TempDir File tempDir) {
     setupDir("c8.dmn", tempDir);
     ConvertLocalCommand command = new ConvertLocalCommand();
     command.file = tempDir;
