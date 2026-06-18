@@ -42,7 +42,7 @@ public class ErrorVisitor extends AbstractEventReferenceVisitor {
     }
     ExpressionTransformationResult expressionTransformationResult =
         ExpressionTransformer.transformToFeel("Error", errorCode);
-    if (isExpressionValue(expressionTransformationResult)) {
+    if (expressionTransformationResult.isExpressionValue()) {
       context.addMessage(MessageFactory.errorCodeNoExpression());
     }
     context.addConversion(
@@ -69,11 +69,5 @@ public class ErrorVisitor extends AbstractEventReferenceVisitor {
         }
       }
     }*/
-  }
-
-  private static boolean isExpressionValue(ExpressionTransformationResult result) {
-    return result.result().startsWith("=")
-        || result.hasMethodInvocation()
-        || result.hasExecutionOnly();
   }
 }

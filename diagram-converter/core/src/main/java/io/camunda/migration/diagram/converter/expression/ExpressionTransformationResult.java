@@ -12,4 +12,9 @@ public record ExpressionTransformationResult(
     String juelExpression,
     String result,
     Boolean hasMethodInvocation,
-    Boolean hasExecutionOnly) {}
+    Boolean hasExecutionOnly) {
+
+  public boolean isExpressionValue() {
+    return result != null && result.startsWith("=") || hasMethodInvocation() || hasExecutionOnly();
+  }
+}
