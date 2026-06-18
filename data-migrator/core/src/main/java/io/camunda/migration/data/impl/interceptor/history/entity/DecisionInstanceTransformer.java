@@ -172,7 +172,11 @@ public class DecisionInstanceTransformer implements EntityInterceptor<HistoricDe
 
   protected String constructResultJsonFromOutputs(List<EvaluatedOutput> outputValues) {
     if (outputValues == null || outputValues.isEmpty()) {
-      return null;
+      // Write a non-null JSON literal so the C8 row never carries a SQL NULL in RESULT.
+      // The 4-char literal "null" matches what objectMapper.writeValueAsString(null) produces
+      // in the single-rule path below and removes the migrator's hidden dependency on the
+      // read-side NullToEmptyStringTypeHandler masking.
+      return "null";
     }
 
     try {
