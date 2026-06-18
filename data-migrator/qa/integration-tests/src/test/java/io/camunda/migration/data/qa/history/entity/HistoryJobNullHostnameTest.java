@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_MIGRATED;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_JOB;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
@@ -25,7 +25,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
 /**
- * Verifies that {@code JobTransformer} substitutes the {@link io.camunda.migration.data.constants.MigratorConstants#C7_MIGRATED}
+ * Verifies that {@code JobTransformer} substitutes the {@link io.camunda.migration.data.constants.MigratorConstants#C7_NULL_PLACEHOLDER}
  * placeholder when the C7 {@code HistoricJobLog} carries a {@code null} hostname.
  * <p>
  * A null hostname is not reproducible with the default engine setup
@@ -90,7 +90,7 @@ public class HistoryJobNullHostnameTest extends HistoryMigrationAbstractTest {
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
     assertThat(c8Jobs).as("One C8 job entry per C7 job (deduplication by job ID)").hasSize(1);
     assertThat(c8Jobs.getFirst().worker())
-        .as("worker should fall back to the C7_MIGRATED placeholder when the C7 hostname is null")
-        .isEqualTo(C7_MIGRATED);
+        .as("worker should fall back to the C7_NULL_PLACEHOLDER placeholder when the C7 hostname is null")
+        .isEqualTo(C7_NULL_PLACEHOLDER);
   }
 }

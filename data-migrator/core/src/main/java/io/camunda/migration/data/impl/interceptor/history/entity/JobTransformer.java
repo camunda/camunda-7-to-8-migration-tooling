@@ -7,7 +7,7 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_MIGRATED;
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -57,7 +57,7 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
 
     builder
         .type(historicJobLog.getJobDefinitionType())
-        .worker(hostname != null ? hostname : C7_MIGRATED)
+        .worker(hostname != null ? hostname : C7_NULL_PLACEHOLDER)
         .state(JobState.COMPLETED)
         .kind(JobKind.BPMN_ELEMENT)
         .listenerEventType(ListenerEventType.UNSPECIFIED)

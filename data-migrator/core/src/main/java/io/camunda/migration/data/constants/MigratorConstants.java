@@ -33,12 +33,6 @@ public final class MigratorConstants {
   public static final String C7_NULL_PLACEHOLDER = "C7_MIGRATED";
 
   /**
-   * Sentinel value for JobEntity.worker when the C7 source value (hostname or workerId) was null.
-   * C8 enforces non-null on this field, so we substitute this placeholder to avoid NPEs.
-   */
-  public static final String C7_MIGRATED = "C7_MIGRATED";
-
-  /**
    * Sentinel value for IncidentEntity.errorMessage when the C7 incident message was null.
    * C8 enforces non-null on this field, so we substitute this placeholder to avoid NPEs.
    */
