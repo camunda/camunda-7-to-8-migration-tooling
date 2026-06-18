@@ -125,6 +125,7 @@ public class ConvertLocalCommandTest {
   @Test
   void shouldIncludeFilenameInErrorForAlreadyCamunda8Dmn(@TempDir File tempDir) {
     setupDir("c8.dmn", tempDir);
+    String expectedPath = new File(tempDir, "c8.dmn").getAbsolutePath();
     Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
     ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
     listAppender.start();
@@ -136,7 +137,7 @@ public class ConvertLocalCommandTest {
       assertThat(listAppender.list)
           .anyMatch(
               event ->
-                  event.getFormattedMessage().contains("c8.dmn")
+                  event.getFormattedMessage().contains(expectedPath)
                       && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
@@ -146,6 +147,7 @@ public class ConvertLocalCommandTest {
   @Test
   void shouldIncludeFilenameInErrorForAlreadyCamunda8Bpmn(@TempDir File tempDir) {
     setupDir("c8.bpmn", tempDir);
+    String expectedPath = new File(tempDir, "c8.bpmn").getAbsolutePath();
     Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
     ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
     listAppender.start();
@@ -157,7 +159,7 @@ public class ConvertLocalCommandTest {
       assertThat(listAppender.list)
           .anyMatch(
               event ->
-                  event.getFormattedMessage().contains("c8.bpmn")
+                  event.getFormattedMessage().contains(expectedPath)
                       && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);

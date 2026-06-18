@@ -190,12 +190,14 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   private DiagramCheckResult checkModel(Entry<File, ModelInstance> modelInstance) {
     try {
       return converter.check(
-          modelInstance.getKey().getPath(),
+          modelInstance.getKey().getAbsolutePath(),
           modelInstance.getValue(),
           ConverterPropertiesFactory.getInstance().merge(converterProperties()));
     } catch (Exception e) {
       LOG_CLI.error(
-          "Problem while converting {}: {}", modelInstance.getKey().getPath(), createMessage(e));
+          "Problem while converting {}: {}",
+          modelInstance.getKey().getAbsolutePath(),
+          createMessage(e));
       returnCode = 1;
       return null;
     }
