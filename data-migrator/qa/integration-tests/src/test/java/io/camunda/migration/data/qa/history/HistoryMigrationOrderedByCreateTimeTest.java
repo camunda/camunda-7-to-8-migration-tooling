@@ -10,10 +10,10 @@ package io.camunda.migration.data.qa.history;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType.INTERMEDIATE_CATCH_EVENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.search.entities.DecisionDefinitionEntity;
 import io.camunda.search.entities.DecisionRequirementsEntity;
 import io.camunda.search.entities.FlowNodeInstanceEntity;
+import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.VariableEntity;
@@ -308,12 +308,12 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
 
   @Test
   public void shouldMigrateIncidentsCreatedBetweenRuns() {
-    // given
+    // given: only the propagated parent incident migrates; the child incident is skipped (no HAI)
+    deployer.deployCamunda7Process("callActivityWithIncidentSubprocess.bpmn");
     deployer.deployCamunda7Process("incidentProcess.bpmn");
-    String instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
-    triggerIncident(instanceId);
-    Supplier<List<IncidentDbModel>> incidentSupplier =
-        () -> searchHistoricIncidents("incidentProcessId");
+    triggerIncident(startCallActivityAndGetChildInstanceId());
+    Supplier<List<IncidentEntity>> incidentSupplier =
+        () -> searchHistoricIncidents("callActivityWithIncidentSubprocessId");
 
     // when
     historyMigrator.migrate();
@@ -323,8 +323,7 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
 
     // given
     ClockUtil.offset(5_000L);
-    instanceId = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
-    triggerIncident(instanceId);
+    triggerIncident(startCallActivityAndGetChildInstanceId());
 
     // when
     historyMigrator.migrate();
@@ -335,20 +334,28 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
 
   @Test
   public void shouldMigrateIncidentsWithSameCreationDate() {
-    // given
+    // given: two parents, each contributing one migratable propagated incident
+    deployer.deployCamunda7Process("callActivityWithIncidentSubprocess.bpmn");
     deployer.deployCamunda7Process("incidentProcess.bpmn");
 
     ClockUtil.setCurrentTime(new Date());
-    String processInstanceId1 = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
-    triggerIncident(processInstanceId1);
-    String processInstanceId2 = runtimeService.startProcessInstanceByKey("incidentProcessId").getProcessInstanceId();
-    triggerIncident(processInstanceId2);
+    triggerIncident(startCallActivityAndGetChildInstanceId());
+    triggerIncident(startCallActivityAndGetChildInstanceId());
 
     // when
     historyMigrator.migrate();
 
     // then
-    assertThat(searchHistoricIncidents("incidentProcessId")).hasSize(2);
+    assertThat(searchHistoricIncidents("callActivityWithIncidentSubprocessId")).hasSize(2);
+  }
+
+  /** Starts a call-activity parent and returns its child instance id, where the failing job lives. */
+  private String startCallActivityAndGetChildInstanceId() {
+    var parent = runtimeService.startProcessInstanceByKey("callActivityWithIncidentSubprocessId");
+    return runtimeService.createProcessInstanceQuery()
+        .superProcessInstanceId(parent.getId())
+        .singleResult()
+        .getProcessInstanceId();
   }
 
   @Test

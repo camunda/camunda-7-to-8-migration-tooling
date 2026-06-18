@@ -94,12 +94,6 @@ public class RdbmsQueryExtension implements BeforeEachCallback, AfterEachCallbac
    * @return the JdbcTemplate instance
    */
   public JdbcTemplate getJdbcTemplate() {
-    if (jdbcTemplate == null && applicationContext != null) {
-      DataSourceRegistry registry = applicationContext.getBean(DataSourceRegistry.class);
-      DataSource dataSource = registry.getMigratorDataSource();
-      jdbcTemplate = new JdbcTemplate(dataSource);
-      transactionTemplate = registry.getMigratorTxTemplate();
-    }
     if (jdbcTemplate == null) {
       throw new IllegalStateException("JdbcTemplate not initialized. Make sure the extension is properly registered.");
     }

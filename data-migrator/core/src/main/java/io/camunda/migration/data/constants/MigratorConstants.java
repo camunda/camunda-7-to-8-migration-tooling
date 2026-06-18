@@ -24,4 +24,11 @@ public final class MigratorConstants {
   public static final String C8_DEFAULT_TENANT = "<default>";
   public static final String C7_LEGACY_PREFIX = "c7-legacy";
   public static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
+
+  /**
+   * Substituted for {@code null} on free-form identifier columns whose C8 contract is non-null
+   * (e.g. {@code AuditLogEntity.entityKey} for entity-less audit log rows). Applies wherever the
+   * migrator would otherwise emit {@code null}
+   */
+  public static final String C7_NULL_PLACEHOLDER = "C7_MIGRATED";
 }
