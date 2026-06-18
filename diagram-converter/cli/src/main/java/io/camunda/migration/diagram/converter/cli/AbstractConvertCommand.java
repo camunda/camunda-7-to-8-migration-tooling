@@ -194,7 +194,8 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
           modelInstance.getValue(),
           ConverterPropertiesFactory.getInstance().merge(converterProperties()));
     } catch (Exception e) {
-      LOG_CLI.error("Problem while converting: {}", createMessage(e));
+      LOG_CLI.error(
+          "Problem while converting {}: {}", modelInstance.getKey().getPath(), createMessage(e));
       returnCode = 1;
       return null;
     }
