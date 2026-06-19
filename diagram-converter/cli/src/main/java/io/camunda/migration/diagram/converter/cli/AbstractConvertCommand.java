@@ -204,7 +204,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   protected abstract Map<File, ModelInstance> modelInstances();
 
   protected String modelIdentifier(File modelFile) {
-    return modelFile.getPath();
+    return modelFile.getAbsolutePath();
   }
 
   protected DefaultConverterProperties converterProperties() {
