@@ -188,22 +188,24 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   }
 
   private DiagramCheckResult checkModel(Entry<File, ModelInstance> modelInstance) {
+    String modelIdentifier = modelIdentifier(modelInstance.getKey());
     try {
       return converter.check(
-          modelInstance.getKey().getAbsolutePath(),
+          modelIdentifier,
           modelInstance.getValue(),
           ConverterPropertiesFactory.getInstance().merge(converterProperties()));
     } catch (Exception e) {
-      LOG_CLI.error(
-          "Problem while converting {}: {}",
-          modelInstance.getKey().getAbsolutePath(),
-          createMessage(e));
+      LOG_CLI.error("Problem while converting {}: {}", modelIdentifier, createMessage(e));
       returnCode = 1;
       return null;
     }
   }
 
   protected abstract Map<File, ModelInstance> modelInstances();
+
+  protected String modelIdentifier(File modelFile) {
+    return modelFile.getAbsolutePath();
+  }
 
   protected DefaultConverterProperties converterProperties() {
     DefaultConverterProperties properties = new DefaultConverterProperties();

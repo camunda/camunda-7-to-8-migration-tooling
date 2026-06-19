@@ -125,7 +125,7 @@ public class ConvertLocalCommandTest {
   @Test
   void shouldIncludeFilenameInErrorForAlreadyCamunda8Dmn(@TempDir File tempDir) {
     setupDir("c8.dmn", tempDir);
-    String expectedPath = new File(tempDir, "c8.dmn").getAbsolutePath();
+    String expectedPath = "c8.dmn";
     Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
     ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
     listAppender.start();
@@ -149,7 +149,7 @@ public class ConvertLocalCommandTest {
   @Test
   void shouldIncludeFilenameInErrorForAlreadyCamunda8Bpmn(@TempDir File tempDir) {
     setupDir("c8.bpmn", tempDir);
-    String expectedPath = new File(tempDir, "c8.bpmn").getAbsolutePath();
+    String expectedPath = "c8.bpmn";
     Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
     ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
     listAppender.start();
