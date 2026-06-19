@@ -20,6 +20,9 @@ import org.camunda.bpm.model.xml.instance.DomElement;
 
 public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElementVisitor {
 
+  private static final String LINK =
+      "https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/";
+
   @Override
   protected final void visitBpmnElement(DomElementVisitorContext context) {
     if (!isTimeoutListener(context)) {
@@ -28,7 +31,7 @@ public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElement
           AbstractCatchEventConvertible.class,
           con -> setNewExpression(con, transformationResult.result()));
       Message message =
-          ExpressionTransformationResultMessageFactory.getMessage(transformationResult, null);
+          ExpressionTransformationResultMessageFactory.getMessage(transformationResult, LINK);
       if (!message.getId().isEmpty()) {
         context.addMessage(message);
       }

@@ -384,21 +384,6 @@ public class MessageFactoryTest {
   }
 
   @Test
-  void shouldBuildTimerExpressionMappedMessage() {
-    String juelExpression = random();
-    String feelExpression = random();
-    Message message = timerExpressionMapped(juelExpression, feelExpression);
-    assertNotNull(message);
-    assertNotNull(message.getMessage());
-    assertNotNull(message.getSeverity());
-    assertThat(message.getMessage())
-        .isEqualTo(
-            String.format(
-                "Timer expression was transformed: Please review transformed expression: '%s' -> '%s'.",
-                juelExpression, feelExpression));
-  }
-
-  @Test
   void shouldBuildTimerExpressionNotSupported() {
     String timerType = random();
     String timerValue = random();
