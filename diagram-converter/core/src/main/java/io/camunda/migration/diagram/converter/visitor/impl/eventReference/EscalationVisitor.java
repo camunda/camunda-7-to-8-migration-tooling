@@ -43,8 +43,7 @@ public class EscalationVisitor extends AbstractEventReferenceVisitor {
       context.addConversion(
           EscalationConvertible.class,
           c -> c.setEscalationCode(expressionTransformationResult.result()));
-      if (expressionTransformationResult != null
-          && expressionTransformationResult.result().startsWith("=")) {
+      if (expressionTransformationResult.isExpressionValue()) {
         context.addMessage(MessageFactory.escalationCodeNoExpression());
       }
     }

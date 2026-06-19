@@ -471,14 +471,6 @@ public class MessageFactory {
     return INSTANCE.staticMessage("escalation-code-no-expression");
   }
 
-  public static Message timerExpressionMapped(String juelExpression, String feelExpression) {
-    return INSTANCE.composeMessage(
-        "timer-expression-mapped",
-        ContextBuilder.builder()
-            .context(expressionTransformationResult(juelExpression, feelExpression))
-            .build());
-  }
-
   public static Message timerExpressionNotSupported(
       String timerType, String timerExpression, String eventType, String semanticVersion) {
     return INSTANCE.composeMessage(

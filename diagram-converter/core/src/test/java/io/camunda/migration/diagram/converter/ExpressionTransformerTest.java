@@ -24,6 +24,10 @@ public class ExpressionTransformerTest {
     return new ExpressionTestBuilder(expression, TransformationType.feel);
   }
 
+  private static ExpressionTestBuilder expressionToFeelDmn(String expression) {
+    return new ExpressionTestBuilder(expression, TransformationType.feelDmn);
+  }
+
   private static ExpressionTestBuilder expressionToJobType(String expression) {
     return new ExpressionTestBuilder(expression, TransformationType.jobType);
   }
@@ -74,11 +78,43 @@ public class ExpressionTransformerTest {
             expressionToFeel("${not(empty donut || coffee)}")
                 .isMappedTo("=not(donut=null or coffee)"),
             expressionToFeel("${execution.getVariable(\"a\")}").isMappedTo("=a"),
-            expressionToFeel("${execution.getProcessInstanceId()}").hasUsedExecution(true),
-            expressionToFeel("${myexecutionContext.isSpecial()}").hasUsedExecution(false),
-            expressionToFeel("${var.getSomething()}").hasMethodInvocation(true),
-            expressionToFeel("${!dauerbuchungVoat21Ids.isEmpty()}").hasMethodInvocation(true),
+            expressionToFeel("${execution.getVariable(\"a\").size()}")
+                .isMappedTo("${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("#{execution.getVariable(\"a\").size()}")
+                .isMappedTo("#{execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("size: ${execution.getVariable(\"a\").size()}")
+                .isMappedTo("size: ${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("${execution.getProcessInstanceId()}")
+                .isMappedTo("${execution.getProcessInstanceId()}")
+                .hasUsedExecution(true)
+                .hasMethodInvocation(true),
+            expressionToFeel("${execution.hasVariable('whatever')}")
+                .isMappedTo("${execution.hasVariable('whatever')}")
+                .hasUsedExecution(true),
+            expressionToFeel("#{execution.hasVariable('whatever')}")
+                .isMappedTo("#{execution.hasVariable('whatever')}")
+                .hasUsedExecution(true),
+            expressionToFeel("${myexecutionContext.isSpecial()}")
+                .isMappedTo("${myexecutionContext.isSpecial()}")
+                .hasUsedExecution(false)
+                .hasMethodInvocation(true),
+            expressionToFeel("#{order.getPriority()}")
+                .isMappedTo("#{order.getPriority()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("Priority: ${order.getPriority()}")
+                .isMappedTo("Priority: ${order.getPriority()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("${var.getSomething()}")
+                .isMappedTo("${var.getSomething()}")
+                .hasMethodInvocation(true),
+            expressionToFeel("${!dauerbuchungVoat21Ids.isEmpty()}")
+                .isMappedTo("${!dauerbuchungVoat21Ids.isEmpty()}")
+                .hasMethodInvocation(true),
             expressionToFeel("${!dauerbuchungVoat21Ids.contains(\"someText\")}")
+                .isMappedTo("${!dauerbuchungVoat21Ids.contains(\"someText\")}")
                 .hasMethodInvocation(true),
             expressionToFeel("${input > 5.5}").hasMethodInvocation(false),
             expressionToFeel("${input != ''}").isMappedTo("=input != \"\""),
@@ -101,8 +137,37 @@ public class ExpressionTransformerTest {
                     data.getTests()));
   }
 
+  @TestFactory
+  public Stream<DynamicContainer> shouldResolveExpressionForDmnMode() {
+    return Stream.of(
+            expressionToFeelDmn("").isMappedTo(null),
+            expressionToFeelDmn("${someVariable}").isMappedTo("someVariable"),
+            expressionToFeelDmn("${execution.getVariable(\"a\")}").isMappedTo("a"),
+            expressionToFeelDmn("${execution.getVariable(\"a\").size()}")
+                .isMappedTo("${execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeelDmn("#{execution.getVariable(\"a\").size()}")
+                .isMappedTo("#{execution.getVariable(\"a\").size()}")
+                .hasMethodInvocation(true),
+            expressionToFeelDmn("${execution.getProcessInstanceId()}")
+                .isMappedTo("${execution.getProcessInstanceId()}")
+                .hasUsedExecution(true),
+            expressionToFeelDmn("#{order.getPriority()}")
+                .isMappedTo("#{order.getPriority()}")
+                .hasMethodInvocation(true))
+        .map(
+            data ->
+                DynamicContainer.dynamicContainer(
+                    "Expression to "
+                        + data.getTransformationType()
+                        + ": "
+                        + data.getResult().juelExpression(),
+                    data.getTests()));
+  }
+
   private enum TransformationType {
     feel,
+    feelDmn,
     jobType
   }
 
@@ -116,6 +181,7 @@ public class ExpressionTransformerTest {
       this.result =
           switch (type) {
             case feel -> ExpressionTransformer.transformToFeel("Test", expression);
+            case feelDmn -> ExpressionTransformer.transformToFeelDmn("Test", expression);
             case jobType -> ExpressionTransformer.transformToJobType(expression);
           };
     }
