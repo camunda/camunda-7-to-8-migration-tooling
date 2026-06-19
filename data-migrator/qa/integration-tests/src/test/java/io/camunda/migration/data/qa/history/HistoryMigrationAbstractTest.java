@@ -158,6 +158,7 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     // C7
     ClockUtil.reset();
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
+    historyService.createUserOperationLogQuery().list().forEach(log -> historyService.deleteUserOperationLogEntry(log.getId()));
 
     // Migrator
     dbClient.deleteAllMappings();
