@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.history.entity;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
+import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
@@ -57,6 +58,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // when: migration runs
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
     // then: the process instance was migrated
@@ -99,6 +101,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // when: migration runs
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
     // then: the process instance was migrated
@@ -156,6 +159,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // when: migration runs
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
     // then: only ONE C8 job entry created despite multiple log entries
@@ -239,7 +243,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
   }
 
   @Test
-  public void shouldMigrateExternalTaskWithoutFlowNode() {
+  public void shouldSkipExternalTaskWhenFlowNodeNotMigrated() {
     // given: a process with an external task where flow nodes are NOT migrated
     var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
         .startEvent()
@@ -259,20 +263,19 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // Note: HISTORY_FLOW_NODE is NOT migrated
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
-    // then: the external task was migrated successfully with null elementInstanceKey
+    // then: the external task is skipped because C8 requires non-null elementInstanceKey
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
-    assertThat(c8Jobs).as("External task should be migrated even without flow node").hasSize(1);
-    assertThat(c8Jobs.getFirst().elementInstanceKey())
-        .as("elementInstanceKey should be null when flow nodes are not migrated")
-        .isNull();
+    assertThat(c8Jobs)
+        .as("External task should be skipped when no flow-node instance exists in C8")
+        .isEmpty();
   }
 
   @Test
-  public void shouldMigrateCompletedExternalTaskWithoutFlowNode() {
+  public void shouldSkipCompletedExternalTaskWhenFlowNodeNotMigrated() {
     // given: a process with a completed external task where flow nodes are NOT migrated
     var c7Model = Bpmn.createExecutableProcess(PROCESS_KEY)
         .startEvent()
@@ -299,16 +302,15 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     // Note: HISTORY_FLOW_NODE is NOT migrated
     historyMigrator.migrateByType(HISTORY_EXTERNAL_TASK);
 
-    // then: the completed external task was migrated successfully with null elementInstanceKey
+    // then: the external task is skipped because C8 requires non-null elementInstanceKey
     List<ProcessInstanceEntity> processInstances = searchHistoricProcessInstances(PROCESS_KEY);
     assertThat(processInstances).hasSize(1);
     long processInstanceKey = processInstances.getFirst().processInstanceKey();
 
     List<JobEntity> c8Jobs = searchJobs(processInstanceKey);
-    assertThat(c8Jobs).as("Completed external task should be migrated even without flow node").hasSize(1);
-    assertThat(c8Jobs.getFirst().elementInstanceKey())
-        .as("elementInstanceKey should be null when flow nodes are not migrated")
-        .isNull();
+    assertThat(c8Jobs)
+        .as("Completed external task should be skipped when no flow-node instance exists in C8")
+        .isEmpty();
   }
 
   @Test
@@ -414,6 +416,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.processDefinitionKey()).isEqualTo(processDefinitionKey);
+    assertThat(job.elementInstanceKey()).isNotNull();
     assertThat(job.type()).isEqualTo(TOPIC_NAME);
     assertThat(job.state()).isEqualTo(JobState.COMPLETED);
     assertThat(job.kind()).isEqualTo(JobKind.BPMN_ELEMENT);
@@ -423,6 +426,9 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.processDefinitionId()).isEqualTo(prefixDefinitionId(PROCESS_KEY));
     assertThat(job.tenantId()).isEqualTo(C8_DEFAULT_TENANT);
     assertThat(job.creationTime()).isNotNull();
+    assertThat(job.lastUpdateTime())
+      .isNotNull()
+      .isAfterOrEqualTo(job.creationTime());
     if (worker != null) {
       assertThat(job.worker()).isEqualTo(worker);
     } else {

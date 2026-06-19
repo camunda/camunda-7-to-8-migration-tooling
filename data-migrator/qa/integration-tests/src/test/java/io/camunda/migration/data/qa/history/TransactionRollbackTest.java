@@ -221,17 +221,21 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
 
   @Test
   public void shouldRollbackIncidentInsertWhenMappingFails() {
-    // given - create process with incident
-    deployer.deployCamunda7Process("incidentProcess.bpmn");
-    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("incidentProcessId");
+    // given - a single migratable incident on a waiting user task (the activity has a
+    // HistoricActivityInstance, so the incident resolves a flowNodeInstanceKey)
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    String executionId = runtimeService.createExecutionQuery()
+        .processInstanceId(processInstance.getId())
+        .activityId("userTaskId")
+        .singleResult()
+        .getId();
+    runtimeService.createIncident("customIncident", executionId, "config", "message");
 
-    // Trigger incident
-    triggerIncident(processInstance.getId());
-
-    // Migrate prerequisites
+    // Migrate prerequisites (flow nodes so the incident resolves its flowNodeInstanceKey)
     historyMigrator.migrateByType(HISTORY_PROCESS_DEFINITION);
     historyMigrator.migrateByType(HISTORY_PROCESS_INSTANCE);
-    historyMigrator.migrateByType(HISTORY_JOB);
+    historyMigrator.migrateByType(HISTORY_FLOW_NODE);
 
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricIncidentQuery().singleResult().getId();
@@ -240,13 +244,13 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
         c7Id,
         () -> historyMigrator.migrateByType(HISTORY_INCIDENT),
         () -> {
-          List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
+          List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
           assertThat(incidents)
               .as("C8 should contain NO incidents after rollback")
               .isEmpty();
         },
         () -> {
-          List<IncidentEntity> incidents = searchHistoricIncidents("incidentProcessId");
+          List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
           assertThat(incidents)
               .as("After retry, C8 should contain incidents")
               .isNotEmpty();
@@ -364,8 +368,11 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
   protected void configureSpyToFailOnFirstInsert(IdKeyMapper.TYPE entityType) {
     AtomicInteger callCount = new AtomicInteger(0);
     doAnswer(invocation -> {
+      Object c8Key = invocation.getArgument(1);
       IdKeyMapper.TYPE type = invocation.getArgument(3);
-      if (type == entityType) {
+      // Fail only a real migration insert (non-null c8Key), not a skip-record insert, so a skipped
+      // sibling of the same type cannot consume the simulated failure.
+      if (type == entityType && c8Key != null) {
         if (callCount.incrementAndGet() == 1) {
           throw SIMULATED_MAPPING_FAILURE;
         }

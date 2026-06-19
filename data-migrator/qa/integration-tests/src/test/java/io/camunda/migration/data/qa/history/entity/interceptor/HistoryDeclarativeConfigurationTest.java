@@ -125,8 +125,6 @@ public class HistoryDeclarativeConfigurationTest extends HistoryMigrationAbstrac
 
     assertThat(migratedProcessInstances).isNotEmpty();
 
-    Long processInstanceKey = migratedProcessInstances.getFirst().processInstanceKey();
-
     List<FlowNodeInstanceEntity> migratedFlowNodes =
         flowNodeInstanceReader
             .search(io.camunda.search.query.FlowNodeInstanceQuery.of(queryBuilder ->
