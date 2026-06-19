@@ -29,6 +29,8 @@ public class UniversalEntityInterceptor implements EntityInterceptor<Object, Obj
   @Override
   public void execute(EntityConversionContext<Object, Object> context) {
     System.out.println("Entity before interceptor call: " + context.getC7Entity());
+    System.out.println("Execution count: " + executionCount.get());
+    
     executionCount.incrementAndGet();
     // Universal interceptor - processes all entity types
   }
