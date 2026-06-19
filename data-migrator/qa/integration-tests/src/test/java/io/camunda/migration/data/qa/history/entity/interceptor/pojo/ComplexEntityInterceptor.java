@@ -11,6 +11,7 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessInstanceDbModel;
+import io.camunda.search.entities.FlowNodeInstanceEntity;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.migration.data.qa.util.WhiteBox;
@@ -59,7 +60,12 @@ public class ComplexEntityInterceptor implements EntityInterceptor<Object, Objec
     } else if (entity instanceof HistoricActivityInstance && builder instanceof FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) {
       FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder flowNodeBuilder =
           (FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) builder;
-      ((FlowNodeInstanceDbModel.FlowNodeInstanceDbModelBuilder) builder).processInstanceKey(getNextKey());
+      HistoricActivityInstance activityInstance = (HistoricActivityInstance) entity;
+      flowNodeBuilder.processInstanceKey(getNextKey())
+          .flowNodeId(activityInstance.getActivityId())
+          .processDefinitionId(activityInstance.getProcessDefinitionKey())
+          .type(FlowNodeInstanceEntity.FlowNodeType.SERVICE_TASK)
+          .state(FlowNodeInstanceEntity.FlowNodeState.COMPLETED);
       if (targetTenantId != null) {
         flowNodeBuilder.tenantId(targetTenantId);
       }

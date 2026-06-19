@@ -624,6 +624,22 @@ public class C7Client {
   }
 
   /**
+   * Fetches the most recent historic job log entry for the given job ID, ordered by timestamp descending.
+   * Used to source `lastUpdateTime` on migrated jobs — the timestamp of the final C7 lifecycle event.
+   */
+  public HistoricJobLog getHistoricJobLogLatest(String jobId) {
+    HistoricJobLogQueryImpl query = (HistoricJobLogQueryImpl) historyService.createHistoricJobLogQuery()
+        .jobId(jobId)
+        .orderByTimestamp()
+        .desc()
+        .orderByJobId()
+        .desc();
+    List<HistoricJobLog> results = callApi(() -> query.listPage(0, 1),
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricJobLog with jobId", jobId));
+    return results.isEmpty() ? null : results.getFirst();
+  }
+
+  /**
    * Processes historic job log entries with pagination using the provided callback consumer.
    */
   public void fetchAndHandleHistoricJobLogs(Consumer<HistoricJobLog> callback, Date timestampAfter) {
@@ -652,6 +668,20 @@ public class C7Client {
         .orderByTimestamp()
         .asc();
     List<HistoricExternalTaskLog> results = callApi(query::list,
+        format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricExternalTaskLog with externalTaskId", externalTaskId));
+    return results.isEmpty() ? null : results.getFirst();
+  }
+
+  /**
+   * Fetches the most recent historic external task log entry for the given external task ID, ordered by timestamp descending.
+   * Used to source `lastUpdateTime` on migrated jobs — the timestamp of the final C7 lifecycle event.
+   */
+  public HistoricExternalTaskLog getHistoricExternalTaskLogLatest(String externalTaskId) {
+    HistoricExternalTaskLogQueryImpl query = (HistoricExternalTaskLogQueryImpl) historyService.createHistoricExternalTaskLogQuery()
+        .externalTaskId(externalTaskId)
+        .orderByTimestamp()
+        .desc();
+    List<HistoricExternalTaskLog> results = callApi(() -> query.listPage(0, 1),
         format(FAILED_TO_FETCH_HISTORIC_ELEMENT, "HistoricExternalTaskLog with externalTaskId", externalTaskId));
     return results.isEmpty() ? null : results.getFirst();
   }

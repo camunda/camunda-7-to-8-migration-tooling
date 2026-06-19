@@ -133,10 +133,11 @@ public class IncidentMigrator extends HistoryEntityMigrator<HistoricIncident, In
           // incident. Skip to avoid wrong associations. See https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1103
           throw new EntitySkippedException(c7Incident, SKIP_REASON_CANNOT_DETERMINE_FLOW_NODE);
         }
-        // Activities on async before waiting state will not have a flow node instance key, but should not be skipped
-        if (!c7Client.hasWaitingExecution(c7Incident.getProcessInstanceId(), c7Incident.getActivityId())) {
-          throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
-        }
+        // C7 did not persist a HistoricActivityInstance for this activity (typically an async-before
+        // activity whose execution failed on all retries before activity entry). C8 requires a
+        // non-null flowNodeInstanceKey on IncidentEntity, so skip. See context/decisions.md
+        // (`JobEntity.elementInstanceKey & IncidentEntity.flowNodeInstanceKey`).
+        throw new EntitySkippedException(c7Incident, SKIP_REASON_MISSING_FLOW_NODE);
       }
 
       if ((isFailedJobIncident(c7Incident) || isFailedExternalTaskIncident(c7Incident))
