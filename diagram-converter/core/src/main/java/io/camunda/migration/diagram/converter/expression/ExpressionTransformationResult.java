@@ -15,6 +15,8 @@ public record ExpressionTransformationResult(
     Boolean hasExecutionOnly) {
 
   public boolean isExpressionValue() {
-    return result != null && result.startsWith("=") || hasMethodInvocation() || hasExecutionOnly();
+    return (result != null && result.startsWith("="))
+        || Boolean.TRUE.equals(hasMethodInvocation)
+        || Boolean.TRUE.equals(hasExecutionOnly);
   }
 }
