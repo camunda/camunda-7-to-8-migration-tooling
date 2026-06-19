@@ -281,11 +281,72 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void testUnconvertibleTimerExpressionsKeepFallbackValueAndEmitTaskMessages() {
+    DiagramCheckResult result = loadAndCheck("flexible-timer-event.bpmn");
+
+    assertThat(result.getResult("MethodDateEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("Method invocation is not possible in FEEL."));
+    assertThat(result.getResult("ExecutionDurationEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("'execution' is not available in FEEL."));
+    assertThat(result.getResult("MethodCycleBoundaryEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("Method invocation is not possible in FEEL."));
+
+    BpmnModelInstance modelInstance = loadAndConvert("flexible-timer-event.bpmn");
+
+    assertThat(timerExpression(modelInstance, "MethodDateEvent")).isEqualTo("${myBean.calc()}");
+    assertThat(timerExpression(modelInstance, "ExecutionDurationEvent"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
+    assertThat(timerExpression(modelInstance, "MethodCycleBoundaryEvent"))
+        .isEqualTo("${execution.getVariable(\"a\").size()}");
+  }
+
+  @Test
   void testEscalationCode() {
     BpmnModelInstance modelInstance = loadAndConvert("escalation-code.bpmn");
     DomElement escalation = modelInstance.getDocument().getElementById("Escalation_2ja61hj");
     assertThat(escalation.getAttribute(BPMN, "name")).isEqualTo("EscalationName");
     assertThat(escalation.getAttribute(BPMN, "escalationCode")).isEqualTo("EscalationCode");
+  }
+
+  private String timerExpression(BpmnModelInstance modelInstance, String elementId) {
+    return modelInstance
+        .getDocument()
+        .getElementById(elementId)
+        .getChildElementsByNameNs(BPMN, "timerEventDefinition")
+        .get(0)
+        .getChildElements()
+        .get(0)
+        .getTextContent();
+  }
+
+  @Test
+  void testExpressionCodesShouldKeepWarningsAndFallbackValue() {
+    DiagramCheckResult result = loadAndCheck("error-escalation-expression-codes.bpmn");
+    List<String> messages =
+        result.getResults().stream()
+            .flatMap(r -> r.getMessages().stream())
+            .map(ElementCheckMessage::getMessage)
+            .collect(Collectors.toList());
+    assertThat(messages)
+        .contains("Error code cannot be an expression.")
+        .contains("Escalation code cannot be an expression.");
+
+    BpmnModelInstance modelInstance = loadAndConvert("error-escalation-expression-codes.bpmn");
+    assertThat(
+            modelInstance
+                .getDocument()
+                .getElementById("Error_16zktjx")
+                .getAttribute(BPMN, "errorCode"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
+    assertThat(
+            modelInstance
+                .getDocument()
+                .getElementById("Escalation_2ja61hj")
+                .getAttribute(BPMN, "escalationCode"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
   }
 
   @Test
@@ -469,6 +530,72 @@ public class DiagramConverterTest {
             .findFirst()
             .orElseThrow();
     assertThat(output.getAttribute(ZEEBE, "source")).isEqualTo("=\"outputValue\"");
+  }
+
+  @Test
+  void testInputOutputWithMethodInvocationShouldPreserveFallbackJuel() {
+    BpmnModelInstance modelInstance = loadAndConvert("input-output-with-method-invocation.bpmn");
+    DomElement serviceTask =
+        modelInstance.getDocument().getElementById("ServiceTaskWithMethodInvocation");
+    assertThat(serviceTask).isNotNull();
+    DomElement extensionElements =
+        serviceTask.getChildElementsByNameNs(BPMN, "extensionElements").get(0);
+    assertThat(extensionElements).isNotNull();
+    DomElement ioMapping = extensionElements.getChildElementsByNameNs(ZEEBE, "ioMapping").get(0);
+    assertThat(ioMapping).isNotNull();
+
+    // Verify convertible expression gets = prefix
+    DomElement simpleVarInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("simpleVar"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(simpleVarInput.getAttribute(ZEEBE, "source"))
+        .as("Convertible expression should have = prefix")
+        .isEqualTo("=myVariable");
+
+    // Verify unconvertible expression with method invocation preserves JUEL wrapper without =
+    // prefix
+    DomElement methodResultInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("methodResult"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(methodResultInput.getAttribute(ZEEBE, "source"))
+        .as("Unconvertible expression with method invocation should preserve JUEL wrapper")
+        .isEqualTo("${order.getPriority()}");
+
+    // Verify chained method call after execution.getVariable preserves JUEL wrapper
+    DomElement variableSizeInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("variableSize"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(variableSizeInput.getAttribute(ZEEBE, "source"))
+        .as(
+            "Unconvertible expression with chained method invocation after execution.getVariable should preserve JUEL wrapper")
+        .isEqualTo("${execution.getVariable(\"a\").size()}");
+
+    // Verify unconvertible expression with execution reference preserves JUEL wrapper without =
+    // prefix
+    DomElement processIdInput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "input").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("processId"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(processIdInput.getAttribute(ZEEBE, "source"))
+        .as("Unconvertible expression with execution reference should preserve JUEL wrapper")
+        .isEqualTo("${execution.getProcessInstanceId()}");
+
+    // Verify output parameter with method invocation also preserves JUEL wrapper
+    DomElement priorityOutput =
+        ioMapping.getChildElementsByNameNs(ZEEBE, "output").stream()
+            .filter(e -> e.getAttribute(ZEEBE, "target").equals("priority"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(priorityOutput.getAttribute(ZEEBE, "source"))
+        .as("Output parameter with method invocation should preserve JUEL wrapper")
+        .isEqualTo("${resultSet.getCount()}");
   }
 
   @Test

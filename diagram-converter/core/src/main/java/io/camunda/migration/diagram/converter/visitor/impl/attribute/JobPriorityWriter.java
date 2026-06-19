@@ -69,6 +69,9 @@ final class JobPriorityWriter {
    * runtime.
    */
   private static boolean isInvalidLiteral(ExpressionTransformationResult priority) {
+    if (priority.hasMethodInvocation() || priority.hasExecutionOnly()) {
+      return false;
+    }
     if (!Objects.equals(priority.result(), priority.juelExpression())) {
       return false;
     }

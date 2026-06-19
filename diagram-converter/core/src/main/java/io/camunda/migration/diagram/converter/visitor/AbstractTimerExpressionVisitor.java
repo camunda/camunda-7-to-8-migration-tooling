@@ -12,13 +12,16 @@ import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.convertible.AbstractCatchEventConvertible;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
-import java.util.Objects;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
 public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElementVisitor {
+
+  private static final String LINK =
+      "https://docs.camunda.io/docs/components/modeler/bpmn/timer-events/";
 
   @Override
   protected final void visitBpmnElement(DomElementVisitorContext context) {
@@ -27,10 +30,10 @@ public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElement
       context.addConversion(
           AbstractCatchEventConvertible.class,
           con -> setNewExpression(con, transformationResult.result()));
-      if (!Objects.equals(transformationResult.result(), transformationResult.juelExpression())) {
-        context.addMessage(
-            MessageFactory.timerExpressionMapped(
-                transformationResult.juelExpression(), transformationResult.result()));
+      Message message =
+          ExpressionTransformationResultMessageFactory.getMessage(transformationResult, LINK);
+      if (!message.getId().isEmpty()) {
+        context.addMessage(message);
       }
     }
   }

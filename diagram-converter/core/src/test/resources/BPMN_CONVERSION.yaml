@@ -580,23 +580,23 @@ categories:
             <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=input != null and input &gt; 5</bpmn:conditionExpression>
           </bpmn:sequenceFlow>
           <bpmn:sequenceFlow id="MethodInvocationIsUsedSequenceFlow" name="Method invocation is used" sourceRef="someGateway" targetRef="someTask">
-            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">=objectVar.getAddress().getStreet() != "main street"</bpmn:conditionExpression>
+            <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${objectVar.getAddress().getStreet() != "main street"}</bpmn:conditionExpression>
           </bpmn:sequenceFlow>
           <bpmn:serviceTask completionQuantity="1" id="TaskWithInMappingsServiceTask" implementation="##WebService" isForCompensation="false" name="Task with in mappings" startQuantity="1">
             <bpmn:extensionElements>
               <zeebe:ioMapping>
-                <zeebe:input source="=myObject.getAddress().getStreet()" target="taskForMethodExpected"/>
+                <zeebe:input source="${myObject.getAddress().getStreet()}" target="taskForMethodExpected"/>
                 <zeebe:input source="=justAnotherVariable" target="reviewExpected"/>
-                <zeebe:input source="=execution.getProcessEngineServices()" target="taskForExecutionExpected"/>
+                <zeebe:input source="${execution.getProcessEngineServices()}" target="taskForExecutionExpected"/>
               </zeebe:ioMapping>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
           <bpmn:serviceTask completionQuantity="1" id="TaskWithOutMappingsServiceTask" implementation="##WebService" isForCompensation="false" name="Task with out mappings" startQuantity="1">
             <bpmn:extensionElements>
               <zeebe:ioMapping>
-                <zeebe:output source="=anotherObject.getCustomerName()" target="taskForMethodExpected"/>
+                <zeebe:output source="${anotherObject.getCustomerName()}" target="taskForMethodExpected"/>
                 <zeebe:output source="=aNewVariable" target="reviewExpected"/>
-                <zeebe:output source="=execution.getProcessInstanceId()" target="taskForExecutionExpected"/>
+                <zeebe:output source="${execution.getProcessInstanceId()}" target="taskForExecutionExpected"/>
               </zeebe:ioMapping>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
@@ -615,29 +615,29 @@ categories:
             <bpmn:multiInstanceLoopCharacteristics behavior="All" isSequential="true">
               <documentation/>
               <extensionElements>
-                <zeebe:loopCharacteristics inputCollection="=myInput.getAdresses().getAll()" inputElement="myElement"/>
+                <zeebe:loopCharacteristics inputCollection="${myInput.getAdresses().getAll()}" inputElement="myElement"/>
               </extensionElements>
-              <bpmn:completionCondition xsi:type="bpmn:tFormalExpression">=myInput.getComplete()</bpmn:completionCondition>
+              <bpmn:completionCondition xsi:type="bpmn:tFormalExpression">${myInput.getComplete()}</bpmn:completionCondition>
             </bpmn:multiInstanceLoopCharacteristics>
           </bpmn:serviceTask>
           <bpmn:task completionQuantity="1" id="someTask" isForCompensation="false" startQuantity="1"/>
         expectedMessages: |
           <conversion:message severity="REVIEW">Condition expression: Please review transformed expression: '${input &gt; 3}' -&gt; '=input &gt; 3'.</conversion:message>
           <conversion:message severity="REVIEW">Condition expression: Please review transformed expression: '${execution.getVariable("input") != null &amp;&amp; input &gt; 5}' -&gt; '=input != null and input &gt; 5'.</conversion:message>
-          <conversion:message severity="TASK">Condition expression: Transformed expression: '${objectVar.getAddress().getStreet() != "main street"}' -&gt; '=objectVar.getAddress().getStreet() != "main street"'. Method invocation is not possible in FEEL.</conversion:message>               
-          <conversion:message severity="TASK">Input parameter 'taskForMethodExpected': Transformed expression: '${myObject.getAddress().getStreet()}' -&gt; '=myObject.getAddress().getStreet()'. Method invocation is not possible in FEEL.</conversion:message>
-          <conversion:message severity="TASK">Input parameter 'taskForExecutionExpected': Transformed expression: '${execution.getProcessEngineServices()}' -&gt; '=execution.getProcessEngineServices()'. 'execution' is not available in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Condition expression: Transformed expression: '${objectVar.getAddress().getStreet() != "main street"}' -&gt; '${objectVar.getAddress().getStreet() != "main street"}'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Input parameter 'taskForMethodExpected': Transformed expression: '${myObject.getAddress().getStreet()}' -&gt; '${myObject.getAddress().getStreet()}'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Input parameter 'taskForExecutionExpected': Transformed expression: '${execution.getProcessEngineServices()}' -&gt; '${execution.getProcessEngineServices()}'. 'execution' is not available in FEEL.</conversion:message>
           <conversion:message severity="REVIEW">Input parameter 'reviewExpected': Please review transformed expression: '${justAnotherVariable}' -&gt; '=justAnotherVariable'.</conversion:message>
-          <conversion:message severity="TASK">Output parameter 'taskForMethodExpected': Transformed expression: '${anotherObject.getCustomerName()}' -&gt; '=anotherObject.getCustomerName()'. Method invocation is not possible in FEEL.</conversion:message>
-          <conversion:message severity="TASK">Output parameter 'taskForExecutionExpected': Transformed expression: '${execution.getProcessInstanceId()}' -&gt; '=execution.getProcessInstanceId()'. 'execution' is not available in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Output parameter 'taskForMethodExpected': Transformed expression: '${anotherObject.getCustomerName()}' -&gt; '${anotherObject.getCustomerName()}'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Output parameter 'taskForExecutionExpected': Transformed expression: '${execution.getProcessInstanceId()}' -&gt; '${execution.getProcessInstanceId()}'. 'execution' is not available in FEEL.</conversion:message>
           <conversion:message severity="REVIEW">Output parameter 'reviewExpected': Please review transformed expression: '${aNewVariable}' -&gt; '=aNewVariable'.</conversion:message>
           <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
           <conversion:message severity="REVIEW">Collection: Please review transformed expression: '${execution.getVariable("myList")}' -&gt; '=myList'.</conversion:message>
           <conversion:message severity="REVIEW">Completion condition: Please review transformed expression: '${execution.getVariable("complete") == true}' -&gt; '=complete = true'.</conversion:message>
           <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
           <conversion:message severity="TASK">Collecting results in a multi instance is now natively possible with Zeebe. Please review.</conversion:message>
-          <conversion:message severity="TASK">Collection: Transformed expression: '${myInput.getAdresses().getAll()}' -&gt; '=myInput.getAdresses().getAll()'. Method invocation is not possible in FEEL.</conversion:message>
-          <conversion:message severity="TASK">Completion condition: Transformed expression: '${myInput.getComplete()}' -&gt; '=myInput.getComplete()'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Collection: Transformed expression: '${myInput.getAdresses().getAll()}' -&gt; '${myInput.getAdresses().getAll()}'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Completion condition: Transformed expression: '${myInput.getComplete()}' -&gt; '${myInput.getComplete()}'. Method invocation is not possible in FEEL.</conversion:message>
           <conversion:message severity="INFO">Attribute 'elementVariable' on 'multiInstanceLoopCharacteristics' was mapped. Is set to Zeebe input element.</conversion:message>
   - category: Conditional events
     cases:
@@ -1238,12 +1238,27 @@ categories:
         expectedBpmn: |
           <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
             <bpmn:extensionElements>
-              <zeebe:jobPriorityDefinition priority="=order.getPriority()"/>
+              <zeebe:jobPriorityDefinition priority="${order.getPriority()}"/>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
-          <conversion:message severity="TASK">Job priority: Transformed expression: '${order.getPriority()}' -&gt; '=order.getPriority()'. Method invocation is not possible in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${order.getPriority()}' -&gt; '${order.getPriority()}'. Method invocation is not possible in FEEL.</conversion:message>
+      - name: Job priority JUEL expression with execution.getVariable chained method invocation keeps wrapper
+        description: execution.getVariable itself can be transformed, but if a method call remains after replacement (e.g., .size()), the expression is still not FEEL-convertible and must stay JUEL-wrapped with a method-invocation TASK warning.
+        properties:
+          platformVersion: "8.10"
+        givenBpmn: |
+          <bpmn:serviceTask id="payService" name="Collect payment" camunda:jobPriority="${execution.getVariable(&quot;a&quot;).size()}" />
+        expectedBpmn: |
+          <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:jobPriorityDefinition priority="${execution.getVariable(&quot;a&quot;).size()}"/>
+            </bpmn:extensionElements>
+          </bpmn:serviceTask>
+        expectedMessages: |
+          <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${execution.getVariable("a").size()}' -&gt; '${execution.getVariable("a").size()}'. Method invocation is not possible in FEEL.</conversion:message>
       - name: Job priority JUEL expression referencing execution surfaces the execution-not-available warning
         description: A JUEL expression that references the C7 'execution' object cannot run in C8. The transformer's hasExecutionOnly flag should fire and produce the standard "'execution' not available in FEEL" TASK message — same diagnostic peers emit for execution-bound expressions.
         properties:
@@ -1253,12 +1268,12 @@ categories:
         expectedBpmn: |
           <bpmn:serviceTask completionQuantity="1" id="payService" implementation="##WebService" isForCompensation="false" name="Collect payment" startQuantity="1">
             <bpmn:extensionElements>
-              <zeebe:jobPriorityDefinition priority="=execution.getProcessInstanceId()"/>
+              <zeebe:jobPriorityDefinition priority="${execution.getProcessInstanceId()}"/>
             </bpmn:extensionElements>
           </bpmn:serviceTask>
         expectedMessages: |
           <conversion:message severity="REVIEW">'camunda:jobPriority' and 'camunda:taskPriority' have been mapped into a single Camunda 8 priority range ('zeebe:jobPriorityDefinition'). Verify that the numeric scales are consistent with your runtime expectations.</conversion:message>
-          <conversion:message severity="TASK">Job priority: Transformed expression: '${execution.getProcessInstanceId()}' -&gt; '=execution.getProcessInstanceId()'. 'execution' is not available in FEEL.</conversion:message>
+          <conversion:message severity="TASK">Job priority: Transformed expression: '${execution.getProcessInstanceId()}' -&gt; '${execution.getProcessInstanceId()}'. 'execution' is not available in FEEL.</conversion:message>
       - name: Task priority literal on service task
         properties:
           platformVersion: "8.10"
