@@ -281,11 +281,45 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void testUnconvertibleTimerExpressionsKeepFallbackValueAndEmitTaskMessages() {
+    DiagramCheckResult result = loadAndCheck("flexible-timer-event.bpmn");
+
+    assertThat(result.getResult("MethodDateEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("Method invocation is not possible in FEEL."));
+    assertThat(result.getResult("ExecutionDurationEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("'execution' is not available in FEEL."));
+    assertThat(result.getResult("MethodCycleBoundaryEvent").getMessages())
+        .extracting(ElementCheckMessage::getMessage)
+        .anyMatch(message -> message.contains("Method invocation is not possible in FEEL."));
+
+    BpmnModelInstance modelInstance = loadAndConvert("flexible-timer-event.bpmn");
+
+    assertThat(timerExpression(modelInstance, "MethodDateEvent")).isEqualTo("${myBean.calc()}");
+    assertThat(timerExpression(modelInstance, "ExecutionDurationEvent"))
+        .isEqualTo("${execution.hasVariable('whatever')}");
+    assertThat(timerExpression(modelInstance, "MethodCycleBoundaryEvent"))
+        .isEqualTo("${execution.getVariable(\"a\").size()}");
+  }
+
+  @Test
   void testEscalationCode() {
     BpmnModelInstance modelInstance = loadAndConvert("escalation-code.bpmn");
     DomElement escalation = modelInstance.getDocument().getElementById("Escalation_2ja61hj");
     assertThat(escalation.getAttribute(BPMN, "name")).isEqualTo("EscalationName");
     assertThat(escalation.getAttribute(BPMN, "escalationCode")).isEqualTo("EscalationCode");
+  }
+
+  private String timerExpression(BpmnModelInstance modelInstance, String elementId) {
+    return modelInstance
+        .getDocument()
+        .getElementById(elementId)
+        .getChildElementsByNameNs(BPMN, "timerEventDefinition")
+        .get(0)
+        .getChildElements()
+        .get(0)
+        .getTextContent();
   }
 
   @Test

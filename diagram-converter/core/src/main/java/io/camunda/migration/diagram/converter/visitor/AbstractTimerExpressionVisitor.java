@@ -12,10 +12,10 @@ import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.convertible.AbstractCatchEventConvertible;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResultMessageFactory;
 import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
-import java.util.Objects;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
 public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElementVisitor {
@@ -27,12 +27,10 @@ public abstract class AbstractTimerExpressionVisitor extends AbstractBpmnElement
       context.addConversion(
           AbstractCatchEventConvertible.class,
           con -> setNewExpression(con, transformationResult.result()));
-      if (!Objects.equals(transformationResult.result(), transformationResult.juelExpression())
-          || transformationResult.hasMethodInvocation()
-          || transformationResult.hasExecutionOnly()) {
-        context.addMessage(
-            MessageFactory.timerExpressionMapped(
-                transformationResult.juelExpression(), transformationResult.result()));
+      Message message =
+          ExpressionTransformationResultMessageFactory.getMessage(transformationResult, null);
+      if (!message.getId().isEmpty()) {
+        context.addMessage(message);
       }
     }
   }
