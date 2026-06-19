@@ -61,6 +61,20 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
   }
 
   @Override
+  protected String modelIdentifier(File modelFile) {
+    Path absoluteModelPath = modelFile.toPath().toAbsolutePath().normalize();
+    Path absoluteInputRoot =
+        (file.isDirectory() ? file.toPath() : file.getAbsoluteFile().getParentFile().toPath())
+            .toAbsolutePath()
+            .normalize();
+
+    if (absoluteModelPath.startsWith(absoluteInputRoot)) {
+      return absoluteInputRoot.relativize(absoluteModelPath).toString();
+    }
+    return absoluteModelPath.toString();
+  }
+
+  @Override
   protected Map<File, ModelInstance> modelInstances() {
     if (!file.exists()) {
       LOG_CLI.error("File {} does not exist", file.getAbsolutePath());
