@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_EXTERNAL_TASK;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_FLOW_NODE;
@@ -72,8 +73,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
 
     // and: the job has the expected properties
     JobEntity job = c8Jobs.getFirst();
-    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
-        null);
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey());
   }
 
   @Test
@@ -114,11 +114,8 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
     // and: the job has the expected properties
-    // Note: worker is null because the migrator picks up the first (creation) log entry per
-    // external task ID, and the creation event does not yet have a workerId
     JobEntity job = c8Jobs.getFirst();
-    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
-        null);
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey());
   }
 
   @Test
@@ -395,8 +392,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(c8Jobs).as("One C8 job entry per C7 external task (deduplication by external task ID)").hasSize(1);
 
     JobEntity job = c8Jobs.getFirst();
-    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey(),
-        null);
+    assertExternalTaskJobProperties(job, processInstanceKey, processInstances.getFirst().processDefinitionKey());
   }
 
   protected void deployCallingModel() {
@@ -410,8 +406,7 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     deployer.deployC7ModelInstance("callingProcessId", callingProcess);
   }
 
-  protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey,
-                                                 String worker) {
+  protected void assertExternalTaskJobProperties(JobEntity job, long processInstanceKey, Long processDefinitionKey) {
     assertThat(job.jobKey()).isNotNull();
     assertThat(job.processInstanceKey()).isEqualTo(processInstanceKey);
     assertThat(job.rootProcessInstanceKey()).isEqualTo(processInstanceKey);
@@ -429,10 +424,8 @@ public class HistoryExternalTaskTest extends HistoryMigrationAbstractTest {
     assertThat(job.lastUpdateTime())
       .isNotNull()
       .isAfterOrEqualTo(job.creationTime());
-    if (worker != null) {
-      assertThat(job.worker()).isEqualTo(worker);
-    } else {
-      assertThat(job.worker()).isNullOrEmpty();
-    }
+    // External tasks always carry the C7_NULL_PLACEHOLDER placeholder: the transformer never reads a worker
+    // from C7 (the creation log entry the migrator picks up has no workerId yet).
+    assertThat(job.worker()).isEqualTo(C7_NULL_PLACEHOLDER);
   }
 }

@@ -31,4 +31,10 @@ public final class MigratorConstants {
    * migrator would otherwise emit {@code null}
    */
   public static final String C7_NULL_PLACEHOLDER = "C7_MIGRATED";
+
+  /**
+   * Sentinel value for IncidentEntity.errorMessage when the C7 incident message was null.
+   * C8 enforces non-null on this field, so we substitute this placeholder to avoid NPEs.
+   */
+  public static final String C7_NO_MESSAGE = "C7_NO_MESSAGE";
 }
