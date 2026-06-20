@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.data.qa.history.entity;
 
+import static io.camunda.migration.data.constants.MigratorConstants.C7_NO_MESSAGE;
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.USER_TASK_ID;
@@ -90,6 +91,29 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     assertThat(incidents).hasSize(1);
     IncidentEntity incident = incidents.getFirst();
     assertOnIncidentBasicFields(incident, c7Incident, c7ProcessInstance, null);
+  }
+
+  @Test
+  public void shouldUsePlaceholderWhenC7IncidentMessageIsNull() {
+    // given
+    deployer.deployCamunda7Process("userTaskProcess.bpmn");
+    ProcessInstance c7ProcessInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
+
+    createIncidentWithNullMessage("userTaskId");
+
+    HistoricIncident c7Incident = historyService.createHistoricIncidentQuery()
+        .processInstanceId(c7ProcessInstance.getId())
+        .singleResult();
+    assertThat(c7Incident).isNotNull();
+    assertThat(c7Incident.getIncidentMessage()).isNull();
+
+    // when
+    historyMigrator.migrate();
+
+    // then
+    List<IncidentEntity> incidents = searchHistoricIncidents("userTaskProcessId");
+    assertThat(incidents).hasSize(1);
+    assertThat(incidents.getFirst().errorMessage()).isEqualTo(C7_NO_MESSAGE);
   }
 
   @Test
@@ -739,7 +763,7 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     if (c7Incident.getIncidentMessage() != null) {
       assertThat(c8Incident.errorMessage()).isEqualTo(c7Incident.getIncidentMessage());
     } else {
-      assertThat(c8Incident.errorMessage()).isNullOrEmpty();
+      assertThat(c8Incident.errorMessage()).isEqualTo(C7_NO_MESSAGE);
     }
   }
 
@@ -759,6 +783,12 @@ public class HistoryIncidentTest extends HistoryMigrationAbstractTest {
     Task task = taskService.createTaskQuery().taskDefinitionKey(taskId).singleResult();
     String executionId = task.getExecutionId();
     runtimeService.createIncident("foo", executionId, "bar");
+  }
+
+  protected void createIncidentWithNullMessage(String taskId) {
+    Task task = taskService.createTaskQuery().taskDefinitionKey(taskId).singleResult();
+    String executionId = task.getExecutionId();
+    runtimeService.createIncident("foo", executionId, "bar", null);
   }
 
   protected void deployCallingModelForExternalTask(String calledProcessKey) {
