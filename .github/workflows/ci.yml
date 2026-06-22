@@ -999,7 +999,7 @@ jobs:
           path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
-  # Database matrix testing - runs daily on main branch
+  # Database matrix testing - runs daily on the default branch and on branch pushes
   it-database-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -1007,7 +1007,7 @@ jobs:
       contents: read
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
