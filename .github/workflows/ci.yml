@@ -227,6 +227,8 @@ jobs:
   it-history-postgresql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
@@ -499,6 +501,8 @@ jobs:
   it-history-oracle:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
@@ -560,8 +564,8 @@ jobs:
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -701,6 +705,8 @@ jobs:
   it-identity-postgresql:
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
