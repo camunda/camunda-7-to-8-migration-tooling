@@ -14,6 +14,8 @@ jobs:
   read-versions:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       camunda-8-version: ${{ steps.versions.outputs.camunda-8-version }}
       camunda-8-previous-version: ${{ steps.versions.outputs.camunda-8-previous-version }}
@@ -243,6 +245,8 @@ jobs:
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     if: |
       github.event_name == 'pull_request' ||
       github.event_name == 'workflow_dispatch'
@@ -673,6 +677,8 @@ jobs:
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -717,6 +723,8 @@ jobs:
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     if: |
       github.event_name == 'schedule' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
