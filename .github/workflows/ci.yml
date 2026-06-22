@@ -1007,7 +1007,7 @@ jobs:
       contents: read
     if: |
       github.event_name == 'schedule' ||
-      github.event_name == 'push' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/maintenance/0.3') ||
       github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
