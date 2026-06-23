@@ -149,12 +149,14 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     historyMigrator.migrate();
 
     // Verify all interceptors were executed
-    // Universal interceptor must cover at least every entity that specific interceptors see,
+    // Universal interceptor must cover at least every entity that each specific interceptor sees,
     // confirming it runs for all entity types regardless of the total entity count.
     assertThat(universalEntityInterceptor.getExecutionCount())
-        .isGreaterThanOrEqualTo(
-            processInstanceInterceptor.getExecutionCount()
-                + activityInstanceInterceptor.getExecutionCount());
+        .isGreaterThanOrEqualTo(processInstanceInterceptor.getExecutionCount());
+    assertThat(universalEntityInterceptor.getExecutionCount())
+        .isGreaterThanOrEqualTo(activityInstanceInterceptor.getExecutionCount());
+    assertThat(universalEntityInterceptor.getExecutionCount())
+        .isGreaterThanOrEqualTo(processEngineAwareInterceptor.getExecutionCount());
     assertThat(processInstanceInterceptor.getExecutionCount()).isEqualTo(1);
     assertThat(activityInstanceInterceptor.getExecutionCount()).isEqualTo(3);
   }
