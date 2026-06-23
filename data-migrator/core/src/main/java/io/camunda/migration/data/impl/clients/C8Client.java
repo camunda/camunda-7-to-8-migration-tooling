@@ -61,6 +61,7 @@ import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
 import io.camunda.client.api.command.CreateUserCommandStep1;
 import io.camunda.client.api.command.DeployResourceCommandStep1;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.migration.data.impl.history.C8EntityNotFoundException;
 import io.camunda.client.api.command.ModifyProcessInstanceCommandStep1.ModifyProcessInstanceCommandStep3;
 import io.camunda.client.api.command.ProblemException;
@@ -77,6 +78,7 @@ import io.camunda.client.api.search.response.ProcessDefinition;
 import io.camunda.client.api.search.response.SearchResponse;
 import io.camunda.client.api.search.response.User;
 import io.camunda.db.rdbms.read.domain.DecisionDefinitionDbQuery;
+import java.time.Duration;
 import io.camunda.db.rdbms.read.domain.DecisionRequirementsDbQuery;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.domain.ProcessDefinitionDbQuery;
@@ -119,10 +121,13 @@ import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.DecisionRequirementsFilter;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.net.SocketTimeoutException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
@@ -135,6 +140,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class C8Client {
+
+  protected static final Duration ACTIVATE_JOBS_TIMEOUT = Duration.ofSeconds(5);
+  protected static final Duration ACTIVATE_JOBS_REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
   @Autowired
   protected MigratorProperties properties;
@@ -234,7 +242,30 @@ public class C8Client {
       tenantIdsWithDefault.add(C8_DEFAULT_TENANT);
       activateJobs = activateJobs.tenantIds(List.copyOf(tenantIdsWithDefault));
     }
-    return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
+    var activateJobsCommand = activateJobs
+        .timeout(ACTIVATE_JOBS_TIMEOUT)
+        .requestTimeout(ACTIVATE_JOBS_REQUEST_TIMEOUT);
+    return callApi(() -> {
+      try {
+        return activateJobsCommand.send().join(ACTIVATE_JOBS_REQUEST_TIMEOUT.toSeconds(), TimeUnit.SECONDS).getJobs();
+      } catch (ClientException e) {
+        if (isCausedByTimeout(e)) {
+          return List.of();
+        }
+        throw e;
+      }
+    }, FAILED_TO_ACTIVATE_JOBS + jobType);
+  }
+
+  protected boolean isCausedByTimeout(Throwable exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause instanceof TimeoutException || cause instanceof SocketTimeoutException) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
   /**

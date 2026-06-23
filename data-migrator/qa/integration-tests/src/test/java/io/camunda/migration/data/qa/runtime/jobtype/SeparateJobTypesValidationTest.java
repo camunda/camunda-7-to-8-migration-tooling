@@ -15,20 +15,41 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.test.context.TestPropertySource;
 
+@Timeout(value = 2, unit = TimeUnit.MINUTES)
 @TestPropertySource(properties = {
     "camunda.migrator.job-type=custom-activation-type",
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
-public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest {
+abstract class AbstractSeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest {
 
   protected static final String VALIDATION_JOB_TYPE = "=if legacyId != null then \"migrator\" else \"noop\"";
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
+
+  protected void assertValidationErrorLogged(String processInstanceId, String processId) {
+    var events = logs.getEvents();
+    assertThat(events.stream()
+        .filter(event -> event.getMessage()
+            .matches(String.format(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
+                    .replace("[{}]", "\\[%s\\]")
+                    .replace("{}", "%s"), processInstanceId,
+                String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
+                        .replace(".", "\\.")
+                        .replace("[", "\\[")
+                        .replace("]", "\\]"),
+                    VALIDATION_JOB_TYPE, "Event_1px2j50", processId, 1, VALIDATION_JOB_TYPE))))))
+        .hasSize(1);
+  }
+}
+
+class SeparateJobTypesValidationMessageTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseValidationJobTypeInValidationMessage() {
@@ -45,20 +66,11 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
-
-    var events = logs.getEvents();
-    assertThat(events.stream()
-        .filter(event -> event.getMessage()
-            .matches(String.format(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
-                    .replace("[{}]", "\\[%s\\]")
-                    .replace("{}", "%s"), id,
-                String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
-                        .replace(".", "\\.")
-                        .replace("[", "\\[")
-                        .replace("]", "\\]"),
-                    VALIDATION_JOB_TYPE, "Event_1px2j50", "noMigratorListener", 1, VALIDATION_JOB_TYPE))))))
-        .hasSize(1);
+    assertValidationErrorLogged(id, "noMigratorListener");
   }
+}
+
+class SeparateJobTypesListenerNotFoundMessageTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseValidationJobTypeInListenerNotFoundMessage() {
@@ -75,20 +87,11 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
 
     // then
     assertThatProcessInstanceCountIsEqualTo(0);
-
-    var events = logs.getEvents();
-    assertThat(events.stream()
-        .filter(event -> event.getMessage()
-            .matches(String.format(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
-                    .replace("[{}]", "\\[%s\\]")
-                    .replace("{}", "%s"), id,
-                String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
-                        .replace(".", "\\.")
-                        .replace("[", "\\[")
-                        .replace("]", "\\]"),
-                    VALIDATION_JOB_TYPE, "Event_1px2j50", "migratorListenerCustomType", 1, VALIDATION_JOB_TYPE))))))
-        .hasSize(1);
+    assertValidationErrorLogged(id, "migratorListenerCustomType");
   }
+}
+
+class SeparateJobTypesCustomValidationSuccessTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseCustomValidationJobTypeInListenerSucceed() {
@@ -106,5 +109,4 @@ public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
   }
-
 }

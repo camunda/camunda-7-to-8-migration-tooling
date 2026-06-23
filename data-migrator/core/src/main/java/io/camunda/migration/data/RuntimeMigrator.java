@@ -190,14 +190,17 @@ public class RuntimeMigrator {
   protected void activateMigratorJobs() {
     RuntimeMigratorLogs.activatingMigratorJobs();
     List<ActivatedJob> migratorJobs;
+    boolean handledMigratorJob;
     do {
+      handledMigratorJob = false;
       migratorJobs = c8Client.activateJobs(migratorProperties.getJobActivationType());
 
       RuntimeMigratorLogs.migratorJobsFound(migratorJobs.size());
 
-      migratorJobs.forEach(job -> {
+      for (ActivatedJob job : migratorJobs) {
         boolean externallyStarted = variableService.isExternallyStartedJob(job);
         if (!externallyStarted) {
+          handledMigratorJob = true;
           String c7Id = variableService.getC7IdFromJob(job);
           var activityInstanceTree = c7Client.getActivityInstance(c7Id);
 
@@ -223,9 +226,9 @@ public class RuntimeMigrator {
         } else {
           RuntimeMigratorLogs.externallyStartedProcessInstance(job.getProcessInstanceKey());
         }
-      });
+      }
 
-    } while (!migratorJobs.isEmpty());
+    } while (handledMigratorJob);
   }
 
   public void setMode(MigratorMode mode) {
