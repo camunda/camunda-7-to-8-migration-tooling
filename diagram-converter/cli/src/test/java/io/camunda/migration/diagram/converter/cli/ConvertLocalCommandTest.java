@@ -11,6 +11,9 @@ import static java.nio.file.StandardCopyOption.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +21,7 @@ import java.nio.file.Files;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 public class ConvertLocalCommandTest {
   private void setupDir(String filename, File tempDir) {
@@ -107,5 +111,62 @@ public class ConvertLocalCommandTest {
     Integer call = command.call();
     assertEquals(0, call);
     assertThat(tempDir.listFiles()).hasSize(1).anyMatch(file -> file.getName().equals("c7.bpmn"));
+  }
+
+  @Test
+  void shouldReturnErrorCodeForAlreadyCamunda8Dmn(@TempDir File tempDir) {
+    setupDir("c8.dmn", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(1, call);
+  }
+
+  @Test
+  void shouldIncludeFilenameInErrorForAlreadyCamunda8Dmn(@TempDir File tempDir) {
+    setupDir("c8.dmn", tempDir);
+    String expectedPath = "c8.dmn";
+    Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
+    ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+    listAppender.start();
+    cliLogger.addAppender(listAppender);
+    try {
+      ConvertLocalCommand command = new ConvertLocalCommand();
+      command.file = tempDir;
+      Integer call = command.call();
+      assertEquals(1, call);
+      assertThat(listAppender.list)
+          .anyMatch(
+              event ->
+                  event.getFormattedMessage().contains(expectedPath)
+                      && event.getFormattedMessage().contains("Problem while converting"));
+    } finally {
+      cliLogger.detachAppender(listAppender);
+      listAppender.stop();
+    }
+  }
+
+  @Test
+  void shouldIncludeFilenameInErrorForAlreadyCamunda8Bpmn(@TempDir File tempDir) {
+    setupDir("c8.bpmn", tempDir);
+    String expectedPath = "c8.bpmn";
+    Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
+    ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+    listAppender.start();
+    cliLogger.addAppender(listAppender);
+    try {
+      ConvertLocalCommand command = new ConvertLocalCommand();
+      command.file = tempDir;
+      Integer call = command.call();
+      assertEquals(1, call);
+      assertThat(listAppender.list)
+          .anyMatch(
+              event ->
+                  event.getFormattedMessage().contains(expectedPath)
+                      && event.getFormattedMessage().contains("Problem while converting"));
+    } finally {
+      cliLogger.detachAppender(listAppender);
+      listAppender.stop();
+    }
   }
 }
