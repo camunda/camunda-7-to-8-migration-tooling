@@ -35,6 +35,7 @@
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.0.6</version.spring-boot>
+    <version.spring-framework>7.0.8</version.spring-framework>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.0</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
@@ -98,6 +99,13 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-framework-bom</artifactId>
+        <version>${version.spring-framework}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
