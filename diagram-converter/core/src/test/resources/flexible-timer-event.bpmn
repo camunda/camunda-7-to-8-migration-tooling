@@ -215,6 +215,21 @@
         <bpmn:timeCycle xsi:type="bpmn:tFormalExpression">${boundaryCycle}</bpmn:timeCycle>
       </bpmn:timerEventDefinition>
     </bpmn:boundaryEvent>
+    <bpmn:intermediateCatchEvent id="MethodDateEvent" name="Method date">
+      <bpmn:timerEventDefinition id="TimerEventDefinition_1uwvrq4">
+        <bpmn:timeDate xsi:type="bpmn:tFormalExpression">${myBean.calc()}</bpmn:timeDate>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:intermediateCatchEvent id="ExecutionDurationEvent" name="Execution duration">
+      <bpmn:timerEventDefinition id="TimerEventDefinition_1vwvrq4">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${execution.hasVariable('whatever')}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:intermediateCatchEvent>
+    <bpmn:boundaryEvent id="MethodCycleBoundaryEvent" name="Method cycle boundary" cancelActivity="false" attachedToRef="TaskTask">
+      <bpmn:timerEventDefinition id="TimerEventDefinition_1xwvrq4">
+        <bpmn:timeCycle xsi:type="bpmn:tFormalExpression">${execution.getVariable("a").size()}</bpmn:timeCycle>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
     <bpmn:sequenceFlow id="Flow_12cl7jz" sourceRef="CycleNonInterruptingBoundaryEvent" targetRef="TimerConversionTestedEndEvent" />
     <bpmn:sequenceFlow id="Flow_10k0b0x" sourceRef="DateNonInterruptingBoundaryEvent" targetRef="TimerConversionTestedEndEvent" />
     <bpmn:sequenceFlow id="Flow_0kngvsj" sourceRef="DurationNonInterruptingBoundaryEvent" targetRef="TimerConversionTestedEndEvent" />
