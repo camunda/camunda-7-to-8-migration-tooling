@@ -178,7 +178,8 @@ public class RuntimeMigrator {
       // Ensure all variables are fetched and can be transformed before starting the new instance
       Map<String, Object> globalVariables = variableService.getGlobalVariables(c7ProcessInstanceId);
 
-      return c8Client.createProcessInstance(bpmnProcessId, processInstance.getTenantId(), globalVariables)
+      return c8Client.createProcessInstance(bpmnProcessId, processInstance.getTenantId(), globalVariables,
+          processInstance.getBusinessKey())
           .getProcessInstanceKey();
     } else {
       RuntimeMigratorLogs.processInstanceNotExists(c7ProcessInstanceId);
