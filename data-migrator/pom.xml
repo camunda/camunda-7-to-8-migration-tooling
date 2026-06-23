@@ -16,12 +16,10 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- as long as there is no official engine-spring artifact for spring 7,
-      we need to override transitive spring libs -->
       <dependency>
         <groupId>org.springframework</groupId>
         <artifactId>spring-framework-bom</artifactId>
-        <version>7.0.8</version>
+        <version>${version.spring-framework}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
