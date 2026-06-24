@@ -88,7 +88,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByKey(String processDefinitionKey, Map<String, Object>
@@ -132,7 +132,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 2)),
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceById(String processDefinitionId)"
@@ -166,7 +166,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionId", 0)),
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceById(String processDefinitionId, Map<String, Object>
@@ -208,7 +208,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 2)),
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByMessage(String messageName)"
@@ -244,7 +244,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.response.CorrelateMessageResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
-            List.of(" please configure you correlationKey", " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(" please configure you correlationKey", " businessKey was removed")),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByMessage(String messageName, Map<String, Object>
@@ -288,7 +288,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 2)),
-            List.of(" please configure you correlationKey", " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(" please configure you correlationKey", " businessKey was removed")),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByMessageAndProcessDefinitionId(String messageName,
@@ -330,7 +330,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
             List.of(
                 " please configure you correlationKey",
-                " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                " businessKey was removed",
                 " processDefinitionId was removed")),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
@@ -380,7 +380,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 3)),
             List.of(
                 " please configure you correlationKey",
-                " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                " businessKey was removed",
                 " processDefinitionId was removed")));
   }
 
@@ -474,7 +474,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceByKey", "processDefinitionTenantId"),
@@ -528,7 +528,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceByKey", "setVariables", "businessKey"),
@@ -546,7 +546,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceByKey", "processDefinitionTenantId", "setVariables"),
@@ -588,7 +588,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceById"),
@@ -620,7 +620,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceById", "processDefinitionTenantId"),
@@ -671,7 +671,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceById", "setVariables", "businessKey"),
@@ -688,7 +688,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")),
+            List.of(RecipeUtils.businessIdHint("businessKey"))),
         new ReplacementUtils.BuilderReplacementSpec(
             executeMethodMatcher,
             Set.of("createProcessInstanceById", "processDefinitionTenantId", "setVariables"),
@@ -728,7 +728,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead")));
+            List.of(RecipeUtils.businessIdHint("businessKey"))));
   }
   */
 

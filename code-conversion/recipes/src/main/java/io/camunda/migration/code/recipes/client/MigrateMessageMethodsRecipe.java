@@ -131,7 +131,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0)),
             List.of(
-                " TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead",
+                " processInstanceBusinessKey was removed",
                 " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
             // "correlateMessage(String messageName, Map<String, Object> correlationKeys)"
@@ -200,7 +200,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("messageName", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 3)),
             List.of(
-                " TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead",
+                " processInstanceBusinessKey was removed",
                 " correlationKeys were removed",
                 " Hint: In Camunda 8 messages could also be correlated asynchronously")),
         new ReplacementUtils.SimpleReplacementSpec(
@@ -339,7 +339,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
                     methodInvocation,
                     getCursor(),
                     args,
-                    List.of(" TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead"));
+                    List.of(" processInstanceBusinessKey was removed"));
           }
 
           private @Nullable Expression findProcessDefinitionKeyArg(Expression queryExpr) {
@@ -399,7 +399,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
               "io.camunda.client.api.response.CorrelateMessageResponse",
               ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
               List.of(
-                  " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                  " businessKey was removed",
                   " Hint: In Camunda 8 messages could also be correlated asynchronously")),
           new ReplacementUtils.BuilderReplacementSpec(
               correlateMethodMatcher,
@@ -439,7 +439,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
               "io.camunda.client.api.response.CorrelateMessageResponse",
               ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
               List.of(
-                  " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                  " businessKey was removed",
                   " Hint: In Camunda 8 messages could also be correlated asynchronously")),
           new ReplacementUtils.BuilderReplacementSpec(
               correlateMethodMatcher,
@@ -479,7 +479,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
               "io.camunda.client.api.response.CorrelateMessageResponse",
               ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
               List.of(
-                  " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                  " businessKey was removed",
                   " Hint: In Camunda 8 messages could also be correlated asynchronously")),
           new ReplacementUtils.BuilderReplacementSpec(
               correlateMethodMatcher,
@@ -525,7 +525,7 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
               "io.camunda.client.api.response.CorrelateMessageResponse",
               ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
               List.of(
-                  " TODO: businessKey was removed — use businessId (Camunda 8.9+) instead",
+                  " businessKey was removed",
                   " Hint: In Camunda 8 messages could also be correlated asynchronously")));*/
 
   @Override

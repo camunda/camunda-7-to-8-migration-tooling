@@ -155,9 +155,13 @@ public class BuilderSpecFactory {
   }
 
   static String createRemovedComment(String methodName) {
-    if ("businessKey".equals(methodName)
-        || "processInstanceBusinessKey".equals(methodName)) {
-      return " TODO: " + methodName + " was removed — use businessId (Camunda 8.9+) instead";
+    // Business ID replaces the Camunda 7 process-instance business key only on the
+    // creation path. `businessKey` only ever appears here in the createProcessInstance builder
+    // (newCreateInstanceCommand), so the businessId hint is correct. `processInstanceBusinessKey`
+    // only appears in the message-correlation builder (newCorrelateMessageCommand), where
+    // businessId does not apply - keep it neutral.
+    if ("businessKey".equals(methodName)) {
+      return RecipeUtils.businessIdHint(methodName);
     }
     return " " + methodName + " was removed";
   }

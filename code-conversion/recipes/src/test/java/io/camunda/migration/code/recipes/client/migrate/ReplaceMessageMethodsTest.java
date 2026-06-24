@@ -203,7 +203,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -231,7 +231,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // correlationKeys were removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
@@ -250,7 +250,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -277,7 +277,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -287,7 +287,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -297,7 +297,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -307,23 +307,13 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
                 .messageName(messageName)
                 .correlationKey("add correlationKey here")
                 .variables(variableMap)
-                .send()
-                .join();
-
-        // Hint: In Camunda 8 messages could also be correlated asynchronously
-        camundaClient
-                .newCorrelateMessageCommand()
-                .messageName(messageName)
-                .correlationKey("add correlationKey here")
-                .variables(variableMap)
-                .tenantId(tenantId)
                 .send()
                 .join();
 
@@ -337,7 +327,6 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -348,7 +337,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -359,7 +348,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -370,7 +359,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -381,7 +370,7 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -392,7 +381,18 @@ public class CorrelateMessagesTestClass {
                 .send()
                 .join();
 
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
+        // Hint: In Camunda 8 messages could also be correlated asynchronously
+        camundaClient
+                .newCorrelateMessageCommand()
+                .messageName(messageName)
+                .correlationKey("add correlationKey here")
+                .variables(variableMap)
+                .tenantId(tenantId)
+                .send()
+                .join();
+
+        // processInstanceBusinessKey was removed
         // Hint: In Camunda 8 messages could also be correlated asynchronously
         camundaClient
                 .newCorrelateMessageCommand()
@@ -406,7 +406,7 @@ public class CorrelateMessagesTestClass {
 
     public void correlateMessageAsyncMethods(String messageName, String businessKey, String processDefinitionId) {
       
-        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
+        // processInstanceBusinessKey was removed
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter.processDefinitionKey(Long.valueOf(processDefinitionId)))

@@ -59,7 +59,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
-            List.of(" TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead"),
+            List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
             Collections.emptyList(),
             Collections.emptyList()));
   }
@@ -114,7 +114,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
         "List<io.camunda.client.api.search.response.ProcessInstance>",
         ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-        List.of(" TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead"),
+        List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
         Collections.emptyList(),
         List.of(PROCESS_INSTANCE_STATE)));
         

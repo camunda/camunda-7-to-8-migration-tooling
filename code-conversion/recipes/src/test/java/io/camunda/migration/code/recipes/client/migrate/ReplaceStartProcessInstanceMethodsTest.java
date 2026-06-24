@@ -183,7 +183,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          String id = String.valueOf(instance1.getProcessInstanceKey());
                                          System.out.println(String.valueOf(instance1.getProcessInstanceKey()));
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -199,7 +199,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -215,7 +215,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -239,7 +239,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -248,7 +248,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -266,7 +266,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -283,7 +283,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -297,7 +297,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -305,7 +305,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -334,7 +334,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -342,7 +342,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -350,7 +350,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -371,7 +371,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          System.out.println(String.valueOf(instance2.getProcessInstanceKey()));
 
                                          // please configure you correlationKey
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // businessKey was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
                                                  .messageName(messageName)
@@ -389,7 +389,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .join();
 
                                          // please configure you correlationKey
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // businessKey was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
                                                  .messageName(messageName)
@@ -408,7 +408,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .join();
 
                                          // please configure you correlationKey
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // businessKey was removed
                                          // processDefinitionId was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()
@@ -428,7 +428,7 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .join();
 
                                          // please configure you correlationKey
-                                         // TODO: businessKey was removed — use businessId (Camunda 8.9+) instead
+                                         // businessKey was removed
                                          // processDefinitionId was removed
                                          camundaClient
                                                  .newCorrelateMessageCommand()

@@ -3,17 +3,13 @@ name: io.camunda.migration.code.recipes.AllDelegatePrepareRecipes
 displayName: Runs all delegate prepare recipes
 description: Injects job worker and migrate typed value API.
 recipeList:
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-spring-boot-starter
-      version: ${version.camunda-8}
+  # Camunda 8.9 split the Spring Boot starter: the default `camunda-spring-boot-starter`
+  # requires Spring Boot 4.0.x, while `camunda-spring-boot-3-starter` targets Spring Boot 3.5.x.
+  # They are mutually exclusive - add exactly one. We default to the Spring Boot 3 starter as the
+  # safer landing spot for migrated Camunda 7 apps; it pulls in camunda-client-java transitively.
   - org.openrewrite.java.dependencies.AddDependency:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
-      version: ${version.camunda-8}
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-client-java
       version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
