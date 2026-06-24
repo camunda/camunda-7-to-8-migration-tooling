@@ -94,7 +94,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .join()
                 .items();
                 
-        // processInstanceBusinessKey was removed - business key concept changed in Camunda 8
+        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter
@@ -103,7 +103,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .join()
                 .items();
                 
-        // processInstanceBusinessKey was removed - business key concept changed in Camunda 8
+        // TODO: processInstanceBusinessKey was removed — use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter.processDefinitionKey(Long.valueOf(processDefinitionKey)));

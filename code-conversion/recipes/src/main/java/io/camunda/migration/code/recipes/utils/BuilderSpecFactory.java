@@ -60,7 +60,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList());
             })
@@ -122,7 +122,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList(),
                   Collections.emptyList(),
@@ -152,5 +152,13 @@ public class BuilderSpecFactory {
     }
 
     return result;
+  }
+
+  static String createRemovedComment(String methodName) {
+    if ("businessKey".equals(methodName)
+        || "processInstanceBusinessKey".equals(methodName)) {
+      return " TODO: " + methodName + " was removed — use businessId (Camunda 8.9+) instead";
+    }
+    return " " + methodName + " was removed";
   }
 }

@@ -7,6 +7,14 @@ recipeList:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
       version: ${version.camunda-8}
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-client-java
+      version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathDelegateRecipe
   - io.camunda.migration.code.recipes.delegate.PrepareJobWorkerBeneathExecutionListenerRecipe

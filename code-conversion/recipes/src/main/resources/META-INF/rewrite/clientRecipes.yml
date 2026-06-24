@@ -7,6 +7,14 @@ recipeList:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
       version: ${version.camunda-8}
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-client-java
+      version: ${version.camunda-8}
   - io.camunda.migration.code.recipes.client.PrepareCamundaClientDependencyRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
 ---
@@ -22,6 +30,11 @@ recipeList:
   - io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe
   - io.camunda.migration.code.recipes.testing.ReplaceAssertionsRecipe
+  - org.openrewrite.java.dependencies.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      version: ${version.camunda-8}
+      scope: test
   - org.openrewrite.java.UseStaticImport:
       methodPattern: io.camunda.process.test.api.CamundaAssert assertThat(..)
   - org.openrewrite.java.UseStaticImport:
