@@ -37,14 +37,14 @@ abstract class AbstractSeparateJobTypesValidationTest extends RuntimeMigrationAb
     var events = logs.getEvents();
     assertThat(events.stream()
         .filter(event -> event.getMessage()
-            .matches(String.format(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
+            .matches(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
                     .replace("[{}]", "\\[%s\\]")
                     .replace("{}", "%s"), processInstanceId,
                 String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
                         .replace(".", "\\.")
                         .replace("[", "\\[")
                         .replace("]", "\\]"),
-                    VALIDATION_JOB_TYPE, "Event_1px2j50", processId, 1, VALIDATION_JOB_TYPE))))))
+                    VALIDATION_JOB_TYPE, "Event_1px2j50", processId, 1, VALIDATION_JOB_TYPE)))))
         .hasSize(1);
   }
 }

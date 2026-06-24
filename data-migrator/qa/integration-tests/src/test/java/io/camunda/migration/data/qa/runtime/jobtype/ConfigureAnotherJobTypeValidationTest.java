@@ -46,7 +46,7 @@ public class ConfigureAnotherJobTypeValidationTest extends RuntimeMigrationAbstr
     var events = logs.getEvents();
     assertThat(events.stream()
         .filter(event -> event.getMessage()
-            .matches(String.format(".*" + String.format(
+            .matches(".*" + String.format(
                 SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
                     .replace("[{}]", "\\[%s\\]")
                     .replace("{}", "%s"), id,
@@ -54,7 +54,7 @@ public class ConfigureAnotherJobTypeValidationTest extends RuntimeMigrationAbstr
                         .replace(".", "\\.")
                         .replace("[", "\\[")
                         .replace("]", "\\]"),
-                    "my\\-job\\-type", "Event_1px2j50", "noMigratorListener", 1, "my\\-job\\-type"))))))
+                    "my\\-job\\-type", "Event_1px2j50", "noMigratorListener", 1, "my\\-job\\-type")))))
         .hasSize(1);
   }
 
@@ -77,7 +77,7 @@ public class ConfigureAnotherJobTypeValidationTest extends RuntimeMigrationAbstr
     var events = logs.getEvents();
     assertThat(events.stream()
         .filter(event -> event.getMessage()
-            .matches(String.format(".*" + String.format(
+            .matches(".*" + String.format(
                 SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
                     .replace("[{}]", "\\[%s\\]")
                     .replace("{}", "%s"), id,
@@ -85,7 +85,7 @@ public class ConfigureAnotherJobTypeValidationTest extends RuntimeMigrationAbstr
                         .replace(".", "\\.")
                         .replace("[", "\\[")
                         .replace("]", "\\]"),
-                    "my\\-job\\-type", "Event_1px2j50", "migratorListenerCustomType", 1, "my\\-job\\-type"))))))
+                    "my\\-job\\-type", "Event_1px2j50", "migratorListenerCustomType", 1, "my\\-job\\-type")))))
         .hasSize(1);
   }
 }
