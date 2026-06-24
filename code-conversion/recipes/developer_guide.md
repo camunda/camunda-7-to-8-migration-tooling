@@ -281,7 +281,7 @@ templace code.
         RecipeUtils.createSimpleIdentifier("camundaClient","io.camunda.client.CamundaClient"),
         "io.camunda.client.api.response.ProcessInstanceEvent",
         ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-        List.of(" businessKey was removed"))
+        List.of(" TODO: businessKey was removed — use businessId (Camunda 8.9+) instead"))
 ```
 
 The executeMethodMatcher matches the last method call of a builder pattern that starts a process instance with a builder
