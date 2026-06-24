@@ -20,9 +20,9 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 ### CamundaClient (Camunda 8)
 
 ```java
-    public List<UserTask> searchUserTasksByBPMNModelIdentifier(String processDefinitionKey) {
+    public List<UserTask> searchUserTasksByBPMNModelIdentifier(String processDefinitionId) {
         return camundaClient.newUserTaskSearchRequest()
-                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(processDefinitionKey))
+                .filter(userTaskFilter -> userTaskFilter.bpmnProcessId(processDefinitionId))
                 .send()
                 .join()
                 .items();
@@ -30,6 +30,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 ```
 
 -   in place of the taskQuery, various filters can be used
+-   note the naming swap: the C7 `processDefinitionKey` (the id in the BPMN XML) is called `processDefinitionId` / `bpmnProcessId` in Camunda 8
 
 ## Claim User Task
 
