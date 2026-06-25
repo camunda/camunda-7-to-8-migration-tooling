@@ -56,7 +56,6 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import io.camunda.client.CamundaClient;
-import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
 import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
@@ -140,7 +139,7 @@ import org.springframework.stereotype.Component;
 public class C8Client {
 
   static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
-  protected long activateJobsRetryDelayMs = 2000L;
+  long activateJobsRetryDelayMs = 2000L;
 
   @Autowired
   protected MigratorProperties properties;
@@ -227,7 +226,7 @@ public class C8Client {
   }
 
   /**
-   * Activates jobs for the specified job type, with up to MAX_ACTIVATE_JOBS_RETRIES retries on
+   * Activates jobs for the specified job type, retrying up to MAX_ACTIVATE_JOBS_RETRIES times on
    * transient timeout failures.
    */
   public List<ActivatedJob> activateJobs(String jobType) {
@@ -244,19 +243,19 @@ public class C8Client {
 
     for (int attempt = 1; attempt <= MAX_ACTIVATE_JOBS_RETRIES; attempt++) {
       try {
-        return activateJobs.execute().getJobs();
-      } catch (ClientException e) {
+        return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
+      } catch (MigratorException e) {
         if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_RETRIES) {
           sleepUninterruptibly(activateJobsRetryDelayMs * attempt);
         } else {
-          throw wrapException(FAILED_TO_ACTIVATE_JOBS + jobType, e);
+          throw e;
         }
       }
     }
     throw new IllegalStateException("Unexpected: retry loop exhausted without throwing");
   }
 
-  protected static boolean isCausedByTimeout(Throwable t) {
+  static boolean isCausedByTimeout(Throwable t) {
     Throwable cause = t;
     while (cause != null) {
       if (cause instanceof TimeoutException || cause instanceof SocketTimeoutException) {
