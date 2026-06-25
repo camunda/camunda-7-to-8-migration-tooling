@@ -9,7 +9,6 @@ package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.retryingActivateJobs;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
@@ -57,6 +56,7 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
 import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
@@ -244,13 +244,12 @@ public class C8Client {
 
     for (int attempt = 1; attempt <= MAX_ACTIVATE_JOBS_RETRIES; attempt++) {
       try {
-        return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
-      } catch (MigratorException e) {
+        return activateJobs.execute().getJobs();
+      } catch (ClientException e) {
         if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_RETRIES) {
-          retryingActivateJobs(jobType, attempt, MAX_ACTIVATE_JOBS_RETRIES);
           sleepUninterruptibly(activateJobsRetryDelayMs * attempt);
         } else {
-          throw e;
+          throw wrapException(FAILED_TO_ACTIVATE_JOBS + jobType, e);
         }
       }
     }

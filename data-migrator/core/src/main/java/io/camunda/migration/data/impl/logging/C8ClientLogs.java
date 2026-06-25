@@ -8,23 +8,11 @@
 
 package io.camunda.migration.data.impl.logging;
 
-import io.camunda.migration.data.impl.clients.C8Client;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Centralized logging utility for C8Client.
  * Contains all log messages and string constants used in C8Client.
  */
 public class C8ClientLogs {
-
-  protected static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
-
-  private static final String ACTIVATE_JOBS_TIMEOUT_RETRY = "Timeout while activating jobs for type: {}. Retrying ({}/{})...";
-
-  public static void retryingActivateJobs(String jobType, int attempt, int maxRetries) {
-    LOGGER.warn(ACTIVATE_JOBS_TIMEOUT_RETRY, jobType, attempt, maxRetries);
-  }
 
   // C8 Client Error Messages
   public static final String FAILED_TO_DEPLOY_C8_RESOURCES = "Failed to deploy C8 resources: ";
