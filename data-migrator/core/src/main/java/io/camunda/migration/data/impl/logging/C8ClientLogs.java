@@ -8,11 +8,23 @@
 
 package io.camunda.migration.data.impl.logging;
 
+import io.camunda.migration.data.impl.clients.C8Client;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Centralized logging utility for C8Client.
  * Contains all log messages and string constants used in C8Client.
  */
 public class C8ClientLogs {
+
+  protected static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
+
+  private static final String ACTIVATE_JOBS_TIMEOUT_RETRY = "Timeout while activating jobs for type: {}. Retrying ({}/{})...";
+
+  public static void retryingActivateJobs(String jobType, int attempt, int maxRetries) {
+    LOGGER.warn(ACTIVATE_JOBS_TIMEOUT_RETRY, jobType, attempt, maxRetries);
+  }
 
   // C8 Client Error Messages
   public static final String FAILED_TO_DEPLOY_C8_RESOURCES = "Failed to deploy C8 resources: ";
@@ -51,6 +63,5 @@ public class C8ClientLogs {
   public static final String FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP = "Failed to create tenant membership for tenant [%s] and group [%s], check logs for details";
   public static final String FAILED_TO_INSERT_JOB = "Failed to insert job";
   public static final String FAILED_TO_QUERY_TOPOLOGY = "Camunda REST API cannot be reached to query for the topology. If you want to continue in offline mode, please configure a partition count with the following config property: ";
-  public static final String ACTIVATE_JOBS_TIMEOUT_RETRY = "Timeout while activating jobs for type: {}. Retrying ({}/{})...";
 
 }

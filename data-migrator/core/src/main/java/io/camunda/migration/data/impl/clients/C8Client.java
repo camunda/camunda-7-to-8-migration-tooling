@@ -8,8 +8,8 @@
 package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
-import static io.camunda.migration.data.impl.logging.C8ClientLogs.ACTIVATE_JOBS_TIMEOUT_RETRY;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.retryingActivateJobs;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_TENANT_GROUP_MEMBERSHIP;
@@ -129,8 +129,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -141,7 +139,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class C8Client {
 
-  static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
   static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
   protected long activateJobsRetryDelayMs = 2000L;
 
@@ -250,7 +247,7 @@ public class C8Client {
         return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
       } catch (MigratorException e) {
         if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_RETRIES) {
-          LOGGER.warn(ACTIVATE_JOBS_TIMEOUT_RETRY, jobType, attempt, MAX_ACTIVATE_JOBS_RETRIES);
+          retryingActivateJobs(jobType, attempt, MAX_ACTIVATE_JOBS_RETRIES);
           sleepUninterruptibly(activateJobsRetryDelayMs * attempt);
         } else {
           throw e;
