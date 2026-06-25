@@ -8,6 +8,7 @@
 package io.camunda.migration.data.impl.clients;
 
 import static io.camunda.migration.data.constants.MigratorConstants.C8_DEFAULT_TENANT;
+import static io.camunda.migration.data.impl.logging.C8ClientLogs.ACTIVATE_JOBS_TIMEOUT_RETRY;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_ACTIVATE_JOBS;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_GROUP_MEMBERSHIP;
 import static io.camunda.migration.data.impl.logging.C8ClientLogs.FAILED_TO_CREATE_PROCESS_INSTANCE;
@@ -119,13 +120,17 @@ import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.filter.DecisionRequirementsFilter;
 import io.camunda.search.filter.FlowNodeInstanceFilter;
+import java.net.SocketTimeoutException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.camunda.bpm.engine.identity.Tenant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -135,6 +140,10 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class C8Client {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
+  private static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
+  protected long activateJobsRetryDelayMs = 2000L;
 
   @Autowired
   protected MigratorProperties properties;
@@ -221,7 +230,8 @@ public class C8Client {
   }
 
   /**
-   * Activates jobs for the specified job type.
+   * Activates jobs for the specified job type, with up to MAX_ACTIVATE_JOBS_RETRIES retries on
+   * transient timeout failures.
    */
   public List<ActivatedJob> activateJobs(String jobType) {
     Set<String> tenantIds = properties.getTenantIds();
@@ -234,7 +244,39 @@ public class C8Client {
       tenantIdsWithDefault.add(C8_DEFAULT_TENANT);
       activateJobs = activateJobs.tenantIds(List.copyOf(tenantIdsWithDefault));
     }
-    return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
+
+    for (int attempt = 1; attempt <= MAX_ACTIVATE_JOBS_RETRIES; attempt++) {
+      try {
+        return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
+      } catch (MigratorException e) {
+        if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_RETRIES) {
+          LOGGER.warn(ACTIVATE_JOBS_TIMEOUT_RETRY, jobType, attempt, MAX_ACTIVATE_JOBS_RETRIES);
+          sleepUninterruptibly(activateJobsRetryDelayMs * attempt);
+        } else {
+          throw e;
+        }
+      }
+    }
+    throw new IllegalStateException("Unexpected: retry loop exhausted without throwing");
+  }
+
+  protected static boolean isCausedByTimeout(Throwable t) {
+    Throwable cause = t;
+    while (cause != null) {
+      if (cause instanceof TimeoutException || cause instanceof SocketTimeoutException) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
+  }
+
+  private void sleepUninterruptibly(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /**
