@@ -141,8 +141,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class C8Client {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
-  private static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
+  static final Logger LOGGER = LoggerFactory.getLogger(C8Client.class);
+  static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
   protected long activateJobsRetryDelayMs = 2000L;
 
   @Autowired
@@ -271,7 +271,7 @@ public class C8Client {
     return false;
   }
 
-  private void sleepUninterruptibly(long ms) {
+  void sleepUninterruptibly(long ms) {
     try {
       Thread.sleep(ms);
     } catch (InterruptedException e) {
