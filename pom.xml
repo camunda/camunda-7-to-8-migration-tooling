@@ -31,6 +31,7 @@
 
     <version.camunda-7>7.24.6-ee</version.camunda-7>
     <version.camunda-8>8.9.9</version.camunda-8>
+    <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
     <version.netty>4.2.15.Final</version.netty>
