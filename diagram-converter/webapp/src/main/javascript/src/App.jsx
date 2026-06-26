@@ -27,7 +27,7 @@ import {
   RadioButton,
 } from "@carbon/react";
 
-import { Download, Launch, Close, Settings } from "@carbon/react/icons";
+import { Download, Launch, Close, Settings, ChevronDown, ChevronUp } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
@@ -512,18 +512,18 @@ function App() {
               </p>
 
               <Form className="configBox">
-                <h4>
-                  <Settings style={{ marginRight: '0.5rem' }} />
-                  Advanced Configuration Options
-                  <Button
-                    kind="ghost"
-                    size="sm"
-                    onClick={() => setShowConfig((prev) => !prev)}
-                    className="withMarginBottom"
-                  >
-                    {showConfig ? 'Hide' : 'Show'}
-                  </Button>
-                </h4>
+                <button
+                  type="button"
+                  className="configToggle"
+                  aria-expanded={showConfig}
+                  onClick={() => setShowConfig((prev) => !prev)}
+                >
+                  <span className="configToggleLabel">
+                    <Settings />
+                    Advanced configuration options
+                  </span>
+                  {showConfig ? <ChevronUp /> : <ChevronDown />}
+                </button>
               {showConfig && (
                   <FormGroup legendText="Advanced configuration options">
                     <Checkbox

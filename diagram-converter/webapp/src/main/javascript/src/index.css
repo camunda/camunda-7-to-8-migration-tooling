@@ -371,11 +371,43 @@ th, td {
   border-radius: 12px;
 }
 
-.configBox h4 {
+/* Advanced options disclosure: the whole header row toggles the panel */
+.configToggle {
   display: flex;
   align-items: center;
-  text-decoration: none;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
   font-weight: 600;
+  line-height: 22px;
+  color: #161616;
+  transition: color 0.12s ease;
+}
+
+.configToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configToggle svg {
+  flex-shrink: 0;
+  color: #525252;
+  transition: color 0.12s ease;
+}
+
+.configToggle:hover,
+.configToggle:hover svg {
+  color: #0f62fe;
+}
+
+/* Spacing only appears when the panel is expanded (fieldset present) */
+.configBox .cds--fieldset {
+  margin-top: 16px;
 }
 .form-spacer {
   margin-top: 2rem;
