@@ -50,8 +50,6 @@ function App() {
   const [files, setFiles] = useState([]);
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
-  const isSaaS = window.location.hostname !== "localhost";
-
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
@@ -66,6 +64,26 @@ function App() {
 
   const [showConfig, setShowConfig] = useState(false);
   const incompatibilityNotifRef = useRef(null);
+  const versionSegmentedRef = useRef(null);
+
+  function handleVersionKeyDown(e) {
+    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
+    if (!keys.includes(e.key)) return;
+    e.preventDefault();
+    const currentIdx = SUPPORTED_PLATFORM_VERSIONS.findIndex(v => v.value === platformVersion);
+    let nextIdx = currentIdx;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIdx = (currentIdx + 1) % SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIdx = (currentIdx - 1 + SUPPORTED_PLATFORM_VERSIONS.length) % SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = SUPPORTED_PLATFORM_VERSIONS.length - 1;
+    }
+    setPlatformVersion(SUPPORTED_PLATFORM_VERSIONS[nextIdx].value);
+    versionSegmentedRef.current?.querySelectorAll('button')[nextIdx]?.focus();
+  }
 
   const allDone = fileResults.length > 0 && fileResults.every(r => r.status !== 'uploading');
   const totalFindings = allDone
@@ -474,9 +492,11 @@ function App() {
               </div>
               <p>Choose your target Camunda 8 version. Defaults to the latest stable (8.9).</p>
               <div
+                ref={versionSegmentedRef}
                 className="versionSegmented"
                 role="radiogroup"
                 aria-label="Target Camunda 8 version"
+                onKeyDown={handleVersionKeyDown}
               >
                 {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
                   <button
@@ -484,6 +504,7 @@ function App() {
                     type="button"
                     role="radio"
                     aria-checked={platformVersion === version.value}
+                    tabIndex={platformVersion === version.value ? 0 : -1}
                     className={
                       "versionSegment" +
                       (platformVersion === version.value ? " versionSegment--selected" : "")

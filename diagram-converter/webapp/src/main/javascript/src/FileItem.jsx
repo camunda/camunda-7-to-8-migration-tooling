@@ -17,7 +17,7 @@ import {
 
 import Paperclip from "./Paperclip.svg";
 
-export default function DropZone({
+export default function FileItem({
   name,
   error,
   status,

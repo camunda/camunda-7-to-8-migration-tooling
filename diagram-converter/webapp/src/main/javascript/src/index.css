@@ -551,9 +551,9 @@ th, td {
   color: #525252;
 }
 
-/* The radio group and config fieldset carry a descriptive <legend> for
-   assistive tech, but the visible step headers already convey it, so the
-   legends are hidden visually (kept available to screen readers). */
+/* The config fieldset carries a descriptive <legend> for assistive tech,
+   but the visible step header already conveys it, so the legend is hidden
+   visually (kept available to screen readers). */
 .configBox legend {
   position: absolute;
   width: 1px;
