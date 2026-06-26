@@ -39,8 +39,8 @@ import BpmnJS from 'bpmn-js';
 // is the latest generally available release. 8.10 is offered for users already
 // targeting the upcoming release.
 const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.10", label: "8.10" },
-  { value: "8.9", label: "8.9", hint: "Recommended" },
+  { value: "8.10", label: "8.10", hint: "Next version" },
+  { value: "8.9", label: "8.9", hint: "Latest stable" },
   { value: "8.8", label: "8.8" },
 ];
 const DEFAULT_PLATFORM_VERSION = "8.9";
@@ -477,7 +477,7 @@ function App() {
               <p>
                 Select the Camunda 8 version you plan to run on. Your models are
                 converted for that target, so they only use features available
-                there. Defaults to the recommended version (8.9).
+                there. Defaults to the latest stable version (8.9).
               </p>
               <RadioButtonGroup
                 className="versionSelector"
