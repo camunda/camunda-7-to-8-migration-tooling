@@ -440,6 +440,67 @@
       </build>
     </profile>
     <profile>
+      <id>runtime-core</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/distribution/**</include>
+                <include>**/persistence/**</include>
+                <include>**/runtime/Business*</include>
+                <include>**/runtime/Migration*</include>
+                <include>**/runtime/MigratorListener*</include>
+                <include>**/runtime/PageSize*</include>
+                <include>**/runtime/ProcessDefinition*</include>
+                <include>**/runtime/ProcessElement*</include>
+                <include>**/runtime/RuntimeMigrationList*</include>
+                <include>**/runtime/Skip*</include>
+                <include>ArchitectureTest.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-jobtype-element</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/runtime/jobtype/**</include>
+                <include>**/runtime/element/**</include>
+                <include>**/runtime/datasource/**</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-tenant-variables</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/runtime/tenant/**</include>
+                <include>**/runtime/variables/**</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>history-only</id>
       <build>
         <plugins>

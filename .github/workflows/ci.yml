@@ -281,9 +281,9 @@ jobs:
           -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
           --batch-mode
 
-  it-runtime-h2:
+  it-runtime-core-h2:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 30
     if: |
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
@@ -315,9 +315,85 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with H2
+      - name: Run runtime core tests with H2
         working-directory: data-migrator
-        run: mvn verify -Pintegration,runtime-only
+        run: mvn verify -Pintegration,runtime-core
+
+  it-runtime-jobtype-element-h2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
+      )) ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run runtime jobtype and element tests with H2
+        working-directory: data-migrator
+        run: mvn verify -Pintegration,runtime-jobtype-element
+
+  it-runtime-tenant-variables-h2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
+      )) ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run runtime tenant and variables tests with H2
+        working-directory: data-migrator
+        run: mvn verify -Pintegration,runtime-tenant-variables
 
   it-history-h2:
     runs-on: ubuntu-latest
@@ -894,7 +970,9 @@ jobs:
       - code-conversion
       - diagram-converter
       - compile-previous-version
-      - it-runtime-h2
+      - it-runtime-core-h2
+      - it-runtime-jobtype-element-h2
+      - it-runtime-tenant-variables-h2
       - it-history-h2
       - it-history-h2-windows
       - it-identity-h2
