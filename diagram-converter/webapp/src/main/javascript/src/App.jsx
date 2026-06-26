@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import {
   ProgressIndicator,
@@ -65,6 +65,18 @@ function App() {
   const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
 
   const [showConfig, setShowConfig] = useState(false);
+  const incompatibilityNotifRef = useRef(null);
+
+  const allDone = fileResults.length > 0 && fileResults.every(r => r.status !== 'uploading');
+  const totalFindings = allDone
+    ? fileResults.reduce((sum, r) => {
+        if (!r.checkResponseJson) return sum;
+        return sum + r.checkResponseJson
+          .flatMap(item => item.results || [])
+          .reduce((s, el) => s + (el.messages?.length || 0), 0);
+      }, 0)
+    : 0;
+
   const [configOptions, setConfigOptions] = useState({
     defaultJobType: "camunda-7-job",
     keepJobTypeBlank: false,
@@ -73,6 +85,12 @@ function App() {
     dataMigrationExecutionListenerJobType: "migrator",
   });
 
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') setIsPreviewOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   useEffect(() => {
       if (isPreviewOpen && previewbpmnXml) {
@@ -99,6 +117,15 @@ function App() {
 
       }
     }, [isPreviewOpen, previewbpmnXml]);
+
+  useEffect(() => {
+    if (!allDone || totalFindings === 0) return;
+    const timer = setTimeout(() => {
+      const el = incompatibilityNotifRef.current?.querySelector('button');
+      if (el && el === document.activeElement) el.blur();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [allDone, totalFindings]);
 
     function getMostSevere(messages) {
       const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
@@ -569,38 +596,51 @@ function App() {
 
         {step === 2 && (
           <>
-            {/*
-            <section>
-              <Callout
-                kind="success"
-                title="Analysis and convertion complete"
-                lowContrast
-              />
-            </section>
-            */}
-
             <section>
               <h3>Your Models</h3>
               <p>
                 Download models converted to Camunda 8 individually or as one Zip
                 file. You can also preview the analysis result on the BPMN model.
               </p>
-              {files.map((file, idx) => (
+              {allDone && totalFindings > 0 && (
+                <div ref={incompatibilityNotifRef}>
+                  <ActionableNotification
+                    kind="warning"
+                    title={`${totalFindings} finding${totalFindings !== 1 ? 's' : ''} detected for Camunda ${platformVersion}`}
+                    lowContrast
+                    actionButtonLabel="Download XLSX"
+                    onActionButtonClick={downloadXLS}
+                    className="incompatibility-notification"
+                  >
+                    Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview.
+                  </ActionableNotification>
+                </div>
+              )}
+              {files.map((file, idx) => {
+                const r = fileResults[idx];
+                const fileFindingCount = r.checkResponseJson
+                  ? r.checkResponseJson
+                      .flatMap(item => item.results || [])
+                      .reduce((s, el) => s + (el.messages?.length || 0), 0)
+                  : 0;
+                return (
                 <FileItem
                   key={file.name + "-" + idx}
                   name={file.name}
-                  status={fileResults[idx].status}
-                  isChecked={ fileResults[idx].checkResponseJson != null }
-                  isConverted={fileResults[idx].convertedFileBlob != null}
-                  previewAction={() => preview(fileResults[idx])}
-                  downloadAction={() => download(fileResults[idx])}
+                  status={r.status}
+                  isChecked={r.checkResponseJson != null}
+                  isConverted={r.convertedFileBlob != null}
+                  previewAction={() => preview(r)}
+                  downloadAction={() => download(r)}
+                  findingCount={fileFindingCount}
                   error={
-                    fileResults[idx].status === "error"
-                      ? (fileResults[idx].errorMessage || "File processing failed")
+                    r.status === "error"
+                      ? (r.errorMessage || "File processing failed")
                       : ""
                   }
                 />
-              ))}
+                );
+              })}
               {downloadError && (
                 <ActionableNotification
                   kind="error"
@@ -613,7 +653,7 @@ function App() {
                 </ActionableNotification>
               )}
               <Button
-                kind="tertiary"
+                kind="primary"
                 size="lg"
                 renderIcon={Download}
                 onClick={downloadZIP}
@@ -646,7 +686,7 @@ function App() {
                 </div>
                 <div className="download-row">
                   <Button
-                    kind="primary"
+                    kind="tertiary"
                     size="md"
                     renderIcon={Download}
                     onClick={downloadCSV}
@@ -698,7 +738,7 @@ function App() {
         </div>
         <div>
           <Button
-            kind="secondary"
+            kind="ghost"
             size="sm"
             renderIcon={Close}
             onClick={() => setIsPreviewOpen(false)}
@@ -709,6 +749,14 @@ function App() {
       </div>
 
       <div id="bpmnDiagram" className="diagram-container"></div>
+      {previewTableRows.length === 0 && (
+        <p style={{ color: '#525252', marginTop: '1rem' }}>No findings for this model.</p>
+      )}
+      {previewTableRows.length > 0 && <>
+      <h3>Findings</h3>
+      <p style={{ color: '#525252', marginBottom: '0.75rem' }}>
+        Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
+      </p>
       <DataTable rows={previewTableRows} headers={previewTableHeader}>
   {({ rows, headers, getHeaderProps, getRowProps }) => (
     <Table className="analysis-table">
@@ -751,9 +799,7 @@ function App() {
     </Table>
   )}
 </DataTable>
-
-
-
+      </>}
 
     </div>
   </div>

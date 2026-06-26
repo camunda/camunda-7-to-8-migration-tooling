@@ -341,9 +341,11 @@ hr {
 
 
 .diagram-container {
-  height:  400px;
+  height: 400px;
   width: 100%;
-  border: 1px solid #ccc; 
+  border: 1px solid #e8eaf0;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 .modal-backdrop {
@@ -358,17 +360,31 @@ hr {
 
 .modal {
   background: white;
-  padding: 2rem;
+  padding: 28px 32px;
   max-width: 95%;
   width: 100%;
-  max-height: 95%;
+  max-height: 95vh;
   overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid #e8eaf0;
+  box-shadow: 0 8px 40px rgba(16, 24, 40, 0.18);
+
+  h2 {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+
   .modal-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
     .left {
       display: flex;
-    }  
+    }
   }
 }
 
@@ -405,6 +421,22 @@ th, td {
   width: 100%;
   max-inline-size: 100%;
   margin-bottom: 1rem;
+}
+
+.incompatibility-notification {
+  width: 100%;
+  max-inline-size: 100%;
+  margin-bottom: 1rem;
+}
+
+.fileItemFindingCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8a6d00;
+  background: #ffd966;
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
 }
 
 .configBox {
