@@ -372,7 +372,7 @@ function App() {
 
   return (
     <div className="container">
-      <div className="whiteBox">
+      <div className="whiteBox hero">
         <div>
           <div>
             <h2>Camunda Migration Analyzer & Diagram Converter</h2>
