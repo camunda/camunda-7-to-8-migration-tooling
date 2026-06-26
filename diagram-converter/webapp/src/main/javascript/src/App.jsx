@@ -37,9 +37,9 @@ import BpmnJS from 'bpmn-js';
 // is the latest generally available release. 8.10 is offered for users already
 // targeting the upcoming release.
 const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.10", label: "8.10", hint: "Next version" },
-  { value: "8.9", label: "8.9", hint: "Latest stable" },
   { value: "8.8", label: "8.8", hint: "Previous stable" },
+  { value: "8.9", label: "8.9", hint: "Latest stable" },
+  { value: "8.10", label: "8.10", hint: "Next version" },
 ];
 const DEFAULT_PLATFORM_VERSION = "8.9";
 
@@ -375,47 +375,23 @@ function App() {
   return (
     <div className="container">
       <div className="whiteBox hero">
-        <div>
-          <div>
-            <h2>Camunda Migration Analyzer & Diagram Converter</h2>
-            <p>
-            Understand your BPMN models before migrating. Identify gaps, assess effort, and convert compatible elements.
-            </p>
-            <p>
-              For more information visit the{" "}
-              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
-                rel="noopener noreferrer" target="_blank">
-                diagram converter guide
-              </a>.
-            </p>
-            {!isSaaS && (
-              <div>
-                <p>
-                  If you prefer an online version of this tool{" "}
-                  <a href="https://diagram-converter.camunda.io">
-                    access it here
-                  </a>
-                  .
-                </p>
-              </div>
-            )}
-            {isSaaS && (
-              <div>
-                <p>
-                  If you prefer a local version of this tool{" "}
-                  <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases">
-                    download it here
-                  </a>
-                  .
-                </p>
-                <p>
-                  <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free">
-                    Check our legal terms and data privacy information.
-                  </a>
-                </p>
-              </div>
-            )}
-          </div>
+        <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
+        <p>
+          Convert your BPMN and DMN models to Camunda 8 — then identify gaps and assess migration effort.
+        </p>
+        <div className="heroMeta">
+          <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
+            rel="noopener noreferrer" target="_blank">
+            Diagram Converter Guide
+          </a>
+          <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases"
+            rel="noopener noreferrer" target="_blank">
+            Download local version
+          </a>
+          <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free"
+            rel="noopener noreferrer" target="_blank">
+            Legal terms &amp; data privacy
+          </a>
         </div>
       </div>
       <div className="whiteBox centered">
@@ -424,12 +400,12 @@ function App() {
             <ProgressStep
               current={step < 2}
               complete={step > 1}
-              label="Upload Models"
+              label="Configure"
             />
             <ProgressStep
               current={step === 2}
               complete={step > 2}
-              label="Analyze Results"
+              label="Results"
             />
           </ProgressIndicator>
         </div>
@@ -440,12 +416,9 @@ function App() {
             <section className="flowStep">
               <div className="flowStepHeader">
                 <span className="flowStepNumber">1</span>
-                <h4>Upload your models</h4>
+                <h4>Add your files</h4>
               </div>
-              <p>
-                Upload your BPMN and DMN models. You can upload one or more
-                files at once.
-              </p>
+              <p>Upload one or more BPMN and DMN models to analyze and convert.</p>
               <div className="fileUploadBox">
                 <DropZone
                   onFiles={(files) => {
@@ -470,13 +443,9 @@ function App() {
             <section className="flowStep">
               <div className="flowStepHeader">
                 <span className="flowStepNumber">2</span>
-                <h4>Choose your target Camunda 8 version</h4>
+                <h4>Configure conversion</h4>
               </div>
-              <p>
-                Select the Camunda 8 version you plan to run on. Your models are
-                converted for that target, so they only use features available
-                there. Defaults to the latest stable version (8.9).
-              </p>
+              <p>Choose your target Camunda 8 version. Defaults to the latest stable (8.9).</p>
               <div
                 className="versionSegmented"
                 role="radiogroup"
@@ -501,19 +470,8 @@ function App() {
                   </button>
                 ))}
               </div>
-            </section>
 
-            <section className="flowStep">
-              <div className="flowStepHeader">
-                <span className="flowStepNumber">3</span>
-                <h4>Review options &amp; convert</h4>
-              </div>
-              <p>
-                Optionally fine-tune how your models are converted, then start
-                the analysis and conversion.
-              </p>
-
-              <Form className="configBox">
+              <Form className="configBox" style={{ marginTop: "1.5rem" }}>
                 <button
                   type="button"
                   className="configToggle"
@@ -522,7 +480,7 @@ function App() {
                 >
                   <span className="configToggleLabel">
                     <Settings />
-                    Advanced configuration options
+                    Advanced options
                   </span>
                   {showConfig ? <ChevronUp /> : <ChevronDown />}
                 </button>
@@ -594,18 +552,18 @@ function App() {
                   </FormGroup>
               )}
               </Form>
-
-              <div className="analyzeButton">
-                <Button
-                  kind="primary"
-                  size="lg"
-                  onClick={analyzeAndConvert}
-                  disabled={files.length === 0}
-                >
-                  Analyze and convert to Camunda {platformVersion}
-                </Button>
-              </div>
             </section>
+
+            <div className="convertAction">
+              <Button
+                kind="primary"
+                size="lg"
+                onClick={analyzeAndConvert}
+                disabled={files.length === 0}
+              >
+                Analyze and convert to Camunda<span className="ctaVersion">&nbsp;{platformVersion}</span>
+              </Button>
+            </div>
           </>
         )}
 

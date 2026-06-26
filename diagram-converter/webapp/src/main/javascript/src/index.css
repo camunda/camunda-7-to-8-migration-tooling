@@ -89,6 +89,38 @@ h1 {
   }
 }
 
+.heroBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #eef4ff;
+  color: #0f62fe;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e8eaf0;
+}
+
+.heroMeta a {
+  font-size: 14px;
+  color: #0f62fe;
+  text-decoration: none;
+}
+
+.heroMeta a:hover {
+  text-decoration: underline;
+}
+
 /* Hero card: accent gradient strip at the top */
 .whiteBox.hero {
   position: relative;
@@ -102,6 +134,10 @@ h1 {
   inset: 0 0 auto 0;
   height: 5px;
   background: linear-gradient(90deg, #0f62fe 0%, #4589ff 60%, #78a9ff 100%);
+}
+
+.whiteBox.hero > p:last-of-type {
+  margin-bottom: 0;
 }
 
 .whiteBox.centered {
@@ -137,14 +173,22 @@ h1 {
   margin-bottom: 18px;
 }
 
-.analyzeButton {
-  margin-top: 28px;
+.convertAction {
+  padding: 24px 0 8px 0;
+  border-top: 1px solid #e8eaf0;
+  margin-top: 8px;
 }
 
-.analyzeButton .cds--btn {
+.convertAction .cds--btn {
   border-radius: 10px;
   font-weight: 600;
   box-shadow: 0 4px 14px rgba(15, 98, 254, 0.28);
+  padding-inline-end: 16px;
+}
+
+.ctaVersion {
+  display: inline-block;
+  min-width: 2.6em;
 }
 
 .DropZone {
