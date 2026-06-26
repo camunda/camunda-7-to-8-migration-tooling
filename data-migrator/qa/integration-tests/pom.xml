@@ -450,14 +450,7 @@
               <includes>
                 <include>**/distribution/**</include>
                 <include>**/persistence/**</include>
-                <include>**/runtime/Business*</include>
-                <include>**/runtime/Migration*</include>
-                <include>**/runtime/MigratorListener*</include>
-                <include>**/runtime/PageSize*</include>
-                <include>**/runtime/ProcessDefinition*</include>
-                <include>**/runtime/ProcessElement*</include>
-                <include>**/runtime/RuntimeMigrationList*</include>
-                <include>**/runtime/Skip*</include>
+                <include>**/runtime/*</include>
                 <include>ArchitectureTest.java</include>
               </includes>
             </configuration>
