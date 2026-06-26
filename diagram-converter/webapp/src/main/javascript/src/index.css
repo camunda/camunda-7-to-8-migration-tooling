@@ -443,6 +443,22 @@ th, td {
   color: #525252;
 }
 
+/* The radio group and config fieldset carry a descriptive <legend> for
+   assistive tech, but the visible step headers already convey it, so the
+   legends are hidden visually (kept available to screen readers). */
+.versionSelector legend,
+.configBox legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Version selector rendered as a segmented set of selectable cards */
 .versionSelector {
   margin-top: 12px;

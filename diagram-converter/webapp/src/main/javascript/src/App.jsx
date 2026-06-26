@@ -32,14 +32,18 @@ import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
 
-// Target Camunda 8 versions the converter supports. First entry is the default
-// (the latest supported version). Mirrors the backend's supported versions in
-// SemanticVersion.java / converter-properties.properties.
+// Target Camunda 8 versions offered in the UI. This is a curated subset of the
+// versions the backend understands (SemanticVersion.java); we only surface the
+// versions users realistically target today. The default mirrors the backend
+// default in converter-properties.properties (zeebe-platform.version=8.9), which
+// is the latest generally available release. 8.10 is offered for users already
+// targeting the upcoming release.
 const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.9", label: "8.9", hint: "Latest" },
+  { value: "8.10", label: "8.10" },
+  { value: "8.9", label: "8.9", hint: "Recommended" },
   { value: "8.8", label: "8.8" },
 ];
-const DEFAULT_PLATFORM_VERSION = SUPPORTED_PLATFORM_VERSIONS[0].value;
+const DEFAULT_PLATFORM_VERSION = "8.9";
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -473,12 +477,12 @@ function App() {
               <p>
                 Select the Camunda 8 version you plan to run on. Your models are
                 converted for that target, so they only use features available
-                there. Defaults to the latest supported version.
+                there. Defaults to the recommended version (8.9).
               </p>
               <RadioButtonGroup
                 className="versionSelector"
                 name="platformVersion"
-                legendText=""
+                legendText="Target Camunda 8 version"
                 valueSelected={platformVersion}
                 onChange={(value) => setPlatformVersion(value)}
               >
@@ -521,7 +525,7 @@ function App() {
                   </Button>
                 </h4>
               {showConfig && (
-                  <FormGroup legendText="">
+                  <FormGroup legendText="Advanced configuration options">
                     <Checkbox
                       id="addDataMigrationExecutionListener"
                       labelText="Add Data Migration Execution Listener"
