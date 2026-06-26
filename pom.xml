@@ -29,7 +29,7 @@
     <maven.compiler.target>21</maven.compiler.target>
     <version.java>21</version.java>
 
-    <version.camunda-7>7.24.3-ee</version.camunda-7>
+    <version.camunda-7>7.24.5-ee</version.camunda-7>
     <version.camunda-8>8.8.19</version.camunda-8>
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
