@@ -478,7 +478,6 @@ th, td {
 /* The radio group and config fieldset carry a descriptive <legend> for
    assistive tech, but the visible step headers already convey it, so the
    legends are hidden visually (kept available to screen readers). */
-.versionSelector legend,
 .configBox legend {
   position: absolute;
   width: 1px;
@@ -491,131 +490,10 @@ th, td {
   border: 0;
 }
 
-/* Version selector rendered as a segmented set of selectable cards */
-.versionSelector {
-  margin-top: 12px;
-}
-
-.versionSelector.cds--radio-button-group {
-  gap: 14px;
-  align-items: stretch;
-}
-
-.versionSelector .cds--radio-button-wrapper {
-  margin: 0;
-}
-
-.versionSelector .cds--radio-button__label {
-  border: 1.5px solid #d6dae3;
-  border-radius: 12px;
-  padding: 14px 22px;
-  min-width: 130px;
-  background: #fff;
-  font-weight: 500;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background-color 0.15s ease, transform 0.15s ease;
-}
-
-.versionSelector .cds--radio-button__label:hover {
-  border-color: #4589ff;
-  transform: translateY(-1px);
-}
-
-.versionSelector .cds--radio-button:checked + .cds--radio-button__label {
-  border-color: #0f62fe;
-  box-shadow: 0 0 0 1px #0f62fe, 0 4px 12px rgba(15, 98, 254, 0.18);
-  background: #eef5ff;
-}
-
-.versionSelector .cds--radio-button:focus + .cds--radio-button__label {
-  outline: 2px solid #0f62fe;
-  outline-offset: 2px;
-}
-
-/* =====================================================================
-   PoC: three target-version selector designs (A / B / C)
-   Each option uses EQUAL-sized controls so widths never go ragged.
-   ===================================================================== */
-
-.pocVariant {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 22px 0 8px;
-}
-
-.pocBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: #161616;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.pocName {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: #6f6f6f;
-}
-
-/* ---------- Option A: equal-width cards ---------- */
-.versionCards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); /* equal columns */
-  gap: 12px;
-  max-width: 480px;
-}
-
-.versionCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: 64px;
-  padding: 12px 8px;
-  border: 1.5px solid #d6dae3;
-  border-radius: 12px;
-  background: #fff;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background-color 0.15s ease, transform 0.15s ease;
-}
-
-.versionCard:hover {
-  border-color: #4589ff;
-  transform: translateY(-1px);
-}
-
-.versionCard--selected {
-  border-color: #0f62fe;
-  background: #eef5ff;
-  box-shadow: 0 0 0 1px #0f62fe, 0 4px 12px rgba(15, 98, 254, 0.18);
-}
-
-.versionCardNumber {
-  font-size: 17px;
-  font-weight: 600;
-  color: #161616;
-}
-
-.versionCardHint {
-  font-size: 12px;
-  line-height: 14px;
-  color: #6f6f6f;
-  min-height: 14px; /* reserve space so cards stay equal height */
-}
-
-/* ---------- Option B: connected segmented control ---------- */
+/* Target-version selector: connected segmented control */
 .versionSegmented {
   display: inline-flex;
+  margin-top: 12px;
   border: 1.5px solid #d6dae3;
   border-radius: 12px;
   overflow: hidden;
@@ -651,6 +529,11 @@ th, td {
   color: #fff;
 }
 
+.versionSegment:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+}
+
 .versionSegmentNumber {
   font-size: 16px;
   font-weight: 600;
@@ -660,9 +543,4 @@ th, td {
   font-size: 11px;
   line-height: 13px;
   opacity: 0.8;
-}
-
-/* ---------- Option C: dropdown ---------- */
-.versionDropdown {
-  max-width: 320px;
 }
