@@ -23,12 +23,23 @@ import {
   FormGroup,
   Checkbox,
   TextInput,
+  RadioButtonGroup,
+  RadioButton,
 } from "@carbon/react";
 
 import { Download, Launch, Close, Settings } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
+
+// Target Camunda 8 versions the converter supports. First entry is the default
+// (the latest supported version). Mirrors the backend's supported versions in
+// SemanticVersion.java / converter-properties.properties.
+const SUPPORTED_PLATFORM_VERSIONS = [
+  { value: "8.9", label: "8.9", hint: "Latest" },
+  { value: "8.8", label: "8.8" },
+];
+const DEFAULT_PLATFORM_VERSION = SUPPORTED_PLATFORM_VERSIONS[0].value;
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -48,6 +59,8 @@ function App() {
 
   const [downloadError, setDownloadError] = useState(null);
   const [downloadErrorTitle, setDownloadErrorTitle] = useState("");
+
+  const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
 
   const [showConfig, setShowConfig] = useState(false);
   const [configOptions, setConfigOptions] = useState({
@@ -108,10 +121,14 @@ function App() {
     // Normalize to an array (you can pass a single file or an array of files)
     const fileArray = Array.isArray(files) ? files : [files];
 
-    fileArray.forEach((file, index) => {
+    fileArray.forEach((file) => {
       // Append each file, optionally using indexed keys if needed
       formData.append("file", file);
     });
+
+    // Target Camunda 8 platform version chosen by the user. Sent on /check,
+    // /convert and /convertBatch so the backend converts for the right target.
+    if (platformVersion) formData.append("platformVersion", platformVersion);
 
     if (configOptions.defaultJobType !== undefined)
       formData.append("defaultJobType", configOptions.defaultJobType);
@@ -418,132 +435,171 @@ function App() {
 
         {step === 0 && (
           <>
-            <section>
-              <h4>Instructions:</h4>
+            <section className="flowStep">
+              <div className="flowStepHeader">
+                <span className="flowStepNumber">1</span>
+                <h4>Upload your models</h4>
+              </div>
               <p>
                 Upload your BPMN and DMN models. You can upload one or more
                 files at once.
               </p>
-            </section>
-            <div className="fileUploadBox">
-              <DropZone
-                onFiles={(files) => {
-                  setFiles((prevFiles) => [...prevFiles, ...files]);
-                }}
-              />
-              {files.map((file, idx) => (
-                <FileItem
-                  key={file.name + "-" + idx}
-                  name={file.name}
-                  status="edit"
-                  onDelete={() => {
-                    setFiles((prevFiles) =>
-                      prevFiles.filter((prevFile) => prevFile !== file)
-                    );
+              <div className="fileUploadBox">
+                <DropZone
+                  onFiles={(files) => {
+                    setFiles((prevFiles) => [...prevFiles, ...files]);
                   }}
                 />
-              ))}
-            </div>
-            <p>
-              Then go ahead and click the button below to analyze and convert
-              your models.
-            </p>
-
-            <Form className="configBox">
-              <h4>
-                <Settings style={{ marginRight: '0.5rem' }} />
-                Advanced Configuration Options
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  onClick={() => setShowConfig((prev) => !prev)}
-                  className="withMarginBottom"
-                >
-                  {showConfig ? 'Hide' : 'Show'}
-                </Button>
-              </h4>
-            {showConfig && (
-                <FormGroup legendText="">
-                  <Checkbox
-                    id="addDataMigrationExecutionListener"
-                    labelText="Add Data Migration Execution Listener"
-                    checked={configOptions.addDataMigrationExecutionListener}
-                    helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        addDataMigrationExecutionListener: checked,
-                      }))
-                    }
+                {files.map((file, idx) => (
+                  <FileItem
+                    key={file.name + "-" + idx}
+                    name={file.name}
+                    status="edit"
+                    onDelete={() => {
+                      setFiles((prevFiles) =>
+                        prevFiles.filter((prevFile) => prevFile !== file)
+                      );
+                    }}
                   />
-                  <TextInput
-                    id="dataMigrationExecutionListenerJobType"
-                    labelText="Execution Listener Job Type"
-                    value={configOptions.dataMigrationExecutionListenerJobType}
-                    disabled={!configOptions.addDataMigrationExecutionListener}
-                    onChange={(e) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        dataMigrationExecutionListenerJobType: e.target.value,
-                      }))
-                    }
-                  />
-                  <div className="form-spacer" />
-                  <Checkbox
-                    id="keepJobTypeBlank"
-                    labelText="Keep job type blank"
-                    checked={configOptions.keepJobTypeBlank}
-                    helperText="Don't set the job type in process models at all."
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        keepJobTypeBlank: checked,
-                      }))
-                    }
-                  />
-                  <div className="form-spacer" />
-                  <Checkbox
-                    id="alwaysUseDefaultJobType"
-                    labelText="Enable default job type"
-                    checked={configOptions.alwaysUseDefaultJobType}
-                    helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
-                    disabled={configOptions.keepJobTypeBlank}
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        alwaysUseDefaultJobType: checked,
-                      }))
-                    }
-                  />
-                  <TextInput
-                    id="defaultJobType"
-                    labelText="Default Job Type"
-                    value={configOptions.defaultJobType}
-                    disabled={configOptions.keepJobTypeBlank}
-                    onChange={(e) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        defaultJobType: e.target.value,
-                      }))
-                    }
-                  />
-                </FormGroup>
-            )}
-            </Form>
+                ))}
+              </div>
+            </section>
 
-
-
-
-            <div className="analyzeButton">
-              <Button
-                kind="primary"
-                size="lg"
-                onClick={analyzeAndConvert}
-                disabled={files.length === 0}
+            <section className="flowStep">
+              <div className="flowStepHeader">
+                <span className="flowStepNumber">2</span>
+                <h4>Choose your target Camunda 8 version</h4>
+              </div>
+              <p>
+                Select the Camunda 8 version you plan to run on. Your models are
+                converted for that target, so they only use features available
+                there. Defaults to the latest supported version.
+              </p>
+              <RadioButtonGroup
+                className="versionSelector"
+                name="platformVersion"
+                legendText=""
+                valueSelected={platformVersion}
+                onChange={(value) => setPlatformVersion(value)}
               >
-                Analyze and convert
-              </Button>
-            </div>
+                {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
+                  <RadioButton
+                    key={version.value}
+                    id={`platformVersion-${version.value}`}
+                    value={version.value}
+                    labelText={
+                      version.hint
+                        ? `${version.label} (${version.hint})`
+                        : version.label
+                    }
+                  />
+                ))}
+              </RadioButtonGroup>
+            </section>
+
+            <section className="flowStep">
+              <div className="flowStepHeader">
+                <span className="flowStepNumber">3</span>
+                <h4>Review options &amp; convert</h4>
+              </div>
+              <p>
+                Optionally fine-tune how your models are converted, then start
+                the analysis and conversion.
+              </p>
+
+              <Form className="configBox">
+                <h4>
+                  <Settings style={{ marginRight: '0.5rem' }} />
+                  Advanced Configuration Options
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    onClick={() => setShowConfig((prev) => !prev)}
+                    className="withMarginBottom"
+                  >
+                    {showConfig ? 'Hide' : 'Show'}
+                  </Button>
+                </h4>
+              {showConfig && (
+                  <FormGroup legendText="">
+                    <Checkbox
+                      id="addDataMigrationExecutionListener"
+                      labelText="Add Data Migration Execution Listener"
+                      checked={configOptions.addDataMigrationExecutionListener}
+                      helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          addDataMigrationExecutionListener: checked,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      id="dataMigrationExecutionListenerJobType"
+                      labelText="Execution Listener Job Type"
+                      value={configOptions.dataMigrationExecutionListenerJobType}
+                      disabled={!configOptions.addDataMigrationExecutionListener}
+                      onChange={(e) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          dataMigrationExecutionListenerJobType: e.target.value,
+                        }))
+                      }
+                    />
+                    <div className="form-spacer" />
+                    <Checkbox
+                      id="keepJobTypeBlank"
+                      labelText="Keep job type blank"
+                      checked={configOptions.keepJobTypeBlank}
+                      helperText="Don't set the job type in process models at all."
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          keepJobTypeBlank: checked,
+                        }))
+                      }
+                    />
+                    <div className="form-spacer" />
+                    <Checkbox
+                      id="alwaysUseDefaultJobType"
+                      labelText="Enable default job type"
+                      checked={configOptions.alwaysUseDefaultJobType}
+                      helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
+                      disabled={configOptions.keepJobTypeBlank}
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          alwaysUseDefaultJobType: checked,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      id="defaultJobType"
+                      labelText="Default Job Type"
+                      value={configOptions.defaultJobType}
+                      disabled={configOptions.keepJobTypeBlank}
+                      onChange={(e) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          defaultJobType: e.target.value,
+                        }))
+                      }
+                    />
+                  </FormGroup>
+              )}
+              </Form>
+
+              <div className="analyzeButton">
+                <Button
+                  kind="primary"
+                  size="lg"
+                  onClick={analyzeAndConvert}
+                  disabled={files.length === 0}
+                >
+                  Analyze and convert to Camunda {platformVersion}
+                </Button>
+              </div>
+            </section>
           </>
         )}
 

@@ -319,3 +319,38 @@ th, td {
 .form-spacer {
   margin-top: 2rem;
 }
+
+/* Guided "flow of steps" on the upload screen */
+.flowStep {
+  margin: 24px 0;
+}
+
+.flowStepHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.flowStepHeader h4 {
+  margin: 0;
+  text-decoration: none;
+}
+
+.flowStepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #0f62fe; /* Carbon Blue 60 */
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.versionSelector {
+  margin-top: 8px;
+}
