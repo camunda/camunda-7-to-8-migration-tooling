@@ -25,6 +25,8 @@ import {
   TextInput,
   RadioButtonGroup,
   RadioButton,
+  Select,
+  SelectItem,
 } from "@carbon/react";
 
 import { Download, Launch, Close, Settings, ChevronDown, ChevronUp } from "@carbon/react/icons";
@@ -479,26 +481,84 @@ function App() {
                 converted for that target, so they only use features available
                 there. Defaults to the latest stable version (8.9).
               </p>
-              <RadioButtonGroup
-                className="versionSelector"
-                name="platformVersion"
-                legendText="Target Camunda 8 version"
-                valueSelected={platformVersion}
-                onChange={(value) => setPlatformVersion(value)}
-              >
+              {/* ----- PoC: three version-selector designs to choose from ----- */}
+
+              {/* Option A — equal-width radio cards (two-line label) */}
+              <div className="pocVariant">
+                <span className="pocBadge">A</span>
+                <span className="pocName">Equal-width cards</span>
+              </div>
+              <div className="versionCards" role="radiogroup" aria-label="Target Camunda 8 version (A)">
                 {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
-                  <RadioButton
+                  <button
                     key={version.value}
-                    id={`platformVersion-${version.value}`}
-                    value={version.value}
-                    labelText={
-                      version.hint
-                        ? `${version.label} (${version.hint})`
-                        : version.label
+                    type="button"
+                    role="radio"
+                    aria-checked={platformVersion === version.value}
+                    className={
+                      "versionCard" +
+                      (platformVersion === version.value ? " versionCard--selected" : "")
                     }
-                  />
+                    onClick={() => setPlatformVersion(version.value)}
+                  >
+                    <span className="versionCardNumber">{version.label}</span>
+                    <span className="versionCardHint">{version.hint || " "}</span>
+                  </button>
                 ))}
-              </RadioButtonGroup>
+              </div>
+
+              {/* Option B — connected segmented control */}
+              <div className="pocVariant">
+                <span className="pocBadge">B</span>
+                <span className="pocName">Segmented control</span>
+              </div>
+              <div className="versionSegmented" role="radiogroup" aria-label="Target Camunda 8 version (B)">
+                {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
+                  <button
+                    key={version.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={platformVersion === version.value}
+                    className={
+                      "versionSegment" +
+                      (platformVersion === version.value ? " versionSegment--selected" : "")
+                    }
+                    onClick={() => setPlatformVersion(version.value)}
+                  >
+                    <span className="versionSegmentNumber">{version.label}</span>
+                    {version.hint && (
+                      <span className="versionSegmentHint">{version.hint}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Option C — dropdown */}
+              <div className="pocVariant">
+                <span className="pocBadge">C</span>
+                <span className="pocName">Dropdown</span>
+              </div>
+              <div className="versionDropdown">
+                <Select
+                  id="platformVersion-dropdown"
+                  labelText="Target Camunda 8 version"
+                  hideLabel
+                  value={platformVersion}
+                  onChange={(e) => setPlatformVersion(e.target.value)}
+                >
+                  {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
+                    <SelectItem
+                      key={version.value}
+                      value={version.value}
+                      text={
+                        version.hint
+                          ? `Camunda ${version.label} — ${version.hint}`
+                          : `Camunda ${version.label}`
+                      }
+                    />
+                  ))}
+                </Select>
+              </div>
             </section>
 
             <section className="flowStep">
