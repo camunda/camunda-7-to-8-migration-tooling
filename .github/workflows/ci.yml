@@ -283,13 +283,17 @@ jobs:
 
   it-runtime-h2:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 30
     if: |
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
         (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
       )) ||
       github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [runtime-core, runtime-jobtype-element, runtime-tenant-variables]
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -315,9 +319,9 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with H2
+      - name: Run runtime tests with H2 (${{ matrix.profile }})
         working-directory: data-migrator
-        run: mvn verify -Pintegration,runtime-only
+        run: mvn verify -Pintegration,${{ matrix.profile }}
 
   it-history-h2:
     runs-on: ubuntu-latest
