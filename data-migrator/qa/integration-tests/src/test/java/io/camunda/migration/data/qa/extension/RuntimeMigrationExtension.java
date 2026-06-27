@@ -18,8 +18,11 @@ import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
+import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -49,6 +52,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
  */
 @Component
 public class RuntimeMigrationExtension implements AfterEachCallback, ApplicationContextAware {
+
+  private static final long CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS = 10;
 
   private static ApplicationContext applicationContext;
 
@@ -108,10 +113,10 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     CamundaClient camundaClient = getCamundaClientBean();
     if (camundaClient != null) {
       // C8
-      List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-      for (ProcessInstance i : items) {
+      List<ProcessInstance> items = searchProcessInstancesForCleanup(camundaClient);
+      for (ProcessInstance processInstance : items) {
         try {
-          camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
         } catch (ClientStatusException | ProblemException e) {
           if (!e.getMessage().contains("NOT_FOUND")) {
             throw e;
@@ -165,7 +170,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       return Optional.empty();
     }
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    List<Variable> variables = searchVariables(camundaClient);
 
     return variables.stream()
         .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
@@ -179,9 +184,48 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       throw new IllegalStateException("CamundaClient is not available in the Spring context");
     }
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
-    });
+    Awaitility.await()
+        .atMost(30, TimeUnit.SECONDS)
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> {
+          assertThat(searchProcessInstances(camundaClient)).hasSize(expected);
+        });
+  }
+
+  private List<ProcessInstance> searchProcessInstances(CamundaClient camundaClient) {
+    return camundaClient.newProcessInstanceSearchRequest()
+        .send()
+        .join(CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .items();
+  }
+
+  private List<ProcessInstance> searchProcessInstancesForCleanup(CamundaClient camundaClient) {
+    try {
+      return searchProcessInstances(camundaClient);
+    } catch (ClientException e) {
+      if (isCausedByTimeout(e)) {
+        return List.of();
+      }
+      throw e;
+    }
+  }
+
+  private List<Variable> searchVariables(CamundaClient camundaClient) {
+    return camundaClient.newVariableSearchRequest()
+        .send()
+        .join(CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .items();
+  }
+
+  private boolean isCausedByTimeout(Throwable exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause instanceof TimeoutException || cause instanceof SocketTimeoutException) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 }
 

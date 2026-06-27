@@ -20,10 +20,11 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-
+import java.net.SocketTimeoutException;
 import java.util.List;
-
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -34,6 +35,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
+
+  private static final long CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS = 10;
 
   // Migrator ---------------------------------------
 
@@ -67,10 +70,10 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // C8
-    List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    for (ProcessInstance i : items) {
+    List<ProcessInstance> items = searchProcessInstancesForCleanup();
+    for (ProcessInstance processInstance : items) {
       try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+        camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
       } catch (ClientStatusException | ProblemException e) {
         if (!e.getMessage().contains("NOT_FOUND")) {
           throw e;
@@ -85,7 +88,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected Optional<Variable> getVariableByScope(Long processInstanceKey, Long scopeKey, String variableName) {
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    List<Variable> variables = searchVariables();
 
     return variables.stream()
         .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
@@ -95,9 +98,48 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void assertThatProcessInstanceCountIsEqualTo(int expected) {
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
-    });
+    Awaitility.await()
+        .atMost(30, TimeUnit.SECONDS)
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> {
+          assertThat(searchProcessInstances()).hasSize(expected);
+        });
+  }
+
+  private List<ProcessInstance> searchProcessInstances() {
+    return camundaClient.newProcessInstanceSearchRequest()
+        .send()
+        .join(CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .items();
+  }
+
+  private List<ProcessInstance> searchProcessInstancesForCleanup() {
+    try {
+      return searchProcessInstances();
+    } catch (ClientException e) {
+      if (isCausedByTimeout(e)) {
+        return List.of();
+      }
+      throw e;
+    }
+  }
+
+  private List<Variable> searchVariables() {
+    return camundaClient.newVariableSearchRequest()
+        .send()
+        .join(CAMUNDA_CLIENT_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .items();
+  }
+
+  private boolean isCausedByTimeout(Throwable exception) {
+    Throwable cause = exception;
+    while (cause != null) {
+      if (cause instanceof TimeoutException || cause instanceof SocketTimeoutException) {
+        return true;
+      }
+      cause = cause.getCause();
+    }
+    return false;
   }
 
 }
