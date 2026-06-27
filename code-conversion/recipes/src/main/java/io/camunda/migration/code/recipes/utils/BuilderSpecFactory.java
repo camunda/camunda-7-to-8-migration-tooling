@@ -60,7 +60,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList());
             })
@@ -122,7 +122,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList(),
                   Collections.emptyList(),
@@ -152,5 +152,17 @@ public class BuilderSpecFactory {
     }
 
     return result;
+  }
+
+  static String createRemovedComment(String methodName) {
+    // Business ID replaces the Camunda 7 process-instance business key only on the
+    // creation path. `businessKey` only ever appears here in the createProcessInstance builder
+    // (newCreateInstanceCommand), so the businessId hint is correct. `processInstanceBusinessKey`
+    // only appears in the message-correlation builder (newCorrelateMessageCommand), where
+    // businessId does not apply - keep it neutral.
+    if ("businessKey".equals(methodName)) {
+      return RecipeUtils.businessIdHint(methodName);
+    }
+    return " " + methodName + " was removed";
   }
 }
