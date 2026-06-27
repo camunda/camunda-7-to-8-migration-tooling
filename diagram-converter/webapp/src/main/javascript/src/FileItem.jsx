@@ -17,7 +17,7 @@ import {
 
 import Paperclip from "./Paperclip.svg";
 
-export default function DropZone({
+export default function FileItem({
   name,
   error,
   status,
@@ -26,6 +26,7 @@ export default function DropZone({
   downloadAction,
   previewAction,
   onDelete,
+  findingCount,
 }) {
   return (
     <div className="FileItem">
@@ -41,6 +42,9 @@ export default function DropZone({
           <div style={{ color: "#2ada1e"}}>
             <CheckmarkFilled />
           </div>
+        )}
+        {findingCount > 0 && (
+          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
         )}
 
       </div>
