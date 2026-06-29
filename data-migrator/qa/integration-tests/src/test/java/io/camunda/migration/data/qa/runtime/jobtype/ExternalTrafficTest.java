@@ -44,6 +44,9 @@ public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
     assertThatProcessInstanceCountIsEqualTo(2);
 
     var events = logs.getEvents();
+    // The externally started instance is detected and skipped on every job-activation poll it
+    // appears in, so the skip message may be logged once or twice depending on how many
+    // activation batches the migrator runs before the queue drains. Both are correct behaviour.
     assertThat(events.stream()
         .filter(event -> event.getMessage()
             .matches(".*" + EXTERNALLY_STARTED_PROCESS_INSTANCE

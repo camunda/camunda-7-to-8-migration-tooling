@@ -26,30 +26,12 @@ import org.springframework.test.context.TestPropertySource;
     "camunda.migrator.job-type=custom-activation-type",
     "camunda.migrator.validation-job-type==if legacyId != null then \"migrator\" else \"noop\""
 })
-abstract class AbstractSeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest {
+public class SeparateJobTypesValidationTest extends RuntimeMigrationAbstractTest {
 
   protected static final String VALIDATION_JOB_TYPE = "=if legacyId != null then \"migrator\" else \"noop\"";
 
   @RegisterExtension
   protected LogCapturer logs = LogCapturer.create().captureForType(RuntimeMigrator.class);
-
-  protected void assertValidationErrorLogged(String processInstanceId, String processId) {
-    var events = logs.getEvents();
-    assertThat(events.stream()
-        .filter(event -> event.getMessage()
-            .matches(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
-                    .replace("[{}]", "\\[%s\\]")
-                    .replace("{}", "%s"), processInstanceId,
-                String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
-                        .replace(".", "\\.")
-                        .replace("[", "\\[")
-                        .replace("]", "\\]"),
-                    VALIDATION_JOB_TYPE, "Event_1px2j50", processId, 1, VALIDATION_JOB_TYPE)))))
-        .hasSize(1);
-  }
-}
-
-class SeparateJobTypesValidationMessageTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseValidationJobTypeInValidationMessage() {
@@ -68,9 +50,6 @@ class SeparateJobTypesValidationMessageTest extends AbstractSeparateJobTypesVali
     assertThatProcessInstanceCountIsEqualTo(0);
     assertValidationErrorLogged(id, "noMigratorListener");
   }
-}
-
-class SeparateJobTypesListenerNotFoundMessageTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseValidationJobTypeInListenerNotFoundMessage() {
@@ -89,9 +68,6 @@ class SeparateJobTypesListenerNotFoundMessageTest extends AbstractSeparateJobTyp
     assertThatProcessInstanceCountIsEqualTo(0);
     assertValidationErrorLogged(id, "migratorListenerCustomType");
   }
-}
-
-class SeparateJobTypesCustomValidationSuccessTest extends AbstractSeparateJobTypesValidationTest {
 
   @Test
   public void shouldUseCustomValidationJobTypeInListenerSucceed() {
@@ -109,4 +85,20 @@ class SeparateJobTypesCustomValidationSuccessTest extends AbstractSeparateJobTyp
     // then
     assertThatProcessInstanceCountIsEqualTo(1);
   }
+
+  protected void assertValidationErrorLogged(String processInstanceId, String processId) {
+    var events = logs.getEvents();
+    assertThat(events.stream()
+        .filter(event -> event.getMessage()
+            .matches(".*" + String.format(SKIPPING_PROCESS_INSTANCE_VALIDATION_ERROR
+                    .replace("[{}]", "\\[%s\\]")
+                    .replace("{}", "%s"), processInstanceId,
+                String.format(NO_EXECUTION_LISTENER_OF_TYPE_ERROR
+                        .replace(".", "\\.")
+                        .replace("[", "\\[")
+                        .replace("]", "\\]"),
+                    VALIDATION_JOB_TYPE, "Event_1px2j50", processId, 1, VALIDATION_JOB_TYPE)))))
+        .hasSize(1);
+  }
+
 }
