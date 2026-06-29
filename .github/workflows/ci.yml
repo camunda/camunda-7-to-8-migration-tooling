@@ -285,11 +285,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
         (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
-      github.event_name == 'workflow_dispatch'
+      ))
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -323,11 +325,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:history') ||
         (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
-      github.event_name == 'workflow_dispatch'
+      ))
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -531,11 +535,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:identity') ||
         (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
-      github.event_name == 'workflow_dispatch'
+      ))
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
