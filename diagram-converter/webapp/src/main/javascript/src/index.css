@@ -24,16 +24,17 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f4f4f4;
+  background: linear-gradient(180deg, #eef2fb 0%, #f4f4f4 280px, #f4f4f4 100%);
+  color: #161616;
 }
 
 section {
   margin: 18px 0;
 
   h4 {
-    text-decoration: underline;
+    text-decoration: none;
     font-size: 16px;
-    font-weight: 400;
+    font-weight: 600;
     line-height: 22px;
     margin-bottom: 10px;
   }
@@ -64,27 +65,71 @@ h1 {
 }
 
 .whiteBox {
-  padding: 16px 24px;
+  padding: 28px 32px;
   background-color: white;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border-radius: 14px;
+  border: 1px solid #e8eaf0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
 
   h2 {
-    font-size: 20px;
-    line-height: 28px;
-    font-weight: 400;
-    margin-bottom: 8px;
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
   }
 
   p {
     font-size: 16px;
-    line-height: 22px;
+    line-height: 24px;
     font-weight: 400;
     margin-bottom: 12px;
+    color: #444;
   }
 }
 
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e8eaf0;
+}
+
+.heroMeta a {
+  font-size: 14px;
+  color: #0f62fe;
+  text-decoration: none;
+}
+
+.heroMeta a:hover {
+  text-decoration: underline;
+}
+
+/* Hero card: accent gradient strip at the top */
+.whiteBox.hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: 32px;
+}
+
+.whiteBox.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: linear-gradient(90deg, #0f62fe 0%, #4589ff 60%, #78a9ff 100%);
+}
+
+.whiteBox.hero > p:last-of-type {
+  margin-bottom: 0;
+}
+
 .whiteBox.centered {
-  padding: 24px 198px;
+  padding: 32px 64px;
 }
 
 .fileUploadBox {
@@ -116,24 +161,51 @@ h1 {
   margin-bottom: 18px;
 }
 
-.analyzeButton {
-  margin-top: 40px;
+.convertAction {
+  padding: 24px 0 8px 0;
+  border-top: 1px solid #e8eaf0;
+  margin-top: 8px;
+}
+
+.convertAction .cds--btn {
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(15, 98, 254, 0.28);
+  padding-inline-end: 16px;
+}
+
+.ctaVersion {
+  display: inline-block;
+  min-width: 2.6em;
 }
 
 .DropZone {
-  background-color: #fafafa;
-  border: 1px solid #d9d9d9;
-  height: 140px;
-  margin-bottom: 8px;
+  background-color: #f7f9ff;
+  border: 2px dashed #c5d3f2;
+  border-radius: 12px;
+  height: 160px;
+  margin-bottom: 12px;
 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 16px;
 
   cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    border-color: #0f62fe;
+    background-color: #eef4ff;
+    transform: translateY(-1px);
+  }
 
   img {
-    margin-top: 6px;
-    margin-bottom: 20px;
+    margin-top: 0;
+    margin-bottom: 14px;
+    opacity: 0.9;
   }
 
   h2 {
@@ -162,9 +234,15 @@ h1 {
 
   .left {
     display: flex;
-    img {
+    align-items: center;
+    padding-left: 8px;
+
+    .fileItemCheck {
+      color: #2ada1e;
       margin-left: 4px;
       margin-right: 8px;
+      display: flex;
+      align-items: center;
     }
 
     span {
@@ -184,6 +262,7 @@ h1 {
   .right {
     margin-right: 10px;
     display: flex;
+    align-items: center;
     gap: 3px;
     button {
       border: none;
@@ -206,14 +285,28 @@ h1 {
 }
 
 h3 {
-  font-weight: 500;
-  font-size: 18px;
-  line-height: 22px;
-  text-decoration: underline;
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 26px;
+  text-decoration: none;
+  letter-spacing: -0.01em;
 }
 
 hr {
-  margin: 24px 0;
+  margin: 28px 0;
+  border: none;
+  border-top: 1px solid #e8eaf0;
+}
+
+/* Modern, rounded buttons with a subtle hover lift */
+.cds--btn {
+  border-radius: 8px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+.cds--btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.12);
 }
 
 .cds--tooltip-content {
@@ -243,9 +336,11 @@ hr {
 
 
 .diagram-container {
-  height:  400px;
+  height: 400px;
   width: 100%;
-  border: 1px solid #ccc; 
+  border: 1px solid #e8eaf0;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 .modal-backdrop {
@@ -260,17 +355,31 @@ hr {
 
 .modal {
   background: white;
-  padding: 2rem;
+  padding: 28px 32px;
   max-width: 95%;
   width: 100%;
-  max-height: 95%;
+  max-height: 95vh;
   overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid #e8eaf0;
+  box-shadow: 0 8px 40px rgba(16, 24, 40, 0.18);
+
+  h2 {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+
   .modal-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
     .left {
       display: flex;
-    }  
+    }
   }
 }
 
@@ -309,13 +418,205 @@ th, td {
   margin-bottom: 1rem;
 }
 
+.incompatibility-notification {
+  width: 100%;
+  max-inline-size: 100%;
+  margin-bottom: 1rem;
+}
+
+.fileItemFindingCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8a6d00;
+  background: #ffd966;
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
 .configBox {
   margin-top: 1rem;
-  padding: 1rem;
-  background-color: #f4f4f4; /* Carbon's Gray 10 */
-  border: 1px solid #e0e0e0; /* Carbon's Gray 20 */
-  border-radius: 4px;
+  padding: 1.25rem 1.5rem;
+  background-color: #f7f8fb;
+  border: 1px solid #e8eaf0;
+  border-radius: 12px;
+}
+
+/* Advanced options disclosure: the whole header row toggles the panel */
+.configToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  color: #161616;
+  transition: color 0.12s ease;
+}
+
+.configToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configToggle svg {
+  flex-shrink: 0;
+  color: #525252;
+  transition: color 0.12s ease;
+}
+
+.configToggle:hover,
+.configToggle:hover svg {
+  color: #0f62fe;
+}
+
+/* Spacing only appears when the panel is expanded (fieldset present) */
+.configBox .cds--fieldset {
+  margin-top: 16px;
 }
 .form-spacer {
   margin-top: 2rem;
+}
+
+/* Guided "flow of steps" on the upload screen */
+.flowStep {
+  position: relative;
+  margin: 0;
+  padding: 0 0 28px 52px;
+}
+
+/* Vertical connector line running through the step numbers */
+.flowStep::before {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 36px;
+  bottom: -4px;
+  width: 2px;
+  background: #d8e0f0;
+}
+
+.flowStep:last-child {
+  padding-bottom: 8px;
+}
+
+.flowStep:last-child::before {
+  display: none;
+}
+
+.flowStepHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.flowStepHeader h4 {
+  margin: 0;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 600;
+  color: #161616;
+}
+
+.flowStepNumber {
+  position: absolute;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f62fe 0%, #4589ff 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 98, 254, 0.35);
+}
+
+.flowStep p {
+  color: #525252;
+}
+
+/* The config fieldset carries a descriptive <legend> for assistive tech,
+   but the visible step header already conveys it, so the legend is hidden
+   visually (kept available to screen readers). */
+.configBox legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Target-version selector: connected segmented control */
+.versionSegmented {
+  display: inline-flex;
+  margin-top: 12px;
+  border: 1.5px solid #d6dae3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.versionSegmented:focus-within {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+}
+
+.versionSegment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 120px; /* equal segments */
+  padding: 10px 16px;
+  border: none;
+  border-right: 1px solid #e2e6ee;
+  background: transparent;
+  color: #161616; /* explicit: don't inherit UA button colour (breaks in dark mode) */
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.versionSegment:last-child {
+  border-right: none;
+}
+
+.versionSegment:hover:not(.versionSegment--selected) {
+  background: #f2f6ff;
+}
+
+.versionSegment--selected {
+  background: #0f62fe;
+  color: #fff;
+}
+
+.versionSegment:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+}
+
+.versionSegmentNumber {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.versionSegmentHint {
+  font-size: 11px;
+  line-height: 13px;
+  opacity: 0.8;
 }
