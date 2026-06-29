@@ -39,14 +39,15 @@ test.describe('Cockpit Plugin E2E', () => {
       await page.fill('input[ng-model="password"]', 'demo');
       await page.click('button[type="submit"]');
       await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
-    } catch {
-      // Already authenticated — proceed
+    } catch (e) {
+      if (e instanceof Error && e.name !== 'TimeoutError') throw e;
+      // Login form did not appear within timeout — assume already authenticated.
     }
 
     // Cockpit lands on /cockpit/default/ after login; the #/dashboard hash is
     // added asynchronously by Angular routing so we cannot require it in the
-    // pattern. 30s covers slow CI container startup; original 5s timed out.
-    await page.waitForURL(/\/camunda\/app\/cockpit\//, { timeout: 30000 });
+    // pattern. Ensure we're actually authenticated by waiting for the main nav.
+    await page.locator('a[href="#/processes"]').waitFor({ state: 'visible', timeout: 30000 });
   });
 
   test.afterEach(async ({ context }) => {
