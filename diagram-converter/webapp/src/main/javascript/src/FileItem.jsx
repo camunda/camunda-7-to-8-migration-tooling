@@ -15,8 +15,6 @@ import {
   CheckmarkFilled,
 } from "@carbon/react/icons";
 
-import Paperclip from "./Paperclip.svg";
-
 export default function FileItem({
   name,
   error,
@@ -31,24 +29,22 @@ export default function FileItem({
   return (
     <div className="FileItem">
       <div className="left">
-        <img src={Paperclip} />
+        {status === "success" && (
+          <div className="fileItemCheck">
+            <CheckmarkFilled />
+          </div>
+        )}
         <span
           className={isConverted && downloadAction && !error ? "downloadable" : ""}
           onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
         >
           {name}
         </span>
-        {status === "success" && (
-          <div style={{ color: "#2ada1e"}}>
-            <CheckmarkFilled />
-          </div>
-        )}
+      </div>
+      <div className="right">
         {findingCount > 0 && (
           <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
         )}
-
-      </div>
-      <div className="right">
 
         {error && (
           <Tooltip label={error}>

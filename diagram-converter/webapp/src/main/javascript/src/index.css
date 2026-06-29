@@ -234,9 +234,15 @@ h1 {
 
   .left {
     display: flex;
-    img {
+    align-items: center;
+    padding-left: 8px;
+
+    .fileItemCheck {
+      color: #2ada1e;
       margin-left: 4px;
       margin-right: 8px;
+      display: flex;
+      align-items: center;
     }
 
     span {
@@ -256,6 +262,7 @@ h1 {
   .right {
     margin-right: 10px;
     display: flex;
+    align-items: center;
     gap: 3px;
     button {
       border: none;
