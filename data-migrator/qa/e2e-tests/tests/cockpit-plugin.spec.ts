@@ -43,8 +43,10 @@ test.describe('Cockpit Plugin E2E', () => {
         await page.fill('input[ng-model="password"]', 'demo');
         await page.click('button[type="submit"]');
         await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
-      } catch {
-        // Already authenticated — proceed
+      } catch (e) {
+        // Only swallow TimeoutError — the login form didn't appear, meaning we
+        // are already authenticated. Any other error (fill/click failure) is real.
+        if (!(e instanceof Error) || e.name !== 'TimeoutError') throw e;
       }
 
       // Cockpit lands on /cockpit/default/ after login; #/dashboard hash is
