@@ -11,6 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.camunda.client.CamundaClient;
@@ -64,6 +66,7 @@ class C8ClientActivateJobsRetryTest {
     List<?> result = c8Client.activateJobs("migrator");
 
     assertThat(result).isEmpty();
+    verify(cmd, times(2)).execute();
   }
 
   @Test
@@ -73,17 +76,17 @@ class C8ClientActivateJobsRetryTest {
         .thenThrow(new ClientException("timeout", new SocketTimeoutException()));
 
     assertThrows(MigratorException.class, () -> c8Client.activateJobs("migrator"));
+    verify(cmd, times(3)).execute();
   }
 
   @Test
   void doesNotRetryOnNonTimeoutException() {
     var cmd = camundaClient.newActivateJobsCommand().jobType("migrator").maxJobsToActivate(10);
-    var response = Mockito.mock(ActivateJobsResponse.class);
     when(cmd.execute())
-        .thenThrow(new ClientException("bad request", new RuntimeException("bad")))
-        .thenReturn(response);
+        .thenThrow(new ClientException("bad request", new RuntimeException("bad")));
 
     assertThrows(MigratorException.class, () -> c8Client.activateJobs("migrator"));
+    verify(cmd, times(1)).execute();
   }
 
   @Test

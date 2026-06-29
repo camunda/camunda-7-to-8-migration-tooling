@@ -56,6 +56,7 @@ import static io.camunda.migration.data.impl.util.ExceptionUtils.wrapException;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.ClientException;
 import io.camunda.client.api.command.CreateAuthorizationCommandStep1;
 import io.camunda.client.api.command.CreateGroupCommandStep1;
 import io.camunda.client.api.command.CreateTenantCommandStep1;
@@ -138,7 +139,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class C8Client {
 
-  static final int MAX_ACTIVATE_JOBS_RETRIES = 3;
+  static final int MAX_ACTIVATE_JOBS_ATTEMPTS = 3;
   long activateJobsRetryDelayMs = 2000L;
 
   @Autowired
@@ -226,8 +227,12 @@ public class C8Client {
   }
 
   /**
-   * Activates jobs for the specified job type, retrying up to MAX_ACTIVATE_JOBS_RETRIES times on
-   * transient timeout failures.
+   * Activates jobs for the specified job type, retrying up to {@value #MAX_ACTIVATE_JOBS_ATTEMPTS}
+   * times on transient timeout failures.
+   *
+   * <p>Calls {@code execute()} directly rather than {@code ExceptionUtils.callApi} so that the
+   * ERROR log and exception wrapping only happen once — on a non-timeout failure or after the last
+   * attempt is exhausted. Transient timeouts that recover on a later attempt produce no error log.
    */
   public List<ActivatedJob> activateJobs(String jobType) {
     Set<String> tenantIds = properties.getTenantIds();
@@ -241,14 +246,14 @@ public class C8Client {
       activateJobs = activateJobs.tenantIds(List.copyOf(tenantIdsWithDefault));
     }
 
-    for (int attempt = 1; attempt <= MAX_ACTIVATE_JOBS_RETRIES; attempt++) {
+    for (int attempt = 1; attempt <= MAX_ACTIVATE_JOBS_ATTEMPTS; attempt++) {
       try {
-        return callApi(activateJobs::execute, FAILED_TO_ACTIVATE_JOBS + jobType).getJobs();
-      } catch (MigratorException e) {
-        if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_RETRIES) {
+        return activateJobs.execute().getJobs();
+      } catch (ClientException e) {
+        if (isCausedByTimeout(e) && attempt < MAX_ACTIVATE_JOBS_ATTEMPTS) {
           sleepUninterruptibly(activateJobsRetryDelayMs * attempt);
         } else {
-          throw e;
+          throw wrapException(FAILED_TO_ACTIVATE_JOBS + jobType, e);
         }
       }
     }
