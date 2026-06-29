@@ -70,7 +70,7 @@ jobs:
           vault-url: ${{ secrets.VAULT_ADDR }}
 
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
           # Overriding the default GITHUB_TOKEN with a GitHub App token in order to workaround
@@ -182,7 +182,7 @@ jobs:
       - name: Checkout Code
         # Tag does not exist if dry run
         if: ${{ !inputs.IS_DRY_RUN }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Checkout the release tag to perform a second deployment 
           ref: ${{ env.RELEASE_VERSION }}

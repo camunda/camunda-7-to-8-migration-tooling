@@ -50,7 +50,7 @@ public class RetrievePaymentWorker {
 }
 ```
 
-For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/8.8/apis-tools/spring-zeebe-sdk/configuration/).
+For more information on how to implement job workers, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/configuration/).
 
 The code conversion patterns will not cover the above class-level changes between JavaDelegates and job workers. Instead, they focus on method-level changes.
 
