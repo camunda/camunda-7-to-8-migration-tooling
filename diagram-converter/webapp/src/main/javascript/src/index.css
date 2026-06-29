@@ -89,18 +89,6 @@ h1 {
   }
 }
 
-.heroBadge {
-  display: inline-block;
-  padding: 3px 10px;
-  background: #eef4ff;
-  color: #0f62fe;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
-}
 
 .heroMeta {
   display: flex;
@@ -574,6 +562,11 @@ th, td {
   border-radius: 12px;
   overflow: hidden;
   background: #fff;
+}
+
+.versionSegmented:focus-within {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
 }
 
 .versionSegment {
