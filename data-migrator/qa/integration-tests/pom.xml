@@ -16,7 +16,7 @@
 
   <properties>
     <version.testcontainers>2.0.5</version.testcontainers>
-    <version.postgres>42.7.10</version.postgres>
+    <version.postgres>42.7.11</version.postgres>
     <version.oracle>23.26.2.0.0</version.oracle>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
   </properties>
@@ -88,13 +88,13 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>2.21.2</version>
+      <version>2.22.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.21.2</version>
+      <version>2.22.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
