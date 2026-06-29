@@ -21,8 +21,9 @@ import { test, expect, Page } from '@playwright/test';
 // The Cockpit navbar renders the "Processes" link more than once (a visible
 // desktop bar plus a collapsed responsive copy share the same href), so a bare
 // a[href="#/processes"] locator matches multiple elements and trips Playwright's
-// strict mode. Always scope to the first match.
-const processesLink = (page: Page) => page.locator('a[href="#/processes"]').first();
+// strict mode. Scope to the visible match so the choice is deterministic
+// regardless of DOM order (the hidden responsive copy may come first).
+const processesLink = (page: Page) => page.locator('a[href="#/processes"]:visible').first();
 
 // Navigate from the dashboard to the plugin's processes page.
 async function openProcessesPage(page: Page) {
