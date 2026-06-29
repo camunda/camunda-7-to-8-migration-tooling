@@ -16,7 +16,7 @@
 
   <properties>
     <version.testcontainers>2.0.5</version.testcontainers>
-    <version.postgres>42.7.11</version.postgres>
+    <version.postgres>42.7.12</version.postgres>
     <version.oracle>23.26.2.0.0</version.oracle>
     <version.mysql>9.7.0</version.mysql>
     <version.mariadb>3.5.9</version.mariadb>
