@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * E2E smoke test for the Cockpit plugin
@@ -18,45 +18,43 @@ import { test, expect } from '@playwright/test';
  * 4. The plugin can interact with migrated/skipped entities
  */
 
+// The Cockpit navbar renders the "Processes" link more than once (a visible
+// desktop bar plus a collapsed responsive copy share the same href), so a bare
+// a[href="#/processes"] locator matches multiple elements and trips Playwright's
+// strict mode. Always scope to the first match.
+const processesLink = (page: Page) => page.locator('a[href="#/processes"]').first();
+
+// Navigate from the dashboard to the plugin's processes page.
+async function openProcessesPage(page: Page) {
+  await processesLink(page).click();
+  await page.waitForURL(/#\/processes/, { timeout: 15000 });
+}
+
 test.describe('Cockpit Plugin E2E', () => {
   test.describe.configure({ mode: 'serial' });
-  // Login flow runs once on the first test (~20s on cold containers); give
-  // each test enough budget to cover that plus its own work.
+  // Cold CI containers need time for the login round-trip plus the Angular
+  // bootstrap; give each test a generous budget.
   test.setTimeout(90000);
 
   test.beforeEach(async ({ page }) => {
-    // Only navigate to cockpit if not already there — reloading triggers a
-    // full Angular re-bootstrap that can leave the page stuck on the spinner.
-    const currentUrl = page.url();
-    if (!currentUrl.includes('/camunda/app/cockpit/')) {
-      await page.goto('/camunda/app/cockpit/default/');
-      await page.waitForLoadState('networkidle');
+    // Playwright's default `page` fixture is function-scoped: every test gets a
+    // fresh, cookie-less context, so we authenticate from scratch each time.
+    await page.goto('/camunda/app/cockpit/default/');
 
-      // Login if the form appears — use waitFor with timeout instead of the
-      // racy isVisible() check which misses a form that hasn't rendered yet.
-      try {
-        const usernameInput = page.locator('input[ng-model="username"]');
-        await usernameInput.waitFor({ state: 'visible', timeout: 5000 });
+    // Log in with the Camunda 7 demo user. The login form is served by the same
+    // Angular app, so wait for it explicitly rather than racing isVisible().
+    const usernameInput = page.locator('input[ng-model="username"]');
+    await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+    await usernameInput.fill('demo');
+    await page.fill('input[ng-model="password"]', 'demo');
+    await page.click('button[type="submit"]');
 
-        await page.screenshot({ path: 'test-results/before-login.png', fullPage: true });
-        await usernameInput.fill('demo');
-        await page.fill('input[ng-model="password"]', 'demo');
-        await page.click('button[type="submit"]');
-        await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
-      } catch (e) {
-        // Only swallow TimeoutError — the login form didn't appear, meaning we
-        // are already authenticated. Any other error (fill/click failure) is real.
-        if (!(e instanceof Error) || e.name !== 'TimeoutError') throw e;
-      }
-
-      // Cockpit lands on /cockpit/default/ after login; #/dashboard hash is
-      // added asynchronously by Angular routing so don't require it.
-      await page.waitForURL(/\/camunda\/app\/cockpit\//, { timeout: 30000 });
-    }
-
-    // Wait for Angular to fully render the cockpit navigation — this is a
-    // true readiness signal, unlike networkidle which fires before rendering.
-    await page.locator('a[href="#/processes"]').waitFor({ state: 'visible', timeout: 60000 });
+    // Readiness gate: the Cockpit SPA must finish bootstrapping and render its
+    // navigation before any test interacts with it. If a plugin bundle fails to
+    // load (e.g. an unresolved bare module specifier), the SPA hangs on its
+    // loading spinner and this wait fails fast with a clear, actionable signal
+    // instead of a vague mid-test click timeout.
+    await processesLink(page).waitFor({ state: 'visible', timeout: 60000 });
   });
 
   test('should load Camunda Cockpit successfully', async ({ page }) => {
@@ -64,14 +62,15 @@ test.describe('Cockpit Plugin E2E', () => {
 
     // Cockpit URL may or may not include #/dashboard depending on version/timing
     await expect(page).toHaveURL(/\/camunda\/app\/cockpit\//);
-
     await expect(page).toHaveTitle(/Cockpit/);
+
+    // The static <title> is present even on the login page; asserting the nav
+    // rendered is what actually proves the SPA bootstrapped successfully.
+    await expect(processesLink(page)).toBeVisible();
   });
 
   test('should display the migrator plugin on processes page', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
+    await openProcessesPage(page);
 
     // Wait for the plugin to load - look for the plugin title
     const pluginTitle = page.locator('h1.section-title:has-text("Camunda 7 to 8 Data Migrator")');
@@ -85,9 +84,7 @@ test.describe('Cockpit Plugin E2E', () => {
   });
 
   test('should display migrated and skipped entity tabs', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
+    await openProcessesPage(page);
 
     // Wait for the plugin to render
     await page.waitForTimeout(2000); // Give React time to render
@@ -109,9 +106,7 @@ test.describe('Cockpit Plugin E2E', () => {
   });
 
   test('should be able to switch between entity types', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
+    await openProcessesPage(page);
 
     // Wait for plugin to load
     await page.waitForTimeout(2000);
@@ -140,9 +135,7 @@ test.describe('Cockpit Plugin E2E', () => {
   });
 
   test('should display 6 skipped process instances with correct columns and data', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
+    await openProcessesPage(page);
 
     // Wait for plugin to load
     await page.waitForTimeout(2000);
@@ -204,9 +197,7 @@ test.describe('Cockpit Plugin E2E', () => {
       }
     });
 
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
+    await openProcessesPage(page);
 
     // Wait for plugin to fully render
     await page.locator('h1:has-text("Camunda 7 to 8 Data Migrator")').waitFor({ timeout: 10000 });
