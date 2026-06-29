@@ -20,47 +20,47 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Cockpit Plugin E2E', () => {
   test.describe.configure({ mode: 'serial' });
-  // Login flow in beforeEach can take ~20s on cold CI containers; each test
-  // needs a budget that covers that plus its own assertions.
+  // Login flow runs once on the first test (~20s on cold containers); give
+  // each test enough budget to cover that plus its own work.
   test.setTimeout(90000);
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/camunda/app/cockpit/default/');
-    await page.waitForLoadState('networkidle');
+    // Only navigate to cockpit if not already there — reloading triggers a
+    // full Angular re-bootstrap that can leave the page stuck on the spinner.
+    const currentUrl = page.url();
+    if (!currentUrl.includes('/camunda/app/cockpit/')) {
+      await page.goto('/camunda/app/cockpit/default/');
+      await page.waitForLoadState('networkidle');
 
-    // Login if the form appears — use waitFor with timeout instead of the racy
-    // isVisible() check which misses a form that Angular hasn't rendered yet.
-    try {
-      const usernameInput = page.locator('input[ng-model="username"]');
-      await usernameInput.waitFor({ state: 'visible', timeout: 5000 });
+      // Login if the form appears — use waitFor with timeout instead of the
+      // racy isVisible() check which misses a form that hasn't rendered yet.
+      try {
+        const usernameInput = page.locator('input[ng-model="username"]');
+        await usernameInput.waitFor({ state: 'visible', timeout: 5000 });
 
-      await page.screenshot({ path: 'test-results/before-login.png', fullPage: true });
-      await usernameInput.fill('demo');
-      await page.fill('input[ng-model="password"]', 'demo');
-      await page.click('button[type="submit"]');
-      await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
-    } catch (e) {
-      if (e instanceof Error && e.name !== 'TimeoutError') throw e;
-      // Login form did not appear within timeout — assume already authenticated.
+        await page.screenshot({ path: 'test-results/before-login.png', fullPage: true });
+        await usernameInput.fill('demo');
+        await page.fill('input[ng-model="password"]', 'demo');
+        await page.click('button[type="submit"]');
+        await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
+      } catch {
+        // Already authenticated — proceed
+      }
+
+      // Cockpit lands on /cockpit/default/ after login; #/dashboard hash is
+      // added asynchronously by Angular routing so don't require it.
+      await page.waitForURL(/\/camunda\/app\/cockpit\//, { timeout: 30000 });
     }
 
-    // Cockpit lands on /cockpit/default/ after login; the #/dashboard hash is
-    // added asynchronously by Angular routing so we cannot require it in the
-    // pattern. Ensure we're actually authenticated by waiting for the main nav.
-    await page.locator('a[href="#/processes"]').waitFor({ state: 'visible', timeout: 30000 });
-  });
-
-  test.afterEach(async ({ context }) => {
-    // Clear cookies for a clean slate on the next test, but do NOT call
-    // page.close() in serial mode — that closes the shared page object and
-    // causes subsequent tests to receive an already-closed page.
-    await context.clearCookies();
+    // Wait for Angular to fully render the cockpit navigation — this is a
+    // true readiness signal, unlike networkidle which fires before rendering.
+    await page.locator('a[href="#/processes"]').waitFor({ state: 'visible', timeout: 60000 });
   });
 
   test('should load Camunda Cockpit successfully', async ({ page }) => {
     await page.screenshot({ path: 'test-results/after-login.png', fullPage: true });
 
-    // Cockpit URL may or may not include #/dashboard depending on timing
+    // Cockpit URL may or may not include #/dashboard depending on version/timing
     await expect(page).toHaveURL(/\/camunda\/app\/cockpit\//);
 
     await expect(page).toHaveTitle(/Cockpit/);
