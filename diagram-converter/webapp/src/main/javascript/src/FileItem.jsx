@@ -15,9 +15,7 @@ import {
   CheckmarkFilled,
 } from "@carbon/react/icons";
 
-import Paperclip from "./Paperclip.svg";
-
-export default function DropZone({
+export default function FileItem({
   name,
   error,
   status,
@@ -26,25 +24,27 @@ export default function DropZone({
   downloadAction,
   previewAction,
   onDelete,
+  findingCount,
 }) {
   return (
     <div className="FileItem">
       <div className="left">
-        <img src={Paperclip} />
+        {status === "success" && (
+          <div className="fileItemCheck">
+            <CheckmarkFilled />
+          </div>
+        )}
         <span
           className={isConverted && downloadAction && !error ? "downloadable" : ""}
           onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
         >
           {name}
         </span>
-        {status === "success" && (
-          <div style={{ color: "#2ada1e"}}>
-            <CheckmarkFilled />
-          </div>
-        )}
-
       </div>
       <div className="right">
+        {findingCount > 0 && (
+          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
+        )}
 
         {error && (
           <Tooltip label={error}>

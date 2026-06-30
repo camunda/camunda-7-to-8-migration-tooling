@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import {
   ProgressIndicator,
@@ -25,10 +25,23 @@ import {
   TextInput,
 } from "@carbon/react";
 
-import { Download, Launch, Close, Settings } from "@carbon/react/icons";
+import { Download, Launch, Close, Settings, ChevronDown, ChevronUp } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
+
+// Target Camunda 8 versions offered in the UI. This is a curated subset of the
+// versions the backend understands (SemanticVersion.java); we only surface the
+// versions users realistically target today. The default mirrors the backend
+// default in converter-properties.properties (zeebe-platform.version=8.9), which
+// is the latest generally available release. 8.10 is offered for users already
+// targeting the upcoming release.
+const SUPPORTED_PLATFORM_VERSIONS = [
+  { value: "8.8", label: "8.8", hint: "Previous stable" },
+  { value: "8.9", label: "8.9", hint: "Latest stable" },
+  { value: "8.10", label: "8.10", hint: "Next version" },
+];
+const DEFAULT_PLATFORM_VERSION = "8.9";
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -37,8 +50,6 @@ function App() {
   const [files, setFiles] = useState([]);
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
-  const isSaaS = window.location.hostname !== "localhost";
-
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
@@ -49,7 +60,41 @@ function App() {
   const [downloadError, setDownloadError] = useState(null);
   const [downloadErrorTitle, setDownloadErrorTitle] = useState("");
 
+  const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
+
   const [showConfig, setShowConfig] = useState(false);
+  const incompatibilityNotifRef = useRef(null);
+  const versionSegmentedRef = useRef(null);
+
+  function handleVersionKeyDown(e) {
+    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
+    if (!keys.includes(e.key)) return;
+    e.preventDefault();
+    const currentIdx = SUPPORTED_PLATFORM_VERSIONS.findIndex(v => v.value === platformVersion);
+    let nextIdx = currentIdx;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      nextIdx = (currentIdx + 1) % SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      nextIdx = (currentIdx - 1 + SUPPORTED_PLATFORM_VERSIONS.length) % SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (e.key === 'Home') {
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      nextIdx = SUPPORTED_PLATFORM_VERSIONS.length - 1;
+    }
+    setPlatformVersion(SUPPORTED_PLATFORM_VERSIONS[nextIdx].value);
+    versionSegmentedRef.current?.querySelectorAll('button')[nextIdx]?.focus();
+  }
+
+  const allDone = fileResults.length > 0 && fileResults.every(r => r.status !== 'uploading');
+  const totalFindings = allDone
+    ? fileResults.reduce((sum, r) => {
+        if (!r.checkResponseJson) return sum;
+        return sum + r.checkResponseJson
+          .flatMap(item => item.results || [])
+          .reduce((s, el) => s + (el.messages?.length || 0), 0);
+      }, 0)
+    : 0;
+
   const [configOptions, setConfigOptions] = useState({
     defaultJobType: "camunda-7-job",
     keepJobTypeBlank: false,
@@ -58,6 +103,12 @@ function App() {
     dataMigrationExecutionListenerJobType: "migrator",
   });
 
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') setIsPreviewOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   useEffect(() => {
       if (isPreviewOpen && previewbpmnXml) {
@@ -85,6 +136,15 @@ function App() {
       }
     }, [isPreviewOpen, previewbpmnXml]);
 
+  useEffect(() => {
+    if (!allDone || totalFindings === 0) return;
+    const timer = setTimeout(() => {
+      const el = incompatibilityNotifRef.current?.querySelector('button');
+      if (el && el === document.activeElement) el.blur();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [allDone, totalFindings]);
+
     function getMostSevere(messages) {
       const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
 
@@ -108,10 +168,14 @@ function App() {
     // Normalize to an array (you can pass a single file or an array of files)
     const fileArray = Array.isArray(files) ? files : [files];
 
-    fileArray.forEach((file, index) => {
+    fileArray.forEach((file) => {
       // Append each file, optionally using indexed keys if needed
       formData.append("file", file);
     });
+
+    // Target Camunda 8 platform version chosen by the user. Sent on /check,
+    // /convert and /convertBatch so the backend converts for the right target.
+    if (platformVersion) formData.append("platformVersion", platformVersion);
 
     if (configOptions.defaultJobType !== undefined)
       formData.append("defaultJobType", configOptions.defaultJobType);
@@ -355,48 +419,24 @@ function App() {
 
   return (
     <div className="container">
-      <div className="whiteBox">
-        <div>
-          <div>
-            <h2>Camunda Migration Analyzer & Diagram Converter</h2>
-            <p>
-            Understand your BPMN models before migrating. Identify gaps, assess effort, and convert compatible elements.
-            </p>
-            <p>
-              For more information visit the{" "}
-              <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
-                rel="noopener noreferrer" target="_blank">
-                diagram converter guide
-              </a>.
-            </p>
-            {!isSaaS && (
-              <div>
-                <p>
-                  If you prefer an online version of this tool{" "}
-                  <a href="https://diagram-converter.camunda.io">
-                    access it here
-                  </a>
-                  .
-                </p>
-              </div>
-            )}
-            {isSaaS && (
-              <div>
-                <p>
-                  If you prefer a local version of this tool{" "}
-                  <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases">
-                    download it here
-                  </a>
-                  .
-                </p>
-                <p>
-                  <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free">
-                    Check our legal terms and data privacy information.
-                  </a>
-                </p>
-              </div>
-            )}
-          </div>
+      <div className="whiteBox hero">
+        <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
+        <p>
+          Convert your BPMN and DMN models to Camunda 8 — then identify gaps and assess migration effort.
+        </p>
+        <div className="heroMeta">
+          <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
+            rel="noopener noreferrer" target="_blank">
+            Diagram Converter Guide
+          </a>
+          <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases"
+            rel="noopener noreferrer" target="_blank">
+            Download local version
+          </a>
+          <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free"
+            rel="noopener noreferrer" target="_blank">
+            Legal terms &amp; data privacy
+          </a>
         </div>
       </div>
       <div className="whiteBox centered">
@@ -405,12 +445,12 @@ function App() {
             <ProgressStep
               current={step < 2}
               complete={step > 1}
-              label="Upload Models"
+              label="Configure"
             />
             <ProgressStep
               current={step === 2}
               complete={step > 2}
-              label="Analyze Results"
+              label="Results"
             />
           </ProgressIndicator>
         </div>
@@ -418,130 +458,158 @@ function App() {
 
         {step === 0 && (
           <>
-            <section>
-              <h4>Instructions:</h4>
-              <p>
-                Upload your BPMN and DMN models. You can upload one or more
-                files at once.
-              </p>
-            </section>
-            <div className="fileUploadBox">
-              <DropZone
-                onFiles={(files) => {
-                  setFiles((prevFiles) => [...prevFiles, ...files]);
-                }}
-              />
-              {files.map((file, idx) => (
-                <FileItem
-                  key={file.name + "-" + idx}
-                  name={file.name}
-                  status="edit"
-                  onDelete={() => {
-                    setFiles((prevFiles) =>
-                      prevFiles.filter((prevFile) => prevFile !== file)
-                    );
+            <section className="flowStep">
+              <div className="flowStepHeader">
+                <span className="flowStepNumber">1</span>
+                <h4>Add your files</h4>
+              </div>
+              <p>Upload one or more BPMN and DMN models to analyze and convert.</p>
+              <div className="fileUploadBox">
+                <DropZone
+                  onFiles={(files) => {
+                    setFiles((prevFiles) => [...prevFiles, ...files]);
                   }}
                 />
-              ))}
-            </div>
-            <p>
-              Then go ahead and click the button below to analyze and convert
-              your models.
-            </p>
+                {files.map((file, idx) => (
+                  <FileItem
+                    key={file.name + "-" + idx}
+                    name={file.name}
+                    status="edit"
+                    onDelete={() => {
+                      setFiles((prevFiles) =>
+                        prevFiles.filter((prevFile) => prevFile !== file)
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
 
-            <Form className="configBox">
-              <h4>
-                <Settings style={{ marginRight: '0.5rem' }} />
-                Advanced Configuration Options
-                <Button
-                  kind="ghost"
-                  size="sm"
+            <section className="flowStep">
+              <div className="flowStepHeader">
+                <span className="flowStepNumber">2</span>
+                <h4>Configure conversion</h4>
+              </div>
+              <p>Choose your target Camunda 8 version. Defaults to the latest stable (8.9).</p>
+              <div
+                ref={versionSegmentedRef}
+                className="versionSegmented"
+                role="radiogroup"
+                aria-label="Target Camunda 8 version"
+                onKeyDown={handleVersionKeyDown}
+              >
+                {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
+                  <button
+                    key={version.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={platformVersion === version.value}
+                    tabIndex={platformVersion === version.value ? 0 : -1}
+                    className={
+                      "versionSegment" +
+                      (platformVersion === version.value ? " versionSegment--selected" : "")
+                    }
+                    onClick={() => setPlatformVersion(version.value)}
+                  >
+                    <span className="versionSegmentNumber">{version.label}</span>
+                    {version.hint && (
+                      <span className="versionSegmentHint">{version.hint}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <Form className="configBox" style={{ marginTop: "1.5rem" }}>
+                <button
+                  type="button"
+                  className="configToggle"
+                  aria-expanded={showConfig}
                   onClick={() => setShowConfig((prev) => !prev)}
-                  className="withMarginBottom"
                 >
-                  {showConfig ? 'Hide' : 'Show'}
-                </Button>
-              </h4>
-            {showConfig && (
-                <FormGroup legendText="">
-                  <Checkbox
-                    id="addDataMigrationExecutionListener"
-                    labelText="Add Data Migration Execution Listener"
-                    checked={configOptions.addDataMigrationExecutionListener}
-                    helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        addDataMigrationExecutionListener: checked,
-                      }))
-                    }
-                  />
-                  <TextInput
-                    id="dataMigrationExecutionListenerJobType"
-                    labelText="Execution Listener Job Type"
-                    value={configOptions.dataMigrationExecutionListenerJobType}
-                    disabled={!configOptions.addDataMigrationExecutionListener}
-                    onChange={(e) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        dataMigrationExecutionListenerJobType: e.target.value,
-                      }))
-                    }
-                  />
-                  <div className="form-spacer" />
-                  <Checkbox
-                    id="keepJobTypeBlank"
-                    labelText="Keep job type blank"
-                    checked={configOptions.keepJobTypeBlank}
-                    helperText="Don't set the job type in process models at all."
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        keepJobTypeBlank: checked,
-                      }))
-                    }
-                  />
-                  <div className="form-spacer" />
-                  <Checkbox
-                    id="alwaysUseDefaultJobType"
-                    labelText="Enable default job type"
-                    checked={configOptions.alwaysUseDefaultJobType}
-                    helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
-                    disabled={configOptions.keepJobTypeBlank}
-                    onChange={(e, { checked }) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        alwaysUseDefaultJobType: checked,
-                      }))
-                    }
-                  />
-                  <TextInput
-                    id="defaultJobType"
-                    labelText="Default Job Type"
-                    value={configOptions.defaultJobType}
-                    disabled={configOptions.keepJobTypeBlank}
-                    onChange={(e) =>
-                      setConfigOptions((prev) => ({
-                        ...prev,
-                        defaultJobType: e.target.value,
-                      }))
-                    }
-                  />
-                </FormGroup>
-            )}
-            </Form>
+                  <span className="configToggleLabel">
+                    <Settings />
+                    Advanced options
+                  </span>
+                  {showConfig ? <ChevronUp /> : <ChevronDown />}
+                </button>
+              {showConfig && (
+                  <FormGroup legendText="Advanced configuration options">
+                    <Checkbox
+                      id="addDataMigrationExecutionListener"
+                      labelText="Add Data Migration Execution Listener"
+                      checked={configOptions.addDataMigrationExecutionListener}
+                      helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          addDataMigrationExecutionListener: checked,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      id="dataMigrationExecutionListenerJobType"
+                      labelText="Execution Listener Job Type"
+                      value={configOptions.dataMigrationExecutionListenerJobType}
+                      disabled={!configOptions.addDataMigrationExecutionListener}
+                      onChange={(e) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          dataMigrationExecutionListenerJobType: e.target.value,
+                        }))
+                      }
+                    />
+                    <div className="form-spacer" />
+                    <Checkbox
+                      id="keepJobTypeBlank"
+                      labelText="Keep job type blank"
+                      checked={configOptions.keepJobTypeBlank}
+                      helperText="Don't set the job type in process models at all."
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          keepJobTypeBlank: checked,
+                        }))
+                      }
+                    />
+                    <div className="form-spacer" />
+                    <Checkbox
+                      id="alwaysUseDefaultJobType"
+                      labelText="Enable default job type"
+                      checked={configOptions.alwaysUseDefaultJobType}
+                      helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
+                      disabled={configOptions.keepJobTypeBlank}
+                      onChange={(e, { checked }) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          alwaysUseDefaultJobType: checked,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      id="defaultJobType"
+                      labelText="Default Job Type"
+                      value={configOptions.defaultJobType}
+                      disabled={configOptions.keepJobTypeBlank}
+                      onChange={(e) =>
+                        setConfigOptions((prev) => ({
+                          ...prev,
+                          defaultJobType: e.target.value,
+                        }))
+                      }
+                    />
+                  </FormGroup>
+              )}
+              </Form>
+            </section>
 
-
-
-
-            <div className="analyzeButton">
+            <div className="convertAction">
               <Button
                 kind="primary"
                 size="lg"
                 onClick={analyzeAndConvert}
                 disabled={files.length === 0}
               >
-                Analyze and convert
+                Analyze and convert to Camunda<span className="ctaVersion">&nbsp;{platformVersion}</span>
               </Button>
             </div>
           </>
@@ -549,38 +617,51 @@ function App() {
 
         {step === 2 && (
           <>
-            {/*
-            <section>
-              <Callout
-                kind="success"
-                title="Analysis and convertion complete"
-                lowContrast
-              />
-            </section>
-            */}
-
             <section>
               <h3>Your Models</h3>
               <p>
                 Download models converted to Camunda 8 individually or as one Zip
                 file. You can also preview the analysis result on the BPMN model.
               </p>
-              {files.map((file, idx) => (
+              {allDone && totalFindings > 0 && (
+                <div ref={incompatibilityNotifRef}>
+                  <ActionableNotification
+                    kind="warning"
+                    title={`${totalFindings} finding${totalFindings !== 1 ? 's' : ''} detected for Camunda ${platformVersion}`}
+                    lowContrast
+                    actionButtonLabel="Download XLSX"
+                    onActionButtonClick={downloadXLS}
+                    className="incompatibility-notification"
+                  >
+                    Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview.
+                  </ActionableNotification>
+                </div>
+              )}
+              {files.map((file, idx) => {
+                const r = fileResults[idx];
+                const fileFindingCount = r.checkResponseJson
+                  ? r.checkResponseJson
+                      .flatMap(item => item.results || [])
+                      .reduce((s, el) => s + (el.messages?.length || 0), 0)
+                  : 0;
+                return (
                 <FileItem
                   key={file.name + "-" + idx}
                   name={file.name}
-                  status={fileResults[idx].status}
-                  isChecked={ fileResults[idx].checkResponseJson != null }
-                  isConverted={fileResults[idx].convertedFileBlob != null}
-                  previewAction={() => preview(fileResults[idx])}
-                  downloadAction={() => download(fileResults[idx])}
+                  status={r.status}
+                  isChecked={r.checkResponseJson != null}
+                  isConverted={r.convertedFileBlob != null}
+                  previewAction={() => preview(r)}
+                  downloadAction={() => download(r)}
+                  findingCount={fileFindingCount}
                   error={
-                    fileResults[idx].status === "error"
-                      ? (fileResults[idx].errorMessage || "File processing failed")
+                    r.status === "error"
+                      ? (r.errorMessage || "File processing failed")
                       : ""
                   }
                 />
-              ))}
+                );
+              })}
               {downloadError && (
                 <ActionableNotification
                   kind="error"
@@ -593,7 +674,7 @@ function App() {
                 </ActionableNotification>
               )}
               <Button
-                kind="tertiary"
+                kind="primary"
                 size="lg"
                 renderIcon={Download}
                 onClick={downloadZIP}
@@ -626,7 +707,7 @@ function App() {
                 </div>
                 <div className="download-row">
                   <Button
-                    kind="primary"
+                    kind="tertiary"
                     size="md"
                     renderIcon={Download}
                     onClick={downloadCSV}
@@ -678,7 +759,7 @@ function App() {
         </div>
         <div>
           <Button
-            kind="secondary"
+            kind="ghost"
             size="sm"
             renderIcon={Close}
             onClick={() => setIsPreviewOpen(false)}
@@ -689,6 +770,14 @@ function App() {
       </div>
 
       <div id="bpmnDiagram" className="diagram-container"></div>
+      {previewTableRows.length === 0 && (
+        <p style={{ color: '#525252', marginTop: '1rem' }}>No findings for this model.</p>
+      )}
+      {previewTableRows.length > 0 && <>
+      <h3>Findings</h3>
+      <p style={{ color: '#525252', marginBottom: '0.75rem' }}>
+        Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
+      </p>
       <DataTable rows={previewTableRows} headers={previewTableHeader}>
   {({ rows, headers, getHeaderProps, getRowProps }) => (
     <Table className="analysis-table">
@@ -731,9 +820,7 @@ function App() {
     </Table>
   )}
 </DataTable>
-
-
-
+      </>}
 
     </div>
   </div>

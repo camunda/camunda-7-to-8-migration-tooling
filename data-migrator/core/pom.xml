@@ -24,6 +24,11 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${version.protobuf}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -214,7 +219,7 @@
     <dependency>
       <groupId>org.mybatis</groupId>
       <artifactId>mybatis-spring</artifactId>
-      <version>4.0.0</version>
+      <version>4.1.0</version>
     </dependency>
 
     <!-- Ensures Java Util logging is redirected to SLF4J (e.g., liquibase) -->

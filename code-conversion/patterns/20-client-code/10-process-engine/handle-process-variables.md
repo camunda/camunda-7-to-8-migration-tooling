@@ -202,4 +202,4 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 
 ## Deleting Variables
 
-Deleting variables is not possible in Camunda 8.8. You can set a variable to null or empty string.
+Deleting variables is not supported in Camunda 8. You can set a variable to null or empty string.
