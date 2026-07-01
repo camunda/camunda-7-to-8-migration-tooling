@@ -18,6 +18,35 @@ import org.openrewrite.java.search.UsesMethod;
 
 public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
 
+  /**
+   * The Camunda user task API commands ({@code newCompleteUserTaskCommand}, {@code
+   * newAssignUserTaskCommand}, ...) only work against tasks that carry the {@code <zeebe:userTask
+   * />} extension element. Against a job-based user task they fail with a 404, so migrated code
+   * gets this hint.
+   */
+  private static final String ENSURE_ZEEBE_USER_TASK_HINT =
+      " TODO: the Camunda user task API requires the BPMN user task element to declare"
+          + " <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter"
+          + " to add it automatically.";
+
+  /**
+   * C7 has no dedicated {@code unclaim} on {@code TaskService}; unclaiming is done via {@code
+   * setAssignee(taskId, null)}. A {@link org.openrewrite.java.MethodMatcher} cannot tell a null
+   * assignee apart from a real one, so the assign command is emitted with this hint.
+   */
+  private static final String NULL_ASSIGNEE_UNCLAIM_HINT =
+      " TODO: if the original assignee was null (unclaim), use"
+          + " camundaClient.newUnassignUserTaskCommand(taskKey) instead.";
+
+  /**
+   * Camunda 8 has no task-scoped variables. {@code newSetVariablesCommand} expects an element
+   * instance key rather than the task key, so the generated call needs manual review.
+   */
+  private static final String NO_TASK_SCOPED_VARIABLES_HINT =
+      " TODO: Camunda 8 has no task-scoped variables. newSetVariablesCommand expects the element"
+          + " instance key (not the task key); set the variable on the process/element instance"
+          + " scope instead.";
+
   @Override
   public String getDisplayName() {
     return "Migrates user task related methods";
@@ -32,9 +61,11 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
   protected TreeVisitor<?, ExecutionContext> preconditions() {
     return Preconditions.or(
         new UsesMethod<>("org.camunda.bpm.engine.TaskService createTaskQuery()", true),
-        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService claim(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService complete(..)", true),
-        new UsesMethod<>("org.camunda.bpm.engine.RuntimeService getVariable(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.TaskService claim(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.TaskService setAssignee(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.TaskService complete(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.TaskService setVariable(..)", true),
+        new UsesMethod<>("org.camunda.bpm.engine.TaskService getVariable(..)", true),
         new UsesMethod<>("org.camunda.bpm.engine.task.Task getTaskDefinitionKey()", true));
   }
 
@@ -48,7 +79,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             RecipeUtils.createSimpleJavaTemplate(
                 """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
-                    .newUserTaskAssignCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
+                    .newAssignUserTaskCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
                     .assignee(#{userId:any(java.lang.String)})
                     .send()
                     .join();
@@ -60,6 +91,25 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
             Collections.emptyList()),
+        new ReplacementUtils.SimpleReplacementSpec(
+            // "setAssignee(String taskId, String userId)" - C7 assign; unclaim passes a null userId
+            new MethodMatcher(
+                "org.camunda.bpm.engine.TaskService setAssignee(java.lang.String, java.lang.String)"),
+            RecipeUtils.createSimpleJavaTemplate(
+                """
+                #{camundaClient:any(io.camunda.client.CamundaClient)}
+                    .newAssignUserTaskCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
+                    .assignee(#{userId:any(java.lang.String)})
+                    .send()
+                    .join();
+                """),
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+            "io.camunda.client.api.response.AssignUserTaskResponse",
+            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+            List.of(
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
+            List.of(NULL_ASSIGNEE_UNCLAIM_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "complete(String taskId)"
             new MethodMatcher("org.camunda.bpm.engine.TaskService complete(java.lang.String)"),
@@ -74,7 +124,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             "io.camunda.client.api.response.CompleteUserTaskResponse",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0)),
-            Collections.emptyList()),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "complete(String taskId, Map<String, Object> variables)"
             new MethodMatcher(
@@ -93,7 +143,27 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variables", 1)),
-            Collections.emptyList()),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
+        new ReplacementUtils.SimpleReplacementSpec(
+            // "setVariable(String taskId, String variableName, Object value)"
+            new MethodMatcher(
+                "org.camunda.bpm.engine.TaskService setVariable(java.lang.String, java.lang.String, java.lang.Object)"),
+            RecipeUtils.createSimpleJavaTemplate(
+                """
+                #{camundaClient:any(io.camunda.client.CamundaClient)}
+                    .newSetVariablesCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
+                    .variables(java.util.Map.of(#{variableName:any(java.lang.String)}, #{value:any(java.lang.Object)}))
+                    .send()
+                    .join();
+                """),
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+            "io.camunda.client.api.response.SetVariablesResponse",
+            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+            List.of(
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableName", 1),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("value", 2)),
+            List.of(NO_TASK_SCOPED_VARIABLES_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "getVariable(String taskId, String variableName)"
             new MethodMatcher(
