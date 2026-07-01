@@ -277,11 +277,16 @@ public class MigrateMessageMethodsRecipe extends AbstractMigrationRecipe {
   public @NonNull TreeVisitor<?, ExecutionContext> getVisitor() {
     TreeVisitor<?, ExecutionContext> base = MigrateMessageMethodsRecipe.super.getVisitor();
 
-    return new TreeVisitor<>() {
+    return new TreeVisitor<Tree, ExecutionContext>() {
       @Override
-      public J visit(@Nullable Tree tree, ExecutionContext ctx) {
-        J afterBase = (J) base.visit(tree, ctx);
-        assert afterBase != null;
+      public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
+        Tree afterBase = (Tree) base.visit(tree, ctx);
+        // The recipe runs over every source in the project, including non-Java ones such as
+        // pom.xml (an Xml.Document). The async-correlation rewrite below only applies to Java
+        // compilation units, so pass anything that is not a Java tree through unchanged.
+        if (!(afterBase instanceof J)) {
+          return afterBase;
+        }
         return new JavaIsoVisitor<ExecutionContext>() {
 
           private final MethodMatcher asyncMatcher =

@@ -60,7 +60,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList());
             })
@@ -122,7 +122,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(methodName -> " " + methodName + " was removed"),
+                              .map(BuilderSpecFactory::createRemovedComment),
                           additionalTextComments.stream())
                       .toList(),
                   Collections.emptyList(),
@@ -152,5 +152,19 @@ public class BuilderSpecFactory {
     }
 
     return result;
+  }
+
+  static String createRemovedComment(String methodName) {
+    // Among the builder specs produced by this factory, `businessKey` only appears in the
+    // createProcessInstance builder (newCreateInstanceCommand), so a businessId hint is the
+    // right guidance for migrators. `processInstanceBusinessKey` in these builder specs only
+    // appears in the correlateMessage builder (newCorrelateMessageCommand), where businessId
+    // is not a replacement - keep that comment neutral.
+    // Note: processInstanceBusinessKey on search/query paths is handled separately and does
+    // get a businessId hint via RecipeUtils.businessIdHint() called directly from the recipe.
+    if ("businessKey".equals(methodName)) {
+      return RecipeUtils.businessIdHint(methodName);
+    }
+    return " " + methodName + " was removed";
   }
 }
