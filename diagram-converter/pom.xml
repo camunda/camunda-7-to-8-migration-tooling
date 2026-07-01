@@ -32,7 +32,7 @@
     <!-- Spring Boot 4 upgrade is blocked by C7 April Environment Release -->
     <version.spring-boot>3.5.16</version.spring-boot>
     <plugin.version.spotless-maven-plugin>3.8.0</plugin.version.spotless-maven-plugin>
-    <plugin.version.maven-site-plugin>3.21.0</plugin.version.maven-site-plugin>
+    <plugin.version.maven-site-plugin>3.22.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
     <plugin.version.maven-source-plugin>3.4.0</plugin.version.maven-source-plugin>
     <plugin.version.maven-install-plugin>3.1.4</plugin.version.maven-install-plugin>
