@@ -81,14 +81,17 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                                 .newCreateInstanceCommand()
                                 .bpmnProcessId(#{processDefinitionId:any(String)})
                                 .latestVersion()
+                                .businessId(#{businessId:any(String)})
                                 .send()
                                 .join();
                             """),
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
-            List.of(RecipeUtils.businessIdHint("businessKey"))),
+            List.of(
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("businessId", 1)),
+            Collections.emptyList()),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByKey(String processDefinitionKey, Map<String, Object>
@@ -122,6 +125,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                                 .newCreateInstanceCommand()
                                 .bpmnProcessId(#{processDefinitionId:any(String)})
                                 .latestVersion()
+                                .businessId(#{businessId:any(String)})
                                 .variables(#{variableMap:any(java.util.Map)})
                                 .send()
                                 .join();
@@ -131,8 +135,9 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("businessId", 1),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 2)),
-            List.of(RecipeUtils.businessIdHint("businessKey"))),
+            Collections.emptyList()),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceById(String processDefinitionId)"
@@ -159,14 +164,17 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                             #{camundaClient:any(io.camunda.client.CamundaClient)}
                                 .newCreateInstanceCommand()
                                 .processDefinitionKey(Long.valueOf(#{processDefinitionId:any(String)}))
+                                .businessId(#{businessId:any(String)})
                                 .send()
                                 .join();
                             """),
             RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
             "io.camunda.client.api.response.ProcessInstanceEvent",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
-            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionId", 0)),
-            List.of(RecipeUtils.businessIdHint("businessKey"))),
+            List.of(
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionId", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("businessId", 1)),
+            Collections.emptyList()),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceById(String processDefinitionId, Map<String, Object>
@@ -198,6 +206,7 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
                             #{camundaClient:any(io.camunda.client.CamundaClient)}
                                 .newCreateInstanceCommand()
                                 .processDefinitionKey(Long.valueOf(#{processDefinitionId:any(String)}))
+                                .businessId(#{businessId:any(String)})
                                 .variables(#{variableMap:any(java.util.Map)})
                                 .send()
                                 .join();
@@ -207,8 +216,9 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionId", 0),
+                new ReplacementUtils.SimpleReplacementSpec.NamedArg("businessId", 1),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("variableMap", 2)),
-            List.of(RecipeUtils.businessIdHint("businessKey"))),
+            Collections.emptyList()),
         new ReplacementUtils.SimpleReplacementSpec(
             new MethodMatcher(
                 // "startProcessInstanceByMessage(String messageName)"
