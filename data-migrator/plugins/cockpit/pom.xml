@@ -157,6 +157,26 @@
               </resources>
             </configuration>
           </execution>
+          <execution>
+            <id>Copy frontend manifests to JAR</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${basedir}/target/classes</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/${frontend.working.directory}</directory>
+                  <includes>
+                    <include>package.json</include>
+                    <include>package-lock.json</include>
+                  </includes>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>
