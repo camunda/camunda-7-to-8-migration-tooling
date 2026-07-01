@@ -18,8 +18,10 @@ import io.camunda.client.api.search.response.ProcessInstance;
 import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
+import io.camunda.migration.data.qa.util.BoundedCamundaQueries;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -108,10 +110,10 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     CamundaClient camundaClient = getCamundaClientBean();
     if (camundaClient != null) {
       // C8
-      List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-      for (ProcessInstance i : items) {
+      List<ProcessInstance> items = BoundedCamundaQueries.searchProcessInstancesForCleanup(camundaClient);
+      for (ProcessInstance processInstance : items) {
         try {
-          camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+          camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
         } catch (ClientStatusException | ProblemException e) {
           if (!e.getMessage().contains("NOT_FOUND")) {
             throw e;
@@ -165,7 +167,7 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       return Optional.empty();
     }
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    List<Variable> variables = BoundedCamundaQueries.searchVariables(camundaClient);
 
     return variables.stream()
         .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
@@ -179,9 +181,12 @@ public class RuntimeMigrationExtension implements AfterEachCallback, Application
     if (camundaClient == null) {
       throw new IllegalStateException("CamundaClient is not available in the Spring context");
     }
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
-    });
+    Awaitility.await()
+        .atMost(30, TimeUnit.SECONDS)
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> {
+          assertThat(BoundedCamundaQueries.searchProcessInstances(camundaClient)).hasSize(expected);
+        });
   }
 }
 

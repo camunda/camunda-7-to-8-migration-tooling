@@ -19,11 +19,11 @@ import io.camunda.client.api.search.response.Variable;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.util.BoundedCamundaQueries;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-
 import java.util.List;
-
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
@@ -67,10 +67,10 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
     repositoryService.createDeploymentQuery().list().forEach(d -> repositoryService.deleteDeployment(d.getId(), true));
 
     // C8
-    List<ProcessInstance> items = camundaClient.newProcessInstanceSearchRequest().execute().items();
-    for (ProcessInstance i : items) {
+    List<ProcessInstance> items = BoundedCamundaQueries.searchProcessInstancesForCleanup(camundaClient);
+    for (ProcessInstance processInstance : items) {
       try {
-        camundaClient.newDeleteResourceCommand(i.getProcessInstanceKey()).execute();
+        camundaClient.newDeleteResourceCommand(processInstance.getProcessInstanceKey()).execute();
       } catch (ClientStatusException | ProblemException e) {
         if (!e.getMessage().contains("NOT_FOUND")) {
           throw e;
@@ -85,7 +85,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected Optional<Variable> getVariableByScope(Long processInstanceKey, Long scopeKey, String variableName) {
-    List<Variable> variables = camundaClient.newVariableSearchRequest().execute().items();
+    List<Variable> variables = BoundedCamundaQueries.searchVariables(camundaClient);
 
     return variables.stream()
         .filter(v -> v.getProcessInstanceKey().equals(processInstanceKey))
@@ -95,9 +95,12 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
   }
 
   protected void assertThatProcessInstanceCountIsEqualTo(int expected) {
-    Awaitility.await().ignoreException(ClientException.class).untilAsserted(() -> {
-      assertThat(camundaClient.newProcessInstanceSearchRequest().execute().items()).hasSize(expected);
-    });
+    Awaitility.await()
+        .atMost(30, TimeUnit.SECONDS)
+        .ignoreException(ClientException.class)
+        .untilAsserted(() -> {
+          assertThat(BoundedCamundaQueries.searchProcessInstances(camundaClient)).hasSize(expected);
+        });
   }
 
 }

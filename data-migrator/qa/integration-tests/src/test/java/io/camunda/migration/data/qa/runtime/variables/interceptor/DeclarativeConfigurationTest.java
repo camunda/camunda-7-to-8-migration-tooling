@@ -19,17 +19,19 @@ import io.camunda.migration.data.impl.interceptor.DateVariableTransformer;
 import io.camunda.migration.data.impl.interceptor.PrimitiveVariableTransformer;
 import io.camunda.migration.data.interceptor.VariableInterceptor;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
+import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.CustomTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.DisabledTestInterceptor;
 import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.UniversalTestInterceptor;
-import io.camunda.migration.data.qa.runtime.variables.interceptor.pojo.ComplexInterceptor;
 import io.camunda.migration.data.qa.util.WithSpringProfile;
 import io.camunda.process.test.api.CamundaAssert;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
@@ -37,6 +39,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @ExtendWith(OutputCaptureExtension.class)
 @WithSpringProfile("interceptor")
+@Timeout(value = 2, unit = TimeUnit.MINUTES)
 public class DeclarativeConfigurationTest extends RuntimeMigrationAbstractTest {
 
   @Autowired

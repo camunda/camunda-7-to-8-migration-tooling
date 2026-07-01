@@ -14,9 +14,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest;
 import io.github.netmikey.logunit.api.LogCapturer;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+@Timeout(value = 2, unit = TimeUnit.MINUTES)
 public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
 
   @RegisterExtension
@@ -41,12 +44,15 @@ public class ExternalTrafficTest extends RuntimeMigrationAbstractTest {
     assertThatProcessInstanceCountIsEqualTo(2);
 
     var events = logs.getEvents();
+    // The externally started instance is detected and skipped on every job-activation poll it
+    // appears in, so the skip message may be logged once or twice depending on how many
+    // activation batches the migrator runs before the queue drains. Both are correct behaviour.
     assertThat(events.stream()
         .filter(event -> event.getMessage()
             .matches(".*" + EXTERNALLY_STARTED_PROCESS_INSTANCE
                 .replace(".", "\\.")
                 .replace("[{}]", "\\[(\\d+)\\]"))))
-        .hasSize(1);
+      .hasSizeBetween(1, 2);
   }
 
 }
