@@ -218,4 +218,42 @@ class DetectHistoryServiceUsageTest implements RewriteTest {
             }
             """));
   }
+
+  @Test
+  void doesNotAnnotateHistoryServiceMethodParameter() {
+    rewriteRun(
+        // language=java
+        java(
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.HistoryService;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParameterService {
+
+                public void process(HistoryService historyService) {
+                    historyService.createHistoricProcessInstanceQuery().list();
+                }
+            }
+            """,
+            """
+            package org.example;
+
+            import org.camunda.bpm.engine.HistoryService;
+            import org.springframework.stereotype.Component;
+
+            @Component
+            public class ParameterService {
+
+                public void process(HistoryService historyService) {
+                    // TODO: HistoryService has no direct equivalent in Camunda 8.
+                    // Use the Orchestration Cluster REST API: POST /v2/process-instances/search
+                    // See: https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/
+                    historyService.createHistoricProcessInstanceQuery().list();
+                }
+            }
+            """));
+  }
 }
