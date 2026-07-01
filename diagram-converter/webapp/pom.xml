@@ -108,7 +108,7 @@
             </goals>
             <phase>process-resources</phase>
             <configuration>
-              <outputDirectory>${basedir}/target/classes</outputDirectory>
+              <outputDirectory>${project.build.outputDirectory}</outputDirectory>
               <resources>
                 <resource>
                   <directory>${basedir}/src/main/javascript</directory>
