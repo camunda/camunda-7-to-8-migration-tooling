@@ -8,11 +8,19 @@
 package io.camunda.migration.code.recipes.client.migrate;
 
 import static org.openrewrite.java.Assertions.java;
+import static org.openrewrite.xml.Assertions.xml;
 import io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe;
 import org.junit.jupiter.api.Test;
 import org.openrewrite.test.RewriteTest;
 
 class ReplaceMessageMethodsTest implements RewriteTest {
+
+  @Test
+  void doesNotFailOnNonJavaSourceFiles() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateMessageMethodsRecipe()),
+        xml("<process id=\"test\"/>"));
+  }
 
   @Test
   void replaceMessageMethodsTest() {
