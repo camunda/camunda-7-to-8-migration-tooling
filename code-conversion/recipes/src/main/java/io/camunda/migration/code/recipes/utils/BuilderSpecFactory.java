@@ -60,7 +60,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(BuilderSpecFactory::createRemovedComment),
+                              .flatMap(name -> createRemovedComments(name).stream()),
                           additionalTextComments.stream())
                       .toList());
             })
@@ -122,7 +122,7 @@ public class BuilderSpecFactory {
                   ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
                   Stream.concat(
                           nonExtractables.stream()
-                              .map(BuilderSpecFactory::createRemovedComment),
+                              .flatMap(name -> createRemovedComments(name).stream()),
                           additionalTextComments.stream())
                       .toList(),
                   Collections.emptyList(),
@@ -154,17 +154,20 @@ public class BuilderSpecFactory {
     return result;
   }
 
-  static String createRemovedComment(String methodName) {
+  static List<String> createRemovedComments(String methodName) {
     // Among the builder specs produced by this factory, `businessKey` only appears in the
-    // createProcessInstance builder (newCreateInstanceCommand), so a businessId hint is the
-    // right guidance for migrators. `processInstanceBusinessKey` in these builder specs only
-    // appears in the correlateMessage builder (newCorrelateMessageCommand), where businessId
-    // is not a replacement - keep that comment neutral.
+    // createProcessInstance builder (newCreateInstanceCommand). It is dropped here (rather than
+    // migrated to `.businessId(...)` like the plain start-process overloads) because the
+    // ProcessInstantiationBuilder.businessKey() semantics may differ from businessId - uniqueness
+    // enforcement / retry idempotency is opt-in in Camunda 8.9 - so a human should review it.
+    // We therefore emit a businessId hint plus a reminder that any businessKey propagated to a
+    // call activity must also be migrated on the diagram side.
     // Note: processInstanceBusinessKey on search/query paths is handled separately and does
     // get a businessId hint via RecipeUtils.businessIdHint() called directly from the recipe.
     if ("businessKey".equals(methodName)) {
-      return RecipeUtils.businessIdHint(methodName);
+      return List.of(
+          RecipeUtils.businessIdHint(methodName), RecipeUtils.businessIdCallActivityHint());
     }
-    return " " + methodName + " was removed";
+    return List.of(" " + methodName + " was removed");
   }
 }
