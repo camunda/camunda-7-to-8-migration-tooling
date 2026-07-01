@@ -88,6 +88,9 @@ public class DetectHistoryServiceUsageRecipe extends Recipe {
             if (type == null || !HISTORY_SERVICE_FQN.equals(type.getFullyQualifiedName())) {
               return visited;
             }
+            if (isMethodParameter()) {
+              return visited;
+            }
             if (alreadyAnnotated(visited.getComments())) {
               return visited;
             }
@@ -127,6 +130,17 @@ public class DetectHistoryServiceUsageRecipe extends Recipe {
               }
             }
             return stmt;
+          }
+
+          private boolean isMethodParameter() {
+            org.openrewrite.Cursor c = getCursor().getParent();
+            while (c != null) {
+              Object v = c.getValue();
+              if (v instanceof J.MethodDeclaration) return true;
+              if (v instanceof J.Block) return false;
+              c = c.getParent();
+            }
+            return false;
           }
 
           private boolean containsHistoryServiceCall(Statement stmt, MethodMatcher matcher) {
