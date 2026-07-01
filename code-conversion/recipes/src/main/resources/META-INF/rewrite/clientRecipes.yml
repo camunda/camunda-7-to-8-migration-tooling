@@ -25,6 +25,7 @@ recipeList:
   - io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe
+  - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
   - io.camunda.migration.code.recipes.testing.ReplaceAssertionsRecipe
   # Match the Spring Boot 3 starter chosen above: camunda-process-test-spring defaults to
   # Spring Boot 4.0.x since 8.9, so use the dedicated Spring Boot 3 module for test scope.
