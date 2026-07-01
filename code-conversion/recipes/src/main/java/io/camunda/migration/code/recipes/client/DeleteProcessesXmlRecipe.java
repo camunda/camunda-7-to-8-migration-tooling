@@ -43,10 +43,9 @@ public class DeleteProcessesXmlRecipe extends ScanningRecipe<Set<String>> {
       @Override
       public Tree visit(Tree tree, ExecutionContext ctx) {
         if (tree instanceof SourceFile sourceFile) {
-          String path = sourceFile.getSourcePath().toString();
-          if (path.endsWith(PROCESSES_XML_SUFFIX)
+          if (sourceFile.getSourcePath().endsWith(PROCESSES_XML_SUFFIX)
               && sourceFile.printAll().contains(C7_SCHEMA_URI)) {
-            filesToDelete.add(path);
+            filesToDelete.add(sourceFile.getSourcePath().toString());
           }
         }
         return tree;
