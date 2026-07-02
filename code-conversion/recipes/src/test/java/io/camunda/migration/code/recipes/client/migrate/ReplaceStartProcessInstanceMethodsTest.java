@@ -183,11 +183,11 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                          String id = String.valueOf(instance1.getProcessInstanceKey());
                                          System.out.println(String.valueOf(instance1.getProcessInstanceKey()));
 
-                                         // businessKey was removed
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
                                                  .latestVersion()
+                                                 .businessId(businessKey)
                                                  .send()
                                                  .join();
 
@@ -199,11 +199,11 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
                                                  .latestVersion()
+                                                 .businessId(businessKey)
                                                  .variables(variableMap)
                                                  .send()
                                                  .join();
@@ -215,7 +215,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -239,7 +240,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -248,7 +250,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -266,7 +269,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .bpmnProcessId(processDefinitionKey)
@@ -283,10 +287,10 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .businessId(businessKey)
                                                  .send()
                                                  .join();
 
@@ -297,15 +301,16 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
+                                                 .businessId(businessKey)
                                                  .variables(variableMap)
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -334,7 +339,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -342,7 +348,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -350,7 +357,8 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                                  .send()
                                                  .join();
 
-                                         // businessKey was removed
+                                         // TODO: businessKey was removed - use businessId (Camunda 8.9+) instead
+                                         // TODO: if this businessKey was propagated to a called process via <camunda:in businessKey="..." /> on a BPMN call activity, migrate that propagation to businessId in the diagram as well (diagram converter)
                                          camundaClient
                                                  .newCreateInstanceCommand()
                                                  .processDefinitionKey(Long.valueOf(processDefinitionId))
@@ -498,6 +506,84 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                                     .latestVersion()
                                     .send()
                                     .join();
+                        }
+                    }
+                    """));
+  }
+
+  @Test
+  void migratesBusinessKeyToBusinessIdForLiteralAndMethodCallArgs() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateStartProcessInstanceMethodsRecipe()),
+        // language=java
+        java(
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    public class BusinessKeyArgFormsTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        public void starts(Order order) {
+                            // string literal businessKey
+                            runtimeService.startProcessInstanceByKey("myProcess", "order-123");
+                            // method-call businessKey
+                            runtimeService.startProcessInstanceByKey("myProcess", order.getId());
+                        }
+
+                        interface Order {
+                            String getId();
+                        }
+                    }
+                    """,
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    public class BusinessKeyArgFormsTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        public void starts(Order order) {
+                            // string literal businessKey
+                            camundaClient
+                                    .newCreateInstanceCommand()
+                                    .bpmnProcessId("myProcess")
+                                    .latestVersion()
+                                    .businessId("order-123")
+                                    .send()
+                                    .join();
+                            // method-call businessKey
+                            camundaClient
+                                    .newCreateInstanceCommand()
+                                    .bpmnProcessId("myProcess")
+                                    .latestVersion()
+                                    .businessId(order.getId())
+                                    .send()
+                                    .join();
+                        }
+
+                        interface Order {
+                            String getId();
                         }
                     }
                     """));

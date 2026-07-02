@@ -33,6 +33,16 @@ public class RecipeUtils {
     return new TextComment(false, text, "\n" + statement.getPrefix().getIndent(), Markers.EMPTY);
   }
 
+  public static String businessIdHint(String removedMethod) {
+    return " TODO: " + removedMethod + " was removed - use businessId (Camunda 8.9+) instead";
+  }
+
+  public static String businessIdCallActivityHint() {
+    return " TODO: if this businessKey was propagated to a called process via <camunda:in"
+        + " businessKey=\"...\" /> on a BPMN call activity, migrate that propagation to businessId in"
+        + " the diagram as well (diagram converter)";
+  }
+
   public static JavaTemplate createSimpleJavaTemplate(String code) {
     return JavaTemplate.builder(code)
         .javaParser(JavaParser.fromJavaVersion().classpath(JavaParser.runtimeClasspath()))
