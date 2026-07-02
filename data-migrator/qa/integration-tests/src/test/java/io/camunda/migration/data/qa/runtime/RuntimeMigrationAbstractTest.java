@@ -35,15 +35,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
 
   /**
-   * Set generous Awaitility defaults so that all {@code await()} calls without an explicit
-   * {@code .atMost()} inherit a CI-safe timeout.
+    * Set generous Awaitility defaults so that this module's own {@code await()} calls without
+    * an explicit {@code .atMost()} inherit a CI-safe timeout after the Spring/CPT context has
+    * started.
    *
-   * <p>Background: CPT's {@code CamundaProcessTestExecutionListener} waits only 10 seconds
-   * for the Camunda 8 cluster to become ready after container start. On a loaded CI runner
-   * (multiple parallel jobs, Docker image pull, JVM warm-up) that window is too small and
-   * causes intermittent {@code ConditionTimeoutException: 'Wait for cluster to be ready'}.
-   * Setting the global default to 120 s covers the full start-up window without requiring
-   * per-call timeouts everywhere.
+    * <p>These defaults do not override CPT's explicit cluster readiness timeout, but they keep
+    * post-startup assertions from relying on Awaitility's short default timeout.
    */
   static {
     Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
