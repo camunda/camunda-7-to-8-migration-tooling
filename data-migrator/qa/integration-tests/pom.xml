@@ -443,18 +443,20 @@
       Runtime test shards for parallel CI execution.
 
       The runtime-only suite takes ~53 minutes serially. These four named shards
-      split it into parallel jobs that each target ~15 minutes. Include
-      ArchitectureTest in every shard so structural regressions are caught
-      regardless of which shard fails first.
+      split it into parallel jobs, each targeting ~20 minutes. ArchitectureTest
+      runs in every shard so structural regressions are caught regardless of
+      which shard fails first.
 
       Shard assignment by package:
-        runtime-core      –  io.camunda.migration.data.qa.runtime (root, no sub-packages)
+        runtime-core      –  runtime root + persistence + distribution (CATCH-ALL)
         runtime-element   –  runtime.element, runtime.datasource
-        runtime-jobtype   –  runtime.jobtype, persistence, distribution
-        runtime-variables –  runtime.tenant, runtime.variables
+        runtime-jobtype   –  runtime.jobtype, runtime.tenant
+        runtime-variables –  runtime.variables
 
-      When adding a new test sub-package under runtime/, add a matching
-      <include> to the appropriate shard profile so it is not silently omitted.
+      runtime-core is intentionally a catch-all: new sub-packages under runtime/
+      that are not assigned to another shard are automatically picked up here via
+      the exclude-based filter. When a new package grows large, move it to its
+      own shard by adding it to the excludes list below and creating a new profile.
     -->
     <profile>
       <id>runtime-core</id>
@@ -464,11 +466,23 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
+              <!--
+                Broad include so new runtime sub-packages are never silently dropped.
+                Packages assigned to other shards are excluded below.
+              -->
               <includes>
-                <!-- Direct children of runtime/ only — sub-packages go to other shards -->
-                <include>**/runtime/*Test.java</include>
-                <include>ArchitectureTest.java</include>
+                <include>**/runtime/**/*Test.java</include>
+                <include>**/persistence/**/*Test.java</include>
+                <include>**/distribution/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
               </includes>
+              <excludes>
+                <exclude>**/runtime/element/**</exclude>
+                <exclude>**/runtime/datasource/**</exclude>
+                <exclude>**/runtime/jobtype/**</exclude>
+                <exclude>**/runtime/tenant/**</exclude>
+                <exclude>**/runtime/variables/**</exclude>
+              </excludes>
             </configuration>
           </plugin>
         </plugins>
@@ -483,9 +497,9 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
               <includes>
-                <include>**/runtime/element/**</include>
-                <include>**/runtime/datasource/**</include>
-                <include>ArchitectureTest.java</include>
+                <include>**/runtime/element/**/*Test.java</include>
+                <include>**/runtime/datasource/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>
@@ -501,10 +515,9 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
               <includes>
-                <include>**/runtime/jobtype/**</include>
-                <include>**/persistence/**</include>
-                <include>**/distribution/**</include>
-                <include>ArchitectureTest.java</include>
+                <include>**/runtime/jobtype/**/*Test.java</include>
+                <include>**/runtime/tenant/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>
@@ -520,9 +533,8 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
               <includes>
-                <include>**/runtime/tenant/**</include>
-                <include>**/runtime/variables/**</include>
-                <include>ArchitectureTest.java</include>
+                <include>**/runtime/variables/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
               </includes>
             </configuration>
           </plugin>

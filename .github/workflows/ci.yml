@@ -324,7 +324,7 @@ jobs:
   it-runtime-h2:
     needs: [detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
     # Each shard name matches its Maven profile (runtime-<shard>) and describes
     # the sub-set of test packages it covers.
@@ -332,16 +332,19 @@ jobs:
       fail-fast: false
       matrix:
         shard:
-          - core          # runtime root package — basic migration scenarios
+          - core          # runtime root + persistence + distribution (catch-all for new packages)
           - element       # runtime.element + runtime.datasource
-          - jobtype       # runtime.jobtype + persistence + distribution
-          - variables     # runtime.tenant + runtime.variables
+          - jobtype       # runtime.jobtype + runtime.tenant
+          - variables     # runtime.variables
     if: |
       (github.event_name == 'pull_request' &&
-       needs.detect-changes.outputs.data-migrator == 'true' &&
        (
          contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
-         (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
+         (
+           needs.detect-changes.outputs.data-migrator == 'true' &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+         )
        )
       ) ||
       github.event_name == 'workflow_dispatch'
