@@ -18,13 +18,17 @@ import org.springframework.test.context.TestContext;
 import org.springframework.test.context.TestExecutionListener;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.support.DirtiesContextTestExecutionListener;
 
 @TestPropertySource(properties = {
     "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:migrator-prefix;DB_CLOSE_DELAY=-1",
     "camunda.migrator.c7.data-source.table-prefix=MY_PREFIX_"
 })
 @SpringBootTest
-@TestExecutionListeners(CustomTestExecutionListener.class)
+@TestExecutionListeners({
+    CustomTestExecutionListener.class,
+    DirtiesContextTestExecutionListener.class
+})
 public class C7TablePrefixTest {
 
   /**
