@@ -8,58 +8,35 @@
 
 package io.camunda.migration.data;
 
-import static io.camunda.migration.data.C7TablePrefixTest.*;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.h2.jdbc.JdbcSQLSyntaxErrorException;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestContext;
-import org.springframework.test.context.TestExecutionListener;
-import org.springframework.test.context.TestExecutionListeners;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.support.DirtiesContextTestExecutionListener;
+import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
-@TestPropertySource(properties = {
-    "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:migrator-prefix;DB_CLOSE_DELAY=-1",
-    "camunda.migrator.c7.data-source.table-prefix=MY_PREFIX_"
-})
-@SpringBootTest
-@TestExecutionListeners({
-    CustomTestExecutionListener.class,
-    DirtiesContextTestExecutionListener.class
-})
 public class C7TablePrefixTest {
 
   /**
-   * This test verifies that engine tables are prefix with `MY_PREFIX_`. See `CustomTestExecutionListener` for validation logic.
+   * Verifies that the configured C7 table prefix (`MY_PREFIX_`) is applied to the engine tables:
+   * with the prefix set the engine looks up `MY_PREFIX_ACT_GE_PROPERTY`, which does not exist, so
+   * application startup fails.
+   *
+   * <p>The application is started in a self-contained way (rather than via {@code @SpringBootTest})
+   * so the intentionally-failing context never enters Spring's test context cache and cannot leak
+   * into other tests in the same JVM.
    */
   @Test
-  public void shouldThrowExceptionSincePrefixedTableIsNotFound() {
-  }
-
-  static class CustomTestExecutionListener implements TestExecutionListener {
-
-    @Override
-    public void beforeTestClass(TestContext testContext) {
-      try {
-        // Attempt to load application context
-        testContext.getApplicationContext();
-      } catch (IllegalStateException e) {
-        Throwable nestedCause = findNestedCause(e, JdbcSQLSyntaxErrorException.class);
-        assertThat(nestedCause).isNotNull();
-        assertThat(nestedCause).hasMessageContaining("Table \"MY_PREFIX_ACT_GE_PROPERTY\" not found");
-      }
-    }
-
-    protected Throwable findNestedCause(Throwable throwable, Class<? extends Throwable> targetType) {
-      Throwable current = throwable;
-      while (current != null && !targetType.isInstance(current)) {
-        current = current.getCause();
-      }
-      return targetType.isInstance(current) ? current : null;
-    }
-
+  public void shouldFailStartupSincePrefixedTableIsNotFound() {
+    assertThatThrownBy(() -> new SpringApplicationBuilder(TestApp.class)
+        .web(WebApplicationType.NONE)
+        .properties(
+            "camunda.migrator.c7.data-source.jdbc-url=jdbc:h2:mem:migrator-prefix",
+            "camunda.migrator.c7.data-source.table-prefix=MY_PREFIX_")
+        .run())
+        .rootCause()
+        .isInstanceOf(JdbcSQLSyntaxErrorException.class)
+        .hasMessageContaining("Table \"MY_PREFIX_ACT_GE_PROPERTY\" not found");
   }
 
 }
