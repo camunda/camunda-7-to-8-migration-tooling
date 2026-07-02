@@ -15,7 +15,6 @@ import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILUR
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.rethrowIfC8Offline;
 import static java.lang.String.format;
@@ -32,6 +31,7 @@ import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -57,6 +57,9 @@ public class AuthorizationManager {
 
   @Autowired
   protected DefinitionLookupService definitionLookupService;
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   /**
    * Validates and maps a C7 authorization to a C8 authorization if the validation is successful.
@@ -202,7 +205,7 @@ public class AuthorizationManager {
     if (resourceId.equals(WILDCARD)) {
       return Set.of(WILDCARD);
     } else {
-      return Set.of(resourceId, prefixDefinitionId(resourceId));
+      return Set.of(resourceId, legacyIdPrefix.applyTo(resourceId));
     }
   }
 }

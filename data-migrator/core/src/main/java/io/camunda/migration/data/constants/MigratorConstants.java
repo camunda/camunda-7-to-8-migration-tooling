@@ -23,6 +23,14 @@ public final class MigratorConstants {
   public static final String LEGACY_ID_VAR_NAME = "legacyId";
   public static final String C8_DEFAULT_TENANT = "<default>";
   public static final String C7_LEGACY_PREFIX = "c7-legacy";
+
+  /**
+   * Default prefix prepended to Camunda 7 historical definition IDs (process, decision and form
+   * definitions) during migration to Camunda 8. Prefixing avoids collisions between migrated
+   * history definitions and native Camunda 8 definitions sharing the same ID. Configurable via
+   * {@code camunda.migrator.history.legacy-id-prefix}.
+   */
+  public static final String DEFAULT_LEGACY_ID_PREFIX = C7_LEGACY_PREFIX + "-";
   public static final String C7_MULTI_INSTANCE_BODY_SUFFIX = "#multiInstanceBody";
 
   /**

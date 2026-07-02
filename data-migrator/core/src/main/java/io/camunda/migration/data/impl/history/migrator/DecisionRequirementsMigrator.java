@@ -9,7 +9,6 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel.*;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_DECISION_REQUIREMENT;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.DecisionRequirementsDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
@@ -83,7 +82,7 @@ public class DecisionRequirementsMigrator extends HistoryEntityMigrator<Decision
     if (result == null) {
       return null;
     }
-    return new SyntheticDrd(Long.parseLong(result.c8Key()), prefixDefinitionId(newDrd.getKey()));
+    return new SyntheticDrd(Long.parseLong(result.c8Key()), legacyIdPrefix.applyTo(newDrd.getKey()));
   }
 
   /**

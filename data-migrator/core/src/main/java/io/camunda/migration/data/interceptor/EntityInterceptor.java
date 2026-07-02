@@ -38,7 +38,7 @@ import java.util.Set;
  *                       EntityConversionContext&lt;HistoricProcessInstance, ProcessInstanceDbModel.ProcessInstanceDbModelBuilder&gt; context) {
  *     // No casting needed!
  *     builder.processInstanceKey(getNextKey())
- *         .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+ *         .processDefinitionId(entity.getProcessDefinitionKey())
  *         .startDate(convertDate(entity.getStartTime()));
  *   }
  * }
