@@ -18,9 +18,8 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-
+import java.time.Duration;
 import java.util.List;
-
 import java.util.Optional;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
@@ -32,6 +31,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
+
+  /**
+    * Set generous Awaitility defaults so that this module's own {@code await()} calls without
+    * an explicit {@code .atMost()} inherit a CI-safe timeout after the Spring/CPT context has
+    * started.
+   *
+    * <p>These defaults do not override CPT's explicit cluster readiness timeout, but they keep
+    * post-startup assertions from relying on Awaitility's short default timeout.
+   */
+  static {
+    Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
+    Awaitility.setDefaultPollInterval(Duration.ofSeconds(2));
+  }
 
   // Migrator ---------------------------------------
 
