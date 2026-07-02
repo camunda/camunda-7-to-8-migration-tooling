@@ -20,9 +20,8 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
-
+import java.time.Duration;
 import java.util.List;
-
 import java.util.Optional;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RepositoryService;
@@ -30,10 +29,28 @@ import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
+
+  /**
+   * Set generous Awaitility defaults so that all {@code await()} calls without an explicit
+   * {@code .atMost()} inherit a CI-safe timeout.
+   *
+   * <p>Background: CPT's {@code CamundaProcessTestExecutionListener} waits only 10 seconds
+   * for the Camunda 8 cluster to become ready after container start. On a loaded CI runner
+   * (multiple parallel jobs, Docker image pull, JVM warm-up) that window is too small and
+   * causes intermittent {@code ConditionTimeoutException: 'Wait for cluster to be ready'}.
+   * Setting the global default to 120 s covers the full start-up window without requiring
+   * per-call timeouts everywhere.
+   */
+  @BeforeAll
+  static void configureAwaitility() {
+    Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
+    Awaitility.setDefaultPollInterval(Duration.ofSeconds(2));
+  }
 
   // Migrator ---------------------------------------
 
