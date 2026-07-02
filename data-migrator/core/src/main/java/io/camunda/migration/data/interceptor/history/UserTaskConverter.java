@@ -11,7 +11,6 @@ import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -39,13 +38,8 @@ public class UserTaskConverter {
         .followUpDate(convertDate(historicTask.getFollowUpDate()))
         .priority(historicTask.getPriority())
         .processDefinitionVersion(processInstance.processDefinitionVersion())
-        .formKey(null) // TODO  https://github.com/camunda/camunda-bpm-platform/issues/5347
-        .candidateGroups(null) //TODO ?
-        .candidateUsers(null) //TODO ?
         .externalFormReference(null) //TODO ?
         .customHeaders(null) //TODO ?
-        .historyCleanupDate(convertDate(historicTask.getRemovalTime()))
-        .partitionId(C7_HISTORY_PARTITION_ID)
         .name(historicTask.getName())
         .build();
   }

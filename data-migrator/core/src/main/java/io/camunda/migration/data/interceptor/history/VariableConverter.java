@@ -8,13 +8,11 @@
 package io.camunda.migration.data.interceptor.history;
 
 import io.camunda.db.rdbms.write.domain.VariableDbModel;
-import io.camunda.migration.data.constants.MigratorConstants;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.util.ConverterUtil;
 import org.camunda.bpm.engine.impl.persistence.entity.HistoricVariableInstanceEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 
 public class VariableConverter {
@@ -31,8 +29,6 @@ public class VariableConverter {
         .processInstanceKey(processInstanceKey)
         .processDefinitionId(historicVariable.getProcessDefinitionKey())
         .tenantId(ConverterUtil.getTenantId(historicVariable.getTenantId()))
-        .partitionId(MigratorConstants.C7_HISTORY_PARTITION_ID)
-        .historyCleanupDate(convertDate(historicVariable.getRemovalTime()))
         .build();
   }
 
