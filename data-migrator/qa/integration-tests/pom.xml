@@ -392,6 +392,108 @@
         </plugins>
       </build>
     </profile>
+    <!--
+      Runtime test shards for parallel CI execution.
+
+      The runtime-only suite takes ~53 minutes serially. These four named shards
+      split it into parallel jobs, each targeting ~20 minutes. ArchitectureTest
+      runs in every shard so structural regressions are caught regardless of
+      which shard fails first.
+
+      Shard assignment by package:
+        runtime-core      –  runtime root + persistence + distribution (CATCH-ALL)
+        runtime-element   –  runtime.element, runtime.datasource
+        runtime-jobtype   –  runtime.jobtype, runtime.tenant
+        runtime-variables –  runtime.variables
+
+      runtime-core is intentionally a catch-all: new sub-packages under runtime/
+      that are not assigned to another shard are automatically picked up here via
+      the exclude-based filter. When a new package grows large, move it to its
+      own shard by adding it to the excludes list below and creating a new profile.
+    -->
+    <profile>
+      <id>runtime-core</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <!--
+                Broad include so new runtime sub-packages are never silently dropped.
+                Packages assigned to other shards are excluded below.
+              -->
+              <includes>
+                <include>**/runtime/**/*Test.java</include>
+                <include>**/persistence/**/*Test.java</include>
+                <include>**/distribution/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
+              </includes>
+              <excludes>
+                <exclude>**/runtime/element/**</exclude>
+                <exclude>**/runtime/datasource/**</exclude>
+                <exclude>**/runtime/jobtype/**</exclude>
+                <exclude>**/runtime/tenant/**</exclude>
+                <exclude>**/runtime/variables/**</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-element</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/runtime/element/**/*Test.java</include>
+                <include>**/runtime/datasource/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-jobtype</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/runtime/jobtype/**/*Test.java</include>
+                <include>**/runtime/tenant/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>runtime-variables</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <includes>
+                <include>**/runtime/variables/**/*Test.java</include>
+                <include>**/ArchitectureTest.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>history-only</id>
       <build>
