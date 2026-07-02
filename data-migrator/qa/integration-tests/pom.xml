@@ -442,22 +442,22 @@
     <!--
       Runtime test shards for parallel CI execution.
 
-      The runtime-only suite takes ~53 minutes serially. These four shards
+      The runtime-only suite takes ~53 minutes serially. These four named shards
       split it into parallel jobs that each target ~15 minutes. Include
       ArchitectureTest in every shard so structural regressions are caught
-      regardless of which shard fails.
+      regardless of which shard fails first.
 
       Shard assignment by package:
-        shard-1  –  io.camunda.migration.data.qa.runtime (root only, no sub-packages)
-        shard-2  –  runtime.element, runtime.datasource
-        shard-3  –  runtime.jobtype, persistence, distribution
-        shard-4  –  runtime.tenant, runtime.variables
+        runtime-core      –  io.camunda.migration.data.qa.runtime (root, no sub-packages)
+        runtime-element   –  runtime.element, runtime.datasource
+        runtime-jobtype   –  runtime.jobtype, persistence, distribution
+        runtime-variables –  runtime.tenant, runtime.variables
 
       When adding a new test sub-package under runtime/, add a matching
-      <include> to the appropriate shard profile so it is not silently dropped.
+      <include> to the appropriate shard profile so it is not silently omitted.
     -->
     <profile>
-      <id>runtime-shard-1</id>
+      <id>runtime-core</id>
       <build>
         <plugins>
           <plugin>
@@ -475,7 +475,7 @@
       </build>
     </profile>
     <profile>
-      <id>runtime-shard-2</id>
+      <id>runtime-element</id>
       <build>
         <plugins>
           <plugin>
@@ -493,7 +493,7 @@
       </build>
     </profile>
     <profile>
-      <id>runtime-shard-3</id>
+      <id>runtime-jobtype</id>
       <build>
         <plugins>
           <plugin>
@@ -512,7 +512,7 @@
       </build>
     </profile>
     <profile>
-      <id>runtime-shard-4</id>
+      <id>runtime-variables</id>
       <build>
         <plugins>
           <plugin>

@@ -50,16 +50,12 @@ mvn verify -Pintegration
 mvn verify -Pintegration,runtime-only
 
 # Runtime integration tests — individual CI shards (run in parallel in CI, ~15 min each)
-# Shard 1: core runtime tests (runtime root package)
-mvn verify -Pintegration,runtime-shard-1
-# Shard 2: element and datasource tests
-mvn verify -Pintegration,runtime-shard-2
-# Shard 3: job-type, persistence, and distribution tests
-mvn verify -Pintegration,runtime-shard-3
-# Shard 4: tenancy and variable interceptor tests
-mvn verify -Pintegration,runtime-shard-4
+mvn verify -Pintegration,runtime-core       # runtime root package (basic migration scenarios)
+mvn verify -Pintegration,runtime-element    # runtime.element + runtime.datasource
+mvn verify -Pintegration,runtime-jobtype    # runtime.jobtype + persistence + distribution
+mvn verify -Pintegration,runtime-variables  # runtime.tenant + runtime.variables
 # Note: when adding a new test sub-package under runtime/, add it to the appropriate
-# runtime-shard-N profile in qa/integration-tests/pom.xml to avoid silent omission.
+# shard profile in qa/integration-tests/pom.xml to avoid silent omission.
 
 # History integration tests only
 mvn verify -Pintegration,history-only

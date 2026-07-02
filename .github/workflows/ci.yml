@@ -326,11 +326,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
-    # Each shard targets a different sub-package via the runtime-shard-N Maven profile.
+    # Each shard name matches its Maven profile (runtime-<shard>) and describes
+    # the sub-set of test packages it covers.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard:
+          - core          # runtime root package — basic migration scenarios
+          - element       # runtime.element + runtime.datasource
+          - jobtype       # runtime.jobtype + persistence + distribution
+          - variables     # runtime.tenant + runtime.variables
     if: |
       (github.event_name == 'pull_request' &&
        needs.detect-changes.outputs.data-migrator == 'true' &&
@@ -365,9 +370,9 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime shard ${{ matrix.shard }} tests with H2
+      - name: Run ${{ matrix.shard }} runtime tests with H2
         working-directory: data-migrator
-        run: mvn verify -Pintegration,runtime-shard-${{ matrix.shard }}
+        run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
   it-history-h2:
     runs-on: ubuntu-latest
