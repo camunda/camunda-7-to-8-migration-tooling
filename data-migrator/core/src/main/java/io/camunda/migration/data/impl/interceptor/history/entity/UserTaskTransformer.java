@@ -17,7 +17,6 @@ import java.util.Set;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import static io.camunda.migration.data.constants.MigratorConstants.C7_HISTORY_PARTITION_ID;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
@@ -51,13 +50,8 @@ public class UserTaskTransformer implements EntityInterceptor {
         .dueDate(convertDate(historicTask.getDueDate()))
         .followUpDate(convertDate(historicTask.getFollowUpDate()))
         .priority(historicTask.getPriority())
-        .formKey(null) // TODO  https://github.com/camunda/camunda-bpm-platform/issues/5347
-        .candidateGroups(null) //TODO ?
-        .candidateUsers(null) //TODO ?
         .externalFormReference(null) //TODO ?
         .customHeaders(null) //TODO ?
-        .historyCleanupDate(convertDate(historicTask.getRemovalTime()))
-        .partitionId(C7_HISTORY_PARTITION_ID)
         .name(historicTask.getName());
     // Note: processDefinitionKey, processInstanceKey, elementInstanceKey, and processDefinitionVersion are set externally
   }
