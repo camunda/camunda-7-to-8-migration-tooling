@@ -56,10 +56,8 @@ public class DistributionSmokeTest {
   }
 
   @AfterEach
-  public  void tearDown() {
-    if (process != null) {
-      process.destroyForcibly();
-    }
+  public void tearDown() {
+    destroyProcessTree(process);
   }
 
   @Test
@@ -306,11 +304,7 @@ public class DistributionSmokeTest {
         // then
         assertThat(output).contains(expected);
       } finally {
-        currentProcess.destroy();
-        if (!currentProcess.waitFor(5, TimeUnit.SECONDS)) {
-          currentProcess.destroyForcibly();
-          currentProcess.waitFor(5, TimeUnit.SECONDS);
-        }
+        destroyProcessTree(currentProcess);
       }
     }
   }
@@ -574,7 +568,7 @@ public class DistributionSmokeTest {
                 while ((line = reader.readLine()) != null) {
                   synchronized (output) {
                     output.append(line).append(System.lineSeparator());
-                    if (output.toString().contains(expected)) {
+                    if (output.indexOf(expected) >= 0) {
                       return;
                     }
                   }
@@ -589,7 +583,7 @@ public class DistributionSmokeTest {
     final long deadline = System.nanoTime() + unit.toNanos(timeout);
     while (System.nanoTime() < deadline) {
       synchronized (output) {
-        if (output.toString().contains(expected)) {
+        if (output.indexOf(expected) >= 0) {
           return output.toString();
         }
       }
@@ -601,5 +595,29 @@ public class DistributionSmokeTest {
     }
     readerThread.interrupt();
     return output.toString();
+  }
+
+  /**
+   * Terminates a process and its entire descendant tree. On Windows, {@code cmd.exe /c start.bat}
+   * spawns a child JVM that holds file locks on the extracted JARs; {@link Process#destroy()} only
+   * kills the {@code cmd.exe} parent. Descendants are destroyed first, then the parent, with a
+   * {@link Process#destroyForcibly()} fallback. {@link InterruptedException} from {@code waitFor}
+   * restores the interrupt flag and triggers an immediate forcible kill so cleanup always completes.
+   */
+  protected void destroyProcessTree(final Process proc) {
+    if (proc == null) {
+      return;
+    }
+    proc.descendants().forEach(ProcessHandle::destroyForcibly);
+    proc.destroy();
+    try {
+      if (!proc.waitFor(5, TimeUnit.SECONDS)) {
+        proc.destroyForcibly();
+        proc.waitFor(5, TimeUnit.SECONDS);
+      }
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      proc.destroyForcibly();
+    }
   }
 }
