@@ -196,7 +196,8 @@ public class AuthorizationManager {
 
   /**
    * Maps C7 definition keys to the same key and the legacy prefixed key in C8
-   * This is because when we migrate history data, to avoid collisions, we prefix all definition keys with C7_LEGACY_PREFIX
+   * This is because when we migrate history data, to avoid collisions, we prefix all definition keys
+   * with the configured legacy ID prefix (default {@code c7-legacy-}, see {@link LegacyIdPrefixResolver})
    * And we need to grant authorizations to both the original and the prefixed keys
    * @param resourceId
    * @return a set containing both the original and the prefixed key
