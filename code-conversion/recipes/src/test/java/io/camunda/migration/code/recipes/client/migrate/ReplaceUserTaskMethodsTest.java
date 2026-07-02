@@ -150,6 +150,7 @@ public class HandleClaim {
     private TaskService taskService;
 
     public void claimTask(String taskId, String userId) {
+        // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
         camundaClient
                 .newAssignUserTaskCommand(Long.valueOf(taskId))
                 .assignee(userId)
@@ -194,6 +195,7 @@ public class HandleAssign {
     private TaskService taskService;
 
     public void assignTask(String taskId, String userId) {
+        // TODO: the Camunda user task API requires the BPMN user task element to declare <zeebe:userTask />, otherwise this command fails with a 404. Run the Diagram Converter to add it automatically.
         // TODO: if the original assignee was null (unclaim), use camundaClient.newUnassignUserTaskCommand(taskKey) instead.
         camundaClient
                 .newAssignUserTaskCommand(Long.valueOf(taskId))

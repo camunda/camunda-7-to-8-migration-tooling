@@ -90,7 +90,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
-            Collections.emptyList()),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "setAssignee(String taskId, String userId)" - C7 assign; unclaim passes a null userId
             new MethodMatcher(
@@ -109,7 +109,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
             List.of(
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("taskId", 0),
                 new ReplacementUtils.SimpleReplacementSpec.NamedArg("userId", 1)),
-            List.of(NULL_ASSIGNEE_UNCLAIM_HINT)),
+            List.of(ENSURE_ZEEBE_USER_TASK_HINT, NULL_ASSIGNEE_UNCLAIM_HINT)),
         new ReplacementUtils.SimpleReplacementSpec(
             // "complete(String taskId)"
             new MethodMatcher("org.camunda.bpm.engine.TaskService complete(java.lang.String)"),
