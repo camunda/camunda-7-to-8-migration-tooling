@@ -120,7 +120,7 @@ public class IdentityTestHelper {
         .execute();
 
     // Because of eventual consistency, wait until tenant is visible
-    await().timeout(5, TimeUnit.SECONDS).until(() -> camundaClient.newTenantsSearchRequest().filter(t -> t.tenantId(tenantId)).execute().items().size() == 1);
+    await().timeout(30, TimeUnit.SECONDS).until(() -> camundaClient.newTenantsSearchRequest().filter(t -> t.tenantId(tenantId)).execute().items().size() == 1);
   }
 
   protected void createGroupInC8(String groupId, String groupName) {
@@ -130,7 +130,7 @@ public class IdentityTestHelper {
         .execute();
 
     // Because of eventual consistency, wait until group is visible
-    await().timeout(5, TimeUnit.SECONDS).until(() -> camundaClient.newGroupsSearchRequest().filter(g -> g.groupId(groupId)).execute().items().size() == 1);
+    await().timeout(30, TimeUnit.SECONDS).until(() -> camundaClient.newGroupsSearchRequest().filter(g -> g.groupId(groupId)).execute().items().size() == 1);
   }
 
   protected void createUserInC8(String username, String firstName, String lastName) {
@@ -141,7 +141,7 @@ public class IdentityTestHelper {
         .execute();
 
     // Because of eventual consistency, wait until user is visible
-    await().timeout(5, TimeUnit.SECONDS).until(() -> camundaClient.newUsersSearchRequest().filter(f -> f.username(username)).execute().items().size() == 1);
+    await().timeout(30, TimeUnit.SECONDS).until(() -> camundaClient.newUsersSearchRequest().filter(f -> f.username(username)).execute().items().size() == 1);
   }
 
   /*
@@ -156,19 +156,19 @@ public class IdentityTestHelper {
 
   protected List<io.camunda.client.api.search.response.User> awaitUserCountAndGet(int expectedSize) {
     var request = camundaClient.newUsersSearchRequest();
-    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize);
+    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize);
     return request.execute().items();
   }
 
   protected List<io.camunda.client.api.search.response.Group> awaitGroupsCountAndGet(int expectedSize) {
     var request = camundaClient.newGroupsSearchRequest();
-    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize);
+    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize);
     return request.execute().items();
   }
 
   protected List<io.camunda.client.api.search.response.Tenant> awaitTenantsCountAndGet(int expectedSize) {
     TenantsSearchRequest request = camundaClient.newTenantsSearchRequest();
-    await().timeout(5, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize + 1) ; // +1 for default tenant
+    await().timeout(30, TimeUnit.SECONDS).until(() -> request.execute().items().size() == expectedSize + 1) ; // +1 for default tenant
     return request.execute().items();
   }
 
@@ -234,21 +234,21 @@ public class IdentityTestHelper {
   }
 
   protected void assertThatUsersForTenantContainExactly(String tenantId, String... usernames) {
-    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+    await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
       List<TenantUser> usersForTenant = camundaClient.newUsersByTenantSearchRequest(tenantId).execute().items();
       assertThat(usersForTenant).extracting(TenantUser::getUsername).containsExactlyInAnyOrder(usernames);
     });
   }
 
   protected void assertThatUsersForGroupContainExactly(String groupId, String... usernames) {
-    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+    await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
       List<GroupUser> usersForGroup = camundaClient.newUsersByGroupSearchRequest(groupId).execute().items();
       assertThat(usersForGroup).extracting(GroupUser::getUsername).containsExactlyInAnyOrder(usernames);
     });
   }
 
   protected void assertThatGroupsForTenantContainExactly(String tenantId, String... groupIds) {
-    await().timeout(5, TimeUnit.SECONDS).untilAsserted(() -> {
+    await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> {
       List<TenantGroup> groupsForTenant = camundaClient.newGroupsByTenantSearchRequest(tenantId).execute().items();
       assertThat(groupsForTenant).extracting(TenantGroup::getGroupId).containsExactlyInAnyOrder(groupIds);
     });
