@@ -335,7 +335,7 @@ public class HandleSetVariable {
         // TODO: Camunda 8 has no task-scoped variables. newSetVariablesCommand expects the element instance key (not the task key); set the variable on the process/element instance scope instead.
         camundaClient
                 .newSetVariablesCommand(Long.valueOf(taskId))
-                .variables(java.util.Map.of(variableName, value))
+                .variables(java.util.Collections.singletonMap(variableName, value))
                 .send()
                 .join();
     }

@@ -152,7 +152,7 @@ public class MigrateUserTaskMethodsRecipe extends AbstractMigrationRecipe {
                 """
                 #{camundaClient:any(io.camunda.client.CamundaClient)}
                     .newSetVariablesCommand(Long.valueOf(#{taskId:any(java.lang.String)}))
-                    .variables(java.util.Map.of(#{variableName:any(java.lang.String)}, #{value:any(java.lang.Object)}))
+                    .variables(java.util.Collections.singletonMap(#{variableName:any(java.lang.String)}, #{value:any(java.lang.Object)}))
                     .send()
                     .join();
                 """),
