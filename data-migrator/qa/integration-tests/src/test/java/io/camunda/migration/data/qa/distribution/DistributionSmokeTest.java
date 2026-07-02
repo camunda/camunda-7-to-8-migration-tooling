@@ -56,10 +56,8 @@ public class DistributionSmokeTest {
   }
 
   @AfterEach
-  public  void tearDown() {
-    if (process != null) {
-      process.destroyForcibly();
-    }
+  public void tearDown() {
+    destroyProcessTree(process);
   }
 
   @Test
@@ -254,14 +252,18 @@ public class DistributionSmokeTest {
 
     for (String[] flag : validFlags) {
       ProcessBuilder processBuilder = createProcessBuilder(flag);
+      String expected = "Starting migration with flags: " + String.join(" ", flag);
 
       // when
-      process = processBuilder.start();
+      Process currentProcess = processBuilder.start();
+      try {
+        String output = readProcessOutputUntil(currentProcess, expected, 10, TimeUnit.SECONDS);
 
-      // then
-      String output = readProcessOutput(process);
-
-      assertThat(output).contains("Starting migration with flags: " + String.join(" ", flag));
+        // then
+        assertThat(output).contains(expected);
+      } finally {
+        destroyProcessTree(currentProcess);
+      }
     }
   }
 
@@ -500,5 +502,80 @@ public class DistributionSmokeTest {
       }
     }
     return output.toString();
+  }
+
+  /**
+   * Reads process output until the expected string is found or the timeout elapses. Returns all
+   * output collected so far in either case. Uses a dedicated reader thread so blocking {@code
+   * readLine()} calls do not interfere with the deadline check — this is important on Windows where
+   * stream {@code ready()} is unreliable for subprocess stdout.
+   */
+  protected String readProcessOutputUntil(
+      final Process process,
+      final String expected,
+      final long timeout,
+      final TimeUnit unit)
+      throws InterruptedException {
+    final StringBuilder output = new StringBuilder();
+    final Thread readerThread =
+        new Thread(
+            () -> {
+              try (BufferedReader reader =
+                  new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                  synchronized (output) {
+                    output.append(line).append(System.lineSeparator());
+                    if (output.indexOf(expected) >= 0) {
+                      return;
+                    }
+                  }
+                }
+              } catch (final IOException e) {
+                // stream closed when process is destroyed — expected
+              }
+            });
+    readerThread.setDaemon(true);
+    readerThread.start();
+
+    final long deadline = System.nanoTime() + unit.toNanos(timeout);
+    while (System.nanoTime() < deadline) {
+      synchronized (output) {
+        if (output.indexOf(expected) >= 0) {
+          return output.toString();
+        }
+      }
+      if (!process.isAlive()) {
+        readerThread.join(1_000);
+        return output.toString();
+      }
+      Thread.sleep(50);
+    }
+    readerThread.interrupt();
+    return output.toString();
+  }
+
+  /**
+   * Terminates a process and its entire descendant tree. On Windows, {@code cmd.exe /c start.bat}
+   * spawns a child JVM that holds file locks on the extracted JARs; {@link Process#destroy()} only
+   * kills the {@code cmd.exe} parent. Descendants are destroyed first, then the parent, with a
+   * {@link Process#destroyForcibly()} fallback. {@link InterruptedException} from {@code waitFor}
+   * restores the interrupt flag and triggers an immediate forcible kill so cleanup always completes.
+   */
+  protected void destroyProcessTree(final Process proc) {
+    if (proc == null) {
+      return;
+    }
+    proc.descendants().forEach(ProcessHandle::destroyForcibly);
+    proc.destroy();
+    try {
+      if (!proc.waitFor(5, TimeUnit.SECONDS)) {
+        proc.destroyForcibly();
+        proc.waitFor(5, TimeUnit.SECONDS);
+      }
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      proc.destroyForcibly();
+    }
   }
 }
