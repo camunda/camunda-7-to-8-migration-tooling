@@ -29,7 +29,6 @@ import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @CamundaSpringProcessTest
@@ -46,8 +45,7 @@ public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest 
    * Setting the global default to 120 s covers the full start-up window without requiring
    * per-call timeouts everywhere.
    */
-  @BeforeAll
-  static void configureAwaitility() {
+  static {
     Awaitility.setDefaultTimeout(Duration.ofSeconds(120));
     Awaitility.setDefaultPollInterval(Duration.ofSeconds(2));
   }
