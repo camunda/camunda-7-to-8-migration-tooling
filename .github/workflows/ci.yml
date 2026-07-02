@@ -61,6 +61,37 @@ jobs:
           echo "Camunda 8 current: ${CURRENT} (docker: ${CURRENT_DOCKER})"
           echo "Camunda 8 previous: ${PREVIOUS} (docker: ${PREVIOUS_DOCKER})"
 
+  # Detects whether data-migrator source changed so downstream jobs can skip
+  # expensive tests on PRs that only touch other modules. For non-PR events
+  # (push to main, schedule, workflow_dispatch) we always consider it changed.
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      data-migrator: ${{ steps.filter.outputs.data-migrator }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for data-migrator changes
+        id: filter
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT" != "pull_request" ]]; then
+            echo "data-migrator=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin "${BASE_REF}" --depth=1
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(data-migrator/|pom\.xml$)'; then
+            echo "data-migrator=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data-migrator=false" >> "$GITHUB_OUTPUT"
+          fi
+
   distro:
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -130,6 +161,8 @@ jobs:
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
+            secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -137,6 +170,13 @@ jobs:
           vault-address: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Login to Camunda Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.camunda.cloud
+          username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
 
       - name: Build code-conversion module
         working-directory: code-conversion
@@ -282,13 +322,31 @@ jobs:
           --batch-mode
 
   it-runtime-h2:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 30
+    # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
+    # Each shard name matches its Maven profile (runtime-<shard>) and describes
+    # the sub-set of test packages it covers.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - core          # runtime root + persistence + distribution (catch-all for new packages)
+          - element       # runtime.element + runtime.datasource
+          - jobtype       # runtime.jobtype + runtime.tenant
+          - variables     # runtime.variables
     if: |
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
-        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
+      (github.event_name == 'pull_request' &&
+       (
+         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+         (
+           needs.detect-changes.outputs.data-migrator == 'true' &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+         )
+       )
+      ) ||
       github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
@@ -315,9 +373,9 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with H2
+      - name: Run ${{ matrix.shard }} runtime tests with H2
         working-directory: data-migrator
-        run: mvn verify -Pintegration,runtime-only
+        run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
   it-history-h2:
     runs-on: ubuntu-latest
@@ -695,6 +753,8 @@ jobs:
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
+            secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
 
       - name: Setup Maven
         uses: ./.github/actions/setup-maven
@@ -702,6 +762,13 @@ jobs:
           vault-address: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Login to Camunda Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.camunda.cloud
+          username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
 
       - name: Build code-conversion module against previous Camunda 8 version
         working-directory: code-conversion

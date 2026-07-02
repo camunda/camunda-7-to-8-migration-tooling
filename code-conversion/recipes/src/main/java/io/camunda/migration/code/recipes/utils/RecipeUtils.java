@@ -18,6 +18,34 @@ import org.openrewrite.marker.Markers;
 
 public class RecipeUtils {
 
+  /**
+   * Builds the TODO comment used when a Camunda 7 {@code businessKey} /
+   * {@code processInstanceBusinessKey} is dropped and should be replaced by the Camunda 8 process
+   * instance {@code businessId}.
+   *
+   * <p>Only use this on process-instance <em>creation</em> and <em>search</em> paths. Business ID is
+   * not a replacement for message correlation (which uses a correlation key), so correlate-message
+   * paths must keep a neutral "was removed" comment instead.
+   */
+  public static String businessIdHint(String removedMethod) {
+    return " TODO: " + removedMethod + " was removed - use businessId (Camunda 8.9+) instead";
+  }
+
+  /**
+   * Extra hint used alongside {@link #businessIdHint} on process-instance <em>creation</em> paths
+   * where a {@code businessKey} is dropped without an automatic {@code businessId} replacement.
+   *
+   * <p>If the former {@code businessKey} was also propagated to a called process via a
+   * {@code <camunda:in businessKey="..." />} mapping on a BPMN call activity, that propagation must
+   * be migrated to Business ID on the diagram side as well. This is out of scope for code recipes
+   * (handled by the diagram converter), so we only surface it as a reminder here.
+   */
+  public static String businessIdCallActivityHint() {
+    return " TODO: if this businessKey was propagated to a called process via <camunda:in"
+        + " businessKey=\"...\" /> on a BPMN call activity, migrate that propagation to businessId in"
+        + " the diagram as well (diagram converter)";
+  }
+
   public static J.Identifier createSimpleIdentifier(String simpleName, String javaType) {
     return new J.Identifier(
         Tree.randomId(),

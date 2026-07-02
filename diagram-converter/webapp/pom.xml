@@ -4,7 +4,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-diagram-converter-parent</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -93,6 +93,32 @@
               <arguments>run package</arguments>
               <workingDirectory>src/main/javascript</workingDirectory>
               <!-- Path to frontend -->
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>Copy frontend manifests to JAR</id>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <phase>process-resources</phase>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${basedir}/src/main/javascript</directory>
+                  <includes>
+                    <include>package.json</include>
+                    <include>package-lock.json</include>
+                  </includes>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
             </configuration>
           </execution>
         </executions>
