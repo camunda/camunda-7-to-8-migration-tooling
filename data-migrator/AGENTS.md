@@ -46,8 +46,16 @@ The `qa/integration-tests` and `qa/e2e-tests` modules are **not included in the 
 # All integration tests (runtime + history + identity) on H2
 mvn verify -Pintegration
 
-# Runtime integration tests only
+# Runtime integration tests only (full suite, ~53 min)
 mvn verify -Pintegration,runtime-only
+
+# Runtime integration tests — individual CI shards (~20 min each, run in parallel)
+mvn verify -Pintegration,runtime-core       # runtime root + persistence + distribution (catch-all)
+mvn verify -Pintegration,runtime-element    # runtime.element + runtime.datasource
+mvn verify -Pintegration,runtime-jobtype    # runtime.jobtype + runtime.tenant
+mvn verify -Pintegration,runtime-variables  # runtime.variables
+# Note: new sub-packages under runtime/ go to runtime-core automatically (catch-all).
+# Once a new package is large enough, move it to its own shard in pom.xml.
 
 # History integration tests only
 mvn verify -Pintegration,history-only
