@@ -13,11 +13,11 @@ preconditions:
       filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
 recipeList:
   # --- Remove the Camunda 7 namespace ---
-  # camunda.bpm.* has no Camunda 8 equivalent. Prefix delete for .properties (custom recipe,
-  # since DeleteProperty only matches a single exact key) and subtree delete for .yml/.yaml.
+  # camunda.bpm.* has no Camunda 8 equivalent. Both custom recipes delete by flattened key prefix
+  # (the built-in DeleteProperty/DeleteKey only match a single exact/structural key), so the whole
+  # namespace is removed regardless of the nested or dotted form Spring Boot allows.
   - io.camunda.migration.code.recipes.config.RemoveCamundaBpmProperties
-  - org.openrewrite.yaml.DeleteKey:
-      keyPath: $.camunda.bpm
+  - io.camunda.migration.code.recipes.config.RemoveCamundaBpmYaml
   # --- Add the Camunda 8 connection skeleton to .properties ---
   - org.openrewrite.properties.AddProperty:
       property: camunda.client.zeebe.grpc-address

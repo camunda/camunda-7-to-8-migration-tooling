@@ -111,6 +111,59 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             spec -> spec.path("src/main/resources/application.properties")));
   }
 
+  /**
+   * Spring Boot also accepts dotted keys in YAML, so `camunda.bpm.*` written as flat keys must be
+   * removed too, not only the nested `camunda: { bpm: ... }` form.
+   */
+  @Test
+  void removesDottedCamundaBpmKeysInYamlFile() {
+    rewriteRun(
+        yaml(
+            """
+            server:
+              port: 7070
+            camunda.bpm.admin-user.id: demo
+            camunda.bpm.admin-user.password: demo
+            """,
+            """
+            server:
+              port: 7070
+            camunda:
+              client:
+                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
+                zeebe:
+                  grpc-address: http://localhost:26500
+                  rest-address: http://localhost:8080
+                security:
+                  plaintext: true
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
+  /** The `.yaml` extension must be handled just like `.yml`. */
+  @Test
+  void handlesApplicationYamlExtension() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              bpm:
+                admin-user:
+                  id: demo
+            """,
+            """
+            camunda:
+              client:
+                # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
+                zeebe:
+                  grpc-address: http://localhost:26500
+                  rest-address: http://localhost:8080
+                security:
+                  plaintext: true
+            """,
+            spec -> spec.path("src/main/resources/application.yaml")));
+  }
+
   /** Files that are not Spring Boot application config must be left untouched. */
   @Test
   void leavesNonApplicationPropertiesFilesUntouched() {
@@ -121,5 +174,19 @@ class MigrateApplicationPropertiesTest implements RewriteTest {
             server.port=7070
             """,
             spec -> spec.path("src/main/resources/some-other-config.properties")));
+  }
+
+  /** Non-application YAML files must be left untouched as well. */
+  @Test
+  void leavesNonApplicationYamlFilesUntouched() {
+    rewriteRun(
+        yaml(
+            """
+            camunda:
+              bpm:
+                admin-user:
+                  id: demo
+            """,
+            spec -> spec.path("src/main/resources/some-other-config.yml")));
   }
 }
