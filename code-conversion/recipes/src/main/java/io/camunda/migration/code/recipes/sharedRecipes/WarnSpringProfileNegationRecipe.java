@@ -36,7 +36,7 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
       "https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548";
 
   private static final Pattern PROFILE_NEGATION_PATTERN =
-      Pattern.compile("@Profile\\s*\\(\\s*\"!");
+      Pattern.compile("@Profile[ \\t]*\\([ \\t]*\"!");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -67,17 +67,13 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
           return text;
         }
 
-        if (content.contains(MARKER)) {
-          return text;
-        }
-
         String[] lines = content.split("\n", -1);
         StringBuilder result = new StringBuilder();
         boolean changed = false;
 
         for (int i = 0; i < lines.length; i++) {
           String line = lines[i];
-          if (PROFILE_NEGATION_PATTERN.matcher(line).find()) {
+          if (PROFILE_NEGATION_PATTERN.matcher(line).find() && !alreadyAnnotated(lines, i)) {
             String indent = leadingWhitespace(line);
             result
                 .append(indent)
@@ -100,6 +96,16 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
         }
 
         return changed ? text.withText(result.toString()) : text;
+      }
+
+      private boolean alreadyAnnotated(String[] lines, int annotationIndex) {
+        int todoLineCount = 3;
+        for (int j = Math.max(0, annotationIndex - todoLineCount); j < annotationIndex; j++) {
+          if (lines[j].contains(MARKER)) {
+            return true;
+          }
+        }
+        return false;
       }
 
       private String leadingWhitespace(String line) {

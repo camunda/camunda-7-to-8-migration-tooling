@@ -88,7 +88,7 @@ class WarnSpringProfileNegationTest implements RewriteTest {
   }
 
   @Test
-  void isIdempotent() {
+  void isIdempotentForAnnotatedOccurrence() {
     String alreadyAnnotated =
         """
         package org.example;
@@ -103,6 +103,44 @@ class WarnSpringProfileNegationTest implements RewriteTest {
         """;
     rewriteRun(
         text(alreadyAnnotated, spec -> spec.path("src/main/java/org/example/SampleClass.java")));
+  }
+
+  @Test
+  void annotatesNewOccurrenceWhenFirstAlreadyAnnotated() {
+    rewriteRun(
+        text(
+            """
+            package org.example;
+
+            // TODO: Manual migration required - @Profile annotation with negation syntax ("!...").
+            // OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.
+            // Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548
+            @Profile("!test")
+            public class ComponentA {
+            }
+
+            @Profile("!prod")
+            public class ComponentB {
+            }
+            """,
+            """
+            package org.example;
+
+            // TODO: Manual migration required - @Profile annotation with negation syntax ("!...").
+            // OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.
+            // Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548
+            @Profile("!test")
+            public class ComponentA {
+            }
+
+            // TODO: Manual migration required - @Profile annotation with negation syntax ("!...").
+            // OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.
+            // Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548
+            @Profile("!prod")
+            public class ComponentB {
+            }
+            """,
+            spec -> spec.path("src/main/java/org/example/MultiProfile.java")));
   }
 
   @Test
