@@ -35,6 +35,7 @@
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
     <logback.version>1.5.37</logback.version>
+    <tomcat.version>11.0.23</tomcat.version>
     <version.netty>4.2.15.Final</version.netty>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.0.3</version.junit.jupiter>
@@ -105,6 +106,22 @@
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-55955: pin tomcat-embed to 11.0.23 -->
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-el</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+        <version>${tomcat.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
