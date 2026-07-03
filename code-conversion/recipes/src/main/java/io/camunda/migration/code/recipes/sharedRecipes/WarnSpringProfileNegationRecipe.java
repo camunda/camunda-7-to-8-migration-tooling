@@ -35,8 +35,10 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
   private static final String ISSUE_LINK =
       "https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548";
 
+  // Matches @Profile("!..."), @Profile({"!..."}), and @Profile({ "!..."}) on a single line.
+  // Uses [ \t]* (not \s*) to avoid matching across newlines in multi-line annotations.
   private static final Pattern PROFILE_NEGATION_PATTERN =
-      Pattern.compile("@Profile[ \\t]*\\([ \\t]*\"!");
+      Pattern.compile("@Profile[ \\t]*\\([ \\t]*\\{?[ \\t]*\"!");
 
   @Override
   public @NonNull String getDisplayName() {
@@ -46,8 +48,8 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
   @Override
   public @NonNull String getDescription() {
     return "Adds a TODO comment before Spring @Profile annotations that use negation syntax "
-        + "(e.g., @Profile(\"!test\")). OpenRewrite's Java printer corrupts these annotations, "
-        + "causing the file to be silently skipped during migration. "
+        + "(e.g., @Profile(\"!test\") or @Profile({\"!test\"}). OpenRewrite's Java printer "
+        + "corrupts these annotations, causing the file to be silently skipped during migration. "
         + "This recipe detects the pattern and prompts for manual migration.";
   }
 
@@ -67,7 +69,8 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
           return text;
         }
 
-        String[] lines = content.split("\n", -1);
+        String lineSeparator = content.contains("\r\n") ? "\r\n" : "\n";
+        String[] lines = content.split("\r?\n", -1);
         StringBuilder result = new StringBuilder();
         boolean changed = false;
 
@@ -79,19 +82,21 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
                 .append(indent)
                 .append("// TODO: ")
                 .append(MARKER)
-                .append(" (\"!...\").\n")
+                .append(" (\"!...\").")
+                .append(lineSeparator)
                 .append(indent)
                 .append(
-                    "// OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.\n")
+                    "// OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.")
+                .append(lineSeparator)
                 .append(indent)
                 .append("// Migrate this file manually. See: ")
                 .append(ISSUE_LINK)
-                .append("\n");
+                .append(lineSeparator);
             changed = true;
           }
           result.append(line);
           if (i < lines.length - 1) {
-            result.append("\n");
+            result.append(lineSeparator);
           }
         }
 
@@ -99,10 +104,14 @@ public class WarnSpringProfileNegationRecipe extends Recipe {
       }
 
       private boolean alreadyAnnotated(String[] lines, int annotationIndex) {
-        int todoLineCount = 3;
-        for (int j = Math.max(0, annotationIndex - todoLineCount); j < annotationIndex; j++) {
-          if (lines[j].contains(MARKER)) {
-            return true;
+        for (int j = annotationIndex - 1; j >= 0; j--) {
+          String trimmed = lines[j].trim();
+          if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+            if (lines[j].contains(MARKER)) {
+              return true;
+            }
+          } else {
+            break;
           }
         }
         return false;

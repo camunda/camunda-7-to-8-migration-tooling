@@ -192,4 +192,60 @@ class WarnSpringProfileNegationTest implements RewriteTest {
             """,
             spec -> spec.path("src/main/java/org/example/Inline.java")));
   }
+
+  @Test
+  void addsCommentBeforeArrayFormProfileNegation() {
+    rewriteRun(
+        text(
+            """
+            package org.example;
+
+            @Profile({"!test"})
+            public class ArrayProfile {
+            }
+            """,
+            """
+            package org.example;
+
+            // TODO: Manual migration required - @Profile annotation with negation syntax ("!...").
+            // OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.
+            // Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548
+            @Profile({"!test"})
+            public class ArrayProfile {
+            }
+            """,
+            spec -> spec.path("src/main/java/org/example/ArrayProfile.java")));
+  }
+
+  @Test
+  void isIdempotentWhenBlankLineSeparatesTodo() {
+    String withBlankLine =
+        """
+        package org.example;
+
+        // TODO: Manual migration required - @Profile annotation with negation syntax ("!...").
+        // OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.
+        // Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548
+
+        @Profile("!test")
+        public class SampleClass {
+        }
+        """;
+    rewriteRun(
+        text(withBlankLine, spec -> spec.path("src/main/java/org/example/SampleClass.java")));
+  }
+
+  @Test
+  void preservesCrlfLineEndings() {
+    String crlfBefore = "@Profile(\"!test\")\r\npublic class CrlfClass {\r\n}\r\n";
+    String crlfAfter =
+        "// TODO: Manual migration required - @Profile annotation with negation syntax (\"!...\").\r\n"
+            + "// OpenRewrite's Java printer corrupts this annotation and silently skips this file during migration.\r\n"
+            + "// Migrate this file manually. See: https://github.com/camunda/camunda-7-to-8-migration-tooling/issues/1548\r\n"
+            + "@Profile(\"!test\")\r\n"
+            + "public class CrlfClass {\r\n"
+            + "}\r\n";
+    rewriteRun(
+        text(crlfBefore, crlfAfter, spec -> spec.path("src/main/java/org/example/CrlfClass.java")));
+  }
 }
