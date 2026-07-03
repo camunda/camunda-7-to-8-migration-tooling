@@ -10,8 +10,10 @@ package io.camunda.migration.code.recipes.config;
 import org.jspecify.annotations.NonNull;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
+import org.openrewrite.Tree;
 import org.openrewrite.TreeVisitor;
 import org.openrewrite.internal.ListUtils;
+import org.openrewrite.marker.Markers;
 import org.openrewrite.properties.PropertiesIsoVisitor;
 import org.openrewrite.properties.tree.Properties;
 
@@ -50,11 +52,24 @@ public class RemoveCamundaBpmProperties extends Recipe {
       @Override
       public Properties.File visitFile(Properties.File file, ExecutionContext ctx) {
         Properties.File f = super.visitFile(file, ctx);
+        // Replace the first removed job-execution key with a single TODO comment (in place of the
+        // whole namespace), keeping the migration signal; drop every other camunda.bpm.* entry.
+        boolean[] jobExecutionHintEmitted = {false};
         return f.withContent(
             ListUtils.map(
                 f.getContent(),
                 content -> {
                   if (content instanceof Properties.Entry entry && matchesPrefix(entry.getKey())) {
+                    if (!jobExecutionHintEmitted[0]
+                        && entry.getKey().startsWith(ConfigMigrationHints.JOB_EXECUTION_KEY_PREFIX)) {
+                      jobExecutionHintEmitted[0] = true;
+                      return new Properties.Comment(
+                          Tree.randomId(),
+                          entry.getPrefix(),
+                          Markers.EMPTY,
+                          Properties.Comment.Delimiter.HASH_TAG,
+                          " " + ConfigMigrationHints.JOB_EXECUTION);
+                    }
                     return null;
                   }
                   return content;

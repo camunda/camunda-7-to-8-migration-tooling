@@ -52,6 +52,14 @@ public class RemoveCamundaBpmYaml extends Recipe {
   public @NonNull TreeVisitor<?, ExecutionContext> getVisitor() {
     return new YamlIsoVisitor<>() {
       @Override
+      public Yaml.Documents visitDocuments(Yaml.Documents documents, ExecutionContext ctx) {
+        // Detect the job-execution namespace before it is removed, then leave a single TODO hint.
+        boolean jobExecutionPresent = containsJobExecutionKey(documents);
+        Yaml.Documents docs = super.visitDocuments(documents, ctx);
+        return jobExecutionPresent ? prependJobExecutionHint(docs) : docs;
+      }
+
+      @Override
       public Yaml.Mapping visitMapping(Yaml.Mapping mapping, ExecutionContext ctx) {
         Yaml.Mapping m = super.visitMapping(mapping, ctx);
         String parentPath = ancestorPath(getCursor());
@@ -61,6 +69,50 @@ public class RemoveCamundaBpmYaml extends Recipe {
                 entry -> matchesPrefix(join(parentPath, entry.getKey().getValue())) ? null : entry));
       }
     };
+  }
+
+  /** True if any entry's flattened key path is under {@code camunda.bpm.job-execution}. */
+  private static boolean containsJobExecutionKey(Yaml.Documents documents) {
+    boolean[] found = {false};
+    new YamlIsoVisitor<Integer>() {
+      @Override
+      public Yaml.Mapping visitMapping(Yaml.Mapping mapping, Integer unused) {
+        String parentPath = ancestorPath(getCursor());
+        for (Yaml.Mapping.Entry entry : mapping.getEntries()) {
+          if (join(parentPath, entry.getKey().getValue())
+              .startsWith(ConfigMigrationHints.JOB_EXECUTION_KEY_PREFIX)) {
+            found[0] = true;
+          }
+        }
+        return super.visitMapping(mapping, unused);
+      }
+    }.visit(documents, 0);
+    return found[0];
+  }
+
+  /** Prepends the job-execution TODO as a comment on the first top-level key of the first document. */
+  private static Yaml.Documents prependJobExecutionHint(Yaml.Documents documents) {
+    return documents.withDocuments(
+        ListUtils.mapFirst(
+            documents.getDocuments(),
+            document -> {
+              if (document.getBlock() instanceof Yaml.Mapping mapping
+                  && !mapping.getEntries().isEmpty()) {
+                return document.withBlock(
+                    mapping.withEntries(
+                        ListUtils.mapFirst(
+                            mapping.getEntries(),
+                            entry ->
+                                entry.getPrefix().contains(ConfigMigrationHints.JOB_EXECUTION)
+                                    ? entry
+                                    : entry.withPrefix(
+                                        "# "
+                                            + ConfigMigrationHints.JOB_EXECUTION
+                                            + "\n"
+                                            + entry.getPrefix()))));
+              }
+              return document;
+            }));
   }
 
   /** Builds the dotted key path of the mapping currently on the cursor from its enclosing entries. */
