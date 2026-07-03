@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.*;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
+import io.camunda.migration.diagram.converter.exception.DiagramAlreadyConvertedException;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import java.io.ByteArrayInputStream;
 import java.io.StringWriter;
@@ -106,7 +107,28 @@ public class DiagramConverterTest {
         Bpmn.readModelFromStream(
             this.getClass().getClassLoader().getResourceAsStream("c8_simple.bpmn"));
     Assertions.assertThrows(
-        RuntimeException.class, () -> converter.convert(modelInstance, properties));
+        DiagramAlreadyConvertedException.class, () -> converter.convert(modelInstance, properties));
+  }
+
+  @Test
+  public void shouldFailPreFlightAndLeaveC8DiagramUnmodified() {
+    DiagramConverter converter = DiagramConverterFactory.getInstance().get();
+    ConverterProperties properties = ConverterPropertiesFactory.getInstance().get();
+    BpmnModelInstance modelInstance =
+        Bpmn.readModelFromStream(
+            this.getClass().getClassLoader().getResourceAsStream("c8_simple.bpmn"));
+    String xmlBefore = Bpmn.convertToString(modelInstance);
+
+    DiagramAlreadyConvertedException thrown =
+        Assertions.assertThrows(
+            DiagramAlreadyConvertedException.class,
+            () -> converter.convert(modelInstance, properties));
+
+    assertThat(thrown).hasMessageContaining("already a Camunda 8 diagram");
+    String xmlAfter = Bpmn.convertToString(modelInstance);
+    assertThat(xmlAfter)
+        .as("pre-flight check must reject the diagram before any modification")
+        .isEqualTo(xmlBefore);
   }
 
   @Test

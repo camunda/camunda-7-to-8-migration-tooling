@@ -33,10 +33,6 @@ public class BpmnDefinitionsVisitor extends AbstractBpmnElementVisitor {
     SemanticVersion desiredVersion =
         SemanticVersion.parse(context.getProperties().getPlatformVersion());
     DomElement element = context.getElement();
-    String executionPlatform = element.getAttribute(NamespaceUri.MODELER, VERSION_HEADER);
-    if (executionPlatform != null && executionPlatform.startsWith("8")) {
-      throw new RuntimeException("This diagram is already a Camunda 8 diagram");
-    }
     // TODO in case there is a requirement to override the BPMN namespace name, this can be enabled
     //    String prefix = element.getPrefix();
     //    if (prefix == null || !prefix.equals("bpmn")) {
