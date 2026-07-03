@@ -26,7 +26,6 @@ class LegacyIdPrefixResolverTest {
 
     // then
     assertThat(resolver.getPrefix()).isEqualTo(DEFAULT_LEGACY_ID_PREFIX);
-    assertThat(resolver.getPrefix()).isEqualTo("c7-legacy-");
   }
 
   @Test

@@ -40,7 +40,6 @@ import org.springframework.stereotype.Component;
  * Prefixing avoids collisions between migrated history definitions and native Camunda 8 definitions
  * that share the same ID.
  */
-@Component
 public class LegacyIdPrefixResolver {
 
   /**
