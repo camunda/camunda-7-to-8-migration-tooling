@@ -1,0 +1,43 @@
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.MigrateApplicationPropertiesRecipe
+displayName: Migrate application.properties/yml from Camunda 7 to Camunda 8
+description: >-
+  Removes the Camunda 7 `camunda.bpm.*` configuration namespace from Spring Boot
+  `application.properties` and `application.yml`/`application.yaml` files and adds a
+  Camunda 8 `camunda.client.*` connection skeleton. The added values target a local
+  c8run / Self-Managed setup and must be reviewed for the actual deployment. Only files
+  named `application*.{properties,yml,yaml}` are touched; other configuration files and
+  unrelated keys (e.g. `server.port`, `spring.datasource.*`) are left untouched.
+preconditions:
+  - org.openrewrite.FindSourceFiles:
+      filePattern: "**/application*.properties;**/application*.yml;**/application*.yaml"
+recipeList:
+  # --- Remove the Camunda 7 namespace ---
+  # camunda.bpm.* has no Camunda 8 equivalent. Prefix delete for .properties (custom recipe,
+  # since DeleteProperty only matches a single exact key) and subtree delete for .yml/.yaml.
+  - io.camunda.migration.code.recipes.config.RemoveCamundaBpmProperties
+  - org.openrewrite.yaml.DeleteKey:
+      keyPath: $.camunda.bpm
+  # --- Add the Camunda 8 connection skeleton to .properties ---
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.zeebe.grpc-address
+      value: http://localhost:26500
+      comment: "TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)"
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.zeebe.rest-address
+      value: http://localhost:8080
+  - org.openrewrite.properties.AddProperty:
+      property: camunda.client.security.plaintext
+      value: "true"
+  # --- Add the Camunda 8 connection skeleton to .yml/.yaml ---
+  - org.openrewrite.yaml.MergeYaml:
+      key: $
+      yaml: |
+        camunda:
+          client:
+            # TODO: review the Camunda 8 connection settings for your deployment (defaults target a local c8run cluster)
+            zeebe:
+              grpc-address: http://localhost:26500
+              rest-address: http://localhost:8080
+            security:
+              plaintext: true
