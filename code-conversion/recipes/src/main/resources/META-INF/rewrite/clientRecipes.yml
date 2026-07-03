@@ -21,6 +21,7 @@ recipeList:
   - io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe
   - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
+  - io.camunda.migration.code.recipes.sharedRecipes.WarnSpringProfileNegationRecipe
   - io.camunda.migration.code.recipes.testing.ReplaceAssertionsRecipe
   - org.openrewrite.java.UseStaticImport:
       methodPattern: io.camunda.process.test.api.CamundaAssert assertThat(..)
