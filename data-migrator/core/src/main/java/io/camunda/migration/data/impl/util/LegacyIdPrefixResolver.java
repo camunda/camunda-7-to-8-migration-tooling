@@ -16,7 +16,6 @@ import static io.camunda.migration.data.impl.logging.ConfigurationLogs.logEffect
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.config.property.history.HistoryProperties;
 import java.util.regex.Pattern;
-import org.springframework.stereotype.Component;
 
 /**
  * Resolves, validates and applies the prefix prepended to Camunda 7 historical definition IDs
