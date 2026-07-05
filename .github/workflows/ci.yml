@@ -324,7 +324,7 @@ jobs:
   it-runtime-h2:
     needs: [detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
     # Each shard name matches its Maven profile (runtime-<shard>) and describes
     # the sub-set of test packages it covers.
