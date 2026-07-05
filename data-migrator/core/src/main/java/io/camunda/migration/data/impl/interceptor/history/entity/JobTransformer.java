@@ -10,16 +10,17 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricJobLog;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +39,9 @@ import org.springframework.stereotype.Component;
 @Order(13)
 @Component
 public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbModel.Builder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -62,7 +66,7 @@ public class JobTransformer implements EntityInterceptor<HistoricJobLog, JobDbMo
         .kind(JobKind.BPMN_ELEMENT)
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
-        .processDefinitionId(prefixDefinitionId(historicJobLog.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(historicJobLog.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(historicJobLog.getActivityId()))
         .tenantId(getTenantId(historicJobLog.getTenantId()))
         .creationTime(creationTime);
