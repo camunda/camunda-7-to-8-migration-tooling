@@ -8,10 +8,12 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.clients.C7Client;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
@@ -26,6 +28,9 @@ public class ProcessDefinitionTransformer implements EntityInterceptor {
 
   @Autowired
   protected C7Client c7Client;
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -49,7 +54,7 @@ public class ProcessDefinitionTransformer implements EntityInterceptor {
 
 
     builder.processDefinitionKey(getNextKey())
-        .processDefinitionId(c7ProcessDefinition.getKey())
+        .processDefinitionId(legacyIdPrefix.applyTo(c7ProcessDefinition.getKey()))
         .resourceName(resourceName)
         .name(c7ProcessDefinition.getName())
         .tenantId(c7ProcessDefinition.getTenantId())

@@ -9,11 +9,13 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import io.camunda.db.rdbms.write.domain.UserTaskDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +27,9 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 @Order(4)
 @Component
 public class UserTaskTransformer implements EntityInterceptor {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -42,7 +47,7 @@ public class UserTaskTransformer implements EntityInterceptor {
 
     builder.userTaskKey(getNextKey())
         .elementId(historicTask.getTaskDefinitionKey())
-        .processDefinitionId(historicTask.getProcessDefinitionKey())
+        .processDefinitionId(legacyIdPrefix.applyTo(historicTask.getProcessDefinitionKey()))
         .creationDate(convertDate(historicTask.getStartTime()))
         .completionDate(convertDate(historicTask.getEndTime()))
         .assignee(historicTask.getAssignee())

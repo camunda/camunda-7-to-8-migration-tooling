@@ -9,12 +9,14 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import io.camunda.search.entities.IncidentEntity;
 import org.camunda.bpm.engine.history.HistoricIncident;
 
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +26,9 @@ import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 @Order(7)
 @Component
 public class IncidentTransformer implements EntityInterceptor {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -40,7 +45,7 @@ public class IncidentTransformer implements EntityInterceptor {
     }
 
     builder.incidentKey(getNextKey())
-        .processDefinitionId(historicIncident.getProcessDefinitionKey())
+        .processDefinitionId(legacyIdPrefix.applyTo(historicIncident.getProcessDefinitionKey()))
         .flowNodeId(historicIncident.getActivityId())
         .errorType(null) // TODO: does error type exist in C7?
         .errorMessage(historicIncident.getIncidentMessage())

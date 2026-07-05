@@ -8,21 +8,27 @@
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
+import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
 import static io.camunda.search.entities.FlowNodeInstanceEntity.FlowNodeType;
 
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.Set;
 import org.camunda.bpm.engine.ActivityTypes;
 import org.camunda.bpm.engine.history.HistoricActivityInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Order(3)
 @Component
 public class FlowNodeTransformer implements EntityInterceptor {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -42,11 +48,11 @@ public class FlowNodeTransformer implements EntityInterceptor {
 
     builder
         .flowNodeId(flowNode.getActivityId())
-        .processDefinitionId(flowNode.getProcessDefinitionKey())
+        .processDefinitionId(legacyIdPrefix.applyTo(flowNode.getProcessDefinitionKey()))
         .startDate(convertDate(flowNode.getStartTime()))
         .endDate(convertDate(flowNode.getEndTime()))
         .type(convertType(flowNode.getActivityType()))
-        .tenantId(flowNode.getTenantId())
+        .tenantId(getTenantId(flowNode.getTenantId()))
         .state(null) // TODO: Doesn't exist in C7 activity instance. Inherited from process instance.
         .incidentKey(null) // TODO Doesn't exist in C7 activity instance.
         .numSubprocessIncidents(null); // TODO: increment/decrement when incident exist in subprocess. C8 RDBMS specific.

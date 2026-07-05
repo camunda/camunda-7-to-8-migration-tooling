@@ -16,6 +16,7 @@ import io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.exception.EntityInterceptorException;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.migration.data.interceptor.property.EntityConversionContext;
 import java.util.List;
@@ -34,6 +35,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
 
   @Autowired
   protected VariableService variableService;
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -55,9 +59,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor {
         .evaluationDate(convertDate(decisionInstance.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .processDefinitionId(decisionInstance.getProcessDefinitionKey())
-        .decisionDefinitionId(decisionInstance.getDecisionDefinitionKey())
-        .decisionRequirementsId(decisionInstance.getDecisionRequirementsDefinitionKey())
+        .processDefinitionId(legacyIdPrefix.applyTo(decisionInstance.getProcessDefinitionKey()))
+        .decisionDefinitionId(legacyIdPrefix.applyTo(decisionInstance.getDecisionDefinitionKey()))
+        .decisionRequirementsId(legacyIdPrefix.applyTo(decisionInstance.getDecisionRequirementsDefinitionKey()))
         .result(null)
         .tenantId(getTenantId(decisionInstance.getTenantId()))
         .historyCleanupDate(convertDate(decisionInstance.getRemovalTime()))

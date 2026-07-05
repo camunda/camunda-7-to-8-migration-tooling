@@ -34,7 +34,10 @@ import io.camunda.migration.data.interceptor.property.EntityConversionContext;
  *     HistoricProcessInstance c7Instance = (HistoricProcessInstance) context.getC7Entity();
  *     ProcessInstanceDbModel.Builder c8Builder =
  *       (ProcessInstanceDbModel.Builder) context.getC8DbModelBuilder();
- *     // Custom conversion logic
+ *     // No casting needed! Prefix migrated definition IDs to avoid collisions with native
+ *     // Camunda 8 definitions - production transformers use LegacyIdPrefixResolver#applyTo,
+ *     // which honors the configurable camunda.migrator.history.legacy-id-prefix property.
+ *     c8Builder.processDefinitionId(legacyIdPrefix.applyTo(c7Instance.getProcessDefinitionKey()));
  *   }
  * }
  * </pre>
@@ -123,4 +126,3 @@ public interface EntityInterceptor extends BaseInterceptor<EntityConversionConte
   default void presetParentProperties(EntityConversionContext<?, ?> context) {
   }
 }
-

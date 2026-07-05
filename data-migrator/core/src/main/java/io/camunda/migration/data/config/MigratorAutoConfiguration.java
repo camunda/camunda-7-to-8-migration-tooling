@@ -28,6 +28,7 @@ import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.RuntimeValidator;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import java.util.Optional;
 import javax.sql.DataSource;
 import liquibase.integration.spring.SpringLiquibase;
@@ -65,6 +66,7 @@ import org.springframework.transaction.PlatformTransactionManager;
     RuntimeValidator.class,
     HistoryMigrator.class,
     RuntimeMigrator.class,
+    LegacyIdPrefixResolver.class,
     SchemaShutdownCleaner.class
 })
 @Configuration
