@@ -10,16 +10,17 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.migration.data.constants.MigratorConstants.C7_NULL_PLACEHOLDER;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ConverterUtil.sanitizeFlowNodeId;
 
 import io.camunda.db.rdbms.write.domain.JobDbModel;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.JobEntity.JobKind;
 import io.camunda.search.entities.JobEntity.JobState;
 import io.camunda.search.entities.JobEntity.ListenerEventType;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricExternalTaskLog;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -40,6 +41,9 @@ import org.springframework.stereotype.Component;
 @Order(14)
 @Component
 public class ExternalTaskTransformer implements EntityInterceptor<HistoricExternalTaskLog, JobDbModel.Builder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -64,7 +68,7 @@ public class ExternalTaskTransformer implements EntityInterceptor<HistoricExtern
         .listenerEventType(ListenerEventType.UNSPECIFIED)
         .retries(0)
         .worker(C7_NULL_PLACEHOLDER)
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .elementId(sanitizeFlowNodeId(entity.getActivityId()))
         .tenantId(getTenantId(entity.getTenantId()));
     // Note: partitionId is set externally by ExternalTaskMigrator to match the parent process instance

@@ -15,7 +15,6 @@ import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILUR
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_ID;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_RESOURCE_TYPE;
 import static io.camunda.migration.data.impl.logging.IdentityMigratorLogs.FAILURE_UNSUPPORTED_SPECIFIC_RESOURCE_ID;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.callApi;
 import static io.camunda.migration.data.impl.util.ExceptionUtils.rethrowIfC8Offline;
 import static java.lang.String.format;
@@ -32,6 +31,7 @@ import io.camunda.migration.data.exception.IdentityMigratorException;
 import io.camunda.migration.data.exception.MigratorException;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.logging.IdentityMigratorLogs;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -57,6 +57,9 @@ public class AuthorizationManager {
 
   @Autowired
   protected DefinitionLookupService definitionLookupService;
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   /**
    * Validates and maps a C7 authorization to a C8 authorization if the validation is successful.
@@ -193,7 +196,8 @@ public class AuthorizationManager {
 
   /**
    * Maps C7 definition keys to the same key and the legacy prefixed key in C8
-   * This is because when we migrate history data, to avoid collisions, we prefix all definition keys with C7_LEGACY_PREFIX
+   * This is because when we migrate history data, to avoid collisions, we prefix all definition keys
+   * with the configured legacy ID prefix (default {@code c7-legacy-}, see {@link LegacyIdPrefixResolver})
    * And we need to grant authorizations to both the original and the prefixed keys
    * @param resourceId
    * @return a set containing both the original and the prefixed key
@@ -202,7 +206,7 @@ public class AuthorizationManager {
     if (resourceId.equals(WILDCARD)) {
       return Set.of(WILDCARD);
     } else {
-      return Set.of(resourceId, prefixDefinitionId(resourceId));
+      return Set.of(resourceId, legacyIdPrefix.applyTo(resourceId));
     }
   }
 }

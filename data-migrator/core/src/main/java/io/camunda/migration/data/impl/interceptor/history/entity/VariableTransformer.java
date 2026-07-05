@@ -10,9 +10,9 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.db.rdbms.write.domain.VariableDbModel.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.migration.data.impl.VariableService;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import java.util.Set;
 import org.camunda.bpm.engine.history.HistoricVariableInstance;
@@ -28,6 +28,9 @@ public class VariableTransformer implements EntityInterceptor<HistoricVariableIn
   @Autowired
   protected VariableService variableService;
 
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(HistoricVariableInstance.class);
@@ -38,7 +41,7 @@ public class VariableTransformer implements EntityInterceptor<HistoricVariableIn
     builder.variableKey(getNextKey())
         .name(entity.getName())
         .value(variableService.convertValue(entity))
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .tenantId(getTenantId(entity.getTenantId()));
     // Note: partitionId is set externally by VariableMigrator to match the parent process instance
     // processInstanceKey, scopeKey, and elementInstanceKey are set externally
