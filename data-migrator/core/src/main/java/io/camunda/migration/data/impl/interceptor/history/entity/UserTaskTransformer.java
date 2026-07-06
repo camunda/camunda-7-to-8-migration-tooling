@@ -7,10 +7,12 @@
  */
 package io.camunda.migration.data.impl.interceptor.history.entity;
 
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import org.camunda.bpm.engine.history.HistoricTaskInstance;
 
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +20,13 @@ import static io.camunda.db.rdbms.write.domain.UserTaskDbModel.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getNextKey;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 @Order(4)
 @Component
 public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstance, Builder> {
+
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
 
   @Override
   public Set<Class<?>> getTypes() {
@@ -33,7 +37,7 @@ public class UserTaskTransformer implements EntityInterceptor<HistoricTaskInstan
   public void execute(HistoricTaskInstance entity, Builder builder) {
     builder.userTaskKey(getNextKey())
         .elementId(entity.getTaskDefinitionKey())
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
         .creationDate(convertDate(entity.getStartTime()))
         .assignee(entity.getAssignee())
         .state(convertState(entity.getTaskState()))

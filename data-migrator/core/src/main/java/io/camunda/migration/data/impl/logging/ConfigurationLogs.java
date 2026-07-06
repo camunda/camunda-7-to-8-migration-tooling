@@ -7,6 +7,8 @@
  */
 package io.camunda.migration.data.impl.logging;
 
+import static io.camunda.migration.data.constants.MigratorConstants.DEFAULT_LEGACY_ID_PREFIX;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,12 +28,16 @@ public class ConfigurationLogs {
   public static final String C8_SCHEMA_PROPERTY_ERROR = "Could not determine property for C8 database schema creation.";
   public static final String JDBC_DRIVER_CLASS_NOT_FOUND_ERROR = "Configured JDBC driver [{}] was not found on the classpath. Please make sure that the JDBC driver jar is in the configuration/userlib/ directory.";
   public static final String INVALID_IDENTITY_PROPERTIES_ERROR = "Invalid property combination: skip-groups cannot be enabled if skip-users is disabled";
+  public static final String LEGACY_ID_PREFIX_BLANK_ERROR = "Invalid property camunda.migrator.history.legacy-id-prefix: the prefix must not be blank. Remove the property to use the default '%s', or configure a non-blank value.";
+  public static final String LEGACY_ID_PREFIX_TOO_LONG_ERROR = "Invalid property camunda.migrator.history.legacy-id-prefix '%s': the prefix must not exceed %d characters.";
+  public static final String LEGACY_ID_PREFIX_INVALID_CHARS_ERROR = "Invalid property camunda.migrator.history.legacy-id-prefix '%s': the prefix must start with a letter or underscore and may only contain letters, digits, '.', '-' and '_'.";
 
   // Info Messages
   public static final String INFO_CONFIGURING_INTERCEPTORS = "Configuring {} interceptors";
   public static final String INFO_TOTAL_INTERCEPTORS_CONFIGURED = "In total {} {} interceptors configured";
   public static final String INFO_SUCCESSFULLY_REGISTERED = "Successfully registered interceptor: {}";
   public static final String INFO_LIQUIBASE_CREATING_TABLE_SCHEMA = "Creating table schema with Liquibase change log file '{}' with table prefix '{}'.";
+  public static final String INFO_LEGACY_ID_PREFIX = "Using Camunda 7 legacy definition ID prefix '{}' for history migration.";
 
   // Debug Messages
   public static final String DEBUG_NO_INTERCEPTORS = "No interceptors configured in configuration file";
@@ -196,6 +202,39 @@ public class ConfigurationLogs {
 
   public static void logInvalidIdentityPropertyCombination() {
     LOGGER.error(INVALID_IDENTITY_PROPERTIES_ERROR);
+  }
+
+  /**
+   * Logs the effective prefix applied to migrated Camunda 7 historical definition IDs.
+   *
+   * @param prefix the effective legacy ID prefix
+   */
+  public static void logEffectiveLegacyIdPrefix(String prefix) {
+    LOGGER.info(INFO_LEGACY_ID_PREFIX, prefix);
+  }
+
+  /**
+   * @return the error message for a blank legacy ID prefix.
+   */
+  public static String getLegacyIdPrefixBlankError() {
+    return String.format(LEGACY_ID_PREFIX_BLANK_ERROR, DEFAULT_LEGACY_ID_PREFIX);
+  }
+
+  /**
+   * @param prefix    the invalid prefix
+   * @param maxLength the maximum allowed length
+   * @return the error message for a legacy ID prefix that exceeds the maximum length.
+   */
+  public static String getLegacyIdPrefixTooLongError(String prefix, int maxLength) {
+    return String.format(LEGACY_ID_PREFIX_TOO_LONG_ERROR, prefix, maxLength);
+  }
+
+  /**
+   * @param prefix the invalid prefix
+   * @return the error message for a legacy ID prefix containing disallowed characters.
+   */
+  public static String getLegacyIdPrefixInvalidCharsError(String prefix) {
+    return String.format(LEGACY_ID_PREFIX_INVALID_CHARS_ERROR, prefix);
   }
 
 }

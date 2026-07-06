@@ -72,6 +72,15 @@ camunda:
       ## This enables "offline mode" where the migrator can run without connectivity to Camunda 8.
       ## If not set, the partition count is automatically fetched from the Camunda REST API.
       #partition-count: 1
+      #
+      ## Prefix prepended to migrated Camunda 7 historical definition IDs (process, decision and
+      ## form definitions). Prefixing avoids ID collisions between migrated history definitions and
+      ## native Camunda 8 definitions that share the same ID. Default: c7-legacy-
+      ## Warning: changing or removing the prefix can cause collisions/consistency issues if you
+      ## deploy Camunda 8 resources with the same IDs. Only change it if you understand the risk.
+      ## Allowed: starts with a letter or underscore, then letters, digits, '.', '-' or '_';
+      ## max 100 characters. A blank value is rejected - remove the property to use the default.
+      #legacy-id-prefix: c7-legacy-
 
       # ACTIVE or SUSPENDED C7 instances will be automatically canceled in C8 with end date set to migration date
       auto-cancel:
