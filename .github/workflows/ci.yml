@@ -735,6 +735,7 @@ jobs:
             The runner has received a shutdown signal
             Could not transfer artifact
             ContainerFetchException: Can't get Docker image: RemoteDockerImage
+            The hosted runner lost communication with the server
           run-id: ${{ github.run_id }}
           repository: ${{ github.repository }}
           vault-addr: ${{ secrets.VAULT_ADDR }}
