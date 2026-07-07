@@ -36,7 +36,7 @@
     <version.spring-boot>4.1.0</version.spring-boot>
     <logback.version>1.5.37</logback.version>
     <tomcat.version>11.0.23</tomcat.version>
-    <version.netty>4.2.15.Final</version.netty>
+    <version.netty>4.2.16.Final</version.netty>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.0.3</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
