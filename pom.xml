@@ -30,7 +30,7 @@
     <version.java>21</version.java>
 
     <version.camunda-7>7.24.9-ee</version.camunda-7>
-    <version.camunda-8>8.9.11</version.camunda-8>
+    <version.camunda-8>8.9.12</version.camunda-8>
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
