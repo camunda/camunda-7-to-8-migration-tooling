@@ -34,15 +34,17 @@
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>3.5.16</version.spring-boot>
+    <tomcat.version>11.0.23</tomcat.version>
     <logback.version>1.5.37</logback.version>
     <version.assertj>3.27.7</version.assertj>
-    <version.junit.jupiter>6.0.3</version.junit.jupiter>
+    <version.junit.jupiter>6.1.1</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
-    <version.guava>33.5.0-jre</version.guava>
-    <version.errorprone>2.49.0</version.errorprone>
+    <version.guava>33.6.0-jre</version.guava>
+    <version.errorprone>2.50.0</version.errorprone>
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
-    <version.netty>4.2.15.Final</version.netty>
+    <version.netty>4.2.16.Final</version.netty>
+    <version.httpcore5>5.4.3</version.httpcore5>
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
@@ -106,6 +108,11 @@
         <version>${version.netty}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${version.httpcore5}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>

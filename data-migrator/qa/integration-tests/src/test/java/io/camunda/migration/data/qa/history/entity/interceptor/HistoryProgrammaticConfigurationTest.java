@@ -148,10 +148,24 @@ public class HistoryProgrammaticConfigurationTest extends HistoryMigrationAbstra
     // Run history migration
     historyMigrator.migrate();
 
-    // Verify all interceptors were executed
-    assertThat(universalEntityInterceptor.getExecutionCount()).isGreaterThan(0);
-    assertThat(processInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
-    assertThat(activityInstanceInterceptor.getExecutionCount()).isGreaterThan(0);
+    // Verify all interceptors ran for the expected entities in the simpleProcess fixture.
+    // These counts are bound to the fixture shape (1 process instance, 3 activities),
+    // not to the migration pipeline size, so they stay stable as new entity types are added.
+    // The exact counts below prove each interceptor was invoked as expected.
+    assertThat(processInstanceInterceptor.getExecutionCount()).isEqualTo(1);
+    assertThat(activityInstanceInterceptor.getExecutionCount()).isEqualTo(3);
+    assertThat(processEngineAwareInterceptor.getExecutionCount()).isEqualTo(1);
+
+    // Universal interceptor is type-agnostic: it fires once for every migrated entity.
+    // Process-instance entities and activity-instance entities are disjoint sets, so the
+    // universal interceptor must cover at least both of them combined. We assert this additive
+    // lower bound rather than pinning the absolute total, which drifts as the migration pipeline
+    // emits new entity types. (processEngineAwareInterceptor targets the same process-instance
+    // entity as processInstanceInterceptor, so it is not added here to avoid double counting.)
+    assertThat(universalEntityInterceptor.getExecutionCount())
+        .isGreaterThanOrEqualTo(
+            processInstanceInterceptor.getExecutionCount()
+                + activityInstanceInterceptor.getExecutionCount());
   }
 
   @Test

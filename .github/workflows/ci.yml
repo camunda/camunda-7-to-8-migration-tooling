@@ -14,18 +14,49 @@ on:
     - cron: "0 5 * * 1-5"
 
 jobs:
+  # Detects whether data-migrator source changed so downstream jobs can skip
+  # expensive tests on PRs that only touch other modules. For non-PR events
+  # (push to main, schedule, workflow_dispatch) we always consider it changed.
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      data-migrator: ${{ steps.filter.outputs.data-migrator }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for data-migrator changes
+        id: filter
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT" != "pull_request" ]]; then
+            echo "data-migrator=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin "${BASE_REF}" --depth=1
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(data-migrator/|pom\.xml$)'; then
+            echo "data-migrator=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "data-migrator=false" >> "$GITHUB_OUTPUT"
+          fi
+
   distro:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -56,7 +87,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload distro
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: distro
@@ -68,13 +99,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -136,7 +167,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload code-conversion artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: code-conversion
@@ -148,13 +179,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -186,7 +217,7 @@ jobs:
           echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload diagram-converter artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: diagram-converter
@@ -206,13 +237,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -246,13 +277,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -274,25 +305,43 @@ jobs:
         run: mvn verify -Ppostgresql,integration,history-only
 
   it-runtime-h2:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 40
+    # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
+    # Each shard name matches its Maven profile (runtime-<shard>) and describes
+    # the sub-set of test packages it covers.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - core          # runtime root + persistence + distribution (catch-all for new packages)
+          - element       # runtime.element + runtime.datasource
+          - jobtype       # runtime.jobtype + runtime.tenant
+          - variables     # runtime.variables
     if: |
       github.event_name == 'push' ||
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
-        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      ))
+      (github.event_name == 'pull_request' &&
+       (
+         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+         (
+           needs.detect-changes.outputs.data-migrator == 'true' &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
+           !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+         )
+       )
+      )
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -309,9 +358,9 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with H2
+      - name: Run ${{ matrix.shard }} runtime tests with H2
         working-directory: data-migrator
-        run: mvn verify -Pintegration,runtime-only
+        run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
   it-history-h2:
     runs-on: ubuntu-latest
@@ -326,13 +375,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -366,13 +415,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -406,13 +455,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -450,13 +499,13 @@ jobs:
         run: git config --global core.longpaths true
 
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -490,13 +539,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -530,13 +579,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -570,13 +619,13 @@ jobs:
       ))
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -604,13 +653,13 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
@@ -630,7 +679,7 @@ jobs:
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
       - name: Login to Camunda Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: registry.camunda.cloud
           username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
@@ -643,7 +692,7 @@ jobs:
           CI: true
 
       - name: Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -651,7 +700,7 @@ jobs:
           retention-days: 7
 
       - name: Upload screenshots
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-screenshots
@@ -686,6 +735,7 @@ jobs:
             The runner has received a shutdown signal
             Could not transfer artifact
             ContainerFetchException: Can't get Docker image: RemoteDockerImage
+            The hosted runner lost communication with the server
           run-id: ${{ github.run_id }}
           repository: ${{ github.repository }}
           vault-addr: ${{ secrets.VAULT_ADDR }}
