@@ -44,6 +44,7 @@
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
     <version.netty>4.2.16.Final</version.netty>
+    <version.httpcore5>5.4.3</version.httpcore5>
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
@@ -107,6 +108,11 @@
         <version>${version.netty}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${version.httpcore5}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.commons</groupId>
