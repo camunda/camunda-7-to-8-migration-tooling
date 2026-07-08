@@ -7,12 +7,14 @@
  */
 import { useState, useEffect, useRef } from "react";
 
+// FLAG: no DS equivalent — manual migration required
 import {
   ProgressIndicator,
   ProgressStep,
+} from "@carbon/react";
+
+import {
   Button,
-  ActionableNotification,
-  DataTable,
   Table,
   TableHead,
   TableRow,
@@ -23,9 +25,13 @@ import {
   FormGroup,
   Checkbox,
   TextInput,
-} from "@carbon/react";
+} from "@camunda/design-system/carbon-compat";
 
-import { Download, Launch, Close, Settings, ChevronDown, ChevronUp } from "@carbon/react/icons";
+import { Alert } from "@camunda/design-system";
+
+// Carbon icons → lucide-react equivalents:
+//   Launch → ExternalLink, Close → X (rest keep their names)
+import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
@@ -625,16 +631,16 @@ function App() {
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
-                  <ActionableNotification
-                    kind="warning"
+                  <Alert
+                    variant="warning"
                     title={`${totalFindings} finding${totalFindings !== 1 ? 's' : ''} detected for Camunda ${platformVersion}`}
-                    lowContrast
-                    actionButtonLabel="Download XLSX"
-                    onActionButtonClick={downloadXLS}
+                    description="Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview."
                     className="incompatibility-notification"
                   >
-                    Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview.
-                  </ActionableNotification>
+                    <Button kind="tertiary" size="sm" onClick={downloadXLS}>
+                      Download XLSX
+                    </Button>
+                  </Alert>
                 </div>
               )}
               {files.map((file, idx) => {
@@ -663,15 +669,14 @@ function App() {
                 );
               })}
               {downloadError && (
-                <ActionableNotification
-                  kind="error"
+                <Alert
+                  variant="destructive"
                   title={downloadErrorTitle}
-                  lowContrast
-                  onClose={() => setDownloadError(null)}
+                  description={downloadError}
+                  dismissible
+                  onDismiss={() => setDownloadError(null)}
                   className="download-error-notification"
-                >
-                  {downloadError}
-                </ActionableNotification>
+                />
               )}
               <Button
                 kind="primary"
@@ -740,7 +745,7 @@ function App() {
               <Button
                 kind="tertiary"
                 size="lg"
-                renderIcon={Launch}
+                renderIcon={ExternalLink}
                 href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
                 target="_blank"
               >
@@ -761,7 +766,7 @@ function App() {
           <Button
             kind="ghost"
             size="sm"
-            renderIcon={Close}
+            renderIcon={X}
             onClick={() => setIsPreviewOpen(false)}
           >
             Close
@@ -778,48 +783,37 @@ function App() {
       <p style={{ color: '#525252', marginBottom: '0.75rem' }}>
         Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
       </p>
-      <DataTable rows={previewTableRows} headers={previewTableHeader}>
-  {({ rows, headers, getHeaderProps, getRowProps }) => (
-    <Table className="analysis-table">
-      <TableHead>
-        <TableRow>
-          {headers.map((header) => {
-            const headerProps = getHeaderProps({ header });
-            const { key, ...rest } = headerProps;
-
-            return (
-              <TableHeader key={key} {...rest}>
+      <Table className="analysis-table">
+        <TableHead>
+          <TableRow>
+            {previewTableHeader.map((header) => (
+              <TableHeader key={header.key}>
                 {header.header}
               </TableHeader>
-            );
-          })}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map((row) => {
-          const rowProps = getRowProps({ row });
-          const { key, ...restRowProps } = rowProps;
-
-          return (
-            <TableRow key={key} {...restRowProps}>
-              {row.cells.map((cell) => (
-                <TableCell key={cell.id}>
-                  {cell.info.header === 'link' && cell.value?.startsWith('<a')
-                    ? (
-                        <span
-                          dangerouslySetInnerHTML={{ __html: cell.value }}
-                        />
-                      )
-                    : cell.value}
-                </TableCell>
-              ))}
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {previewTableRows.map((row) => (
+            <TableRow key={row.id}>
+              {previewTableHeader.map((header) => {
+                const value = row[header.key];
+                return (
+                  <TableCell key={`${row.id}-${header.key}`}>
+                    {header.key === 'link' && value?.startsWith('<a')
+                      ? (
+                          <span
+                            dangerouslySetInnerHTML={{ __html: value }}
+                          />
+                        )
+                      : value}
+                  </TableCell>
+                );
+              })}
             </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  )}
-</DataTable>
+          ))}
+        </TableBody>
+      </Table>
       </>}
 
     </div>

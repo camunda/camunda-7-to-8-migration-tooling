@@ -5,13 +5,17 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+      tailwindcss(),
+    react(),
+  ],
   resolve: {
     alias: {
       "~@ibm/plex": path.resolve(__dirname, "node_modules/@ibm/plex"),

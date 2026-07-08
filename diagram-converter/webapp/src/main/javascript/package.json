@@ -14,7 +14,9 @@
     "@carbon/react": "^1.79.0",
     "bpmn-js": "^18.6.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@camunda/design-system": "^0.21.1",
+    "lucide-react": "1.17.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
@@ -26,6 +28,9 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "glob": "^11.0.1",
     "globals": "^15.15.0",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "@tailwindcss/vite": "4.3.0",
+    "tailwindcss": "4.3.0",
+    "tailwindcss-scoped-preflight": "4.0.6"
   }
 }
