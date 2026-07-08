@@ -362,12 +362,16 @@ The JAR is large (~30 MB). If the project is a git repo, add `.camunda-migration
 The CLI's `local` subcommand accepts a single file **or** a directory (recursive by default). Always pass `--platform-version` set to the version from Step 1 Question 2 so version-gated conversions (e.g. conditional events on 8.9+) are applied correctly.
 
 ```bash
+# TARGET_MINOR is the version from Step 1, e.g. 8.9 or 8.10
 java -Dfile.encoding=UTF-8 -jar "$JAR" local <FILE_OR_DIR> \
-  --platform-version <TARGET_MINOR> \   # e.g. 8.9 or 8.10 (from Step 1)
-  --csv --xlsx                          # optional analysis artifacts (see below)
-# add -o / --override   to overwrite pre-existing converted files
-# add --check           for analyze-only (no converted diagrams exported) — see "Analyze-only mode"
-# add -nr / --not-recursive  to disable recursive search when a directory is given
+  --platform-version <TARGET_MINOR> \
+  --csv \
+  --xlsx
+# Optional flags to add above:
+#   --csv / --xlsx             write analysis reports (already shown)
+#   -o / --override            overwrite pre-existing converted files
+#   --check                    analyze-only (no converted diagrams exported) — see "Analyze-only mode"
+#   -nr / --not-recursive      disable recursive search when a directory is given
 ```
 
 Useful options:
