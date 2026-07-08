@@ -18,7 +18,7 @@ Treat these as separate operations that compose. Do not conflate "migrate my cod
 
 Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question to what is actually present.
 
-Then call `AskUserQuestion` **once** with Questions 1-3 below (combine them in a single call — do not ask one at a time):
+Then call `AskUserQuestion` **once** with all questions below (combine them in a single call — do not ask one at a time):
 
 **Question 1 — Project location**
 
@@ -29,40 +29,39 @@ Then call `AskUserQuestion` **once** with Questions 1-3 below (combine them in a
 
 **Question 2 — Target Camunda 8 version**
 
-Ask which Camunda 8 version the user is migrating to:
+Ask which specific Camunda 8 version the user is migrating to:
 
-- **8.9 or later** *(recommended)* — includes Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
+- **8.10** *(recommended, latest)* — latest GA release; includes all features from 8.8 and 8.9.
+- **8.9** — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
 - **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
 
-The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`). Record the concrete `major.minor` (e.g. `8.9`, `8.10`); if the user says "8.9 or later" without a specific minor, confirm the exact minor to target (default to the latest, `8.10`). Use the answer throughout.
+The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
 
 **Question 3 — Migration scope**
 
 Ask what the user wants to migrate (tailor the wording to what you detected — code files, model files, or both):
 
+- **Code + models** *(recommended when both are present — default to this)* — Runs both Part A and Part B and composes them.
 - **Code only** — Java/Spring code. Runs Part A.
 - **Models only** — BPMN/DMN diagrams. Runs Part B.
-- **Code + models** *(recommended when both are present)* — Runs both Part A and Part B and composes them.
 - **Assessment only** — Scan and report scope/complexity/effort for code and models. No changes.
 
-**Follow-up questions (second `AskUserQuestion` call, after Question 3 is answered)**
-
-Ask only the follow-ups that apply to the chosen scope. Combine them into a single call where possible.
-
-*If scope includes code* — **Code migration approach**:
+**Question 4 — Code migration approach** *(include only if code files are present)*:
 
 - **A. OpenRewrite + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code), then AI resolves remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes.
 
-*If scope includes models* — **Model migration approach**:
+**Question 5 — Model migration approach** *(include only if model files are present)*:
 
 - **M1. Diagram Converter CLI (deterministic)** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** This is the diagram equivalent of "OpenRewrite for code".
 - **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
-- **M3. Online Diagram Converter (hosted)** — You upload your diagrams to **https://diagram-converter.camunda.io/** and download the converted results yourself. No local Java needed, but **files leave your machine** — do not use for confidential models. Use this to opt out of the local CLI entirely.
+- **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
 - Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
 
-*If scope includes code and approach is A (OpenRewrite + AI)* — **Build tool** (only if detection was ambiguous — both Maven and Gradle found, or neither): "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" If exactly one build tool was detected, do not ask; state the detection in the approach question text instead (e.g. "Detected Maven."). Do not proceed until you have the answer.
+**Question 6 — Build tool** *(include only if scope includes code, approach is A, and detection was ambiguous — both Maven and Gradle found, or neither)*: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" If exactly one build tool was detected, do not ask; state the detection in the approach question text instead (e.g. "Detected Maven."). Do not proceed until you have the answer.
+
+When the user accepts the defaults (recommended options) without changing anything, proceed directly. Be opinionated — the recommended options are what most projects need.
 
 ---
 
@@ -407,13 +406,13 @@ Then, for each in-scope diagram, produce a **new** `converted-c8-<name>.bpmn`/`.
 
 Emit a findings summary mirroring the CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. This path is slower and non-deterministic — recommend M1 whenever Java 21 is available.
 
-### Approach M3 — Online Diagram Converter (hosted, opt out)
+### Approach M3 — Online Diagram Converter (hosted)
 
 If the user prefers not to run the local CLI, point them to the hosted converter:
 
-> Upload your BPMN/DMN files at **https://diagram-converter.camunda.io/**, set the target version there, and download the converted results. Note: your diagrams leave your machine and are processed by the hosted service — don't use this for confidential models.
+> Upload your BPMN/DMN files at **https://diagram-converter.camunda.io/**, set the target version there, and download the converted results.
 
-This ticket does not automate the hosted service. Once the user brings the converted files back into the project, you can offer the same agentic findings follow-up as in M1 step 5.
+This path does not automate the hosted service. Once the user brings the converted files back into the project, you can offer the same agentic findings follow-up as in M1 step 5.
 
 ### Analyze-only mode
 
@@ -466,7 +465,28 @@ Validation Summary
 ⚠️  Model findings needing follow-up: 6 (2 REVIEW, 3 TASK, 1 WARNING) → [see analysis report]
 ```
 
-Record the summary in `MIGRATION_REPORT.md`. For any remaining issues, ask the user: fix now, skip, or flag for manual review.
+Record the summary in `MIGRATION_REPORT.md`.
+
+---
+
+## Step 5: AI follow-up (offer after validation)
+
+After presenting the validation summary, if there are remaining TODOs, REVIEW/WARNING/TASK findings, compilation issues, or unresolved items, **proactively offer** to resolve them:
+
+> I found [N] remaining items that need follow-up. Would you like me to take care of them? I can:
+> - Fix remaining `// TODO` comments based on the pattern catalog
+> - Resolve REVIEW/TASK/WARNING findings in the converted models
+> - Suggest fixes for compilation errors or test failures
+> - Fill in blank job types or FEEL expressions where the mapping is clear
+>
+> I'll propose each change for your review before applying it.
+
+Use `AskUserQuestion` with:
+- **Yes, fix what you can** *(recommended)* — AI resolves unambiguous items, proposes each for review.
+- **Show me the list first** — Present the full list of remaining items grouped by type, then ask which to fix.
+- **No, I'll handle the rest manually** — Stop here; record remaining items in `MIGRATION_REPORT.md`.
+
+When the user opts in, work through items one at a time: apply unambiguous fixes directly (using the pattern catalog / converter docs as reference), propose ambiguous ones via `AskUserQuestion`, and skip anything the user declines. Ask whether to commit after each batch of resolved items.
 
 ---
 
