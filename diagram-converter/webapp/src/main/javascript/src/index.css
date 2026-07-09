@@ -43,9 +43,7 @@ section {
     font-size: inherit;
   }
 
-  button.cds--btn {
-    max-inline-size: initial;
-  }
+
 }
 
 .container {
@@ -167,12 +165,6 @@ h1 {
   margin-top: 8px;
 }
 
-.convertAction .cds--btn {
-  border-radius: 10px;
-  font-weight: 600;
-  box-shadow: 0 4px 14px rgba(15, 98, 254, 0.28);
-  padding-inline-end: 16px;
-}
 
 .ctaVersion {
   display: inline-block;
@@ -298,20 +290,6 @@ hr {
   border-top: 1px solid #e8eaf0;
 }
 
-/* Modern, rounded buttons with a subtle hover lift */
-.cds--btn {
-  border-radius: 8px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
-}
-
-.cds--btn:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.12);
-}
-
-.cds--tooltip-content {
-  padding: 2px 16px;
-}
 
 .download-options {
   display: grid;
@@ -476,10 +454,6 @@ th, td {
   color: #0f62fe;
 }
 
-/* Spacing only appears when the panel is expanded (fieldset present) */
-.configBox .cds--fieldset {
-  margin-top: 16px;
-}
 .form-spacer {
   margin-top: 2rem;
 }

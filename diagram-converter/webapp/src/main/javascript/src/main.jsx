@@ -10,7 +10,6 @@ import { createRoot } from "react-dom/client";
 import { C4Provider } from "@camunda/design-system";
 import "@camunda/design-system/styles.css";
 import "./c4-ui.css";
-import "@carbon/react/index.scss";
 import "./index.css";
 import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css';

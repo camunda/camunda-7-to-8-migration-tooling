@@ -7,12 +7,6 @@
  */
 import { useState, useEffect, useRef } from "react";
 
-// FLAG: no DS equivalent — manual migration required
-import {
-  ProgressIndicator,
-  ProgressStep,
-} from "@carbon/react";
-
 import {
   Button,
   Table,
@@ -27,7 +21,7 @@ import {
   TextInput,
 } from "@camunda/design-system/carbon-compat";
 
-import { Alert } from "@camunda/design-system";
+import { Alert, Stepper, StepperStep } from "@camunda/design-system";
 
 // Carbon icons → lucide-react equivalents:
 //   Launch → ExternalLink, Close → X (rest keep their names)
@@ -385,9 +379,7 @@ function App() {
           elementName: element.elementName || '(unnamed)',
           severity: message.severity,
           message: message.message,
-          link: message.link
-            ? `<a href="${message.link}" target="_blank" rel="noopener noreferrer">Link</a>`
-            : '-',
+          link: message.link || null,
         }))
       ) || []);
 
@@ -447,18 +439,10 @@ function App() {
       </div>
       <div className="whiteBox centered">
         <div className="progressindicators">
-          <ProgressIndicator spaceEqually>
-            <ProgressStep
-              current={step < 2}
-              complete={step > 1}
-              label="Configure"
-            />
-            <ProgressStep
-              current={step === 2}
-              complete={step > 2}
-              label="Results"
-            />
-          </ProgressIndicator>
+          <Stepper currentStep={step === 0 ? 0 : 1}>
+            <StepperStep>Configure</StepperStep>
+            <StepperStep>Results</StepperStep>
+          </Stepper>
         </div>
 
 
@@ -800,12 +784,10 @@ function App() {
                 const value = row[header.key];
                 return (
                   <TableCell key={`${row.id}-${header.key}`}>
-                    {header.key === 'link' && value?.startsWith('<a')
-                      ? (
-                          <span
-                            dangerouslySetInnerHTML={{ __html: value }}
-                          />
-                        )
+                    {header.key === 'link'
+                      ? value
+                        ? <a href={value} target="_blank" rel="noopener noreferrer">Link</a>
+                        : '-'
                       : value}
                   </TableCell>
                 );
