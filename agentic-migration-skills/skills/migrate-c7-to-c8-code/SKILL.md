@@ -14,6 +14,25 @@ You are a migration expert helping the user migrate a Camunda 7 project to Camun
 
 Treat these as separate operations that compose. Ask what the user wants (Step 1, Question 3) and run only the relevant path(s).
 
+## Shared rules
+
+These apply throughout — referenced below instead of repeated.
+
+- **Distinguish code from models.** OpenRewrite/AI handles code; the Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow. Ask for scope (Q3) rather than assuming.
+- **Commits are opt-in.** Verify a clean tree (`git status`) first; if dirty, ask the user to commit or stash. Never auto-commit. After each phase, ask whether to commit and proceed only on explicit approval.
+- **Never mutate user assets silently.** Models convert to `converted-c8-*` copies; originals stay intact. Converted files and CSV/XLSX/MD reports are generated outputs for the user to review.
+- **Load the reference before editing.** Never guess API/XML mappings. For gaps, prefer `docs.camunda.io` via WebFetch over training knowledge.
+  - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
+  - Agentic models → diagram-converter docs (see M2).
+- **Respect the target version** (Q2). Don't offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+. Pass the same version to the CLI via `--platform-version`.
+- **Prefer deterministic over agentic.** Code: OpenRewrite + AI over AI-only. Models: CLI (M1) over agentic rewrite (M2). Use agentic only when the deterministic path can't run.
+- **Conversion is not completion.** Converter finding severities: WARNING, TASK, REVIEW, INFO. TASK/REVIEW/WARNING need human follow-up and JUEL conversion is partial — always say so, then offer the Step 5 follow-up.
+- **Diagram Converter: fail fast on Java, download don't ask.** Require Java 21+; stop with a clear message (offer M2/M3) if missing. Download the CLI from the latest GitHub release into `.camunda-migration/`, reuse an existing download, never commit the JAR.
+- **Don't redo what the tools changed.** In Approach A, check for existing transforms before rewriting. After a converter run, don't re-apply conversions it already did.
+- **Ask before High-complexity files and edge cases.** Auto-apply only unambiguous 1:1 mappings. For anything else — JUEL invoking beans, BPMN error mapping, async/correlation, IdentityService/FormService, custom batches, multi-instance listeners, ambiguous TODOs or findings, compile errors without a direct catalog match — propose via `AskUserQuestion` first. When unsure, ask.
+- **Keep changes minimal.** No refactors, renames, or improvements beyond the migration.
+- **Keep `MIGRATION_REPORT.md` current** — both inventories, decisions, phase status, validation results.
+
 ## Step 1: Gather inputs
 
 Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question to what is actually present.
@@ -123,17 +142,66 @@ Use `AskUserQuestion` to wait for user confirmation before proceeding.
 
 ## Step 3: Execute migration
 
-**Git checkpoint rule (applies to all approaches):** before changing anything, verify the working tree is clean (`git status`). If not, ask the user to commit or stash first. Do not create commits automatically. After OpenRewrite, after the Diagram Converter run, and after each completed phase, ask whether the user wants a commit; only commit if they explicitly approve, using a clear message (e.g. `migration: resolve delegate TODOs`). This keeps every step reviewable and reversible while preserving user control.
-
-Run **Part A** if the scope includes code, **Part B** if it includes models. For **Code + models**, see "Composing code + model migration" at the end of this step.
+Commit policy and reference loading: see Shared rules. Run **Part A** if the scope includes code, **Part B** if it includes models. For **Code + models**, see "Composing code + model migration" at the end of this step.
 
 ---
 
 ## Part A — Code migration (Java/Spring)
 
+Both approaches apply the same **Transform checklist** below. Approach A runs OpenRewrite first for the deterministic bulk, then uses the checklist for the rest; Approach B works the whole checklist manually.
+
+### Transform checklist
+
+Confirm each item before the next (commit policy: Shared rules). Tags mark what OpenRewrite already handles.
+
+**1. Dependencies & configuration**
+- Resolve the latest Camunda version via WebFetch: `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-spring-boot-starter&rows=1&wt=json` → `response.docs[0].latestVersion`. For 8.8 targets use the latest `8.8.x`; for 8.9+ use it as-is.
+- Pick the starter by Spring Boot version: 3.x → `io.camunda:camunda-spring-boot-3-starter`; 4.x → `io.camunda:camunda-spring-boot-starter`.
+- Add the Camunda public repo if artifacts aren't on Maven Central:
+  - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
+  - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
+- Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
+- Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
+- Ensure Spring Boot dependency management is set (parent or BOM); don't add `spring-boot-starter` just for jakarta.annotation.
+- Replace `@EnableProcessApplication` with `@Deployment`.
+- Replace `camunda.*` keys with `camunda.client.*` in `application.properties`/`.yaml` ([properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/)).
+- Reference: "Maven dependency and configuration".
+
+**2. Client code** (`ProcessEngine` → `CamundaClient`)
+- Replace `ProcessEngine`/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with `CamundaClient`.
+- Map: start instances (incl. `businessId`/tags), message correlation, signal broadcast, cancel, user tasks, variables, `HistoryService` → search requests, `DecisionService` → `newEvaluateDecisionCommand`, batch `...Async` → batch operations (8.8+).
+- Reference: "Client code → ProcessEngine" (incl. Business Key, Batch Operations, Evaluate Decisions, Query History).
+
+**3. JavaDelegate → Job Worker** *(OpenRewrite covers this)*
+- Remove `implements JavaDelegate`; convert `execute(DelegateExecution)` to a `@JobWorker` method.
+- Variable access → method params / `@Variable`. `BpmnError` → `CamundaError.bpmnError(...)`. Remove `TypedValue` usage.
+- Reference: "Glue code → JavaDelegate → Job Worker".
+
+**4. External task workers** *(OpenRewrite covers this)*
+- `@ExternalTaskSubscription` → `@JobWorker`; update variable access and failure/incident handling.
+- Reference: "Glue code → External Task Worker".
+
+**5. Listeners** *(not covered by OpenRewrite)*
+- `ExecutionListener` → execution listener job workers (`zeebe:executionListener` + `@JobWorker`).
+- `TaskListener` → user task listener job workers (job result with corrections/deny).
+- Globally registered listeners (engine plugins, parse listeners) on user tasks → global user task listeners (8.9+).
+- Flag multi-instance body listeners that prepare collections — requires a model change.
+- Reference: "Glue code → Listeners".
+
+**6. Test code** *(not fully covered by OpenRewrite)*
+- `@Rule` Camunda test rules → `@CamundaSpringProcessTest`.
+- Update assertions (`isWaitingAt("id")` → `hasActiveElements("id")`), message correlation, timers, and user task completion — use `processTestContext` (`completeUserTask`, `completeJob`, `mockJobWorker`, `increaseTime`).
+- Disable real workers where mocked: `camunda.client.worker.defaults.enabled=false` with per-worker overrides.
+- On 8.9+, use CPT shared-runtime mode for large suites.
+- Reference: "Test assertions".
+
+**7. JUEL expressions** *(not covered by OpenRewrite)*
+- Pure data expressions → FEEL (the converter automates this model-side, Part B). Conditional events are native since 8.9. Only bean-invoking expressions need a JUEL job worker or a refactor into job workers.
+- Reference: "Expression → Job Worker".
+
 ### Approach A — OpenRewrite + AI (recommended)
 
-**1. Run OpenRewrite**
+**1. Run OpenRewrite** — deterministic bulk transforms for delegates, external workers, and client code.
 
 Before adding the plugin, resolve the latest released versions via WebFetch:
 
@@ -201,104 +269,20 @@ rewrite {
 ```
 Run: `./gradlew rewriteRun`
 
-Before AI cleanup, ask whether to commit the OpenRewrite result. Commit only if the user explicitly approves.
+Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
 
-**2. AI cleanup — after OpenRewrite has run**
+**2. AI cleanup — after OpenRewrite**
 
-Start by prompting the user, if they want run AI cleanup after deterministic code migration. Only progress, if the answer is YES.
+Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern catalog (Shared rules), then work the Transform checklist for what OpenRewrite left:
 
-First, fetch the pattern catalog via WebFetch from `main` — this is your reference for resolving TODOs, config, tests, listeners, and JUEL. Do not rely on training knowledge for API mappings:
-`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`
-If context budget is tight, fetch only the individual pattern files you need from `code-conversion/patterns/` (same repo, same raw URL scheme) instead of the full catalog.
-
-Work through each of the following. Confirm each before moving on. Do not auto-commit; ask whether to commit after each item and commit only with explicit user approval.
-
-- Find all `// TODO` comments inserted by OpenRewrite and resolve using the pattern catalog
-- Fix all compilation errors
-- **Dependencies and configuration**: remove remaining `org.camunda.bpm.*` dependencies, add `camunda-process-test-spring` for tests, update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents (see the [properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/))
-- **Listeners**: OpenRewrite does not cover `ExecutionListener` / `TaskListener` implementations — convert per the "Listeners" patterns (execution listener job workers; user task listeners with corrections/deny; global user task listeners for cluster-wide cases on 8.9)
-- **Client code not covered by recipes**: `HistoryService` → search requests; `DecisionService` → `newEvaluateDecisionCommand`; batch `...Async` methods → batch operation endpoints (8.8+); `businessKey` → `businessId` (8.9) or tags (8.8)
-- **Test code**: replace `@Rule` Camunda test rules with `@CamundaSpringProcessTest`, update assertions (e.g. `isWaitingAt("id")` → `hasActiveElements("id")`), message correlation, timer handling (`processTestContext.increaseTime(...)`), user task completion (`processTestContext.completeUserTask(...)`), worker mocking (`processTestContext.mockJobWorker(...)`) — OpenRewrite doesn't fully cover tests. For large suites on 8.9+, recommend CPT *shared runtime* mode to cut execution time.
-- **JUEL expressions**: triage per the "Expression → Job Worker" pattern — pure data expressions convert to FEEL (the Diagram Converter automates this on the model side, see Part B), conditional events are supported natively since 8.9, only bean-invoking expressions need a JUEL job worker or a refactor into regular job workers
+- Resolve all `// TODO` comments it inserted, and fix compile errors.
+- Apply items **1** (deps/config), **5** (listeners), **6** (tests), **7** (JUEL), and any **2** (client code) the recipes didn't cover.
 
 ---
 
 ### Approach B — AI only
 
-First, fetch the pattern catalog via WebFetch from `main` — this is your primary reference for all C7→C8 transformations. Do not rely on training knowledge for API mappings:
-`https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`
-If context budget is tight, fetch only the individual pattern files you need from `code-conversion/patterns/` instead of the full catalog.
-
-Work through each phase sequentially. Confirm completion of each phase before moving to the next. Do not auto-commit; ask whether to commit after each phase and commit only with explicit user approval.
-
-**Phase 1: Dependencies and configuration**
-
-Before modifying the build file, resolve the latest released Camunda version via WebFetch:
-- `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-spring-boot-starter&rows=1&wt=json` → read `response.docs[0].latestVersion` as `CAMUNDA_VERSION`
-
-If the user's target is 8.8, use the latest 8.8.x patch (`8.8.x`); if 8.9+, `CAMUNDA_VERSION` is fine as-is.
-
-Detect the Spring Boot version from the existing `pom.xml` or `build.gradle`:
-- Spring Boot 3.x → use `io.camunda:camunda-spring-boot-3-starter` (supported for 8.9+; use for 8.8 too)
-- Spring Boot 4.x → use `io.camunda:camunda-spring-boot-starter`
-
-Add the Camunda public repository if not already present (some Camunda artifacts may not be on Maven Central):
-
-- **Maven (`pom.xml`)**:
-    <repository>
-      <id>camunda-public</id>
-      <name>Camunda Public Repository</name>
-      <url>https://artifacts.camunda.com/artifactory/public/</url>
-    </repository>
-
-- **Gradle (`build.gradle` / `build.gradle.kts`)**:
-    repositories {
-      maven { url "https://artifacts.camunda.com/artifactory/public/" }
-    }
-
-Then:
-- Remove all `org.camunda.bpm.*` dependencies and `camunda-bom` from `pom.xml` / `build.gradle`
-- Remove embedded-engine dependencies (H2, JDBC starter) — no longer needed without the embedded engine
-- Add the resolved starter at the resolved version; add `io.camunda:camunda-process-test-spring` at the same version in test scope if tests exist
-- Ensure Spring Boot dependency management is correctly configured (e.g., `spring-boot-starter-parent` or the Spring Boot BOM); avoid adding `org.springframework.boot:spring-boot-starter` solely to “get jakarta.annotation”.
-- Replace `@EnableProcessApplication` with `@Deployment`
-- Update `application.properties` / `application.yaml` — replace `camunda.*` keys with `camunda.client.*` equivalents (see the [properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/))
-- Reference: "Maven dependency and configuration" section in patterns
-
-**Phase 2: Client code**
-- Replace `ProcessEngine` autowiring with `CamundaClient`
-- Update all service method calls (RuntimeService, TaskService, HistoryService, DecisionService, etc.)
-- Key changes: starting instances (incl. `businessId`/tags), correlating messages, broadcasting signals, cancelling instances, user task handling, variable handling, history queries → search requests, DMN evaluation, batch operations
-- Reference: "Client code → ProcessEngine" patterns (incl. "Business Key", "Batch Operations", "Evaluate Decisions", "Query History")
-
-**Phase 3: JavaDelegate → Job Worker**
-- Remove `implements JavaDelegate`
-- Convert `execute(DelegateExecution execution)` to `@JobWorker`-annotated method
-- Update variable access: `execution.getVariable()` → method parameters or `@Variable` annotations
-- Map BPMN errors: `BpmnError` → `CamundaError.bpmnError(...)`
-- Remove all `TypedValue` API usage
-- Reference: "Glue code → JavaDelegate → Job Worker" patterns
-
-**Phase 4: External task workers**
-- Replace `@ExternalTaskSubscription` with `@JobWorker`
-- Update variable access and failure/incident handling
-- Reference: "Glue code → External Task Worker" patterns
-
-**Phase 5: Listeners**
-- Convert `ExecutionListener` implementations to execution listener job workers (`zeebe:executionListener` + `@JobWorker`)
-- Convert `TaskListener` implementations to user task listener job workers (job result with corrections / deny)
-- For listeners registered globally (engine plugins, parse listeners) on user tasks: use global user task listeners (8.9+, configuration-based)
-- Flag multi-instance body listeners that prepare collections — requires model change
-- Reference: "Glue code → Listeners" patterns
-
-**Phase 6: Test code**
-- Replace `@Rule` Camunda test rules with `@CamundaSpringProcessTest`
-- Update process instance startup patterns
-- Replace assertion methods: e.g. `isWaitingAt("id")` → `hasActiveElements("id")`
-- Update message correlation, timer handling, user task completion in tests (use `processTestContext` utilities: `completeUserTask`, `completeJob`, `mockJobWorker`, `increaseTime`)
-- Disable real workers where mocks are used: `camunda.client.worker.defaults.enabled=false` with per-worker overrides
-- On 8.9+, recommend CPT shared runtime mode for large suites
-- Reference: "Test assertions" patterns
+Load the pattern catalog (Shared rules), then work the full Transform checklist (items 1–7) in order, confirming each before the next.
 
 ---
 
@@ -318,9 +302,7 @@ Write the full report to `MIGRATION_REPORT.md`. Then stop — make no code chang
 
 ## Part B — Model migration (BPMN/DMN)
 
-Model migration converts BPMN/DMN diagrams from the Camunda 7 (`camunda:`) namespace to the Camunda 8 (`zeebe:`) namespace: job types for delegates, listener mappings, simple JUEL→FEEL, event definitions, version-gated features. This is the model-side analogue of OpenRewrite: prefer the **deterministic** Diagram Converter (M1) over agentic rewriting (M2).
-
-**Conversion is not full migration.** The converter emits findings at severities **WARNING**, **TASK**, **REVIEW**, and **INFO**. TASK/REVIEW/WARNING items still need human follow-up, and JUEL conversion is only partial. Always tell the user this after a run.
+Converts BPMN/DMN from the `camunda:` namespace to `zeebe:`: job types for delegates, listener mappings, simple JUEL→FEEL, event definitions, version-gated features. Prefer the deterministic CLI (M1). See Shared rules for severities and "conversion is not completion".
 
 ### Approach M1 — Diagram Converter CLI +AI (deterministic, recommended)
 
@@ -390,9 +372,9 @@ After the run, report back:
 - **Analysis findings** — summarize from the CLI stdout and/or the CSV/XLSX report, grouped by severity (WARNING / TASK / REVIEW / INFO) with counts and the top items.
 - **Analysis artifacts** — if you generated `--csv` / `--xlsx`, point the user to them for review.
 
-**5. Explain that conversion ≠ done, then offer to help with findings**
+**5. Follow up on findings**
 
-Tell the user plainly that REVIEW/WARNING/TASK findings remain and JUEL conversion is partial — these need follow-up. Then **offer to take care of them agentically**: for findings with an unambiguous fix, propose editing the converted BPMN/DMN (e.g. filling a job type, adjusting a FEEL expression), apply with `Edit`, and then **ask the human to review** the result. For ambiguous findings, consult via `AskUserQuestion` before changing anything (see the behavior rule on edge cases). Never overwrite the user's original diagrams — work on the `converted-c8-*` copies.
+REVIEW/WARNING/TASK findings remain and JUEL conversion is partial — resolve them in Step 5, working on the `converted-c8-*` copies (never the originals).
 
 ### Approach M2 — Agentic AI (direct XML rewrite)
 
@@ -490,21 +472,3 @@ Use `AskUserQuestion` with:
 - **No, I'll handle the rest manually** — Stop here; record remaining items in `MIGRATION_REPORT.md`.
 
 When the user opts in, work through items one at a time: apply unambiguous fixes directly (using the pattern catalog / converter docs as reference), propose ambiguous ones via `AskUserQuestion`, and skip anything the user declines. Ask whether to commit after each batch of resolved items.
-
----
-
-## Behavior rules
-
-- **Distinguish code from models.** Run OpenRewrite/AI on code and the Diagram Converter on models — never hand-edit BPMN/DMN as part of the code flow. Ask for scope (Step 1 Q3) rather than assuming.
-- **Always load the reference before touching anything.** For code, load the pattern catalog; for agentic model work, load the diagram-converter docs. Never guess API or XML mappings. For details not covered, prefer official Camunda docs (`docs.camunda.io`) via `WebFetch` over training knowledge.
-- **Respect the target version.** Do not recommend 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, and do not send 8.9 targets down 8.8 workarounds. Pass the same version to the Diagram Converter via `--platform-version`.
-- **Prefer deterministic over agentic.** For code, prefer OpenRewrite + AI over AI-only. For models, prefer the Diagram Converter CLI (M1) over agentic rewriting (M2). Use the agentic/manual path only when the deterministic one can't run.
-- **Diagram Converter: fail fast on Java, download don't ask.** Require Java 21+ and stop with a clear message (offer M2/M3) if it's missing. Resolve and download the CLI automatically from the latest GitHub release into `.camunda-migration/`; reuse an existing download; never commit the JAR.
-- **Never mutate user assets silently.** The converter writes `converted-c8-*` copies — keep originals intact. Treat converted files and CSV/XLSX/markdown as generated outputs returned to the user for inspection.
-- **Conversion is not completion.** Always explain that REVIEW/WARNING/TASK findings and partial JUEL conversion remain, then offer to fix the unambiguous ones agentically and ask the human to review.
-- **One phase at a time; commits are opt-in.** Confirm each phase before starting the next. Never start on a dirty working tree. Ask before each commit and proceed only when the user explicitly allows it.
-- **Keep `MIGRATION_REPORT.md` current.** Both inventories, decisions, phase status, validation results.
-- **Don't rewrite what the tools already changed.** In Approach A, check for existing transforms before rewriting. After a Diagram Converter run, don't re-do conversions it already applied.
-- **Ask before High complexity files.** Describe the options and confirm before proceeding.
-- **Keep changes minimal.** Don't refactor, rename, or improve beyond what the migration requires.
-- **Consult on edge cases, don't auto-fix.** Auto-apply changes only when the reference gives an unambiguous 1:1 mapping. For anything else — JUEL expressions invoking beans, BPMN error mapping, async/correlation, IdentityService/FormService usage, custom batches, multi-instance listener patterns, ambiguous TODOs from OpenRewrite, ambiguous model findings, or compile errors whose fix isn't a direct catalog match — propose the change via `AskUserQuestion` before applying. When unsure whether a case is unambiguous, ask.
