@@ -12,7 +12,7 @@ You are a migration expert helping the user migrate a Camunda 7 project to Camun
 - **Code** — Java/Spring glue and client code, config, tests. Migrated with **OpenRewrite recipes** (deterministic) plus AI cleanup.
 - **Models** — BPMN/DMN diagrams using the `camunda:` namespace. Migrated with the **Diagram Converter** (deterministic) or agentically.
 
-Treat these as separate operations that compose. Do not conflate "migrate my code" with "migrate my diagrams" — ask what the user wants (Step 1, Question 3) and run only the relevant path(s).
+Treat these as separate operations that compose. Ask what the user wants (Step 1, Question 3) and run only the relevant path(s).
 
 ## Step 1: Gather inputs
 
@@ -22,39 +22,39 @@ Then call `AskUserQuestion` **once** with all questions below (combine them in a
 
 **Question 1 — Project location**
 
-"What is the path to the project root?"
+"What is the path to the project root?" (let user propose other option)
 
 - If an argument was passed to the command, propose that path (e.g. "I'll use `/path/to/project` — is that correct?").
 - Otherwise propose the current working directory.
 
 **Question 2 — Target Camunda 8 version**
 
-Ask which specific Camunda 8 version the user is migrating to:
+Ask which specific Camunda 8 version the user is migrating to (user can't select anything else):
 
-- **8.10** *(recommended, latest)* — latest GA release; includes all features from 8.8 and 8.9.
-- **8.9** — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
+- **8.10** *(next version, not yet GA)* —; includes all features from 8.8 and 8.9 too.
+- **8.9** *(latest stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
 - **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
 
 The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
 
 **Question 3 — Migration scope**
 
-Ask what the user wants to migrate (tailor the wording to what you detected — code files, model files, or both):
+Ask what the user wants to migrate (tailor the wording to what you detected — code files, model files, or both, user can't select anything else):
 
 - **Code + models** *(recommended when both are present — default to this)* — Runs both Part A and Part B and composes them.
 - **Code only** — Java/Spring code. Runs Part A.
 - **Models only** — BPMN/DMN diagrams. Runs Part B.
 - **Assessment only** — Scan and report scope/complexity/effort for code and models. No changes.
 
-**Question 4 — Code migration approach** *(include only if code files are present)*:
+**Question 4 — Code migration approach** *(include only if code files are present and user selected code migration, user can't select anything else)*:
 
-- **A. OpenRewrite + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code), then AI resolves remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
+- **A. OpenRewrite (deterministic) + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code). When prompted you can ask AI to resolve remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes.
 
-**Question 5 — Model migration approach** *(include only if model files are present)*:
+**Question 5 — Model migration approach** *(include only if model files are present and user asked for migrating models, user can't select anything else)*:
 
-- **M1. Diagram Converter CLI (deterministic)** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** This is the diagram equivalent of "OpenRewrite for code".
+- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.**. When prompted you can ask AI to address remaining TODO items and suggest changes.
 - **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
 - **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
 - Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
@@ -137,6 +137,7 @@ Run **Part A** if the scope includes code, **Part B** if it includes models. For
 
 Before adding the plugin, resolve the latest released versions via WebFetch:
 
+
 - `rewrite-maven-plugin` (OpenRewrite): `https://search.maven.org/solrsearch/select?q=g:org.openrewrite.maven+AND+a:rewrite-maven-plugin&rows=1&wt=json` → read `response.docs[0].latestVersion`
 - `camunda-7-to-8-code-conversion-recipes`: `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-7-to-8-code-conversion-recipes&rows=1&wt=json` → read `response.docs[0].latestVersion`
 
@@ -203,6 +204,8 @@ Run: `./gradlew rewriteRun`
 Before AI cleanup, ask whether to commit the OpenRewrite result. Commit only if the user explicitly approves.
 
 **2. AI cleanup — after OpenRewrite has run**
+
+Start by prompting the user, if they want run AI cleanup after deterministic code migration. Only progress, if the answer is YES.
 
 First, fetch the pattern catalog via WebFetch from `main` — this is your reference for resolving TODOs, config, tests, listeners, and JUEL. Do not rely on training knowledge for API mappings:
 `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`
@@ -319,7 +322,7 @@ Model migration converts BPMN/DMN diagrams from the Camunda 7 (`camunda:`) names
 
 **Conversion is not full migration.** The converter emits findings at severities **WARNING**, **TASK**, **REVIEW**, and **INFO**. TASK/REVIEW/WARNING items still need human follow-up, and JUEL conversion is only partial. Always tell the user this after a run.
 
-### Approach M1 — Diagram Converter CLI (deterministic, recommended)
+### Approach M1 — Diagram Converter CLI +AI (deterministic, recommended)
 
 **1. Java 21+ prerequisite — fail fast**
 
