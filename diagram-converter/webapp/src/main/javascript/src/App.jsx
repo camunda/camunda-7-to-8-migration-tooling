@@ -595,7 +595,7 @@ function App() {
             <div className="convertAction">
               <Button
                 kind="primary"
-                size="lg"
+                size="xl"
                 onClick={analyzeAndConvert}
                 disabled={files.length === 0}
               >
@@ -664,7 +664,7 @@ function App() {
               )}
               <Button
                 kind="primary"
-                size="lg"
+                size="xl"
                 renderIcon={Download}
                 onClick={downloadZIP}
                 disabled={validFiles.length === 0}
@@ -728,7 +728,7 @@ function App() {
               </p>
               <Button
                 kind="tertiary"
-                size="lg"
+                size="xl"
                 renderIcon={ExternalLink}
                 href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
                 target="_blank"
