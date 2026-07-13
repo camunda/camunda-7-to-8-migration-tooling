@@ -253,6 +253,7 @@
         <executions>
           <execution>
             <id>enforce-java-21</id>
+            <phase>validate</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
@@ -261,10 +262,10 @@
                 <requireJavaVersion>
                   <version>[21,22)</version>
                   <message>
-OpenRewrite's Java parser relies on javac internals that are only compatible with Java 21 (see AGENTS.md: "Java 21" is the supported/required JDK).
-Newer JDKs (e.g. Java 26) cause OpenRewrite recipe tests to fail deep inside parser internals with confusing errors.
+This module requires Java 21 (see AGENTS.md: "Java 21" is the supported/required JDK) — detected a different major version.
+OpenRewrite's Java parser relies on javac internals that only match the Java 21 build; other JDKs (older or newer, e.g. Java 26) cause OpenRewrite recipe tests to fail deep inside parser internals with confusing errors.
 Point JAVA_HOME at a Java 21 JDK before building this module, e.g.:
-  export JAVA_HOME=/opt/homebrew/opt/openjdk@21
+  export JAVA_HOME=/path/to/jdk-21
   export PATH="$JAVA_HOME/bin:$PATH"
                   </message>
                 </requireJavaVersion>
