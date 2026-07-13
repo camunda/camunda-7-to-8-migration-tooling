@@ -252,7 +252,7 @@
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
           <execution>
-            <id>enforce-java-21</id>
+            <id>enforce-supported-java-version</id>
             <phase>validate</phase>
             <goals>
               <goal>enforce</goal>
