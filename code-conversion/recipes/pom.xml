@@ -262,7 +262,7 @@
                 <requireJavaVersion>
                   <version>[21,26)</version>
                   <message>
-This module requires a Java 21-25 JDK (see AGENTS.md: "Java 21" is the minimum supported/required JDK) — detected a different major version.
+This module requires a Java 21-25 JDK — detected a different major version.
 OpenRewrite's Java parser relies on javac internals; Java 26 introduced a breaking javac internals change that OpenRewrite has not yet restored support for (an interim rewrite-java-next module was added and then reverted upstream), causing recipe tests to fail deep inside parser internals with confusing errors. Java versions below 21 are unsupported per this project's baseline.
 Point JAVA_HOME at a Java 21-25 JDK before building this module, e.g.:
   export JAVA_HOME=/path/to/jdk-21
