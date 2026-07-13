@@ -249,6 +249,32 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-java-21</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[21,22)</version>
+                  <message>
+OpenRewrite's Java parser relies on javac internals that are only compatible with Java 21 (see AGENTS.md: "Java 21" is the supported/required JDK).
+Newer JDKs (e.g. Java 26) cause OpenRewrite recipe tests to fail deep inside parser internals with confusing errors.
+Point JAVA_HOME at a Java 21 JDK before building this module, e.g.:
+  export JAVA_HOME=/opt/homebrew/opt/openjdk@21
+  export PATH="$JAVA_HOME/bin:$PATH"
+                  </message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${plugin.version.surefire}</version>
       </plugin>
