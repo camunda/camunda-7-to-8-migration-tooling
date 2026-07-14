@@ -45,6 +45,7 @@
     <version.errorprone>2.50.0</version.errorprone>
     <version.node>v20.18.1</version.node>
     <version.npm>10.8.2</version.npm>
+    <version.httpcore5>5.4.3</version.httpcore5>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
     <plugin.version.frontend-maven>2.0.1</plugin.version.frontend-maven>
@@ -107,6 +108,11 @@
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${version.httpcore5}</version>
       </dependency>
       <!-- CVE-2026-55955: pin tomcat-embed to 11.0.23 -->
       <dependency>
