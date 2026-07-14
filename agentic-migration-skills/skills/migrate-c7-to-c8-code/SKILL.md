@@ -203,11 +203,11 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 
 **1. Run OpenRewrite** — deterministic bulk transforms for delegates, external workers, and client code.
 
-Before adding the plugin, resolve the latest released versions via WebFetch:
+RECIPES_VERSION by Camunda target, use the latest from these minor versions: 8.8 → `0.2.x`; 8.9 and 8.10 → `0.3.x`.
 
-
+REWRITE_VERSION: Before adding the plugin, resolve the latest released version via WebFetch:
 - `rewrite-maven-plugin` (OpenRewrite): `https://search.maven.org/solrsearch/select?q=g:org.openrewrite.maven+AND+a:rewrite-maven-plugin&rows=1&wt=json` → read `response.docs[0].latestVersion`
-- `camunda-7-to-8-code-conversion-recipes`: `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-7-to-8-code-conversion-recipes&rows=1&wt=json` → read `response.docs[0].latestVersion`
+
 
 Use those resolved versions in the snippets below (replacing `REWRITE_VERSION` and `RECIPES_VERSION`).
 
