@@ -760,11 +760,11 @@ function App() {
 
       <div id="bpmnDiagram" className="diagram-container"></div>
       {previewTableRows.length === 0 && (
-        <p style={{ color: '#525252', marginTop: '1rem' }}>No findings for this model.</p>
+        <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this model.</p>
       )}
       {previewTableRows.length > 0 && <>
       <h3>Findings</h3>
-      <p style={{ color: '#525252', marginBottom: '0.75rem' }}>
+      <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
         Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
       </p>
       <Table className="analysis-table">

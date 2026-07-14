@@ -10,9 +10,10 @@
  * Token legend (all resolved inside .c4-ui except --color-* which are :root):
  *   Surfaces    --neutral-background-subtle (white), --color-zinc-100 (light gray bg)
  *   Text        --foreground, --neutral-foreground-subtle
- *   Blue        --info-action-default/hover/active, --info-background-subtle/strong,
- *               --info-border-subtle/strong, --info-foreground-subtle/strong
- *   Warning     --warning-background-subtle, --warning-foreground-strong
+ *   Primary     --primary-action-default/hover/active, --primary-background-subtle/strong,
+ *               --primary-border-subtle/strong, --primary-foreground-subtle/strong
+ *   Info        --info-action-default (BPMN "info"/"review" highlight only)
+ *   Warning     --warning-background-subtle, --warning-foreground-strong, --warning-action-default
  *   Borders     --border
  */
 
@@ -31,8 +32,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  /* --color-blue-50 and --color-zinc-100 are defined on :root by the DS */
-  background: linear-gradient(180deg, var(--color-blue-50) 0%, var(--color-zinc-100) 280px, var(--color-zinc-100) 100%);
+  background-color: var(--color-zinc-100);
   color: var(--color-zinc-900);
 }
 
@@ -72,16 +72,15 @@ h1 {
   padding: 28px 32px;
   background-color: var(--neutral-background-subtle);
   margin-bottom: 24px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+  box-shadow: var(--shadow-sm);
 
   h2 {
     font-size: 24px;
     line-height: 32px;
     font-weight: 600;
     margin-bottom: 10px;
-    letter-spacing: -0.01em;
   }
 
   p {
@@ -104,32 +103,12 @@ h1 {
 
 .heroMeta a {
   font-size: 14px;
-  color: var(--info-foreground-subtle);
+  color: var(--primary-action-default);
   text-decoration: none;
 }
 
 .heroMeta a:hover {
   text-decoration: underline;
-}
-
-/* Hero card: Camunda-blue gradient strip at the top */
-.whiteBox.hero {
-  position: relative;
-  overflow: hidden;
-  padding-top: 32px;
-}
-
-.whiteBox.hero::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--info-action-active) 0%,
-    var(--info-action-default) 60%,
-    var(--info-border-strong) 100%
-  );
 }
 
 .whiteBox.hero > p:last-of-type {
@@ -158,7 +137,7 @@ h1 {
 
   button {
     border: none;
-    color: var(--info-foreground-subtle);
+    color: var(--primary-action-default);
     background: transparent;
     cursor: pointer;
   }
@@ -176,9 +155,8 @@ h1 {
 }
 
 .convertAction button {
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font-weight: 600;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--info-action-default) 28%, transparent);
 }
 
 .ctaVersion {
@@ -187,9 +165,9 @@ h1 {
 }
 
 .DropZone {
-  background-color: var(--info-background-subtle);
-  border: 2px dashed var(--info-border-subtle);
-  border-radius: 12px;
+  background-color: var(--primary-background-subtle);
+  border: 2px dashed var(--primary-border-subtle);
+  border-radius: var(--radius-lg);
   height: 160px;
   margin-bottom: 12px;
 
@@ -204,8 +182,8 @@ h1 {
   transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
 
   &:hover {
-    border-color: var(--info-action-default);
-    background-color: var(--info-background-strong);
+    border-color: var(--primary-action-default);
+    background-color: var(--primary-background-strong);
     transform: translateY(-1px);
   }
 
@@ -256,7 +234,7 @@ h1 {
       font-size: 14px;
 
       &.downloadable {
-        color: var(--info-foreground-subtle);
+        color: var(--primary-action-default);
         cursor: pointer;
 
         &:hover {
@@ -270,17 +248,16 @@ h1 {
     margin-right: 10px;
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
     button {
       border: none;
       background-color: transparent;
       cursor: pointer;
       display: flex;
-      margin-right: -6px;
     }
 
     button.download {
-      color: var(--info-foreground-subtle);
+      color: var(--primary-action-default);
     }
   }
 }
@@ -294,7 +271,6 @@ h3 {
   font-size: 19px;
   line-height: 26px;
   text-decoration: none;
-  letter-spacing: -0.01em;
 }
 
 hr {
@@ -326,14 +302,14 @@ hr {
   height: 400px;
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   margin-bottom: 20px;
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -347,16 +323,15 @@ hr {
   width: 100%;
   max-height: 95vh;
   overflow-y: auto;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 40px rgba(16, 24, 40, 0.18);
+  box-shadow: var(--shadow-lg);
 
   h2 {
     font-size: 24px;
     line-height: 32px;
     font-weight: 600;
     margin-bottom: 10px;
-    letter-spacing: -0.01em;
   }
 
   .modal-header {
@@ -412,7 +387,7 @@ th, td {
   font-weight: 600;
   color: var(--warning-foreground-strong);
   background: var(--warning-background-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   padding: 1px 7px;
   white-space: nowrap;
 }
@@ -422,7 +397,7 @@ th, td {
   padding: 1.25rem 1.5rem;
   background-color: var(--color-zinc-50);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .configToggle {
@@ -455,7 +430,7 @@ th, td {
 
 .configToggle:hover,
 .configToggle:hover svg {
-  color: var(--info-action-default);
+  color: var(--primary-action-default);
 }
 
 /* Guided "flow of steps" on the upload screen */
@@ -472,7 +447,7 @@ th, td {
   top: 36px;
   bottom: -4px;
   width: 2px;
-  background: var(--info-border-subtle);
+  background: var(--border);
 }
 
 .flowStep:last-child {
@@ -507,12 +482,11 @@ th, td {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--info-action-default) 0%, var(--info-border-strong) 100%);
-  color: var(--info-action-foreground);
+  background: var(--primary-action-default);
+  color: var(--primary-action-foreground);
   font-weight: 600;
   font-size: 16px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--info-action-default) 35%, transparent);
 }
 
 .flowStep p {
@@ -537,13 +511,13 @@ th, td {
   display: inline-flex;
   margin-top: 12px;
   border: 1.5px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--neutral-background-subtle);
 }
 
 .versionSegmented:focus-within {
-  outline: 2px solid var(--info-action-default);
+  outline: 2px solid var(--primary-action-default);
   outline-offset: 2px;
 }
 
@@ -568,16 +542,16 @@ th, td {
 }
 
 .versionSegment:hover:not(.versionSegment--selected) {
-  background: var(--info-background-subtle);
+  background: var(--primary-background-subtle);
 }
 
 .versionSegment--selected {
-  background: var(--info-action-default);
-  color: var(--info-action-foreground);
+  background: var(--primary-action-default);
+  color: var(--primary-action-foreground);
 }
 
 .versionSegment:focus-visible {
-  outline: 2px solid var(--info-action-default);
+  outline: 2px solid var(--primary-action-default);
   outline-offset: 2px;
 }
 
