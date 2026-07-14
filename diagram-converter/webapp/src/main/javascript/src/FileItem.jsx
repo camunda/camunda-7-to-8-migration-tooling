@@ -48,7 +48,7 @@ export default function FileItem({
 
         {error && (
           <Tooltip label={error}>
-            <div style={{ color: "#da1e28" }}>
+            <div style={{ color: "var(--danger-action-default)" }}>
               <AlertTriangle />
             </div>
           </Tooltip>
