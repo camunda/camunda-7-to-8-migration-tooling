@@ -37,14 +37,21 @@ These apply throughout — referenced below instead of repeated.
 
 Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question to what is actually present.
 
-Then call `AskUserQuestion` **once** with all questions below (combine them in a single call — do not ask one at a time):
+Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because up to 6 questions may apply, batch them:
+
+- **Call 1** — the always-applicable questions: Q1, Q2, Q3 (3 questions).
+- **Call 2** — the conditional approach questions that apply given the Q3 answer and your detection: any of Q4, Q5, Q6 (≤3 questions).
+
+Only include a conditional question when its stated condition holds, and never put more than 4 in one call. If a single call would exceed 4, split it further.
 
 **Question 1 — Project location**
 
-"What is the path to the project root?" (let user propose other option)
+Confirm the project root you detected. Provide two options so the question is valid:
 
-- If an argument was passed to the command, propose that path (e.g. "I'll use `/path/to/project` — is that correct?").
-- Otherwise propose the current working directory.
+- **Use `<detected path>`** *(recommended)* — the argument path if one was passed, otherwise the current working directory.
+- **Enter a different path** — let the user type the path in the free-form field.
+
+(If you prefer a pure free-text prompt instead, omit `options` entirely — do not send a single-option question.)
 
 **Question 2 — Target Camunda 8 version**
 
@@ -54,7 +61,7 @@ Ask which specific Camunda 8 version the user is migrating to (user can't select
 - **8.9** *(latest stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
 - **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
 
-The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
+The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.8`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
 
 **Question 3 — Migration scope**
 
