@@ -1,0 +1,32 @@
+/* Camunda Design System — consumer setup file.
+ *
+ * DS tokens + utilities are loaded via JS import in your entry file
+ * (`import "@camunda/design-system/styles.css"`). PostCSS does NOT
+ * honor `exports`, so do NOT `@import` it from here.
+ *
+ * This app renders exclusively DS-native components (the
+ * `@camunda/design-system/carbon-compat` re-exports we use — Button,
+ * Table, Form, Checkbox, TextInput — all resolve to the DS shadcn
+ * primitives, not Carbon). It renders zero real `.cds--*` markup, so
+ * the Carbon-coexistence resets that camunda-hub needs are unnecessary
+ * here — and harmful: reverting `font`/`padding` on every `<button>`
+ * inside `.c4-ui` stripped the Camunda font off DS buttons (they fell
+ * back to Arial) and off the custom version-selector segments. Removed.
+ */
+
+/* Consumer overrides.
+ *
+ * The DS "primary" action token is near-black; this app follows a
+ * Camunda-blue-forward look (matching the pre-DS design), where the
+ * blue "info" action is the brand accent used by the hero strip, step
+ * numbers, dropzone and version selector. Remap the primary action to
+ * the blue info action inside our scope so DS primary buttons and the
+ * Stepper render blue, consistent with the rest of the page.
+ */
+.c4-ui {
+  --primary-action-default: var(--info-action-default);
+  --primary-action-hover: var(--info-action-hover);
+  --primary-action-active: var(--info-action-active);
+  --primary-action-disabled: var(--info-action-disabled);
+  --primary-action-foreground: var(--info-action-foreground);
+}

@@ -5,15 +5,15 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { Loading, Tooltip } from "@carbon/react";
+import { Loading, Tooltip } from "@camunda/design-system/carbon-compat";
 
 import {
   Download,
-  TrashCan,
-  View,
-  WarningFilled,
-  CheckmarkFilled,
-} from "@carbon/react/icons";
+  Trash,
+  Eye,
+  AlertTriangle,
+  Check,
+} from "lucide-react";
 
 export default function FileItem({
   name,
@@ -31,7 +31,7 @@ export default function FileItem({
       <div className="left">
         {status === "success" && (
           <div className="fileItemCheck">
-            <CheckmarkFilled />
+            <Check />
           </div>
         )}
         <span
@@ -49,14 +49,14 @@ export default function FileItem({
         {error && (
           <Tooltip label={error}>
             <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
+              <AlertTriangle />
             </div>
           </Tooltip>
         )}
         {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
         {isChecked && previewAction && (
           <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
-            <View />
+            <Eye />
           </button>
         )}
         {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
@@ -67,7 +67,7 @@ export default function FileItem({
         )}
         {onDelete && (
           <button onClick={onDelete}>
-            <TrashCan />
+            <Trash />
           </button>
         )}
       </div>
