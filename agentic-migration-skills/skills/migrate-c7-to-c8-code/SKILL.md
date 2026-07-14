@@ -61,7 +61,7 @@ Ask which specific Camunda 8 version the user is migrating to (user can't select
 - **8.9** *(latest stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
 - **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
 
-The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.8`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
+The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`; this skill only offers `8.8`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
 
 **Question 3 — Migration scope**
 
