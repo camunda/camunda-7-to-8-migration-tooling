@@ -5,7 +5,12 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { Loading, Tooltip } from "@camunda/design-system/carbon-compat";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@camunda/design-system";
 
 import {
   Download,
@@ -13,7 +18,18 @@ import {
   Eye,
   AlertTriangle,
   Check,
+  Loader2,
 } from "lucide-react";
+
+function Spinner() {
+  return (
+    <Loader2
+      aria-label="Loading"
+      role="status"
+      className="size-4 animate-spin text-primary-action-default"
+    />
+  );
+}
 
 export default function FileItem({
   name,
@@ -47,19 +63,29 @@ export default function FileItem({
         )}
 
         {error && (
-          <Tooltip label={error}>
-            <div style={{ color: "var(--danger-action-default)" }}>
-              <AlertTriangle />
-            </div>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  tabIndex={0}
+                  role="img"
+                  aria-label={error}
+                  style={{ color: "var(--danger-action-default)" }}
+                >
+                  <AlertTriangle />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>{error}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
-        {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
+        {status === "uploading" && !isChecked && <Spinner />}
         {isChecked && previewAction && (
           <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
             <Eye />
           </button>
         )}
-        {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
+        {status === "uploading" && !isConverted && <Spinner />}
         {isConverted && downloadAction && !error && (
           <button className="download" onClick={downloadAction} title="Download the converted model">
             <Download />

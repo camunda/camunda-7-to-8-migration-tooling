@@ -10,18 +10,17 @@ import { useState, useEffect, useRef } from "react";
 import {
   Button,
   Table,
-  TableHead,
-  TableRow,
   TableHeader,
+  TableRow,
+  TableHead,
   TableBody,
   TableCell,
-  Form,
-  FormGroup,
   Checkbox,
-  TextInput,
-} from "@camunda/design-system/carbon-compat";
-
-import { Alert, Stepper, StepperStep } from "@camunda/design-system";
+  Input,
+  Alert,
+  Stepper,
+  StepperStep,
+} from "@camunda/design-system";
 
 // Carbon icons → lucide-react equivalents:
 //   Launch → ExternalLink, Close → X (rest keep their names)
@@ -439,7 +438,7 @@ function App() {
       </div>
       <div className="whiteBox centered">
         <div className="progressindicators">
-          <Stepper currentStep={step === 0 ? 0 : 1}>
+          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Migration analysis and conversion steps">
             <StepperStep>Configure</StepperStep>
             <StepperStep>Results</StepperStep>
           </Stepper>
@@ -509,7 +508,7 @@ function App() {
                 ))}
               </div>
 
-              <Form className="configBox" style={{ marginTop: "1.5rem" }}>
+              <form className="configBox" style={{ marginTop: "1.5rem" }}>
                 <button
                   type="button"
                   className="configToggle"
@@ -523,79 +522,93 @@ function App() {
                   {showConfig ? <ChevronUp /> : <ChevronDown />}
                 </button>
               {showConfig && (
-                  <FormGroup legendText="Advanced configuration options">
-                    <Checkbox
-                      id="addDataMigrationExecutionListener"
-                      labelText="Add Data Migration Execution Listener"
-                      checked={configOptions.addDataMigrationExecutionListener}
-                      helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
-                      onChange={(e, { checked }) =>
-                        setConfigOptions((prev) => ({
-                          ...prev,
-                          addDataMigrationExecutionListener: checked,
-                        }))
-                      }
-                    />
-                    <TextInput
-                      id="dataMigrationExecutionListenerJobType"
-                      labelText="Execution Listener Job Type"
-                      value={configOptions.dataMigrationExecutionListenerJobType}
-                      disabled={!configOptions.addDataMigrationExecutionListener}
-                      onChange={(e) =>
-                        setConfigOptions((prev) => ({
-                          ...prev,
-                          dataMigrationExecutionListenerJobType: e.target.value,
-                        }))
-                      }
-                    />
+                  <fieldset className="flex flex-col gap-2 rounded-md border bg-background p-4">
+                    <legend className="px-1 text-sm font-medium text-foreground">
+                      Advanced configuration options
+                    </legend>
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        id="addDataMigrationExecutionListener"
+                        checked={configOptions.addDataMigrationExecutionListener}
+                        onCheckedChange={(checked) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            addDataMigrationExecutionListener: checked === true,
+                          }))
+                        }
+                      />
+                      <span>Add Data Migration Execution Listener</span>
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="dataMigrationExecutionListenerJobType" className="text-sm font-medium">
+                        Execution Listener Job Type
+                      </label>
+                      <Input
+                        id="dataMigrationExecutionListenerJobType"
+                        value={configOptions.dataMigrationExecutionListenerJobType}
+                        disabled={!configOptions.addDataMigrationExecutionListener}
+                        onChange={(e) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            dataMigrationExecutionListenerJobType: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
                     <div className="form-spacer" />
-                    <Checkbox
-                      id="keepJobTypeBlank"
-                      labelText="Keep job type blank"
-                      checked={configOptions.keepJobTypeBlank}
-                      helperText="Don't set the job type in process models at all."
-                      onChange={(e, { checked }) =>
-                        setConfigOptions((prev) => ({
-                          ...prev,
-                          keepJobTypeBlank: checked,
-                        }))
-                      }
-                    />
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        id="keepJobTypeBlank"
+                        checked={configOptions.keepJobTypeBlank}
+                        onCheckedChange={(checked) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            keepJobTypeBlank: checked === true,
+                          }))
+                        }
+                      />
+                      <span>Keep job type blank</span>
+                    </label>
                     <div className="form-spacer" />
-                    <Checkbox
-                      id="alwaysUseDefaultJobType"
-                      labelText="Enable default job type"
-                      checked={configOptions.alwaysUseDefaultJobType}
-                      helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
-                      disabled={configOptions.keepJobTypeBlank}
-                      onChange={(e, { checked }) =>
-                        setConfigOptions((prev) => ({
-                          ...prev,
-                          alwaysUseDefaultJobType: checked,
-                        }))
-                      }
-                    />
-                    <TextInput
-                      id="defaultJobType"
-                      labelText="Default Job Type"
-                      value={configOptions.defaultJobType}
-                      disabled={configOptions.keepJobTypeBlank}
-                      onChange={(e) =>
-                        setConfigOptions((prev) => ({
-                          ...prev,
-                          defaultJobType: e.target.value,
-                        }))
-                      }
-                    />
-                  </FormGroup>
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        id="alwaysUseDefaultJobType"
+                        checked={configOptions.alwaysUseDefaultJobType}
+                        disabled={configOptions.keepJobTypeBlank}
+                        onCheckedChange={(checked) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            alwaysUseDefaultJobType: checked === true,
+                          }))
+                        }
+                      />
+                      <span>Enable default job type</span>
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="defaultJobType" className="text-sm font-medium">
+                        Default Job Type
+                      </label>
+                      <Input
+                        id="defaultJobType"
+                        value={configOptions.defaultJobType}
+                        disabled={configOptions.keepJobTypeBlank}
+                        onChange={(e) =>
+                          setConfigOptions((prev) => ({
+                            ...prev,
+                            defaultJobType: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </fieldset>
               )}
-              </Form>
+              </form>
             </section>
 
             <div className="convertAction">
               <Button
-                kind="primary"
-                size="xl"
+                variant="default"
+                size="lg"
                 onClick={analyzeAndConvert}
                 disabled={files.length === 0}
               >
@@ -621,7 +634,7 @@ function App() {
                     description="Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview."
                     className="incompatibility-notification"
                   >
-                    <Button kind="tertiary" size="sm" onClick={downloadXLS}>
+                    <Button variant="secondary" size="sm" onClick={downloadXLS}>
                       Download XLSX
                     </Button>
                   </Alert>
@@ -663,12 +676,12 @@ function App() {
                 />
               )}
               <Button
-                kind="primary"
-                size="xl"
-                renderIcon={Download}
+                variant="default"
+                size="lg"
                 onClick={downloadZIP}
                 disabled={validFiles.length === 0}
               >
+                <Download />
                 Download converted models as ZIP
               </Button>
             </section>
@@ -680,13 +693,13 @@ function App() {
               <div className="download-options">
                 <div className="download-row">
                   <Button
-                    kind="primary"
-                    size="md"
-                    renderIcon={Download}
+                    variant="default"
+                    size="default"
                     onClick={downloadXLS}
                     className="withMarginBottom"
                     disabled={validFiles.length === 0}
                   >
+                    <Download />
                     Download XLSX
                   </Button>
                   <p>
@@ -696,12 +709,12 @@ function App() {
                 </div>
                 <div className="download-row">
                   <Button
-                    kind="tertiary"
-                    size="md"
-                    renderIcon={Download}
+                    variant="secondary"
+                    size="default"
                     onClick={downloadCSV}
                     disabled={validFiles.length === 0}
                   >
+                    <Download />
                     Download CSV
                   </Button>
                   <p>
@@ -727,12 +740,13 @@ function App() {
                 8 in the migration guide.
               </p>
               <Button
-                kind="tertiary"
-                size="xl"
-                renderIcon={ExternalLink}
+                variant="secondary"
+                size="lg"
                 href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
                 target="_blank"
+                rel="noopener noreferrer"
               >
+                <ExternalLink />
                 Migration Guide
               </Button>
             </section>
@@ -748,11 +762,11 @@ function App() {
         </div>
         <div>
           <Button
-            kind="ghost"
+            variant="ghost"
             size="sm"
-            renderIcon={X}
             onClick={() => setIsPreviewOpen(false)}
           >
+            <X />
             Close
           </Button>
         </div>
@@ -768,15 +782,15 @@ function App() {
         Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
       </p>
       <Table className="analysis-table">
-        <TableHead>
+        <TableHeader>
           <TableRow>
             {previewTableHeader.map((header) => (
-              <TableHeader key={header.key}>
+              <TableHead key={header.key}>
                 {header.header}
-              </TableHeader>
+              </TableHead>
             ))}
           </TableRow>
-        </TableHead>
+        </TableHeader>
         <TableBody>
           {previewTableRows.map((row) => (
             <TableRow key={row.id}>
