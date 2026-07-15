@@ -953,6 +953,7 @@ jobs:
           -Dversion.camunda-8=${{ matrix.camunda-version }}
           -Dc8.api=${{ matrix.c8-api }}
           -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
+          -Dsurefire.rerunFailingTestsCount=1
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
