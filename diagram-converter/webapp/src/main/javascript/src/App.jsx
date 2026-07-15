@@ -438,7 +438,7 @@ function App() {
       </div>
       <div className="whiteBox centered">
         <div className="progressindicators">
-          <Stepper currentStep={step === 0 ? 0 : 1}>
+          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Migration analysis and conversion steps">
             <StepperStep>Configure</StepperStep>
             <StepperStep>Results</StepperStep>
           </Stepper>
