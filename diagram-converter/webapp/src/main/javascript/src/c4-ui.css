@@ -4,11 +4,10 @@
  * (`import "@camunda/design-system/styles.css"`). PostCSS does NOT
  * honor `exports`, so do NOT `@import` it from here.
  *
- * This app renders exclusively DS-native components (the
- * `@camunda/design-system/carbon-compat` re-exports we use — Button,
- * Table, Form, Checkbox, TextInput — all resolve to the DS shadcn
- * primitives, not Carbon). It renders zero real `.cds--*` markup, so
- * the Carbon-coexistence resets that camunda-hub needs are unnecessary
+ * This app renders exclusively DS-native components (Button, Table,
+ * Checkbox, Input, Tooltip, etc. from `@camunda/design-system`). It
+ * renders zero real `.cds--*` markup, so the Carbon-coexistence resets
+ * that camunda-hub needs are unnecessary
  * here — and harmful: reverting `font`/`padding` on every `<button>`
  * inside `.c4-ui` stripped the Camunda font off DS buttons (they fell
  * back to Arial) and off the custom version-selector segments. Removed.
