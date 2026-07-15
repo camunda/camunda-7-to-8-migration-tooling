@@ -914,6 +914,8 @@ jobs:
       matrix:
         database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
         camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
+        # Keep every test fork below Surefire's 65-minute hang detector.
+        suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
         include:
           - camunda-version: ${{ needs.read-versions.outputs.camunda-8-version }}
             camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-docker-image-version }}
@@ -946,14 +948,13 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run integration tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
+      - name: Run ${{ matrix.suite }} tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
         working-directory: data-migrator
         run: >-
-          mvn verify -P${{ matrix.database }},integration
+          mvn verify -P${{ matrix.database }},integration,${{ matrix.suite }}
           -Dversion.camunda-8=${{ matrix.camunda-version }}
           -Dc8.api=${{ matrix.c8-api }}
           -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
-          -Dsurefire.rerunFailingTestsCount=1
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
