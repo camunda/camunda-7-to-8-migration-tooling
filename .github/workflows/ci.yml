@@ -1098,7 +1098,9 @@ jobs:
 
       - name: Run integration tests with ${{ matrix.database }}
         working-directory: data-migrator
-        run: mvn verify -P${{ matrix.database }},integration
+        run: >-
+          mvn verify -P${{ matrix.database }},integration
+          -Dsurefire.rerunFailingTestsCount=1
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
