@@ -744,6 +744,7 @@ function App() {
                 size="lg"
                 href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
                 target="_blank"
+                rel="noopener noreferrer"
               >
                 <ExternalLink />
                 Migration Guide

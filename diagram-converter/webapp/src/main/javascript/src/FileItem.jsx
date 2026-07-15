@@ -66,7 +66,12 @@ export default function FileItem({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div style={{ color: "var(--danger-action-default)" }}>
+                <div
+                  tabIndex={0}
+                  role="img"
+                  aria-label={error}
+                  style={{ color: "var(--danger-action-default)" }}
+                >
                   <AlertTriangle />
                 </div>
               </TooltipTrigger>
