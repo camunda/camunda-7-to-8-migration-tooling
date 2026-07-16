@@ -40,6 +40,15 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-59889: pin jackson-bom ahead of Spring Boot BOM, which
+           manages jackson-databind at 2.21.4 (below the 2.21.5 fix). -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-bom</artifactId>
