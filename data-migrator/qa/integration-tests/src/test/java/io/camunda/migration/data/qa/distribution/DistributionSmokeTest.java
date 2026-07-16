@@ -237,7 +237,7 @@ public class DistributionSmokeTest {
   }
 
   @Test
-  @Timeout(value = 90, unit = TimeUnit.SECONDS)
+  @Timeout(value = 240, unit = TimeUnit.SECONDS)
   void shouldAcceptValidFlags() throws Exception {
     // given
     String[][] validFlags = {
@@ -257,7 +257,9 @@ public class DistributionSmokeTest {
       // when
       Process currentProcess = processBuilder.start();
       try {
-        String output = readProcessOutputUntil(currentProcess, expected, 10, TimeUnit.SECONDS);
+        // Starting the distribution repeatedly in a single test is slower on Windows CI.
+        // Use a per-invocation budget that tolerates host variance while still failing deterministically.
+        String output = readProcessOutputUntil(currentProcess, expected, 20, TimeUnit.SECONDS);
 
         // then
         assertThat(output).contains(expected);
