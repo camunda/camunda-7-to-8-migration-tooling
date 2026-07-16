@@ -35,6 +35,7 @@
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
+    <version.jackson-bom>2.22.1</version.jackson-bom>
     <logback.version>1.5.37</logback.version>
     <tomcat.version>11.0.24</tomcat.version>
     <version.protobuf>4.35.1</version.protobuf>
