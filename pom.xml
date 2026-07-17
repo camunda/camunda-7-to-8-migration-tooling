@@ -132,6 +132,29 @@
         <artifactId>httpcore5</artifactId>
         <version>${version.httpcore5}</version>
       </dependency>
+      <!-- CVE-2026-54428: pin httpcore5-h2 to 5.4.3 (separate artifact from httpcore5, not covered by the entry above) -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>${version.httpcore5}</version>
+      </dependency>
+      <!-- CVE-2026-13006: pin logback to 1.5.37 (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <!-- CVE-2026-54515 / CVE-2026-59889: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson-bom}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
