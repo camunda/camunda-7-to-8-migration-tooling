@@ -26,6 +26,16 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-49844: pin log4j-bom ahead of Spring Boot BOM, which
+           manages log4j-api (via the log4j-to-slf4j bridge) below the
+           2.26.1 fix. -->
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-bom</artifactId>
+        <version>${version.log4j-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- netty-bom must be imported before spring-boot-dependencies to ensure
            the pinned Netty version takes precedence over the version pulled in
            transitively by gRPC (via spring-boot-dependencies). -->
