@@ -342,7 +342,7 @@ Point JAVA_HOME at a Java 21-25 JDK before building this module, e.g.:
       <plugin>
         <groupId>org.openrewrite.maven</groupId>
         <artifactId>rewrite-maven-plugin</artifactId>
-        <version>6.43.0</version>
+        <version>6.44.0</version>
         <configuration>
           <failOnDryRunResults>true</failOnDryRunResults>
         </configuration>
