@@ -351,7 +351,7 @@ Point JAVA_HOME at a Java 21-25 JDK before building this module, e.g.:
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
             <artifactId>rewrite-migrate-java</artifactId>
-            <version>3.39.0</version>
+            <version>3.40.0</version>
           </dependency>
           <dependency>
             <groupId>org.openrewrite.recipe</groupId>
