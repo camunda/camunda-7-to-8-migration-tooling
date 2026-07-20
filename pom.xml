@@ -37,7 +37,7 @@
     <version.jackson-bom>2.22.1</version.jackson-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
     <tomcat.version>11.0.24</tomcat.version>
-    <logback.version>1.5.37</logback.version>
+    <logback.version>1.5.38</logback.version>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.2</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
