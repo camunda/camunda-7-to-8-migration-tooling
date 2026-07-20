@@ -40,33 +40,65 @@ public class CsvWriterTest {
     List<DiagramCheckResult> results = mockResults();
     SERVICE.writeCsvFile(results, writer);
 
+    List<String[]> lines = readCsv(writer);
+    assertThat(lines).hasSize(2);
+    assertThat(lines.get(0))
+        .containsExactly(
+            "filename",
+            "elementName",
+            "elementId",
+            "elementType",
+            "severity",
+            "messageId",
+            "message",
+            "link");
+    assertThat(lines.get(1))
+        .containsExactly(
+            FILENAME,
+            ELEMENT_NAME,
+            ELEMENT_ID,
+            ELEMENT_TYPE,
+            SEVERITY.name(),
+            MESSAGE_ID,
+            MESSAGE,
+            LINK);
+  }
+
+  @Test
+  public void shouldPreventFormulaInjectionInEveryCsvValue() {
+    DiagramCheckResult result = mockDiagramResult();
+    result.setFilename("=filename");
+    ElementCheckResult element = result.getResults().getFirst();
+    element.setElementName(" +elementName");
+    element.setElementId("\t-elementId");
+    element.setElementType("\u0000@elementType");
+    ElementCheckMessage message = element.getMessages().getFirst();
+    message.setId("\rmessageId");
+    message.setMessage("\nmessage");
+    message.setLink("  =link");
+
+    StringWriter writer = new StringWriter();
+    SERVICE.writeCsvFile(List.of(result), writer);
+
+    assertThat(readCsv(writer).get(1))
+        .containsExactly(
+            "'=filename",
+            "' +elementName",
+            "'\t-elementId",
+            "'\u0000@elementType",
+            SEVERITY.name(),
+            "'\nmessageId",
+            "'\nmessage",
+            "'  =link");
+  }
+
+  private List<String[]> readCsv(StringWriter writer) {
     StringReader reader = new StringReader(writer.toString());
     try (CSVReader csvReader =
         new CSVReaderBuilder(reader)
             .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
             .build()) {
-      List<String[]> lines = csvReader.readAll();
-      assertThat(lines).hasSize(2);
-      assertThat(lines.get(0))
-          .containsExactly(
-              "filename",
-              "elementName",
-              "elementId",
-              "elementType",
-              "severity",
-              "messageId",
-              "message",
-              "link");
-      assertThat(lines.get(1))
-          .containsExactly(
-              FILENAME,
-              ELEMENT_NAME,
-              ELEMENT_ID,
-              ELEMENT_TYPE,
-              SEVERITY.name(),
-              MESSAGE_ID,
-              MESSAGE,
-              LINK);
+      return csvReader.readAll();
     } catch (IOException | CsvException e) {
       throw new RuntimeException(e);
     }
