@@ -7,19 +7,20 @@
  */
 package io.camunda.migration.data;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.camunda.client.CamundaClient;
 import io.camunda.client.CamundaClientConfiguration;
+import java.net.URI;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.net.URI;
-
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
 @SpringBootTest(properties = {
     "camunda.client.grpc-address=http://helloworld:33333",
-    "camunda.client.rest-address=http://helloworld:44444"
+    "camunda.client.rest-address=http://helloworld:44444",
+    "camunda.client.request-timeout-offset=PT10S"
 })
 public class CamundaClientConfigurationTest {
 
@@ -36,5 +37,7 @@ public class CamundaClientConfigurationTest {
     // then
     assertThat(configuration.getGrpcAddress()).isEqualTo(URI.create("http://helloworld:33333"));
     assertThat(configuration.getRestAddress()).isEqualTo(URI.create("http://helloworld:44444"));
+    assertThat(configuration.getDefaultRequestTimeoutOffset()).isEqualTo(Duration.ofSeconds(10));
   }
+
 }

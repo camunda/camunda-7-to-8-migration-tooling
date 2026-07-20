@@ -9,6 +9,8 @@ camunda:
     #grpc-address: https://your-camunda-host:26500
     ## The REST API endpoint for Camunda 8 Platform
     #rest-address: https://your-camunda-host:8080
+    ## Additional time for long-polling responses to arrive after the server request timeout
+    request-timeout-offset: PT10S
     ## The path to the CA certificate
     #ca-certificate-path:
     ## Authentication configuration for the client
