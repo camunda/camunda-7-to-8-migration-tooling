@@ -1,4 +1,6 @@
 camunda:
+  client:
+    request-timeout-offset: PT10S
   migrator:
     auto-ddl: true
     c7:
