@@ -58,6 +58,9 @@ public final class GeneratedGatewayStubExample {
             channel.shutdown();
             if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
                 channel.shutdownNow();
+                if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                    System.err.println("gRPC channel did not terminate");
+                }
             }
         }
     }
@@ -66,22 +69,24 @@ public final class GeneratedGatewayStubExample {
         if (address.getHost() == null) {
             throw new IllegalArgumentException("CAMUNDA_GRPC_ADDRESS must include a host");
         }
+        String scheme = address.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new IllegalArgumentException(
+                    "CAMUNDA_GRPC_ADDRESS must use the http or https scheme");
+        }
 
         int port = address.getPort();
         ManagedChannelBuilder<?> builder = ManagedChannelBuilder.forAddress(
                 address.getHost(),
-                port >= 0 ? port : defaultPort(address.getScheme()));
+                port >= 0 ? port : defaultPort(scheme));
 
-        return switch (address.getScheme()) {
-            case "https" -> builder.useTransportSecurity().build();
-            case "http" -> builder.usePlaintext().build();
-            default -> throw new IllegalArgumentException(
-                    "CAMUNDA_GRPC_ADDRESS must use the http or https scheme");
-        };
+        return "https".equalsIgnoreCase(scheme)
+                ? builder.useTransportSecurity().build()
+                : builder.usePlaintext().build();
     }
 
     private static int defaultPort(String scheme) {
-        return "https".equals(scheme) ? 443 : 80;
+        return "https".equalsIgnoreCase(scheme) ? 443 : 80;
     }
 
     private static String requiredEnvironmentVariable(String name) {

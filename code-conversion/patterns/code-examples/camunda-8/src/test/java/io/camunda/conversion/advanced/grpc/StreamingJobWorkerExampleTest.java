@@ -16,6 +16,7 @@ import java.util.Map;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 class StreamingJobWorkerExampleTest {
@@ -30,6 +31,7 @@ class StreamingJobWorkerExampleTest {
         StreamingJobWorkerExample.handleJob(client, job);
 
         verify(client).newCompleteCommand(job);
+        verifyNoMoreInteractions(client);
     }
 
     @Test
@@ -40,6 +42,7 @@ class StreamingJobWorkerExampleTest {
         StreamingJobWorkerExample.handleJob(client, job);
 
         verify(client).newFailCommand(job);
+        verifyNoMoreInteractions(client);
     }
 
     @Test
@@ -49,6 +52,7 @@ class StreamingJobWorkerExampleTest {
         StreamingJobWorkerExample.handleJob(client, job);
 
         verify(client).newThrowErrorCommand(job);
+        verifyNoMoreInteractions(client);
     }
 
     @Test
@@ -58,5 +62,28 @@ class StreamingJobWorkerExampleTest {
         StreamingJobWorkerExample.handleJob(client, job);
 
         verify(client).newFailCommand(job);
+        verifyNoMoreInteractions(client);
+    }
+
+    @Test
+    void shouldCompleteJobWhenOutcomeIsNull() {
+        Map<String, Object> variables = new java.util.HashMap<>();
+        variables.put("outcome", null);
+        when(job.getVariablesAsMap()).thenReturn(variables);
+
+        StreamingJobWorkerExample.handleJob(client, job);
+
+        verify(client).newCompleteCommand(job);
+        verifyNoMoreInteractions(client);
+    }
+
+    @Test
+    void shouldCompleteJobWhenOutcomeIsBlank() {
+        when(job.getVariablesAsMap()).thenReturn(Map.of("outcome", " "));
+
+        StreamingJobWorkerExample.handleJob(client, job);
+
+        verify(client).newCompleteCommand(job);
+        verifyNoMoreInteractions(client);
     }
 }

@@ -58,7 +58,10 @@ public final class StreamingJobWorkerExample {
     }
 
     static void handleJob(JobClient client, ActivatedJob job) {
-        String outcome = String.valueOf(job.getVariablesAsMap().getOrDefault("outcome", "complete"));
+        Object outcomeVariable = job.getVariablesAsMap().get("outcome");
+        String outcome = outcomeVariable == null || outcomeVariable.toString().isBlank()
+                ? "complete"
+                : outcomeVariable.toString();
 
         switch (outcome) {
             case "complete" -> client.newCompleteCommand(job)
