@@ -11,7 +11,7 @@ Prefer the high-level `CamundaClient` API. It is the supported application-facin
 
 ## Streaming job worker
 
-`StreamingJobWorkerExample` opens a streaming worker for jobs of type `process-payment`, waits until the process receives a shutdown signal, and closes both the worker and client. Set the job variable `outcome` to exercise each result:
+`StreamingJobWorkerExample` opens a streaming worker for jobs of type `process-payment`, waits until the JVM receives a shutdown signal, and closes both the worker and client. Set the job variable `outcome` to exercise each result:
 
 - `complete` (or omit it) completes the job
 - `failure` reports a technical failure with reduced retries and a retry backoff
