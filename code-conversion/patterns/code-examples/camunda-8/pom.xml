@@ -58,6 +58,12 @@
 		</dependency>
 
 		<dependency>
+			<groupId>io.camunda</groupId>
+			<artifactId>zeebe-gateway-protocol-impl</artifactId>
+			<version>${version.camunda-8}</version>
+		</dependency>
+
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
