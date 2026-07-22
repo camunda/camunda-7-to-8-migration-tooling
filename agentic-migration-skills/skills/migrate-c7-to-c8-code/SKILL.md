@@ -324,7 +324,7 @@ Do not silently skip model migration — surface the blocker and offer the alter
 
 **2. Resolve the latest release and download the CLI into the project**
 
-The CLI is published as a self-contained executable JAR named `camunda-7-to-8-diagram-converter-cli-<version>.jar` on the repo's GitHub releases. Determine the latest release tag for `camunda/camunda-7-to-8-migration-tooling`, ensure `.camunda-migration/` exists in the project root, and compute the target path `.camunda-migration/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
+The CLI is published as a self-contained executable JAR named `camunda-7-to-8-diagram-converter-cli-<tag>.jar` on the repo's GitHub releases, where the asset suffix matches the resolved release tag. Determine the latest release tag for `camunda/camunda-7-to-8-migration-tooling`, ensure `.camunda-migration/` exists in the project root, and compute the target path `.camunda-migration/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
 If that JAR already exists, reuse it. Otherwise, download the matching release asset from:
 
@@ -341,11 +341,11 @@ The CLI's `local` subcommand accepts a single file **or** a directory (recursive
 Invoke Java with the platform-appropriate command runner for the current environment using this argument shape:
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-minor> --csv --xlsx
+java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-minor>
 ```
 
-Optional flags to add:
-- `--csv` / `--xlsx` — write analysis reports (already shown)
+Recommended flags to add in the normal migration flow:
+- `--csv` / `--xlsx` — write analysis reports for review
 - `-o` / `--override` — overwrite pre-existing converted files
 - `--check` — analyze-only (no converted diagrams exported) — see "Analyze-only mode"
 - `-nr` / `--not-recursive` — disable recursive search when a directory is given
