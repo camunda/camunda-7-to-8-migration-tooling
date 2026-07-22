@@ -1,8 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const migrationTimeoutSeconds = Number(process.env.E2E_MIGRATION_TIMEOUT_SECONDS ?? '600');
-const webServerTimeoutMilliseconds = (migrationTimeoutSeconds + 60) * 1000;
-
 /**
  * E2E test configuration for Cockpit Plugin
  * See https://playwright.dev/docs/test-configuration
@@ -49,7 +46,7 @@ export default defineConfig({
     command: 'bash start-services.sh',
     url: 'http://localhost:8090/camunda',
     reuseExistingServer: !process.env.CI,
-    timeout: webServerTimeoutMilliseconds,
+    timeout: 360 * 1000, // 6 minutes for Camunda to start and migration to complete
     stdout: 'pipe',
     stderr: 'pipe',
   },
