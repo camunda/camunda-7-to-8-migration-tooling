@@ -53,6 +53,13 @@
            manages log4j-api (via the log4j-to-slf4j bridge) below the
            2.26.1 fix. -->
       <dependency>
+        <groupId>tools.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-3-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-bom</artifactId>
         <version>${version.log4j-bom}</version>
