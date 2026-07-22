@@ -13,16 +13,16 @@
   },
   "type": "module",
   "dependencies": {
-    "@babel/runtime": "~7.29.0",
+    "@babel/runtime": "~8.0.0",
     "@tanstack/react-table": "^8.21.3",
     "react": "~18.3.1",
     "react-dom": "~18.3.1"
   },
   "devDependencies": {
-    "@babel/core": "~7.29.0",
-    "@babel/plugin-transform-runtime": "~7.29.0",
-    "@babel/preset-env": "~7.29.0",
-    "@babel/preset-react": "~7.29.0",
+    "@babel/core": "~8.0.0",
+    "@babel/plugin-transform-runtime": "~8.0.0",
+    "@babel/preset-env": "~8.0.0",
+    "@babel/preset-react": "~8.0.0",
     "@rollup/plugin-babel": "~7.1.0",
     "@rollup/plugin-commonjs": "~29.0.0",
     "@rollup/plugin-node-resolve": "~16.0.0",
