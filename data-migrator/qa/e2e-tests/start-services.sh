@@ -7,11 +7,10 @@ echo "Starting Docker Compose services..."
 # Start docker compose in the background
 docker compose up -d
 
-timeout="${E2E_MIGRATION_TIMEOUT_SECONDS:-600}"
-
-echo "Waiting for migration to complete... (timeout: ${timeout}s)"
+echo "Waiting for migration to complete..."
 
 # Wait for the migration completion message
+timeout=300  # 5 minutes max wait
 elapsed=0
 
 while [ $elapsed -lt $timeout ]; do
@@ -36,9 +35,8 @@ while [ $elapsed -lt $timeout ]; do
 done
 
 if [ $elapsed -ge $timeout ]; then
-  echo "ERROR: Timeout waiting for migration to complete after ${timeout}s"
-  docker compose ps
-  docker compose logs --tail 200 data-migrator
+  echo "ERROR: Timeout waiting for migration to complete"
+  docker compose logs data-migrator
   exit 1
 fi
 
