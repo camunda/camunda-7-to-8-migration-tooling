@@ -258,8 +258,8 @@ For Maven — add to `pom.xml`:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Apply those flags using the mechanism that fits the current shell/tooling environment (for example `MAVEN_OPTS` or an equivalent per-command JVM option mechanism), then run `mvn rewrite:run`.
-   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to Java 11/17 first?"
+   - Apply those flags using a portable Maven JVM option mechanism. Prefer writing them to `.mvn/jvm.config` for the duration of the rewrite step, or use `JAVA_TOOL_OPTIONS` if that is easier in the current environment, then run `mvn rewrite:run`.
+   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
 4. If Spotless is not present, or Java < 17, run `mvn rewrite:run` directly.
 
 For Gradle — add to `build.gradle`:
