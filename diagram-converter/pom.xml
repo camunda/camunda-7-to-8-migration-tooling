@@ -69,7 +69,7 @@
       </dependency>
       <dependency>
         <groupId>io.camunda</groupId>
-        <artifactId>zeebe-bom</artifactId>
+        <artifactId>camunda-bom</artifactId>
         <version>${version.camunda-8}</version>
         <type>pom</type>
         <scope>import</scope>
