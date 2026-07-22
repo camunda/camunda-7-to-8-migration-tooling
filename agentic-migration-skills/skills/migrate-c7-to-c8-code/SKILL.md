@@ -19,7 +19,8 @@ Treat these as separate operations that compose. Ask what the user wants (Step 1
 These apply throughout — referenced below instead of repeated.
 
 - **Distinguish code from models.** OpenRewrite/AI handles code; the Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow. Ask for scope (Q3) rather than assuming.
-- **Commits are opt-in.** Verify a clean tree (`git status`) first; if dirty, ask the user to commit or stash. Never auto-commit. After each phase, ask whether to commit and proceed only on explicit approval.
+- **Commits are opt-in.** Check whether the project has uncommitted changes before starting; if dirty, ask the user to commit or stash. Never auto-commit. After each phase, ask whether to commit and proceed only on explicit approval.
+- **Prefer intent over shell dialect.** Use the available agent tools to inspect files, discover configuration, create directories, download artifacts, and run commands. When command execution is required, choose the platform-appropriate invocation for the current environment instead of assuming POSIX shell syntax or Unix-only helpers.
 - **Never mutate user assets silently.** Models convert to `converted-c8-*` copies; originals stay intact. Converted files and CSV/XLSX/MD reports are generated outputs for the user to review.
 - **Load the reference before editing.** Never guess API/XML mappings. For gaps, prefer `docs.camunda.io` via WebFetch over training knowledge.
   - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
@@ -246,22 +247,20 @@ For Maven — add to `pom.xml`:
 
 **Before running**, check for Spotless + Java version incompatibility and fix proactively:
 
-1. Detect Java major version: `java -version 2>&1 | head -1`
-2. Check if Spotless is configured: `grep -r "spotless" pom.xml build.gradle build.gradle.kts 2>/dev/null`
+1. Detect whether Java is installed and record its major version.
+2. Inspect the Maven/Gradle build files to determine whether Spotless is configured.
 3. If Spotless is present **and** Java major version ≥ 17:
-   - Run with the JVM flags Spotless needs on Java 17+:
-     ```
-     MAVEN_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED \
-       --add-opens=java.base/java.util=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-       --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED" \
-     mvn rewrite:run
-     ```
-   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to Java 11/17 first?"
-4. If Spotless is not present, or Java < 17: run `mvn rewrite:run` directly.
+   - Run the OpenRewrite Maven goal with the JVM flags Spotless needs on Java 17+:
+     - `--add-opens=java.base/java.lang=ALL-UNNAMED`
+     - `--add-opens=java.base/java.util=ALL-UNNAMED`
+     - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
+     - `--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED`
+     - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
+     - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
+     - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
+   - Apply those flags using a portable Maven JVM option mechanism. Prefer writing them to `.mvn/jvm.config` for the duration of the rewrite step, or use `JAVA_TOOL_OPTIONS` if that is easier in the current environment, then run `mvn rewrite:run`.
+   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
+4. If Spotless is not present, or Java < 17, run `mvn rewrite:run` directly.
 
 For Gradle — add to `build.gradle`:
 ```groovy
@@ -274,7 +273,7 @@ rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllExternalWorkerRecipes")
 }
 ```
-Run: `./gradlew rewriteRun`
+Run the OpenRewrite task with the platform-appropriate Gradle wrapper (`gradlew`, `gradlew.bat`, or the equivalent wrapper entrypoint for the current environment).
 
 Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
 
@@ -315,9 +314,7 @@ Converts BPMN/DMN from the `camunda:` namespace to `zeebe:`: job types for deleg
 
 **1. Java 21+ prerequisite — fail fast**
 
-```bash
-java -version   # read the major version
-```
+Detect whether Java is installed and record its major version.
 
 If `java` is missing or the major version is **< 21**, STOP the CLI path and explain clearly, e.g.:
 
@@ -327,24 +324,13 @@ Do not silently skip model migration — surface the blocker and offer the alter
 
 **2. Resolve the latest release and download the CLI into the project**
 
-The CLI is published as a self-contained executable JAR named `camunda-7-to-8-diagram-converter-cli-<version>.jar` on the repo's GitHub releases. Resolve the latest release tag, then download the matching asset into a project-local directory (reuse it if already present — don't re-download):
+The CLI is published as a self-contained executable JAR named `camunda-7-to-8-diagram-converter-cli-<tag>.jar` on the repo's GitHub releases, where the asset suffix matches the resolved release tag. Determine the latest release tag for `camunda/camunda-7-to-8-migration-tooling`, ensure `.camunda-migration/` exists in the project root, and compute the target path `.camunda-migration/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
 
-```bash
-REPO=camunda/camunda-7-to-8-migration-tooling
-DEST_DIR=.camunda-migration
-mkdir -p "$DEST_DIR"
+If that JAR already exists, reuse it. Otherwise, download the matching release asset from:
 
-# Preferred: GitHub CLI resolves the latest release tag
-TAG=$(gh release view --repo "$REPO" --json tagName -q .tagName)
-# Fallback without gh:
-#   TAG=$(curl -fsSL https://api.github.com/repos/$REPO/releases/latest | python3 -c 'import sys,json;print(json.load(sys.stdin)["tag_name"])')
+`https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`
 
-JAR="$DEST_DIR/camunda-7-to-8-diagram-converter-cli-${TAG}.jar"
-if [ ! -f "$JAR" ]; then
-  curl -fL -o "$JAR" \
-    "https://github.com/$REPO/releases/download/${TAG}/camunda-7-to-8-diagram-converter-cli-${TAG}.jar"
-fi
-```
+If GitHub CLI is available you may use it to resolve release metadata; otherwise use another available download mechanism. The important part is the outcome: latest tag resolved, target directory present, existing JAR reused when possible, and the matching asset downloaded when absent.
 
 The JAR is large (~30 MB). If the project is a git repo, add `.camunda-migration/` to `.gitignore` — do not commit the downloaded tool.
 
@@ -352,18 +338,17 @@ The JAR is large (~30 MB). If the project is a git repo, add `.camunda-migration
 
 The CLI's `local` subcommand accepts a single file **or** a directory (recursive by default). Always pass `--platform-version` set to the version from Step 1 Question 2 so version-gated conversions (e.g. conditional events on 8.9+) are applied correctly.
 
-```bash
-# TARGET_MINOR is the version from Step 1, e.g. 8.9 or 8.10
-java -Dfile.encoding=UTF-8 -jar "$JAR" local <FILE_OR_DIR> \
-  --platform-version <TARGET_MINOR> \
-  --csv \
-  --xlsx
-# Optional flags to add above:
-#   --csv / --xlsx             write analysis reports (already shown)
-#   -o / --override            overwrite pre-existing converted files
-#   --check                    analyze-only (no converted diagrams exported) — see "Analyze-only mode"
-#   -nr / --not-recursive      disable recursive search when a directory is given
+Invoke Java with the platform-appropriate command runner for the current environment using this argument shape:
+
 ```
+java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-minor>
+```
+
+Recommended flags to add in the normal migration flow:
+- `--csv` / `--xlsx` — write analysis reports for review
+- `-o` / `--override` — overwrite pre-existing converted files
+- `--check` — analyze-only (no converted diagrams exported) — see "Analyze-only mode"
+- `-nr` / `--not-recursive` — disable recursive search when a directory is given
 
 Useful options:
 - `--platform-version <v>` — target C8 version (`8.0`–`8.10`); defaults to latest if omitted. **Always set it.**
@@ -425,12 +410,12 @@ When the scope is **Code + models**:
 
 ### Code validation (if code was migrated)
 
-1. **Compile**: `mvn compile` or `./gradlew compileJava` — fix all errors
+1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task — fix all errors
 2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
 3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Run tests**: `mvn test` or `./gradlew test` — fix failures
+6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task — fix failures
 7. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
