@@ -160,8 +160,9 @@ The test suite includes:
 - Build the plugin with `mvn clean install -pl plugins/cockpit`
 
 ### Camunda takes too long to start
-- Migration can take up to 5 minutes on slower systems
-- Increase `webServer.timeout` in `playwright.config.ts` if needed
+- Migration can take several minutes on slower systems or busy CI runners
+- The E2E harness now uses `E2E_MIGRATION_TIMEOUT_SECONDS` (default `600`) for the migration wait budget
+- `playwright.config.ts` automatically gives the web server an extra 60 seconds beyond that budget
 
 ### docker-compose command not found
 - The tests use Docker Compose V2 (`docker compose` with a space)
