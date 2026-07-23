@@ -354,17 +354,44 @@ public class DiagramConverter {
                             elementCheckResult.getMessages().stream()
                                 .map(
                                     message ->
-                                        new String[] {
-                                          diagramCheckResult.getFilename(),
-                                          elementCheckResult.getElementName(),
-                                          elementCheckResult.getElementId(),
-                                          elementCheckResult.getElementType(),
-                                          message.getSeverity().name(),
-                                          message.getId(),
-                                          message.getMessage(),
-                                          message.getLink()
-                                        })))
+                                        sanitizeCsvCells(
+                                            new String[] {
+                                              diagramCheckResult.getFilename(),
+                                              elementCheckResult.getElementName(),
+                                              elementCheckResult.getElementId(),
+                                              elementCheckResult.getElementType(),
+                                              message.getSeverity().name(),
+                                              message.getId(),
+                                              message.getMessage(),
+                                              message.getLink()
+                                            }))))
         .collect(Collectors.toList());
+  }
+
+  private String[] sanitizeCsvCells(String[] cells) {
+    return Arrays.stream(cells).map(this::sanitizeCsvCell).toArray(String[]::new);
+  }
+
+  private String sanitizeCsvCell(String value) {
+    if (value == null || value.isEmpty()) {
+      return value;
+    }
+
+    char firstCharacter = value.charAt(0);
+    if (firstCharacter == '\t' || firstCharacter == '\r' || firstCharacter == '\n') {
+      return "'" + value;
+    }
+
+    int index = 0;
+    while (index < value.length()
+        && (Character.isWhitespace(value.charAt(index))
+            || Character.isISOControl(value.charAt(index)))) {
+      index++;
+    }
+    if (index < value.length() && "=+-@".indexOf(value.charAt(index)) >= 0) {
+      return "'" + value;
+    }
+    return value;
   }
 
   public List<DiagramConverterResultDTO> createLineItemDTOList(List<DiagramCheckResult> results) {
