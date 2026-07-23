@@ -12,7 +12,9 @@ import io.camunda.migration.data.qa.AbstractMigratorTest;
 import java.util.List;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -46,6 +48,16 @@ public class InvalidTestingFixtures {
 
     @AfterAll
     static void afterAll(ProcessEngineConfigurationImpl configuration) {
+      configuration.getHistoryLevel();
+    }
+
+    @BeforeEach
+    void beforeEach(ProcessEngineConfigurationImpl configuration) {
+      configuration.getHistoryLevel();
+    }
+
+    @AfterEach
+    void afterEach(ProcessEngineConfigurationImpl configuration) {
       configuration.getHistoryLevel();
     }
   }

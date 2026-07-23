@@ -81,9 +81,12 @@ void shouldSaveSkipReasonToDatabase() {
 
 ### TR-2: No Direct Access to Camunda BPM Engine Implementation
 
-**Rule:** Test classes must not access `org.camunda.bpm.engine.impl` package classes, except `ClockUtil`.
+**Rule:** Test classes must not access `org.camunda.bpm.engine.impl` package classes, except
+`ClockUtil`, scenario-specific `ProcessEngineConfigurationImpl` access, and `@WhiteBox` tests.
 
-**Rationale:** Using internal Camunda BPM engine classes couples tests to implementation details. Only `ClockUtil` is permitted for time manipulation in tests.
+**Rationale:** Using internal Camunda BPM engine classes couples tests to implementation details.
+The limited exceptions support time manipulation, explicit engine-configuration scenarios, and
+tests that intentionally declare white-box access.
 
 **Exceptions:**
 - `org.camunda.bpm.engine.impl.util.ClockUtil` - allowed for time manipulation
