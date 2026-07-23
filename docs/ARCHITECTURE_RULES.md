@@ -125,15 +125,15 @@ public class C7Client { ... }
 
 **Rationale:** Centralizing configuration classes provides clear separation of concerns.
 
-**Enforcement:** -
+**Enforcement:** `ArchitectureTest.shouldResideInConfigPackageForConfigurations()`
 
 ---
 
 ## Logging Rules
 
-### LR-1: Log Classes Must Only Contain Constants
+### LR-1: Log Classes Must Only Contain Immutable Fields
 
-**Rule:** Classes ending with "Logs" in `..impl.logging..` must only contain `public static final` fields.
+**Rule:** Classes ending with "Logs" in `..impl.logging..` must only contain `static final` fields.
 
 **Rationale:** Log classes serve as centralized message repositories and should only contain immutable string constants.
 
@@ -155,17 +155,18 @@ public class HistoryMigratorLogs {
 
 ---
 
-### LR-2: Log Constants Must Be Public Static Final
+### LR-2: String Log Constants Must Be Public Static Final
 
-**Rule:** Static fields in log classes must be `final`.
+**Rule:** String fields in log classes must be `public static final`.
 
 **Enforcement:** `ArchitectureTest.shouldBePublicStaticFinalForLogConstants()`
 
 ---
 
-### LR-3: No System.out or printStackTrace in Production Code
+### LR-3: No System.out or printStackTrace Outside CLI Output
 
-**Rule:** Production code (outside `..qa..` and `..test..` packages) must not use `System.out` or `Throwable.printStackTrace()`.
+**Rule:** Production code must not use `System.out` or `Throwable.printStackTrace()`. The
+`..app..` package is exempt because CLI usage text is intentionally written to standard output.
 
 **Rationale:** Production code should use proper logging frameworks (SLF4J) for consistent log management.
 
@@ -189,15 +190,18 @@ e.printStackTrace();
 
 Execute all architecture tests:
 ```bash
-mvn test -Dtest=ArchitectureTest -pl qa
+mvn install -DskipTests -pl data-migrator/distro -am && \
+  mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=ArchitectureTest
 ```
 
-Run with full build:
+Run with all integration tests:
 ```bash
-mvn verify
+mvn verify -Pintegration
 ```
 
-Architecture tests run automatically during the build and will fail if any rule is violated.
+Architecture tests run automatically in every integration-test shard. The targeted command fails
+when no tests are selected, so a successful result always reports a non-zero architecture-test
+count.
 
 ---
 
@@ -209,10 +213,10 @@ Architecture tests run automatically during the build and will fail if any rule 
 | VR-2 | Visibility | No private fields | `shouldNotHavePrivateFields()` |
 | VR-3 | Visibility | No private constructors | `shouldNotHavePrivateConstructors()` |
 | PO-1 | Package | Components in impl or top-level | `shouldResideInImplPackageForComponents()` |
-| PO-2 | Package | Converters end with "Converter" | `shouldFollowConverterNamingConvention()` |
-| LR-1 | Logging | Log classes only contain constants | `shouldOnlyHaveStaticFinalFieldsInLogClasses()` |
-| LR-2 | Logging | Log constants are final | `shouldBePublicStaticFinalForLogConstants()` |
-| LR-3 | Logging | No System.out or printStackTrace | `shouldNotUseSystemOutOrPrintStackTrace()` |
+| PO-2 | Package | Configuration classes in config package | `shouldResideInConfigPackageForConfigurations()` |
+| LR-1 | Logging | Log classes only contain static final fields | `shouldOnlyHaveStaticFinalFieldsInLogClasses()` |
+| LR-2 | Logging | String log constants are public static final | `shouldBePublicStaticFinalForLogConstants()` |
+| LR-3 | Logging | No System.out/printStackTrace outside CLI output | `shouldNotUseSystemOutOrPrintStackTrace()` |
 
 **Note:** Testing rules (TR-1 through TR-5) are documented in [TESTING_GUIDELINES.md](TESTING_GUIDELINES.md).
 
@@ -222,4 +226,3 @@ Architecture tests run automatically during the build and will fail if any rule 
 
 - [Testing Guidelines](TESTING_GUIDELINES.md) - Detailed testing philosophy and examples
 - [Code Review Checklist](CODE_REVIEW_CHECKLIST.md) - Review checklist for maintainers
-
