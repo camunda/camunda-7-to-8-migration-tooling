@@ -588,7 +588,8 @@ class ArchitectureTest {
   }
 
   protected static ArchCondition<JavaClass> notAccessCamundaBpmEngineImplPackage() {
-    return new ArchCondition<JavaClass>("not access org.camunda.bpm.engine.impl package except ClockUtil") {
+    return new ArchCondition<JavaClass>(
+        "not access org.camunda.bpm.engine.impl package except documented test exemptions") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         if (javaClass.isAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")) {
