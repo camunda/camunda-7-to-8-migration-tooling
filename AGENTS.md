@@ -187,8 +187,8 @@ GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenan
 
 ### Merge-blocking vs asynchronous checks
 
-- **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics.
-- **Asynchronous/non-blocking:** broad compatibility coverage (previous-version and large matrix jobs) runs on schedule/main or explicit PR label escalation and is monitored separately from the merge gate.
+- **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics. `compile-previous-version` is part of this blocking surface when in scope.
+- **Asynchronous/non-blocking:** broad compatibility coverage (`code-conversion-previous-version`, `diagram-converter-previous-version`, `e2e-previous-version`, and `it-database-camunda-matrix`) runs on schedule/main or explicit PR label escalation and is monitored separately from the merge gate.
 
 ### Jobs per module
 
