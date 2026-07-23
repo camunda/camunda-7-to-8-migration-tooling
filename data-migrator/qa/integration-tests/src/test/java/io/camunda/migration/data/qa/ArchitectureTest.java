@@ -111,9 +111,8 @@ class ArchitectureTest {
         .because("Tests should not access internal implementation details from io.camunda.migration.data.impl package. " +
             "Use log assertions and C8 API queries instead. " +
             "Exceptions: (1) Constants (static final fields) and enums from impl classes are allowed, including their methods (e.g., enum.getDisplayName()), " +
-            "(2) ConverterUtil.prefixDefinitionId and ConverterUtil.convertDate are allowed for data conversion in tests (including method references like ConverterUtil::prefixDefinitionId), " +
-            "(3) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
-            "(4) Classes or methods annotated with @WhiteBox are allowed to access impl classes for white-box testing.")
+            "(2) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
+            "(3) Classes or methods annotated with @WhiteBox are allowed to access impl classes for white-box testing.")
         .check(classesToCheck);
   }
 
