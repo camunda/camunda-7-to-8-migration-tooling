@@ -38,7 +38,7 @@
     <version.jackson-bom>2.22.1</version.jackson-bom>
     <version.jackson-3-bom>3.2.1</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
-    <logback.version>1.5.38</logback.version>
+    <logback.version>1.6.0</logback.version>
     <tomcat.version>11.0.24</tomcat.version>
     <version.protobuf>4.35.1</version.protobuf>
     <version.assertj>3.27.7</version.assertj>
