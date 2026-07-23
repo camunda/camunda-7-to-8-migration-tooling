@@ -185,6 +185,11 @@ Examples (with the `related to #<issue-number>` body line shown inline for brevi
 
 GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenance/*`, PRs, and nightly (weekdays 5 AM).
 
+### Merge-blocking vs asynchronous checks
+
+- **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics.
+- **Asynchronous/non-blocking:** broad compatibility coverage (previous-version and large matrix jobs) runs on schedule/main or explicit PR label escalation and is monitored separately from the merge gate.
+
 ### Jobs per module
 
 | Module | CI Job | What it does |
