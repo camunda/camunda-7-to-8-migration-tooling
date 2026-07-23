@@ -131,11 +131,11 @@ public class C7Client { ... }
 
 ## Logging Rules
 
-### LR-1: Log Classes Must Only Contain Immutable Fields
+### LR-1: Log Classes Must Only Contain Static Final Fields
 
 **Rule:** Classes ending with "Logs" in `..impl.logging..` must only contain `static final` fields.
 
-**Rationale:** Log classes serve as centralized message repositories and should only contain immutable string constants.
+**Rationale:** Log classes serve as centralized message repositories and should only contain static final constants.
 
 **Enforcement:** `ArchitectureTest.shouldOnlyHaveStaticFinalFieldsInLogClasses()`
 

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class InvalidTestingFixtures {
 
@@ -81,6 +82,7 @@ public class InvalidTestingFixtures {
   public static class BadParameterizedMethodNameTest {
 
     @ParameterizedTest
+    @ValueSource(strings = {"test"})
     void invalidParameterizedName(String value) {
     }
   }
@@ -95,6 +97,7 @@ public class InvalidTestingFixtures {
   public static class StandaloneParameterizedMigrationTest {
 
     @ParameterizedTest
+    @ValueSource(strings = {"test"})
     void shouldRequireMigrationTestBaseClass(String value) {
     }
   }
@@ -120,6 +123,7 @@ public class InvalidTestingFixtures {
   public static class MissingParameterizedSuffix {
 
     @ParameterizedTest
+    @ValueSource(strings = {"test"})
     void shouldRequireTestClassSuffix(String value) {
     }
   }

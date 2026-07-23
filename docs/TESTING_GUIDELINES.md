@@ -154,7 +154,7 @@ because they provide their own infrastructure.
 
 ### TR-5: Test Classes Must End with "Test" Suffix
 
-**Rule:** Concrete classes in the `..qa..` package that contain methods annotated with `@Test`
+**Rule:** Concrete classes in the `..qa..` package that declare methods annotated with `@Test`
 or `@ParameterizedTest` must have a simple name ending with "Test". Abstract test bases are exempt.
 
 **Rationale:** Following the standard JUnit naming convention ensures test classes are recognized by test runners and build tools.
@@ -626,7 +626,7 @@ Remove imports of `DbClient`, `IdKeyMapper`, and other `..impl..` classes.
 | Rule ID | Description | Enforcement Method |
 |---------|-------------|-------------------|
 | TR-1 | No access to impl package | `shouldNotAccessImplClasses()` |
-| TR-2 | No Camunda BPM impl access (except ClockUtil) | `shouldNotAccessCamundaBpmEngineImplClasses()` |
+| TR-2 | No Camunda BPM impl access (except documented test exemptions) | `shouldNotAccessCamundaBpmEngineImplClasses()` |
 | TR-3 | Test methods start with "should" | `shouldFollowNamingConventionForTestMethods()` |
 | TR-4 | Tests extend abstract test class | `shouldExtendAppropriateAbstractTestClass()` |
 | TR-5 | Test classes end with "Test" suffix | `shouldHaveTestSuffixForTestClasses()` |
