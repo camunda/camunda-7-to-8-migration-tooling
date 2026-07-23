@@ -5,26 +5,92 @@ on:
       - main
       - maintenance/*
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
   schedule:
     - cron: "0 5 * * 1-5"  # Weekday mornings for general CI
 
 jobs:
-  # Detects whether data-migrator source changed so downstream jobs can skip
-  # expensive tests on PRs that only touch other modules. For non-PR events
-  # (push to main, schedule, workflow_dispatch) we always consider it changed.
+  # Read Camunda 8 versions from pom.xml to avoid hard-coding in CI
+  read-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      camunda-8-version: ${{ steps.versions.outputs.camunda-8-version }}
+      camunda-8-previous-version: ${{ steps.versions.outputs.camunda-8-previous-version }}
+      camunda-8-docker-image-version: ${{ steps.versions.outputs.camunda-8-docker-image-version }}
+      camunda-8-previous-docker-image-version: ${{ steps.versions.outputs.camunda-8-previous-docker-image-version }}
+      camunda-versions: ${{ steps.versions.outputs.camunda-versions }}
+    steps:
+      - name: Checkout pom.xml
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: pom.xml
+          sparse-checkout-cone-mode: false
+
+      - name: Extract Camunda 8 versions from pom.xml
+        id: versions
+        run: |
+          CURRENT=$(sed -n 's/.*<version\.camunda-8>\([^<]*\)<\/version\.camunda-8>.*/\1/p' pom.xml)
+          PREVIOUS=$(sed -n 's/.*<version\.camunda-8\.previous>\([^<]*\)<\/version\.camunda-8\.previous>.*/\1/p' pom.xml)
+          
+          if [ -z "$CURRENT" ]; then
+            echo "::error::Failed to extract <version.camunda-8> from pom.xml"
+            exit 1
+          fi
+          
+          if [ -z "$PREVIOUS" ]; then
+            PREVIOUS="$CURRENT"
+            echo "::notice::<version.camunda-8.previous> missing in pom.xml; defaulting to <version.camunda-8> (${CURRENT})"
+          fi
+
+          # Docker image version: for SNAPSHOT versions, current uses SNAPSHOT and previous uses MAJOR.MINOR-SNAPSHOT
+          # For release versions (no -SNAPSHOT suffix), the Docker tag equals the Maven version as-is
+          if echo "$CURRENT" | grep -q '\-SNAPSHOT$'; then
+            CURRENT_DOCKER="SNAPSHOT"
+          else
+            CURRENT_DOCKER="$CURRENT"
+          fi
+          PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*-SNAPSHOT/\1-SNAPSHOT/')
+
+          echo "camunda-8-version=${CURRENT}" >> $GITHUB_OUTPUT
+          echo "camunda-8-previous-version=${PREVIOUS}" >> $GITHUB_OUTPUT
+          echo "camunda-8-docker-image-version=${CURRENT_DOCKER}" >> $GITHUB_OUTPUT
+          echo "camunda-8-previous-docker-image-version=${PREVIOUS_DOCKER}" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" = "$PREVIOUS" ]; then
+            CAMUNDA_VERSIONS="[\"${CURRENT}\"]"
+          else
+            CAMUNDA_VERSIONS="[\"${CURRENT}\",\"${PREVIOUS}\"]"
+          fi
+
+          echo "camunda-versions=${CAMUNDA_VERSIONS}" >> $GITHUB_OUTPUT
+
+          echo "Camunda 8 current: ${CURRENT} (docker: ${CURRENT_DOCKER})"
+          echo "Camunda 8 previous: ${PREVIOUS} (docker: ${PREVIOUS_DOCKER})"
+
+  # Detect changed module surfaces and derive default test scopes for PRs.
+  # For non-PR events we execute the full CI surface.
   detect-changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       data-migrator: ${{ steps.filter.outputs.data-migrator }}
+      code-conversion: ${{ steps.filter.outputs.code-conversion }}
+      diagram-converter: ${{ steps.filter.outputs.diagram-converter }}
+      shared: ${{ steps.filter.outputs.shared }}
+      run-runtime: ${{ steps.filter.outputs.run-runtime }}
+      run-history: ${{ steps.filter.outputs.run-history }}
+      run-identity: ${{ steps.filter.outputs.run-identity }}
+      run-e2e: ${{ steps.filter.outputs.run-e2e }}
+      run-compile-previous-version: ${{ steps.filter.outputs.run-compile-previous-version }}
+      run-db-default: ${{ steps.filter.outputs.run-db-default }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
-      - name: Check for data-migrator changes
+      - name: Detect changed scopes and default checks
         id: filter
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -32,18 +98,73 @@ jobs:
         run: |
           if [[ "$EVENT" != "pull_request" ]]; then
             echo "data-migrator=true" >> "$GITHUB_OUTPUT"
+            echo "code-conversion=true" >> "$GITHUB_OUTPUT"
+            echo "diagram-converter=true" >> "$GITHUB_OUTPUT"
+            echo "shared=true" >> "$GITHUB_OUTPUT"
+            echo "run-runtime=true" >> "$GITHUB_OUTPUT"
+            echo "run-history=true" >> "$GITHUB_OUTPUT"
+            echo "run-identity=true" >> "$GITHUB_OUTPUT"
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "run-compile-previous-version=true" >> "$GITHUB_OUTPUT"
+            echo "run-db-default=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git fetch origin "${BASE_REF}" --depth=1
-          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -qE '^(data-migrator/|pom\.xml$)'; then
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|pom\.xml$)'; then
             echo "data-migrator=true" >> "$GITHUB_OUTPUT"
           else
             echo "data-migrator=false" >> "$GITHUB_OUTPUT"
           fi
 
+          if echo "$CHANGED_FILES" | grep -qE '^(code-conversion/|pom\.xml$)'; then
+            echo "code-conversion=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code-conversion=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -qE '^(diagram-converter/|pom\.xml$)'; then
+            echo "diagram-converter=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "diagram-converter=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -qE '^(\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
+            echo "shared=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "shared=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
+            echo "run-runtime=true" >> "$GITHUB_OUTPUT"
+            echo "run-history=true" >> "$GITHUB_OUTPUT"
+            echo "run-identity=true" >> "$GITHUB_OUTPUT"
+            echo "run-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "run-db-default=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-runtime=false" >> "$GITHUB_OUTPUT"
+            echo "run-history=false" >> "$GITHUB_OUTPUT"
+            echo "run-identity=false" >> "$GITHUB_OUTPUT"
+            echo "run-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "run-db-default=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|code-conversion/|diagram-converter/|\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
+            echo "run-compile-previous-version=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run-compile-previous-version=false" >> "$GITHUB_OUTPUT"
+          fi
+
   distro:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.data-migrator == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -63,36 +184,38 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Build and run default tests
+      - name: Build data-migrator distribution
         working-directory: data-migrator
         run: mvn clean install -Dmaven.test.skip --batch-mode
-
-      - name: Collect distro
-        id: distro
-        if: github.ref == 'refs/heads/main'
-        run: |
-          ARTIFACT_DIR=$(mktemp -d)
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.tar.gz "${ARTIFACT_DIR}/"
-          cp data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.zip "${ARTIFACT_DIR}/"
-          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
 
       - name: Upload distro
         uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: distro
-          path: ${{ steps.distro.outputs.dir }}
+          path: |
+            data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.tar.gz
+            data-migrator/assembly/target/camunda-7-to-8-data-migrator-*.zip
+          if-no-files-found: error
           retention-days: 7
 
   code-conversion:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.code-conversion == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -114,6 +237,7 @@ jobs:
             secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -160,25 +284,25 @@ jobs:
           npm ci
           npm run build
 
-      - name: Collect code-conversion artifacts
-        id: code-conversion-artifacts
-        if: github.ref == 'refs/heads/main'
-        run: |
-          ARTIFACT_DIR=$(mktemp -d)
-          cp code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-*.jar "${ARTIFACT_DIR}/"
-          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
-
       - name: Upload code-conversion artifacts
         uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: code-conversion
-          path: ${{ steps.code-conversion-artifacts.outputs.dir }}
+          path: code-conversion/recipes/target/camunda-7-to-8-code-conversion-recipes-*.jar
+          if-no-files-found: error
           retention-days: 7
 
   diagram-converter:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.diagram-converter == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -198,6 +322,7 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -208,33 +333,30 @@ jobs:
         working-directory: diagram-converter
         run: mvn verify -Pdistro,checkFormat --batch-mode
 
-      - name: Collect diagram-converter artifacts
-        id: diagram-converter-artifacts
-        if: github.ref == 'refs/heads/main'
-        run: |
-          ARTIFACT_DIR=$(mktemp -d)
-          cp diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-*.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-*.jar "${ARTIFACT_DIR}/"
-          cp diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-*.jar "${ARTIFACT_DIR}/"
-          echo "dir=${ARTIFACT_DIR}" >> $GITHUB_OUTPUT
-
       - name: Upload diagram-converter artifacts
         uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: diagram-converter
-          path: ${{ steps.diagram-converter-artifacts.outputs.dir }}
+          path: |
+            diagram-converter/core/target/camunda-7-to-8-diagram-converter-core-*.jar
+            diagram-converter/webapp/target/camunda-7-to-8-diagram-converter-webapp-*.jar
+            diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-*.jar
+          if-no-files-found: error
           retention-days: 7
 
-  it-runtime-postgresql:
+  # Compile-check all modules against the previous Camunda 8 version
+  # to catch API-level incompatibilities before merge.
+  compile-previous-version:
+    needs: [read-versions, detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 30
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.run-compile-previous-version == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -254,55 +376,22 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run runtime tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,runtime-only
-
-  it-history-postgresql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,history-only
+      - name: Compile-check against previous Camunda 8 version
+        # Compiles all modules (except cockpit plugin which requires Node.js and
+        # assembly which is packaging-only) against the previous version to detect incompatible API usage.
+        run: >-
+          mvn compile test-compile
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dc8.api=previous
+          -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
+          --batch-mode
 
   it-runtime-h2:
     needs: [detect-changes]
@@ -311,6 +400,8 @@ jobs:
     # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
     # Each shard name matches its Maven profile (runtime-<shard>) and describes
     # the sub-set of test packages it covers.
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     strategy:
       fail-fast: false
       matrix:
@@ -320,17 +411,19 @@ jobs:
           - jobtype       # runtime.jobtype + runtime.tenant
           - variables     # runtime.variables
     if: |
-      (github.event_name == 'pull_request' &&
-       (
-         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
-         (
-           needs.detect-changes.outputs.data-migrator == 'true' &&
-           !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
-           !contains(github.event.pull_request.labels.*.name, 'ci:identity')
-         )
-       )
-      ) ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        (
+          contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+          (
+            needs.detect-changes.outputs.run-runtime == 'true' &&
+            !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
+            !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+          )
+        )
+      )
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -350,6 +443,7 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -361,14 +455,22 @@ jobs:
         run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
   it-history-h2:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:history') ||
-        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
-      github.event_name == 'workflow_dispatch'
+        (
+          needs.detect-changes.outputs.run-history == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+        )
+      ))
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -388,6 +490,7 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -398,175 +501,67 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,history-only
 
-  it-runtime-oracle:
+  # Determine which databases to test based on PR labels
+  prepare-db-matrix:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    permissions:
+      contents: read
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && (
+        needs.detect-changes.outputs.run-db-default == 'true' ||
+        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with Oracle
-        working-directory: data-migrator
-        run: mvn verify -Poracle,integration,runtime-only
-
-  it-runtime-mysql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with MySQL
-        working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,runtime-only
-
-  it-runtime-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,runtime-only
-
-  it-runtime-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
+    outputs:
+      databases: ${{ steps.set-matrix.outputs.databases }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
+      - name: Build database matrix
+        id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:all') }}" == "true" ]]; then
+            echo 'databases=["postgresql","oracle","mysql","mariadb","sqlserver"]' >> "$GITHUB_OUTPUT"
+          else
+            databases=()
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') }}" == "true" ]]; then
+              databases+=("postgresql")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') }}" == "true" ]]; then
+              databases+=("oracle")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') }}" == "true" ]]; then
+              databases+=("mysql")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') }}" == "true" ]]; then
+              databases+=("mariadb")
+            fi
+            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') }}" == "true" ]]; then
+              databases+=("sqlserver")
+            fi
+            if [[ ${#databases[@]} -eq 0 ]] && [[ "${{ needs.detect-changes.outputs.run-db-default }}" == "true" ]]; then
+              databases+=("postgresql")
+            fi
+            json=$(printf '%s\n' "${databases[@]}" | jq -R . | jq -sc .)
+            echo "databases=$json" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run runtime tests with SQL Server
-        working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,runtime-only
-
-  it-history-oracle:
+  # Runtime integration tests for non-H2 databases (label-gated on PRs)
+  it-runtime-db:
+    needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -592,21 +587,21 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run history tests with Oracle
+      - name: Run runtime tests with ${{ matrix.database }}
         working-directory: data-migrator
-        run: mvn verify -Poracle,integration,history-only
+        run: mvn verify -P${{ matrix.database }},integration,runtime-only
 
-  it-history-mysql:
+  # History integration tests for non-H2 databases (label-gated on PRs)
+  it-history-db:
+    needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -632,100 +627,26 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run history tests with MySQL
+      - name: Run history tests with ${{ matrix.database }}
         working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,history-only
-
-  it-history-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,history-only
-
-  it-history-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run history tests with SQL Server
-        working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,history-only
+        run: mvn verify -P${{ matrix.database }},integration,history-only
 
   it-history-h2-windows:
+    needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 70
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     if: |
-      github.event_name == 'push' ||
-      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:history') ||
-        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
+        (
+          needs.detect-changes.outputs.run-history == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+        )
       ))
     steps:
       - name: Enable long paths for Git on Windows
@@ -750,26 +671,34 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Build and run history tests on Windows
+      - name: Build and run integration tests on Windows
         working-directory: data-migrator
         run: mvn clean install -P'windows,integration' --batch-mode
 
-  it-identity-postgresql:
+
+  it-identity-h2:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
-    permissions:
-      contents: read
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
       (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
+        contains(github.event.pull_request.labels.*.name, 'ci:identity') ||
+        (
+          needs.detect-changes.outputs.run-identity == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:history')
+        )
       ))
     steps:
       - name: Checkout code
@@ -790,44 +719,7 @@ jobs:
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with PostgreSQL
-        working-directory: data-migrator
-        run: mvn verify -Ppostgresql,integration,identity-only
-
-  it-identity-h2:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    if: |
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:identity') ||
-        (!contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity'))
-      )) ||
-      github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -838,55 +730,17 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,identity-only
 
-  it-identity-oracle:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with Oracle
-        working-directory: data-migrator
-        run: mvn verify -Poracle,integration,identity-only
-
-  it-identity-mysql:
+  # Identity integration tests for non-H2 databases (label-gated on PRs)
+  it-identity-db:
+    needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
+    strategy:
+      fail-fast: false
+      matrix:
+        database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -912,95 +766,94 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run identity tests with MySQL
+      - name: Run identity tests with ${{ matrix.database }}
         working-directory: data-migrator
-        run: mvn verify -Pmysql,integration,identity-only
-
-  it-identity-mariadb:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with MariaDB
-        working-directory: data-migrator
-        run: mvn verify -Pmariadb,integration,identity-only
-
-  it-identity-sqlserver:
-    runs-on: ubuntu-latest
-    timeout-minutes: 70
-    permissions:
-      contents: read
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
-      ))
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Import secrets
-        id: secrets
-        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
-        with:
-          url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
-          secrets: |
-            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
-
-      - name: Setup Maven
-        uses: ./.github/actions/setup-maven
-        with:
-          vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
-      - name: Run identity tests with SQL Server
-        working-directory: data-migrator
-        run: mvn verify -Psqlserver,integration,identity-only
+        run: mvn verify -P${{ matrix.database }},integration,identity-only
 
   e2e:
+    needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:e2e') ||
+        needs.detect-changes.outputs.run-e2e == 'true'
+      ))
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
+            secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
+
+      - name: Setup Maven
+        id: setup-maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Login to Camunda Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.camunda.cloud
+          username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
+
+      - name: Build and run E2E tests via Maven
+        working-directory: data-migrator
+        run: mvn clean install -Pe2e -Dmaven.test.skip --batch-mode
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report
+          path: data-migrator/qa/e2e-tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: data-migrator/qa/e2e-tests/test-results/
+          retention-days: 7
+
+  # Nightly: verify code-conversion against previous Camunda 8 version
+  code-conversion-previous-version:
+    needs: [read-versions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
+      )
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1035,44 +888,25 @@ jobs:
           username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
           password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
 
-      - name: Run E2E tests via Maven
-        working-directory: data-migrator
-        run: mvn clean install -Pe2e -Dmaven.test.skip --batch-mode
-        env:
-          CI: true
+      - name: Build code-conversion module against previous Camunda 8 version
+        working-directory: code-conversion
+        run: >-
+          mvn verify -PcheckFormat
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          --batch-mode
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: playwright-report
-          path: data-migrator/qa/e2e-tests/playwright-report/
-          retention-days: 7
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: e2e-screenshots
-          path: data-migrator/qa/e2e-tests/test-results/
-          retention-days: 7
-
-  # Database matrix testing - runs daily on the default branch and on branch pushes
-  it-database-matrix:
+  # Nightly: verify diagram-converter against previous Camunda 8 version
+  diagram-converter-previous-version:
+    needs: [read-versions]
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
+    timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/maintenance/0.3') ||
-      github.event_name == 'workflow_dispatch'
-    strategy:
-      fail-fast: false
-      matrix:
-        database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
-        # Keep every test fork below Surefire's 65-minute hang detector.
-        suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
+      )
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1098,10 +932,301 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Run ${{ matrix.suite }} tests with ${{ matrix.database }}
+      - name: Build and test diagram-converter against previous Camunda 8 version
+        working-directory: diagram-converter
+        run: >-
+          mvn verify -Pdistro,checkFormat
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          --batch-mode
+
+  # Nightly: run E2E tests against previous Camunda 8 version
+  e2e-previous-version:
+    needs: [read-versions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
+      )
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
+            secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Login to Camunda Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.camunda.cloud
+          username: ${{ steps.secrets.outputs.HARBOR_USERNAME }}
+          password: ${{ steps.secrets.outputs.HARBOR_PASSWORD }}
+
+      - name: Run E2E tests against previous Camunda 8 version
+        working-directory: data-migrator
+        run: >-
+          mvn clean install -Pe2e -Dmaven.test.skip
+          -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
+          -Dcamunda8.docker.image=camunda/camunda:${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
+          --batch-mode
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-previous-version
+          path: data-migrator/qa/e2e-tests/playwright-report/
+          retention-days: 7
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-screenshots-previous-version
+          path: data-migrator/qa/e2e-tests/test-results/
+          retention-days: 7
+
+  # Database and Camunda version compatibility matrix testing - runs daily on main branch
+  it-database-camunda-matrix:
+    needs: [read-versions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
+        camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
+        # Keep every test fork below Surefire's 65-minute hang detector.
+        suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
+        include:
+          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-version }}
+            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-docker-image-version }}
+            c8-api: current
+          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-previous-version }}
+            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
+            c8-api: previous
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run ${{ matrix.suite }} tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
         working-directory: data-migrator
         run: >-
           mvn verify -P${{ matrix.database }},integration,${{ matrix.suite }}
+          -Dversion.camunda-8=${{ matrix.camunda-version }}
+          -Dc8.api=${{ matrix.c8-api }}
+          -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
+
+  ci-summary:
+    name: CI Summary Gate
+    needs:
+      - detect-changes
+      - distro
+      - code-conversion
+      - diagram-converter
+      - compile-previous-version
+      - it-runtime-h2
+      - it-history-h2
+      - it-history-h2-windows
+      - it-identity-h2
+      - e2e
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    env:
+      EXPECT_DISTRO: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.data-migrator == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+      EXPECT_CODE_CONVERSION: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code-conversion == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+      EXPECT_DIAGRAM_CONVERTER: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+      EXPECT_COMPILE_PREVIOUS: ${{ github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-compile-previous-version == 'true' }}
+      EXPECT_RUNTIME_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:runtime') || (needs.detect-changes.outputs.run-runtime == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
+      EXPECT_HISTORY_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:history') || (needs.detect-changes.outputs.run-history == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
+      EXPECT_HISTORY_H2_WINDOWS: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:history') || (needs.detect-changes.outputs.run-history == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
+      EXPECT_IDENTITY_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:identity') || (needs.detect-changes.outputs.run-identity == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history')) }}
+      EXPECT_E2E: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.run-e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'ci:e2e') }}
+      CACHE_DISTRO: ${{ needs.distro.outputs.maven-cache-hit }}
+      CACHE_CODE_CONVERSION: ${{ needs.code-conversion.outputs.maven-cache-hit }}
+      CACHE_DIAGRAM_CONVERTER: ${{ needs.diagram-converter.outputs.maven-cache-hit }}
+      CACHE_COMPILE_PREVIOUS: ${{ needs.compile-previous-version.outputs.maven-cache-hit }}
+      CACHE_RUNTIME_H2: ${{ needs.it-runtime-h2.outputs.maven-cache-hit }}
+      CACHE_HISTORY_H2: ${{ needs.it-history-h2.outputs.maven-cache-hit }}
+      CACHE_HISTORY_H2_WINDOWS: ${{ needs.it-history-h2-windows.outputs.maven-cache-hit }}
+      CACHE_IDENTITY_H2: ${{ needs.it-identity-h2.outputs.maven-cache-hit }}
+      CACHE_E2E: ${{ needs.e2e.outputs.maven-cache-hit }}
+    steps:
+      - name: Evaluate blocking checks and publish CI budget metrics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const parseBool = (value) => `${value}`.toLowerCase() === "true";
+            const needsResults = ${{ toJSON(needs) }};
+
+            const requiredChecks = [
+              { key: "distro", label: "distro", expected: parseBool(process.env.EXPECT_DISTRO) },
+              { key: "code-conversion", label: "code-conversion", expected: parseBool(process.env.EXPECT_CODE_CONVERSION) },
+              { key: "diagram-converter", label: "diagram-converter", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER) },
+              { key: "compile-previous-version", label: "compile-previous-version", expected: parseBool(process.env.EXPECT_COMPILE_PREVIOUS) },
+              { key: "it-runtime-h2", label: "it-runtime-h2", expected: parseBool(process.env.EXPECT_RUNTIME_H2) },
+              { key: "it-history-h2", label: "it-history-h2", expected: parseBool(process.env.EXPECT_HISTORY_H2) },
+              { key: "it-history-h2-windows", label: "it-history-h2-windows", expected: parseBool(process.env.EXPECT_HISTORY_H2_WINDOWS) },
+              { key: "it-identity-h2", label: "it-identity-h2", expected: parseBool(process.env.EXPECT_IDENTITY_H2) },
+              { key: "e2e", label: "e2e", expected: parseBool(process.env.EXPECT_E2E) },
+            ];
+
+            const failing = [];
+            const rows = [];
+            for (const check of requiredChecks) {
+              const result = needsResults[check.key]?.result || "missing";
+              rows.push({
+                check: check.label,
+                expected: check.expected ? "yes" : "no",
+                result,
+              });
+              if (!check.expected) {
+                continue;
+              }
+              if (result === "skipped") {
+                failing.push(`${check.label} was expected to run but was skipped`);
+              } else if (result !== "success") {
+                failing.push(`${check.label} finished with '${result}'`);
+              }
+            }
+
+            const durationMinutes = (start, end) => (new Date(end) - new Date(start)) / 60000;
+            const percentile = (values, q) => {
+              if (!values.length) return null;
+              const sorted = [...values].sort((a, b) => a - b);
+              const idx = Math.ceil(q * sorted.length) - 1;
+              return sorted[Math.max(0, Math.min(sorted.length - 1, idx))];
+            };
+            const median = (values) => percentile(values, 0.5);
+
+            const runsResponse = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "ci.yml",
+              event: "pull_request",
+              status: "completed",
+              per_page: 30,
+            });
+            const runs = runsResponse.data.workflow_runs ?? [];
+
+            const completedRuns = runs.filter((run) => run.created_at && run.updated_at);
+            const feedbackDurations = completedRuns.map((run) => durationMinutes(run.created_at, run.updated_at));
+
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            const runStartedAt = run.data.run_started_at || run.data.created_at;
+
+            const jobsForCurrentRun = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              per_page: 100,
+            });
+            const firstRedCandidates = jobsForCurrentRun
+              .filter((job) => ["failure", "cancelled", "timed_out", "action_required"].includes(job.conclusion))
+              .map((job) => job.completed_at)
+              .filter(Boolean);
+
+            let firstRedMinutes = null;
+            if (firstRedCandidates.length > 0 && runStartedAt) {
+              const firstRedAt = firstRedCandidates.sort()[0];
+              firstRedMinutes = durationMinutes(runStartedAt, firstRedAt);
+            }
+
+            const cacheValues = [
+              process.env.CACHE_DISTRO,
+              process.env.CACHE_CODE_CONVERSION,
+              process.env.CACHE_DIAGRAM_CONVERTER,
+              process.env.CACHE_COMPILE_PREVIOUS,
+              process.env.CACHE_RUNTIME_H2,
+              process.env.CACHE_HISTORY_H2,
+              process.env.CACHE_HISTORY_H2_WINDOWS,
+              process.env.CACHE_IDENTITY_H2,
+              process.env.CACHE_E2E,
+            ].filter((value) => value === "true" || value === "false");
+            const cacheHits = cacheValues.filter((value) => value === "true").length;
+            const cacheHitRate = cacheValues.length === 0 ? null : (cacheHits / cacheValues.length) * 100;
+
+            await core.summary
+              .addHeading("CI summary gate")
+              .addRaw("Blocking checks are validated here. Broad compatibility jobs stay asynchronous.\n\n")
+              .addTable([
+                [{ data: "Check", header: true }, { data: "Expected", header: true }, { data: "Result", header: true }],
+                ...rows.map((row) => [row.check, row.expected, row.result]),
+              ])
+              .addHeading("Feedback budgets", 2)
+              .addRaw(`- PR feedback median (last ${feedbackDurations.length} runs): ${median(feedbackDurations)?.toFixed(1) ?? "n/a"} min\n`)
+              .addRaw(`- PR feedback p95 (last ${feedbackDurations.length} runs): ${percentile(feedbackDurations, 0.95)?.toFixed(1) ?? "n/a"} min\n`)
+              .addRaw(`- First red in this run: ${firstRedMinutes?.toFixed(1) ?? "n/a"} min\n`)
+              .addRaw(`- Maven cache hit rate (blocking jobs): ${cacheHitRate?.toFixed(1) ?? "n/a"}%\n`)
+              .write();
+
+            if (failing.length > 0) {
+              core.setFailed(`CI summary gate failed:\n- ${failing.join("\n- ")}`);
+            }
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
@@ -1109,6 +1234,7 @@ jobs:
       - distro
       - code-conversion
       - diagram-converter
+      - compile-previous-version
       - it-runtime-h2
       - it-history-h2
       - it-history-h2-windows
