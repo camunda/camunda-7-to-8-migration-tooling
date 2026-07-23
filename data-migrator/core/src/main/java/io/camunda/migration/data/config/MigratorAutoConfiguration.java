@@ -22,7 +22,6 @@ import io.camunda.migration.data.config.mybatis.C8Configuration;
 import io.camunda.migration.data.config.mybatis.MigratorConfiguration;
 import io.camunda.migration.data.config.property.DataSourceProperties;
 import io.camunda.migration.data.config.property.MigratorProperties;
-import io.camunda.migration.data.converter.ConverterConfiguration;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
 import io.camunda.migration.data.impl.clients.DbClient;

@@ -81,12 +81,17 @@ void shouldSaveSkipReasonToDatabase() {
 
 ### TR-2: No Direct Access to Camunda BPM Engine Implementation
 
-**Rule:** Test classes must not access `org.camunda.bpm.engine.impl` package classes, except `ClockUtil`.
+**Rule:** Test classes must not access `org.camunda.bpm.engine.impl` package classes, except
+`ClockUtil`, scenario-specific `ProcessEngineConfigurationImpl` access, and `@WhiteBox` tests.
 
-**Rationale:** Using internal Camunda BPM engine classes couples tests to implementation details. Only `ClockUtil` is permitted for time manipulation in tests.
+**Rationale:** Using internal Camunda BPM engine classes couples tests to implementation details.
+The limited exceptions support time manipulation, explicit engine-configuration scenarios, and
+tests that intentionally declare white-box access.
 
 **Exceptions:**
 - `org.camunda.bpm.engine.impl.util.ClockUtil` - allowed for time manipulation
+- `org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl` - allowed from test lifecycle
+  and test methods when engine configuration is part of the scenario
 - Classes or methods annotated with `@WhiteBox` are exempt
 
 **Enforcement:** `ArchitectureTest.shouldNotAccessCamundaBpmEngineImplClasses()`
@@ -104,7 +109,7 @@ EnsureUtil.ensureTrue("message", condition);
 
 ### TR-3: Test Method Naming Convention
 
-**Rule:** Test methods annotated with `@Test` must start with "should" prefix.
+**Rule:** Test methods annotated with `@Test` or `@ParameterizedTest` must start with "should" prefix.
 
 **Rationale:** The "should" prefix creates behavior-driven test names that clearly express expected behavior and improve test readability.
 
@@ -131,23 +136,26 @@ void migrateUserTask() { ... }
 
 ### TR-4: Tests Must Extend Appropriate Abstract Test Class
 
-**Rule:** Concrete test classes in the `..qa..` package must extend an appropriate abstract test class.
+**Rule:** Concrete migration behavior test classes in the `..qa..` package must extend an
+appropriate abstract test class. Architecture, persistence, and distribution tests are exempt
+because they provide their own infrastructure.
 
 **Rationale:** Extending abstract test classes ensures proper test setup, dependency injection, and access to required services.
 
 **Allowed Base Classes:**
-- `io.camunda.migration.data.AbstractMigratorTest`
-- `history.io.camunda.migration.data.HistoryMigrationAbstractTest`
-- `runtime.io.camunda.migration.data.RuntimeMigrationAbstractTest`
+- `io.camunda.migration.data.qa.AbstractMigratorTest`
+- `io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest`
+- `io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest`
 - Any class ending with `AbstractTest`
 
-**Enforcement:** -
+**Enforcement:** `ArchitectureTest.shouldExtendAppropriateAbstractTestClass()`
 
 ---
 
 ### TR-5: Test Classes Must End with "Test" Suffix
 
-**Rule:** Classes in the `..qa..` package that contain methods annotated with `@Test` must have a simple name ending with "Test".
+**Rule:** Concrete classes in the `..qa..` package that declare methods annotated with `@Test`
+or `@ParameterizedTest` must have a simple name ending with "Test". Abstract test bases are exempt.
 
 **Rationale:** Following the standard JUnit naming convention ensures test classes are recognized by test runners and build tools.
 
@@ -576,7 +584,8 @@ The `ArchitectureTest` class automatically enforces these guidelines:
 
 Run architecture tests:
 ```bash
-mvn test -Dtest=ArchitectureTest -pl qa
+mvn install -DskipTests -pl data-migrator/distro -am && \
+  mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=ArchitectureTest
 ```
 
 ---
@@ -617,9 +626,9 @@ Remove imports of `DbClient`, `IdKeyMapper`, and other `..impl..` classes.
 | Rule ID | Description | Enforcement Method |
 |---------|-------------|-------------------|
 | TR-1 | No access to impl package | `shouldNotAccessImplClasses()` |
-| TR-2 | No Camunda BPM impl access (except ClockUtil) | `shouldNotAccessCamundaBpmEngineImplClasses()` |
+| TR-2 | No Camunda BPM impl access (except documented test exemptions) | `shouldNotAccessCamundaBpmEngineImplClasses()` |
 | TR-3 | Test methods start with "should" | `shouldFollowNamingConventionForTestMethods()` |
-| TR-4 | Tests extend abstract test class | `testsShouldExtendAbstractTestClass()` |
+| TR-4 | Tests extend abstract test class | `shouldExtendAppropriateAbstractTestClass()` |
 | TR-5 | Test classes end with "Test" suffix | `shouldHaveTestSuffixForTestClasses()` |
 
 For non-testing architecture rules (visibility, package organization, logging), see [ARCHITECTURE_RULES.md](ARCHITECTURE_RULES.md).
@@ -639,4 +648,3 @@ Before submitting a test PR, verify:
 - [ ] Tests extend appropriate abstract base class
 - [ ] No imports of `DbClient`, `IdKeyMapper`, or other `..impl..` classes (unless `@WhiteBox`)
 - [ ] `ArchitectureTest` passes locally
-
