@@ -394,6 +394,8 @@ jobs:
     # Split the runtime suite into 4 parallel shards (was 1 serial job, ~53 min).
     # Each shard name matches its Maven profile (runtime-<shard>) and describes
     # the sub-set of test packages it covers.
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     strategy:
       fail-fast: false
       matrix:
@@ -1098,6 +1100,7 @@ jobs:
       CACHE_CODE_CONVERSION: ${{ needs.code-conversion.outputs.maven-cache-hit }}
       CACHE_DIAGRAM_CONVERTER: ${{ needs.diagram-converter.outputs.maven-cache-hit }}
       CACHE_COMPILE_PREVIOUS: ${{ needs.compile-previous-version.outputs.maven-cache-hit }}
+      CACHE_RUNTIME_H2: ${{ needs.it-runtime-h2.outputs.maven-cache-hit }}
       CACHE_HISTORY_H2: ${{ needs.it-history-h2.outputs.maven-cache-hit }}
       CACHE_HISTORY_H2_WINDOWS: ${{ needs.it-history-h2-windows.outputs.maven-cache-hit }}
       CACHE_IDENTITY_H2: ${{ needs.it-identity-h2.outputs.maven-cache-hit }}
@@ -1192,6 +1195,7 @@ jobs:
               process.env.CACHE_CODE_CONVERSION,
               process.env.CACHE_DIAGRAM_CONVERTER,
               process.env.CACHE_COMPILE_PREVIOUS,
+              process.env.CACHE_RUNTIME_H2,
               process.env.CACHE_HISTORY_H2,
               process.env.CACHE_HISTORY_H2_WINDOWS,
               process.env.CACHE_IDENTITY_H2,
