@@ -47,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -71,10 +72,15 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class ArchitectureTest {
 
-  protected static final ImportOption EXCLUDE_ARCHITECTURE_FIXTURES =
-      location -> !location.contains("/architecturefixture/");
+  protected static final Pattern ARCHITECTURE_FIXTURE_PATH =
+      Pattern.compile(".*[/\\\\]architecturefixture[/\\\\].*");
 
-  protected static final Path REPOSITORY_ROOT = Path.of(System.getProperty("repositoryRoot"));
+  protected static final ImportOption EXCLUDE_ARCHITECTURE_FIXTURES =
+      location -> !location.matches(ARCHITECTURE_FIXTURE_PATH);
+
+  protected static final Path REPOSITORY_ROOT = Path.of(Objects.requireNonNull(
+      System.getProperty("repositoryRoot"),
+      "repositoryRoot system property must be configured by the test runner"));
 
   protected static final JavaClasses CLASSES = new ClassFileImporter()
       .withImportOption(EXCLUDE_ARCHITECTURE_FIXTURES)
@@ -121,8 +127,19 @@ class ArchitectureTest {
         .should(notAccessCamundaBpmEngineImplPackage())
         .allowEmptyShould(true)
         .because("Tests should not use internal Camunda BPM engine implementation classes. " +
-            "Exception: ClockUtil from org.camunda.bpm.engine.impl.util is allowed for time manipulation in tests.")
+            "ClockUtil is allowed for time manipulation, ProcessEngineConfigurationImpl is allowed " +
+            "from test lifecycle and test methods, and @WhiteBox classes and methods are exempt.")
         .check(classesToCheck);
+  }
+
+  @Test
+  void shouldRecognizeArchitectureFixturePathsAcrossOperatingSystems() {
+    assertThat(ARCHITECTURE_FIXTURE_PATH.matcher(
+        "file:/workspace/io/camunda/migration/data/architecturefixture/Invalid.class").matches())
+        .isTrue();
+    assertThat(ARCHITECTURE_FIXTURE_PATH.matcher(
+        "C:\\workspace\\io\\camunda\\migration\\data\\architecturefixture\\Invalid.class").matches())
+        .isTrue();
   }
 
   @Test
