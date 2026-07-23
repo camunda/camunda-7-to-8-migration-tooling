@@ -259,7 +259,7 @@ For Maven — add to `pom.xml`:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
    - Apply those flags using a portable Maven JVM option mechanism:
-     - Prefer appending them temporarily to `.mvn/jvm.config`, preserving any existing content, or use `JAVA_TOOL_OPTIONS` if that is easier in the current environment.
+     - If the project already has a `.mvn` directory, prefer appending them temporarily to `.mvn/jvm.config` while preserving any existing content. Otherwise, use `JAVA_TOOL_OPTIONS` rather than creating repository configuration solely for this temporary step.
      - Arrange cleanup so it runs whether `mvn rewrite:run` succeeds or fails: restore the exact previous `.mvn/jvm.config` content or remove the file if this step created it, and restore the previous `JAVA_TOOL_OPTIONS` value if it was changed.
      - Do not stage or commit the temporary changes; preserve any legitimate pre-existing tracked configuration.
    - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
