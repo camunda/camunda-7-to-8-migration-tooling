@@ -123,13 +123,13 @@ jobs:
             echo "diagram-converter=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE '^(\.github/|pom\.xml$)'; then
+          if echo "$CHANGED_FILES" | grep -qE '^(\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
             echo "shared=true" >> "$GITHUB_OUTPUT"
           else
             echo "shared=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|\.github/|pom\.xml$)'; then
+          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
             echo "run-runtime=true" >> "$GITHUB_OUTPUT"
             echo "run-history=true" >> "$GITHUB_OUTPUT"
             echo "run-identity=true" >> "$GITHUB_OUTPUT"
@@ -143,7 +143,7 @@ jobs:
             echo "run-db-default=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|code-conversion/|diagram-converter/|\.github/|pom\.xml$)'; then
+          if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|code-conversion/|diagram-converter/|\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
             echo "run-compile-previous-version=true" >> "$GITHUB_OUTPUT"
           else
             echo "run-compile-previous-version=false" >> "$GITHUB_OUTPUT"
@@ -1220,7 +1220,6 @@ jobs:
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
     needs:
-      - ci-summary
       - distro
       - code-conversion
       - diagram-converter
