@@ -19,11 +19,11 @@ public class EntityConversionServiceLogs {
   protected static final Logger LOGGER = LoggerFactory.getLogger(EntityConversionServiceLogs.class);
 
   // Log message templates
-  protected static final String EXECUTING_INTERCEPTOR_LOG = "Executing interceptor {} for entity type: {}";
-  protected static final String INTERCEPTOR_ERROR_LOG = "Interceptor {} failed for entity type: {}";
+  public static final String EXECUTING_INTERCEPTOR_LOG = "Executing interceptor {} for entity type: {}";
+  public static final String INTERCEPTOR_ERROR_LOG = "Interceptor {} failed for entity type: {}";
 
   // Error message templates
-  protected static final String ENTITY_INTERCEPTOR_FAILED_MSG = "%s failed for entity type '%s'";
+  public static final String ENTITY_INTERCEPTOR_FAILED_MSG = "%s failed for entity type '%s'";
 
   /**
    * Logs the execution of an interceptor for a specific entity type.
@@ -56,4 +56,3 @@ public class EntityConversionServiceLogs {
     return String.format(ENTITY_INTERCEPTOR_FAILED_MSG, interceptorName, entityType);
   }
 }
-

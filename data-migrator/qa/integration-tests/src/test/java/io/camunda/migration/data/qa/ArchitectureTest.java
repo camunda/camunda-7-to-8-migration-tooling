@@ -10,16 +10,56 @@ package io.camunda.migration.data.qa;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static io.camunda.migration.data.architecturefixture.InvalidArchitectureFixtures.InvalidVisibility;
+import static io.camunda.migration.data.architecturefixture.InvalidArchitectureFixtures.MisplacedComponent;
+import static io.camunda.migration.data.architecturefixture.InvalidArchitectureFixtures.MisplacedConfiguration;
+import static io.camunda.migration.data.architecturefixture.InvalidArchitectureFixtures.PrintStackTraceCall;
+import static io.camunda.migration.data.architecturefixture.InvalidArchitectureFixtures.SystemOutAccess;
+import static io.camunda.migration.data.impl.logging.architecturefixture.InvalidLoggingFixtures.NonFinalLogs;
+import static io.camunda.migration.data.impl.logging.architecturefixture.InvalidLoggingFixtures.NonPublicConstantsLogs;
+import static io.camunda.migration.data.impl.logging.architecturefixture.InvalidLoggingFixtures.NonStaticLogs;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.BadMethodNameTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.BadParameterizedMethodNameTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.EngineImplAccessTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.EngineImplLifecycleAccessTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.ImplementationAccessTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.MissingSuffix;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.MissingParameterizedSuffix;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StandaloneMigrationTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StandaloneParameterizedMigrationTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StaticNestedContainerTest.StaticNestedMigrationTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.packagePrivateMissingSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.Location;
+import com.tngtech.archunit.core.importer.Locations;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Architecture tests to enforce design principles and prevent anti-patterns.
@@ -33,11 +73,35 @@ import org.junit.jupiter.api.Test;
  */
 class ArchitectureTest {
 
+  protected static final Pattern ARCHITECTURE_FIXTURE_PATH =
+      Pattern.compile(".*[/\\\\]architecturefixture[/\\\\].*");
+
+  protected static final ImportOption EXCLUDE_ARCHITECTURE_FIXTURES =
+      location -> !location.matches(ARCHITECTURE_FIXTURE_PATH);
+
+  protected static final Path REPOSITORY_ROOT = Path.of(Objects.requireNonNull(
+      System.getProperty("repositoryRoot"),
+      "repositoryRoot system property must be configured by the test runner"));
+
   protected static final JavaClasses CLASSES = new ClassFileImporter()
-      .importPackages("io.camunda.migration.data");
+      .withImportOption(EXCLUDE_ARCHITECTURE_FIXTURES)
+      .importLocations(productionAndTestLocations());
+
+  protected static final Pattern RULE_HEADING =
+      Pattern.compile("^###\\s+((?:VR|PO|LR|TR)-\\d+):.*$");
+
+  protected static final Pattern ENFORCEMENT =
+      Pattern.compile("^\\*\\*Enforcement:\\*\\*\\s+`ArchitectureTest\\.(\\w+)\\(\\)`$");
+
+  protected static final Pattern DOCUMENTED_RULE_ROW =
+      Pattern.compile("^\\|\\s*((?:VR|PO|LR|TR)-\\d+)\\s*\\|.*\\|\\s*`(\\w+)\\(\\)`\\s*\\|$");
 
   @Test
   void shouldNotAccessImplClasses() {
+    checkShouldNotAccessImplClasses(CLASSES);
+  }
+
+  protected static void checkShouldNotAccessImplClasses(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("..qa..")
         .and().areNotAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")
@@ -46,25 +110,52 @@ class ArchitectureTest {
         .because("Tests should not access internal implementation details from io.camunda.migration.data.impl package. " +
             "Use log assertions and C8 API queries instead. " +
             "Exceptions: (1) Constants (static final fields) and enums from impl classes are allowed, including their methods (e.g., enum.getDisplayName()), " +
-            "(2) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
-            "(3) Classes or methods annotated with @WhiteBox are allowed to access impl classes for white-box testing.")
-        .check(CLASSES);
+            "(2) ConverterUtil.prefixDefinitionId and ConverterUtil.convertDate are allowed for data conversion in tests (including method references like ConverterUtil::prefixDefinitionId), " +
+            "(3) Methods annotated with @BeforeEach or @AfterEach can access impl classes for test setup/cleanup, " +
+            "(4) Classes or methods annotated with @WhiteBox are allowed to access impl classes for white-box testing.")
+        .check(classesToCheck);
   }
 
   @Test
   void shouldNotAccessCamundaBpmEngineImplClasses() {
+    checkShouldNotAccessCamundaBpmEngineImplClasses(CLASSES);
+  }
+
+  protected static void checkShouldNotAccessCamundaBpmEngineImplClasses(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("..qa..")
         .and().haveSimpleNameEndingWith("Test")
         .should(notAccessCamundaBpmEngineImplPackage())
         .allowEmptyShould(true)
         .because("Tests should not use internal Camunda BPM engine implementation classes. " +
-            "Exception: ClockUtil from org.camunda.bpm.engine.impl.util is allowed for time manipulation in tests.")
-        .check(CLASSES);
+            "ClockUtil is allowed for time manipulation, ProcessEngineConfigurationImpl is allowed " +
+            "from test lifecycle and test methods, and @WhiteBox classes and methods are exempt.")
+        .check(classesToCheck);
+  }
+
+  @Test
+  void shouldRecognizeArchitectureFixturePathsAcrossOperatingSystems() {
+    assertThat(ARCHITECTURE_FIXTURE_PATH.matcher(
+        "file:/workspace/io/camunda/migration/data/architecturefixture/Invalid.class").matches())
+        .isTrue();
+    assertThat(ARCHITECTURE_FIXTURE_PATH.matcher(
+        "C:\\workspace\\io\\camunda\\migration\\data\\architecturefixture\\Invalid.class").matches())
+        .isTrue();
+  }
+
+  @Test
+  void shouldAllowEngineConfigurationAccessFromAllLifecycleMethods() {
+    JavaClasses fixtureClasses = new ClassFileImporter().importClasses(EngineImplLifecycleAccessTest.class);
+
+    checkShouldNotAccessCamundaBpmEngineImplClasses(fixtureClasses);
   }
 
   @Test
   void shouldNotHavePrivateMethods() {
+    checkShouldNotHavePrivateMethods(CLASSES);
+  }
+
+  protected static void checkShouldNotHavePrivateMethods(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
@@ -73,11 +164,15 @@ class ArchitectureTest {
         .because("Methods should use protected or package-protected visibility instead of private " +
             "to allow for testing and extensibility. Use protected for methods that might be " +
             "overridden and package-protected for internal methods that tests might need to access.")
-        .check(CLASSES);
+        .check(classesToCheck);
   }
 
   @Test
   void shouldNotHavePrivateFields() {
+    checkShouldNotHavePrivateFields(CLASSES);
+  }
+
+  protected static void checkShouldNotHavePrivateFields(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
@@ -86,11 +181,15 @@ class ArchitectureTest {
         .because("Fields should use protected or package-protected visibility instead of private " +
             "to allow for testing and extensibility. Use protected for fields that might be " +
             "accessed by subclasses and package-protected for fields that tests might need to access.")
-        .check(CLASSES);
+        .check(classesToCheck);
   }
 
   @Test
   void shouldNotHavePrivateConstructors() {
+    checkShouldNotHavePrivateConstructors(CLASSES);
+  }
+
+  protected static void checkShouldNotHavePrivateConstructors(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("io.camunda.migration.data..")
         .and().resideOutsideOfPackage("..qa..") // Exclude test code
@@ -98,23 +197,30 @@ class ArchitectureTest {
         .allowEmptyShould(true)
         .because("Classes should use protected or package-protected constructors to allow for " +
             "testing and extensibility.")
-        .check(CLASSES);
+        .check(classesToCheck);
   }
 
   @Test
   void shouldOnlyHaveStaticFinalFieldsInLogClasses() {
+    checkShouldOnlyHaveStaticFinalFieldsInLogClasses(CLASSES);
+  }
+
+  protected static void checkShouldOnlyHaveStaticFinalFieldsInLogClasses(JavaClasses classesToCheck) {
     classes()
         .that().haveSimpleNameEndingWith("Logs")
         .and().resideInAPackage("..impl.logging..")
         .should(onlyHaveStaticFinalFields())
         .allowEmptyShould(true)
-        .because("Log classes should only contain public static final String constants " +
-            "for centralized log message management.")
-        .check(CLASSES);
+        .because("Log classes should only contain static final fields")
+        .check(classesToCheck);
   }
 
   @Test
   void shouldFollowNamingConventionForTestMethods() {
+    checkShouldFollowNamingConventionForTestMethods(CLASSES);
+  }
+
+  protected static void checkShouldFollowNamingConventionForTestMethods(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("..qa..")
         .and().haveSimpleNameEndingWith("Test")
@@ -122,11 +228,15 @@ class ArchitectureTest {
         .allowEmptyShould(true)
         .because("Test methods should follow the naming convention: 'should' prefix for behavior tests " +
             "to clearly express what the test verifies (e.g., shouldSkipProcessInstanceWhenDefinitionMissing).")
-        .check(CLASSES);
+        .check(classesToCheck);
   }
 
   @Test
   void shouldResideInImplPackageForComponents() {
+    checkShouldResideInImplPackageForComponents(CLASSES);
+  }
+
+  protected static void checkShouldResideInImplPackageForComponents(JavaClasses classesToCheck) {
     classes()
         .that().areAnnotatedWith("org.springframework.stereotype.Component")
         .or().areAnnotatedWith("org.springframework.stereotype.Service")
@@ -136,11 +246,31 @@ class ArchitectureTest {
         .allowEmptyShould(true)
         .because("Components and services should reside in the 'impl' package (for internal implementations) " +
             "or at the top level of io.camunda.migration.data (for public APIs like HistoryMigrator, RuntimeMigrator).")
-        .check(CLASSES);
+        .check(classesToCheck);
+  }
+
+  @Test
+  void shouldResideInConfigPackageForConfigurations() {
+    checkShouldResideInConfigPackageForConfigurations(CLASSES);
+  }
+
+  protected static void checkShouldResideInConfigPackageForConfigurations(JavaClasses classesToCheck) {
+    classes()
+        .that().areAnnotatedWith("org.springframework.context.annotation.Configuration")
+        .and().resideInAPackage("io.camunda.migration.data..")
+        .and().resideOutsideOfPackage("..qa..")
+        .should().resideInAPackage("..config..")
+        .allowEmptyShould(true)
+        .because("@Configuration classes should be centralized in the config package")
+        .check(classesToCheck);
   }
 
   @Test
   void shouldBePublicStaticFinalForLogConstants() {
+    checkShouldBePublicStaticFinalForLogConstants(CLASSES);
+  }
+
+  protected static void checkShouldBePublicStaticFinalForLogConstants(JavaClasses classesToCheck) {
     classes()
         .that().haveSimpleNameEndingWith("Logs")
         .and().resideInAPackage("..impl.logging..")
@@ -148,7 +278,7 @@ class ArchitectureTest {
         .allowEmptyShould(true)
         .because("Log message constants should be public static final to prevent modification " +
             "and ensure consistent logging across the application.")
-        .check(CLASSES);
+        .check(classesToCheck);
   }
 
   @Test
@@ -177,29 +307,199 @@ class ArchitectureTest {
 
   @Test
   void shouldNotUseSystemOutOrPrintStackTrace() {
+    checkShouldNotUseSystemOutOrPrintStackTrace(CLASSES);
+  }
+
+  protected static void checkShouldNotUseSystemOutOrPrintStackTrace(JavaClasses classesToCheck) {
     noClasses()
         .that().resideInAPackage("io.camunda.migration.data..")
-        .should().callMethod(System.class, "out")
+        .and().resideOutsideOfPackages("..app..", "..qa..")
+        .should().accessField(System.class, "out")
         .orShould().callMethod("java.lang.Throwable", "printStackTrace")
         .allowEmptyShould(true)
         .because("Production code should use SLF4J logging instead of System.out.println() or printStackTrace(). " +
             "Use a Logger instance and appropriate log levels (debug, info, warn, error).")
-        .check(CLASSES);
+        .check(classesToCheck);
+  }
+
+  @Test
+  void shouldExtendAppropriateAbstractTestClass() {
+    checkShouldExtendAppropriateAbstractTestClass(CLASSES);
+  }
+
+  protected static void checkShouldExtendAppropriateAbstractTestClass(JavaClasses classesToCheck) {
+    classes()
+        .that().resideInAPackage("..qa..")
+        .and().haveSimpleNameEndingWith("Test")
+        .and().resideOutsideOfPackages("..persistence..", "..distribution..")
+        .and().doNotHaveSimpleName("ArchitectureTest")
+        .should(extendAppropriateAbstractTestClass())
+        .allowEmptyShould(true)
+        .because("Migration behavior tests should extend a shared abstract test class")
+        .check(classesToCheck);
   }
 
   @Test
   void shouldHaveTestSuffixForTestClasses() {
+    checkShouldHaveTestSuffixForTestClasses(CLASSES);
+  }
+
+  protected static void checkShouldHaveTestSuffixForTestClasses(JavaClasses classesToCheck) {
     classes()
         .that().resideInAPackage("..qa..")
-        .and().haveModifier(JavaModifier.PUBLIC)
         .and().areNotInterfaces()
         .and().areNotEnums()
         .and().areNotAnnotations()
+        .and().doNotHaveModifier(JavaModifier.ABSTRACT)
         .should(haveTestSuffixIfContainingTestMethods())
         .allowEmptyShould(true)
         .because("Test classes should end with 'Test' suffix to follow JUnit conventions and be " +
             "recognized by test runners and build tools.")
-        .check(CLASSES);
+        .check(classesToCheck);
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("documentedRuleFixtures")
+  @DisplayName("documented rules reject invalid fixtures")
+  void shouldRejectInvalidFixtures(
+      String ruleId, Consumer<JavaClasses> rule, Class<?> invalidFixture) {
+    JavaClasses fixtureClasses = new ClassFileImporter().importClasses(invalidFixture);
+
+    assertThatThrownBy(() -> rule.accept(fixtureClasses))
+        .as("Rule %s should reject %s", ruleId, invalidFixture.getSimpleName())
+        .isInstanceOf(AssertionError.class);
+  }
+
+  @Test
+  void shouldBindEveryDocumentedArchitectureRule() throws NoSuchMethodException {
+    List<DocumentedRule> documentedRules = Stream.of(
+            REPOSITORY_ROOT.resolve("docs/ARCHITECTURE_RULES.md"),
+            REPOSITORY_ROOT.resolve("docs/TESTING_GUIDELINES.md"))
+        .flatMap(path -> documentedRules(path).stream())
+        .toList();
+
+    assertThat(documentedRules).isNotEmpty();
+    for (DocumentedRule documentedRule : documentedRules) {
+      Method enforcementMethod = ArchitectureTest.class.getDeclaredMethod(documentedRule.enforcementMethod());
+      assertThat(enforcementMethod.isAnnotationPresent(Test.class))
+          .as("%s (%s) must be an executable @Test", documentedRule.id(), enforcementMethod.getName())
+          .isTrue();
+    }
+  }
+
+  protected static Stream<Arguments> documentedRuleFixtures() {
+    return Stream.of(
+        Arguments.of("TR-1", (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotAccessImplClasses,
+            ImplementationAccessTest.class),
+        Arguments.of("TR-2",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotAccessCamundaBpmEngineImplClasses,
+            EngineImplAccessTest.class),
+        Arguments.of("TR-3",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldFollowNamingConventionForTestMethods,
+            BadMethodNameTest.class),
+        Arguments.of("TR-3 parameterized",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldFollowNamingConventionForTestMethods,
+            BadParameterizedMethodNameTest.class),
+        Arguments.of("TR-4",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldExtendAppropriateAbstractTestClass,
+            StandaloneMigrationTest.class),
+        Arguments.of("TR-4 parameterized",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldExtendAppropriateAbstractTestClass,
+            StandaloneParameterizedMigrationTest.class),
+        Arguments.of("TR-4 static nested",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldExtendAppropriateAbstractTestClass,
+            StaticNestedMigrationTest.class),
+        Arguments.of("TR-5",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldHaveTestSuffixForTestClasses,
+            MissingSuffix.class),
+        Arguments.of("TR-5 parameterized",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldHaveTestSuffixForTestClasses,
+            MissingParameterizedSuffix.class),
+        Arguments.of("TR-5 package-private",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldHaveTestSuffixForTestClasses,
+            packagePrivateMissingSuffix()),
+        Arguments.of("VR-1", (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotHavePrivateMethods,
+            InvalidVisibility.class),
+        Arguments.of("VR-2", (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotHavePrivateFields,
+            InvalidVisibility.class),
+        Arguments.of("VR-3", (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotHavePrivateConstructors,
+            InvalidVisibility.class),
+        Arguments.of("PO-1",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldResideInImplPackageForComponents,
+            MisplacedComponent.class),
+        Arguments.of("PO-2",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldResideInConfigPackageForConfigurations,
+            MisplacedConfiguration.class),
+        Arguments.of("LR-1 non-final",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldOnlyHaveStaticFinalFieldsInLogClasses,
+            NonFinalLogs.class),
+        Arguments.of("LR-1 non-static",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldOnlyHaveStaticFinalFieldsInLogClasses,
+            NonStaticLogs.class),
+        Arguments.of("LR-2",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldBePublicStaticFinalForLogConstants,
+            NonPublicConstantsLogs.class),
+        Arguments.of("LR-3 System.out",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotUseSystemOutOrPrintStackTrace,
+            SystemOutAccess.class),
+        Arguments.of("LR-3 printStackTrace",
+            (Consumer<JavaClasses>) ArchitectureTest::checkShouldNotUseSystemOutOrPrintStackTrace,
+            PrintStackTraceCall.class));
+  }
+
+  protected static Set<Location> productionAndTestLocations() {
+    Set<Location> locations = new HashSet<>(Locations.ofPackage("io.camunda.migration.data"));
+    Path distroClasses = REPOSITORY_ROOT.resolve("data-migrator/distro/target/classes");
+    assertThat(distroClasses)
+        .as("Build data-migrator/distro before running architecture tests")
+        .isDirectory();
+    locations.add(Location.of(distroClasses));
+    return locations;
+  }
+
+  protected static List<DocumentedRule> documentedRules(Path path) {
+    List<String> lines = readLines(path);
+    List<DocumentedRule> sectionRules = IntStream.range(0, lines.size())
+        .mapToObj(index -> documentedSectionRule(lines, index))
+        .flatMap(java.util.Optional::stream)
+        .toList();
+    List<DocumentedRule> tableRules = lines.stream()
+        .map(DOCUMENTED_RULE_ROW::matcher)
+        .filter(java.util.regex.Matcher::matches)
+        .map(matcher -> new DocumentedRule(matcher.group(1), matcher.group(2)))
+        .toList();
+
+    assertThat(tableRules)
+        .as("Summary table must match documented rule sections in %s", path)
+        .containsExactlyInAnyOrderElementsOf(sectionRules);
+    return sectionRules;
+  }
+
+  protected static Optional<DocumentedRule> documentedSectionRule(
+      List<String> lines, int headingIndex) {
+    var heading = RULE_HEADING.matcher(lines.get(headingIndex));
+    if (!heading.matches()) {
+      return Optional.empty();
+    }
+
+    Optional<DocumentedRule> documentedRule = IntStream.range(headingIndex + 1, lines.size())
+        .takeWhile(index -> !RULE_HEADING.matcher(lines.get(index)).matches())
+        .mapToObj(index -> ENFORCEMENT.matcher(lines.get(index)))
+        .filter(java.util.regex.Matcher::matches)
+        .findFirst()
+        .map(matcher -> new DocumentedRule(heading.group(1), matcher.group(1)));
+    assertThat(documentedRule)
+        .as("Rule %s must declare an ArchitectureTest enforcement method", heading.group(1))
+        .isPresent();
+    return documentedRule;
+  }
+
+  protected static List<String> readLines(Path path) {
+    try {
+      return Files.readAllLines(path);
+    } catch (IOException e) {
+      throw new IllegalStateException("Cannot read architecture documentation " + path, e);
+    }
   }
 
   // Custom ArchConditions
@@ -208,6 +508,9 @@ class ArchitectureTest {
     return new ArchCondition<JavaClass>("not access io.camunda.migration.data.impl package") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
+        if (javaClass.isAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")) {
+          return;
+        }
         javaClass.getAccessesFromSelf().forEach(access -> {
           JavaClass targetClass = access.getTargetOwner();
           String targetClassName = targetClass.getName();
@@ -292,15 +595,23 @@ class ArchitectureTest {
               return; // ClockUtil is allowed
             }
 
-            // Allow ProcessEngineConfigurationImpl from @BeforeEach/@AfterEach/@Test methods
-            if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod) {
-              boolean isTestMethod = originMethod.getAnnotations().stream()
-                  .anyMatch(annotation ->
-                      annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeEach") ||
-                      annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterEach") ||
-                      annotation.getRawType().getName().equals("org.junit.jupiter.api.Test"));
+            if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod &&
+                originMethod.isAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")) {
+              return;
+            }
 
-              if (isTestMethod && targetClassName.equals("org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl")) {
+            // Allow ProcessEngineConfigurationImpl from test lifecycle and test methods
+            if (access.getOrigin() instanceof com.tngtech.archunit.core.domain.JavaMethod originMethod) {
+              boolean isTestInfrastructureMethod = isJUnitTestMethod(originMethod) ||
+                  originMethod.getAnnotations().stream()
+                  .anyMatch(annotation ->
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeAll") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterAll") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeEach") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterEach"));
+
+              if (isTestInfrastructureMethod &&
+                  targetClassName.equals("org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl")) {
                 return; // ProcessEngineConfigurationImpl access from test methods is allowed
               }
             }
@@ -401,7 +712,7 @@ class ArchitectureTest {
   }
 
   protected static ArchCondition<JavaClass> onlyHaveStaticFinalFields() {
-    return new ArchCondition<JavaClass>("only have public static final fields") {
+    return new ArchCondition<JavaClass>("only have static final fields") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         javaClass.getFields().stream()
@@ -409,7 +720,7 @@ class ArchitectureTest {
                            !field.getModifiers().contains(JavaModifier.FINAL))
             .forEach(field -> {
               String message = String.format(
-                  "Field <%s.%s> should be public static final in Logs class",
+                  "Field <%s.%s> should be static final in Logs class",
                   javaClass.getName(), field.getName());
               events.add(SimpleConditionEvent.violated(field, message));
             });
@@ -422,7 +733,7 @@ class ArchitectureTest {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         javaClass.getMethods().stream()
-            .filter(method -> method.isAnnotatedWith("org.junit.jupiter.api.Test"))
+            .filter(ArchitectureTest::isJUnitTestMethod)
             .filter(method -> !method.getName().startsWith("should"))
             .forEach(method -> {
               String message = String.format(
@@ -438,17 +749,13 @@ class ArchitectureTest {
     return new ArchCondition<JavaClass>("extend an appropriate abstract test class") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
-        // Skip abstract classes themselves
-        if (javaClass.getModifiers().contains(JavaModifier.ABSTRACT)) {
+        boolean hasTestMethods = javaClass.getMethods().stream()
+            .anyMatch(ArchitectureTest::isJUnitTestMethod);
+        if (javaClass.getModifiers().contains(JavaModifier.ABSTRACT) || !hasTestMethods) {
           return;
         }
 
-        boolean extendsAbstractTest = javaClass.getAllRawSuperclasses().stream()
-            .anyMatch(superClass ->
-                superClass.getName().equals("io.camunda.migration.data.qa.AbstractMigratorTest") ||
-                superClass.getName().equals("io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest") ||
-                superClass.getName().equals("io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest") ||
-                superClass.getSimpleName().endsWith("AbstractTest"));
+        boolean extendsAbstractTest = extendsAppropriateTestBase(javaClass);
 
         if (!extendsAbstractTest) {
           String message = String.format(
@@ -458,6 +765,27 @@ class ArchitectureTest {
         }
       }
     };
+  }
+
+  protected static boolean extendsAppropriateTestBase(JavaClass javaClass) {
+    boolean extendsBaseClass = javaClass.getAllRawSuperclasses().stream()
+        .anyMatch(superClass ->
+            superClass.getName().equals("io.camunda.migration.data.qa.AbstractMigratorTest") ||
+            superClass.getName().equals("io.camunda.migration.data.qa.history.HistoryMigrationAbstractTest") ||
+            superClass.getName().equals("io.camunda.migration.data.qa.runtime.RuntimeMigrationAbstractTest") ||
+            superClass.getSimpleName().endsWith("AbstractTest"));
+    boolean isNonStaticNestedTest = javaClass.isAnnotatedWith("org.junit.jupiter.api.Nested") &&
+        !javaClass.getModifiers().contains(JavaModifier.STATIC);
+    return extendsBaseClass || isNonStaticNestedTest &&
+        javaClass.getEnclosingClass().map(ArchitectureTest::extendsAppropriateTestBase).orElse(false);
+  }
+
+  protected static boolean isJUnitTestMethod(com.tngtech.archunit.core.domain.JavaMethod method) {
+    return method.isAnnotatedWith("org.junit.jupiter.api.Test") ||
+        method.isAnnotatedWith("org.junit.jupiter.params.ParameterizedTest");
+  }
+
+  protected record DocumentedRule(String id, String enforcementMethod) {
   }
 
   protected static ArchCondition<JavaClass> beInImplPackageOrTopLevel() {
@@ -484,15 +812,17 @@ class ArchitectureTest {
   }
 
   protected static ArchCondition<JavaClass> notHaveNonFinalStaticFields() {
-    return new ArchCondition<JavaClass>("not have mutable static fields") {
+    return new ArchCondition<JavaClass>("have public static final String constants") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         javaClass.getFields().stream()
-            .filter(field -> field.getModifiers().contains(JavaModifier.STATIC))
-            .filter(field -> !field.getModifiers().contains(JavaModifier.FINAL))
+            .filter(field -> field.getRawType().isEquivalentTo(String.class))
+            .filter(field -> !field.getModifiers().contains(JavaModifier.PUBLIC) ||
+                             !field.getModifiers().contains(JavaModifier.STATIC) ||
+                             !field.getModifiers().contains(JavaModifier.FINAL))
             .forEach(field -> {
               String message = String.format(
-                  "Static field <%s.%s> should be final to prevent modification",
+                  "Log constant <%s.%s> should be public static final",
                   javaClass.getName(), field.getName());
               events.add(SimpleConditionEvent.violated(field, message));
             });
@@ -556,7 +886,7 @@ class ArchitectureTest {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
         boolean hasTestMethods = javaClass.getMethods().stream()
-            .anyMatch(method -> method.isAnnotatedWith("org.junit.jupiter.api.Test"));
+            .anyMatch(ArchitectureTest::isJUnitTestMethod);
 
         if (hasTestMethods && !javaClass.getSimpleName().endsWith("Test")) {
           String message = String.format(
@@ -568,5 +898,3 @@ class ArchitectureTest {
     };
   }
 }
-
-
