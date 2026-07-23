@@ -40,8 +40,8 @@ jobs:
           fi
           
           if [ -z "$PREVIOUS" ]; then
-            echo "::error::Failed to extract <version.camunda-8.previous> from pom.xml"
-            exit 1
+            PREVIOUS="$CURRENT"
+            echo "::notice::<version.camunda-8.previous> missing in pom.xml; defaulting to <version.camunda-8> (${CURRENT})"
           fi
 
           # Docker image version: for SNAPSHOT versions, current uses SNAPSHOT and previous uses MAJOR.MINOR-SNAPSHOT
@@ -57,7 +57,13 @@ jobs:
           echo "camunda-8-previous-version=${PREVIOUS}" >> $GITHUB_OUTPUT
           echo "camunda-8-docker-image-version=${CURRENT_DOCKER}" >> $GITHUB_OUTPUT
           echo "camunda-8-previous-docker-image-version=${PREVIOUS_DOCKER}" >> $GITHUB_OUTPUT
-          echo "camunda-versions=[\"${CURRENT}\",\"${PREVIOUS}\"]" >> $GITHUB_OUTPUT
+          if [ "$CURRENT" = "$PREVIOUS" ]; then
+            CAMUNDA_VERSIONS="[\"${CURRENT}\"]"
+          else
+            CAMUNDA_VERSIONS="[\"${CURRENT}\",\"${PREVIOUS}\"]"
+          fi
+
+          echo "camunda-versions=${CAMUNDA_VERSIONS}" >> $GITHUB_OUTPUT
 
           echo "Camunda 8 current: ${CURRENT} (docker: ${CURRENT_DOCKER})"
           echo "Camunda 8 previous: ${PREVIOUS} (docker: ${PREVIOUS_DOCKER})"
