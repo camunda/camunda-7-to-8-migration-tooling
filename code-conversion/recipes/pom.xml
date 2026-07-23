@@ -174,7 +174,12 @@
     </dependency>
     <dependency>
       <groupId>org.camunda.spin</groupId>
-      <artifactId>camunda-spin-dataformat-all</artifactId>
+      <artifactId>camunda-spin-dataformat-json-jackson</artifactId>
+      <version>${version.camunda-7}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.camunda.spin</groupId>
+      <artifactId>camunda-spin-dataformat-xml-dom</artifactId>
       <version>${version.camunda-7}</version>
     </dependency>
     <dependency>
