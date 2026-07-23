@@ -276,7 +276,7 @@ rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllExternalWorkerRecipes")
 }
 ```
-Run the OpenRewrite task with the platform-appropriate Gradle wrapper: for example, `./gradlew rewriteRun` in a Unix-like shell, `.\gradlew.bat rewriteRun` in PowerShell, or `gradlew.bat rewriteRun` in Command Prompt.
+Run the OpenRewrite task with the platform-appropriate Gradle wrapper: for example, `./gradlew rewriteRun` on macOS or Linux (including in PowerShell), `.\gradlew.bat rewriteRun` in PowerShell on Windows, or `gradlew.bat rewriteRun` in Windows Command Prompt.
 
 Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
 
@@ -413,12 +413,12 @@ When the scope is **Code + models**:
 
 ### Code validation (if code was migrated)
 
-1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task, such as `./gradlew compileJava` in a Unix-like shell, `.\gradlew.bat compileJava` in PowerShell, or `gradlew.bat compileJava` in Command Prompt — fix all errors
+1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task, such as `./gradlew compileJava` on macOS or Linux (including in PowerShell), `.\gradlew.bat compileJava` in PowerShell on Windows, or `gradlew.bat compileJava` in Windows Command Prompt — fix all errors
 2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
 3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task, such as `./gradlew test` in a Unix-like shell, `.\gradlew.bat test` in PowerShell, or `gradlew.bat test` in Command Prompt — fix failures
+6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task, such as `./gradlew test` on macOS or Linux (including in PowerShell), `.\gradlew.bat test` in PowerShell on Windows, or `gradlew.bat test` in Windows Command Prompt — fix failures
 7. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling
