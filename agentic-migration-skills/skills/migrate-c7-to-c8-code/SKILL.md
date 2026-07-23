@@ -258,7 +258,10 @@ For Maven — add to `pom.xml`:
      - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
      - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Apply those flags using a portable Maven JVM option mechanism. Prefer writing them to `.mvn/jvm.config` for the duration of the rewrite step, or use `JAVA_TOOL_OPTIONS` if that is easier in the current environment, then run `mvn rewrite:run`.
+   - Apply those flags using a portable Maven JVM option mechanism:
+     - If the project already has a `.mvn` directory, prefer appending them temporarily to `.mvn/jvm.config` while preserving any existing content. Otherwise, use `JAVA_TOOL_OPTIONS` rather than creating repository configuration solely for this temporary step.
+     - Arrange cleanup so it runs whether `mvn rewrite:run` succeeds or fails: restore the exact previous `.mvn/jvm.config` content or remove the file if this step created it, and restore the previous `JAVA_TOOL_OPTIONS` value if it was changed.
+     - Do not stage or commit the temporary changes; preserve any legitimate pre-existing tracked configuration.
    - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
 4. If Spotless is not present, or Java < 17, run `mvn rewrite:run` directly.
 
@@ -273,7 +276,7 @@ rewrite {
     activeRecipe("io.camunda.migration.code.recipes.AllExternalWorkerRecipes")
 }
 ```
-Run the OpenRewrite task with the platform-appropriate Gradle wrapper (`gradlew`, `gradlew.bat`, or the equivalent wrapper entrypoint for the current environment).
+Run the OpenRewrite task with the platform-appropriate Gradle wrapper: for example, `./gradlew rewriteRun` on macOS or Linux (including in PowerShell), `.\gradlew.bat rewriteRun` in PowerShell on Windows, or `gradlew.bat rewriteRun` in Windows Command Prompt.
 
 Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
 
@@ -410,12 +413,12 @@ When the scope is **Code + models**:
 
 ### Code validation (if code was migrated)
 
-1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task — fix all errors
+1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task, such as `./gradlew compileJava` on macOS or Linux (including in PowerShell), `.\gradlew.bat compileJava` in PowerShell on Windows, or `gradlew.bat compileJava` in Windows Command Prompt — fix all errors
 2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
 3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
 4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
 5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task — fix failures
+6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task, such as `./gradlew test` on macOS or Linux (including in PowerShell), `.\gradlew.bat test` in PowerShell on Windows, or `gradlew.bat test` in Windows Command Prompt — fix failures
 7. **Check common pitfalls**:
   - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
   - Process instance IDs changed from `String` to `Long` — check all ID handling

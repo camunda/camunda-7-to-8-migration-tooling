@@ -27,7 +27,8 @@
 
 Run architecture tests to ensure compliance:
 ```bash
-mvn test -Dtest=ArchitectureTest
+mvn install -DskipTests -pl data-migrator/distro -am && \
+  mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=ArchitectureTest
 ```
 
 If architecture tests fail, refactor your tests to use:
@@ -49,4 +50,3 @@ If architecture tests fail, refactor your tests to use:
 
 ## Related Issues
 <!-- Link to related issues: Fixes #123, Related to #456 -->
-
