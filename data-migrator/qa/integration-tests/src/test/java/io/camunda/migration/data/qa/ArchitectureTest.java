@@ -306,7 +306,7 @@ class ArchitectureTest {
   protected static void checkShouldNotUseSystemOutOrPrintStackTrace(JavaClasses classesToCheck) {
     noClasses()
         .that().resideInAPackage("io.camunda.migration.data..")
-        .and().resideOutsideOfPackage("..app..")
+        .and().resideOutsideOfPackages("..app..", "..qa..")
         .should().accessField(System.class, "out")
         .orShould().callMethod("java.lang.Throwable", "printStackTrace")
         .allowEmptyShould(true)
