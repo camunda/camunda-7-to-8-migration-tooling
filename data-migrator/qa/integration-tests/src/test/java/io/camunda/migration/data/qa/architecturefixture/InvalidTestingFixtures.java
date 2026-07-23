@@ -9,6 +9,7 @@ package io.camunda.migration.data.qa.architecturefixture;
 
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.List;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.junit.jupiter.api.AfterAll;
@@ -58,6 +59,14 @@ public class InvalidTestingFixtures {
 
     @AfterEach
     void afterEach(ProcessEngineConfigurationImpl configuration) {
+      configuration.getHistoryLevel();
+    }
+  }
+
+  @WhiteBox
+  public static class WhiteBoxEngineImplAccessTest {
+
+    void access(ProcessEngineConfigurationImpl configuration) {
       configuration.getHistoryLevel();
     }
   }

@@ -28,6 +28,7 @@ import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFix
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StandaloneMigrationTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StandaloneParameterizedMigrationTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.StaticNestedContainerTest.StaticNestedMigrationTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.WhiteBoxEngineImplAccessTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.packagePrivateMissingSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -146,6 +147,13 @@ class ArchitectureTest {
   @Test
   void shouldAllowEngineConfigurationAccessFromAllLifecycleMethods() {
     JavaClasses fixtureClasses = new ClassFileImporter().importClasses(EngineImplLifecycleAccessTest.class);
+
+    checkShouldNotAccessCamundaBpmEngineImplClasses(fixtureClasses);
+  }
+
+  @Test
+  void shouldAllowEngineImplementationAccessFromWhiteBoxClass() {
+    JavaClasses fixtureClasses = new ClassFileImporter().importClasses(WhiteBoxEngineImplAccessTest.class);
 
     checkShouldNotAccessCamundaBpmEngineImplClasses(fixtureClasses);
   }
@@ -583,6 +591,9 @@ class ArchitectureTest {
     return new ArchCondition<JavaClass>("not access org.camunda.bpm.engine.impl package except ClockUtil") {
       @Override
       public void check(JavaClass javaClass, ConditionEvents events) {
+        if (javaClass.isAnnotatedWith("io.camunda.migration.data.qa.util.WhiteBox")) {
+          return;
+        }
         javaClass.getAccessesFromSelf().forEach(access -> {
           JavaClass targetClass = access.getTargetOwner();
           String targetClassName = targetClass.getName();
