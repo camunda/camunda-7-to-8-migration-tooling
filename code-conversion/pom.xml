@@ -17,4 +17,35 @@
     <module>recipes</module>
   </modules>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>reject-shaded-spin-dataformat-all</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>org.camunda.spin:camunda-spin-dataformat-all</exclude>
+                  </excludes>
+                  <message>
+                    camunda-spin-dataformat-all shades dependencies that cannot be secured through dependency management; use the individual Spin data-format artifacts.
+                  </message>
+                  <searchTransitive>true</searchTransitive>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>
