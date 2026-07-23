@@ -11,6 +11,8 @@ import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
 import java.util.List;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,6 +33,19 @@ public class InvalidTestingFixtures {
   public static class EngineImplAccessTest {
 
     public void access(ProcessEngineConfigurationImpl configuration) {
+      configuration.getHistoryLevel();
+    }
+  }
+
+  public static class EngineImplLifecycleAccessTest {
+
+    @BeforeAll
+    static void beforeAll(ProcessEngineConfigurationImpl configuration) {
+      configuration.getHistoryLevel();
+    }
+
+    @AfterAll
+    static void afterAll(ProcessEngineConfigurationImpl configuration) {
       configuration.getHistoryLevel();
     }
   }

@@ -21,6 +21,7 @@ import static io.camunda.migration.data.impl.logging.architecturefixture.Invalid
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.BadMethodNameTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.BadParameterizedMethodNameTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.EngineImplAccessTest;
+import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.EngineImplLifecycleAccessTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.ImplementationAccessTest;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.MissingSuffix;
 import static io.camunda.migration.data.qa.architecturefixture.InvalidTestingFixtures.MissingParameterizedSuffix;
@@ -140,6 +141,13 @@ class ArchitectureTest {
     assertThat(ARCHITECTURE_FIXTURE_PATH.matcher(
         "C:\\workspace\\io\\camunda\\migration\\data\\architecturefixture\\Invalid.class").matches())
         .isTrue();
+  }
+
+  @Test
+  void shouldAllowEngineConfigurationAccessFromAllLifecycleMethods() {
+    JavaClasses fixtureClasses = new ClassFileImporter().importClasses(EngineImplLifecycleAccessTest.class);
+
+    checkShouldNotAccessCamundaBpmEngineImplClasses(fixtureClasses);
   }
 
   @Test
@@ -622,6 +630,8 @@ class ArchitectureTest {
               boolean isTestInfrastructureMethod = isJUnitTestMethod(originMethod) ||
                   originMethod.getAnnotations().stream()
                   .anyMatch(annotation ->
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeAll") ||
+                      annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterAll") ||
                       annotation.getRawType().getName().equals("org.junit.jupiter.api.BeforeEach") ||
                       annotation.getRawType().getName().equals("org.junit.jupiter.api.AfterEach"));
 
