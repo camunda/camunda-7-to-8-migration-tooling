@@ -3,8 +3,8 @@ on:
   push:
     branches:
       - main
-      - maintenance/0.3
-      - maintenance/0.2
+      - maintenance/*
+      - "!maintenance/*-backport-*"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
