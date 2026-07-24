@@ -1107,7 +1107,7 @@ jobs:
       CACHE_E2E: ${{ needs.e2e.outputs.maven-cache-hit }}
     steps:
       - name: Evaluate blocking checks and publish CI budget metrics
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const parseBool = (value) => `${value}`.toLowerCase() === "true";
