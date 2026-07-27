@@ -80,7 +80,7 @@ function App() {
           });
 
       }
-    }, [isPreviewOpen, previewbpmnXml]);
+    }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
 
     function getMostSevere(messages) {
       const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
