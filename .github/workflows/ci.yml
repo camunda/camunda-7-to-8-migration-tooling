@@ -556,7 +556,6 @@ jobs:
     timeout-minutes: 70
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event_name != 'pull_request' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
         (
@@ -737,7 +736,6 @@ jobs:
     timeout-minutes: 70
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event_name != 'pull_request' ||
       (github.event_name == 'pull_request' && (
         contains(github.event.pull_request.labels.*.name, 'ci:identity') ||
         (
