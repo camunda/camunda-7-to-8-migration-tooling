@@ -639,8 +639,11 @@ public class DistributionSmokeTest {
       }
       if (child.isAlive()) {
         child.destroyForcibly();
+        final long remainingNanos = deadlineNanos - System.nanoTime();
         try {
-          child.onExit().get(1, TimeUnit.SECONDS);
+          if (remainingNanos > 0) {
+            child.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+          }
         } catch (ExecutionException | TimeoutException ignored) {
           // best effort: process termination was already requested
         }
