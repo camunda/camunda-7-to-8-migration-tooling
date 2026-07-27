@@ -623,9 +623,19 @@ public class DistributionSmokeTest {
       }
       waitForDescendantsToExit(descendants, 5, TimeUnit.SECONDS);
     } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
       descendants.forEach(ProcessHandle::destroyForcibly);
       proc.destroyForcibly();
+      // Best-effort wait for descendants before restoring the interrupt flag so that
+      // file locks are released before @TempDir cleanup. The interrupt flag is clear
+      // here, so onExit().get() can block normally.
+      for (final ProcessHandle child : descendants) {
+        try {
+          child.onExit().get(1, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException | InterruptedException ignored) {
+          // best effort
+        }
+      }
+      Thread.currentThread().interrupt();
     }
   }
 
