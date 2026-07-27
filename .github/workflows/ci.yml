@@ -558,6 +558,17 @@ jobs:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:runtime') ||
+        (
+          needs.detect-changes.outputs.run-runtime == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:history') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+        )
+      ))
     permissions:
       contents: read
     strategy:
@@ -1260,9 +1271,12 @@ jobs:
       - diagram-converter
       - compile-previous-version
       - it-runtime-h2
+      - it-runtime-db
       - it-history-h2
       - it-history-h2-windows
+      - it-history-db
       - it-identity-h2
+      - it-identity-db
       - e2e
     if: failure() && fromJSON(github.run_attempt) < 3
     runs-on: ubuntu-latest
