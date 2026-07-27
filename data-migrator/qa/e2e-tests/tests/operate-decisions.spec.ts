@@ -115,12 +115,11 @@ test.describe('Operate - Decision Instances', () => {
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
 
-    // Wait for the decision list container to confirm data has loaded
-    const decisionList = page.locator('[data-testid="data-list"]');
-    await expect(decisionList).toBeVisible({ timeout: 10000 });
-
-    // Count decision instance rows scoped to the list container (avoids matching unrelated rows)
-    const decisionRows = decisionList.locator('[role="row"]');
+    // Decision instance rows use [role="row"] in Operate's list component.
+    // The rows are not scoped to [data-testid="data-list"] (that container holds
+    // the definition/filter UI), so we match them page-wide. toHaveCount retries
+    // until the expected number of rows are present, removing the data-load race.
+    const decisionRows = page.locator('[role="row"]');
 
     const expectedDecisionCount = 12;
     await expect(decisionRows).toHaveCount(expectedDecisionCount, { timeout: 15000 });
