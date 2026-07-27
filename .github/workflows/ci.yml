@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - maintenance/*
+      - "!maintenance/*-backport-*"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Extract Camunda 8 versions from pom.xml
         id: versions
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           CURRENT=$(sed -n 's/.*<version\.camunda-8>\([^<]*\)<\/version\.camunda-8>.*/\1/p' pom.xml)
           PREVIOUS=$(sed -n 's/.*<version\.camunda-8\.previous>\([^<]*\)<\/version\.camunda-8\.previous>.*/\1/p' pom.xml)
@@ -40,8 +44,14 @@ jobs:
           fi
           
           if [ -z "$PREVIOUS" ]; then
-            PREVIOUS="$CURRENT"
-            echo "::notice::<version.camunda-8.previous> missing in pom.xml; defaulting to <version.camunda-8> (${CURRENT})"
+            TARGET_BRANCH="${BASE_REF:-$REF_NAME}"
+            if echo "$TARGET_BRANCH" | grep -q '^maintenance/'; then
+              PREVIOUS="$CURRENT"
+              echo "::notice::<version.camunda-8.previous> missing in pom.xml on ${TARGET_BRANCH}; defaulting to <version.camunda-8> (${CURRENT})"
+            else
+              echo "::error::Failed to extract <version.camunda-8.previous> from pom.xml on ${TARGET_BRANCH}; fallback is only allowed on maintenance/* branches"
+              exit 1
+            fi
           fi
 
           # Docker image version: for SNAPSHOT versions, current uses SNAPSHOT and previous uses MAJOR.MINOR-SNAPSHOT
