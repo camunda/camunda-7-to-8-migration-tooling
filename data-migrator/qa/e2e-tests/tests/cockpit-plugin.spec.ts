@@ -138,15 +138,10 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should display 6 skipped process instances with correct columns and data', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
-
     // Select "Skipped" radio button (should be selected by default, but ensure it)
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
+    await expect(skippedRadio).toBeVisible({ timeout: 10000 });
     await skippedRadio.click();
-
-    // Wait for data to load
-    await page.waitForTimeout(2000);
 
     // Find the table
     const table = page.locator('view[data-plugin-id="camunda-7-to-8-data-migrator"] table');
@@ -158,15 +153,12 @@ test.describe('Cockpit Plugin E2E', () => {
     await expect(headerRow.locator('th:has-text("Process Definition Key")')).toBeVisible();
     await expect(headerRow.locator('th:has-text("Skip Reason")')).toBeVisible();
 
-    // Get all data rows (excluding header)
+    const expectedSkippedCount = 6;
     const dataRows = table.locator('tbody tr');
-    const rowCount = await dataRows.count();
-
-    // Verify we have exactly 6 rows
-    expect(rowCount).toBe(6);
+    await expect(dataRows).toHaveCount(expectedSkippedCount, { timeout: 15000 });
 
     // Verify each row has the expected data
-    for (let i = 0; i < rowCount; i++) {
+    for (let i = 0; i < expectedSkippedCount; i++) {
       const row = dataRows.nth(i);
 
       // Get cells in the row
