@@ -153,12 +153,12 @@ test.describe('Cockpit Plugin E2E', () => {
     await expect(headerRow.locator('th:has-text("Process Definition Key")')).toBeVisible();
     await expect(headerRow.locator('th:has-text("Skip Reason")')).toBeVisible();
 
-    // Get all data rows (excluding header) — toHaveCount retries until all 6 rows are rendered
+    const expectedSkippedCount = 6;
     const dataRows = table.locator('tbody tr');
-    await expect(dataRows).toHaveCount(6, { timeout: 15000 });
+    await expect(dataRows).toHaveCount(expectedSkippedCount, { timeout: 15000 });
 
     // Verify each row has the expected data
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < expectedSkippedCount; i++) {
       const row = dataRows.nth(i);
 
       // Get cells in the row
