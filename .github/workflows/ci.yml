@@ -773,9 +773,9 @@ jobs:
       contents: read
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
-      e2e-first-pass-rate: ${{ steps.analyze-e2e-retries.outputs.first-pass-rate }}
-      e2e-retried-green-count: ${{ steps.analyze-e2e-retries.outputs.retried-green-count }}
-      e2e-first-attempt-failure-count: ${{ steps.analyze-e2e-retries.outputs.first-attempt-failure-count }}
+      e2e_first_pass_rate: ${{ steps.analyze-e2e-retries.outputs.first_pass_rate }}
+      e2e_retried_green_count: ${{ steps.analyze-e2e-retries.outputs.retried_green_count }}
+      e2e_first_attempt_failure_count: ${{ steps.analyze-e2e-retries.outputs.first_attempt_failure_count }}
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name != 'pull_request' ||
@@ -1118,9 +1118,9 @@ jobs:
       CACHE_HISTORY_H2_WINDOWS: ${{ needs.it-history-h2-windows.outputs.maven-cache-hit }}
       CACHE_IDENTITY_H2: ${{ needs.it-identity-h2.outputs.maven-cache-hit }}
       CACHE_E2E: ${{ needs.e2e.outputs.maven-cache-hit }}
-      E2E_FIRST_PASS_RATE: ${{ needs.e2e.outputs.e2e-first-pass-rate }}
-      E2E_RETRIED_GREEN_COUNT: ${{ needs.e2e.outputs.e2e-retried-green-count }}
-      E2E_FIRST_ATTEMPT_FAILURE_COUNT: ${{ needs.e2e.outputs.e2e-first-attempt-failure-count }}
+      E2E_FIRST_PASS_RATE: ${{ needs.e2e.outputs.e2e_first_pass_rate }}
+      E2E_RETRIED_GREEN_COUNT: ${{ needs.e2e.outputs.e2e_retried_green_count }}
+      E2E_FIRST_ATTEMPT_FAILURE_COUNT: ${{ needs.e2e.outputs.e2e_first_attempt_failure_count }}
     steps:
       - name: Evaluate blocking checks and publish CI budget metrics
         uses: actions/github-script@v9
@@ -1128,6 +1128,7 @@ jobs:
           script: |
             const parseBool = (value) => `${value}`.toLowerCase() === "true";
             const parseNumber = (value) => {
+              if (value === '' || value === null || value === undefined) return null;
               const parsed = Number(value);
               return Number.isFinite(parsed) ? parsed : null;
             };

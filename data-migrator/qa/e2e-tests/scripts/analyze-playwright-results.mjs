@@ -28,18 +28,24 @@ const appendSummary = (line) => {
 };
 
 const writeDefaultOutputs = () => {
-  appendOutput('total-tests', 0);
-  appendOutput('first-pass-count', 0);
-  appendOutput('first-attempt-failure-count', 0);
-  appendOutput('retried-green-count', 0);
-  appendOutput('failed-after-retry-count', 0);
-  appendOutput('first-pass-rate', '0.00');
+  appendOutput('total_tests', 0);
+  appendOutput('first_pass_count', 0);
+  appendOutput('first_attempt_failure_count', 0);
+  appendOutput('retried_green_count', 0);
+  appendOutput('failed_after_retry_count', 0);
+  appendOutput('first_pass_rate', '0.00');
 };
 
 if (!fs.existsSync(resultsPath)) {
   appendSummary('### Playwright first-pass reliability');
   appendSummary(`No JSON report found at \`${resultsPath}\`.`);
   writeDefaultOutputs();
+  if (process.env.GITHUB_ACTIONS && failOnRetriedGreen) {
+    console.error(
+      'Missing Playwright JSON report on CI; flaky-green enforcement cannot run.',
+    );
+    process.exit(1);
+  }
   process.exit(0);
 }
 
@@ -90,6 +96,9 @@ for (const testCase of tests) {
   }
 
   const firstStatus = attemptStatuses[0];
+  if (firstStatus === 'skipped') {
+    continue;
+  }
   const finalStatus = attemptStatuses[attemptStatuses.length - 1];
   const hasRetry = attemptStatuses.length > 1;
   const firstAttemptPassed = firstStatus === 'passed';
@@ -135,12 +144,12 @@ if (retriedGreenDiagnostics.length > 0) {
   }
 }
 
-appendOutput('total-tests', totalTests);
-appendOutput('first-pass-count', firstPassCount);
-appendOutput('first-attempt-failure-count', firstAttemptFailureCount);
-appendOutput('retried-green-count', retriedGreenCount);
-appendOutput('failed-after-retry-count', failedAfterRetryCount);
-appendOutput('first-pass-rate', firstPassRate.toFixed(2));
+appendOutput('total_tests', totalTests);
+appendOutput('first_pass_count', firstPassCount);
+appendOutput('first_attempt_failure_count', firstAttemptFailureCount);
+appendOutput('retried_green_count', retriedGreenCount);
+appendOutput('failed_after_retry_count', failedAfterRetryCount);
+appendOutput('first_pass_rate', firstPassRate.toFixed(2));
 
 if (failOnRetriedGreen && retriedGreenCount > 0) {
   console.error(
