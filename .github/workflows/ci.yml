@@ -65,7 +65,13 @@ jobs:
           else
             CURRENT_DOCKER="$CURRENT"
           fi
-          PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*-SNAPSHOT/\1-SNAPSHOT/')
+          if [ "$PREVIOUS" = "$CURRENT" ]; then
+            PREVIOUS_DOCKER="$CURRENT_DOCKER"
+          elif echo "$PREVIOUS" | grep -q '\-SNAPSHOT$'; then
+            PREVIOUS_DOCKER=$(echo "$PREVIOUS" | sed 's/\([0-9]*\.[0-9]*\)\.[0-9]*-SNAPSHOT/\1-SNAPSHOT/')
+          else
+            PREVIOUS_DOCKER="$PREVIOUS"
+          fi
 
           echo "camunda-8-version=${CURRENT}" >> $GITHUB_OUTPUT
           echo "camunda-8-previous-version=${PREVIOUS}" >> $GITHUB_OUTPUT
@@ -545,7 +551,7 @@ jobs:
 
   # Runtime integration tests for non-H2 databases (label-gated on PRs)
   it-runtime-db:
-    needs: prepare-db-matrix
+    needs: [prepare-db-matrix, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
     if: |
@@ -726,7 +732,7 @@ jobs:
 
   # Identity integration tests for non-H2 databases (label-gated on PRs)
   it-identity-db:
-    needs: prepare-db-matrix
+    needs: [prepare-db-matrix, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
     if: |
