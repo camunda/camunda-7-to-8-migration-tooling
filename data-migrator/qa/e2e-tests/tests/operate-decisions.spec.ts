@@ -125,10 +125,10 @@ test.describe('Operate - Decision Instances', () => {
       '[role="row"]'
     );
 
-    // Wait until all 12 rows are rendered (toHaveCount retries until stable)
-    await expect(decisionRows).toHaveCount(12, { timeout: 15000 });
+    const expectedDecisionCount = 12;
+    await expect(decisionRows).toHaveCount(expectedDecisionCount, { timeout: 15000 });
 
-    console.log(`Found 12 decision instances on the decisions page`);
+    console.log(`Found ${expectedDecisionCount} decision instances on the decisions page`);
   });
 
   test('should open first decision instance and display details page', async ({ page }) => {
