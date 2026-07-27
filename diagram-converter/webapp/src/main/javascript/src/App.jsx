@@ -133,7 +133,7 @@ function App() {
           });
 
       }
-    }, [isPreviewOpen, previewbpmnXml]);
+    }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;

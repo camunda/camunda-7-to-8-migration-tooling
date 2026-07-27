@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "E2E tests for the Camunda 7 to 8 Data Migrator Cockpit Plugin",
   "scripts": {
-    "test": "playwright test",
+    "test": "npm run typecheck && npm run check:type-escapes && playwright test",
+    "typecheck": "tsc --noEmit",
+    "check:type-escapes": "node scripts/check-type-escapes.mjs",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:headed": "playwright test --headed"
@@ -13,6 +15,7 @@
   "license": "SEE LICENSE IN ../../CAMUNDA-LICENSE-1.0.txt",
   "devDependencies": {
     "@playwright/test": "^1.48.0",
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2"
   }
 }
