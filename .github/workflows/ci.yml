@@ -6,6 +6,10 @@ on:
       - maintenance/*
       - "!maintenance/*-backport-*"
   pull_request:
+    branches:
+      - main
+      - maintenance/*
+      - release/*
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
   schedule:
@@ -1044,13 +1048,6 @@ jobs:
         camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
         # Keep every test fork below Surefire's 65-minute hang detector.
         suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
-        include:
-          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-version }}
-            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-docker-image-version }}
-            c8-api: current
-          - camunda-version: ${{ needs.read-versions.outputs.camunda-8-previous-version }}
-            camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
-            c8-api: previous
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1079,10 +1076,16 @@ jobs:
       - name: Run ${{ matrix.suite }} tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
         working-directory: data-migrator
         run: >-
+          CAMUNDA_DOCKER_IMAGE_VERSION="${{ needs.read-versions.outputs.camunda-8-docker-image-version }}";
+          C8_API="current";
+          if [ "${{ matrix.camunda-version }}" = "${{ needs.read-versions.outputs.camunda-8-previous-version }}" ]; then
+            CAMUNDA_DOCKER_IMAGE_VERSION="${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}";
+            C8_API="previous";
+          fi;
           mvn verify -P${{ matrix.database }},integration,${{ matrix.suite }}
           -Dversion.camunda-8=${{ matrix.camunda-version }}
-          -Dc8.api=${{ matrix.c8-api }}
-          -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
+          -Dc8.api=${C8_API}
+          -Dcamunda.process-test.camunda-docker-image-version=${CAMUNDA_DOCKER_IMAGE_VERSION}
 
   ci-summary:
     name: CI Summary Gate

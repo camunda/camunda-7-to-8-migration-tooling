@@ -30,7 +30,7 @@ These directories require team coordination — do not modify without explicit h
 |------|-----------|
 | Language | Java 21 |
 | Build | Maven 3.6+ (multi-module) |
-| Framework | Spring Boot 4.x |
+| Framework | Spring Boot 3.x |
 | Frontend | React 18/19, Vite, TypeScript |
 | Databases | H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
 | Testing | JUnit Jupiter 6.x, AssertJ, ArchUnit, REST Assured, Testcontainers |
