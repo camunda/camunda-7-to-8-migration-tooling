@@ -73,8 +73,8 @@ public class CsvWriterTest {
     element.setElementId("\t-elementId");
     element.setElementType("\u0000@elementType");
     ElementCheckMessage message = element.getMessages().getFirst();
-    message.setId("\nmessageId");
-    message.setMessage("\nmessage");
+    message.setId("\n=messageId");
+    message.setMessage("\n+message");
     message.setLink("  =link");
 
     StringWriter writer = new StringWriter();
@@ -87,8 +87,8 @@ public class CsvWriterTest {
             "'\t-elementId",
             "'\u0000@elementType",
             SEVERITY.name(),
-            "'\nmessageId",
-            "'\nmessage",
+            "'\n=messageId",
+            "'\n+message",
             "'  =link");
   }
 

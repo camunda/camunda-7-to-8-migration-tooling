@@ -377,11 +377,6 @@ public class DiagramConverter {
       return value;
     }
 
-    char firstCharacter = value.charAt(0);
-    if (firstCharacter == '\t' || firstCharacter == '\r' || firstCharacter == '\n') {
-      return "'" + value;
-    }
-
     int index = 0;
     while (index < value.length()
         && (Character.isWhitespace(value.charAt(index))
