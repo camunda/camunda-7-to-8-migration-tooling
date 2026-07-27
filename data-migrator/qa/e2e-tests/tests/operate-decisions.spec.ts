@@ -93,9 +93,9 @@ test.describe('Operate - Decision Instances', () => {
 
       await submitButton.click();
 
-      await page
-        .locator('input[name="username"]')
-        .waitFor({ state: 'hidden', timeout: 15000 });
+      await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+        timeout: 15000,
+      });
 
       // Take screenshot after login
       await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
