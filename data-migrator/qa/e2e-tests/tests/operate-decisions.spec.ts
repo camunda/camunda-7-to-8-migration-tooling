@@ -111,7 +111,6 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decisions page to load
     await page.waitForURL('**/decisions**', { timeout: 10000 });
-    await page.waitForTimeout(3000); // Give time for data to load
 
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
@@ -126,16 +125,10 @@ test.describe('Operate - Decision Instances', () => {
       '[role="row"]'
     );
 
-    // Wait for results to be visible
-    await decisionRows.first().waitFor({ state: 'visible', timeout: 10000 });
+    // Wait until all 12 rows are rendered (toHaveCount retries until stable)
+    await expect(decisionRows).toHaveCount(12, { timeout: 15000 });
 
-    // Count the number of decision instances displayed
-    const count = await decisionRows.count();
-
-    // Verify we have exactly 12 decision instances
-    expect(count).toBe(12);
-
-    console.log(`Found ${count} decision instances on the decisions page`);
+    console.log(`Found 12 decision instances on the decisions page`);
   });
 
   test('should open first decision instance and display details page', async ({ page }) => {
