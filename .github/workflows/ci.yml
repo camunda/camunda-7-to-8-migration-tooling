@@ -1038,7 +1038,8 @@ jobs:
         database: [postgresql, oracle]
         camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
         # Keep every test fork below Surefire's 65-minute hang detector.
-        suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
+        # history-only is excluded: no history migration on maintenance/0.2
+        suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, identity-only]
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1088,8 +1089,6 @@ jobs:
       - diagram-converter
       - compile-previous-version
       - it-runtime-h2
-      - it-history-h2
-      - it-history-h2-windows
       - it-identity-h2
       - e2e
     if: always()
