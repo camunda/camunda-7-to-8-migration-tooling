@@ -162,8 +162,12 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.6</version>
         <configuration>
+          <failIfNoSpecifiedTests>true</failIfNoSpecifiedTests>
           <forkedProcessTimeoutInSeconds>3900</forkedProcessTimeoutInSeconds>
           <forkedProcessExitTimeoutInSeconds>300</forkedProcessExitTimeoutInSeconds>
+          <systemPropertyVariables>
+            <repositoryRoot>${maven.multiModuleProjectDirectory}</repositoryRoot>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
     </plugins>
@@ -376,4 +380,3 @@
   </profiles>
 
 </project>
-
