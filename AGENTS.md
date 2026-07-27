@@ -32,7 +32,7 @@ These directories require team coordination — do not modify without explicit h
 | Build | Maven 3.6+ (multi-module) |
 | Framework | Spring Boot 3.x |
 | Frontend | React 18/19, Vite, TypeScript |
-| Databases | H2, PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
+| Databases | H2, PostgreSQL, Oracle |
 | Testing | JUnit Jupiter 6.x, AssertJ, ArchUnit, REST Assured, Testcontainers |
 | CI | GitHub Actions |
 
@@ -196,7 +196,7 @@ GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenan
 |--------|--------|-------------|
 | data-migrator | `distro` | Builds distribution archives (tar.gz, zip) |
 | data-migrator | `it-runtime-h2`, `it-history-h2`, `it-identity-h2` | Integration tests on H2 |
-| data-migrator | `it-runtime-db`, `it-history-db`, `it-identity-db` | Integration tests on PostgreSQL, Oracle, MySQL, MariaDB, SQL Server |
+| data-migrator | `it-runtime-db`, `it-history-db`, `it-identity-db` | Integration tests on PostgreSQL and Oracle |
 | data-migrator | `it-history-h2-windows` | Windows-specific build |
 | data-migrator | `e2e` | End-to-end tests (Playwright + Docker) |
 | code-conversion | `code-conversion` | Build + format check (`-PcheckFormat`) + pattern catalog validation |

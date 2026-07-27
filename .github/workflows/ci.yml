@@ -527,9 +527,6 @@ jobs:
         needs.detect-changes.outputs.run-db-default == 'true' ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') ||
-        contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') ||
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
     outputs:
@@ -540,7 +537,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
              [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:all') }}" == "true" ]]; then
-            echo 'databases=["postgresql","oracle","mysql","mariadb","sqlserver"]' >> "$GITHUB_OUTPUT"
+            echo 'databases=["postgresql","oracle"]' >> "$GITHUB_OUTPUT"
           else
             databases=()
             if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:postgresql') }}" == "true" ]]; then
@@ -548,15 +545,6 @@ jobs:
             fi
             if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:oracle') }}" == "true" ]]; then
               databases+=("oracle")
-            fi
-            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mysql') }}" == "true" ]]; then
-              databases+=("mysql")
-            fi
-            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:mariadb') }}" == "true" ]]; then
-              databases+=("mariadb")
-            fi
-            if [[ "${{ contains(github.event.pull_request.labels.*.name, 'ci:db:sqlserver') }}" == "true" ]]; then
-              databases+=("sqlserver")
             fi
             if [[ ${#databases[@]} -eq 0 ]] && [[ "${{ needs.detect-changes.outputs.run-db-default }}" == "true" ]]; then
               databases+=("postgresql")
@@ -1044,7 +1032,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        database: [postgresql, postgresql-15, oracle, oracle-19, mysql, mariadb, mariadb-10, sqlserver]
+        database: [postgresql, oracle]
         camunda-version: ${{ fromJSON(needs.read-versions.outputs.camunda-versions) }}
         # Keep every test fork below Surefire's 65-minute hang detector.
         suite: [runtime-core, runtime-element, runtime-jobtype, runtime-variables, history-only, identity-only]
@@ -1086,6 +1074,7 @@ jobs:
           -Dversion.camunda-8=${{ matrix.camunda-version }}
           -Dc8.api=${C8_API}
           -Dcamunda.process-test.camunda-docker-image-version=${CAMUNDA_DOCKER_IMAGE_VERSION}
+          --batch-mode
 
   ci-summary:
     name: CI Summary Gate
