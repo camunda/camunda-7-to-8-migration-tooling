@@ -115,15 +115,12 @@ test.describe('Operate - Decision Instances', () => {
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
 
-    // Find the table or list containing decision instances
-    // Operate uses various selectors - try multiple approaches
-    const decisionRows = page.locator(
-      '[data-testid="data-list"] > div, ' +
-      '[data-testid="decision-instance-row"], ' +
-      'table tbody tr, ' +
-      '[class*="ListItem"], ' +
-      '[role="row"]'
-    );
+    // Wait for the decision list container to confirm data has loaded
+    const decisionList = page.locator('[data-testid="data-list"]');
+    await expect(decisionList).toBeVisible({ timeout: 10000 });
+
+    // Count only direct children of the list container (one div per decision instance row)
+    const decisionRows = decisionList.locator('> div');
 
     const expectedDecisionCount = 12;
     await expect(decisionRows).toHaveCount(expectedDecisionCount, { timeout: 15000 });
