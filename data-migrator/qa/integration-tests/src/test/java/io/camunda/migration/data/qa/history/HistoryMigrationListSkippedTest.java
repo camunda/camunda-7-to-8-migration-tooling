@@ -223,7 +223,7 @@ public class HistoryMigrationListSkippedTest extends HistoryMigrationAbstractTes
             IdKeyMapper.TYPE.HISTORY_DECISION_INSTANCE.getDisplayName()
         };
 
-        assertThat(skippedEntitiesByType.keySet().toArray()).containsExactlyInAnyOrder(expectedEntityTypes);
+        assertThat(skippedEntitiesByType.keySet()).containsExactlyInAnyOrderElementsOf(List.of(expectedEntityTypes));
 
         // Verify specific entities with expected counts and IDs
         assertThat(skippedEntitiesByType.get(IdKeyMapper.TYPE.HISTORY_PROCESS_INSTANCE.getDisplayName()))
