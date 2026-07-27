@@ -10,18 +10,25 @@
     },
     {
       "description": "Pin internal modules to current version",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-data-migrator", "io.camunda:camunda-7-to-8-migration-tooling-root"],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "io.camunda:camunda-7-to-8-data-migrator{/,}**",
+        "io.camunda:camunda-7-to-8-migration-tooling-root{/,}**"
+      ]
     },
     {
       "description": "Disable updates for code-conversion modules",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-code-conversion-recipes"],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "io.camunda:camunda-7-to-8-code-conversion-recipes{/,}**"
+      ]
     },
     {
       "description": "Pin internal diagram-converter modules to current version",
-      "matchPackagePrefixes": ["io.camunda:camunda-7-to-8-diagram-converter"],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "io.camunda:camunda-7-to-8-diagram-converter{/,}**"
+      ]
     },
     {
       "description": "Do not update npm packages in diagram-converter TODO: camunda/camunda-7-to-8-migration-tooling/issues/583",
@@ -32,9 +39,11 @@
     {
       "description": "On any maintenance branch, restrict Camunda 8 packages to patch updates only (no minor or major).",
       "matchBaseBranches": ["/^maintenance\\//"],
-      "matchPackagePrefixes": ["io.camunda"],
       "matchUpdateTypes": ["minor", "major"],
-      "enabled": false
+      "enabled": false,
+      "matchPackageNames": [
+        "io.camunda**{/,}**"
+      ]
     },
     {
       "description": "Automerge all updates with green CI.",
