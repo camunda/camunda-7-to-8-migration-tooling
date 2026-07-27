@@ -100,7 +100,8 @@ These rules are enforced by ArchUnit tests in `qa/integration-tests` (scans `io.
 - Use SLF4J for logging - no `System.out`/`System.err`
 - Error Prone enabled for compile-time checks
 
-Run architecture validation: `mvn test -Dtest=ArchitectureTest -pl data-migrator/qa`
+Run architecture validation from the repository root:
+`mvn install -DskipTests -pl data-migrator/distro -am && mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=ArchitectureTest`
 
 ## Always-Green Policy
 
