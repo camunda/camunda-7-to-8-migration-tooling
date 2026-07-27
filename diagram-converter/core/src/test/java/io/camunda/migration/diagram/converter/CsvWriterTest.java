@@ -80,7 +80,9 @@ public class CsvWriterTest {
     StringWriter writer = new StringWriter();
     SERVICE.writeCsvFile(List.of(result), writer);
 
-    assertThat(readCsv(writer).get(1))
+    List<String[]> lines = readCsv(writer);
+    assertThat(lines).hasSize(2);
+    assertThat(lines.get(1))
         .containsExactly(
             "'=filename",
             "' +elementName",
