@@ -598,6 +598,17 @@ jobs:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:history') ||
+        (
+          needs.detect-changes.outputs.run-history == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
+        )
+      ))
     permissions:
       contents: read
     strategy:
@@ -737,6 +748,17 @@ jobs:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'pull_request' ||
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:identity') ||
+        (
+          needs.detect-changes.outputs.run-identity == 'true' &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci:history')
+        )
+      ))
     permissions:
       contents: read
     strategy:
