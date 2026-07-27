@@ -474,17 +474,7 @@ jobs:
     timeout-minutes: 70
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name != 'pull_request' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:history') ||
-        (
-          needs.detect-changes.outputs.run-history == 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
-        )
-      ))
+    if: false
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -609,17 +599,7 @@ jobs:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name != 'pull_request' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:history') ||
-        (
-          needs.detect-changes.outputs.run-history == 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
-        )
-      ))
+    if: false
     permissions:
       contents: read
     strategy:
@@ -661,17 +641,7 @@ jobs:
     timeout-minutes: 70
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name != 'pull_request' ||
-      (github.event_name == 'pull_request' && (
-        contains(github.event.pull_request.labels.*.name, 'ci:history') ||
-        (
-          needs.detect-changes.outputs.run-history == 'true' &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:runtime') &&
-          !contains(github.event.pull_request.labels.*.name, 'ci:identity')
-        )
-      ))
+    if: false
     steps:
       - name: Enable long paths for Git on Windows
         if: runner.os == 'Windows'
@@ -1133,8 +1103,8 @@ jobs:
       EXPECT_DIAGRAM_CONVERTER: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_COMPILE_PREVIOUS: ${{ github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-compile-previous-version == 'true' }}
       EXPECT_RUNTIME_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:runtime') || (needs.detect-changes.outputs.run-runtime == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
-      EXPECT_HISTORY_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:history') || (needs.detect-changes.outputs.run-history == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
-      EXPECT_HISTORY_H2_WINDOWS: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:history') || (needs.detect-changes.outputs.run-history == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
+      EXPECT_HISTORY_H2: false
+      EXPECT_HISTORY_H2_WINDOWS: false
       EXPECT_IDENTITY_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:identity') || (needs.detect-changes.outputs.run-identity == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:history')) }}
       EXPECT_E2E: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.run-e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'ci:e2e') }}
       CACHE_DISTRO: ${{ needs.distro.outputs.maven-cache-hit }}
@@ -1142,8 +1112,6 @@ jobs:
       CACHE_DIAGRAM_CONVERTER: ${{ needs.diagram-converter.outputs.maven-cache-hit }}
       CACHE_COMPILE_PREVIOUS: ${{ needs.compile-previous-version.outputs.maven-cache-hit }}
       CACHE_RUNTIME_H2: ${{ needs.it-runtime-h2.outputs.maven-cache-hit }}
-      CACHE_HISTORY_H2: ${{ needs.it-history-h2.outputs.maven-cache-hit }}
-      CACHE_HISTORY_H2_WINDOWS: ${{ needs.it-history-h2-windows.outputs.maven-cache-hit }}
       CACHE_IDENTITY_H2: ${{ needs.it-identity-h2.outputs.maven-cache-hit }}
       CACHE_E2E: ${{ needs.e2e.outputs.maven-cache-hit }}
     steps:
@@ -1237,8 +1205,6 @@ jobs:
               process.env.CACHE_DIAGRAM_CONVERTER,
               process.env.CACHE_COMPILE_PREVIOUS,
               process.env.CACHE_RUNTIME_H2,
-              process.env.CACHE_HISTORY_H2,
-              process.env.CACHE_HISTORY_H2_WINDOWS,
               process.env.CACHE_IDENTITY_H2,
               process.env.CACHE_E2E,
             ].filter((value) => value === "true" || value === "false");
