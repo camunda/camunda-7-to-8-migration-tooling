@@ -792,6 +792,9 @@ jobs:
       contents: read
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
+      e2e_first_pass_rate: ${{ steps.analyze-e2e-retries.outputs.first_pass_rate }}
+      e2e_retried_green_count: ${{ steps.analyze-e2e-retries.outputs.retried_green_count }}
+      e2e_first_attempt_failure_count: ${{ steps.analyze-e2e-retries.outputs.first_attempt_failure_count }}
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event_name != 'pull_request' ||
@@ -839,6 +842,15 @@ jobs:
         run: mvn clean install -Pe2e -Dmaven.test.skip --batch-mode
         env:
           CI: true
+
+      - name: Analyze Playwright first-pass reliability
+        id: analyze-e2e-retries
+        if: always()
+        working-directory: data-migrator/qa/e2e-tests
+        run: node scripts/analyze-playwright-results.mjs
+        env:
+          PLAYWRIGHT_RESULTS_PATH: test-results/playwright-report.json
+          FAIL_ON_RETRIED_GREEN: true
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
@@ -1124,12 +1136,20 @@ jobs:
       CACHE_HISTORY_H2_WINDOWS: ${{ needs.it-history-h2-windows.outputs.maven-cache-hit }}
       CACHE_IDENTITY_H2: ${{ needs.it-identity-h2.outputs.maven-cache-hit }}
       CACHE_E2E: ${{ needs.e2e.outputs.maven-cache-hit }}
+      E2E_FIRST_PASS_RATE: ${{ needs.e2e.outputs.e2e_first_pass_rate }}
+      E2E_RETRIED_GREEN_COUNT: ${{ needs.e2e.outputs.e2e_retried_green_count }}
+      E2E_FIRST_ATTEMPT_FAILURE_COUNT: ${{ needs.e2e.outputs.e2e_first_attempt_failure_count }}
     steps:
       - name: Evaluate blocking checks and publish CI budget metrics
         uses: actions/github-script@v9
         with:
           script: |
             const parseBool = (value) => `${value}`.toLowerCase() === "true";
+            const parseNumber = (value) => {
+              if (value === '' || value === null || value === undefined) return null;
+              const parsed = Number(value);
+              return Number.isFinite(parsed) ? parsed : null;
+            };
             const needsResults = ${{ toJSON(needs) }};
 
             const requiredChecks = [
@@ -1221,6 +1241,13 @@ jobs:
             ].filter((value) => value === "true" || value === "false");
             const cacheHits = cacheValues.filter((value) => value === "true").length;
             const cacheHitRate = cacheValues.length === 0 ? null : (cacheHits / cacheValues.length) * 100;
+            const e2eFirstPassRate = parseNumber(process.env.E2E_FIRST_PASS_RATE);
+            const e2eRetriedGreenCount = parseNumber(process.env.E2E_RETRIED_GREEN_COUNT);
+            const e2eFirstAttemptFailureCount = parseNumber(process.env.E2E_FIRST_ATTEMPT_FAILURE_COUNT);
+
+            if (parseBool(process.env.EXPECT_E2E) && e2eRetriedGreenCount !== null && e2eRetriedGreenCount > 0) {
+              failing.push(`e2e reported ${e2eRetriedGreenCount} retried-green test(s)`);
+            }
 
             await core.summary
               .addHeading("CI summary gate")
@@ -1234,6 +1261,10 @@ jobs:
               .addRaw(`- PR feedback p95 (last ${feedbackDurations.length} runs): ${percentile(feedbackDurations, 0.95)?.toFixed(1) ?? "n/a"} min\n`)
               .addRaw(`- First red in this run: ${firstRedMinutes?.toFixed(1) ?? "n/a"} min\n`)
               .addRaw(`- Maven cache hit rate (blocking jobs): ${cacheHitRate?.toFixed(1) ?? "n/a"}%\n`)
+              .addHeading("E2E first-pass reliability", 2)
+              .addRaw(`- First-pass rate: ${e2eFirstPassRate?.toFixed(2) ?? "n/a"}%\n`)
+              .addRaw(`- First-attempt failures: ${e2eFirstAttemptFailureCount ?? "n/a"}\n`)
+              .addRaw(`- Retried-green tests: ${e2eRetriedGreenCount ?? "n/a"}\n`)
               .write();
 
             if (failing.length > 0) {

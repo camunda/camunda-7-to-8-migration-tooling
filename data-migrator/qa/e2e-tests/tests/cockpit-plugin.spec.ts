@@ -87,12 +87,10 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should display migrated and skipped entity tabs', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for the plugin to render
-    await page.waitForTimeout(2000); // Give React time to render
-
     // Look for the radio buttons for skipped/migrated
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
     const migratedRadio = page.locator('input[type="radio"][value="migrated"]');
+    await skippedRadio.waitFor({ state: 'visible', timeout: 10000 });
 
     // Verify both radio buttons are visible
     await expect(skippedRadio).toBeVisible();
@@ -109,21 +107,15 @@ test.describe('Cockpit Plugin E2E', () => {
   test('should be able to switch between entity types', async ({ page }) => {
     await openProcessesPage(page);
 
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
-
     // Switch to History mode to access the entity type selector
     const historyRadio = page.locator('input[type="radio"][value="history"]');
     await historyRadio.click();
-
-    // Wait for the dropdown to appear
-    await page.waitForTimeout(500);
 
     // Look for the entity type selector dropdown
     const entityTypeSelector = page.locator('select#type-selector');
 
     // Verify the selector is visible
-    await expect(entityTypeSelector).toBeVisible();
+    await expect(entityTypeSelector).toBeVisible({ timeout: 10000 });
 
     // Take screenshot of the dropdown
     await page.screenshot({ path: 'test-results/entity-type-selector.png', fullPage: true });
@@ -151,6 +143,7 @@ test.describe('Cockpit Plugin E2E', () => {
     // Find the table
     const table = page.locator('view[data-plugin-id="camunda-7-to-8-data-migrator"] table');
     await expect(table).toBeVisible();
+    await table.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 10000 });
 
     // Verify table headers contain the expected columns
     const headerRow = table.locator('thead tr');
@@ -202,7 +195,9 @@ test.describe('Cockpit Plugin E2E', () => {
 
     // Wait for plugin to fully render
     await page.locator('h1:has-text("Camunda 7 to 8 Data Migrator")').waitFor({ timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await page
+      .locator('input[type="radio"][value="skipped"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take final screenshot
     await page.screenshot({ path: 'test-results/plugin-loaded.png', fullPage: true });
