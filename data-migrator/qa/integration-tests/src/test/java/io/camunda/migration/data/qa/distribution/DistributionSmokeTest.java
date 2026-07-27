@@ -19,7 +19,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.AfterEach;
@@ -637,6 +639,11 @@ public class DistributionSmokeTest {
       }
       if (child.isAlive()) {
         child.destroyForcibly();
+        try {
+          child.onExit().get(1, TimeUnit.SECONDS);
+        } catch (ExecutionException | TimeoutException ignored) {
+          // best effort: process termination was already requested
+        }
       }
     }
   }
