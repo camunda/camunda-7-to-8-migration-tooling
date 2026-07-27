@@ -119,8 +119,8 @@ test.describe('Operate - Decision Instances', () => {
     const decisionList = page.locator('[data-testid="data-list"]');
     await expect(decisionList).toBeVisible({ timeout: 10000 });
 
-    // Count only direct children of the list container (one div per decision instance row)
-    const decisionRows = decisionList.locator('> div');
+    // Count decision instance rows scoped to the list container (avoids matching unrelated rows)
+    const decisionRows = decisionList.locator('[role="row"]');
 
     const expectedDecisionCount = 12;
     await expect(decisionRows).toHaveCount(expectedDecisionCount, { timeout: 15000 });
