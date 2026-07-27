@@ -1086,6 +1086,7 @@ jobs:
           -Dversion.camunda-8=${{ matrix.camunda-version }}
           -Dc8.api=${C8_API}
           -Dcamunda.process-test.camunda-docker-image-version=${CAMUNDA_DOCKER_IMAGE_VERSION}
+          --batch-mode
 
   ci-summary:
     name: CI Summary Gate
