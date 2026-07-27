@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const projectRoot = path.resolve(import.meta.dirname, '..');
+const scriptFilePath = fileURLToPath(import.meta.url);
+const scriptDirectory = path.dirname(scriptFilePath);
+const projectRoot = path.resolve(scriptDirectory, '..');
 const allowlistPath = path.join(projectRoot, 'scripts', 'type-escape-allowlist.txt');
 const sourceDir = path.join(projectRoot, 'src');
 
