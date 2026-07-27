@@ -73,7 +73,7 @@ public class CsvWriterTest {
     element.setElementId("\t-elementId");
     element.setElementType("\u0000@elementType");
     ElementCheckMessage message = element.getMessages().getFirst();
-    message.setId("\rmessageId");
+    message.setId("\nmessageId");
     message.setMessage("\nmessage");
     message.setLink("  =link");
 
