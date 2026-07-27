@@ -87,16 +87,16 @@ export function createMappedC7Endpoints(
 				endpoints: Object.entries(
 					selectedMapping.c7_specification.paths
 				)
-					.filter(([path, operations]) =>
+					.filter(([, operations]) =>
 						Object.entries(operations).some(
-							([operation, operationValue]) =>
+							([, operationValue]) =>
 								operationValue.tags.includes(section)
 						)
 					)
 					.map(([path, operations]) =>
 						Object.entries(operations)
 							.filter(
-								([operation, details]) =>
+								([operation]) =>
 									(selectedMethod == "all" ||
 										operation == selectedMethod) &&
 									(searchText == "" ||

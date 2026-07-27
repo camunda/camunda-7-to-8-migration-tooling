@@ -6,12 +6,12 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Helper function to navigate to a specific decision instance by decision name
  */
-async function navigateToDecisionByName(page: any, decisionName: string) {
+async function navigateToDecisionByName(page: Page, decisionName: string) {
   // Navigate to decisions page
   const decisionsLink = page.locator('nav a:has-text("Decisions"), a[href*="/decisions"], a[title*="Decisions"]').first();
   await decisionsLink.waitFor({ state: 'visible', timeout: 10000 });
@@ -417,4 +417,3 @@ test.describe('Operate - Decision Instances', () => {
     expect(hasCriticalErrors).toBeFalsy();
   });
 });
-
