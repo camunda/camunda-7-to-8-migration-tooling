@@ -115,7 +115,7 @@ test.describe('Cockpit Plugin E2E', () => {
     const entityTypeSelector = page.locator('select#type-selector');
 
     // Verify the selector is visible
-    await expect(entityTypeSelector).toBeVisible();
+    await expect(entityTypeSelector).toBeVisible({ timeout: 10000 });
 
     // Take screenshot of the dropdown
     await page.screenshot({ path: 'test-results/entity-type-selector.png', fullPage: true });

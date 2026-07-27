@@ -28,12 +28,12 @@ const appendSummary = (line) => {
 };
 
 const writeDefaultOutputs = () => {
-  appendOutput('total_tests', 0);
-  appendOutput('first_pass_count', 0);
-  appendOutput('first_attempt_failure_count', 0);
-  appendOutput('retried_green_count', 0);
-  appendOutput('failed_after_retry_count', 0);
-  appendOutput('first_pass_rate', '0.00');
+  appendOutput('total_tests', '');
+  appendOutput('first_pass_count', '');
+  appendOutput('first_attempt_failure_count', '');
+  appendOutput('retried_green_count', '');
+  appendOutput('failed_after_retry_count', '');
+  appendOutput('first_pass_rate', '');
 };
 
 if (!fs.existsSync(resultsPath)) {
