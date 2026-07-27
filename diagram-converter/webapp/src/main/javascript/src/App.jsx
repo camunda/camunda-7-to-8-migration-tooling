@@ -105,7 +105,7 @@ function App() {
     // Normalize to an array (you can pass a single file or an array of files)
     const fileArray = Array.isArray(files) ? files : [files];
 
-    fileArray.forEach((file, index) => {
+    fileArray.forEach((file) => {
       // Append each file, optionally using indexed keys if needed
       formData.append("file", file);
     });
