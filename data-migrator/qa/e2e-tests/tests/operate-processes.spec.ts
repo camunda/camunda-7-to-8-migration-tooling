@@ -64,7 +64,12 @@ async function goToProcesses(page: Page) {
   await processesLink.waitFor({ state: 'visible', timeout: 10000 });
   await processesLink.click();
   await page.waitForURL('**/processes**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator(
+      '[data-testid="data-list"], [data-testid="data-table-container"], table tbody tr',
+    )
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -83,7 +88,9 @@ async function openProcessInstance(page: Page, processName: string) {
   await instanceLink.click();
 
   await page.waitForURL('**/processes/**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="instance-header"]')
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -328,8 +335,10 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     ).first();
     await viewAllLink.waitFor({ state: 'visible', timeout: 10000 });
     await viewAllLink.click();
-
-    await page.waitForTimeout(3000);
+    await page
+      .locator('a[href*="/processes/"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     await page.screenshot({
       path: 'test-results/operate-called-instances.png',
@@ -342,8 +351,7 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
       .first();
     await miProcessLink.waitFor({ state: 'visible', timeout: 10000 });
     await miProcessLink.click();
-
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/processes/**', { timeout: 10000 });
 
     await page.screenshot({
       path: 'test-results/operate-child-process.png',
@@ -441,8 +449,9 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await goToProcesses(page);
     await openProcessInstance(page, 'callingProcessId');
 
-    // Wait for full render
-    await page.waitForTimeout(3000);
+    await expect(page.locator('[data-testid="diagram"]')).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.screenshot({
       path: 'test-results/operate-process-no-errors.png',

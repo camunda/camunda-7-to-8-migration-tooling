@@ -19,7 +19,10 @@ async function navigateToDecisionByName(page: Page, decisionName: string) {
 
   // Wait for the decisions page to load
   await page.waitForURL('**/decisions**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="data-list"] > div, table tbody tr')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
 
   // Find the decision row containing the specified decision name
   // Look for a row that contains the decision name and then find the link within it
@@ -33,7 +36,9 @@ async function navigateToDecisionByName(page: Page, decisionName: string) {
 
   // Wait for the decision instance detail page to load
   await page.waitForURL('**/decisions/**', { timeout: 10000 });
-  await page.waitForTimeout(3000);
+  await page
+    .locator('[data-testid="instance-header"]')
+    .waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -88,8 +93,9 @@ test.describe('Operate - Decision Instances', () => {
 
       await submitButton.click();
 
-      // Wait for the dashboard to load
-      await page.waitForTimeout(2000);
+      await page
+        .locator('input[name="username"]')
+        .waitFor({ state: 'hidden', timeout: 15000 });
 
       // Take screenshot after login
       await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
@@ -111,7 +117,10 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decisions page to load
     await page.waitForURL('**/decisions**', { timeout: 10000 });
-    await page.waitForTimeout(3000); // Give time for data to load
+    await page
+      .locator('[data-testid="data-list"] > div, table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
@@ -146,7 +155,10 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decisions page to load
     await page.waitForURL('**/decisions**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page
+      .locator('[data-testid="data-list"] > div, table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Find the first decision instance and click on its key/ID to open details
     const firstDecisionLink = page.locator(
@@ -164,7 +176,9 @@ test.describe('Operate - Decision Instances', () => {
 
     // Wait for the decision instance detail page to load
     await page.waitForURL('**/decisions/**', { timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await page
+      .locator('[data-testid="instance-header"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take screenshot of decision instance details
     await page.screenshot({ path: 'test-results/operate-decision-details.png', fullPage: true });
@@ -351,7 +365,7 @@ test.describe('Operate - Decision Instances', () => {
     await invoiceClassificationNode.click();
 
     // Wait for navigation to occur
-    await page.waitForTimeout(3000);
+    await expect(page).not.toHaveURL(currentUrl, { timeout: 10000 });
 
     // Take screenshot after clicking decision in DRD
     await page.screenshot({ path: 'test-results/operate-after-drd-navigation.png', fullPage: true });
@@ -384,7 +398,11 @@ test.describe('Operate - Decision Instances', () => {
     await decisionsLink.click();
 
     // Wait for the page to load
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/decisions**', { timeout: 10000 });
+    await page
+      .locator('[data-testid="data-list"] > div, table tbody tr')
+      .first()
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Open first decision
     const firstDecisionLink = page.locator(
@@ -396,7 +414,10 @@ test.describe('Operate - Decision Instances', () => {
     await firstDecisionLink.click();
 
     // Wait for details to fully render
-    await page.waitForTimeout(3000);
+    await page.waitForURL('**/decisions/**', { timeout: 10000 });
+    await page
+      .locator('[data-testid="instance-header"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     // Take final screenshot
     await page.screenshot({ path: 'test-results/operate-decision-rendered.png', fullPage: true });
