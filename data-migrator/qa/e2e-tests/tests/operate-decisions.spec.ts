@@ -209,9 +209,9 @@ test.describe('Operate - Decision Instances', () => {
     const outputLabel = page.locator('.output-label');
     await expect(outputLabel).toContainText('Approver Group');
 
-    // Verify three rule rows exist
+    // Verify three rule rows exist — toHaveCount retries until all rows are rendered
     const ruleRows = page.locator('.tjs-table tbody tr');
-    expect(await ruleRows.count()).toBe(3);
+    await expect(ruleRows).toHaveCount(3, { timeout: 10000 });
   });
 
   test('should display decision inputs table with entries', async ({ page }) => {
@@ -311,18 +311,14 @@ test.describe('Operate - Decision Instances', () => {
     const assignApproverNode = drdPanel.locator('text:has-text("Assign Approver")');
     await expect(assignApproverNode).toBeVisible();
 
-    // Verify badges indicating evaluated decisions (parent and child execution)
+    // Verify badges for both evaluated decisions — toHaveCount retries until both badges render
     const executionBadges = drdPanel.locator('[data-testid="state-overlay-EVALUATED"]');
-    await executionBadges.first().waitFor({ state: 'visible', timeout: 10000 });
-
-    // Verify we have badges for both decisions
-    const badgeCount = await executionBadges.count();
-    expect(badgeCount).toBe(2); // One for each decision in the DRD
-    console.log(`Found ${badgeCount} evaluation state badges in DRD (Invoice Classification and Assign Approver Group)`);
+    await expect(executionBadges).toHaveCount(2, { timeout: 10000 });
+    console.log('Found 2 evaluation state badges in DRD (Invoice Classification and Assign Approver Group)');
 
     // Verify the badges contain checkmark icons indicating successful evaluation
     const checkmarkIcons = executionBadges.locator('svg');
-    expect(await checkmarkIcons.count()).toBe(2);
+    await expect(checkmarkIcons).toHaveCount(2, { timeout: 10000 });
   });
 
   test('should navigate to different decision when clicking DRD nodes', async ({ page }) => {
