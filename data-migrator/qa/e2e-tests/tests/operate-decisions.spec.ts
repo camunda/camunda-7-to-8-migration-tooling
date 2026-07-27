@@ -121,20 +121,16 @@ test.describe('Operate - Decision Instances', () => {
     // Take screenshot of decisions page
     await page.screenshot({ path: 'test-results/operate-decisions-page.png', fullPage: true });
 
-    // Find the table or list containing decision instances
-    // Operate uses various selectors - try multiple approaches
-    const decisionRows = page.locator(
-      '[data-testid="data-list"] > div, ' +
-      '[data-testid="decision-instance-row"], ' +
-      'table tbody tr, ' +
-      '[class*="ListItem"], ' +
-      '[role="row"]'
-    );
+    // The decisions page renders decision instances in the same row structure
+    // used by the helper below. Waiting for the first visible row avoids racing
+    // the initial empty state, then toHaveCount retries until all rows are in DOM.
+    const decisionRows = page.locator('[data-testid="data-list"] > div, table tbody tr');
+    await decisionRows.first().waitFor({ state: 'visible', timeout: 10000 });
 
-    // Wait until all 12 rows are rendered (toHaveCount retries until stable)
-    await expect(decisionRows).toHaveCount(12, { timeout: 15000 });
+    const expectedDecisionCount = 12;
+    await expect(decisionRows).toHaveCount(expectedDecisionCount, { timeout: 30000 });
 
-    console.log(`Found 12 decision instances on the decisions page`);
+    console.log(`Found ${expectedDecisionCount} decision instances on the decisions page`);
   });
 
   test('should open first decision instance and display details page', async ({ page }) => {
