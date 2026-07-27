@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -610,16 +611,33 @@ public class DistributionSmokeTest {
     if (proc == null) {
       return;
     }
-    proc.descendants().forEach(ProcessHandle::destroyForcibly);
+    final List<ProcessHandle> descendants = proc.descendants().toList();
+    descendants.forEach(ProcessHandle::destroyForcibly);
     proc.destroy();
     try {
       if (!proc.waitFor(5, TimeUnit.SECONDS)) {
         proc.destroyForcibly();
         proc.waitFor(5, TimeUnit.SECONDS);
       }
+      waitForDescendantsToExit(descendants, 5, TimeUnit.SECONDS);
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
+      descendants.forEach(ProcessHandle::destroyForcibly);
       proc.destroyForcibly();
+    }
+  }
+
+  protected void waitForDescendantsToExit(
+      final List<ProcessHandle> descendants, final long timeout, final TimeUnit unit)
+      throws InterruptedException {
+    final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
+    for (final ProcessHandle child : descendants) {
+      while (child.isAlive() && System.nanoTime() < deadlineNanos) {
+        Thread.sleep(50);
+      }
+      if (child.isAlive()) {
+        child.destroyForcibly();
+      }
     }
   }
 }
