@@ -99,7 +99,7 @@ jobs:
             echo "run-db-default=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git fetch origin "${BASE_REF}" --depth=1
+          git fetch origin "${BASE_REF}"
           CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
           if echo "$CHANGED_FILES" | grep -qE '^(data-migrator/|pom\.xml$)'; then
             echo "data-migrator=true" >> "$GITHUB_OUTPUT"
