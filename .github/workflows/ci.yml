@@ -1,15 +1,10 @@
 name: CI
 on:
-  push:
-    branches:
-      - main
-      - maintenance/*
-      - "!maintenance/*-backport-*"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
   schedule:
-    - cron: "0 5 * * 1-5"  # Weekday mornings for general CI
+    - cron: "0 5 * * *"  # Daily mornings for general CI
 
 jobs:
   # Read Camunda 8 versions from pom.xml to avoid hard-coding in CI
@@ -856,7 +851,6 @@ jobs:
     timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
@@ -909,7 +903,6 @@ jobs:
     timeout-minutes: 30
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
@@ -955,7 +948,6 @@ jobs:
       contents: read
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
@@ -1029,7 +1021,6 @@ jobs:
       contents: read
     if: |
       github.event_name == 'schedule' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
