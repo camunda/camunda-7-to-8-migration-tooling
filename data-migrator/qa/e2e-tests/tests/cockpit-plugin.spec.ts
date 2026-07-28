@@ -109,6 +109,8 @@ test.describe('Cockpit Plugin E2E', () => {
 
     // Switch to History mode to access the entity type selector
     const historyRadio = page.locator('input[type="radio"][value="history"]');
+    await expect(historyRadio).toBeVisible({ timeout: 10000 });
+    await expect(historyRadio).toBeEnabled({ timeout: 10000 });
     await historyRadio.click();
 
     // Look for the entity type selector dropdown
