@@ -34,18 +34,28 @@ async function openProcessesPage(page: Page) {
 test.describe('Cockpit Plugin E2E', () => {
   test.describe.configure({ mode: 'serial' });
   // Cold CI containers need time for the login round-trip plus the Angular
-  // bootstrap; give each test a generous budget.
-  test.setTimeout(90000);
+  // bootstrap; give each test a generous budget. Firefox initialises the
+  // Angular runtime noticeably slower than Chromium on cold CI runners, so
+  // the budget must cover the worst-case beforeEach (up to 60 s for the login
+  // form + up to 60 s for the processes-link readiness gate + navigation
+  // overhead) and still leave meaningful headroom for the test body itself.
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
     // Playwright's default `page` fixture is function-scoped: every test gets a
     // fresh, cookie-less context, so we authenticate from scratch each time.
-    await page.goto('/camunda/app/cockpit/default/');
+    // Wait only for DOMContentLoaded (not the full `load` event) so that we
+    // start polling for the Angular-rendered login form as soon as the DOM is
+    // parsed, rather than waiting for every sub-resource to finish loading.
+    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
 
     // Log in with the Camunda 7 demo user. The login form is served by the same
     // Angular app, so wait for it explicitly rather than racing isVisible().
+    // Use a 60 s budget to accommodate Firefox's slower Angular bootstrap on
+    // cold CI containers (the previous 30 s budget caused intermittent failures
+    // in Firefox, see #1955).
     const usernameInput = page.locator('input[ng-model="username"]');
-    await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
     await usernameInput.fill('demo');
     await page.fill('input[ng-model="password"]', 'demo');
     await page.click('button[type="submit"]');
