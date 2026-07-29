@@ -42,12 +42,10 @@ test.describe('Cockpit Plugin E2E', () => {
   test.beforeEach(async ({ page }) => {
     // Playwright's default `page` fixture is function-scoped: every test gets a
     // fresh, cookie-less context, so we authenticate from scratch each time.
-    await page.goto('/camunda/app/cockpit/default/');
-
-    // Ensure the browser has at least parsed the document before waiting for
-    // Angular-rendered elements. Firefox can take several extra seconds to
-    // reach DOMContentLoaded on cold CI runners compared to Chromium.
-    await page.waitForLoadState('domcontentloaded');
+    // Wait only for DOMContentLoaded (not the full `load` event) so that we
+    // start polling for the Angular-rendered login form as soon as the DOM is
+    // parsed, rather than waiting for every sub-resource to finish loading.
+    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
 
     // Log in with the Camunda 7 demo user. The login form is served by the same
     // Angular app, so wait for it explicitly rather than racing isVisible().
