@@ -36,8 +36,10 @@ test.describe('Cockpit Plugin E2E', () => {
   // Cold CI containers need time for the login round-trip plus the Angular
   // bootstrap; give each test a generous budget. Firefox initialises the
   // Angular runtime noticeably slower than Chromium on cold CI runners, so
-  // the budget is set high enough to accommodate the slowest browser.
-  test.setTimeout(120000);
+  // the budget must cover the worst-case beforeEach (up to 60 s for the login
+  // form + up to 60 s for the processes-link readiness gate + navigation
+  // overhead) and still leave meaningful headroom for the test body itself.
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page }) => {
     // Playwright's default `page` fixture is function-scoped: every test gets a
