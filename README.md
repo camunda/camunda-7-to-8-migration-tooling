@@ -43,7 +43,7 @@ claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**Other agents** — the skill follows the [Agent Skills](https://agentskills.io/) open format and works with any compatible agent. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for manual installation.
+**Tier 1 harness support** — GitHub Copilot, OpenAI Codex, Cursor, Gemini CLI, and Cline are supported with a maintained install matrix and one-command install flow via `npx skills add ...`. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for commands and paths.
 
 **Use** (from your project directory):
 

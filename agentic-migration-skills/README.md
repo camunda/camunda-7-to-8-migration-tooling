@@ -11,11 +11,40 @@ claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**Other agents:**
+**Tier 1 harnesses** (GitHub Copilot, OpenAI Codex, Cursor, Gemini CLI, Cline):
+
+Use the open skills installer (same flow for all tier 1 harnesses):
+
+```bash
+npx skills add https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/agentic-migration-skills/skills/migrate-c7-to-c8-code \
+  -a github-copilot -a codex -a cursor -a gemini-cli -a cline
+```
+
+Install to user scope with `-g`. Install to one harness by keeping a single `-a`.
+
+### Tier 1 harness matrix
+
+| Harness | Status | Project install path | User install path |
+|---|---|---|---|
+| **github-copilot** | supported | `.agents/skills/migrate-c7-to-c8-code` | `~/.copilot/skills/migrate-c7-to-c8-code` |
+| **openai-codex** | supported | `.agents/skills/migrate-c7-to-c8-code` | `~/.codex/skills/migrate-c7-to-c8-code` |
+| **cursor** | supported | `.agents/skills/migrate-c7-to-c8-code` | `~/.cursor/skills/migrate-c7-to-c8-code` |
+| **gemini-cli** | supported | `.agents/skills/migrate-c7-to-c8-code` | `~/.gemini/skills/migrate-c7-to-c8-code` |
+| **cline** | supported | `.agents/skills/migrate-c7-to-c8-code` | `~/.agents/skills/migrate-c7-to-c8-code` |
+
+### Manual installation
 
 Copy the skill file into your agent's skills directory. Most agents look for skills under `.agents/skills/` in the project or `~/.agents/skills/` globally:
 
 Check your agent's documentation for its exact skills directory path.
+
+### Support metadata validation
+
+Validate tier 1 support metadata and docs consistency:
+
+```bash
+node agentic-migration-skills/scripts/validate-tier1-support.js
+```
 
 ## Use
 
@@ -48,6 +77,9 @@ The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_I
 ## Structure
 
 ```
+scripts/
+└── validate-tier1-support.js
+support-matrix.json
 skills/
 └── migrate-c7-to-c8-code/
     └── SKILL.md    ← skill definition (agentskills.io format)
