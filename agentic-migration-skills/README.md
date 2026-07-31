@@ -4,56 +4,99 @@
 
 ## Install
 
-**Claude Code:**
+The skill can be installed via native plugin marketplaces (Claude Code, GitHub Copilot) or via [`gh skill`](https://cli.github.com/manual/gh_skill_install) (GitHub CLI 2.90+), which supports 50+ agents.
+
+### Claude Code
 
 ```bash
 claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**GitHub Copilot CLI** (plugin marketplace — requires [GitHub CLI](https://cli.github.com/) 2.90+ for `gh skill`, or the Copilot CLI):
+### GitHub Copilot CLI
 
 ```bash
-# Plugin marketplace (works with Copilot CLI)
+# Plugin marketplace
 copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 copilot plugin install camunda-migration@camunda
 
-# OR: gh skill (GitHub CLI, public preview, works without extra setup)
+# OR: gh skill (same result)
 gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code
 ```
 
-**Other Tier 1 harnesses** (OpenAI Codex, Cursor, Gemini CLI, Cline):
+### All other agents — `gh skill install`
 
-Use the open skills installer:
-
-```bash
-npx skills add https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/agentic-migration-skills/skills/migrate-c7-to-c8-code \
-  -a codex -a cursor -a gemini-cli -a cline
-```
-
-Install to user scope with `-g`. Install to one harness by keeping a single `-a`.
-
-### Tier 1 harness matrix
-
-| Harness | Status | Install | Project path | User path |
-|---|---|---|---|---|
-| **Claude Code** | ✅ supported | `claude plugin marketplace add` | `.claude/skills/migrate-c7-to-c8-code` | `~/.claude/skills/migrate-c7-to-c8-code` |
-| **GitHub Copilot** | ✅ supported | `copilot plugin marketplace add` / `gh skill install` | `.agents/skills/migrate-c7-to-c8-code` | `~/.copilot/skills/migrate-c7-to-c8-code` |
-| **OpenAI Codex** | ✅ supported | `npx skills add -a codex` | `.agents/skills/migrate-c7-to-c8-code` | `~/.codex/skills/migrate-c7-to-c8-code` |
-| **Cursor** | ✅ supported | `npx skills add -a cursor` | `.agents/skills/migrate-c7-to-c8-code` | `~/.cursor/skills/migrate-c7-to-c8-code` |
-| **Gemini CLI** | ✅ supported | `npx skills add -a gemini-cli` | `.agents/skills/migrate-c7-to-c8-code` | `~/.gemini/skills/migrate-c7-to-c8-code` |
-| **Cline** | ✅ supported | `npx skills add -a cline` | `.agents/skills/migrate-c7-to-c8-code` | `~/.agents/skills/migrate-c7-to-c8-code` |
-
-### Manual installation
-
-Copy the skill directory into your agent's skills directory. Most agents look for skills under `.agents/skills/` in the project or `~/.agents/skills/` globally. Check your agent's documentation for its exact skills directory path.
-
-### Support metadata validation
-
-Validate tier 1 support metadata and docs consistency:
+`gh skill install` works with all agents below. Use `--scope user` to install globally instead of project-scoped.
 
 ```bash
-node agentic-migration-skills/scripts/validate-tier1-support.js
+# Cursor
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent cursor
+
+# OpenAI Codex CLI
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent codex
+
+# Gemini CLI
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent gemini-cli
+
+# Cline (VS Code)
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent cline
+
+# Roo Code
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent roo
+
+# Windsurf
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent windsurf
+
+# Amp (Sourcegraph)
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent amp
+
+# OpenHands
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent openhands
+
+# Continue.dev
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent continue
+
+# Goose (Block)
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent goose
+
+# Junie (JetBrains)
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent junie
+
+# Kiro CLI (AWS)
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent kiro-cli
+
+# Kimi Code CLI
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent kimi-cli
+
+# Qwen Code
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent qwen-code
+
+# OpenCode
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent opencode
+
+# Kilo Code
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent kilo
+
+# Devin
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent devin
+
+# Grok
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent grok
+
+# Warp
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent warp
+
+# Augment Code
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent augment
+
+# Trae
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent trae
+
+# Replit
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent replit
+
+# Zencoder
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent zencoder
 ```
 
 ## Use
@@ -87,8 +130,6 @@ The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_I
 ## Structure
 
 ```
-scripts/
-└── validate-tier1-support.js
 support-matrix.json
 skills/
 └── migrate-c7-to-c8-code/
