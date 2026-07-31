@@ -92,9 +92,6 @@ gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code 
 # Warp
 gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent warp
 
-# Windsurf
-gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent windsurf
-
 # Zencoder
 gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent zencoder
 ```
