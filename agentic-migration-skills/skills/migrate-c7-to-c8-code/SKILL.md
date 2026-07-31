@@ -1,8 +1,7 @@
 ---
 name: migrate-c7-to-c8-code
-description: Use this when migrating or converting a Camunda 7 / camunda-bpm project to Camunda 8 — both Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Handles code migration, model migration, or both.
-argument-hint: Optional path to project root (defaults to current directory)
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion
+description: |-
+  Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Use for code migration, model migration, or both.
 ---
 
 # Camunda 7 → 8 Migration
