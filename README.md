@@ -43,7 +43,18 @@ claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**Other agents** — the skill follows the [Agent Skills](https://agentskills.io/) open format and works with any compatible agent. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for manual installation.
+**Install with GitHub Copilot CLI:**
+
+```bash
+copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling
+copilot plugin install camunda-migration@camunda
+```
+
+**Install with any other agent** (Cursor, Codex, Gemini CLI, Cline, Windsurf, and [25+ more](./agentic-migration-skills/README.md)) via [GitHub CLI](https://cli.github.com/) 2.90+:
+
+```bash
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent <your-agent>
+```
 
 **Use** (from your project directory):
 
