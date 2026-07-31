@@ -43,7 +43,18 @@ claude plugin marketplace add camunda/camunda-7-to-8-migration-tooling
 claude plugin install camunda-migration
 ```
 
-**Tier 1 harness support** — GitHub Copilot, OpenAI Codex, Cursor, Gemini CLI, and Cline are supported with a maintained install matrix and one-command install flow via `npx skills add ...`. See [agentic-migration-skills/README.md](./agentic-migration-skills/README.md) for commands and paths.
+**Install with GitHub Copilot CLI:**
+
+```bash
+copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling
+copilot plugin install camunda-migration@camunda
+```
+
+**Install with any other agent** (Cursor, Codex, Gemini CLI, Cline, Windsurf, and [25+ more](./agentic-migration-skills/README.md)) via [GitHub CLI](https://cli.github.com/) 2.90+:
+
+```bash
+gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code --agent <your-agent>
+```
 
 **Use** (from your project directory):
 
