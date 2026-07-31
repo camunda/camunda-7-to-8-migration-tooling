@@ -23,13 +23,28 @@
       "tier": "tier-1",
       "status": "supported",
       "agentSkillsSupport": "native",
-      "distribution": {
-        "type": "skills-cli-and-standard-skill-dirs",
-        "agent": "github-copilot",
-        "projectPath": ".agents/skills/migrate-c7-to-c8-code",
-        "userPath": "~/.copilot/skills/migrate-c7-to-c8-code",
-        "installCommand": "npx skills add https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/agentic-migration-skills/skills/migrate-c7-to-c8-code -a github-copilot"
-      }
+      "distribution": [
+        {
+          "type": "marketplace-plugin",
+          "path": ".github/plugin/",
+          "pluginManifest": "agentic-migration-skills/plugin.json",
+          "installCommands": [
+            "copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling",
+            "copilot plugin install camunda-migration@camunda"
+          ]
+        },
+        {
+          "type": "gh-skill-cli",
+          "installCommand": "gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code"
+        },
+        {
+          "type": "skills-cli",
+          "agent": "github-copilot",
+          "projectPath": ".agents/skills/migrate-c7-to-c8-code",
+          "userPath": "~/.copilot/skills/migrate-c7-to-c8-code",
+          "installCommand": "npx skills add https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/agentic-migration-skills/skills/migrate-c7-to-c8-code -a github-copilot"
+        }
+      ]
     },
     {
       "name": "openai-codex",
