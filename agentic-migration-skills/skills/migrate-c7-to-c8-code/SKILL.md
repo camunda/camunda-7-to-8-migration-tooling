@@ -169,6 +169,7 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
 - Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
+- If removing Camunda 7 webapp/rest starters also removes your only SLF4J binding, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 - Ensure Spring Boot dependency management is set (parent or BOM); don't add `spring-boot-starter` just for jakarta.annotation.
 - Replace `@EnableProcessApplication` with `@Deployment`.
 - Replace `camunda.*` keys with `camunda.client.*` in `application.properties`/`.yaml` ([properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/)).
