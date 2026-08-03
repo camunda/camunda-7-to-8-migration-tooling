@@ -746,6 +746,10 @@ public class MigrateStartProcessInstanceMethodsRecipe extends AbstractMigrationR
   protected List<ReplacementUtils.ReturnReplacementSpec> returnMethodInvocations() {
     return List.of(
         new ReplacementUtils.ReturnReplacementSpec(
+            new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getId()"),
+            RecipeUtils.createSimpleJavaTemplate(
+                "String.valueOf(#{any()}.getProcessInstanceKey())")),
+        new ReplacementUtils.ReturnReplacementSpec(
             new MethodMatcher("org.camunda.bpm.engine.runtime.Execution getProcessInstanceId()"),
             RecipeUtils.createSimpleJavaTemplate(
                 "String.valueOf(#{any()}.getProcessInstanceKey())")),
