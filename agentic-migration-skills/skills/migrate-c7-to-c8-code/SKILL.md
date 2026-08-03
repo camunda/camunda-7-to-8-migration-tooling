@@ -247,9 +247,9 @@ For Maven — add to `pom.xml`:
 **Before running**, check Java runtime compatibility for OpenRewrite itself, then check Spotless + Java compatibility:
 
 1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
-   - The current known-safe window for this migration flow is Java **21-23** (recipes require Java 21+, while current OpenRewrite plugin versions can fail on Java 24+).
+   - For the currently reported combination (`rewrite-maven-plugin` 6.12.0 + `camunda-7-to-8-code-conversion-recipes` 0.3.x), the known-safe window is Java **21-23** (recipes require Java 21+, while this rewrite plugin line can fail on Java 24+).
    - Detect installed JDKs with a platform-appropriate method (for example `/usr/libexec/java_home -V` on macOS), then choose a compatible one and scope `JAVA_HOME`/`PATH` to that JDK only for the rewrite step.
-   - If no compatible JDK is installed, ask via `AskUserQuestion` to install one (for example `brew install openjdk@21` on macOS), wait for confirmation, then continue.
+   - If no compatible JDK is installed, ask via `AskUserQuestion` to install one (for example `brew install openjdk@21` on macOS), wait for confirmation, then re-detect installed JDKs and select a compatible one before continuing.
 2. Inspect the Maven/Gradle build files to determine whether Spotless is configured.
 3. If Spotless is present **and** the selected Java major version ≥ 17:
    - Run the OpenRewrite Maven goal with the JVM flags Spotless needs on Java 17+:
