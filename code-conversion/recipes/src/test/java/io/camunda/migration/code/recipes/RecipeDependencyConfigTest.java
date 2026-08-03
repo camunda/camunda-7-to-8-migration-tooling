@@ -65,36 +65,73 @@ class RecipeDependencyConfigTest implements RewriteTest {
 
   @Test
   void clientRecipeUsesSpringBoot4DependenciesForSpringBoot4Project() {
-    rewriteRun(
-        spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
-                .expectedCyclesThatMakeChanges(2),
-        pomXml(
-            """
-            <project>
-              <modelVersion>4.0.0</modelVersion>
-              <groupId>com.example</groupId>
-              <artifactId>demo</artifactId>
-              <version>1.0.0</version>
-              <parent>
+    assertUsesSpringBoot4Dependencies(
+        """
+        <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.example</groupId>
+          <artifactId>demo</artifactId>
+          <version>1.0.0</version>
+          <parent>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-parent</artifactId>
+            <version>4.0.0</version>
+          </parent>
+        </project>
+        """);
+  }
+
+  @Test
+  void clientRecipeUsesSpringBoot4DependenciesWhenBoot4BomIsUsed() {
+    assertUsesSpringBoot4Dependencies(
+        """
+        <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.example</groupId>
+          <artifactId>demo</artifactId>
+          <version>1.0.0</version>
+          <dependencyManagement>
+            <dependencies>
+              <dependency>
                 <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-parent</artifactId>
+                <artifactId>spring-boot-dependencies</artifactId>
                 <version>4.0.0</version>
-              </parent>
-            </project>
-            """,
-            spec ->
-                spec.path("pom.xml")
-                    .after(
-                        rewrittenPom -> {
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-starter</artifactId>");
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-3-starter</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
-                          return rewrittenPom;
-                        })));
+                <type>pom</type>
+                <scope>import</scope>
+              </dependency>
+            </dependencies>
+          </dependencyManagement>
+        </project>
+        """);
+  }
+
+  @Test
+  void clientRecipeUsesSpringBoot4DependenciesWhenBoot4PropertyIsUsed() {
+    assertUsesSpringBoot4Dependencies(
+        """
+        <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.example</groupId>
+          <artifactId>demo</artifactId>
+          <version>1.0.0</version>
+          <properties>
+            <spring-boot.version>4.0.0</spring-boot.version>
+          </properties>
+        </project>
+        """);
+  }
+
+  @Test
+  void clientTopLevelRecipesStayWiredToSelectorRecipes() {
+    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
+
+    assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientPrepareRecipes"))
+        .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe")
+        .doesNotContain("org.openrewrite.java.dependencies.AddDependency");
+
+    assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientMigrateRecipes"))
+        .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
+        .doesNotContain("artifactId: camunda-process-test-spring-boot-3");
   }
 
   @Test
@@ -129,5 +166,52 @@ class RecipeDependencyConfigTest implements RewriteTest {
     InputStream in = RecipeDependencyConfigTest.class.getResourceAsStream(resource);
     assertThat(in).as("recipe descriptor %s must be on the classpath", resource).isNotNull();
     return in;
+  }
+
+  private void assertUsesSpringBoot4Dependencies(String inputPom) {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources(
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
+                .expectedCyclesThatMakeChanges(2),
+        pomXml(
+            inputPom,
+            spec ->
+                spec.path("pom.xml")
+                    .after(
+                        rewrittenPom -> {
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-starter</artifactId>");
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-3-starter</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
+                          return rewrittenPom;
+                        })));
+  }
+
+  private static String resourceText(String resource) {
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
+      StringBuilder sb = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        sb.append(line).append('\n');
+      }
+      return sb.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
+    }
+  }
+
+  private static String recipeSection(String descriptor, String recipeName) {
+    String marker = "name: " + recipeName + '\n';
+    int start = descriptor.indexOf(marker);
+    assertThat(start).as("recipe %s must exist", recipeName).isNotEqualTo(-1);
+    int end = descriptor.indexOf("\n---\n", start);
+    if (end == -1) {
+      end = descriptor.length();
+    }
+    return descriptor.substring(start, end);
   }
 }
