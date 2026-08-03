@@ -8,6 +8,7 @@
 package io.camunda.migration.code.recipes;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.openrewrite.maven.Assertions.pomXml;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,9 +18,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.openrewrite.test.RewriteTest;
 
 /** Guards dependency-selection wiring in declarative client recipes. */
-class RecipeDependencyConfigTest {
+class RecipeDependencyConfigTest implements RewriteTest {
 
   private static final List<String> PREPARE_RECIPE_DESCRIPTORS =
       List.of(
@@ -28,19 +30,71 @@ class RecipeDependencyConfigTest {
           "/META-INF/rewrite/externalWorkerRecipes.yml");
 
   @Test
-  void clientRecipesUseDynamicStarterSelection() {
-    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
+  void clientRecipeUsesSpringBoot3DependenciesForSpringBoot3Project() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources(
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
+                .expectedCyclesThatMakeChanges(1),
+        pomXml(
+            """
+            <project>
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>com.example</groupId>
+              <artifactId>demo</artifactId>
+              <version>1.0.0</version>
+              <parent>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-parent</artifactId>
+                <version>3.5.4</version>
+              </parent>
+            </project>
+            """,
+            spec ->
+                spec.path("pom.xml")
+                    .after(
+                        rewrittenPom -> {
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-3-starter</artifactId>");
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-starter</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring</artifactId>");
+                          return rewrittenPom;
+                        })));
+  }
 
-    assertThat(descriptor)
-        .contains("io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe");
-    assertThat(descriptor)
-        .contains("io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe");
-    assertThat(descriptor)
-        .contains("camunda-spring-boot-3-starter")
-        .contains("camunda-spring-boot-starter");
-    assertThat(descriptor)
-        .contains("camunda-process-test-spring-boot-3")
-        .contains("camunda-process-test-spring");
+  @Test
+  void clientRecipeUsesSpringBoot4DependenciesForSpringBoot4Project() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources(
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
+                .expectedCyclesThatMakeChanges(2),
+        pomXml(
+            """
+            <project>
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>com.example</groupId>
+              <artifactId>demo</artifactId>
+              <version>1.0.0</version>
+              <parent>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-parent</artifactId>
+                <version>4.0.0</version>
+              </parent>
+            </project>
+            """,
+            spec ->
+                spec.path("pom.xml")
+                    .after(
+                        rewrittenPom -> {
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-starter</artifactId>");
+                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-3-starter</artifactId>");
+                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
+                          return rewrittenPom;
+                        })));
   }
 
   @Test
@@ -69,21 +123,6 @@ class RecipeDependencyConfigTest {
       throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
     }
     return artifactIds;
-  }
-
-  private static String resourceText(String resource) {
-    try (BufferedReader reader =
-        new BufferedReader(
-            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
-      StringBuilder sb = new StringBuilder();
-      String line;
-      while ((line = reader.readLine()) != null) {
-        sb.append(line).append('\n');
-      }
-      return sb.toString();
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
-    }
   }
 
   private static InputStream resourceStream(String resource) {
