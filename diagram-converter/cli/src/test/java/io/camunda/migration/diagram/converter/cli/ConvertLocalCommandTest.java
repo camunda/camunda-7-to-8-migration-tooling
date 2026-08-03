@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -107,5 +108,44 @@ public class ConvertLocalCommandTest {
     Integer call = command.call();
     assertEquals(0, call);
     assertThat(tempDir.listFiles()).hasSize(1).anyMatch(file -> file.getName().equals("c7.bpmn"));
+  }
+
+  @Test
+  void shouldSkipNestedDirectoriesWhenNotRecursive(@TempDir File tempDir) throws IOException {
+    setupDir("c7.bpmn", tempDir);
+    File nestedDir = new File(tempDir, "nested");
+    assertThat(nestedDir.mkdirs()).isTrue();
+    Path nestedSource = new File(tempDir, "c7.bpmn").toPath();
+    Path nestedTarget = new File(nestedDir, "nested.bpmn").toPath();
+    Files.copy(nestedSource, nestedTarget, REPLACE_EXISTING);
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.notRecursive = true;
+
+    Integer call = command.call();
+
+    assertEquals(0, call);
+    assertThat(new File(tempDir, "converted-c8-c7.bpmn")).exists();
+    assertThat(new File(nestedDir, "converted-c8-nested.bpmn")).doesNotExist();
+  }
+
+  @Test
+  void shouldProcessNestedDirectoriesByDefault(@TempDir File tempDir) throws IOException {
+    setupDir("c7.bpmn", tempDir);
+    File nestedDir = new File(tempDir, "nested");
+    assertThat(nestedDir.mkdirs()).isTrue();
+    Path nestedSource = new File(tempDir, "c7.bpmn").toPath();
+    Path nestedTarget = new File(nestedDir, "nested.bpmn").toPath();
+    Files.copy(nestedSource, nestedTarget, REPLACE_EXISTING);
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+
+    Integer call = command.call();
+
+    assertEquals(0, call);
+    assertThat(new File(tempDir, "converted-c8-c7.bpmn")).exists();
+    assertThat(new File(nestedDir, "converted-c8-nested.bpmn")).exists();
   }
 }
