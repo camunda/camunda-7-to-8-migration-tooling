@@ -244,11 +244,14 @@ For Maven — add to `pom.xml`:
 </plugin>
 ```
 
-**Before running**, check for Spotless + Java version incompatibility and fix proactively:
+**Before running**, check Java runtime compatibility for OpenRewrite itself, then check Spotless + Java compatibility:
 
-1. Detect whether Java is installed and record its major version.
+1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
+   - The current known-safe window for this migration flow is Java **21-23** (recipes require Java 21+, while current OpenRewrite plugin versions can fail on Java 24+).
+   - Detect installed JDKs with a platform-appropriate method (for example `/usr/libexec/java_home -V` on macOS), then choose a compatible one and scope `JAVA_HOME`/`PATH` to that JDK only for the rewrite step.
+   - If no compatible JDK is installed, ask via `AskUserQuestion` to install one (for example `brew install openjdk@21` on macOS), wait for confirmation, then continue.
 2. Inspect the Maven/Gradle build files to determine whether Spotless is configured.
-3. If Spotless is present **and** Java major version ≥ 17:
+3. If Spotless is present **and** the selected Java major version ≥ 17:
    - Run the OpenRewrite Maven goal with the JVM flags Spotless needs on Java 17+:
      - `--add-opens=java.base/java.lang=ALL-UNNAMED`
      - `--add-opens=java.base/java.util=ALL-UNNAMED`
@@ -262,7 +265,7 @@ For Maven — add to `pom.xml`:
      - Arrange cleanup so it runs whether `mvn rewrite:run` succeeds or fails: restore the exact previous `.mvn/jvm.config` content or remove the file if this step created it, and restore the previous `JAVA_TOOL_OPTIONS` value if it was changed.
      - Do not stage or commit the temporary changes; preserve any legitimate pre-existing tracked configuration.
    - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
-4. If Spotless is not present, or Java < 17, run `mvn rewrite:run` directly.
+4. If Spotless is not present, or the selected Java major version < 17, run `mvn rewrite:run` directly.
 
 For Gradle — add to `build.gradle`:
 ```groovy
