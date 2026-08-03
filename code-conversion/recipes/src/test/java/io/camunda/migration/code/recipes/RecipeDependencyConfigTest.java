@@ -18,15 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Guards the dependency configuration of the prepare recipes.
- *
- * <p>Since Camunda 8.9 the Spring Boot starter is split: {@code camunda-spring-boot-starter}
- * requires Spring Boot 4.0.x while {@code camunda-spring-boot-3-starter} targets Spring Boot 3.5.x.
- * They are mutually exclusive, so a recipe must add exactly one of them - adding both would put two
- * Spring Boot generations on a migrated project's classpath. This test fails fast if that
- * regression is reintroduced.
- */
+/** Guards dependency-selection wiring in declarative client recipes. */
 class RecipeDependencyConfigTest {
 
   private static final List<String> PREPARE_RECIPE_DESCRIPTORS =
@@ -36,54 +28,67 @@ class RecipeDependencyConfigTest {
           "/META-INF/rewrite/externalWorkerRecipes.yml");
 
   @Test
-  void addsExactlyOneSpringBootStarterAndItIsTheSpringBoot3One() {
-    for (String descriptor : PREPARE_RECIPE_DESCRIPTORS) {
-      List<String> artifactIds = artifactIdsOf(descriptor);
+  void clientRecipesUseDynamicStarterSelection() {
+    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
 
-      assertThat(artifactIds)
-          .as("Spring Boot 3 starter must be added by %s", descriptor)
-          .contains("camunda-spring-boot-3-starter");
-
-      assertThat(artifactIds)
-          .as(
-              "%s must not add a second, conflicting Spring Boot starter alongside the Spring Boot 3 one",
-              descriptor)
-          .doesNotContain("camunda-spring-boot-starter", "camunda-spring-boot-4-starter");
-
-      assertThat(artifactIds.stream().filter(id -> id.endsWith("-starter")).toList())
-          .as("exactly one Camunda Spring Boot starter expected in %s", descriptor)
-          .containsExactly("camunda-spring-boot-3-starter");
-    }
+    assertThat(descriptor)
+        .contains("io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe");
+    assertThat(descriptor)
+        .contains("io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe");
+    assertThat(descriptor)
+        .contains("camunda-spring-boot-3-starter")
+        .contains("camunda-spring-boot-starter");
+    assertThat(descriptor)
+        .contains("camunda-process-test-spring-boot-3")
+        .contains("camunda-process-test-spring");
   }
 
   @Test
-  void clientRecipeUsesTheSpringBoot3ProcessTestModule() {
-    List<String> artifactIds = artifactIdsOf("/META-INF/rewrite/clientRecipes.yml");
-
-    assertThat(artifactIds).contains("camunda-process-test-spring-boot-3");
-    assertThat(artifactIds)
-        .as("process-test module must match the Spring Boot 3 starter, not the SB4 default")
-        .doesNotContain("camunda-process-test-spring", "camunda-process-test-spring-boot-4");
+  void nonClientPrepareRecipesStayOnSpringBoot3Starter() {
+    for (String descriptor : PREPARE_RECIPE_DESCRIPTORS.stream().skip(1).toList()) {
+      List<String> artifactIds = artifactIdsOf(descriptor);
+      assertThat(artifactIds).contains("camunda-spring-boot-3-starter");
+      assertThat(artifactIds).doesNotContain("camunda-spring-boot-starter");
+    }
   }
 
   /** Collects every {@code artifactId:} value declared in the given recipe descriptor resource. */
   private static List<String> artifactIdsOf(String resource) {
     List<String> artifactIds = new ArrayList<>();
-    try (InputStream in = RecipeDependencyConfigTest.class.getResourceAsStream(resource)) {
-      assertThat(in).as("recipe descriptor %s must be on the classpath", resource).isNotNull();
-      try (BufferedReader reader =
-          new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-        String line;
-        while ((line = reader.readLine()) != null) {
-          String trimmed = line.trim();
-          if (trimmed.startsWith("artifactId:")) {
-            artifactIds.add(trimmed.substring("artifactId:".length()).trim());
-          }
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String trimmed = line.trim();
+        if (trimmed.startsWith("artifactId:")) {
+          artifactIds.add(trimmed.substring("artifactId:".length()).trim());
         }
       }
     } catch (IOException e) {
       throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
     }
     return artifactIds;
+  }
+
+  private static String resourceText(String resource) {
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
+      StringBuilder sb = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        sb.append(line).append('\n');
+      }
+      return sb.toString();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
+    }
+  }
+
+  private static InputStream resourceStream(String resource) {
+    InputStream in = RecipeDependencyConfigTest.class.getResourceAsStream(resource);
+    assertThat(in).as("recipe descriptor %s must be on the classpath", resource).isNotNull();
+    return in;
   }
 }
