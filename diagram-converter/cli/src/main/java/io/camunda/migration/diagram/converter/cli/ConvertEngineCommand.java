@@ -43,17 +43,20 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
 
   @Option(
       names = {"-u", "--username"},
-      description = "Username for basic auth")
+      description = "Username for Basic authentication",
+      paramLabel = "<username>")
   String username;
 
   @Option(
       names = {"-p", "--password"},
-      description = "Password for basic auth")
+      description = "Password for Basic authentication",
+      paramLabel = "<password>")
   String password;
 
   @Option(
       names = {"-t", "--target-directory"},
       description = "The directory to save the .bpmn files",
+      paramLabel = "<targetDirectory>",
       defaultValue = ".")
   File targetDirectory = new File(".");
 
