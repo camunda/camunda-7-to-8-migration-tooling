@@ -142,7 +142,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
           fw.flush();
           LOG_CLI.info("Created {}", file);
         } catch (IOException e) {
-          LOG_CLI.error("Error while creating BPMN file: {}", createMessage(e));
+          LOG_CLI.error("Error while creating diagram file: {}", createMessage(e));
           returnCode = 1;
         }
       }
