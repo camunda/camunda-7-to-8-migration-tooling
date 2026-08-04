@@ -9,6 +9,7 @@ package io.camunda.migration.code.recipes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openrewrite.maven.Assertions.pomXml;
+import static org.openrewrite.test.SourceSpecs.text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -132,8 +133,69 @@ class RecipeDependencyConfigTest implements RewriteTest {
         .contains("UseSpringBoot4ProcessTestWhenGradlePluginIsBoot4")
         .contains("UseSpringBoot4ProcessTestWhenGradleBootBomIsBoot4")
         .contains("UseSpringBoot4ProcessTestWhenGradleBootPropertyIsBoot4")
-        .contains("filePattern: \"**/build.gradle;**/build.gradle.kts\"")
+        .contains("filePattern: \"**/build.gradle*\"")
         .contains("filePattern: \"**/gradle.properties\"");
+  }
+
+  @Test
+  void clientRecipeUsesSpringBoot4DependenciesWhenGradlePluginIsBoot4() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources(
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe"),
+        text(
+            """
+            plugins {
+              id("org.springframework.boot") version "4.0.0"
+            }
+
+            dependencies {
+              implementation("io.camunda:camunda-spring-boot-3-starter:8.10.0-SNAPSHOT")
+              testImplementation("io.camunda:camunda-process-test-spring-boot-3:8.10.0-SNAPSHOT")
+            }
+            """,
+            spec ->
+                spec.path("build.gradle.kts")
+                    .after(
+                    rewrittenBuild -> {
+                      assertThat(rewrittenBuild)
+                          .contains("camunda-spring-boot-starter")
+                          .contains("camunda-process-test-spring");
+                      assertThat(rewrittenBuild)
+                          .doesNotContain("camunda-spring-boot-3-starter")
+                          .doesNotContain("camunda-process-test-spring-boot-3");
+                      return rewrittenBuild;
+                    })));
+  }
+
+  @Test
+  void clientRecipeUsesSpringBoot4DependenciesWhenGradleBootBomIsBoot4() {
+    rewriteRun(
+        spec ->
+            spec.recipeFromResources(
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
+                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe"),
+        text(
+            """
+            dependencies {
+              implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.0"))
+              implementation("io.camunda:camunda-spring-boot-3-starter:8.10.0-SNAPSHOT")
+              testImplementation("io.camunda:camunda-process-test-spring-boot-3:8.10.0-SNAPSHOT")
+            }
+            """,
+            spec ->
+                spec.path("build.gradle.kts")
+                    .after(
+                    rewrittenBuild -> {
+                      assertThat(rewrittenBuild)
+                          .contains("camunda-spring-boot-starter")
+                          .contains("camunda-process-test-spring");
+                      assertThat(rewrittenBuild)
+                          .doesNotContain("camunda-spring-boot-3-starter")
+                          .doesNotContain("camunda-process-test-spring-boot-3");
+                      return rewrittenBuild;
+                    })));
   }
 
   @Test
