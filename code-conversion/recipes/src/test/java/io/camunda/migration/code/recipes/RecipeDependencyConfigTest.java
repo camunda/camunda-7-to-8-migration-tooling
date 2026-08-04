@@ -122,6 +122,21 @@ class RecipeDependencyConfigTest implements RewriteTest {
   }
 
   @Test
+  void clientRecipesDeclareGradleBoot4SelectorBranches() {
+    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
+
+    assertThat(descriptor)
+        .contains("UseSpringBoot4CamundaStarterWhenGradlePluginIsBoot4")
+        .contains("UseSpringBoot4CamundaStarterWhenGradleBootBomIsBoot4")
+        .contains("UseSpringBoot4CamundaStarterWhenGradleBootPropertyIsBoot4")
+        .contains("UseSpringBoot4ProcessTestWhenGradlePluginIsBoot4")
+        .contains("UseSpringBoot4ProcessTestWhenGradleBootBomIsBoot4")
+        .contains("UseSpringBoot4ProcessTestWhenGradleBootPropertyIsBoot4")
+        .contains("filePattern: \"**/build.gradle;**/build.gradle.kts\"")
+        .contains("filePattern: \"**/gradle.properties\"");
+  }
+
+  @Test
   void clientTopLevelRecipesStayWiredToSelectorRecipes() {
     String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
 

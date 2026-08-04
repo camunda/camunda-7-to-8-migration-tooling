@@ -95,7 +95,6 @@ recipeList:
   - org.openrewrite.maven.RemoveDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
-      scope: test
   - org.openrewrite.maven.AddDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
@@ -244,7 +243,6 @@ recipeList:
   - org.openrewrite.maven.RemoveDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      scope: test
   - org.openrewrite.maven.AddDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
@@ -264,7 +262,6 @@ recipeList:
   - org.openrewrite.maven.RemoveDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      scope: test
   - org.openrewrite.maven.AddDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
@@ -283,7 +280,6 @@ recipeList:
   - org.openrewrite.maven.RemoveDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      scope: test
   - org.openrewrite.maven.AddDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
