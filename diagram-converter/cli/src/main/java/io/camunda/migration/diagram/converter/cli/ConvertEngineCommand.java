@@ -81,17 +81,15 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
         (resourceName, models) ->
             models.forEach(
                 (model, processDefinitionKeys) -> {
+                  String resourceFilename = FilenameUtils.getName(resourceName);
                   String filename =
                       models.size() == 1
-                          ? FilenameUtils.getName(resourceName)
-                          : FilenameUtils.getBaseName(resourceName)
-                              + " ("
-                              + String.join(", ", processDefinitionKeys)
-                              + ")."
-                              + FilenameUtils.getExtension(resourceName);
+                          ? resourceFilename
+                          : multiModelFilename(
+                              resourceFilename, processDefinitionKeys, diagramType);
                   filename = FilenameUtils.getName(filename);
                   filename = safeFilename(filename, diagramType);
-                  File outputFile = uniqueOutputFile(filename, result);
+                  File outputFile = uniqueOutputFile(filename, diagramType, result);
                   result.put(
                       outputFile,
                       diagramType.readDiagram(new ByteArrayInputStream(model.getBytes())));
@@ -105,19 +103,46 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
     return filename;
   }
 
-  private File uniqueOutputFile(String filename, Map<File, ModelInstance> existingFiles) {
+  private String multiModelFilename(
+      String resourceFilename, Set<String> processDefinitionKeys, DiagramType diagramType) {
+    String fileEnding = diagramEnding(resourceFilename, diagramType);
+    if (fileEnding.isEmpty()) {
+      return "diagram ("
+          + String.join(", ", processDefinitionKeys)
+          + ")"
+          + diagramType.getFileEndings().get(0);
+    }
+    String baseName =
+        resourceFilename.substring(0, resourceFilename.length() - fileEnding.length());
+    return baseName + " (" + String.join(", ", processDefinitionKeys) + ")" + fileEnding;
+  }
+
+  private String diagramEnding(String filename, DiagramType diagramType) {
+    return diagramType.getFileEndings().stream()
+        .filter(filename::endsWith)
+        .findFirst()
+        .orElseGet(
+            () -> {
+              String extension = FilenameUtils.getExtension(filename);
+              return extension.isEmpty() ? "" : "." + extension;
+            });
+  }
+
+  private File uniqueOutputFile(
+      String filename, DiagramType diagramType, Map<File, ModelInstance> existingFiles) {
     File outputFile = new File(targetDirectory, filename);
     int counter = 0;
     while (existingFiles.containsKey(outputFile)) {
       counter++;
+      String fileEnding = diagramEnding(filename, diagramType);
       outputFile =
           new File(
               targetDirectory,
-              FilenameUtils.getBaseName(filename)
+              filename.substring(0, filename.length() - fileEnding.length())
                   + " ("
                   + counter
-                  + ")."
-                  + FilenameUtils.getExtension(filename));
+                  + ")"
+                  + fileEnding);
     }
     return outputFile;
   }

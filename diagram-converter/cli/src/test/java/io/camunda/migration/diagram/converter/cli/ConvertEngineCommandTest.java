@@ -190,6 +190,45 @@ public class ConvertEngineCommandTest {
   }
 
   @Test
+  void shouldPreserveMultipartDiagramSuffixForMultipleModels(@TempDir File tempDir) {
+    BpmnModelInstance first =
+        Bpmn.createProcess("firstMultipartProcess")
+            .executable()
+            .startEvent("start")
+            .endEvent("end")
+            .done();
+    BpmnModelInstance second =
+        Bpmn.createProcess("secondMultipartProcess")
+            .executable()
+            .startEvent("start")
+            .endEvent("end")
+            .done();
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("first-multipart")
+        .addModelInstance("process.bpmn20.xml", first)
+        .deploy();
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("second-multipart")
+        .addModelInstance("process.bpmn20.xml", second)
+        .deploy();
+
+    File targetDirectory = new File(tempDir, "converted");
+    ConvertEngineCommand command = new ConvertEngineCommand();
+    command.targetDirectory = targetDirectory;
+    command.url = "http://localhost:" + randomServerPort + "/engine-rest";
+
+    assertThat(command.call()).isZero();
+    assertThat(targetDirectory.listFiles())
+        .hasSize(2)
+        .extracting(File::getName)
+        .allMatch(name -> name.endsWith(".bpmn20.xml"));
+  }
+
+  @Test
   void shouldUseSafeFilenamesForSpecialResourceNames() {
     assertThat(ConvertEngineCommand.safeFilename("", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
     assertThat(ConvertEngineCommand.safeFilename(".", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
