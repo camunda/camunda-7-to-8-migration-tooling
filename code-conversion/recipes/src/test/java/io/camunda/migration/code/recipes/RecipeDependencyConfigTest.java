@@ -8,8 +8,8 @@
 package io.camunda.migration.code.recipes;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.openrewrite.maven.Assertions.pomXml;
-import static org.openrewrite.test.SourceSpecs.text;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,273 +18,352 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
-/** Guards dependency-selection wiring in declarative client recipes. */
+/**
+ * Guards Spring Boot major aware dependency selection.
+ *
+ * <p>Camunda 8.9 split both the Spring Boot starter and the Spring Boot process test module into
+ * mutually exclusive Spring Boot 3 and Spring Boot 4 artifacts. Picking the wrong one leaves the
+ * migrated application unable to start, so every prepare recipe set has to delegate the choice to
+ * the shared selector recipes instead of hardcoding an artifact.
+ */
 class RecipeDependencyConfigTest implements RewriteTest {
 
-  private static final List<String> PREPARE_RECIPE_DESCRIPTORS =
+  private static final String SB3_STARTER = "camunda-spring-boot-3-starter";
+  private static final String SB4_STARTER = "camunda-spring-boot-starter";
+  private static final String SB3_PROCESS_TEST = "camunda-process-test-spring-boot-3";
+  private static final String SB4_PROCESS_TEST = "camunda-process-test-spring";
+
+  private static final List<String> RECIPE_DESCRIPTORS =
       List.of(
           "/META-INF/rewrite/clientRecipes.yml",
           "/META-INF/rewrite/delegateRecipes.yml",
           "/META-INF/rewrite/externalWorkerRecipes.yml");
 
-  @Test
-  void clientRecipeUsesSpringBoot3DependenciesForSpringBoot3Project() {
+  /**
+   * Declarative recipes that add, remove or rename a dependency. A prepare recipe set must never
+   * name one of these directly - it has to go through the shared selector recipes, otherwise the
+   * Spring Boot major is ignored again.
+   */
+  private static final List<String> DEPENDENCY_MUTATING_RECIPES =
+      List.of(
+          "org.openrewrite.java.dependencies.AddDependency",
+          "org.openrewrite.java.dependencies.RemoveDependency",
+          "org.openrewrite.java.dependencies.ChangeDependency",
+          "org.openrewrite.maven.AddDependency",
+          "org.openrewrite.maven.RemoveDependency",
+          "org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId",
+          "org.openrewrite.gradle.AddDependency",
+          "org.openrewrite.gradle.RemoveDependency",
+          "org.openrewrite.gradle.ChangeDependency");
+
+  @Override
+  public void defaults(RecipeSpec spec) {
+    spec.recipeFromResources(
+        "io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe",
+        "io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaProcessTestDependencyRecipe");
+  }
+
+  /**
+   * Every way a project can pin its Spring Boot major, paired with the artifacts the selector has
+   * to end up with. Adding a detection branch without extending this list leaves it unguarded.
+   */
+  static List<Arguments> springBootMajorSignals() {
+    return List.of(
+        arguments("parent is Boot 3", parent("3.5.4"), SB3_STARTER, SB3_PROCESS_TEST),
+        arguments("parent is Boot 4", parent("4.0.0"), SB4_STARTER, SB4_PROCESS_TEST),
+        arguments("imported BOM is Boot 3", bom("3.5.4"), SB3_STARTER, SB3_PROCESS_TEST),
+        arguments("imported BOM is Boot 4", bom("4.0.0"), SB4_STARTER, SB4_PROCESS_TEST),
+        arguments(
+            "BOM version comes from a Boot 3 spring-boot.version property",
+            property("3.5.4") + bom("${spring-boot.version}"),
+            SB3_STARTER,
+            SB3_PROCESS_TEST),
+        arguments(
+            "BOM version comes from a Boot 4 spring-boot.version property",
+            property("4.0.0") + bom("${spring-boot.version}"),
+            SB4_STARTER,
+            SB4_PROCESS_TEST),
+        arguments("no detectable Spring Boot major", "", SB3_STARTER, SB3_PROCESS_TEST));
+  }
+
+  /**
+   * The selector adds the matching artifacts to a project that has neither of them yet. This is the
+   * plain Camunda 7 starting point.
+   */
+  @ParameterizedTest(name = "adds Spring Boot matched dependencies when {0}")
+  @MethodSource("springBootMajorSignals")
+  void addsDependenciesMatchingSpringBootMajor(
+      String signalName, String signal, String expectedStarter, String expectedProcessTest) {
     rewriteRun(
-        spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
-                .expectedCyclesThatMakeChanges(1),
         pomXml(
-            """
-            <project>
-              <modelVersion>4.0.0</modelVersion>
-              <groupId>com.example</groupId>
-              <artifactId>demo</artifactId>
-              <version>1.0.0</version>
-              <parent>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-parent</artifactId>
-                <version>3.5.4</version>
-              </parent>
-            </project>
-            """,
+            pom(signal, ""),
+            spec ->
+                spec.path("pom.xml")
+                    .after(after -> assertOnly(after, expectedStarter, expectedProcessTest))));
+  }
+
+  /**
+   * Re-running the selector over a project it already migrated must not change anything. This is
+   * what proves the recipe converges instead of oscillating between the two artifact pairs, which
+   * would make every re-run report a diff.
+   */
+  @ParameterizedTest(name = "is idempotent when {0}")
+  @MethodSource("springBootMajorSignals")
+  void isIdempotentOnAlreadyMigratedProject(
+      String signalName, String signal, String expectedStarter, String expectedProcessTest) {
+    rewriteRun(
+        pomXml(
+            pom(signal, dependencies(expectedStarter, expectedProcessTest)),
+            spec -> spec.path("pom.xml")));
+  }
+
+  /**
+   * The situation reported in #2017: an earlier recipe version added the Spring Boot 4 artifacts to
+   * a Spring Boot 3 project. Re-running has to repair the choice rather than leave the project
+   * broken.
+   */
+  @ParameterizedTest(name = "repairs a mismatched dependency choice when {0}")
+  @MethodSource("springBootMajorSignals")
+  void repairsMismatchedDependencyChoice(
+      String signalName, String signal, String expectedStarter, String expectedProcessTest) {
+    String wrongStarter = SB3_STARTER.equals(expectedStarter) ? SB4_STARTER : SB3_STARTER;
+    String wrongProcessTest =
+        SB3_PROCESS_TEST.equals(expectedProcessTest) ? SB4_PROCESS_TEST : SB3_PROCESS_TEST;
+    String pom = pom(signal, dependencies(wrongStarter, wrongProcessTest));
+
+    if (signal.isEmpty()) {
+      // Without a Spring Boot signal there is nothing to decide against, so an explicit choice by
+      // the user is left alone rather than overwritten with the default.
+      rewriteRun(pomXml(pom, spec -> spec.path("pom.xml")));
+      return;
+    }
+
+    rewriteRun(
+        pomXml(
+            pom,
+            spec ->
+                spec.path("pom.xml")
+                    .after(after -> assertOnly(after, expectedStarter, expectedProcessTest))));
+  }
+
+  /** The process test module keeps test scope when the selector rewrites it. */
+  @Test
+  void keepsTestScopeWhenSwitchingProcessTestModule() {
+    rewriteRun(
+        pomXml(
+            pom(parent("4.0.0"), dependencies(SB3_STARTER, SB3_PROCESS_TEST)),
             spec ->
                 spec.path("pom.xml")
                     .after(
-                        rewrittenPom -> {
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-3-starter</artifactId>");
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-starter</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring</artifactId>");
-                          return rewrittenPom;
+                        after -> {
+                          assertThat(after)
+                              .as("process test module must stay in test scope")
+                              .containsPattern(
+                                  Pattern.compile(
+                                      "<artifactId>"
+                                          + Pattern.quote(SB4_PROCESS_TEST)
+                                          + "</artifactId>\\s*<version>[^<]+</version>\\s*"
+                                          + "<scope>test</scope>"));
+                          return after;
                         })));
   }
 
+  /**
+   * Detection reads the <em>resolved</em> Spring Boot version, so a {@code spring-boot.version}
+   * property that nothing consumes must not flip the choice. {@code spring-boot-starter-parent}
+   * does not read that property, so the parent governs here.
+   */
   @Test
-  void clientRecipeUsesSpringBoot4DependenciesForSpringBoot4Project() {
-    assertUsesSpringBoot4Dependencies(
-        """
-        <project>
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>com.example</groupId>
-          <artifactId>demo</artifactId>
-          <version>1.0.0</version>
-          <parent>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-parent</artifactId>
-            <version>4.0.0</version>
-          </parent>
-        </project>
-        """);
-  }
-
-  @Test
-  void clientRecipeUsesSpringBoot4DependenciesWhenBoot4BomIsUsed() {
-    assertUsesSpringBoot4Dependencies(
-        """
-        <project>
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>com.example</groupId>
-          <artifactId>demo</artifactId>
-          <version>1.0.0</version>
-          <dependencyManagement>
-            <dependencies>
-              <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>4.0.0</version>
-                <type>pom</type>
-                <scope>import</scope>
-              </dependency>
-            </dependencies>
-          </dependencyManagement>
-        </project>
-        """);
-  }
-
-  @Test
-  void clientRecipeUsesSpringBoot4DependenciesWhenBoot4PropertyIsUsed() {
-    assertUsesSpringBoot4Dependencies(
-        """
-        <project>
-          <modelVersion>4.0.0</modelVersion>
-          <groupId>com.example</groupId>
-          <artifactId>demo</artifactId>
-          <version>1.0.0</version>
-          <properties>
-            <spring-boot.version>4.0.0</spring-boot.version>
-          </properties>
-        </project>
-        """);
-  }
-
-  @Test
-  void clientRecipesDeclareGradleBoot4SelectorBranches() {
-    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
-
-    assertThat(descriptor)
-        .contains("UseSpringBoot4CamundaStarterWhenGradlePluginIsBoot4")
-        .contains("UseSpringBoot4CamundaStarterWhenGradleBootBomIsBoot4")
-        .contains("UseSpringBoot4CamundaStarterWhenGradleBootPropertyIsBoot4")
-        .contains("UseSpringBoot4ProcessTestWhenGradlePluginIsBoot4")
-        .contains("UseSpringBoot4ProcessTestWhenGradleBootBomIsBoot4")
-        .contains("UseSpringBoot4ProcessTestWhenGradleBootPropertyIsBoot4")
-        .contains("filePattern: \"**/build.gradle*\"")
-        .contains("filePattern: \"**/gradle.properties\"");
-  }
-
-  @Test
-  void clientRecipeUsesSpringBoot4DependenciesWhenGradlePluginIsBoot4() {
+  void unusedSpringBootVersionPropertyDoesNotOverrideTheParent() {
     rewriteRun(
-        spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe"),
-        text(
-            """
-            plugins {
-              id("org.springframework.boot") version "4.0.0"
-            }
-
-            dependencies {
-              implementation("io.camunda:camunda-spring-boot-3-starter:8.10.0-SNAPSHOT")
-              testImplementation("io.camunda:camunda-process-test-spring-boot-3:8.10.0-SNAPSHOT")
-            }
-            """,
-            spec ->
-                spec.path("build.gradle.kts")
-                    .after(
-                    rewrittenBuild -> {
-                      assertThat(rewrittenBuild)
-                          .contains("camunda-spring-boot-starter")
-                          .contains("camunda-process-test-spring");
-                      assertThat(rewrittenBuild)
-                          .doesNotContain("camunda-spring-boot-3-starter")
-                          .doesNotContain("camunda-process-test-spring-boot-3");
-                      return rewrittenBuild;
-                    })));
-  }
-
-  @Test
-  void clientRecipeUsesSpringBoot4DependenciesWhenGradleBootBomIsBoot4() {
-    rewriteRun(
-        spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe"),
-        text(
-            """
-            dependencies {
-              implementation(platform("org.springframework.boot:spring-boot-dependencies:4.0.0"))
-              implementation("io.camunda:camunda-spring-boot-3-starter:8.10.0-SNAPSHOT")
-              testImplementation("io.camunda:camunda-process-test-spring-boot-3:8.10.0-SNAPSHOT")
-            }
-            """,
-            spec ->
-                spec.path("build.gradle.kts")
-                    .after(
-                    rewrittenBuild -> {
-                      assertThat(rewrittenBuild)
-                          .contains("camunda-spring-boot-starter")
-                          .contains("camunda-process-test-spring");
-                      assertThat(rewrittenBuild)
-                          .doesNotContain("camunda-spring-boot-3-starter")
-                          .doesNotContain("camunda-process-test-spring-boot-3");
-                      return rewrittenBuild;
-                    })));
-  }
-
-  @Test
-  void clientTopLevelRecipesStayWiredToSelectorRecipes() {
-    String descriptor = resourceText("/META-INF/rewrite/clientRecipes.yml");
-
-    assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientPrepareRecipes"))
-        .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe")
-        .doesNotContain("org.openrewrite.java.dependencies.AddDependency")
-        .doesNotContain("org.openrewrite.maven.AddDependency")
-        .doesNotContain("org.openrewrite.gradle.AddDependency");
-
-    assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientMigrateRecipes"))
-        .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
-        .doesNotContain("artifactId: camunda-process-test-spring-boot-3")
-        .doesNotContain("artifactId: camunda-process-test-spring")
-        .doesNotContain("org.openrewrite.java.dependencies.AddDependency")
-        .doesNotContain("org.openrewrite.maven.AddDependency")
-        .doesNotContain("org.openrewrite.gradle.AddDependency");
-  }
-
-  @Test
-  void nonClientPrepareRecipesStayOnSpringBoot3Starter() {
-    for (String descriptor : PREPARE_RECIPE_DESCRIPTORS.stream().skip(1).toList()) {
-      List<String> artifactIds = artifactIdsOf(descriptor);
-      assertThat(artifactIds).contains("camunda-spring-boot-3-starter");
-      assertThat(artifactIds).doesNotContain("camunda-spring-boot-starter");
-    }
-  }
-
-  /** Collects every {@code artifactId:} value declared in the given recipe descriptor resource. */
-  private static List<String> artifactIdsOf(String resource) {
-    List<String> artifactIds = new ArrayList<>();
-    try (BufferedReader reader =
-        new BufferedReader(
-            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
-      String line;
-      while ((line = reader.readLine()) != null) {
-        String trimmed = line.trim();
-        if (trimmed.startsWith("artifactId:")) {
-          artifactIds.add(trimmed.substring("artifactId:".length()).trim());
-        }
-      }
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
-    }
-    return artifactIds;
-  }
-
-  private static InputStream resourceStream(String resource) {
-    InputStream in = RecipeDependencyConfigTest.class.getResourceAsStream(resource);
-    assertThat(in).as("recipe descriptor %s must be on the classpath", resource).isNotNull();
-    return in;
-  }
-
-  private void assertUsesSpringBoot4Dependencies(String inputPom) {
-    rewriteRun(
-        spec ->
-            spec.recipeFromResources(
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe",
-                "io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
-                .expectedCyclesThatMakeChanges(2),
         pomXml(
-            inputPom,
+            pom(parent("3.5.4") + property("4.0.0"), ""),
             spec ->
                 spec.path("pom.xml")
-                    .after(
-                        rewrittenPom -> {
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-spring-boot-starter</artifactId>");
-                          assertThat(rewrittenPom).contains("<artifactId>camunda-process-test-spring</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-spring-boot-3-starter</artifactId>");
-                          assertThat(rewrittenPom).doesNotContain("<artifactId>camunda-process-test-spring-boot-3</artifactId>");
-                          return rewrittenPom;
-                        })));
+                    .after(after -> assertOnly(after, SB3_STARTER, SB3_PROCESS_TEST))));
   }
 
-  private static String resourceText(String resource) {
-    try (BufferedReader reader =
-        new BufferedReader(
-            new InputStreamReader(resourceStream(resource), StandardCharsets.UTF_8))) {
-      StringBuilder sb = new StringBuilder();
-      String line;
-      while ((line = reader.readLine()) != null) {
-        sb.append(line).append('\n');
+  /**
+   * A POM that pins Spring Boot 3 through its parent and Spring Boot 4 through an imported BOM is
+   * self-contradictory. The selector resolves it in favour of the parent, which is what Maven
+   * itself gives precedence to for the Spring Boot managed versions. Reaching that answer costs one
+   * extra rewrite cycle, because the BOM branch and the parent branch both fire and undo each
+   * other; this is the only input shape where the selector is not single cycle, so it is pinned
+   * here to keep the cost visible if a future detection branch widens it.
+   */
+  @Test
+  void parentPomWinsOverConflictingImportedBom() {
+    rewriteRun(
+        spec -> spec.cycles(2).expectedCyclesThatMakeChanges(2),
+        pomXml(
+            pom(parent("3.5.4") + bom("4.0.0"), ""),
+            spec ->
+                spec.path("pom.xml")
+                    .after(after -> assertOnly(after, SB3_STARTER, SB3_PROCESS_TEST))));
+  }
+
+  /**
+   * Structural guard: every prepare recipe set has to delegate dependency selection to the shared
+   * selector recipes. Hardcoding any dependency recipe there is exactly the defect from #2017, so
+   * it is blocked for all recipe sets - including ones added later.
+   */
+  @Test
+  void everyPrepareRecipeSetDelegatesDependencySelection() {
+    for (String descriptor : RECIPE_DESCRIPTORS) {
+      String yaml = resourceText(descriptor);
+      for (String recipeName : prepareRecipeNames(yaml)) {
+        String section = recipeSection(yaml, recipeName);
+        assertThat(section)
+            .as(
+                "%s in %s must select the Camunda starter by Spring Boot major",
+                recipeName, descriptor)
+            .contains(
+                "- io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe");
+        assertThat(section)
+            .as("%s in %s must not hardcode a dependency change", recipeName, descriptor)
+            .doesNotContain(DEPENDENCY_MUTATING_RECIPES.toArray(String[]::new));
       }
-      return sb.toString();
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
     }
+  }
+
+  /**
+   * Structural guard: the recipe set that adds the process test module must delegate that choice
+   * too, and never name a process test artifact directly.
+   */
+  @Test
+  void processTestDependencyIsSelectedBySpringBootMajor() {
+    String yaml = resourceText("/META-INF/rewrite/clientRecipes.yml");
+    String section =
+        recipeSection(yaml, "io.camunda.migration.code.recipes.AllClientMigrateRecipes");
+
+    assertThat(section)
+        .contains(
+            "- io.camunda.migration.code.recipes.sharedRecipes"
+                + ".ConfigureCamundaProcessTestDependencyRecipe")
+        .doesNotContain(SB3_PROCESS_TEST)
+        .doesNotContain(SB4_PROCESS_TEST)
+        .doesNotContain(DEPENDENCY_MUTATING_RECIPES.toArray(String[]::new));
+  }
+
+  private static String assertOnly(String pom, String expectedStarter, String expectedProcessTest) {
+    String unexpectedStarter = SB3_STARTER.equals(expectedStarter) ? SB4_STARTER : SB3_STARTER;
+    String unexpectedProcessTest =
+        SB3_PROCESS_TEST.equals(expectedProcessTest) ? SB4_PROCESS_TEST : SB3_PROCESS_TEST;
+
+    assertThat(pom)
+        .contains(artifactTag(expectedStarter))
+        .contains(artifactTag(expectedProcessTest))
+        .doesNotContain(artifactTag(unexpectedStarter))
+        .doesNotContain(artifactTag(unexpectedProcessTest));
+    return pom;
+  }
+
+  private static String artifactTag(String artifactId) {
+    return "<artifactId>" + artifactId + "</artifactId>";
+  }
+
+  private static String parent(String version) {
+    return """
+             <parent>
+               <groupId>org.springframework.boot</groupId>
+               <artifactId>spring-boot-starter-parent</artifactId>
+               <version>%s</version>
+             </parent>
+           """
+        .formatted(version);
+  }
+
+  private static String bom(String version) {
+    return """
+             <dependencyManagement>
+               <dependencies>
+                 <dependency>
+                   <groupId>org.springframework.boot</groupId>
+                   <artifactId>spring-boot-dependencies</artifactId>
+                   <version>%s</version>
+                   <type>pom</type>
+                   <scope>import</scope>
+                 </dependency>
+               </dependencies>
+             </dependencyManagement>
+           """
+        .formatted(version);
+  }
+
+  private static String property(String version) {
+    return """
+             <properties>
+               <spring-boot.version>%s</spring-boot.version>
+             </properties>
+           """
+        .formatted(version);
+  }
+
+  private static String dependencies(String starter, String processTest) {
+    return """
+             <dependencies>
+               <dependency>
+                 <groupId>io.camunda</groupId>
+                 <artifactId>%s</artifactId>
+                 <version>%s</version>
+               </dependency>
+               <dependency>
+                 <groupId>io.camunda</groupId>
+                 <artifactId>%s</artifactId>
+                 <version>%s</version>
+                 <scope>test</scope>
+               </dependency>
+             </dependencies>
+           """
+        .formatted(starter, camundaVersion(), processTest, camundaVersion());
+  }
+
+  private static String pom(String springBootSignal, String dependencies) {
+    return """
+           <project>
+             <modelVersion>4.0.0</modelVersion>
+             <groupId>com.example</groupId>
+             <artifactId>demo</artifactId>
+             <version>1.0.0</version>
+           %s%s</project>
+           """
+        .formatted(springBootSignal, dependencies);
+  }
+
+  /**
+   * Reads the Camunda 8 version the recipes were filtered with, so fixtures stay in sync with
+   * whatever {@code ${version.camunda-8}} resolved to at build time.
+   */
+  private static String camundaVersion() {
+    Matcher matcher =
+        Pattern.compile("artifactId: " + SB3_STARTER + "\\s*\\n\\s*version: (\\S+)")
+            .matcher(resourceText("/META-INF/rewrite/dependencyRecipes.yml"));
+    assertThat(matcher.find()).as("filtered Camunda 8 version must be readable").isTrue();
+    return matcher.group(1);
+  }
+
+  /** Names every {@code All...PrepareRecipes} recipe declared in the given descriptor. */
+  private static List<String> prepareRecipeNames(String yaml) {
+    Matcher matcher =
+        Pattern.compile(
+                "^name: (io\\.camunda\\.migration\\.code\\.recipes\\.All\\w*PrepareRecipes)$",
+                Pattern.MULTILINE)
+            .matcher(yaml);
+    List<String> names = new ArrayList<>();
+    while (matcher.find()) {
+      names.add(matcher.group(1));
+    }
+    assertThat(names).as("descriptor must declare at least one prepare recipe").isNotEmpty();
+    return names;
   }
 
   private static String recipeSection(String descriptor, String recipeName) {
@@ -292,9 +371,23 @@ class RecipeDependencyConfigTest implements RewriteTest {
     int start = descriptor.indexOf(marker);
     assertThat(start).as("recipe %s must exist", recipeName).isNotEqualTo(-1);
     int end = descriptor.indexOf("\n---\n", start);
-    if (end == -1) {
-      end = descriptor.length();
+    return end == -1 ? descriptor.substring(start) : descriptor.substring(start, end);
+  }
+
+  private static String resourceText(String resource) {
+    try (InputStream in = RecipeDependencyConfigTest.class.getResourceAsStream(resource)) {
+      assertThat(in).as("recipe descriptor %s must be on the classpath", resource).isNotNull();
+      try (BufferedReader reader =
+          new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+          sb.append(line).append('\n');
+        }
+        return sb.toString();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read recipe descriptor " + resource, e);
     }
-    return descriptor.substring(start, end);
   }
 }

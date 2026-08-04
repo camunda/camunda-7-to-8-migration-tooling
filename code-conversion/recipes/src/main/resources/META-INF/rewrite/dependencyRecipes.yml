@@ -1,0 +1,231 @@
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe
+displayName: Configure the Camunda Spring Boot starter for the project's Spring Boot major
+description: >-
+  Camunda 8.9 split the Spring Boot starter into two mutually exclusive artifacts:
+  `camunda-spring-boot-starter` requires Spring Boot 4.0.x and `camunda-spring-boot-3-starter`
+  targets Spring Boot 3.5.x. Adds the Spring Boot 3 starter when the project declares neither,
+  then corrects the choice from the Spring Boot major resolved from the imported
+  `spring-boot-dependencies` BOM or from `spring-boot-starter-parent`, with the parent winning
+  when the two disagree. Both are resolved values, so a `spring-boot.version` property is
+  honoured wherever it actually versions the BOM or the parent. Gradle builds keep the Spring
+  Boot 3 starter default, because the Spring Boot major is not resolvable from the Gradle model
+  available here.
+recipeList:
+  # Gradle: the Spring Boot major is not resolvable from the Gradle model available to these
+  # recipes, so Gradle builds keep the Spring Boot 3 default that applied before this selector
+  # existed. `AddDependency` is a no-op once either starter is declared.
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+      configuration: implementation
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsent
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenBomIsBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenBomIsBoot3
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenParentIsBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenParentIsBoot3
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaProcessTestDependencyRecipe
+displayName: Configure the Camunda process test dependency for the project's Spring Boot major
+description: >-
+  Camunda 8.9 split the Spring Boot process test module into two mutually exclusive artifacts:
+  `camunda-process-test-spring` requires Spring Boot 4.0.x and `camunda-process-test-spring-boot-3`
+  targets Spring Boot 3.5.x. Applies the same Spring Boot major detection as
+  `ConfigureCamundaStarterRecipe` so the process test module always matches the starter.
+recipeList:
+  # Gradle: see ConfigureCamundaStarterRecipe - Gradle builds keep the Spring Boot 3 default.
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      version: ${version.camunda-8}
+      configuration: testImplementation
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsent
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenBomIsBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenBomIsBoot3
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenParentIsBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenParentIsBoot3
+---
+# The Spring Boot 3 starter is the default landing spot for a migrated Camunda 7 application; the
+# `UseSpringBoot4...` recipes below upgrade it when the project actually resolves Spring Boot 4.
+# The precondition keeps this step a no-op once either starter is declared, which is what makes
+# the recipe converge in a single cycle and stay idempotent on re-runs.
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsent
+displayName: Add the Camunda Spring Boot 3 starter when no Camunda starter is declared
+description: >-
+  Adds `camunda-spring-boot-3-starter` when the project declares neither Camunda starter. Gradle
+  builds are handled separately because Maven-model preconditions never match a Gradle build file.
+preconditions:
+  - org.openrewrite.maven.search.DoesNotIncludeDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      onlyDirect: true
+  - org.openrewrite.maven.search.DoesNotIncludeDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.maven.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsent
+displayName: Add the Camunda Spring Boot 3 process test module when no process test module is declared
+description: >-
+  Adds `camunda-process-test-spring-boot-3` in test scope when the project declares neither
+  process test module.
+preconditions:
+  - org.openrewrite.maven.search.DoesNotIncludeDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      onlyDirect: true
+  - org.openrewrite.maven.search.DoesNotIncludeDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      onlyDirect: true
+recipeList:
+  - org.openrewrite.maven.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      version: ${version.camunda-8}
+      scope: test
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenBomIsBoot4
+displayName: Use the Spring Boot 4 Camunda starter when the Spring Boot BOM is 4.x
+description: Renames `camunda-spring-boot-3-starter` to `camunda-spring-boot-starter` if the imported `spring-boot-dependencies` BOM is 4.x.
+preconditions:
+  - org.openrewrite.maven.search.FindManagedDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-dependencies
+      version: "4.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-3-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenBomIsBoot3
+displayName: Use the Spring Boot 3 Camunda starter when the Spring Boot BOM is 3.x
+description: Renames `camunda-spring-boot-starter` to `camunda-spring-boot-3-starter` if the imported `spring-boot-dependencies` BOM is 3.x.
+preconditions:
+  - org.openrewrite.maven.search.FindManagedDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-dependencies
+      version: "3.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-3-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenParentIsBoot4
+displayName: Use the Spring Boot 4 Camunda starter when the parent POM is Boot 4
+description: Renames `camunda-spring-boot-3-starter` to `camunda-spring-boot-starter` if `spring-boot-starter-parent` is 4.x.
+preconditions:
+  - org.openrewrite.maven.search.ParentPomInsight:
+      groupIdPattern: org.springframework.boot
+      artifactIdPattern: spring-boot-starter-parent
+      version: "4.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-3-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenParentIsBoot3
+displayName: Use the Spring Boot 3 Camunda starter when the parent POM is Boot 3
+description: Renames `camunda-spring-boot-starter` to `camunda-spring-boot-3-starter` if `spring-boot-starter-parent` is 3.x.
+preconditions:
+  - org.openrewrite.maven.search.ParentPomInsight:
+      groupIdPattern: org.springframework.boot
+      artifactIdPattern: spring-boot-starter-parent
+      version: "3.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-3-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenBomIsBoot4
+displayName: Use the Spring Boot 4 process test module when the Spring Boot BOM is 4.x
+description: Renames `camunda-process-test-spring-boot-3` to `camunda-process-test-spring` if the imported `spring-boot-dependencies` BOM is 4.x.
+preconditions:
+  - org.openrewrite.maven.search.FindManagedDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-dependencies
+      version: "4.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring-boot-3
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenBomIsBoot3
+displayName: Use the Spring Boot 3 process test module when the Spring Boot BOM is 3.x
+description: Renames `camunda-process-test-spring` to `camunda-process-test-spring-boot-3` if the imported `spring-boot-dependencies` BOM is 3.x.
+preconditions:
+  - org.openrewrite.maven.search.FindManagedDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-dependencies
+      version: "3.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring-boot-3
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenParentIsBoot4
+displayName: Use the Spring Boot 4 process test module when the parent POM is Boot 4
+description: Renames `camunda-process-test-spring-boot-3` to `camunda-process-test-spring` if `spring-boot-starter-parent` is 4.x.
+preconditions:
+  - org.openrewrite.maven.search.ParentPomInsight:
+      groupIdPattern: org.springframework.boot
+      artifactIdPattern: spring-boot-starter-parent
+      version: "4.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring-boot-3
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenParentIsBoot3
+displayName: Use the Spring Boot 3 process test module when the parent POM is Boot 3
+description: Renames `camunda-process-test-spring` to `camunda-process-test-spring-boot-3` if `spring-boot-starter-parent` is 3.x.
+preconditions:
+  - org.openrewrite.maven.search.ParentPomInsight:
+      groupIdPattern: org.springframework.boot
+      artifactIdPattern: spring-boot-starter-parent
+      version: "3.x"
+recipeList:
+  - org.openrewrite.maven.ChangeDependencyGroupIdAndArtifactId:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring-boot-3
+      newVersion: ${version.camunda-8}
