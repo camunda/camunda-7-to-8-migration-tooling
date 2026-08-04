@@ -18,6 +18,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,14 @@ class RecipeDependencyConfigTest implements RewriteTest {
   private static final String SB4_STARTER = "camunda-spring-boot-starter";
   private static final String SB3_PROCESS_TEST = "camunda-process-test-spring-boot-3";
   private static final String SB4_PROCESS_TEST = "camunda-process-test-spring";
+
+  /** The two artifacts of each pair are mutually exclusive - a project must declare exactly one. */
+  private static final Map<String, String> MUTUALLY_EXCLUSIVE_PAIRS =
+      Map.of(
+          SB3_STARTER, SB4_STARTER,
+          SB4_STARTER, SB3_STARTER,
+          SB3_PROCESS_TEST, SB4_PROCESS_TEST,
+          SB4_PROCESS_TEST, SB3_PROCESS_TEST);
 
   private static final List<String> RECIPE_DESCRIPTORS =
       List.of(
@@ -252,6 +261,60 @@ class RecipeDependencyConfigTest implements RewriteTest {
         .doesNotContain(SB3_PROCESS_TEST)
         .doesNotContain(SB4_PROCESS_TEST)
         .doesNotContain(DEPENDENCY_MUTATING_RECIPES.toArray(String[]::new));
+  }
+
+  /**
+   * Structural guard for the Gradle branches, which the Maven fixtures above cannot reach.
+   *
+   * <p>{@code org.openrewrite.gradle.AddDependency} only skips the artifact it adds, so on its own
+   * it happily adds the Spring Boot 3 artifact to a build that already declares the mutually
+   * exclusive Spring Boot 4 one. Every Gradle add therefore has to sit behind {@code
+   * DoesNotIncludeDependency} preconditions for both artifacts of its pair.
+   *
+   * <p>This is asserted on the descriptor rather than by running the recipe because executing a
+   * Gradle branch requires a {@code GradleProject} marker, which in turn needs {@code
+   * withToolingApi()} and a ~130 MB Gradle distribution download - see #2051.
+   */
+  @Test
+  void everyGradleAddIsGuardedAgainstTheOppositeArtifact() {
+    String yaml = resourceText("/META-INF/rewrite/dependencyRecipes.yml");
+
+    List<String> guarded = new ArrayList<>();
+    for (String document : yaml.split("(?m)^---$")) {
+      if (!document.contains("- org.openrewrite.gradle.AddDependency:")) {
+        continue;
+      }
+      Matcher addedMatcher =
+          Pattern.compile(
+                  "- org\\.openrewrite\\.gradle\\.AddDependency:\\s*\\n"
+                      + "\\s*groupId: io\\.camunda\\s*\\n"
+                      + "\\s*artifactId: (\\S+)\\s*\\n")
+              .matcher(document);
+      assertThat(addedMatcher.find())
+          .as("Gradle add must name an io.camunda artifact:\n%s", document)
+          .isTrue();
+      String added = addedMatcher.group(1);
+      assertThat(MUTUALLY_EXCLUSIVE_PAIRS)
+          .as("Gradle add of %s must be part of a known mutually exclusive pair", added)
+          .containsKey(added);
+      guarded.add(added);
+
+      for (String artifactId : List.of(added, MUTUALLY_EXCLUSIVE_PAIRS.get(added))) {
+        assertThat(document)
+            .as("Gradle add of %s must be preconditioned on %s being absent", added, artifactId)
+            .containsPattern(
+                Pattern.compile(
+                    "- org\\.openrewrite\\.gradle\\.search\\.DoesNotIncludeDependency:\\s*\\n"
+                        + "\\s*groupId: io\\.camunda\\s*\\n"
+                        + "\\s*artifactId: "
+                        + Pattern.quote(artifactId)
+                        + "\\s*\\n"));
+      }
+    }
+
+    assertThat(guarded)
+        .as("Gradle builds must still get a starter and a process test module")
+        .containsExactlyInAnyOrder(SB3_STARTER, SB3_PROCESS_TEST);
   }
 
   private static String assertOnly(String pom, String expectedStarter, String expectedProcessTest) {
