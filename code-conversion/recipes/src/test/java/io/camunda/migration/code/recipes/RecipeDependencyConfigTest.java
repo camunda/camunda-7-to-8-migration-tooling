@@ -327,14 +327,12 @@ class RecipeDependencyConfigTest implements RewriteTest {
     rewriteRun(
         spec ->
             spec.recipe(
-                    new io.camunda.migration.code.recipes.sharedRecipes
-                        .ChangeGradleDependencyRecipe(
-                        "io.camunda",
-                        SB3_STARTER,
-                        "io.camunda",
-                        SB4_STARTER,
-                        "8.10.0-SNAPSHOT"))
-                .beforeRecipe(withToolingApi()),
+                new io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe(
+                    "io.camunda",
+                    SB3_STARTER,
+                    "io.camunda",
+                    SB4_STARTER,
+                    "8.10.0-SNAPSHOT")),
         buildGradle(before, after));
   }
 
