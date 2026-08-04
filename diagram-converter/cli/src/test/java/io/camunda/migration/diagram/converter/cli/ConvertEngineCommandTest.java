@@ -134,9 +134,8 @@ public class ConvertEngineCommandTest {
           .createDeployment()
           .name("path-based-resources")
           .addModelInstance(
-              "Users/peter.bojtos/projects/application/target/classes/process.bpmn", bpmn)
-          .addInputStream(
-              "Users/peter.bojtos/projects/application/target/classes/decision.dmn", dmn)
+              "Users/test-user/projects/application/target/classes/process.bpmn", bpmn)
+          .addInputStream("Users/test-user/projects/application/target/classes/decision.dmn", dmn)
           .deploy();
     }
 

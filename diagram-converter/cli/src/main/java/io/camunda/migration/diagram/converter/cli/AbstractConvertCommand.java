@@ -137,11 +137,6 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     if (!check) {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
         File file = determineFileName(prefixFileName(modelInstance.getKey()));
-        if (!override && file.exists()) {
-          LOG_CLI.error("File does already exist: {}", file);
-          returnCode = 1;
-          continue;
-        }
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
