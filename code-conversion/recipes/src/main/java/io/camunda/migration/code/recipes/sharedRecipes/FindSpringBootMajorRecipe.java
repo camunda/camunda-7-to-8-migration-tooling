@@ -59,7 +59,7 @@ public class FindSpringBootMajorRecipe extends Recipe {
   public @NonNull String getDescription() {
     return "Matches Gradle build files whose resolved or declared Spring Boot platform, declared or "
         + "resolved Spring Boot plugin, or Spring dependency management BOM uses the requested major "
-        + "version.";
+        + "version; `none` matches only when no Spring Boot signal can be detected.";
   }
 
   @Override

@@ -100,7 +100,7 @@ name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsen
 displayName: Add the Camunda Spring Boot 3 starter to a Gradle build that declares no Camunda starter
 description: >-
   Adds `camunda-spring-boot-3-starter` to the `implementation` configuration when the Gradle build
-  declares neither Camunda starter.
+  declares neither Camunda starter and no Spring Boot major can be detected.
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "none"
@@ -164,7 +164,7 @@ name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDepen
 displayName: Add the Camunda Spring Boot 3 process test module to a Gradle build that declares no process test module
 description: >-
   Adds `camunda-process-test-spring-boot-3` to the `testImplementation` configuration when the
-  Gradle build declares neither process test module.
+  Gradle build declares neither process test module and no Spring Boot major can be detected.
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "none"
