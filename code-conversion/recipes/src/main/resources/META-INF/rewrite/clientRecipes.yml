@@ -1,7 +1,7 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientPrepareRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client prepare recipes
+description: Prepares dependencies and shared API replacements before client method migration.
 recipeList:
   # Camunda 8.9 split the Spring Boot starter: choose the starter based on the existing
   # Spring Boot major in the migrated project (3.x -> boot-3 starter, 4.x -> default starter).
@@ -11,8 +11,8 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientMigrateRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client migration recipes
+description: Migrates ProcessEngine and process-test usages to Camunda 8 client APIs.
 recipeList:
   - io.camunda.migration.code.recipes.client.MigrateSignalMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateCancelProcessInstanceMethodsRecipe
@@ -34,8 +34,8 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientCleanupRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client cleanup recipes
+description: Removes engine-era leftovers after the client migration.
 recipeList:
   - io.camunda.migration.code.recipes.client.CleanupEngineDependencyRecipe
   - io.camunda.migration.code.recipes.client.DeleteProcessesXmlRecipe
