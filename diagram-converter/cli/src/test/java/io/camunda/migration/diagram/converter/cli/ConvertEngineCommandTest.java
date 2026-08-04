@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.cli;
 
 import static org.assertj.core.api.Assertions.*;
 
+import io.camunda.migration.diagram.converter.DiagramType;
 import io.camunda.migration.diagram.converter.cli.mock.App;
 import java.io.File;
 import java.io.InputStream;
@@ -186,5 +187,12 @@ public class ConvertEngineCommandTest {
     assertThat(targetDirectory.listFiles())
         .extracting(File::getName)
         .containsExactlyInAnyOrder("converted-c8-process.bpmn", "converted-c8-process (1).bpmn");
+  }
+
+  @Test
+  void shouldUseSafeFilenamesForSpecialResourceNames() {
+    assertThat(ConvertEngineCommand.safeFilename("", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
+    assertThat(ConvertEngineCommand.safeFilename(".", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
+    assertThat(ConvertEngineCommand.safeFilename("..", DiagramType.DMN)).isEqualTo("diagram.dmn");
   }
 }

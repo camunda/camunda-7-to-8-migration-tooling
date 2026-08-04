@@ -67,10 +67,17 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
 
   @Override
   protected Map<File, ModelInstance> modelInstances() {
-    Map<String, Map<String, Set<String>>> allLatestBpmnXml = getAllLatestBpmnXml();
-    allLatestBpmnXml.putAll(getAllLatestDmnXml());
     Map<File, ModelInstance> result = new LinkedHashMap<>();
-    allLatestBpmnXml.forEach(
+    addModelInstances(getAllLatestBpmnXml(), DiagramType.BPMN, result);
+    addModelInstances(getAllLatestDmnXml(), DiagramType.DMN, result);
+    return result;
+  }
+
+  private void addModelInstances(
+      Map<String, Map<String, Set<String>>> diagrams,
+      DiagramType diagramType,
+      Map<File, ModelInstance> result) {
+    diagrams.forEach(
         (resourceName, models) ->
             models.forEach(
                 (model, processDefinitionKeys) -> {
@@ -83,13 +90,19 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
                               + ")."
                               + FilenameUtils.getExtension(resourceName);
                   filename = FilenameUtils.getName(filename);
+                  filename = safeFilename(filename, diagramType);
                   File outputFile = uniqueOutputFile(filename, result);
                   result.put(
                       outputFile,
-                      DiagramType.fromFileName(filename)
-                          .readDiagram(new ByteArrayInputStream(model.getBytes())));
+                      diagramType.readDiagram(new ByteArrayInputStream(model.getBytes())));
                 }));
-    return result;
+  }
+
+  static String safeFilename(String filename, DiagramType diagramType) {
+    if (filename.isBlank() || filename.equals(".") || filename.equals("..")) {
+      return "diagram" + diagramType.getFileEndings().get(0);
+    }
+    return filename;
   }
 
   private File uniqueOutputFile(String filename, Map<File, ModelInstance> existingFiles) {
