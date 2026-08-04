@@ -588,4 +588,64 @@ class ReplaceStartProcessInstanceMethodsTest implements RewriteTest {
                     }
                     """));
   }
+
+  @Test
+  void migratesExecutionGetIdToProcessInstanceKey() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateStartProcessInstanceMethodsRecipe()),
+        java(
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.camunda.bpm.engine.runtime.ProcessInstance;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    class ExecutionGetIdMigrationTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        void starts() {
+                            ProcessInstance instance = runtimeService.startProcessInstanceByKey("myProcess");
+                            String id = instance.getId();
+                        }
+                    }
+                    """,
+            """
+                    package org.camunda.community.migration.example;
+
+                    import io.camunda.client.CamundaClient;
+                    import io.camunda.client.api.response.ProcessInstanceEvent;
+                    import org.camunda.bpm.engine.RuntimeService;
+                    import org.springframework.beans.factory.annotation.Autowired;
+                    import org.springframework.stereotype.Component;
+
+                    @Component
+                    class ExecutionGetIdMigrationTestClass {
+
+                        @Autowired
+                        private CamundaClient camundaClient;
+
+                        @Autowired
+                        private RuntimeService runtimeService;
+
+                        void starts() {
+                            ProcessInstanceEvent instance = camundaClient
+                                    .newCreateInstanceCommand()
+                                    .bpmnProcessId("myProcess")
+                                    .latestVersion()
+                                    .send()
+                                    .join();
+                            String id = String.valueOf(instance.getProcessInstanceKey());
+                        }
+                    }
+                    """));
+  }
 }
