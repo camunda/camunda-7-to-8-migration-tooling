@@ -188,6 +188,9 @@ description: Renames the Camunda Spring Boot 3 starter to the Spring Boot 4 star
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
 recipeList:
   - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
       oldGroupId: io.camunda
@@ -203,6 +206,9 @@ description: Renames the Camunda Spring Boot 4 starter to the Spring Boot 3 star
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
 recipeList:
   - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
       oldGroupId: io.camunda
@@ -218,6 +224,9 @@ description: Renames the Spring Boot 3 Camunda process test module to the Spring
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
 recipeList:
   - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
       oldGroupId: io.camunda
@@ -233,6 +242,9 @@ description: Renames the Spring Boot 4 Camunda process test module to the Spring
 preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
       major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
 recipeList:
   - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
       oldGroupId: io.camunda

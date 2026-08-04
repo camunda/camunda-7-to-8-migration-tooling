@@ -354,6 +354,20 @@ class RecipeDependencyConfigTest implements RewriteTest {
   }
 
   @Test
+  void ignoresSimilarGradlePluginId() {
+    String build =
+        """
+        plugins {
+            id 'orgxspringframeworkxboot' version '4.0.0'
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("none")),
+        buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @Test
   void detectsDependencyManagementBomWithoutGradleModel() {
     String build =
         """
@@ -426,6 +440,28 @@ class RecipeDependencyConfigTest implements RewriteTest {
                     .after(
                         after ->
                             assertGradleDependencies(after, SB4_STARTER, SB4_PROCESS_TEST))));
+  }
+
+  @Test
+  void leavesGradleDependencyPairsAloneWhenBothArtifactsAreDeclared() {
+    String before =
+        gradleBuild(
+            """
+            plugins {
+                id 'java'
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            dependencies {
+                implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+            }
+            """)
+            + gradleDependenciesWithBothArtifacts();
+
+    rewriteRun(buildGradle(before, spec -> spec.path("build.gradle")));
   }
 
   /**
@@ -642,6 +678,47 @@ class RecipeDependencyConfigTest implements RewriteTest {
         .contains(SB3_STARTER, SB4_STARTER, SB3_PROCESS_TEST, SB4_PROCESS_TEST);
   }
 
+  @Test
+  void everyGradleRenameIsGuardedAgainstTheTargetArtifact() {
+    String yaml = resourceText("/META-INF/rewrite/dependencyRecipes.yml");
+
+    List<String> renamed = new ArrayList<>();
+    for (String document : yaml.split("(?m)^---$")) {
+      if (!document.contains("ChangeGradleDependencyRecipe")) {
+        continue;
+      }
+      Matcher targetMatcher =
+          Pattern.compile(
+                  "- io\\.camunda\\.migration\\.code\\.recipes\\.sharedRecipes\\."
+                      + "ChangeGradleDependencyRecipe:\\s*\\n"
+                      + "\\s*oldGroupId: \\S+\\s*\\n"
+                      + "\\s*oldArtifactId: \\S+\\s*\\n"
+                      + "\\s*newGroupId: \\S+\\s*\\n"
+                      + "\\s*newArtifactId: (\\S+)\\s*\\n")
+              .matcher(document);
+      assertThat(targetMatcher.find())
+          .as("Gradle rename must name its target artifact:\n%s", document)
+          .isTrue();
+      String target = targetMatcher.group(1);
+      renamed.add(target);
+
+      assertThat(document)
+          .as("Gradle rename to %s must be preconditioned on the target being absent", target)
+          .containsPattern(
+              Pattern.compile(
+                  "- io\\.camunda\\.migration\\.code\\.recipes\\.sharedRecipes\\."
+                      + "DoesNotDeclareGradleDependencyRecipe:\\s*\\n"
+                      + "\\s*groupId: io\\.camunda\\s*\\n"
+                      + "\\s*artifactId: "
+                      + Pattern.quote(target)
+                      + "\\s*\\n"));
+    }
+
+    assertThat(renamed)
+        .as("Gradle builds must guard every mutually exclusive rename target")
+        .containsExactlyInAnyOrder(SB3_STARTER, SB4_STARTER, SB3_PROCESS_TEST, SB4_PROCESS_TEST);
+  }
+
   private static String assertOnly(String pom, String expectedStarter, String expectedProcessTest) {
     String unexpectedStarter = SB3_STARTER.equals(expectedStarter) ? SB4_STARTER : SB3_STARTER;
     String unexpectedProcessTest =
@@ -729,6 +806,27 @@ class RecipeDependencyConfigTest implements RewriteTest {
            """
         .formatted(
             starter, GRADLE_TEST_CAMUNDA_VERSION, processTest, GRADLE_TEST_CAMUNDA_VERSION);
+  }
+
+  private static String gradleDependenciesWithBothArtifacts() {
+    return """
+
+           dependencies {
+             implementation "io.camunda:%s:%s"
+             implementation "io.camunda:%s:%s"
+             testImplementation "io.camunda:%s:%s"
+             testImplementation "io.camunda:%s:%s"
+           }
+           """
+        .formatted(
+            SB3_STARTER,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB4_STARTER,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB3_PROCESS_TEST,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB4_PROCESS_TEST,
+            GRADLE_TEST_CAMUNDA_VERSION);
   }
 
   private static String assertGradleDependencies(
