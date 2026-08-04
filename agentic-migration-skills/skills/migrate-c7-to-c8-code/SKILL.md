@@ -405,6 +405,9 @@ When the scope is **Code + models**:
 - The two paths are independent — run each with its chosen approach. Order doesn't strictly matter; a reasonable default is **models first** (diagrams define the job types/listeners the code must implement), then code, but follow the user's preference.
 - Keep both inventories and both sets of results in `MIGRATION_REPORT.md`.
 - After both complete, cross-check: job types emitted by the Diagram Converter should match the `@JobWorker(type = ...)` values produced by the code migration. Flag mismatches for the user.
+- After both complete, ask whether to wire deployment of converted files in application code via `AskUserQuestion`:
+  - **Yes, add/update `@Deployment` for converted files** *(recommended when code scope includes a Spring Boot app)* — add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns (for example, `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn"})`) and never the original diagrams.
+  - **No, I will handle deployment outside app startup** — leave code unchanged and record this decision in `MIGRATION_REPORT.md`.
 
 ---
 
