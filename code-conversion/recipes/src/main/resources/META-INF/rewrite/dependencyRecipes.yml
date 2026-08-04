@@ -60,11 +60,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -82,11 +80,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -111,11 +107,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -135,11 +129,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -157,11 +149,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -181,11 +171,9 @@ preconditions:
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
-      onlyDirect: true
   - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      onlyDirect: true
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda

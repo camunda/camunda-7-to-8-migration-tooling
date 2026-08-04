@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -334,6 +335,42 @@ class RecipeDependencyConfigTest implements RewriteTest {
                         "8.10.0-SNAPSHOT"))
                 .beforeRecipe(withToolingApi()),
         buildGradle(before, after));
+  }
+
+  @Test
+  void detectsSpringBootPluginWithoutGradleModel() {
+    String build =
+        """
+        plugins {
+            id 'java'
+            id 'org.springframework.boot' version '4.0.0'
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("4")),
+        buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @Test
+  void detectsDependencyManagementBomWithoutGradleModel() {
+    String build =
+        """
+        plugins {
+            id 'java'
+            id 'io.spring.dependency-management' version '1.1.7'
+        }
+
+        dependencyManagement {
+            imports {
+                mavenBom 'org.springframework.boot:spring-boot-dependencies:3.5.4'
+            }
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("3")),
+        buildGradle(build, "/*~~>*/" + build));
   }
 
   @Test

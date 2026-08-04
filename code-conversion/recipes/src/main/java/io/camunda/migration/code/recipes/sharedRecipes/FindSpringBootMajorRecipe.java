@@ -67,9 +67,9 @@ public class FindSpringBootMajorRecipe extends Recipe {
       @Override
       public @Nullable J visit(@Nullable Tree tree, ExecutionContext ctx) {
         if (tree instanceof J j && j instanceof SourceFile sourceFile) {
-          Optional<GradleProject> gradleProject =
-              sourceFile.getMarkers().findFirst(GradleProject.class);
-          if (gradleProject.isPresent() && matchesMajor(sourceFile, gradleProject.get())) {
+          GradleProject gradleProject =
+              sourceFile.getMarkers().findFirst(GradleProject.class).orElse(null);
+          if (matchesMajor(sourceFile, gradleProject)) {
             return SearchResult.found(j);
           }
         }
@@ -78,7 +78,7 @@ public class FindSpringBootMajorRecipe extends Recipe {
     };
   }
 
-  private boolean matchesMajor(SourceFile sourceFile, GradleProject gradleProject) {
+  private boolean matchesMajor(SourceFile sourceFile, @Nullable GradleProject gradleProject) {
     Optional<String> detectedMajor = detectMajor(sourceFile, gradleProject);
     if (NO_DETECTED_MAJOR.equals(major)) {
       return detectedMajor.isEmpty();
@@ -86,10 +86,13 @@ public class FindSpringBootMajorRecipe extends Recipe {
     return detectedMajor.filter(major::equals).isPresent();
   }
 
-  private Optional<String> detectMajor(SourceFile sourceFile, GradleProject gradleProject) {
-    Optional<String> resolvedPlatformMajor = resolvedPlatformMajor(gradleProject);
-    if (resolvedPlatformMajor.isPresent()) {
-      return resolvedPlatformMajor;
+  private Optional<String> detectMajor(
+      SourceFile sourceFile, @Nullable GradleProject gradleProject) {
+    if (gradleProject != null) {
+      Optional<String> resolvedPlatformMajor = resolvedPlatformMajor(gradleProject);
+      if (resolvedPlatformMajor.isPresent()) {
+        return resolvedPlatformMajor;
+      }
     }
 
     Optional<String> declaredPlatformMajor = declaredPlatformMajor(sourceFile);
@@ -102,9 +105,11 @@ public class FindSpringBootMajorRecipe extends Recipe {
       return pluginMajor;
     }
 
-    Optional<String> resolvedPluginMajor = resolvedPluginMajor(gradleProject);
-    if (resolvedPluginMajor.isPresent()) {
-      return resolvedPluginMajor;
+    if (gradleProject != null) {
+      Optional<String> resolvedPluginMajor = resolvedPluginMajor(gradleProject);
+      if (resolvedPluginMajor.isPresent()) {
+        return resolvedPluginMajor;
+      }
     }
 
     return dependencyManagementMajor(sourceFile);
