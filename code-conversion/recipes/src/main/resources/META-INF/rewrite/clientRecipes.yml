@@ -1,23 +1,18 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientPrepareRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client prepare recipes
+description: Prepares dependencies and shared API replacements before client method migration.
 recipeList:
-  # Camunda 8.9 split the Spring Boot starter: the default `camunda-spring-boot-starter`
-  # requires Spring Boot 4.0.x, while `camunda-spring-boot-3-starter` targets Spring Boot 3.5.x.
-  # They are mutually exclusive - add exactly one. We default to the Spring Boot 3 starter as the
-  # safer landing spot for migrated Camunda 7 apps; it pulls in camunda-client-java transitively.
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-spring-boot-3-starter
-      version: ${version.camunda-8}
+  # Camunda 8.9 split the Spring Boot starter: choose the starter based on the existing
+  # Spring Boot major in the migrated project (3.x -> boot-3 starter, 4.x -> default starter).
+  - io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe
   - io.camunda.migration.code.recipes.client.PrepareCamundaClientDependencyRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientMigrateRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client migration recipes
+description: Migrates ProcessEngine and process-test usages to Camunda 8 client APIs.
 recipeList:
   - io.camunda.migration.code.recipes.client.MigrateSignalMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateCancelProcessInstanceMethodsRecipe
@@ -28,13 +23,7 @@ recipeList:
   - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.WarnSpringProfileNegationRecipe
   - io.camunda.migration.code.recipes.testing.ReplaceAssertionsRecipe
-  # Match the Spring Boot 3 starter chosen above: camunda-process-test-spring defaults to
-  # Spring Boot 4.0.x since 8.9, so use the dedicated Spring Boot 3 module for test scope.
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-process-test-spring-boot-3
-      version: ${version.camunda-8}
-      scope: test
+  - io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaProcessTestDependencyRecipe
   - org.openrewrite.java.UseStaticImport:
       methodPattern: io.camunda.process.test.api.CamundaAssert assertThat(..)
   - org.openrewrite.java.UseStaticImport:
@@ -45,8 +34,8 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientCleanupRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client cleanup recipes
+description: Removes engine-era leftovers after the client migration.
 recipeList:
   - io.camunda.migration.code.recipes.client.CleanupEngineDependencyRecipe
   - io.camunda.migration.code.recipes.client.DeleteProcessesXmlRecipe
