@@ -127,11 +127,17 @@ class RecipeDependencyConfigTest implements RewriteTest {
 
     assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientPrepareRecipes"))
         .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaStarterRecipe")
-        .doesNotContain("org.openrewrite.java.dependencies.AddDependency");
+        .doesNotContain("org.openrewrite.java.dependencies.AddDependency")
+        .doesNotContain("org.openrewrite.maven.AddDependency")
+        .doesNotContain("org.openrewrite.gradle.AddDependency");
 
     assertThat(recipeSection(descriptor, "io.camunda.migration.code.recipes.AllClientMigrateRecipes"))
         .contains("- io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe")
-        .doesNotContain("artifactId: camunda-process-test-spring-boot-3");
+        .doesNotContain("artifactId: camunda-process-test-spring-boot-3")
+        .doesNotContain("artifactId: camunda-process-test-spring")
+        .doesNotContain("org.openrewrite.java.dependencies.AddDependency")
+        .doesNotContain("org.openrewrite.maven.AddDependency")
+        .doesNotContain("org.openrewrite.gradle.AddDependency");
   }
 
   @Test
