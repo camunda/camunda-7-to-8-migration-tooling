@@ -85,14 +85,14 @@ When no local model files were found, do not silently drop models from a combine
 
 If local model files were found under the project root, show only the local approaches. If no local model files were found, show E1 or E2 below instead of M1–M3; do not offer E1 when local models are present.
 
-- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.**. When prompted you can ask AI to address remaining TODO items and suggest changes.
+- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** When prompted you can ask AI to address remaining TODO items and suggest changes.
 - **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
 - **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
 - Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
 
 If no local model files were found under the project root, show these alternatives after the detection step:
 
-- **E1. Camunda 7 engine (recommended)** — Fetch BPMN/DMN definitions from a reachable C7 REST API, stage them in the project, and pass them through the same deterministic conversion flow. Ask for C7 access before connecting; the required details are described in Part B.
+- **E1. Camunda 7 engine (recommended)** — Fetch BPMN/DMN definitions from a reachable C7 REST API and pass them through the same deterministic conversion flow. The CLI engine path converts fetched XML in memory and writes converted outputs; named-key acquisition can stage raw XML and use M1 local mode. Ask for C7 access before connecting; the required details are described in Part B.
 - **E2. Provide a model path** — Wait for the user to provide another file or directory, re-run model detection there, and then show M1–M3.
 
 **Question 6 — Build tool** *(include only if scope includes code, approach is A, and detection was ambiguous — both Maven and Gradle found, or neither)*: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" If exactly one build tool was detected, do not ask; state the detection in the approach question text instead (e.g. "Detected Maven."). Do not proceed until you have the answer.
@@ -335,11 +335,11 @@ Converts BPMN/DMN from the `camunda:` namespace to `zeebe:`: job types for deleg
 Use the model scan from Step 1 before choosing a conversion path:
 
 - If one or more local model files were found under the project root, use local mode and do not offer or request C7 engine access. Run M1, M2, or M3 against those files.
-- If no local model files were found and the user selected E1, fetch the requested definitions from C7 first, then run the existing conversion flow on the staged files. Do not continue with an empty input directory.
+- If no local model files were found and the user selected E1, fetch the requested definitions from C7 first. For all-latest acquisition, the engine subcommand converts fetched XML in memory; for named-key acquisition, stage the raw XML and run the existing local conversion flow. Do not continue with an empty input directory.
 
 ### Approach E1 — Camunda 7 engine source (only when no local models were found)
 
-The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, then applies the same conversion and reporting pipeline as local mode.
+The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, converts the fetched XML in memory, and writes the converted outputs and reports.
 
 **1. Ask for C7 access**
 
