@@ -140,6 +140,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         if (!override && file.exists()) {
           LOG_CLI.error("File does already exist: {}", file);
           returnCode = 1;
+          continue;
         }
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
