@@ -68,9 +68,21 @@ recipeList:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
       version: ${version.camunda-8}
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      configuration: implementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+      configuration: implementation
   - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenParentIsBoot4
   - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenBomIsBoot4
   - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenPropertyIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradlePluginIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradleBootBomIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradleBootPropertyIsBoot4
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.client.ConfigureCamundaProcessTestDependencyRecipe
@@ -89,9 +101,21 @@ recipeList:
       artifactId: camunda-process-test-spring-boot-3
       version: ${version.camunda-8}
       scope: test
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      configuration: testImplementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      version: ${version.camunda-8}
+      configuration: testImplementation
   - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenParentIsBoot4
   - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenBomIsBoot4
   - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenPropertyIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradlePluginIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradleBootBomIsBoot4
+  - io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradleBootPropertyIsBoot4
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenParentIsBoot4
@@ -145,6 +169,67 @@ recipeList:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
       version: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradlePluginIsBoot4
+displayName: Use Spring Boot 4 Camunda starter when Gradle Spring Boot plugin is 4
+description: Switches to the Spring Boot 4 Camunda starter if the Gradle Spring Boot plugin version is 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "id\\([\"']org\\.springframework\\.boot[\"']\\)\\s*version\\s*[\"']4\\.[^\"']*[\"']|id\\s+[\"']org\\.springframework\\.boot[\"']\\s+version\\s+[\"']4\\.[^\"']*[\"']"
+      regex: true
+      filePattern: "**/build.gradle;**/build.gradle.kts"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      configuration: implementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      version: ${version.camunda-8}
+      configuration: implementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradleBootBomIsBoot4
+displayName: Use Spring Boot 4 Camunda starter when Gradle boot BOM is 4
+description: Switches to the Spring Boot 4 Camunda starter if the Gradle Spring Boot BOM version is 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "org\\.springframework\\.boot:spring-boot-dependencies:4\\."
+      regex: true
+      filePattern: "**/build.gradle;**/build.gradle.kts"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      configuration: implementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      version: ${version.camunda-8}
+      configuration: implementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4CamundaStarterWhenGradleBootPropertyIsBoot4
+displayName: Use Spring Boot 4 Camunda starter when Gradle spring-boot.version is 4
+description: Switches to the Spring Boot 4 Camunda starter if gradle.properties sets spring-boot.version to 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "^\\s*spring-boot\\.version\\s*=\\s*4\\..*$"
+      regex: true
+      multiline: true
+      filePattern: "**/gradle.properties"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      configuration: implementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      version: ${version.camunda-8}
+      configuration: implementation
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenParentIsBoot4
@@ -204,3 +289,64 @@ recipeList:
       artifactId: camunda-process-test-spring
       version: ${version.camunda-8}
       scope: test
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradlePluginIsBoot4
+displayName: Use Spring Boot 4 process-test module when Gradle Spring Boot plugin is 4
+description: Switches to camunda-process-test-spring if the Gradle Spring Boot plugin version is 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "id\\([\"']org\\.springframework\\.boot[\"']\\)\\s*version\\s*[\"']4\\.[^\"']*[\"']|id\\s+[\"']org\\.springframework\\.boot[\"']\\s+version\\s+[\"']4\\.[^\"']*[\"']"
+      regex: true
+      filePattern: "**/build.gradle;**/build.gradle.kts"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      configuration: testImplementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      version: ${version.camunda-8}
+      configuration: testImplementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradleBootBomIsBoot4
+displayName: Use Spring Boot 4 process-test module when Gradle boot BOM is 4
+description: Switches to camunda-process-test-spring if the Gradle Spring Boot BOM version is 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "org\\.springframework\\.boot:spring-boot-dependencies:4\\."
+      regex: true
+      filePattern: "**/build.gradle;**/build.gradle.kts"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      configuration: testImplementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      version: ${version.camunda-8}
+      configuration: testImplementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.client.UseSpringBoot4ProcessTestWhenGradleBootPropertyIsBoot4
+displayName: Use Spring Boot 4 process-test module when Gradle spring-boot.version is 4
+description: Switches to camunda-process-test-spring if gradle.properties sets spring-boot.version to 4.x.
+preconditions:
+  - org.openrewrite.text.Find:
+      find: "^\\s*spring-boot\\.version\\s*=\\s*4\\..*$"
+      regex: true
+      multiline: true
+      filePattern: "**/gradle.properties"
+recipeList:
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      configuration: testImplementation
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      version: ${version.camunda-8}
+      configuration: testImplementation
