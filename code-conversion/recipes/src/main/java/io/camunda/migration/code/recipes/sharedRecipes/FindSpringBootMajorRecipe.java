@@ -31,9 +31,9 @@ import org.openrewrite.marker.SearchResult;
 /**
  * Matches Gradle build files that resolve a specific Spring Boot major version.
  *
- * <p>The resolved Spring Boot platform is authoritative. When it is not available, the recipe
- * falls back to the version declared by the Spring Boot plugin and then to a
- * {@code dependencyManagement} BOM entry.
+ * <p>Detection uses the following precedence: resolved Spring Boot platform, declared platform,
+ * declared Spring Boot plugin, resolved plugin artifacts, and finally a {@code dependencyManagement}
+ * BOM entry. An ambiguous signal stops fallback and is not treated as a missing major.
  */
 public class FindSpringBootMajorRecipe extends Recipe {
 
@@ -57,8 +57,9 @@ public class FindSpringBootMajorRecipe extends Recipe {
 
   @Override
   public @NonNull String getDescription() {
-    return "Matches Gradle build files whose resolved Spring Boot platform, Spring Boot plugin, or "
-        + "Spring dependency management BOM uses the requested major version.";
+    return "Matches Gradle build files whose resolved or declared Spring Boot platform, declared or "
+        + "resolved Spring Boot plugin, or Spring dependency management BOM uses the requested major "
+        + "version.";
   }
 
   @Override
@@ -79,35 +80,35 @@ public class FindSpringBootMajorRecipe extends Recipe {
   }
 
   private boolean matchesMajor(SourceFile sourceFile, @Nullable GradleProject gradleProject) {
-    Optional<String> detectedMajor = detectMajor(sourceFile, gradleProject);
+    MajorDetection detectedMajor = detectMajor(sourceFile, gradleProject);
     if (NO_DETECTED_MAJOR.equals(major)) {
-      return detectedMajor.isEmpty();
+      return !detectedMajor.hasSignal();
     }
-    return detectedMajor.filter(major::equals).isPresent();
+    return detectedMajor.major().filter(major::equals).isPresent();
   }
 
-  private Optional<String> detectMajor(
+  private MajorDetection detectMajor(
       SourceFile sourceFile, @Nullable GradleProject gradleProject) {
     if (gradleProject != null) {
-      Optional<String> resolvedPlatformMajor = resolvedPlatformMajor(gradleProject);
-      if (resolvedPlatformMajor.isPresent()) {
+      MajorDetection resolvedPlatformMajor = resolvedPlatformMajor(gradleProject);
+      if (resolvedPlatformMajor.hasSignal()) {
         return resolvedPlatformMajor;
       }
     }
 
-    Optional<String> declaredPlatformMajor = declaredPlatformMajor(sourceFile);
-    if (declaredPlatformMajor.isPresent()) {
+    MajorDetection declaredPlatformMajor = declaredPlatformMajor(sourceFile);
+    if (declaredPlatformMajor.hasSignal()) {
       return declaredPlatformMajor;
     }
 
-    Optional<String> pluginMajor = pluginMajor(sourceFile);
-    if (pluginMajor.isPresent()) {
+    MajorDetection pluginMajor = pluginMajor(sourceFile);
+    if (pluginMajor.hasSignal()) {
       return pluginMajor;
     }
 
     if (gradleProject != null) {
-      Optional<String> resolvedPluginMajor = resolvedPluginMajor(gradleProject);
-      if (resolvedPluginMajor.isPresent()) {
+      MajorDetection resolvedPluginMajor = resolvedPluginMajor(gradleProject);
+      if (resolvedPluginMajor.hasSignal()) {
         return resolvedPluginMajor;
       }
     }
@@ -115,7 +116,7 @@ public class FindSpringBootMajorRecipe extends Recipe {
     return dependencyManagementMajor(sourceFile);
   }
 
-  private Optional<String> declaredPlatformMajor(SourceFile sourceFile) {
+  private MajorDetection declaredPlatformMajor(SourceFile sourceFile) {
     AtomicReference<Set<String>> majors = new AtomicReference<>(new HashSet<>());
     new GradleDependency.Matcher()
         .groupId(SPRING_BOOT_GROUP)
@@ -126,19 +127,19 @@ public class FindSpringBootMajorRecipe extends Recipe {
               return dependency.getTree();
             })
         .reduce(sourceFile, majors);
-    return singleMajor(majors.get());
+    return majorDetection(majors.get());
   }
 
-  private Optional<String> resolvedPlatformMajor(GradleProject gradleProject) {
+  private MajorDetection resolvedPlatformMajor(GradleProject gradleProject) {
     Set<String> majors = new HashSet<>();
     addResolvedMajors(gradleProject.getConfigurations(), majors, false);
-    return singleMajor(majors);
+    return majorDetection(majors);
   }
 
-  private Optional<String> resolvedPluginMajor(GradleProject gradleProject) {
+  private MajorDetection resolvedPluginMajor(GradleProject gradleProject) {
     Set<String> majors = new HashSet<>();
     addResolvedMajors(gradleProject.getBuildscript().getConfigurations(), majors, true);
-    return singleMajor(majors);
+    return majorDetection(majors);
   }
 
   private void addResolvedMajors(
@@ -157,7 +158,7 @@ public class FindSpringBootMajorRecipe extends Recipe {
     }
   }
 
-  private Optional<String> pluginMajor(SourceFile sourceFile) {
+  private MajorDetection pluginMajor(SourceFile sourceFile) {
     AtomicReference<Set<String>> majors = new AtomicReference<>(new HashSet<>());
     new GradlePlugin.Matcher()
         .pluginIdPattern(SPRING_BOOT_PLUGIN)
@@ -167,10 +168,10 @@ public class FindSpringBootMajorRecipe extends Recipe {
               return plugin.getTree();
             })
         .reduce(sourceFile, majors);
-    return singleMajor(majors.get());
+    return majorDetection(majors.get());
   }
 
-  private Optional<String> dependencyManagementMajor(SourceFile sourceFile) {
+  private MajorDetection dependencyManagementMajor(SourceFile sourceFile) {
     AtomicReference<Set<String>> majors = new AtomicReference<>(new HashSet<>());
     new SpringDependencyManagementPluginEntry.Matcher()
         .groupId(SPRING_BOOT_GROUP)
@@ -182,7 +183,7 @@ public class FindSpringBootMajorRecipe extends Recipe {
               return entry.getTree();
             })
         .reduce(sourceFile, majors);
-    return singleMajor(majors.get());
+    return majorDetection(majors.get());
   }
 
   private static boolean isSpringBootDependency(
@@ -205,7 +206,18 @@ public class FindSpringBootMajorRecipe extends Recipe {
     majors.add(separator < 0 ? version : version.substring(0, separator));
   }
 
-  private static Optional<String> singleMajor(Set<String> majors) {
-    return majors.size() == 1 ? Optional.of(majors.iterator().next()) : Optional.empty();
+  private static MajorDetection majorDetection(Set<String> majors) {
+    return switch (majors.size()) {
+      case 0 -> new MajorDetection(Optional.empty(), false);
+      case 1 -> new MajorDetection(Optional.of(majors.iterator().next()), false);
+      default -> new MajorDetection(Optional.empty(), true);
+    };
+  }
+
+  private record MajorDetection(Optional<String> major, boolean ambiguous) {
+
+    private boolean hasSignal() {
+      return ambiguous || major.isPresent();
+    }
   }
 }

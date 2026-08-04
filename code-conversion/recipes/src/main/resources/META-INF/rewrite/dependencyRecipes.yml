@@ -9,9 +9,9 @@ description: >-
   `spring-boot-dependencies` BOM or from `spring-boot-starter-parent`, with the parent winning
   when the two disagree. Both are resolved values, so a `spring-boot.version` property is
   honoured wherever it actually versions the BOM or the parent. Gradle projects use the
-  resolved Spring Boot platform when available, then the Spring Boot plugin version or a
-  dependency-management BOM entry; projects without a detectable major keep the Spring Boot 3
-  default.
+  resolved Spring Boot platform, declared platform, declared or resolved Spring Boot plugin, and
+  finally a dependency-management BOM entry; projects without a detectable major keep the Spring
+  Boot 3 default.
 recipeList:
   # Maven and Gradle need separate branches: a Maven-model precondition never matches a Gradle
   # build file, and vice versa, and YAML preconditions are AND-ed.

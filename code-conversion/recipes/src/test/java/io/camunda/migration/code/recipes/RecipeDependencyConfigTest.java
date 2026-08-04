@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -371,6 +372,30 @@ class RecipeDependencyConfigTest implements RewriteTest {
     rewriteRun(
         spec -> spec.recipe(new FindSpringBootMajorRecipe("3")),
         buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"none", "3", "4"})
+  void doesNotMatchConflictingGradleSignals(String major) {
+    String build =
+        """
+        plugins {
+            id 'java'
+        }
+
+        repositories {
+            mavenCentral()
+        }
+
+        dependencies {
+            implementation platform('org.springframework.boot:spring-boot-dependencies:3.5.4')
+            implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe(major)),
+        buildGradle(build));
   }
 
   @Test
