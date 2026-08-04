@@ -169,6 +169,7 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
 - Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
+- For Spring Boot 3.5.x with Camunda 8.9.13, check the resolved `org.apache.httpcomponents.client5:httpclient5` version. If the Spring Boot BOM selects 5.5.2, override it to 5.6.1 or later in the application dependency management until upstream dependency alignment is fixed; verify with `mvn dependency:tree -Dincludes=org.apache.httpcomponents.client5:httpclient5`.
 - If removing Camunda 7 webapp/rest starters also removes your only SLF4J binding, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 - Ensure Spring Boot dependency management is set (parent or BOM). If `@PostConstruct` is only used to start process instances, migrate that flow to `@EventListener(CamundaPostDeploymentEvent.class)` first instead of patching dependencies (for example adding `jakarta.annotation-api`) just to keep `jakarta.annotation`.
 - Replace `@EnableProcessApplication` with `@Deployment`. If the C7 app relied on implicit classpath auto-deployment (no `@EnableProcessApplication` present), still add explicit `@Deployment(resources = ...)` for BPMN/DMN files because C8 has no equivalent implicit deployment.
