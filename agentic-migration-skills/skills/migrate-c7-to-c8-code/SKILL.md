@@ -178,6 +178,7 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 **2. Client code** (`ProcessEngine` → `CamundaClient`)
 - Replace `ProcessEngine`/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with `CamundaClient`.
 - Map: start instances (incl. `businessId`/tags), message correlation, signal broadcast, cancel, user tasks, variables, `HistoryService` → search requests, `DecisionService` → `newEvaluateDecisionCommand`, batch `...Async` → batch operations (8.8+).
+- If migrated code starts instances from `@PostConstruct` while using `@Deployment`, move that startup logic to `@EventListener(CamundaPostDeploymentEvent.class)` to avoid deployment-order races.
 - Reference: "Client code → ProcessEngine" (incl. Business Key, Batch Operations, Evaluate Decisions, Query History).
 
 **3. JavaDelegate → Job Worker** *(OpenRewrite covers this)*
