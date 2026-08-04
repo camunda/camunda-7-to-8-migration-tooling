@@ -19,6 +19,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -129,6 +131,9 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   private void writeResults(
       Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {
+    if ((!check || csv || xlsx || markdown) && !createTargetDirectory()) {
+      return;
+    }
     if (!check) {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
         File file = determineFileName(prefixFileName(modelInstance.getKey()));
@@ -136,10 +141,10 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
           LOG_CLI.error("File does already exist: {}", file);
           returnCode = 1;
         }
-        LOG_CLI.info("Created {}", file);
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
+          LOG_CLI.info("Created {}", file);
         } catch (IOException e) {
           LOG_CLI.error("Error while creating BPMN file: {}", createMessage(e));
           returnCode = 1;
@@ -175,6 +180,19 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         LOG_CLI.error("Error while creating markdown results: {}", createMessage(e));
         returnCode = 1;
       }
+    }
+  }
+
+  private boolean createTargetDirectory() {
+    File directory = targetDirectory();
+    Path path = directory == null ? Path.of(".") : directory.toPath();
+    try {
+      Files.createDirectories(path);
+      return true;
+    } catch (IOException e) {
+      LOG_CLI.error("Error while creating target directory {}: {}", path, createMessage(e));
+      returnCode = 1;
+      return false;
     }
   }
 

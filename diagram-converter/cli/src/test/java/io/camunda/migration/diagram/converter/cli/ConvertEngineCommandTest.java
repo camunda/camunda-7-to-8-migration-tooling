@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.*;
 
 import io.camunda.migration.diagram.converter.cli.mock.App;
 import java.io.File;
+import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Objects;
 import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
@@ -113,5 +115,77 @@ public class ConvertEngineCommandTest {
     command.url = "http://localhost:" + randomServerPort + "/engine-rest";
     command.call();
     assertThat(tempDir.listFiles()).hasSize(3);
+  }
+
+  @Test
+  void shouldCreateTargetDirectoryForPathBasedBpmnAndDmnResources(@TempDir File tempDir)
+      throws Exception {
+    BpmnModelInstance bpmn =
+        Bpmn.createProcess("pathBasedProcess")
+            .executable()
+            .camundaHistoryTimeToLive(180)
+            .startEvent("start")
+            .endEvent("end")
+            .done();
+    try (InputStream dmn =
+        Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream("first.dmn"))) {
+      processEngine
+          .getRepositoryService()
+          .createDeployment()
+          .name("path-based-resources")
+          .addModelInstance(
+              "Users/peter.bojtos/projects/application/target/classes/process.bpmn", bpmn)
+          .addInputStream(
+              "Users/peter.bojtos/projects/application/target/classes/decision.dmn", dmn)
+          .deploy();
+    }
+
+    File targetDirectory = new File(tempDir, "converted");
+    ConvertEngineCommand command = new ConvertEngineCommand();
+    command.targetDirectory = targetDirectory;
+    command.url = "http://localhost:" + randomServerPort + "/engine-rest";
+
+    assertThat(command.call()).isZero();
+    assertThat(targetDirectory.listFiles())
+        .extracting(File::getName)
+        .containsExactlyInAnyOrder("converted-c8-process.bpmn", "converted-c8-decision.dmn");
+  }
+
+  @Test
+  void shouldKeepPathBasedResourcesWithSameFilename(@TempDir File tempDir) {
+    BpmnModelInstance first =
+        Bpmn.createProcess("firstPathBasedProcess")
+            .executable()
+            .startEvent("start")
+            .endEvent("end")
+            .done();
+    BpmnModelInstance second =
+        Bpmn.createProcess("secondPathBasedProcess")
+            .executable()
+            .startEvent("start")
+            .endEvent("end")
+            .done();
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("first-path")
+        .addModelInstance("first/application/process.bpmn", first)
+        .deploy();
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("second-path")
+        .addModelInstance("second/application/process.bpmn", second)
+        .deploy();
+
+    File targetDirectory = new File(tempDir, "converted");
+    ConvertEngineCommand command = new ConvertEngineCommand();
+    command.targetDirectory = targetDirectory;
+    command.url = "http://localhost:" + randomServerPort + "/engine-rest";
+
+    assertThat(command.call()).isZero();
+    assertThat(targetDirectory.listFiles())
+        .extracting(File::getName)
+        .containsExactlyInAnyOrder("converted-c8-process.bpmn", "converted-c8-process (1).bpmn");
   }
 }

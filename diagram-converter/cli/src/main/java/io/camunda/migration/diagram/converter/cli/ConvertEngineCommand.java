@@ -10,7 +10,7 @@ package io.camunda.migration.diagram.converter.cli;
 import io.camunda.migration.diagram.converter.DiagramType;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -69,25 +69,44 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
   protected Map<File, ModelInstance> modelInstances() {
     Map<String, Map<String, Set<String>>> allLatestBpmnXml = getAllLatestBpmnXml();
     allLatestBpmnXml.putAll(getAllLatestDmnXml());
-    Map<File, ModelInstance> result = new HashMap<>();
+    Map<File, ModelInstance> result = new LinkedHashMap<>();
     allLatestBpmnXml.forEach(
         (resourceName, models) ->
             models.forEach(
                 (model, processDefinitionKeys) -> {
                   String filename =
                       models.size() == 1
-                          ? resourceName
+                          ? FilenameUtils.getName(resourceName)
                           : FilenameUtils.getBaseName(resourceName)
                               + " ("
                               + String.join(", ", processDefinitionKeys)
                               + ")."
                               + FilenameUtils.getExtension(resourceName);
+                  filename = FilenameUtils.getName(filename);
+                  File outputFile = uniqueOutputFile(filename, result);
                   result.put(
-                      new File(targetDirectory, filename),
+                      outputFile,
                       DiagramType.fromFileName(filename)
                           .readDiagram(new ByteArrayInputStream(model.getBytes())));
                 }));
     return result;
+  }
+
+  private File uniqueOutputFile(String filename, Map<File, ModelInstance> existingFiles) {
+    File outputFile = new File(targetDirectory, filename);
+    int counter = 0;
+    while (existingFiles.containsKey(outputFile)) {
+      counter++;
+      outputFile =
+          new File(
+              targetDirectory,
+              FilenameUtils.getBaseName(filename)
+                  + " ("
+                  + counter
+                  + ")."
+                  + FilenameUtils.getExtension(filename));
+    }
+    return outputFile;
   }
 
   private Map<String, Map<String, Set<String>>> getAllLatestBpmnXml() {
