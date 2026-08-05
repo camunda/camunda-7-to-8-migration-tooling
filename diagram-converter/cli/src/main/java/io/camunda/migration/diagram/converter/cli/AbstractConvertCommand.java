@@ -14,6 +14,7 @@ import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
+import io.camunda.migration.diagram.converter.DiagramType;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -21,6 +22,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -136,7 +139,13 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     }
     if (!check) {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
-        File file = determineFileName(prefixFileName(modelInstance.getKey()));
+        File file = prefixFileName(modelInstance.getKey());
+        if (!override && file.exists()) {
+          LOG_CLI.error("File does already exist: {}", file);
+          returnCode = 1;
+          continue;
+        }
+        file = determineFileName(file);
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
@@ -244,16 +253,30 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     int counter = 0;
     while (!override && newFile.exists()) {
       counter++;
+      String fileName = file.getName();
+      String fileEnding = fileEnding(fileName);
       newFile =
           new File(
               file.getParentFile(),
-              FilenameUtils.getBaseName(file.getName())
+              fileName.substring(0, fileName.length() - fileEnding.length())
                   + " ("
                   + counter
-                  + ")."
-                  + FilenameUtils.getExtension(file.getName()));
+                  + ")"
+                  + fileEnding);
     }
     return newFile;
+  }
+
+  private String fileEnding(String fileName) {
+    return Arrays.stream(DiagramType.values())
+        .flatMap(diagramType -> diagramType.getFileEndings().stream())
+        .filter(fileName::endsWith)
+        .max(Comparator.comparingInt(String::length))
+        .orElseGet(
+            () -> {
+              String extension = FilenameUtils.getExtension(fileName);
+              return extension.isEmpty() ? "" : "." + extension;
+            });
   }
 
   protected String createMessage(Exception e) {

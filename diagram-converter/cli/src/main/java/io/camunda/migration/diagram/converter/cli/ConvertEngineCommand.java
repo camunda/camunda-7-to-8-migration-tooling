@@ -108,13 +108,17 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
     String fileEnding = diagramEnding(resourceFilename, diagramType);
     if (fileEnding.isEmpty()) {
       return "diagram ("
-          + String.join(", ", processDefinitionKeys)
+          + processDefinitionKeys.stream().sorted().collect(Collectors.joining(", "))
           + ")"
           + diagramType.getFileEndings().get(0);
     }
     String baseName =
         resourceFilename.substring(0, resourceFilename.length() - fileEnding.length());
-    return baseName + " (" + String.join(", ", processDefinitionKeys) + ")" + fileEnding;
+    return baseName
+        + " ("
+        + processDefinitionKeys.stream().sorted().collect(Collectors.joining(", "))
+        + ")"
+        + fileEnding;
   }
 
   private String diagramEnding(String filename, DiagramType diagramType) {

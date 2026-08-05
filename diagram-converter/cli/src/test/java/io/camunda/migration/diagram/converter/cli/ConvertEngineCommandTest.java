@@ -57,7 +57,9 @@ public class ConvertEngineCommandTest {
     command.targetDirectory = tempDir;
     command.url = "http://localhost:" + randomServerPort + "/engine-rest";
     command.call();
-    assertThat(tempDir.listFiles()).hasSize(1);
+    assertThat(tempDir.listFiles())
+        .extracting(File::getName)
+        .containsExactly("converted-c8-multiple-processes.bpmn");
   }
 
   @Test
