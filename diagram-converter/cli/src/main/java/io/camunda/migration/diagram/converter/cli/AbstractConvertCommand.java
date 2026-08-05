@@ -141,7 +141,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
         File file = prefixFileName(modelInstance.getKey());
         if (!override && file.exists()) {
-          LOG_CLI.error("File does already exist: {}", file);
+          LOG_CLI.error("File already exists: {}", file);
           returnCode = 1;
           continue;
         }

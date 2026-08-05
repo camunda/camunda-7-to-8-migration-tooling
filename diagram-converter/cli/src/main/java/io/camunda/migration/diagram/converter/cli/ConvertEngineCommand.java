@@ -10,6 +10,7 @@ package io.camunda.migration.diagram.converter.cli;
 import io.camunda.migration.diagram.converter.DiagramType;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -92,7 +93,8 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
                   File outputFile = uniqueOutputFile(filename, diagramType, result);
                   result.put(
                       outputFile,
-                      diagramType.readDiagram(new ByteArrayInputStream(model.getBytes())));
+                      diagramType.readDiagram(
+                          new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
                 }));
   }
 
