@@ -170,7 +170,7 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 - Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
 - Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
 - Ensure Spring Boot dependency management is set (parent or BOM); don't add `spring-boot-starter` just for jakarta.annotation.
-- Replace `@EnableProcessApplication` with `@Deployment`.
+- Replace `@EnableProcessApplication` with `@Deployment`. If the C7 app relied on implicit classpath auto-deployment (no `@EnableProcessApplication` present), still add explicit `@Deployment(resources = ...)` for BPMN/DMN files because C8 has no equivalent implicit deployment.
 - Replace `camunda.*` keys with `camunda.client.*` in `application.properties`/`.yaml` ([properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/)).
 - Reference: "Maven dependency and configuration".
 
