@@ -122,6 +122,30 @@ Every source file must contain the license header. See [license header template]
 5. Update documentation if needed
 6. Submit a pull request with a clear description
 
+## Releasing
+
+The `Release` GitHub Actions workflow is the supported way to publish release artifacts.
+
+### Standard release
+
+1. Create a `release/<version>` branch from the commit you want to release.
+2. Run the `Release` workflow from that `release/<version>` branch with:
+   - `RELEASE_VERSION=<version>`
+   - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT`
+   - `IS_DRY_RUN=false`
+   - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
+3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
+
+### Backfill Maven Central for an existing tag
+
+If a GitHub release/tag already exists but Maven Central is missing the artifacts, rerun the `Release` workflow with:
+
+- `RELEASE_VERSION=<existing-tag>`
+- `IS_DRY_RUN=false`
+- `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
+
+This mode skips `release:prepare`, checks out the release tag, and publishes the already-tagged artifacts to Maven Central only.
+
 ## License
 
 The source files in this repository are made available under the [Camunda License Version 1.0](./CAMUNDA-LICENSE-1.0.txt).
