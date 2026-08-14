@@ -312,7 +312,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
             // visit simple method invocations
             for (ReplacementUtils.SimpleReplacementSpec spec : simpleMethodInvocations) {
 
-              if (spec.matcher().matches(invocation)) {
+              if (spec.matcher().matches(invocation)
+                  && (spec.requiredReceiverMethodNames().isEmpty()
+                      || hasAnyMethodInReceiverChain(invocation, spec.requiredReceiverMethodNames()))) {
 
                 spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                 spec.maybeAddImports().forEach(this::maybeAddImport);
@@ -462,6 +464,18 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
             // no match, continue tree traversal
             return super.visitMethodInvocation(invocation, ctx);
+          }
+
+          private boolean hasAnyMethodInReceiverChain(
+              J.MethodInvocation invocation, Set<String> methodNames) {
+            Expression current = invocation.getSelect();
+            while (current instanceof J.MethodInvocation mi) {
+              if (methodNames.contains(mi.getSimpleName())) {
+                return true;
+              }
+              current = mi.getSelect();
+            }
+            return false;
           }
 
           @Override

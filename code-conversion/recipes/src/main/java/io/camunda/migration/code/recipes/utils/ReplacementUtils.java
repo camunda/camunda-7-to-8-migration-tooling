@@ -45,8 +45,32 @@ public class ReplacementUtils {
       List<NamedArg> argumentIndexes,
       List<String> textComments,
       List<String> maybeRemoveImports,
-      List<String> maybeAddImports)
+      List<String> maybeAddImports,
+      Set<String> requiredReceiverMethodNames)
       implements ReplacementSpec {
+    public SimpleReplacementSpec(
+        MethodMatcher matcher,
+        JavaTemplate template,
+        J.Identifier baseIdentifier,
+        String returnTypeFqn,
+        ReturnTypeStrategy returnTypeStrategy,
+        List<NamedArg> argumentIndexes,
+        List<String> textComments,
+        List<String> maybeRemoveImports,
+        List<String> maybeAddImports) {
+      this(
+          matcher,
+          template,
+          baseIdentifier,
+          returnTypeFqn,
+          returnTypeStrategy,
+          argumentIndexes,
+          textComments,
+          maybeRemoveImports,
+          maybeAddImports,
+          Collections.emptySet());
+    }
+
     public SimpleReplacementSpec(
         MethodMatcher matcher,
         JavaTemplate template,
@@ -64,7 +88,8 @@ public class ReplacementUtils {
           argumentIndexes,
           textComments,
           Collections.emptyList(), // default maybeRemoveImports
-          Collections.emptyList() // default maybeAddImports
+          Collections.emptyList(), // default maybeAddImports
+          Collections.emptySet() // default requiredReceiverMethodNames
           );
     }
 
@@ -84,7 +109,8 @@ public class ReplacementUtils {
           argumentIndexes,
           Collections.emptyList(), // default textComments
           Collections.emptyList(), // default maybeRemoveImports
-          Collections.emptyList() // default maybeAddImports
+          Collections.emptyList(), // default maybeAddImports
+          Collections.emptySet() // default requiredReceiverMethodNames
           );
     }
 

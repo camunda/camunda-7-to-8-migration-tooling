@@ -59,9 +59,28 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
             ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
             List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
+            List.of(RecipeUtils.businessIdHint("processInstanceBusinessKey")),
             Collections.emptyList(),
             Collections.emptyList(),
-            Collections.emptyList()));
+            Set.of("processInstanceBusinessKey")),
+        new ReplacementUtils.SimpleReplacementSpec(
+            new MethodMatcher("org.camunda.bpm.engine.runtime.ProcessInstanceQuery processDefinitionKey(java.lang.String)"),
+            RecipeUtils.createSimpleJavaTemplate(
+                """
+                #{camundaClient:any(io.camunda.client.CamundaClient)}
+                    .newProcessInstanceSearchRequest()
+                    .filter(filter -> filter.processDefinitionId(#{processDefinitionKey:any(java.lang.String)}))
+                """,
+                "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
+                "io.camunda.client.api.search.filter.ProcessInstanceFilter"),
+            RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
+            "io.camunda.client.api.search.request.ProcessInstanceSearchRequestBuilder",
+            ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
+            List.of(new ReplacementUtils.SimpleReplacementSpec.NamedArg("processDefinitionKey", 0)),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptySet()));
   }
 
   @Override
