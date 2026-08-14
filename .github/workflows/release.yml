@@ -239,6 +239,7 @@ jobs:
             missing=()
             for artifact in "${artifacts[@]}"; do
               if ! curl --fail --head --location --silent --show-error \
+                --connect-timeout 10 --max-time 30 \
                 "https://repo.maven.apache.org/maven2/${artifact}" >/dev/null; then
                 missing+=("${artifact}")
               fi
