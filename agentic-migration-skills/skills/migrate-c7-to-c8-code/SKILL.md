@@ -18,6 +18,7 @@ Treat these as separate operations that compose. Ask what the user wants (Step 1
 These apply throughout — referenced below instead of repeated.
 
 - **Distinguish code from models.** OpenRewrite/AI handles code; the Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow. Ask for scope (Q3) rather than assuming.
+- **Use project-local models first.** Treat any BPMN/DMN file found under the project root as the source of truth. Do not offer or request C7 engine access when local models are present. Offer the engine source only after the project-root scan finds no models and the user selected a model scope.
 - **Commits are opt-in.** Check whether the project has uncommitted changes before starting; if dirty, ask the user to commit or stash. Never auto-commit. After each phase, ask whether to commit and proceed only on explicit approval.
 - **Prefer intent over shell dialect.** Use the available agent tools to inspect files, discover configuration, create directories, download artifacts, and run commands. When command execution is required, choose the platform-appropriate invocation for the current environment instead of assuming POSIX shell syntax or Unix-only helpers.
 - **Never mutate user assets silently.** Models convert to `converted-c8-*` copies; originals stay intact. Converted files and CSV/XLSX/MD reports are generated outputs for the user to review.
@@ -35,14 +36,16 @@ These apply throughout — referenced below instead of repeated.
 
 ## Step 1: Gather inputs
 
-Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question to what is actually present.
+Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question (Q3) to what appears to be present. This candidate scan is only used to shape Q3; the confirmed project-root scan after Q1 is what gates whether the C7 engine option (Q5 / E1) is offered.
 
-Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because up to 6 questions may apply, batch them:
+Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because Q1 must be answered before the confirmed project root is known and up to 6 questions may apply, batch them:
 
-- **Call 1** — the always-applicable questions: Q1, Q2, Q3 (3 questions).
-- **Call 2** — the conditional approach questions that apply given the Q3 answer and your detection: any of Q4, Q5, Q6 (≤3 questions).
+- **Call 1** — ask **Question 1** (project location) first.
+- **Re-scan** — after Q1 is answered, if the selected root differs from the candidate, re-detect the build tool and re-glob for models in the confirmed root.
+- **Call 2** — the always-applicable questions now that the root is confirmed: **Q2, Q3** (2 questions).
+- **Call 3** — the conditional approach questions that apply given the Q3 answer and your updated detection: any of Q4, Q5, Q6 (≤3 questions).
 
-Only include a conditional question when its stated condition holds, and never put more than 4 in one call. If a single call would exceed 4, split it further.
+Only include a conditional question when its stated condition holds, and never put more than 4 in one call. If a single call would exceed 4, split it further. Use the post-Q1 scan result for all subsequent gating decisions, especially whether to include the C7 engine source options (Q5 / E1).
 
 **Question 1 — Project location**
 
@@ -72,18 +75,31 @@ Ask what the user wants to migrate (tailor the wording to what you detected — 
 - **Models only** — BPMN/DMN diagrams. Runs Part B.
 - **Assessment only** — Scan and report scope/complexity/effort for code and models. No changes.
 
+When no local model files were found, do not silently drop models from a combined request. Keep **Code only** as the default recommendation, and offer the C7 engine source below only if the user explicitly selects **Code + models** or **Models only**.
+
 **Question 4 — Code migration approach** *(include only if code files are present and user selected code migration, user can't select anything else)*:
 
 - **A. OpenRewrite (deterministic) + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code). When prompted you can ask AI to resolve remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
 - **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
 - **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes.
 
-**Question 5 — Model migration approach** *(include only if model files are present and user asked for migrating models, user can't select anything else)*:
+**Question 5 — Model source and migration approach** *(include only if the user selected model migration, user can't select anything else)*:
 
-- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.**. When prompted you can ask AI to address remaining TODO items and suggest changes.
+Show **only one** of the two groups below, based on the model scan result from Step 1:
+- If local model files were found under the project root, show only the **M1–M3** local-model options.
+- If no local model files were found, show only the **E1–E2** engine-source options; do not offer E1 when local models are present.
+
+**Local models found — choose one of M1–M3:**
+
+- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** When prompted you can ask AI to address remaining TODO items and suggest changes.
 - **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
 - **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
 - Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
+
+**No local models found — choose one of E1–E2:**
+
+- **E1. Camunda 7 engine (recommended)** — Fetch BPMN/DMN definitions from a reachable C7 REST API and pass them through the same deterministic conversion flow. The CLI engine path converts fetched XML in memory and writes converted outputs; named-key acquisition can stage raw XML and use M1 local mode. Ask for C7 access before connecting; the required details are described in Part B.
+- **E2. Provide a model path** — Wait for the user to provide another file or directory, re-run model detection there, and then show M1–M3.
 
 **Question 6 — Build tool** *(include only if scope includes code, approach is A, and detection was ambiguous — both Maven and Gradle found, or neither)*: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" If exactly one build tool was detected, do not ask; state the detection in the approach question text instead (e.g. "Detected Maven."). Do not proceed until you have the answer.
 
@@ -129,6 +145,8 @@ Glob for `**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`. For each,
 | File | Type | Uses `camunda:` ns | Notes |
 |------|------|--------------------|-------|
 | ... | BPMN / DMN | yes / no | e.g. JavaDelegate refs, JUEL expressions, listeners |
+
+If the inventory is empty and the user selected model migration, record that no local source models were found and that E1 (C7 engine source) was offered. Do not report an empty local inventory as a successful model migration.
 
 These are migrated in **Part B** (not by OpenRewrite). Do not attempt to hand-edit them here — that is the Diagram Converter's job.
 
@@ -318,6 +336,41 @@ Write the full report to `MIGRATION_REPORT.md`. Then stop — make no code chang
 
 Converts BPMN/DMN from the `camunda:` namespace to `zeebe:`: job types for delegates, listener mappings, simple JUEL→FEEL, event definitions, version-gated features. Prefer the deterministic CLI (M1). See Shared rules for severities and "conversion is not completion".
 
+### Source selection
+
+Use the model scan from Step 1 before choosing a conversion path:
+
+- If one or more local model files were found under the project root, use local mode and do not offer or request C7 engine access. Run M1, M2, or M3 against those files.
+- If no local model files were found and the user selected E1, fetch the requested definitions from C7 first. For all-latest acquisition, the engine subcommand converts fetched XML in memory; for named-key acquisition, stage the raw XML and run the existing local conversion flow. Do not continue with an empty input directory.
+
+### Approach E1 — Camunda 7 engine source (only when no local models were found)
+
+The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, converts the fetched XML in memory, and writes the converted outputs and optional analysis reports.
+
+**1. Ask for C7 access**
+
+Before contacting the system, use `AskUserQuestion` to request the access needed for this run:
+
+- Preferred: the C7 engine REST base URL, including its `/engine-rest` context path when applicable.
+- Authentication: no authentication or Basic authentication username/password. Obtain secrets through the agent's secure credential mechanism; never write them to `MIGRATION_REPORT.md` or commit them. **Caution:** the CLI's `--password` flag exposes secrets in shell history and OS process listings, so use a trusted environment and prefer temporary or dedicated credentials.
+- If REST access is unavailable, ask whether a supported database-backed extractor is available and request only the connection details it requires. The released `engine` CLI path supports REST with optional Basic authentication, not direct database extraction or OIDC; stop with that limitation rather than pretending a DB/OIDC connection was used.
+
+Also ask whether to fetch all latest process/decision definitions or only named keys. The existing `engine` command fetches all latest definitions. For a named set, query the C7 REST list endpoints with the appropriate key filters, fetch each definition's `/xml` resource, write the XML files to a staging directory such as `.camunda-migration/c7-models/`, and then run M1 local mode on that directory.
+
+**2. Fetch and convert**
+
+For the all-latest case, download/reuse the CLI as in M1, create `.camunda-migration/c7-models`, and invoke it with the platform-appropriate command runner:
+
+```
+java -Dfile.encoding=UTF-8 -jar <jar> engine <c7-rest-url> --target-directory .camunda-migration/c7-models --platform-version <target-version> [--username <username> --password <password>] [--csv] [--xlsx]
+```
+
+Keep the target directory as generated working state, never as a replacement for project source files. Report every converted BPMN/DMN output and analysis artifact. For named-key acquisition, retain the raw staged XML and invoke the `local` subcommand so the downstream conversion is identical to a file-based migration.
+
+**3. Handle failures without partial success**
+
+Treat an unreachable endpoint, TLS/DNS failure, `401`/`403`, malformed XML, or an empty response for a requested definition as a blocking error. Report the URL, operation, status/error, and the concrete next action (correct the URL, grant REST access, or provide supported credentials). Do not silently continue, convert a partial set, or report success when any requested definition failed to fetch.
+
 ### Approach M1 — Diagram Converter CLI +AI (deterministic, recommended)
 
 **1. Java 21+ prerequisite — fail fast**
@@ -349,7 +402,7 @@ The CLI's `local` subcommand accepts a single file **or** a directory (recursive
 Invoke Java with the platform-appropriate command runner for the current environment using this argument shape:
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-minor>
+java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version>
 ```
 
 Recommended flags to add in the normal migration flow:
