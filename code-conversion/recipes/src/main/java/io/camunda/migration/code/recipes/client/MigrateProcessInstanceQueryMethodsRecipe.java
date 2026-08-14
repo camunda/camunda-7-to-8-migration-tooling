@@ -129,13 +129,11 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
             #{camundaClient:any(io.camunda.client.CamundaClient)}
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter
-                    .processDefinitionId(#{processDefinitionKey:any(java.lang.String)})
-                    .state(ProcessInstanceState.ACTIVE))
+                    .processDefinitionId(#{processDefinitionKey:any(java.lang.String)}))
                 .send()
                 .join()
                 .items()
             """,
-            PROCESS_INSTANCE_STATE,
             "io.camunda.client.api.search.response.ProcessInstance",
             "io.camunda.client.api.search.filter.ProcessInstanceFilter"),
         RecipeUtils.createSimpleIdentifier("camundaClient", "io.camunda.client.CamundaClient"),
@@ -143,7 +141,7 @@ public class MigrateProcessInstanceQueryMethodsRecipe extends AbstractMigrationR
         ReplacementUtils.ReturnTypeStrategy.USE_SPECIFIED_TYPE,
         Collections.emptyList(),
         Collections.emptyList(),
-        List.of(PROCESS_INSTANCE_STATE),
+        Collections.emptyList(),
         Optional.of("org.camunda.bpm.engine.runtime.ProcessInstanceQuery")));
 
     return specs;
