@@ -4,8 +4,20 @@ The command line interface tool can convert a Camunda Platform 7 diagram or all
 diagrams inside a folder (plus sub directories) or convert all diagrams from a
 Camunda Platform 7 process engine.
 
-All diagrams that should be converted need to have the `.bpmn` or `.bpmn20.xml`
-file ending.
+All diagrams that should be converted need to have the `.bpmn`, `.bpmn20.xml`,
+`.dmn`, or `.dmn11.xml` file ending.
+
+To convert the latest BPMN and DMN definitions from a running Camunda 7 engine, use the `engine` subcommand with the engine REST URL. Converted diagrams are written directly into the target directory (resource subdirectories are flattened); the CLI creates the target directory if it does not already exist.
+
+```shell
+java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest --target-directory .camunda-migration/c7-models --platform-version 8.9
+```
+
+The engine mode supports optional Basic authentication with `--username` and `--password`, and writes converted files plus optional analysis reports to the target directory. It does not provide direct database or OIDC acquisition.
+
+> **Security note:** passing `--password` on the command line can expose the secret in shell history and OS process listings. Use a trusted environment and consider temporary or dedicated credentials.
+
+## Developer Notes
 
 The tool logs all results (either location of the new file or the exception the
 migration tool faced during migration). Diagrams that are already in C8 format
@@ -117,3 +129,6 @@ Options:
 java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest
 ```
 
+### Supported File Extensions
+
+Diagrams must have the `.bpmn`, `.bpmn20.xml`, `.dmn`, or `.dmn11.xml` file ending to be processed.
