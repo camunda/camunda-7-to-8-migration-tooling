@@ -162,21 +162,24 @@ Both approaches apply the same **Transform checklist** below. Approach A runs Op
 Confirm each item before the next (commit policy: Shared rules). Tags mark what OpenRewrite already handles.
 
 **1. Dependencies & configuration**
-- Resolve the latest Camunda version via WebFetch: `https://search.maven.org/solrsearch/select?q=g:io.camunda+AND+a:camunda-spring-boot-starter&rows=1&wt=json` → `response.docs[0].latestVersion`. For 8.8 targets use the latest `8.8.x`; for 8.9+ use it as-is.
+- Resolve the latest released GA Camunda version from Maven Central's artifact metadata, not its search API. Query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available) for the starter artifact selected below. From `<versions>`, choose the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release.
 - Pick the starter by Spring Boot version: 3.x → `io.camunda:camunda-spring-boot-3-starter`; 4.x → `io.camunda:camunda-spring-boot-starter`.
-- Add the Camunda public repo if artifacts aren't on Maven Central:
+- Add the Camunda public repository only if the selected artifact/version is not available on Maven Central. Do not use its metadata to select a GA version, because its public feed can list snapshots without the corresponding GA releases:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
 - Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
 - Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
-- Ensure Spring Boot dependency management is set (parent or BOM); don't add `spring-boot-starter` just for jakarta.annotation.
-- Replace `@EnableProcessApplication` with `@Deployment`.
+- For Spring Boot 3.5.x with Camunda 8.9.13, check the resolved `org.apache.httpcomponents.client5:httpclient5` version. If the Spring Boot BOM selects 5.5.2, override it to 5.6.1 or later in the application dependency management until upstream dependency alignment is fixed; verify with `mvn dependency:tree -Dincludes=org.apache.httpcomponents.client5:httpclient5`.
+- If removing Camunda 7 webapp/rest starters also removes your only SLF4J binding, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
+- Ensure Spring Boot dependency management is set (parent or BOM). If `@PostConstruct` is only used to start process instances, migrate that flow to `@EventListener(CamundaPostDeploymentEvent.class)` first instead of patching dependencies (for example adding `jakarta.annotation-api`) just to keep `jakarta.annotation`.
+- Replace `@EnableProcessApplication` with `@Deployment`. If the C7 app relied on implicit classpath auto-deployment (no `@EnableProcessApplication` present), still add explicit `@Deployment(resources = ...)` for BPMN/DMN files because C8 has no equivalent implicit deployment.
 - Replace `camunda.*` keys with `camunda.client.*` in `application.properties`/`.yaml` ([properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/)).
 - Reference: "Maven dependency and configuration".
 
 **2. Client code** (`ProcessEngine` → `CamundaClient`)
 - Replace `ProcessEngine`/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with `CamundaClient`.
 - Map: start instances (incl. `businessId`/tags), message correlation, signal broadcast, cancel, user tasks, variables, `HistoryService` → search requests, `DecisionService` → `newEvaluateDecisionCommand`, batch `...Async` → batch operations (8.8+).
+- If migrated code starts instances from `@PostConstruct` while using `@Deployment`, move that startup logic to `@EventListener(CamundaPostDeploymentEvent.class)` to avoid deployment-order races.
 - Reference: "Client code → ProcessEngine" (incl. Business Key, Batch Operations, Evaluate Decisions, Query History).
 
 **3. JavaDelegate → Job Worker** *(OpenRewrite covers this)*
@@ -213,7 +216,7 @@ Confirm each item before the next (commit policy: Shared rules). Tags mark what 
 RECIPES_VERSION by Camunda target, use the latest from these minor versions: 8.8 → `0.2.x`; 8.9 and 8.10 → `0.3.x`.
 
 REWRITE_VERSION: Before adding the plugin, resolve the latest released version via WebFetch:
-- `rewrite-maven-plugin` (OpenRewrite): `https://search.maven.org/solrsearch/select?q=g:org.openrewrite.maven+AND+a:rewrite-maven-plugin&rows=1&wt=json` → read `response.docs[0].latestVersion`
+- `rewrite-maven-plugin` (OpenRewrite): `https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml` → select the highest stable version from `<versions>`, excluding snapshots and pre-releases.
 
 
 Use those resolved versions in the snippets below (replacing `REWRITE_VERSION` and `RECIPES_VERSION`).
@@ -244,11 +247,14 @@ For Maven — add to `pom.xml`:
 </plugin>
 ```
 
-**Before running**, check for Spotless + Java version incompatibility and fix proactively:
+**Before running**, check Java runtime compatibility for OpenRewrite itself, then check Spotless + Java compatibility:
 
-1. Detect whether Java is installed and record its major version.
+1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
+   - For the currently reported combination (`rewrite-maven-plugin` 6.12.0 + `camunda-7-to-8-code-conversion-recipes` 0.3.x), the known-safe window is Java **21-23** (recipes require Java 21+, while this rewrite plugin line can fail on Java 24+).
+   - Detect installed JDKs with a platform-appropriate method (for example `/usr/libexec/java_home -V` on macOS), then choose a compatible one and scope `JAVA_HOME`/`PATH` to that JDK only for the rewrite step.
+   - If no compatible JDK is installed, ask via `AskUserQuestion` to install one (for example `brew install openjdk@21` on macOS), wait for confirmation, then re-detect installed JDKs and select a compatible one before continuing.
 2. Inspect the Maven/Gradle build files to determine whether Spotless is configured.
-3. If Spotless is present **and** Java major version ≥ 17:
+3. If Spotless is present **and** the selected Java major version ≥ 17:
    - Run the OpenRewrite Maven goal with the JVM flags Spotless needs on Java 17+:
      - `--add-opens=java.base/java.lang=ALL-UNNAMED`
      - `--add-opens=java.base/java.util=ALL-UNNAMED`
@@ -261,8 +267,8 @@ For Maven — add to `pom.xml`:
      - If the project already has a `.mvn` directory, prefer appending them temporarily to `.mvn/jvm.config` while preserving any existing content. Otherwise, use `JAVA_TOOL_OPTIONS` rather than creating repository configuration solely for this temporary step.
      - Arrange cleanup so it runs whether `mvn rewrite:run` succeeds or fails: restore the exact previous `.mvn/jvm.config` content or remove the file if this step created it, and restore the previous `JAVA_TOOL_OPTIONS` value if it was changed.
      - Do not stage or commit the temporary changes; preserve any legitimate pre-existing tracked configuration.
-   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to a Java version known to work with this project's Spotless setup (for example Java 11 or 17 if you're currently on a newer JDK)?"
-4. If Spotless is not present, or Java < 17, run `mvn rewrite:run` directly.
+   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK that still stays inside the currently selected OpenRewrite+recipes compatibility window?"
+4. If Spotless is not present, or the selected Java major version < 17, run `mvn rewrite:run` directly.
 
 For Gradle — add to `build.gradle`:
 ```groovy
@@ -405,6 +411,9 @@ When the scope is **Code + models**:
 - The two paths are independent — run each with its chosen approach. Order doesn't strictly matter; a reasonable default is **models first** (diagrams define the job types/listeners the code must implement), then code, but follow the user's preference.
 - Keep both inventories and both sets of results in `MIGRATION_REPORT.md`.
 - After both complete, cross-check: job types emitted by the Diagram Converter should match the `@JobWorker(type = ...)` values produced by the code migration. Flag mismatches for the user.
+- After both complete, ask whether to wire deployment of converted files in application code via `AskUserQuestion`:
+  - **Yes, add/update `@Deployment` for converted files** *(recommended when code scope includes a Spring Boot app)* — add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns (for example, `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn"})`) and never the original diagrams.
+  - **No, I will handle deployment outside app startup** — leave code unchanged and record this decision in `MIGRATION_REPORT.md`.
 
 ---
 

@@ -181,4 +181,34 @@ public class RecipeUtils {
 
     return joiner + "";
   }
+
+  /**
+   * Checks whether the given type is assignable to the supplied fully-qualified class name, walking
+   * supertypes and interfaces recursively.
+   */
+  public static boolean isAssignableTo(JavaType type, String fullyQualifiedName) {
+    return type != null && isAssignableTo(type, fullyQualifiedName, new HashSet<>());
+  }
+
+  private static boolean isAssignableTo(
+      JavaType type, String fullyQualifiedName, Set<String> visited) {
+    if (!visited.add(type.toString())) {
+      return false;
+    }
+    if (TypeUtils.isOfClassType(type, fullyQualifiedName)) {
+      return true;
+    }
+    if (type instanceof JavaType.FullyQualified fullyQualified) {
+      JavaType.FullyQualified supertype = fullyQualified.getSupertype();
+      if (supertype != null && isAssignableTo(supertype, fullyQualifiedName, visited)) {
+        return true;
+      }
+      for (JavaType.FullyQualified iface : fullyQualified.getInterfaces()) {
+        if (isAssignableTo(iface, fullyQualifiedName, visited)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 }
