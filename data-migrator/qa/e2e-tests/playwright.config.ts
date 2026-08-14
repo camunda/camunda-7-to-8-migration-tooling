@@ -1,6 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
+ * Operate's process-instance header hides the "Called Instances" link below
+ * the Carbon xlg breakpoint (~1312px). Use a large desktop viewport so the
+ * full header is rendered consistently across browsers.
+ */
+const desktopViewport = { width: 1920, height: 1080 };
+
+/**
  * E2E test configuration for Cockpit Plugin
  * See https://playwright.dev/docs/test-configuration
  */
@@ -39,15 +46,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], viewport: desktopViewport },
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { ...devices['Desktop Firefox'], viewport: desktopViewport },
     },
     {
       name: 'edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
+      use: {
+        ...devices['Desktop Edge'],
+        channel: 'msedge',
+        viewport: desktopViewport,
+      },
     },
   ],
 
