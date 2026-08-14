@@ -83,14 +83,18 @@ When no local model files were found, do not silently drop models from a combine
 
 **Question 5 — Model source and migration approach** *(include only if the user selected model migration, user can't select anything else)*:
 
-If local model files were found under the project root, show only the local approaches. If no local model files were found, show E1 or E2 below instead of M1–M3; do not offer E1 when local models are present.
+Show **only one** of the two groups below, based on the model scan result from Step 1:
+- If local model files were found under the project root, show only the **M1–M3** local-model options.
+- If no local model files were found, show only the **E1–E2** engine-source options; do not offer E1 when local models are present.
+
+**Local models found — choose one of M1–M3:**
 
 - **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** When prompted you can ask AI to address remaining TODO items and suggest changes.
 - **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
 - **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
 - Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
 
-If no local model files were found under the project root, show these alternatives after the detection step:
+**No local models found — choose one of E1–E2:**
 
 - **E1. Camunda 7 engine (recommended)** — Fetch BPMN/DMN definitions from a reachable C7 REST API and pass them through the same deterministic conversion flow. The CLI engine path converts fetched XML in memory and writes converted outputs; named-key acquisition can stage raw XML and use M1 local mode. Ask for C7 access before connecting; the required details are described in Part B.
 - **E2. Provide a model path** — Wait for the user to provide another file or directory, re-run model detection there, and then show M1–M3.
@@ -356,7 +360,7 @@ Also ask whether to fetch all latest process/decision definitions or only named 
 For the all-latest case, download/reuse the CLI as in M1, create `.camunda-migration/c7-models`, and invoke it with the platform-appropriate command runner:
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> engine <c7-rest-url> --target-directory .camunda-migration/c7-models --platform-version <target-minor> [--username <username> --password <password>] [--csv] [--xlsx]
+java -Dfile.encoding=UTF-8 -jar <jar> engine <c7-rest-url> --target-directory .camunda-migration/c7-models --platform-version <target-version> [--username <username> --password <password>] [--csv] [--xlsx]
 ```
 
 Keep the target directory as generated working state, never as a replacement for project source files. Report every converted BPMN/DMN output and analysis artifact. For named-key acquisition, retain the raw staged XML and invoke the `local` subcommand so the downstream conversion is identical to a file-based migration.
@@ -396,7 +400,7 @@ The CLI's `local` subcommand accepts a single file **or** a directory (recursive
 Invoke Java with the platform-appropriate command runner for the current environment using this argument shape:
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-minor>
+java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version>
 ```
 
 Recommended flags to add in the normal migration flow:
