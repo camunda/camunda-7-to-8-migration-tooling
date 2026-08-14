@@ -135,6 +135,7 @@ The `Release` GitHub Actions workflow is the supported way to publish release ar
    - `IS_DRY_RUN=false`
    - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
 3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
+4. The workflow waits until the deployment is published and verifies that all Maven Central artifacts are available before the release succeeds.
 
 ### Backfill Maven Central for an existing tag
 
@@ -144,7 +145,8 @@ If a GitHub release/tag already exists but Maven Central is missing the artifact
 - `IS_DRY_RUN=false`
 - `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
 
-This mode skips `release:prepare`, checks out the release tag, and publishes the already-tagged artifacts to Maven Central only.
+Run the workflow from the current `main` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, and publishes the already-tagged artifacts to Maven Central only.
+It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout.
 
 ## License
 

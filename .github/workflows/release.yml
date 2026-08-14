@@ -208,8 +208,48 @@ jobs:
             -DskipTests=true \
             -Dskip.central.release=${SKIP_REPO_DEPLOY} \
             -Dskip.camunda.release=true \
-            -Dcentral.autoPublish=true \
-            -Dcentral.waitUntil=published
+            -DautoPublish=true \
+            -DwaitUntil=published
+
+      - name: Verify Maven Central publication
+        if: ${{ !inputs.IS_DRY_RUN }}
+        run: |
+          set -euo pipefail
+
+          artifacts=(
+            "io/camunda/camunda-7-to-8-migration-tooling-root/${RELEASE_VERSION}/camunda-7-to-8-migration-tooling-root-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-code-conversion-parent/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-code-conversion-recipes/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-parent/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-data-migrator-core/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-cockpit-plugin/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-parent/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-parent-${RELEASE_VERSION}.pom"
+            "io/camunda/camunda-7-to-8-diagram-converter-core/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-webapp/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-cli/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar"
+          )
+
+          for attempt in {1..30}; do
+            missing=()
+            for artifact in "${artifacts[@]}"; do
+              if ! curl --fail --head --location --silent --show-error \
+                "https://repo.maven.apache.org/maven2/${artifact}" >/dev/null; then
+                missing+=("${artifact}")
+              fi
+            done
+
+            if ((${#missing[@]} == 0)); then
+              echo "All Maven Central artifacts for ${RELEASE_VERSION} are available."
+              exit 0
+            fi
+
+            echo "::notice::Maven Central propagation is incomplete for ${RELEASE_VERSION}; ${#missing[@]} artifact(s) are still unavailable (attempt ${attempt}/30)."
+            sleep 20
+          done
+
+          echo "::error::Maven Central publication verification failed for ${RELEASE_VERSION}."
+          printf 'Missing artifact: %s\n' "${missing[@]}"
+          exit 1
 
   docker-image:
     name: Build and Publish Docker Image
