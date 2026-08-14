@@ -4,7 +4,7 @@ The command-line interface for the Camunda 7 to 8 Diagram Converter. It can conv
 
 For usage documentation, see the [official documentation](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
 
-To convert the latest BPMN and DMN definitions from a running Camunda 7 engine, create the target directory with the platform-native file tools first. The CLI does not create a missing target directory, so output creation fails if it does not already exist. Then use the `engine` subcommand with the engine REST URL:
+To convert the latest BPMN and DMN definitions from a running Camunda 7 engine, use the `engine` subcommand with the engine REST URL. Converted diagrams are written directly into the target directory (resource subdirectories are flattened); the CLI creates the target directory if it does not already exist.
 
 ```shell
 java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.jar engine http://localhost:8080/engine-rest --target-directory .camunda-migration/c7-models --platform-version 8.9
