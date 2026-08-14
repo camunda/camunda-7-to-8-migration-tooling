@@ -49,7 +49,8 @@ public class MigrateExecutionRecipeWarningTest implements RewriteTest {
             import org.camunda.bpm.engine.delegate.JavaDelegate;
             import org.springframework.stereotype.Component;
 
-            /* The delegate execute(DelegateExecution) method exists, but no generated executeJob(ActivatedJob) stub was found. The delegate body could not be copied automatically; migrate it manually.*/@Component
+            /* The delegate execute(DelegateExecution) method exists, but no generated executeJob(ActivatedJob) stub was found. The delegate body could not be copied automatically; migrate it manually.*/
+            @Component
             public class MissingStubDelegate implements JavaDelegate {
 
                 @Override

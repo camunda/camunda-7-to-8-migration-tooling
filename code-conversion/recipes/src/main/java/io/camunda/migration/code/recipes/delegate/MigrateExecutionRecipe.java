@@ -111,59 +111,75 @@ public class MigrateExecutionRecipe extends Recipe {
               }
 
               if (alreadyMigratedMethod != null) {
-                // The copy has already happened in a previous cycle; nothing to do.
-                return classDeclaration;
+                // The copy has already happened in a previous cycle; keep traversing in case
+                // there are nested delegate/listener classes that still need to be processed.
+                return super.visitClassDeclaration(classDeclaration, ctx);
               }
+
+              String warning = null;
 
               if (delegateMethod != null && jobWorkerMethod != null) {
                 J.Block delegateBody = delegateMethod.getBody();
                 J.Block jobWorkerBody = jobWorkerMethod.getBody();
 
-                // all current statements (result map and return)
-                List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
+                boolean canCopy =
+                    delegateBody != null
+                        && jobWorkerBody != null
+                        && jobWorkerBody.getStatements().size() >= 2;
 
-                // delegate body
-                List<Statement> delegateStatements = new ArrayList<>(delegateBody.getStatements());
+                if (canCopy) {
+                  // all current statements (result map and return)
+                  List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
 
-                // combine statements
-                delegateStatements.add(0, jobWorkerStatements.get(0));
-                delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
+                  // delegate body
+                  List<Statement> delegateStatements =
+                      new ArrayList<>(delegateBody.getStatements());
 
-                J.MethodDeclaration migratedJobWorker =
-                    jobWorkerMethod
-                        .withBody(jobWorkerMethod.getBody().withStatements(delegateStatements))
-                        .withName(jobWorkerMethod.getName().withSimpleName("executeJobMigrated"))
-                        .withMethodType(
-                            jobWorkerMethod.getMethodType().withName("executeJobMigrated"));
+                  // combine statements
+                  delegateStatements.add(0, jobWorkerStatements.get(0));
+                  delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
 
-                List<Statement> updatedStatements = new ArrayList<>();
-                for (Statement stmt : currentStatements) {
-                  if (stmt == jobWorkerMethod) {
-                    updatedStatements.add(migratedJobWorker);
-                  } else {
-                    updatedStatements.add(stmt);
+                  J.MethodDeclaration migratedJobWorker =
+                      jobWorkerMethod
+                          .withBody(jobWorkerMethod.getBody().withStatements(delegateStatements))
+                          .withName(jobWorkerMethod.getName().withSimpleName("executeJobMigrated"))
+                          .withMethodType(
+                              jobWorkerMethod.getMethodType().withName("executeJobMigrated"));
+
+                  List<Statement> updatedStatements = new ArrayList<>();
+                  for (Statement stmt : currentStatements) {
+                    if (stmt == jobWorkerMethod) {
+                      updatedStatements.add(migratedJobWorker);
+                    } else {
+                      updatedStatements.add(stmt);
+                    }
                   }
+
+                  return classDeclaration.withBody(
+                      classDeclaration.getBody().withStatements(updatedStatements));
                 }
 
-                return classDeclaration.withBody(
-                    classDeclaration.getBody().withStatements(updatedStatements));
+                warning =
+                    "Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob)"
+                        + " is not in the expected shape. Migrate the logic manually.";
               }
 
-              String warning;
-              if (delegateMethod != null && jobWorkerMethod == null) {
-                warning =
-                    "The delegate execute(DelegateExecution) method exists, but no generated"
-                        + " executeJob(ActivatedJob) stub was found. The delegate body could not be"
-                        + " copied automatically; migrate it manually.";
-              } else if (delegateMethod == null && jobWorkerMethod != null) {
-                warning =
-                    "No execute(DelegateExecution) method was found directly in this class. If it"
-                        + " lives in a superclass, the delegate body must be migrated manually.";
-              } else {
-                warning =
-                    "Neither execute(DelegateExecution) nor executeJob(ActivatedJob) was found."
-                        + " The delegate body could not be copied automatically; migrate it"
-                        + " manually.";
+              if (warning == null) {
+                if (delegateMethod != null && jobWorkerMethod == null) {
+                  warning =
+                      "The delegate execute(DelegateExecution) method exists, but no generated"
+                          + " executeJob(ActivatedJob) stub was found. The delegate body could not"
+                          + " be copied automatically; migrate it manually.";
+                } else if (delegateMethod == null && jobWorkerMethod != null) {
+                  warning =
+                      "No execute(DelegateExecution) method was found directly in this class. If it"
+                          + " lives in a superclass, the delegate body must be migrated manually.";
+                } else {
+                  warning =
+                      "Neither execute(DelegateExecution) nor executeJob(ActivatedJob) was found."
+                          + " The delegate body could not be copied automatically; migrate it"
+                          + " manually.";
+                }
               }
 
               List<Comment> existingComments =
@@ -176,16 +192,13 @@ public class MigrateExecutionRecipe extends Recipe {
                       .map(c -> (TextComment) c)
                       .anyMatch(c -> c.getText().contains("delegate body could not be copied"));
               if (alreadyWarned) {
-                return classDeclaration;
+                // Keep traversing so any nested delegate/listener classes are still processed.
+                return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
               List<Comment> updatedComments = new ArrayList<>(existingComments);
               updatedComments.add(
-                  new TextComment(
-                      true,
-                      " " + warning,
-                      classDeclaration.getPrefix().getIndent(),
-                      Markers.EMPTY));
+                  new TextComment(true, " " + warning, "\n", Markers.EMPTY));
               return classDeclaration.withComments(updatedComments);
             }
           });
