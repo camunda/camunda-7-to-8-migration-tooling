@@ -40,6 +40,6 @@
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-scss": "~4.0.0",
     "sass": "^1.79.4",
-    "typescript": "^7.0.0"
+    "typescript": "^5.9.2"
   }
 }
