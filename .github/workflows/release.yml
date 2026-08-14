@@ -103,8 +103,8 @@ jobs:
       - name: Validate release ref
         if: ${{ !inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
         run: |
-          if [[ "${GITHUB_REF}" != refs/heads/release/* ]]; then
-            echo "::error::Full releases must run from a release/* branch. Use ONLY_PUSH_TO_MAVEN_CENTRAL=true to publish an existing release tag to Maven Central without running release:prepare."
+          if [[ "${GITHUB_REF}" != refs/heads/release/* && "${GITHUB_REF}" != refs/heads/maintenance/* ]]; then
+            echo "::error::Full releases must run from a release/* or maintenance/* branch. Use ONLY_PUSH_TO_MAVEN_CENTRAL=true to publish an existing release tag to Maven Central without running release:prepare."
             exit 1
           fi
 

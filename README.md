@@ -128,8 +128,8 @@ The `Release` GitHub Actions workflow is the supported way to publish release ar
 
 ### Standard release
 
-1. Create a `release/<version>` branch from the commit you want to release.
-2. Run the `Release` workflow from that `release/<version>` branch with:
+1. Create a `release/<version>` branch from the commit you want to release, or run from the relevant `maintenance/<line>` branch when releasing an existing maintenance line.
+2. Run the `Release` workflow from that `release/<version>` or `maintenance/<line>` branch with:
    - `RELEASE_VERSION=<version>`
    - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT`
    - `IS_DRY_RUN=false`
