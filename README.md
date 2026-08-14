@@ -142,10 +142,11 @@ The `Release` GitHub Actions workflow is the supported way to publish release ar
 If a GitHub release/tag already exists but Maven Central is missing the artifacts, rerun the `Release` workflow with:
 
 - `RELEASE_VERSION=<existing-tag>`
+- `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT` (required workflow input; ignored in backfill mode)
 - `IS_DRY_RUN=false`
 - `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
 
-Run the workflow from the current `main` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, and publishes the already-tagged artifacts to Maven Central only.
+Run the workflow from the current `main` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, rebuilds the artifacts from that source, and publishes them to Maven Central only.
 It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout.
 
 ## License

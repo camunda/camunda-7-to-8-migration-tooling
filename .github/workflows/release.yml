@@ -220,13 +220,19 @@ jobs:
             "io/camunda/camunda-7-to-8-migration-tooling-root/${RELEASE_VERSION}/camunda-7-to-8-migration-tooling-root-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-code-conversion-parent/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-parent-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-code-conversion-recipes/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-code-conversion-recipes/${RELEASE_VERSION}/camunda-7-to-8-code-conversion-recipes-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-data-migrator-parent/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-parent-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-data-migrator-core/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-core/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-core-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-data-migrator-cockpit-plugin/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-data-migrator-cockpit-plugin/${RELEASE_VERSION}/camunda-7-to-8-data-migrator-cockpit-plugin-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-diagram-converter-parent/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-parent-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-diagram-converter-core/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-core/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-core-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-diagram-converter-webapp/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-webapp/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-webapp-${RELEASE_VERSION}.pom"
             "io/camunda/camunda-7-to-8-diagram-converter-cli/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.jar"
+            "io/camunda/camunda-7-to-8-diagram-converter-cli/${RELEASE_VERSION}/camunda-7-to-8-diagram-converter-cli-${RELEASE_VERSION}.pom"
           )
 
           for attempt in {1..30}; do
