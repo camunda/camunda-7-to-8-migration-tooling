@@ -36,7 +36,7 @@ These apply throughout — referenced below instead of repeated.
 
 ## Step 1: Gather inputs
 
-Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question to what is actually present. Record whether at least one model was found under the project root before asking any questions; this result gates the C7 engine option.
+Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question (Q3) to what appears to be present. This candidate scan is only used to shape Q3; it does **not** gate the C7 engine option.
 
 Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because up to 6 questions may apply, batch them:
 
@@ -44,6 +44,10 @@ Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 qu
 - **Call 2** — the conditional approach questions that apply given the Q3 answer and your detection: any of Q4, Q5, Q6 (≤3 questions).
 
 Only include a conditional question when its stated condition holds, and never put more than 4 in one call. If a single call would exceed 4, split it further.
+
+**Re-scan after project location is confirmed**
+
+The user may choose a different project root in Q1 than the candidate used above. After Q1 is answered, if the selected root differs from the candidate, re-detect the build tool and re-glob for models in the confirmed root. Use that updated scan result for all subsequent gating decisions, especially whether to include the C7 engine source options (Q5 / E1).
 
 **Question 1 — Project location**
 
