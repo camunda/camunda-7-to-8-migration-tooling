@@ -36,7 +36,7 @@ These apply throughout — referenced below instead of repeated.
 
 ## Step 1: Gather inputs
 
-Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question (Q3) to what appears to be present. This candidate scan is only used to shape Q3; it does **not** gate the C7 engine option.
+Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question (Q3) to what appears to be present. This candidate scan is only used to shape Q3; the confirmed project-root scan after Q1 is what gates whether the C7 engine option (Q5 / E1) is offered.
 
 Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because up to 6 questions may apply, batch them:
 
@@ -347,7 +347,7 @@ Use the model scan from Step 1 before choosing a conversion path:
 
 ### Approach E1 — Camunda 7 engine source (only when no local models were found)
 
-The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, converts the fetched XML in memory, and writes the converted outputs and reports.
+The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, converts the fetched XML in memory, and writes the converted outputs and optional analysis reports.
 
 **1. Ask for C7 access**
 
