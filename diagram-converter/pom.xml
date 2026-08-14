@@ -17,7 +17,7 @@
     <version.jsoup>1.23.1</version.jsoup>
     <version.picocli>4.7.7</version.picocli>
     <version.commons-io>2.22.0</version.commons-io>
-    <version.slack-api-client>1.49.0</version.slack-api-client>
+    <version.slack-api-client>1.50.0</version.slack-api-client>
     <version.opencsv>5.12.0</version.opencsv>
     <version.grpc>1.83.1</version.grpc>
     <version.protobuf>4.35.1</version.protobuf>
@@ -27,8 +27,8 @@
     <version.feel-engine>1.22.0</version.feel-engine>
     <version.scala>3.8.4</version.scala>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
-    <version.checker-qual>4.2.1</version.checker-qual>
-    <version.commons-collections4>4.5.0</version.commons-collections4>
+    <version.checker-qual>4.2.2</version.checker-qual>
+    <version.commons-collections4>4.6.0</version.commons-collections4>
     <version.rest-assured>6.0.1</version.rest-assured>
     <plugin.version.spotless-maven-plugin>3.9.0</plugin.version.spotless-maven-plugin>
     <plugin.version.maven-site-plugin>3.22.0</plugin.version.maven-site-plugin>

@@ -8,14 +8,19 @@ description: >-
   then corrects the choice from the Spring Boot major resolved from the imported
   `spring-boot-dependencies` BOM or from `spring-boot-starter-parent`, with the parent winning
   when the two disagree. Both are resolved values, so a `spring-boot.version` property is
-  honoured wherever it actually versions the BOM or the parent. Gradle builds keep the Spring
-  Boot 3 starter default, because the Spring Boot major is not resolvable from the Gradle model
-  available here.
+  honoured wherever it actually versions the BOM or the parent. Gradle projects use the
+  resolved Spring Boot platform, declared platform, declared or resolved Spring Boot plugin, and
+  finally a dependency-management BOM entry; projects without a detectable major keep the Spring
+  Boot 3 default.
 recipeList:
   # Maven and Gradle need separate branches: a Maven-model precondition never matches a Gradle
   # build file, and vice versa, and YAML preconditions are AND-ed.
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradleBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradleBoot3
   - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradle
   - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsent
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenGradle
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenGradle
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenBomIsBoot4
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenBomIsBoot3
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenParentIsBoot4
@@ -31,34 +36,53 @@ description: >-
   `ConfigureCamundaStarterRecipe` so the process test module always matches the starter.
 recipeList:
   # See ConfigureCamundaStarterRecipe for why Maven and Gradle need separate branches.
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradleBoot4
+  - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradleBoot3
   - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradle
   - io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsent
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenGradle
+  - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenGradle
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenBomIsBoot4
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenBomIsBoot3
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenParentIsBoot4
   - io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenParentIsBoot3
 ---
-# Gradle counterpart of AddCamundaStarterWhenAbsent. The Spring Boot major is not resolvable from
-# the Gradle model available to these recipes, so Gradle builds keep the Spring Boot 3 default that
-# applied before this selector existed; the `Use...` rename recipes below are Maven only. The
-# precondition still matters: `AddDependency` on its own only skips the artifact it adds, so
-# without it a Gradle project that already declares the Spring Boot 4 starter would end up with
-# both starters on the classpath.
+# A Gradle build with a detected Spring Boot major must receive the matching artifact on the first
+# cycle. Adding the default Spring Boot 3 artifact and renaming it afterwards causes Gradle's
+# model-backed precondition to see the original dependency graph again on the next cycle.
 type: specs.openrewrite.org/v1beta/recipe
-name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradle
-displayName: Add the Camunda Spring Boot 3 starter to a Gradle build that declares no Camunda starter
-description: >-
-  Adds `camunda-spring-boot-3-starter` to the `implementation` configuration when the Gradle build
-  declares neither Camunda starter.
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradleBoot4
+displayName: Add the Camunda Spring Boot 4 starter to a Gradle build that resolves Spring Boot 4
+description: Adds the Spring Boot 4 Camunda starter when a Gradle build resolves Spring Boot 4 and declares no Camunda starter.
 preconditions:
-  - org.openrewrite.gradle.search.DoesNotIncludeDependency:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-starter
-      onlyDirect: true
-  - org.openrewrite.gradle.search.DoesNotIncludeDependency:
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-spring-boot-3-starter
-      onlyDirect: true
+recipeList:
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+      version: ${version.camunda-8}
+      configuration: implementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradleBoot3
+displayName: Add the Camunda Spring Boot 3 starter to a Gradle build that resolves Spring Boot 3
+description: Adds the Spring Boot 3 Camunda starter when a Gradle build resolves Spring Boot 3 and declares no Camunda starter.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
@@ -66,27 +90,168 @@ recipeList:
       version: ${version.camunda-8}
       configuration: implementation
 ---
+# Gradle counterpart of AddCamundaStarterWhenAbsent. The precondition still matters:
+# `AddDependency` on its own only skips the artifact it adds, so it happily adds the Spring Boot 3
+# artifact to a build that already declares the mutually exclusive Spring Boot 4 one. Every Gradle
+# add therefore has to sit behind `DoesNotDeclareGradleDependencyRecipe` preconditions for both
+# artifacts of its pair.
 type: specs.openrewrite.org/v1beta/recipe
-name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradle
-displayName: Add the Camunda Spring Boot 3 process test module to a Gradle build that declares no process test module
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaStarterWhenAbsentGradle
+displayName: Add the Camunda Spring Boot 3 starter to a Gradle build that declares no Camunda starter
 description: >-
-  Adds `camunda-process-test-spring-boot-3` to the `testImplementation` configuration when the
-  Gradle build declares neither process test module.
+  Adds `camunda-spring-boot-3-starter` to the `implementation` configuration when the Gradle build
+  declares neither Camunda starter and no Spring Boot major can be detected.
 preconditions:
-  - org.openrewrite.gradle.search.DoesNotIncludeDependency:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "none"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+recipeList:
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+      version: ${version.camunda-8}
+      configuration: implementation
+---
+# As with the starter, add the artifact selected by the detected major directly so the
+# model-backed Gradle precondition does not cause a rename-and-add cycle.
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradleBoot4
+displayName: Add the Camunda Spring Boot 4 process test module to a Gradle build that resolves Spring Boot 4
+description: Adds the Spring Boot 4 Camunda process test module when a Gradle build resolves Spring Boot 4 and declares no process test module.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring
-      onlyDirect: true
-  - org.openrewrite.gradle.search.DoesNotIncludeDependency:
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
-      onlyDirect: true
+recipeList:
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+      version: ${version.camunda-8}
+      configuration: testImplementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradleBoot3
+displayName: Add the Camunda Spring Boot 3 process test module to a Gradle build that resolves Spring Boot 3
+description: Adds the Spring Boot 3 Camunda process test module when a Gradle build resolves Spring Boot 3 and declares no process test module.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
 recipeList:
   - org.openrewrite.gradle.AddDependency:
       groupId: io.camunda
       artifactId: camunda-process-test-spring-boot-3
       version: ${version.camunda-8}
       configuration: testImplementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.AddCamundaProcessTestDependencyWhenAbsentGradle
+displayName: Add the Camunda Spring Boot 3 process test module to a Gradle build that declares no process test module
+description: >-
+  Adds `camunda-process-test-spring-boot-3` to the `testImplementation` configuration when the
+  Gradle build declares neither process test module and no Spring Boot major can be detected.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "none"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+recipeList:
+  - org.openrewrite.gradle.AddDependency:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+      version: ${version.camunda-8}
+      configuration: testImplementation
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4CamundaStarterWhenGradle
+displayName: Use the Spring Boot 4 Camunda starter for a Gradle project
+description: Renames the Camunda Spring Boot 3 starter to the Spring Boot 4 starter when the Gradle project resolves Spring Boot 4.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-starter
+recipeList:
+  - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-3-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3CamundaStarterWhenGradle
+displayName: Use the Spring Boot 3 Camunda starter for a Gradle project
+description: Renames the Camunda Spring Boot 4 starter to the Spring Boot 3 starter when the Gradle project resolves Spring Boot 3.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-spring-boot-3-starter
+recipeList:
+  - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-spring-boot-starter
+      newGroupId: io.camunda
+      newArtifactId: camunda-spring-boot-3-starter
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot4ProcessTestWhenGradle
+displayName: Use the Spring Boot 4 Camunda process test module for a Gradle project
+description: Renames the Spring Boot 3 Camunda process test module to the Spring Boot 4 module when the Gradle project resolves Spring Boot 4.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "4"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring
+recipeList:
+  - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring-boot-3
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring
+      newVersion: ${version.camunda-8}
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: io.camunda.migration.code.recipes.sharedRecipes.UseSpringBoot3ProcessTestWhenGradle
+displayName: Use the Spring Boot 3 Camunda process test module for a Gradle project
+description: Renames the Spring Boot 4 Camunda process test module to the Spring Boot 3 module when the Gradle project resolves Spring Boot 3.
+preconditions:
+  - io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe:
+      major: "3"
+  - io.camunda.migration.code.recipes.sharedRecipes.DoesNotDeclareGradleDependencyRecipe:
+      groupId: io.camunda
+      artifactId: camunda-process-test-spring-boot-3
+recipeList:
+  - io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe:
+      oldGroupId: io.camunda
+      oldArtifactId: camunda-process-test-spring
+      newGroupId: io.camunda
+      newArtifactId: camunda-process-test-spring-boot-3
+      newVersion: ${version.camunda-8}
 ---
 # The Spring Boot 3 starter is the default landing spot for a migrated Camunda 7 application; the
 # `UseSpringBoot4...` recipes below upgrade it when the project actually resolves Spring Boot 4.

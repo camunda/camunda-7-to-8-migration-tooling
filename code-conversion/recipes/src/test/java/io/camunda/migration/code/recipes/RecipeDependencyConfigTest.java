@@ -9,6 +9,8 @@ package io.camunda.migration.code.recipes;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.openrewrite.gradle.Assertions.buildGradle;
+import static org.openrewrite.gradle.toolingapi.Assertions.withToolingApi;
 import static org.openrewrite.maven.Assertions.pomXml;
 
 import java.io.BufferedReader;
@@ -21,10 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import io.camunda.migration.code.recipes.sharedRecipes.FindSpringBootMajorRecipe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
@@ -42,6 +46,7 @@ class RecipeDependencyConfigTest implements RewriteTest {
   private static final String SB4_STARTER = "camunda-spring-boot-starter";
   private static final String SB3_PROCESS_TEST = "camunda-process-test-spring-boot-3";
   private static final String SB4_PROCESS_TEST = "camunda-process-test-spring";
+  private static final String GRADLE_TEST_CAMUNDA_VERSION = "8.9.0";
 
   /** The two artifacts of each pair are mutually exclusive - a project must declare exactly one. */
   private static final Map<String, String> MUTUALLY_EXCLUSIVE_PAIRS =
@@ -102,6 +107,359 @@ class RecipeDependencyConfigTest implements RewriteTest {
             SB4_STARTER,
             SB4_PROCESS_TEST),
         arguments("no detectable Spring Boot major", "", SB3_STARTER, SB3_PROCESS_TEST));
+  }
+
+  /**
+   * Gradle exposes the Spring Boot major through the resolved platform, the Boot plugin, or the
+   * Spring dependency management plugin. These are separate rows so a future detection change
+   * cannot silently drop one of the supported Gradle project shapes.
+   */
+  static List<Arguments> gradleSpringBootMajorSignals() {
+    return List.of(
+        arguments(
+            "resolved Spring Boot 3 platform",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+
+                dependencies {
+                    implementation platform('org.springframework.boot:spring-boot-dependencies:3.5.4')
+                }
+                """),
+            SB3_STARTER,
+            SB3_PROCESS_TEST),
+        arguments(
+            "resolved Spring Boot 4 platform",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+
+                dependencies {
+                    implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+                }
+                """),
+            SB4_STARTER,
+            SB4_PROCESS_TEST),
+        arguments(
+            "Spring Boot 3 plugin",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                    id 'org.springframework.boot' version '3.5.4'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+                """),
+            SB3_STARTER,
+            SB3_PROCESS_TEST),
+        arguments(
+            "Spring Boot 4 plugin",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                    id 'org.springframework.boot' version '4.0.0'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+                """),
+            SB4_STARTER,
+            SB4_PROCESS_TEST),
+        arguments(
+            "Spring dependency management imports Boot 4",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                    id 'io.spring.dependency-management' version '1.1.7'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+
+                dependencyManagement {
+                    imports {
+                        mavenBom 'org.springframework.boot:spring-boot-dependencies:4.0.0'
+                    }
+                }
+                """),
+            SB4_STARTER,
+            SB4_PROCESS_TEST),
+        arguments(
+            "Spring dependency management imports Boot 3",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                    id 'io.spring.dependency-management' version '1.1.7'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+
+                dependencyManagement {
+                    imports {
+                        mavenBom 'org.springframework.boot:spring-boot-dependencies:3.5.4'
+                    }
+                }
+                """),
+            SB3_STARTER,
+            SB3_PROCESS_TEST),
+        arguments(
+            "no detectable Spring Boot major",
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+                """),
+            SB3_STARTER,
+            SB3_PROCESS_TEST));
+  }
+
+  @ParameterizedTest(name = "selects Gradle dependencies when {0}")
+  @MethodSource("gradleSpringBootMajorSignals")
+  void selectsDependenciesMatchingGradleSpringBootMajor(
+      String signalName, String buildScript, String expectedStarter, String expectedProcessTest) {
+    rewriteRun(
+        spec -> spec.beforeRecipe(withToolingApi()),
+        buildGradle(
+            buildScript,
+            spec ->
+                spec.path("build.gradle")
+                    .after(
+                        after ->
+                            assertGradleDependencies(after, expectedStarter, expectedProcessTest))));
+  }
+
+  static List<Arguments> gradleDetectedSpringBootMajorSignals() {
+    return gradleSpringBootMajorSignals().stream()
+        .filter(arguments -> !"no detectable Spring Boot major".equals(arguments.get()[0]))
+        .toList();
+  }
+
+  @ParameterizedTest(name = "repairs Gradle dependencies when {0}")
+  @MethodSource("gradleDetectedSpringBootMajorSignals")
+  void repairsMismatchedGradleDependencyChoice(
+      String signalName, String buildScript, String expectedStarter, String expectedProcessTest) {
+    String wrongStarter = SB3_STARTER.equals(expectedStarter) ? SB4_STARTER : SB3_STARTER;
+    String wrongProcessTest =
+        SB3_PROCESS_TEST.equals(expectedProcessTest) ? SB4_PROCESS_TEST : SB3_PROCESS_TEST;
+
+    rewriteRun(
+        spec -> spec.beforeRecipe(withToolingApi()),
+        buildGradle(
+            buildScript + gradleDependencies(wrongStarter, wrongProcessTest),
+            spec ->
+                spec.path("build.gradle")
+                    .after(
+                        after ->
+                            assertGradleDependencies(after, expectedStarter, expectedProcessTest))));
+  }
+
+  @Test
+  void leavesExplicitGradleChoiceAloneWithoutSpringBootSignal() {
+    rewriteRun(
+        spec -> spec.beforeRecipe(withToolingApi()),
+        buildGradle(
+            gradleBuild(
+                """
+                plugins {
+                    id 'java'
+                }
+
+                repositories {
+                    mavenCentral()
+                }
+                """
+                    + gradleDependencies(SB4_STARTER, SB4_PROCESS_TEST)),
+            spec -> spec.path("build.gradle")));
+  }
+
+  @Test
+  void changesUnresolvedGradleDependencyDeclaration() {
+    String before =
+        gradleBuild(
+            """
+            plugins {
+                id 'java'
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            dependencies {
+                implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+                implementation "io.camunda:camunda-spring-boot-3-starter:8.10.0-SNAPSHOT"
+            }
+
+            dependencies {
+                testImplementation "io.camunda:camunda-process-test-spring-boot-3:8.10.0-SNAPSHOT"
+            }
+            """);
+    String after =
+        before.replace(SB3_STARTER + ":8.10.0-SNAPSHOT", SB4_STARTER + ":8.10.0-SNAPSHOT");
+
+    rewriteRun(
+        spec ->
+            spec.recipe(
+                new io.camunda.migration.code.recipes.sharedRecipes.ChangeGradleDependencyRecipe(
+                    "io.camunda",
+                    SB3_STARTER,
+                    "io.camunda",
+                    SB4_STARTER,
+                    "8.10.0-SNAPSHOT")),
+        buildGradle(before, after));
+  }
+
+  @Test
+  void detectsSpringBootPluginWithoutGradleModel() {
+    String build =
+        """
+        plugins {
+            id 'java'
+            id 'org.springframework.boot' version '4.0.0'
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("4")),
+        buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @Test
+  void ignoresSimilarGradlePluginId() {
+    String build =
+        """
+        plugins {
+            id 'orgxspringframeworkxboot' version '4.0.0'
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("none")),
+        buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @Test
+  void detectsDependencyManagementBomWithoutGradleModel() {
+    String build =
+        """
+        plugins {
+            id 'java'
+            id 'io.spring.dependency-management' version '1.1.7'
+        }
+
+        dependencyManagement {
+            imports {
+                mavenBom 'org.springframework.boot:spring-boot-dependencies:3.5.4'
+            }
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe("3")),
+        buildGradle(build, "/*~~>*/" + build));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"none", "3", "4"})
+  void doesNotMatchConflictingGradleSignals(String major) {
+    String build =
+        """
+        plugins {
+            id 'java'
+        }
+
+        repositories {
+            mavenCentral()
+        }
+
+        dependencies {
+            implementation platform('org.springframework.boot:spring-boot-dependencies:3.5.4')
+            implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+        }
+        """;
+
+    rewriteRun(
+        spec -> spec.recipe(new FindSpringBootMajorRecipe(major)),
+        buildGradle(build));
+  }
+
+  @Test
+  void configuresPlatformBackedGradleDependenciesWithTheSharedRecipe() {
+    String before =
+        gradleBuild(
+            """
+            plugins {
+                id 'java'
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            dependencies {
+                implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+            }
+            """)
+            + gradleDependencies(SB3_STARTER, SB3_PROCESS_TEST);
+
+    rewriteRun(
+        spec -> spec.beforeRecipe(withToolingApi()),
+        buildGradle(
+            before,
+            spec ->
+                spec.path("build.gradle")
+                    .after(
+                        after ->
+                            assertGradleDependencies(after, SB4_STARTER, SB4_PROCESS_TEST))));
+  }
+
+  @Test
+  void leavesGradleDependencyPairsAloneWhenBothArtifactsAreDeclared() {
+    String before =
+        gradleBuild(
+            """
+            plugins {
+                id 'java'
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            dependencies {
+                implementation platform('org.springframework.boot:spring-boot-dependencies:4.0.0')
+            }
+            """)
+            + gradleDependenciesWithBothArtifacts();
+
+    rewriteRun(buildGradle(before, spec -> spec.path("build.gradle")));
   }
 
   /**
@@ -268,8 +626,8 @@ class RecipeDependencyConfigTest implements RewriteTest {
    *
    * <p>{@code org.openrewrite.gradle.AddDependency} only skips the artifact it adds, so on its own
    * it happily adds the Spring Boot 3 artifact to a build that already declares the mutually
-   * exclusive Spring Boot 4 one. Every Gradle add therefore has to sit behind {@code
-   * DoesNotIncludeDependency} preconditions for both artifacts of its pair.
+   * exclusive Spring Boot 4 one. Every Gradle add therefore has to sit behind
+   * {@code DoesNotDeclareGradleDependencyRecipe} preconditions for both artifacts of its pair.
    *
    * <p>This is asserted on the descriptor rather than by running the recipe because executing a
    * Gradle branch requires a {@code GradleProject} marker, which in turn needs {@code
@@ -304,7 +662,8 @@ class RecipeDependencyConfigTest implements RewriteTest {
             .as("Gradle add of %s must be preconditioned on %s being absent", added, artifactId)
             .containsPattern(
                 Pattern.compile(
-                    "- org\\.openrewrite\\.gradle\\.search\\.DoesNotIncludeDependency:\\s*\\n"
+                    "- io\\.camunda\\.migration\\.code\\.recipes\\.sharedRecipes\\."
+                        + "DoesNotDeclareGradleDependencyRecipe:\\s*\\n"
                         + "\\s*groupId: io\\.camunda\\s*\\n"
                         + "\\s*artifactId: "
                         + Pattern.quote(artifactId)
@@ -314,7 +673,48 @@ class RecipeDependencyConfigTest implements RewriteTest {
 
     assertThat(guarded)
         .as("Gradle builds must still get a starter and a process test module")
-        .containsExactlyInAnyOrder(SB3_STARTER, SB3_PROCESS_TEST);
+        .contains(SB3_STARTER, SB4_STARTER, SB3_PROCESS_TEST, SB4_PROCESS_TEST);
+  }
+
+  @Test
+  void everyGradleRenameIsGuardedAgainstTheTargetArtifact() {
+    String yaml = resourceText("/META-INF/rewrite/dependencyRecipes.yml");
+
+    List<String> renamed = new ArrayList<>();
+    for (String document : yaml.split("(?m)^---$")) {
+      if (!document.contains("ChangeGradleDependencyRecipe")) {
+        continue;
+      }
+      Matcher targetMatcher =
+          Pattern.compile(
+                  "- io\\.camunda\\.migration\\.code\\.recipes\\.sharedRecipes\\."
+                      + "ChangeGradleDependencyRecipe:\\s*\\n"
+                      + "\\s*oldGroupId: \\S+\\s*\\n"
+                      + "\\s*oldArtifactId: \\S+\\s*\\n"
+                      + "\\s*newGroupId: \\S+\\s*\\n"
+                      + "\\s*newArtifactId: (\\S+)\\s*\\n")
+              .matcher(document);
+      assertThat(targetMatcher.find())
+          .as("Gradle rename must name its target artifact:\n%s", document)
+          .isTrue();
+      String target = targetMatcher.group(1);
+      renamed.add(target);
+
+      assertThat(document)
+          .as("Gradle rename to %s must be preconditioned on the target being absent", target)
+          .containsPattern(
+              Pattern.compile(
+                  "- io\\.camunda\\.migration\\.code\\.recipes\\.sharedRecipes\\."
+                      + "DoesNotDeclareGradleDependencyRecipe:\\s*\\n"
+                      + "\\s*groupId: io\\.camunda\\s*\\n"
+                      + "\\s*artifactId: "
+                      + Pattern.quote(target)
+                      + "\\s*\\n"));
+    }
+
+    assertThat(renamed)
+        .as("Gradle builds must guard every mutually exclusive rename target")
+        .containsExactlyInAnyOrder(SB3_STARTER, SB4_STARTER, SB3_PROCESS_TEST, SB4_PROCESS_TEST);
   }
 
   private static String assertOnly(String pom, String expectedStarter, String expectedProcessTest) {
@@ -388,6 +788,57 @@ class RecipeDependencyConfigTest implements RewriteTest {
              </dependencies>
            """
         .formatted(starter, camundaVersion(), processTest, camundaVersion());
+  }
+
+  private static String gradleBuild(String script) {
+    return script;
+  }
+
+  private static String gradleDependencies(String starter, String processTest) {
+    return """
+
+           dependencies {
+             implementation "io.camunda:%s:%s"
+             testImplementation "io.camunda:%s:%s"
+           }
+           """
+        .formatted(
+            starter, GRADLE_TEST_CAMUNDA_VERSION, processTest, GRADLE_TEST_CAMUNDA_VERSION);
+  }
+
+  private static String gradleDependenciesWithBothArtifacts() {
+    return """
+
+           dependencies {
+             implementation "io.camunda:%s:%s"
+             implementation "io.camunda:%s:%s"
+             testImplementation "io.camunda:%s:%s"
+             testImplementation "io.camunda:%s:%s"
+           }
+           """
+        .formatted(
+            SB3_STARTER,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB4_STARTER,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB3_PROCESS_TEST,
+            GRADLE_TEST_CAMUNDA_VERSION,
+            SB4_PROCESS_TEST,
+            GRADLE_TEST_CAMUNDA_VERSION);
+  }
+
+  private static String assertGradleDependencies(
+      String build, String expectedStarter, String expectedProcessTest) {
+    String unexpectedStarter = SB3_STARTER.equals(expectedStarter) ? SB4_STARTER : SB3_STARTER;
+    String unexpectedProcessTest =
+        SB3_PROCESS_TEST.equals(expectedProcessTest) ? SB4_PROCESS_TEST : SB3_PROCESS_TEST;
+
+    assertThat(build)
+        .contains("io.camunda:" + expectedStarter + ":")
+        .contains("io.camunda:" + expectedProcessTest + ":")
+        .doesNotContain("io.camunda:" + unexpectedStarter + ":")
+        .doesNotContain("io.camunda:" + unexpectedProcessTest + ":");
+    return build;
   }
 
   private static String pom(String springBootSignal, String dependencies) {
