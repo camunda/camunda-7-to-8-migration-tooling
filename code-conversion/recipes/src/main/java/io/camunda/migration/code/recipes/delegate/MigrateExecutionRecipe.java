@@ -155,8 +155,10 @@ public class MigrateExecutionRecipe extends Recipe {
                     }
                   }
 
-                  return classDeclaration.withBody(
-                      classDeclaration.getBody().withStatements(updatedStatements));
+                  return super.visitClassDeclaration(
+                      classDeclaration.withBody(
+                          classDeclaration.getBody().withStatements(updatedStatements)),
+                      ctx);
                 }
 
                 warning =
@@ -190,7 +192,7 @@ public class MigrateExecutionRecipe extends Recipe {
                   existingComments.stream()
                       .filter(c -> c instanceof TextComment)
                       .map(c -> (TextComment) c)
-                      .anyMatch(c -> c.getText().contains("delegate body could not be copied"));
+                      .anyMatch(c -> c.getText().contains("delegate body"));
               if (alreadyWarned) {
                 // Keep traversing so any nested delegate/listener classes are still processed.
                 return super.visitClassDeclaration(classDeclaration, ctx);
@@ -199,7 +201,8 @@ public class MigrateExecutionRecipe extends Recipe {
               List<Comment> updatedComments = new ArrayList<>(existingComments);
               updatedComments.add(
                   new TextComment(true, " " + warning, "\n", Markers.EMPTY));
-              return classDeclaration.withComments(updatedComments);
+              return super.visitClassDeclaration(
+                  classDeclaration.withComments(updatedComments), ctx);
             }
           });
     }
