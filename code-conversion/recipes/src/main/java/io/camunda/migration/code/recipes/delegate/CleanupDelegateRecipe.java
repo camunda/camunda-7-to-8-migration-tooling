@@ -49,9 +49,9 @@ public class CleanupDelegateRecipe extends Recipe {
           public J.ClassDeclaration visitClassDeclaration(
               @NonNull J.ClassDeclaration classDecl, ExecutionContext ctx) {
 
-            // Skip interfaces
+            // Skip interfaces, but keep traversing so nested types are still visited.
             if (classDecl.getKind() != J.ClassDeclaration.Kind.Type.Class) {
-              return classDecl;
+              return super.visitClassDeclaration(classDecl, ctx);
             }
 
             // Preserve delegate code when migration already warned that the body could not be
