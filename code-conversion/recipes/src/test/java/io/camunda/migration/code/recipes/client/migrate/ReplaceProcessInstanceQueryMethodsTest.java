@@ -57,6 +57,10 @@ public class HandleProcessInstanceQueryMethodsTestClass {
         engine.getRuntimeService().createProcessInstanceQuery()
                .processInstanceBusinessKey(businessKey)
                .processDefinitionKey(processDefinitionKey);
+               
+        engine.getRuntimeService().createProcessInstanceQuery()
+               .processDefinitionKey(processDefinitionKey)
+               .list();
     }
 }
 """,
@@ -103,10 +107,18 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .join()
                 .items();
                 
-        // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
-                .filter(filter -> filter.processDefinitionKey(Long.valueOf(processDefinitionKey)));
+                .filter(filter -> filter.processDefinitionId(processDefinitionKey));
+               
+        camundaClient
+                .newProcessInstanceSearchRequest()
+                .filter(filter -> filter
+                        .processDefinitionId(processDefinitionKey)
+                        .state(ProcessInstanceState.ACTIVE))
+                .send()
+                .join()
+                .items();
     }
 }
 """
