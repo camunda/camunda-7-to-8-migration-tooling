@@ -14,11 +14,16 @@ import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
+import io.camunda.migration.diagram.converter.DiagramType;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -129,19 +134,24 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   private void writeResults(
       Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {
+    if ((!check || csv || xlsx || markdown) && !createTargetDirectory()) {
+      return;
+    }
     if (!check) {
       for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
-        File file = determineFileName(prefixFileName(modelInstance.getKey()));
+        File file = prefixFileName(modelInstance.getKey());
         if (!override && file.exists()) {
-          LOG_CLI.error("File does already exist: {}", file);
+          LOG_CLI.error("File already exists: {}", file);
           returnCode = 1;
+          continue;
         }
-        LOG_CLI.info("Created {}", file);
+        file = determineFileName(file);
         try (FileWriter fw = new FileWriter(file)) {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
+          LOG_CLI.info("Created {}", file);
         } catch (IOException e) {
-          LOG_CLI.error("Error while creating BPMN file: {}", createMessage(e));
+          LOG_CLI.error("Error while creating diagram file: {}", createMessage(e));
           returnCode = 1;
         }
       }
@@ -175,6 +185,19 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         LOG_CLI.error("Error while creating markdown results: {}", createMessage(e));
         returnCode = 1;
       }
+    }
+  }
+
+  private boolean createTargetDirectory() {
+    File directory = targetDirectory();
+    Path path = directory == null ? Path.of(".") : directory.toPath();
+    try {
+      Files.createDirectories(path);
+      return true;
+    } catch (IOException e) {
+      LOG_CLI.error("Error while creating target directory {}: {}", path, createMessage(e));
+      returnCode = 1;
+      return false;
     }
   }
 
@@ -225,16 +248,30 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     int counter = 0;
     while (!override && newFile.exists()) {
       counter++;
+      String fileName = file.getName();
+      String fileEnding = fileEnding(fileName);
       newFile =
           new File(
               file.getParentFile(),
-              FilenameUtils.getBaseName(file.getName())
+              fileName.substring(0, fileName.length() - fileEnding.length())
                   + " ("
                   + counter
-                  + ")."
-                  + FilenameUtils.getExtension(file.getName()));
+                  + ")"
+                  + fileEnding);
     }
     return newFile;
+  }
+
+  private String fileEnding(String fileName) {
+    return Arrays.stream(DiagramType.values())
+        .flatMap(diagramType -> diagramType.getFileEndings().stream())
+        .filter(fileName::endsWith)
+        .max(Comparator.comparingInt(String::length))
+        .orElseGet(
+            () -> {
+              String extension = FilenameUtils.getExtension(fileName);
+              return extension.isEmpty() ? "" : "." + extension;
+            });
   }
 
   protected String createMessage(Exception e) {

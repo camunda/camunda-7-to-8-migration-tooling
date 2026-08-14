@@ -40,6 +40,31 @@ public class ConvertLocalCommandTest {
   }
 
   @Test
+  void shouldNotOverwriteExistingOutputWithoutOverride(@TempDir File tempDir) throws IOException {
+    setupDir("c7.bpmn", tempDir);
+    File input = new File(tempDir, "c7.bpmn");
+    File output = new File(tempDir, "converted-c8-c7.bpmn");
+
+    ConvertLocalCommand firstCommand = new ConvertLocalCommand();
+    firstCommand.file = input;
+    assertThat(firstCommand.call()).isZero();
+
+    Files.writeString(output.toPath(), "existing output");
+
+    ConvertLocalCommand secondCommand = new ConvertLocalCommand();
+    secondCommand.file = input;
+    assertThat(secondCommand.call()).isEqualTo(1);
+    assertThat(Files.readString(output.toPath())).isEqualTo("existing output");
+    assertThat(new File(tempDir, "converted-c8-c7 (1).bpmn")).doesNotExist();
+
+    ConvertLocalCommand overrideCommand = new ConvertLocalCommand();
+    overrideCommand.file = input;
+    overrideCommand.override = true;
+    assertThat(overrideCommand.call()).isZero();
+    assertThat(Files.readString(output.toPath())).isNotEqualTo("existing output");
+  }
+
+  @Test
   public void shouldConvertDmn(@TempDir File tempDir) {
     setupDir("first.dmn", tempDir);
     ConvertLocalCommand command = new ConvertLocalCommand();
