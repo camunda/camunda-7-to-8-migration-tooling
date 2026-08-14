@@ -10,7 +10,8 @@ package io.camunda.migration.diagram.converter.cli;
 import io.camunda.migration.diagram.converter.DiagramType;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,27 +68,89 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
 
   @Override
   protected Map<File, ModelInstance> modelInstances() {
-    Map<String, Map<String, Set<String>>> allLatestBpmnXml = getAllLatestBpmnXml();
-    allLatestBpmnXml.putAll(getAllLatestDmnXml());
-    Map<File, ModelInstance> result = new HashMap<>();
-    allLatestBpmnXml.forEach(
+    Map<File, ModelInstance> result = new LinkedHashMap<>();
+    addModelInstances(getAllLatestBpmnXml(), DiagramType.BPMN, result);
+    addModelInstances(getAllLatestDmnXml(), DiagramType.DMN, result);
+    return result;
+  }
+
+  private void addModelInstances(
+      Map<String, Map<String, Set<String>>> diagrams,
+      DiagramType diagramType,
+      Map<File, ModelInstance> result) {
+    diagrams.forEach(
         (resourceName, models) ->
             models.forEach(
                 (model, processDefinitionKeys) -> {
+                  String resourceFilename = FilenameUtils.getName(resourceName);
                   String filename =
                       models.size() == 1
-                          ? resourceName
-                          : FilenameUtils.getBaseName(resourceName)
-                              + " ("
-                              + String.join(", ", processDefinitionKeys)
-                              + ")."
-                              + FilenameUtils.getExtension(resourceName);
+                          ? resourceFilename
+                          : multiModelFilename(
+                              resourceFilename, processDefinitionKeys, diagramType);
+                  filename = FilenameUtils.getName(filename);
+                  filename = safeFilename(filename, diagramType);
+                  File outputFile = uniqueOutputFile(filename, diagramType, result);
                   result.put(
-                      new File(targetDirectory, filename),
-                      DiagramType.fromFileName(filename)
-                          .readDiagram(new ByteArrayInputStream(model.getBytes())));
+                      outputFile,
+                      diagramType.readDiagram(
+                          new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
                 }));
-    return result;
+  }
+
+  static String safeFilename(String filename, DiagramType diagramType) {
+    if (filename.isBlank() || filename.equals(".") || filename.equals("..")) {
+      return "diagram" + diagramType.getFileEndings().get(0);
+    }
+    return filename;
+  }
+
+  private String multiModelFilename(
+      String resourceFilename, Set<String> processDefinitionKeys, DiagramType diagramType) {
+    String fileEnding = diagramEnding(resourceFilename, diagramType);
+    if (fileEnding.isEmpty()) {
+      return "diagram ("
+          + processDefinitionKeys.stream().sorted().collect(Collectors.joining(", "))
+          + ")"
+          + diagramType.getFileEndings().get(0);
+    }
+    String baseName =
+        resourceFilename.substring(0, resourceFilename.length() - fileEnding.length());
+    return baseName
+        + " ("
+        + processDefinitionKeys.stream().sorted().collect(Collectors.joining(", "))
+        + ")"
+        + fileEnding;
+  }
+
+  private String diagramEnding(String filename, DiagramType diagramType) {
+    return diagramType.getFileEndings().stream()
+        .filter(filename::endsWith)
+        .findFirst()
+        .orElseGet(
+            () -> {
+              String extension = FilenameUtils.getExtension(filename);
+              return extension.isEmpty() ? "" : "." + extension;
+            });
+  }
+
+  private File uniqueOutputFile(
+      String filename, DiagramType diagramType, Map<File, ModelInstance> existingFiles) {
+    File outputFile = new File(targetDirectory, filename);
+    int counter = 0;
+    while (existingFiles.containsKey(outputFile)) {
+      counter++;
+      String fileEnding = diagramEnding(filename, diagramType);
+      outputFile =
+          new File(
+              targetDirectory,
+              filename.substring(0, filename.length() - fileEnding.length())
+                  + " ("
+                  + counter
+                  + ")"
+                  + fileEnding);
+    }
+    return outputFile;
   }
 
   private Map<String, Map<String, Set<String>>> getAllLatestBpmnXml() {
