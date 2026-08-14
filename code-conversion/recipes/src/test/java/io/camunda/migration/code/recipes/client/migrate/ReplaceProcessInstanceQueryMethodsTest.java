@@ -194,4 +194,69 @@ public class HandleProcessInstanceQueryMethodsTestClass {
             }
             """));
   }
+
+  @Test
+  void warnsWhenBusinessKeyIsCombinedWithProcessDefinitionKey() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class CombinedQueryTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void combinedQuery(String businessKey, String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processInstanceBusinessKey(businessKey)
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.CamundaClient;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class CombinedQueryTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void combinedQuery(String businessKey, String processDefinitionKey) {
+                    // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey))
+                            .send()
+                            .join()
+                            .items();
+                }
+            }
+            """));
+  }
 }
