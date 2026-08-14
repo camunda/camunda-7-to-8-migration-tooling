@@ -354,7 +354,7 @@ The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisi
 Before contacting the system, use `AskUserQuestion` to request the access needed for this run:
 
 - Preferred: the C7 engine REST base URL, including its `/engine-rest` context path when applicable.
-- Authentication: no authentication or Basic authentication username/password. Obtain secrets through the agent's secure credential mechanism; never write them to `MIGRATION_REPORT.md` or commit them.
+- Authentication: no authentication or Basic authentication username/password. Obtain secrets through the agent's secure credential mechanism; never write them to `MIGRATION_REPORT.md` or commit them. **Caution:** the CLI's `--password` flag exposes secrets in shell history and OS process listings, so use a trusted environment and prefer temporary or dedicated credentials.
 - If REST access is unavailable, ask whether a supported database-backed extractor is available and request only the connection details it requires. The released `engine` CLI path supports REST with optional Basic authentication, not direct database extraction or OIDC; stop with that limitation rather than pretending a DB/OIDC connection was used.
 
 Also ask whether to fetch all latest process/decision definitions or only named keys. The existing `engine` command fetches all latest definitions. For a named set, query the C7 REST list endpoints with the appropriate key filters, fetch each definition's `/xml` resource, write the XML files to a staging directory such as `.camunda-migration/c7-models/`, and then run M1 local mode on that directory.
