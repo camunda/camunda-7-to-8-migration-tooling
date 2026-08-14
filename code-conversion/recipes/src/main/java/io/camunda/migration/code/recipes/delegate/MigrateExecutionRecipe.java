@@ -19,8 +19,16 @@ import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
+import org.openrewrite.marker.Markers;
 
 public class MigrateExecutionRecipe extends Recipe {
+
+  /**
+   * Sentinel shared with cleanup recipes so that warning comments about lost delegate business
+   * logic can be detected reliably.
+   */
+  public static final String DELEGATE_BODY_COPY_WARNING_SENTINEL =
+      "The delegate body could not be copied automatically";
 
   /** Instantiates a new instance. */
   public MigrateExecutionRecipe() {}
@@ -62,11 +70,11 @@ public class MigrateExecutionRecipe extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
 
-      // define preconditions
+      // Only run on classes that implement JavaDelegate. Requiring the @JobWorker annotation here
+      // is fragile because the annotation is injected by AllDelegatePrepareRecipes, and newer
+      // OpenRewrite versions may evaluate this precondition against an outdated LST.
       TreeVisitor<?, ExecutionContext> check =
-          Preconditions.and(
-              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
-              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
+          new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true);
 
       return Preconditions.check(
           check,
@@ -80,54 +88,133 @@ public class MigrateExecutionRecipe extends Recipe {
                 return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
-              List<Statement> currentStatements = classDeclaration.getBody().getStatements();
-              List<Statement> updatedStatements = new ArrayList<>();
-
-              // find delegate method
-              J.Block delegateBody = null;
-              for (Statement stmt : currentStatements) {
-                if (stmt instanceof J.MethodDeclaration methDecl
-                    && methDecl.getSimpleName().equals("execute")) {
-                  delegateBody = methDecl.getBody();
-                }
+              if (!isJavaDelegateAssignable(classDeclaration)) {
+                return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
-              // find and change job worker method
-              if (delegateBody != null) {
-                for (Statement stmt : currentStatements) {
-                  if (stmt instanceof J.MethodDeclaration methDecl
-                      && methDecl.getSimpleName().equals("executeJob")) {
-                    J.Block jobWorkerBody = methDecl.getBody();
+              List<Statement> currentStatements = classDeclaration.getBody().getStatements();
+              J.MethodDeclaration delegateMethod = null;
+              J.MethodDeclaration jobWorkerMethod = null;
+              J.MethodDeclaration alreadyMigratedMethod = null;
 
-                    // all current statments (result map and return)
-                    List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
-
-                    // delegate body
-                    List<Statement> delegateStatements =
-                        new ArrayList<>(delegateBody.getStatements());
-
-                    // combine statements
-                    delegateStatements.add(0, jobWorkerStatements.get(0));
-                    delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
-
-                    // put together and rename job worker so recipe does not run twice
-                    updatedStatements.add(
-                        methDecl
-                            .withBody(methDecl.getBody().withStatements(delegateStatements))
-                            .withName(methDecl.getName().withSimpleName("executeJobMigrated"))
-                            .withMethodType(
-                                methDecl.getMethodType().withName("executeJobMigrated")));
-                  } else {
-                    updatedStatements.add(stmt);
+              for (Statement stmt : currentStatements) {
+                if (stmt instanceof J.MethodDeclaration methDecl) {
+                  if (methDecl.getSimpleName().equals("execute")) {
+                    delegateMethod = methDecl;
+                  } else if (methDecl.getSimpleName().equals("executeJob")) {
+                    jobWorkerMethod = methDecl;
+                  } else if (methDecl.getSimpleName().equals("executeJobMigrated")) {
+                    alreadyMigratedMethod = methDecl;
                   }
                 }
-                return classDeclaration.withBody(
-                    classDeclaration.getBody().withStatements(updatedStatements));
               }
-              return super.visitClassDeclaration(classDeclaration, ctx);
+
+              if (alreadyMigratedMethod != null) {
+                // The copy has already happened in a previous cycle; keep traversing in case
+                // there are nested delegate/listener classes that still need to be processed.
+                return super.visitClassDeclaration(classDeclaration, ctx);
+              }
+
+              String warning = null;
+
+              if (delegateMethod != null && jobWorkerMethod != null) {
+                J.Block delegateBody = delegateMethod.getBody();
+                J.Block jobWorkerBody = jobWorkerMethod.getBody();
+
+                boolean canCopy =
+                    delegateBody != null
+                        && jobWorkerBody != null
+                        && jobWorkerBody.getStatements().size() == 2;
+
+                if (canCopy) {
+                  // all current statements (result map and return)
+                  List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
+
+                  // delegate body
+                  List<Statement> delegateStatements =
+                      new ArrayList<>(delegateBody.getStatements());
+
+                  // combine statements
+                  delegateStatements.add(0, jobWorkerStatements.get(0));
+                  delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
+
+                  J.MethodDeclaration migratedJobWorker =
+                      jobWorkerMethod
+                          .withBody(jobWorkerMethod.getBody().withStatements(delegateStatements))
+                          .withName(jobWorkerMethod.getName().withSimpleName("executeJobMigrated"))
+                          .withMethodType(
+                              jobWorkerMethod.getMethodType().withName("executeJobMigrated"));
+
+                  List<Statement> updatedStatements = new ArrayList<>();
+                  for (Statement stmt : currentStatements) {
+                    if (stmt == jobWorkerMethod) {
+                      updatedStatements.add(migratedJobWorker);
+                    } else {
+                      updatedStatements.add(stmt);
+                    }
+                  }
+
+                  return super.visitClassDeclaration(
+                      classDeclaration.withBody(
+                          classDeclaration.getBody().withStatements(updatedStatements)),
+                      ctx);
+                }
+
+                warning =
+                    "Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob)"
+                        + " is not in the expected shape. "
+                        + DELEGATE_BODY_COPY_WARNING_SENTINEL
+                        + "; migrate the logic manually.";
+              }
+
+              if (warning == null) {
+                if (delegateMethod != null && jobWorkerMethod == null) {
+                  warning =
+                      "The delegate execute(DelegateExecution) method exists, but no generated"
+                          + " executeJob(ActivatedJob) stub was found. The delegate body could not"
+                          + " be copied automatically; migrate it manually.";
+                } else if (delegateMethod == null && jobWorkerMethod != null) {
+                  warning =
+                      "No execute(DelegateExecution) method was found directly in this class. If it"
+                          + " lives in a superclass, "
+                          + DELEGATE_BODY_COPY_WARNING_SENTINEL
+                          + "; migrate it manually.";
+                } else {
+                  warning =
+                      "Neither execute(DelegateExecution) nor executeJob(ActivatedJob) was found."
+                          + " The delegate body could not be copied automatically; migrate it"
+                          + " manually.";
+                }
+              }
+
+              List<Comment> existingComments =
+                  classDeclaration.getComments() == null
+                      ? Collections.emptyList()
+                      : classDeclaration.getComments();
+              boolean alreadyWarned =
+                  existingComments.stream()
+                      .filter(c -> c instanceof TextComment)
+                      .map(c -> (TextComment) c)
+                      .anyMatch(
+                          c -> c.getText().contains(DELEGATE_BODY_COPY_WARNING_SENTINEL));
+              if (alreadyWarned) {
+                // Keep traversing so any nested delegate/listener classes are still processed.
+                return super.visitClassDeclaration(classDeclaration, ctx);
+              }
+
+              List<Comment> updatedComments = new ArrayList<>(existingComments);
+              updatedComments.add(
+                  new TextComment(true, " " + warning, "\n", Markers.EMPTY));
+              return super.visitClassDeclaration(
+                  classDeclaration.withComments(updatedComments), ctx);
             }
           });
     }
+  }
+
+  private static boolean isJavaDelegateAssignable(J.ClassDeclaration classDeclaration) {
+    return RecipeUtils.isAssignableTo(
+        classDeclaration.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate");
   }
 
   private static class CopyExecutionListenerToJobWorkerRecipe extends Recipe {
