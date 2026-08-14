@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.io.file.PathVisitor;
 import org.camunda.bpm.model.xml.ModelInstance;
 import org.slf4j.Logger;
@@ -127,7 +128,17 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
   private List<File> findFiles(File directory) {
     List<File> files = new ArrayList<>();
     try {
-      Files.walkFileTree(directory.toPath(), new FindFileBySuffixPathVisitor(files));
+      if (notRecursive) {
+        try (Stream<Path> stream = Files.list(directory.toPath())) {
+          stream
+              .filter(Files::isRegularFile)
+              .map(Path::toFile)
+              .filter(this::isValidFile)
+              .forEach(files::add);
+        }
+      } else {
+        Files.walkFileTree(directory.toPath(), new FindFileBySuffixPathVisitor(files));
+      }
     } catch (Exception e) {
       LOG_CLI.error("Error while finding files: {}", createMessage(e));
       returnCode = 1;

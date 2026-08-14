@@ -1,19 +1,18 @@
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientPrepareRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client prepare recipes
+description: Prepares dependencies and shared API replacements before client method migration.
 recipeList:
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-spring-boot-starter
-      version: ${version.camunda-8}
+  # Camunda 8.9 split the Spring Boot starter: choose the starter based on the existing
+  # Spring Boot major in the migrated project (3.x -> boot-3 starter, 4.x -> default starter).
+  - io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe
   - io.camunda.migration.code.recipes.client.PrepareCamundaClientDependencyRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientMigrateRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client migration recipes
+description: Migrates ProcessEngine and process-test usages to Camunda 8 client APIs.
 recipeList:
   - io.camunda.migration.code.recipes.client.MigrateSignalMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateCancelProcessInstanceMethodsRecipe
@@ -21,7 +20,10 @@ recipeList:
   - io.camunda.migration.code.recipes.client.MigrateMessageMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateUserTaskMethodsRecipe
   - io.camunda.migration.code.recipes.client.MigrateProcessInstanceQueryMethodsRecipe
+  - io.camunda.migration.code.recipes.client.DetectHistoryServiceUsageRecipe
+  - io.camunda.migration.code.recipes.sharedRecipes.WarnSpringProfileNegationRecipe
   - io.camunda.migration.code.recipes.testing.ReplaceAssertionsRecipe
+  - io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaProcessTestDependencyRecipe
   - org.openrewrite.java.UseStaticImport:
       methodPattern: io.camunda.process.test.api.CamundaAssert assertThat(..)
   - org.openrewrite.java.UseStaticImport:
@@ -32,10 +34,11 @@ recipeList:
 ---
 type: specs.openrewrite.org/v1beta/recipe
 name: io.camunda.migration.code.recipes.AllClientCleanupRecipes
-displayName: Runs all delegate cleanup recipes
-description: Removes delegate code and unused imports.
+displayName: Runs all client cleanup recipes
+description: Removes engine-era leftovers after the client migration.
 recipeList:
   - io.camunda.migration.code.recipes.client.CleanupEngineDependencyRecipe
+  - io.camunda.migration.code.recipes.client.DeleteProcessesXmlRecipe
   - org.openrewrite.java.RemoveUnusedImports
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -46,3 +49,6 @@ recipeList:
   - io.camunda.migration.code.recipes.AllClientPrepareRecipes
   - io.camunda.migration.code.recipes.AllClientMigrateRecipes
   - io.camunda.migration.code.recipes.AllClientCleanupRecipes
+  # Migrate the Spring Boot configuration file (camunda.bpm.* -> camunda.client.*).
+  # Unambiguous cleanup, so it runs as part of the standard client migration.
+  - io.camunda.migration.code.recipes.MigrateApplicationPropertiesRecipe

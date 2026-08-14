@@ -82,6 +82,14 @@ services:
       - CAMUNDA_CLIENT_MODE=self-managed
       - CAMUNDA_CLIENT_GRPC_ADDRESS=http://camunda8:26500
       - CAMUNDA_CLIENT_REST_ADDRESS=http://camunda8:8080
+      # C8 API auth is enforced (unprotected-api: false, required for the Operate UI
+      # login flow to work), so the migrator client must authenticate as the demo user.
+      - CAMUNDA_CLIENT_AUTH_USERNAME=demo
+      - CAMUNDA_CLIENT_AUTH_PASSWORD=demo
+      # Keep the client request timeout below the REST socket timeout so the
+      # authenticated job-activation long-poll returns cleanly instead of the
+      # socket timing out during the runtime migration.
+      - CAMUNDA_CLIENT_REQUEST_TIMEOUT=PT8S
     command:
       - /bin/bash
       - -c
@@ -144,7 +152,7 @@ configs:
         security:
           authentication:
             method: "basic"
-            unprotectedApi: true
+            unprotected-api: false
           authorizations:
             enabled: false
           initialization:

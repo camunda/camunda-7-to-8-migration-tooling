@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-  <version>0.3.1-SNAPSHOT</version>
+  <version>0.3.4-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -29,27 +29,34 @@
     <maven.compiler.target>21</maven.compiler.target>
     <version.java>21</version.java>
 
-    <version.camunda-7>7.24.6-ee</version.camunda-7>
+    <version.camunda-7>7.24.11-ee</version.camunda-7>
     <version.camunda-8>8.10.0-SNAPSHOT</version.camunda-8>
     <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
+    <version.jackson-bom>2.22.1</version.jackson-bom>
+    <version.jackson-3-bom>3.2.1</version.jackson-3-bom>
+    <version.log4j-bom>2.26.1</version.log4j-bom>
+    <logback.version>1.6.3</logback.version>
+    <tomcat.version>11.0.24</tomcat.version>
     <version.protobuf>4.35.1</version.protobuf>
     <version.assertj>3.27.7</version.assertj>
-    <version.junit.jupiter>6.1.0</version.junit.jupiter>
+    <version.junit.jupiter>6.1.3</version.junit.jupiter>
     <version.h2>2.4.240</version.h2>
     <version.guava>33.6.0-jre</version.guava>
     <version.errorprone>2.50.0</version.errorprone>
-    <version.node>v20.18.1</version.node>
+    <version.node>v22.18.0</version.node>
     <version.npm>10.8.2</version.npm>
+    <version.httpcore5>5.4.3</version.httpcore5>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
-    <plugin.version.frontend-maven>2.0.1</plugin.version.frontend-maven>
+    <plugin.version.frontend-maven>2.0.2</plugin.version.frontend-maven>
     <plugin.version.surefire>3.5.6</plugin.version.surefire>
     <plugin.version.failsafe>3.5.6</plugin.version.failsafe>
     <plugin.version.resources>3.5.0</plugin.version.resources>
     <plugin.version.dependency>3.11.0</plugin.version.dependency>
+    <plugin.version.enforcer>3.6.3</plugin.version.enforcer>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
@@ -106,6 +113,57 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-55955: pin tomcat-embed to 11.0.23 -->
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-el</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <!-- CVE-2026-54399: pin httpcore5 to 5.4.3 -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>${version.httpcore5}</version>
+      </dependency>
+      <!-- CVE-2026-54428: pin httpcore5-h2 to 5.4.3 (separate artifact from httpcore5, not covered by the entry above) -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>${version.httpcore5}</version>
+      </dependency>
+      <!-- CVE-2026-13006: pin logback to 1.5.37 (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <!-- CVE-2026-54515 / CVE-2026-59889: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson-bom}</version>
+      </dependency>
+      <!-- CVE-2026-59889: close residual Jackson 3 gaps in modules not covered by a per-module tools.jackson BOM import -->
+      <dependency>
+        <groupId>tools.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${version.jackson-3-bom}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -115,7 +173,7 @@
         <plugin>
           <groupId>com.mycila</groupId>
           <artifactId>license-maven-plugin</artifactId>
-          <version>5.0.0</version>
+          <version>5.1.1</version>
           <configuration>
             <mapping>
               <java>SLASHSTAR_STYLE</java>
@@ -134,6 +192,13 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${plugin.version.compiler}</version>
+          <configuration>
+            <showWarnings>true</showWarnings>
+            <failOnWarning>true</failOnWarning>
+            <compilerArgs>
+              <arg>-Xlint:deprecation,varargs,-options</arg>
+            </compilerArgs>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.sonatype.plugins</groupId>
@@ -184,6 +249,11 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <version>${plugin.version.dependency}</version>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${plugin.version.enforcer}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -210,7 +280,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.7.3</version>
+        <version>1.8.0</version>
         <configuration combine.children="append">
           <flattenMode>bom</flattenMode>
         </configuration>
@@ -228,6 +298,36 @@
               <goal>clean</goal>
             </goals>
             <phase>clean</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>reject-vulnerable-jackson-databind</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.8,2.18.9)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.5)</exclude>
+                    <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.1)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.0,3.1.5)</exclude>
+                    <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.1)</exclude>
+                  </excludes>
+                  <message>
+                    jackson-databind must not resolve to a version affected by CVE-2026-54515 or CVE-2026-59889.
+                  </message>
+                  <searchTransitive>true</searchTransitive>
+                </bannedDependencies>
+              </rules>
+            </configuration>
           </execution>
         </executions>
       </plugin>

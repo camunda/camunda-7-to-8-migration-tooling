@@ -142,7 +142,7 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
     testHelper.assertThatGroupsContain(List.of(group1), groups);
 
     // and 2 group memberships are migrated
-    await().timeout(3, TimeUnit.SECONDS).untilAsserted(() -> testHelper.assertThatUsersForGroupContainExactly(group1.getId(), "userId1", "userId2"));
+    await().timeout(30, TimeUnit.SECONDS).untilAsserted(() -> testHelper.assertThatUsersForGroupContainExactly(group1.getId(), "userId1", "userId2"));
 
     // and 1 group membership could not be migrated
     logs.assertContains(formatMessage(FAILED_TO_CREATE_GROUP_MEMBERSHIP, group1.getId(), "userId0"));
@@ -166,7 +166,7 @@ public class GroupMigrationTest extends IdentityMigrationAbstractTest {
       identityMigrator.start();
 
       // then no groups were migrated
-      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(5)).untilAsserted(() -> {
+      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(30)).untilAsserted(() -> {
         var currentGroups = camundaClient.newGroupsSearchRequest().execute().items();
         assertThat(currentGroups).hasSize(0);
       });

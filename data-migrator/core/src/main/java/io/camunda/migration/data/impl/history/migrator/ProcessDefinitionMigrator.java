@@ -9,7 +9,6 @@ package io.camunda.migration.data.impl.history.migrator;
 
 import static io.camunda.migration.data.impl.logging.HistoryMigratorLogs.logMigratingProcessDefinition;
 import static io.camunda.migration.data.impl.persistence.IdKeyMapper.TYPE.HISTORY_PROCESS_DEFINITION;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel;
 import io.camunda.db.rdbms.write.domain.ProcessDefinitionDbModel.ProcessDefinitionDbModelBuilder;
@@ -62,7 +61,7 @@ public class ProcessDefinitionMigrator extends HistoryEntityMigrator<ProcessDefi
       var builder = new ProcessDefinitionDbModelBuilder();
 
       String startFormId = c7Client.getStartFormId(c7ProcessDefinition);
-      builder.formId(prefixDefinitionId(startFormId));
+      builder.formId(legacyIdPrefix.applyTo(startFormId));
 
       var creationTime = c7Client.getDefinitionDeploymentTime(c7ProcessDefinition.getDeploymentId());
       var dbModel = convert(C7Entity.of(c7ProcessDefinition, creationTime), builder);

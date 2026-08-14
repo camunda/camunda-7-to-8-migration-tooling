@@ -1,0 +1,25 @@
+{
+  "name": "camunda-migration",
+  "description": "Agent skill for migrating Camunda 7 projects to Camunda 8 — Java code (OpenRewrite + AI) and BPMN/DMN models.",
+  "version": "0.1.0",
+  "author": {
+    "name": "camunda",
+    "url": "https://github.com/camunda"
+  },
+  "license": "Camunda License 1.0",
+  "keywords": [
+    "camunda",
+    "migration",
+    "camunda7",
+    "camunda8",
+    "zeebe",
+    "java",
+    "bpmn",
+    "dmn"
+  ],
+  "homepage": "https://docs.camunda.io/docs/next/guides/migrating-from-camunda-7/data-migrator/",
+  "repository": "https://github.com/camunda/camunda-7-to-8-migration-tooling",
+  "skills": [
+    "./skills/migrate-c7-to-c8-code"
+  ]
+}

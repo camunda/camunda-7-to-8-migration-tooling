@@ -41,6 +41,10 @@ inputs:
   vault-secret-id:
     description: Vault Secret ID to use
     required: false
+outputs:
+  maven-cache-hit:
+    description: Whether setup-java restored Maven dependencies from cache
+    value: ${{ steps.setup-java.outputs.cache-hit }}
 runs:
   using: composite
   steps:
@@ -58,6 +62,7 @@ runs:
         secret/data/products/cambpm/ci/artifactory USER | ARTIFACTORY_USR;
         secret/data/products/cambpm/ci/artifactory TOKEN | ARTIFACTORY_PSW;
   - name: Setup Java
+    id: setup-java
     uses: actions/setup-java@v5
     with:
       java-version: ${{ inputs.java-version }}

@@ -6,11 +6,11 @@
  * except in compliance with the Camunda License 1.0.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 /**
  * E2E smoke test for the Cockpit plugin
- * 
+ *
  * This test validates that:
  * 1. Camunda 7 starts successfully with the plugin deployed
  * 2. The Cockpit UI is accessible
@@ -18,159 +18,139 @@ import { test, expect } from '@playwright/test';
  * 4. The plugin can interact with migrated/skipped entities
  */
 
+// The Cockpit navbar renders the "Processes" link more than once (a visible
+// desktop bar plus a collapsed responsive copy share the same href), so a bare
+// a[href="#/processes"] locator matches multiple elements and trips Playwright's
+// strict mode. Scope to the visible match so the choice is deterministic
+// regardless of DOM order (the hidden responsive copy may come first).
+const processesLink = (page: Page) => page.locator('a[href="#/processes"]:visible').first();
+
+// Navigate from the dashboard to the plugin's processes page.
+async function openProcessesPage(page: Page) {
+  await processesLink(page).click();
+  await page.waitForURL(/#\/processes/, { timeout: 15000 });
+}
+
 test.describe('Cockpit Plugin E2E', () => {
-  // Configure this test suite to run in isolation
   test.describe.configure({ mode: 'serial' });
+  // Cold CI containers need time for the login round-trip plus the Angular
+  // bootstrap; give each test a generous budget. Firefox initialises the
+  // Angular runtime noticeably slower than Chromium on cold CI runners, so
+  // the budget must cover the worst-case beforeEach (up to 60 s for the login
+  // form + up to 60 s for the processes-link readiness gate + navigation
+  // overhead) and still leave meaningful headroom for the test body itself.
+  test.setTimeout(180000);
 
-  test.beforeEach(async ({ page, context }) => {
-    // Clear cookies and storage to ensure clean state
-    await context.clearCookies();
-    await context.clearPermissions();
+  test.beforeEach(async ({ page }) => {
+    // Playwright's default `page` fixture is function-scoped: every test gets a
+    // fresh, cookie-less context, so we authenticate from scratch each time.
+    // Wait only for DOMContentLoaded (not the full `load` event) so that we
+    // start polling for the Angular-rendered login form as soon as the DOM is
+    // parsed, rather than waiting for every sub-resource to finish loading.
+    await page.goto('/camunda/app/cockpit/default/', { waitUntil: 'domcontentloaded' });
 
-    // Navigate to Camunda Cockpit and login
-    await page.goto('/camunda/app/cockpit/default/');
-    
-    // Wait for the login page to load
-    await page.waitForLoadState('networkidle');
-    
-    // Check if we're on a login page (some Camunda instances might auto-login)
-    const isLoginPage = await page.locator('input[ng-model="username"]').isVisible().catch(() => false);
-    
-    if (isLoginPage) {
-      // Fill in login credentials - Camunda 7 default demo user
-      const usernameInput = page.locator('input[ng-model="username"]');
-      const passwordInput = page.locator('input[ng-model="password"]');
-      const submitButton = page.locator('button[type="submit"]');
-      
-      // Wait for inputs to be visible
-      await usernameInput.waitFor({ state: 'visible', timeout: 10000 });
-      
-      await usernameInput.fill('demo');
-      await passwordInput.fill('demo');
-      
-      // Take screenshot before login
-      await page.screenshot({ path: 'test-results/before-login.png', fullPage: true });
-      
-      await submitButton.click();
-      
-      // Wait a bit for the login to process
-      await page.waitForTimeout(2000);
-      
-      // Take screenshot after clicking login
-      await page.screenshot({ path: 'test-results/after-login-click.png', fullPage: true });
-      
-      // Wait for the dashboard to load with a longer timeout
-      // The URL might redirect through several pages
-      await page.waitForURL('**/cockpit/default/#/dashboard', { timeout: 30000 });
-    }
-  });
+    // Log in with the Camunda 7 demo user. The login form is served by the same
+    // Angular app, so wait for it explicitly rather than racing isVisible().
+    // Use a 60 s budget to accommodate Firefox's slower Angular bootstrap on
+    // cold CI containers (the previous 30 s budget caused intermittent failures
+    // in Firefox, see #1955).
+    const usernameInput = page.locator('input[ng-model="username"]');
+    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
+    await usernameInput.fill('demo');
+    await page.fill('input[ng-model="password"]', 'demo');
+    await page.click('button[type="submit"]');
 
-  test.afterEach(async ({ page, context }) => {
-    // Clean up after each test to prevent state leakage
-    await context.clearCookies();
-    await page.close();
+    // Readiness gate: the Cockpit SPA must finish bootstrapping and render its
+    // navigation before any test interacts with it. If a plugin bundle fails to
+    // load (e.g. an unresolved bare module specifier), the SPA hangs on its
+    // loading spinner and this wait fails fast with a clear, actionable signal
+    // instead of a vague mid-test click timeout.
+    await processesLink(page).waitFor({ state: 'visible', timeout: 60000 });
   });
 
   test('should load Camunda Cockpit successfully', async ({ page }) => {
-    // Take a screenshot after login for debugging
     await page.screenshot({ path: 'test-results/after-login.png', fullPage: true });
-    
-    // Verify we're on the Cockpit dashboard
-    await expect(page).toHaveURL(/.*cockpit.*dashboard/);
-    
-    // Verify the page title
+
+    // Cockpit URL may or may not include #/dashboard depending on version/timing
+    await expect(page).toHaveURL(/\/camunda\/app\/cockpit\//);
     await expect(page).toHaveTitle(/Cockpit/);
+
+    // The static <title> is present even on the login page; asserting the nav
+    // rendered is what actually proves the SPA bootstrapped successfully.
+    await expect(processesLink(page)).toBeVisible();
   });
 
   test('should display the migrator plugin on processes page', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
-    
+    await openProcessesPage(page);
+
     // Wait for the plugin to load - look for the plugin title
     const pluginTitle = page.locator('h1.section-title:has-text("Camunda 7 to 8 Data Migrator")');
     await pluginTitle.waitFor({ timeout: 10000 });
-    
+
     // Verify the plugin title is visible
     await expect(pluginTitle).toBeVisible();
-    
+
     // Take a screenshot for verification
     await page.screenshot({ path: 'test-results/plugin-on-processes-page.png', fullPage: true });
   });
 
   test('should display migrated and skipped entity tabs', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
-    
-    // Wait for the plugin to render
-    await page.waitForTimeout(2000); // Give React time to render
-    
+    await openProcessesPage(page);
+
     // Look for the radio buttons for skipped/migrated
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
     const migratedRadio = page.locator('input[type="radio"][value="migrated"]');
-    
+    await skippedRadio.waitFor({ state: 'visible', timeout: 10000 });
+
     // Verify both radio buttons are visible
     await expect(skippedRadio).toBeVisible();
     await expect(migratedRadio).toBeVisible();
-    
+
     // Verify the labels are present
     await expect(page.locator('text=Skipped')).toBeVisible();
     await expect(page.locator('text=Migrated')).toBeVisible();
-    
+
     // Take a screenshot
     await page.screenshot({ path: 'test-results/plugin-tabs.png', fullPage: true });
   });
 
   test('should be able to switch between entity types', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
-    
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
-    
+    await openProcessesPage(page);
+
     // Switch to History mode to access the entity type selector
     const historyRadio = page.locator('input[type="radio"][value="history"]');
+    await expect(historyRadio).toBeVisible({ timeout: 10000 });
+    await expect(historyRadio).toBeEnabled({ timeout: 10000 });
     await historyRadio.click();
-    
-    // Wait for the dropdown to appear
-    await page.waitForTimeout(500);
-    
+
     // Look for the entity type selector dropdown
     const entityTypeSelector = page.locator('select#type-selector');
-    
+
     // Verify the selector is visible
-    await expect(entityTypeSelector).toBeVisible();
-    
+    await expect(entityTypeSelector).toBeVisible({ timeout: 10000 });
+
     // Take screenshot of the dropdown
     await page.screenshot({ path: 'test-results/entity-type-selector.png', fullPage: true });
-    
+
     // Verify we can see options
     const options = entityTypeSelector.locator('option');
     const optionsCount = await options.count();
-    
+
     expect(optionsCount).toBeGreaterThan(0);
   });
 
   test('should display 6 skipped process instances with correct columns and data', async ({ page }) => {
-    // Navigate to processes page
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
-
-    // Wait for plugin to load
-    await page.waitForTimeout(2000);
+    await openProcessesPage(page);
 
     // Select "Skipped" radio button (should be selected by default, but ensure it)
     const skippedRadio = page.locator('input[type="radio"][value="skipped"]');
+    await expect(skippedRadio).toBeVisible({ timeout: 10000 });
     await skippedRadio.click();
-
-    // Wait for data to load
-    await page.waitForTimeout(2000);
 
     // Find the table
     const table = page.locator('view[data-plugin-id="camunda-7-to-8-data-migrator"] table');
     await expect(table).toBeVisible();
+    await table.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 10000 });
 
     // Verify table headers contain the expected columns
     const headerRow = table.locator('thead tr');
@@ -178,15 +158,12 @@ test.describe('Cockpit Plugin E2E', () => {
     await expect(headerRow.locator('th:has-text("Process Definition Key")')).toBeVisible();
     await expect(headerRow.locator('th:has-text("Skip Reason")')).toBeVisible();
 
-    // Get all data rows (excluding header)
+    const expectedSkippedCount = 6;
     const dataRows = table.locator('tbody tr');
-    const rowCount = await dataRows.count();
-
-    // Verify we have exactly 6 rows
-    expect(rowCount).toBe(6);
+    await expect(dataRows).toHaveCount(expectedSkippedCount, { timeout: 15000 });
 
     // Verify each row has the expected data
-    for (let i = 0; i < rowCount; i++) {
+    for (let i = 0; i < expectedSkippedCount; i++) {
       const row = dataRows.nth(i);
 
       // Get cells in the row
@@ -217,31 +194,31 @@ test.describe('Cockpit Plugin E2E', () => {
         errors.push(msg.text());
       }
     });
-    
-    // Navigate to processes page  
-    await page.click('a[href="#/processes"]');
-    await page.waitForURL('**/#/processes?pdSearchQuery=%5B%5D');
-    
+
+    await openProcessesPage(page);
+
     // Wait for plugin to fully render
     await page.locator('h1:has-text("Camunda 7 to 8 Data Migrator")').waitFor({ timeout: 10000 });
-    await page.waitForTimeout(2000);
-    
+    await page
+      .locator('input[type="radio"][value="skipped"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
+
     // Take final screenshot
     await page.screenshot({ path: 'test-results/plugin-loaded.png', fullPage: true });
-    
+
     // Verify no React errors or critical JavaScript errors
-    const hasReactErrors = errors.some(err => 
-      err.includes('React') || 
+    const hasReactErrors = errors.some(err =>
+      err.includes('React') ||
       err.includes('TypeError') ||
       err.includes('ReferenceError') ||
       err.includes('is not a function')
     );
-    
+
     // Log errors for debugging if any exist
     if (errors.length > 0) {
       console.log('Console errors detected:', errors);
     }
-    
+
     expect(hasReactErrors).toBeFalsy();
   });
 });

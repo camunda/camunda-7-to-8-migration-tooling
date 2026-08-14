@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>io.camunda</groupId>
 		<artifactId>camunda-7-to-8-code-conversion-parent</artifactId>
-		<version>0.3.1-SNAPSHOT</version>
+		<version>0.3.4-SNAPSHOT</version>
 		<relativePath>../../../</relativePath>
 	</parent>
 
@@ -16,6 +16,20 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>com.fasterxml.jackson</groupId>
+				<artifactId>jackson-bom</artifactId>
+				<version>${version.jackson-bom}</version>
+				<scope>import</scope>
+				<type>pom</type>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-bom</artifactId>
+				<version>${version.log4j-bom}</version>
+				<scope>import</scope>
+				<type>pom</type>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-dependencies</artifactId>
@@ -62,6 +76,7 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<version>${version.spring-boot}</version>
 			</plugin>
 		</plugins>
 	</build>

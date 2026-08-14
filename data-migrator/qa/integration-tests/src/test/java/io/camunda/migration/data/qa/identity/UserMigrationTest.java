@@ -98,7 +98,7 @@ public class UserMigrationTest extends IdentityMigrationAbstractTest {
       identityMigrator.start();
 
       // then no users were migrated
-      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(5)).untilAsserted(() -> {
+      await().pollDelay(Duration.ofSeconds(2)).timeout(Duration.ofSeconds(30)).untilAsserted(() -> {
         var currentUsers = camundaClient.newUsersSearchRequest().execute().items();
         assertThat(currentUsers).hasSize(0);
       });

@@ -43,6 +43,7 @@ import io.camunda.migration.data.impl.history.migrator.VariableMigrator;
 import io.camunda.migration.data.impl.identity.DefinitionLookupService;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.impl.identity.IdentitySync;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;
@@ -91,6 +92,7 @@ import org.springframework.context.annotation.Import;
     SchemaShutdownCleaner.class,
     PartitionSupplier.class,
     DataSourceRegistry.class,
+    LegacyIdPrefixResolver.class,
     IdentitySync.class
 })
 @Configuration

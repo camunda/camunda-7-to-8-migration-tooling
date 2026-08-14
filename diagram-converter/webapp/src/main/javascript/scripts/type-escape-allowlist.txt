@@ -1,0 +1,2 @@
+# Format: path/to/file.ext:line:key
+# Keys: explicit-any, ts-ignore, ts-expect-error, ts-nocheck, eslint-disable-no-explicit-any

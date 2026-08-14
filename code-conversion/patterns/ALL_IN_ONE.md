@@ -79,7 +79,29 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 </dependency>
 ```
 
+**Version resolution**: Resolve the latest released GA version from Maven Central's direct artifact metadata, for example `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available). From `<versions>`, select the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release. Do not use `search.maven.org`'s search API or the Camunda public repository metadata for this lookup.
+
 **Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
+
+**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`. Until the upstream dependency alignment is fixed, override the managed version in the application:
+
+```
+<dependencyManagement>
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+			<version>5.6.1</version>
+		</dependency>
+	</dependencies>
+</dependencyManagement>
+```
+
+Verify the version required by the selected Camunda client release with `mvn dependency:tree -Dincludes=org.apache.httpcomponents.client5:httpclient5` before choosing the override.
+
+**Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
+
+**`jakarta.annotation` and process startup**: If `@PostConstruct` remains only to start process instances, migrate that startup to `@EventListener(CamundaPostDeploymentEvent.class)` first. Prefer fixing that lifecycle pattern over adding dependencies (for example `jakarta.annotation-api`) solely to keep `@PostConstruct`.
 
 ---
 
@@ -786,6 +808,7 @@ public class ProcessPaymentsApplication {
 ```
 
 -   the annotation `@Deployment` can be used to specify specific files or multiple resources via a wildcard pattern to be deployed to the engine
+-   Camunda 8 has no implicit classpath auto-deployment equivalent to the Camunda 7 Spring Boot starter defaults. Even if your Camunda 7 app had no `@EnableProcessApplication`, you must still add explicit deployment wiring (`@Deployment` or deploy commands) for BPMN/DMN resources.
 -   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/getting-started/#deploy-process-models)
 
 ###### Deploy BPMN Model
@@ -1170,6 +1193,7 @@ The following patterns focus on various methods to start process instances in Ca
 -   uniqueness enforcement is optional and configurable per cluster; when enabled, duplicate businessId for the same process definition is rejected with a conflict error
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   if you need a bounded wait for the command response, apply a timeout to the returned future (e.g. `send().orTimeout(...).join()` or `send().get(timeout, unit)`); `send()` itself does **not** wait for the process instance to complete
+-   if your app also uses `@Deployment`, do not start instances from `@PostConstruct`; use `@EventListener(CamundaPostDeploymentEvent.class)` so startup runs after deployment completes
 
 ###### By Key Assigned on Deployment (specific version)
 

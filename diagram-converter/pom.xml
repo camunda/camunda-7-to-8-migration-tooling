@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.3.4-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -14,23 +14,23 @@
   <name>Camunda 7 to 8 Migration Tooling - Diagram</name>
 
   <properties>
-    <version.jsoup>1.22.2</version.jsoup>
+    <version.jsoup>1.23.1</version.jsoup>
     <version.picocli>4.7.7</version.picocli>
     <version.commons-io>2.22.0</version.commons-io>
-    <version.slack-api-client>1.49.0</version.slack-api-client>
+    <version.slack-api-client>1.50.0</version.slack-api-client>
     <version.opencsv>5.12.0</version.opencsv>
-    <version.grpc>1.82.1</version.grpc>
+    <version.grpc>1.83.1</version.grpc>
     <version.protobuf>4.35.1</version.protobuf>
-    <version.java-jwt>4.5.2</version.java-jwt>
-    <version.archunit>1.4.2</version.archunit>
+    <version.java-jwt>4.6.0</version.java-jwt>
+    <version.archunit>1.5.0</version.archunit>
     <version.apache-poi>5.5.1</version.apache-poi>
-    <version.feel-engine>1.21.0</version.feel-engine>
+    <version.feel-engine>1.22.0</version.feel-engine>
     <version.scala>3.8.4</version.scala>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
-    <version.checker-qual>4.2.0</version.checker-qual>
-    <version.commons-collections4>4.5.0</version.commons-collections4>
-    <version.rest-assured>6.0.0</version.rest-assured>
-    <plugin.version.spotless-maven-plugin>3.7.0</plugin.version.spotless-maven-plugin>
+    <version.checker-qual>4.2.2</version.checker-qual>
+    <version.commons-collections4>4.6.0</version.commons-collections4>
+    <version.rest-assured>6.0.1</version.rest-assured>
+    <plugin.version.spotless-maven-plugin>3.9.0</plugin.version.spotless-maven-plugin>
     <plugin.version.maven-site-plugin>3.22.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
     <plugin.version.maven-source-plugin>3.4.0</plugin.version.maven-source-plugin>
@@ -39,6 +39,27 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>tools.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-3-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-bom</artifactId>
+        <version>${version.log4j-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>org.camunda.bpm</groupId>
         <artifactId>camunda-bom</artifactId>

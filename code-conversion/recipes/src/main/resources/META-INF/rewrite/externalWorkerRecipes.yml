@@ -3,10 +3,9 @@ name: io.camunda.migration.code.recipes.AllExternalWorkerPrepareRecipes
 displayName: Runs all external worker prepare recipes
 description: Injects job worker and migrate typed value API.
 recipeList:
-  - org.openrewrite.java.dependencies.AddDependency:
-      groupId: io.camunda
-      artifactId: camunda-spring-boot-starter
-      version: ${version.camunda-8}
+  # Camunda 8.9 split the Spring Boot starter: choose the starter based on the existing
+  # Spring Boot major in the migrated project (3.x -> boot-3 starter, 4.x -> default starter).
+  - io.camunda.migration.code.recipes.sharedRecipes.ConfigureCamundaStarterRecipe
   - io.camunda.migration.code.recipes.sharedRecipes.ReplaceTypedValueAPIRecipe
   - io.camunda.migration.code.recipes.external.PrepareJobWorkerBeneathExternalWorkerRecipe
 ---

@@ -11,7 +11,6 @@ package io.camunda.migration.data.impl.interceptor.history.entity;
 import static io.camunda.db.rdbms.write.domain.DecisionInstanceDbModel.*;
 import static io.camunda.migration.data.impl.util.ConverterUtil.convertDate;
 import static io.camunda.migration.data.impl.util.ConverterUtil.getTenantId;
-import static io.camunda.migration.data.impl.util.ConverterUtil.prefixDefinitionId;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +18,7 @@ import io.camunda.migration.data.exception.EntityInterceptorException;
 import io.camunda.migration.data.impl.VariableService;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.logging.HistoryMigratorLogs;
+import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
 import io.camunda.migration.data.interceptor.EntityInterceptor;
 import io.camunda.search.entities.DecisionInstanceEntity;
 import java.util.ArrayList;
@@ -52,6 +52,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor<HistoricDe
   @Autowired
   protected ObjectMapper objectMapper;
 
+  @Autowired
+  protected LegacyIdPrefixResolver legacyIdPrefix;
+
   @Override
   public Set<Class<?>> getTypes() {
     return Set.of(HistoricDecisionInstance.class);
@@ -73,9 +76,9 @@ public class DecisionInstanceTransformer implements EntityInterceptor<HistoricDe
         .evaluationDate(convertDate(entity.getEvaluationTime()))
         .evaluationFailure(null) // not stored in HistoricDecisionInstance
         .evaluationFailureMessage(null) // not stored in HistoricDecisionInstance
-        .processDefinitionId(prefixDefinitionId(entity.getProcessDefinitionKey()))
-        .decisionDefinitionId(prefixDefinitionId(entity.getDecisionDefinitionKey()))
-        .decisionRequirementsId(prefixDefinitionId(entity.getDecisionRequirementsDefinitionKey()))
+        .processDefinitionId(legacyIdPrefix.applyTo(entity.getProcessDefinitionKey()))
+        .decisionDefinitionId(legacyIdPrefix.applyTo(entity.getDecisionDefinitionKey()))
+        .decisionRequirementsId(legacyIdPrefix.applyTo(entity.getDecisionRequirementsDefinitionKey()))
         .result(resultJsonString)
         .tenantId(getTenantId(entity.getTenantId()))
         .evaluatedInputs(mapInputs(entity.getId(), entity.getInputs()))

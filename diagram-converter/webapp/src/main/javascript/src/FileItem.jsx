@@ -5,19 +5,33 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { Loading, Tooltip } from "@carbon/react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@camunda/design-system";
 
 import {
   Download,
-  TrashCan,
-  View,
-  WarningFilled,
-  CheckmarkFilled,
-} from "@carbon/react/icons";
+  Trash,
+  Eye,
+  AlertTriangle,
+  Check,
+  Loader2,
+} from "lucide-react";
 
-import Paperclip from "./Paperclip.svg";
+function Spinner() {
+  return (
+    <Loader2
+      aria-label="Loading"
+      role="status"
+      className="size-4 animate-spin text-primary-action-default"
+    />
+  );
+}
 
-export default function DropZone({
+export default function FileItem({
   name,
   error,
   status,
@@ -26,40 +40,52 @@ export default function DropZone({
   downloadAction,
   previewAction,
   onDelete,
+  findingCount,
 }) {
   return (
     <div className="FileItem">
       <div className="left">
-        <img src={Paperclip} />
+        {status === "success" && (
+          <div className="fileItemCheck">
+            <Check />
+          </div>
+        )}
         <span
           className={isConverted && downloadAction && !error ? "downloadable" : ""}
           onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
         >
           {name}
         </span>
-        {status === "success" && (
-          <div style={{ color: "#2ada1e"}}>
-            <CheckmarkFilled />
-          </div>
-        )}
-
       </div>
       <div className="right">
+        {findingCount > 0 && (
+          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
+        )}
 
         {error && (
-          <Tooltip label={error}>
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
-            </div>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  tabIndex={0}
+                  role="img"
+                  aria-label={error}
+                  style={{ color: "var(--danger-action-default)" }}
+                >
+                  <AlertTriangle />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>{error}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
-        {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
+        {status === "uploading" && !isChecked && <Spinner />}
         {isChecked && previewAction && (
           <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
-            <View />
+            <Eye />
           </button>
         )}
-        {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
+        {status === "uploading" && !isConverted && <Spinner />}
         {isConverted && downloadAction && !error && (
           <button className="download" onClick={downloadAction} title="Download the converted model">
             <Download />
@@ -67,7 +93,7 @@ export default function DropZone({
         )}
         {onDelete && (
           <button onClick={onDelete}>
-            <TrashCan />
+            <Trash />
           </button>
         )}
       </div>

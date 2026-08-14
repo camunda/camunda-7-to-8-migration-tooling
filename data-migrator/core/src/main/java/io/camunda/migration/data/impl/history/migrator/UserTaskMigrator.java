@@ -174,14 +174,20 @@ public class UserTaskMigrator extends HistoryEntityMigrator<HistoricTaskInstance
 
     if (!candidateUsers.isEmpty()) {
       logMigratingCandidateUsers(candidateUsers.size(), c7UserTaskId);
-      dbModel.candidateUsers(candidateUsers);
-      c8Client.insertCandidateUsers(dbModel);
+      UserTaskDbModel candidateUserModel = new UserTaskDbModel.Builder()
+          .userTaskKey(dbModel.userTaskKey())
+          .candidateUsers(candidateUsers)
+          .build();
+      c8Client.insertCandidateUsers(candidateUserModel);
     }
 
     if (!candidateGroups.isEmpty()) {
       logMigratingCandidateGroups(candidateGroups.size(), c7UserTaskId);
-      dbModel.candidateGroups(candidateGroups);
-      c8Client.insertCandidateGroups(dbModel);
+      UserTaskDbModel candidateGroupModel = new UserTaskDbModel.Builder()
+          .userTaskKey(dbModel.userTaskKey())
+          .candidateGroups(candidateGroups)
+          .build();
+      c8Client.insertCandidateGroups(candidateGroupModel);
     }
   }
 
