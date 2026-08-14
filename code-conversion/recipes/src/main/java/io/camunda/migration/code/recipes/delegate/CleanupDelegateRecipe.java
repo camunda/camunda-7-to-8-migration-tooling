@@ -8,10 +8,9 @@
 package io.camunda.migration.code.recipes.delegate;
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
+import io.camunda.migration.code.recipes.utils.RecipeUtils;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
@@ -95,29 +94,8 @@ public class CleanupDelegateRecipe extends Recipe {
           }
 
           private boolean isJavaDelegateAssignable(JavaType type) {
-            return type != null
-                && isAssignableTo(type, "org.camunda.bpm.engine.delegate.JavaDelegate", new HashSet<>());
-          }
-
-          private boolean isAssignableTo(JavaType type, String fullyQualifiedName, Set<String> visited) {
-            if (!visited.add(type.toString())) {
-              return false;
-            }
-            if (TypeUtils.isOfClassType(type, fullyQualifiedName)) {
-              return true;
-            }
-            if (type instanceof JavaType.FullyQualified fullyQualified) {
-              JavaType.FullyQualified supertype = fullyQualified.getSupertype();
-              if (supertype != null && isAssignableTo(supertype, fullyQualifiedName, visited)) {
-                return true;
-              }
-              for (JavaType.FullyQualified iface : fullyQualified.getInterfaces()) {
-                if (isAssignableTo(iface, fullyQualifiedName, visited)) {
-                  return true;
-                }
-              }
-            }
-            return false;
+            return RecipeUtils.isAssignableTo(
+                type, "org.camunda.bpm.engine.delegate.JavaDelegate");
           }
         });
   }
