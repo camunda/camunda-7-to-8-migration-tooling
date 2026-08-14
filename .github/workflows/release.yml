@@ -188,8 +188,8 @@ jobs:
             -Darguments='-DskipTests=true -Dskip.central.release=true -Dskip.camunda.release=${SKIP_REPO_DEPLOY}'
 
       - name: Checkout Code
-        # Tag does not exist if dry run
-        if: ${{ !inputs.IS_DRY_RUN }}
+        # The release tag exists for backfills even when running a dry run.
+        if: ${{ inputs.ONLY_PUSH_TO_MAVEN_CENTRAL || !inputs.IS_DRY_RUN }}
         uses: actions/checkout@v7
         with:
           # Checkout the release tag to perform a second deployment 
