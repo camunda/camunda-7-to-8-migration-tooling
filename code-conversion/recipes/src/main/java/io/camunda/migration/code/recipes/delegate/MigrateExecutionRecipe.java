@@ -25,6 +25,13 @@ import org.openrewrite.marker.Markers;
 
 public class MigrateExecutionRecipe extends Recipe {
 
+  /**
+   * Sentinel shared with cleanup recipes so that warning comments about lost delegate business
+   * logic can be detected reliably.
+   */
+  public static final String DELEGATE_BODY_COPY_WARNING_SENTINEL =
+      "The delegate body could not be copied automatically";
+
   /** Instantiates a new instance. */
   public MigrateExecutionRecipe() {}
 
@@ -157,7 +164,9 @@ public class MigrateExecutionRecipe extends Recipe {
 
                 warning =
                     "Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob)"
-                        + " is not in the expected shape. Migrate the logic manually.";
+                        + " is not in the expected shape. "
+                        + DELEGATE_BODY_COPY_WARNING_SENTINEL
+                        + "; migrate the logic manually.";
               }
 
               if (warning == null) {
@@ -169,7 +178,9 @@ public class MigrateExecutionRecipe extends Recipe {
                 } else if (delegateMethod == null && jobWorkerMethod != null) {
                   warning =
                       "No execute(DelegateExecution) method was found directly in this class. If it"
-                          + " lives in a superclass, the delegate body must be migrated manually.";
+                          + " lives in a superclass, "
+                          + DELEGATE_BODY_COPY_WARNING_SENTINEL
+                          + "; migrate it manually.";
                 } else {
                   warning =
                       "Neither execute(DelegateExecution) nor executeJob(ActivatedJob) was found."
@@ -186,7 +197,8 @@ public class MigrateExecutionRecipe extends Recipe {
                   existingComments.stream()
                       .filter(c -> c instanceof TextComment)
                       .map(c -> (TextComment) c)
-                      .anyMatch(c -> c.getText().contains("delegate body"));
+                      .anyMatch(
+                          c -> c.getText().contains(DELEGATE_BODY_COPY_WARNING_SENTINEL));
               if (alreadyWarned) {
                 // Keep traversing so any nested delegate/listener classes are still processed.
                 return super.visitClassDeclaration(classDeclaration, ctx);

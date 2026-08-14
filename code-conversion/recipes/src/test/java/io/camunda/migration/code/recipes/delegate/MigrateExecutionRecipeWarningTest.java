@@ -102,7 +102,7 @@ public class MigrateExecutionRecipeWarningTest implements RewriteTest {
 
             import java.util.Map;
 
-            /* Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob) is not in the expected shape. Migrate the logic manually.*/
+            /* Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob) is not in the expected shape. The delegate body could not be copied automatically; migrate the logic manually.*/
             @Component
             public class UnmigratableDelegate implements JavaDelegate {
 

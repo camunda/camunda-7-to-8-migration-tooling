@@ -88,7 +88,10 @@ public class CleanupDelegateRecipe extends Recipe {
             return comments.stream()
                 .filter(c -> c instanceof TextComment)
                 .map(c -> (TextComment) c)
-                .anyMatch(c -> c.getText().contains("delegate body"));
+                .anyMatch(
+                    c ->
+                        c.getText().contains(
+                            MigrateExecutionRecipe.DELEGATE_BODY_COPY_WARNING_SENTINEL));
           }
 
           private boolean isJavaDelegateAssignable(JavaType type) {

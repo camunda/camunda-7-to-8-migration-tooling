@@ -358,8 +358,9 @@ public abstract class AbstractMigrationRecipe extends Recipe {
                       && spec.receiverTypeFqn()
                           .map(
                               fqn ->
-                                  TypeUtils.isOfClassType(
-                                      invocation.getSelect().getType(), fqn))
+                                  invocation.getSelect() != null
+                                      && TypeUtils.isOfClassType(
+                                          invocation.getSelect().getType(), fqn))
                           .orElse(true)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
