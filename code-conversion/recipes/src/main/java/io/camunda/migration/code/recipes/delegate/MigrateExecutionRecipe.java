@@ -19,6 +19,7 @@ import org.openrewrite.*;
 import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.*;
+import org.openrewrite.marker.Markers;
 
 public class MigrateExecutionRecipe extends Recipe {
 
@@ -62,11 +63,11 @@ public class MigrateExecutionRecipe extends Recipe {
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
 
-      // define preconditions
+      // Only run on classes that implement JavaDelegate. Requiring the @JobWorker annotation here
+      // is fragile because the annotation is injected by AllDelegatePrepareRecipes, and newer
+      // OpenRewrite versions may evaluate this precondition against an outdated LST.
       TreeVisitor<?, ExecutionContext> check =
-          Preconditions.and(
-              new UsesType<>("io.camunda.client.annotation.JobWorker", true),
-              new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true));
+          new UsesType<>("org.camunda.bpm.engine.delegate.JavaDelegate", true);
 
       return Preconditions.check(
           check,
@@ -80,51 +81,112 @@ public class MigrateExecutionRecipe extends Recipe {
                 return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
-              List<Statement> currentStatements = classDeclaration.getBody().getStatements();
-              List<Statement> updatedStatements = new ArrayList<>();
+              boolean implementsJavaDelegate =
+                  classDeclaration.getImplements() != null
+                      && classDeclaration.getImplements().stream()
+                          .anyMatch(
+                              type ->
+                                  TypeUtils.isOfClassType(
+                                      type.getType(),
+                                      "org.camunda.bpm.engine.delegate.JavaDelegate"));
+              if (!implementsJavaDelegate) {
+                return super.visitClassDeclaration(classDeclaration, ctx);
+              }
 
-              // find delegate method
-              J.Block delegateBody = null;
+              List<Statement> currentStatements = classDeclaration.getBody().getStatements();
+              J.MethodDeclaration delegateMethod = null;
+              J.MethodDeclaration jobWorkerMethod = null;
+              J.MethodDeclaration alreadyMigratedMethod = null;
+
               for (Statement stmt : currentStatements) {
-                if (stmt instanceof J.MethodDeclaration methDecl
-                    && methDecl.getSimpleName().equals("execute")) {
-                  delegateBody = methDecl.getBody();
+                if (stmt instanceof J.MethodDeclaration methDecl) {
+                  if (methDecl.getSimpleName().equals("execute")) {
+                    delegateMethod = methDecl;
+                  } else if (methDecl.getSimpleName().equals("executeJob")) {
+                    jobWorkerMethod = methDecl;
+                  } else if (methDecl.getSimpleName().equals("executeJobMigrated")) {
+                    alreadyMigratedMethod = methDecl;
+                  }
                 }
               }
 
-              // find and change job worker method
-              if (delegateBody != null) {
+              if (alreadyMigratedMethod != null) {
+                // The copy has already happened in a previous cycle; nothing to do.
+                return classDeclaration;
+              }
+
+              if (delegateMethod != null && jobWorkerMethod != null) {
+                J.Block delegateBody = delegateMethod.getBody();
+                J.Block jobWorkerBody = jobWorkerMethod.getBody();
+
+                // all current statements (result map and return)
+                List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
+
+                // delegate body
+                List<Statement> delegateStatements = new ArrayList<>(delegateBody.getStatements());
+
+                // combine statements
+                delegateStatements.add(0, jobWorkerStatements.get(0));
+                delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
+
+                J.MethodDeclaration migratedJobWorker =
+                    jobWorkerMethod
+                        .withBody(jobWorkerMethod.getBody().withStatements(delegateStatements))
+                        .withName(jobWorkerMethod.getName().withSimpleName("executeJobMigrated"))
+                        .withMethodType(
+                            jobWorkerMethod.getMethodType().withName("executeJobMigrated"));
+
+                List<Statement> updatedStatements = new ArrayList<>();
                 for (Statement stmt : currentStatements) {
-                  if (stmt instanceof J.MethodDeclaration methDecl
-                      && methDecl.getSimpleName().equals("executeJob")) {
-                    J.Block jobWorkerBody = methDecl.getBody();
-
-                    // all current statments (result map and return)
-                    List<Statement> jobWorkerStatements = jobWorkerBody.getStatements();
-
-                    // delegate body
-                    List<Statement> delegateStatements =
-                        new ArrayList<>(delegateBody.getStatements());
-
-                    // combine statements
-                    delegateStatements.add(0, jobWorkerStatements.get(0));
-                    delegateStatements.add(jobWorkerStatements.get(jobWorkerStatements.size() - 1));
-
-                    // put together and rename job worker so recipe does not run twice
-                    updatedStatements.add(
-                        methDecl
-                            .withBody(methDecl.getBody().withStatements(delegateStatements))
-                            .withName(methDecl.getName().withSimpleName("executeJobMigrated"))
-                            .withMethodType(
-                                methDecl.getMethodType().withName("executeJobMigrated")));
+                  if (stmt == jobWorkerMethod) {
+                    updatedStatements.add(migratedJobWorker);
                   } else {
                     updatedStatements.add(stmt);
                   }
                 }
+
                 return classDeclaration.withBody(
                     classDeclaration.getBody().withStatements(updatedStatements));
               }
-              return super.visitClassDeclaration(classDeclaration, ctx);
+
+              String warning;
+              if (delegateMethod != null && jobWorkerMethod == null) {
+                warning =
+                    "The delegate execute(DelegateExecution) method exists, but no generated"
+                        + " executeJob(ActivatedJob) stub was found. The delegate body could not be"
+                        + " copied automatically; migrate it manually.";
+              } else if (delegateMethod == null && jobWorkerMethod != null) {
+                warning =
+                    "No execute(DelegateExecution) method was found directly in this class. If it"
+                        + " lives in a superclass, the delegate body must be migrated manually.";
+              } else {
+                warning =
+                    "Neither execute(DelegateExecution) nor executeJob(ActivatedJob) was found."
+                        + " The delegate body could not be copied automatically; migrate it"
+                        + " manually.";
+              }
+
+              List<Comment> existingComments =
+                  classDeclaration.getComments() == null
+                      ? Collections.emptyList()
+                      : classDeclaration.getComments();
+              boolean alreadyWarned =
+                  existingComments.stream()
+                      .filter(c -> c instanceof TextComment)
+                      .map(c -> (TextComment) c)
+                      .anyMatch(c -> c.getText().contains("delegate body could not be copied"));
+              if (alreadyWarned) {
+                return classDeclaration;
+              }
+
+              List<Comment> updatedComments = new ArrayList<>(existingComments);
+              updatedComments.add(
+                  new TextComment(
+                      true,
+                      " " + warning,
+                      classDeclaration.getPrefix().getIndent(),
+                      Markers.EMPTY));
+              return classDeclaration.withComments(updatedComments);
             }
           });
     }
