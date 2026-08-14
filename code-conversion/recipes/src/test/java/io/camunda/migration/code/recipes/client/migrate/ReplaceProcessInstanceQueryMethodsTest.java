@@ -41,23 +41,23 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
     @Autowired
     private CamundaClient camundaClient;
-    
+
     public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
-    
+
         engine.getRuntimeService().createProcessInstanceQuery()
                 .activityIdIn(activityIdIn)
                 .active()
                 .list();
-                
+
         engine.getRuntimeService().createProcessInstanceQuery()
                .processInstanceBusinessKey(businessKey)
                .active()
                .list();
-               
+
         engine.getRuntimeService().createProcessInstanceQuery()
                .processInstanceBusinessKey(businessKey)
                .processDefinitionKey(processDefinitionKey);
-               
+
         engine.getRuntimeService().createProcessInstanceQuery()
                .processDefinitionKey(processDefinitionKey)
                .list();
@@ -86,9 +86,9 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 
     @Autowired
     private CamundaClient camundaClient;
-    
+
     public void processInstanceQueryMethods(String activityIdIn, String businessKey, String processDefinitionKey) {
-    
+
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter
@@ -97,7 +97,7 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .send()
                 .join()
                 .items();
-                
+
         // TODO: processInstanceBusinessKey was removed - use businessId (Camunda 8.9+) instead
         camundaClient
                 .newProcessInstanceSearchRequest()
@@ -106,11 +106,11 @@ public class HandleProcessInstanceQueryMethodsTestClass {
                 .send()
                 .join()
                 .items();
-                
+
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter.processDefinitionId(processDefinitionKey));
-               
+
         camundaClient
                 .newProcessInstanceSearchRequest()
                 .filter(filter -> filter

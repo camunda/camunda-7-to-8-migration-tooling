@@ -119,7 +119,7 @@ public class MigrateExecutionRecipe extends Recipe {
                 boolean canCopy =
                     delegateBody != null
                         && jobWorkerBody != null
-                        && jobWorkerBody.getStatements().size() >= 2;
+                        && jobWorkerBody.getStatements().size() == 2;
 
                 if (canCopy) {
                   // all current statements (result map and return)
