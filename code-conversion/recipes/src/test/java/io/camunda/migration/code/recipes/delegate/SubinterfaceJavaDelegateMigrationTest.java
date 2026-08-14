@@ -62,7 +62,7 @@ class SubinterfaceJavaDelegateMigrationTest implements RewriteTest {
                 import java.util.Map;
 
                 @Component
-                public class ExampleWorkflowStep implements ExampleWorkflowDelegate {
+                public class ExampleWorkflowStep {
 
                     @JobWorker(type = "exampleWorkflowStep", autoComplete = true)
                     public Map<String, Object> executeJobMigrated(ActivatedJob job) throws Exception {

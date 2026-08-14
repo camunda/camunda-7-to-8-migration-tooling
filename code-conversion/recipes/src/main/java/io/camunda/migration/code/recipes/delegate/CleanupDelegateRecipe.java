@@ -8,7 +8,9 @@
 package io.camunda.migration.code.recipes.delegate;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.openrewrite.*;
 import org.openrewrite.java.*;
@@ -52,13 +54,12 @@ public class CleanupDelegateRecipe extends Recipe {
               return classDecl;
             }
 
-            // Filter out the interface to remove
+            // Filter out JavaDelegate and any subinterface of JavaDelegate
             List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
                 classDecl.getImplements().stream()
                     .filter(
                         id ->
-                            !TypeUtils.isOfClassType(
-                                id.getType(), "org.camunda.bpm.engine.delegate.JavaDelegate"))
+                            !isJavaDelegateAssignable(id.getType()))
                     .collect(Collectors.toList());
 
             List<Statement> filteredStatements =
@@ -77,5 +78,32 @@ public class CleanupDelegateRecipe extends Recipe {
                 .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
           }
         });
+  }
+
+  private static boolean isJavaDelegateAssignable(JavaType type) {
+    return type != null
+        && isAssignableTo(type, "org.camunda.bpm.engine.delegate.JavaDelegate", new HashSet<>());
+  }
+
+  private static boolean isAssignableTo(
+      JavaType type, String fullyQualifiedName, Set<String> visited) {
+    if (!visited.add(type.toString())) {
+      return false;
+    }
+    if (TypeUtils.isOfClassType(type, fullyQualifiedName)) {
+      return true;
+    }
+    if (type instanceof JavaType.FullyQualified fullyQualified) {
+      JavaType.FullyQualified supertype = fullyQualified.getSupertype();
+      if (supertype != null && isAssignableTo(supertype, fullyQualifiedName, visited)) {
+        return true;
+      }
+      for (JavaType.FullyQualified iface : fullyQualified.getInterfaces()) {
+        if (isAssignableTo(iface, fullyQualifiedName, visited)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }
