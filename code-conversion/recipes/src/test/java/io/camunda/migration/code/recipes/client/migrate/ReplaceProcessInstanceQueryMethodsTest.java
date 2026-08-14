@@ -124,4 +124,76 @@ public class HandleProcessInstanceQueryMethodsTestClass {
 """
         ));
   }
+
+  @Test
+  void doesNotRewriteTaskQueryListChains() {
+    rewriteRun(
+        spec -> spec.recipe(new MigrateProcessInstanceQueryMethodsRecipe()),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import org.camunda.bpm.engine.ProcessEngine;
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class MixedQueryTypesTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void mixedQueries(String processDefinitionKey) {
+                    engine.getRuntimeService().createProcessInstanceQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+
+                    engine.getTaskService().createTaskQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+            import io.camunda.client.api.search.enums.ProcessInstanceState;
+            import org.camunda.bpm.engine.ProcessEngine;
+            import io.camunda.client.CamundaClient;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+
+            import java.util.List;
+
+            @Component
+            public class MixedQueryTypesTestClass {
+
+                @Autowired
+                private ProcessEngine engine;
+
+                @Autowired
+                private CamundaClient camundaClient;
+
+                public void mixedQueries(String processDefinitionKey) {
+                    camundaClient
+                            .newProcessInstanceSearchRequest()
+                            .filter(filter -> filter
+                                    .processDefinitionId(processDefinitionKey)
+                                    .state(ProcessInstanceState.ACTIVE))
+                            .send()
+                            .join()
+                            .items();
+
+                    engine.getTaskService().createTaskQuery()
+                            .processDefinitionKey(processDefinitionKey)
+                            .list();
+                }
+            }
+            """));
+  }
 }

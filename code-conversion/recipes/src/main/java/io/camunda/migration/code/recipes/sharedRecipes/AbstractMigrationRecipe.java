@@ -354,7 +354,13 @@ public abstract class AbstractMigrationRecipe extends Recipe {
 
                 // loop through pattern options
                 for (ReplacementUtils.BuilderReplacementSpec spec : entry.getValue()) {
-                  if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())) {
+                  if (collectedArgs.keySet().equals(spec.methodNamesToExtractParameters())
+                      && spec.receiverTypeFqn()
+                          .map(
+                              fqn ->
+                                  TypeUtils.isOfClassType(
+                                      invocation.getSelect().getType(), fqn))
+                          .orElse(true)) {
 
                     spec.maybeRemoveImports().forEach(this::maybeRemoveImport);
                     spec.maybeAddImports().forEach(this::maybeAddImport);

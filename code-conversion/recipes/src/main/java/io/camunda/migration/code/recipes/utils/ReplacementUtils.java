@@ -30,6 +30,10 @@ public class ReplacementUtils {
     List<String> maybeRemoveImports();
 
     List<String> maybeAddImports();
+
+    default Optional<String> receiverTypeFqn() {
+      return Optional.empty();
+    }
   }
 
   public record SimpleReplacementSpec(
@@ -101,8 +105,34 @@ public class ReplacementUtils {
       ReturnTypeStrategy returnTypeStrategy,
       List<String> textComments,
       List<String> maybeRemoveImports,
-      List<String> maybeAddImports)
+      List<String> maybeAddImports,
+      Optional<String> receiverTypeFqn)
       implements ReplacementSpec {
+    public BuilderReplacementSpec(
+        MethodMatcher matcher,
+        Set<String> methodNamesToExtractParameters,
+        List<String> extractedParametersToApply,
+        JavaTemplate template,
+        J.Identifier baseIdentifier,
+        String returnTypeFqn,
+        ReturnTypeStrategy returnTypeStrategy,
+        List<String> textComments,
+        List<String> maybeRemoveImports,
+        List<String> maybeAddImports) {
+      this(
+          matcher,
+          methodNamesToExtractParameters,
+          extractedParametersToApply,
+          template,
+          baseIdentifier,
+          returnTypeFqn,
+          returnTypeStrategy,
+          textComments,
+          maybeRemoveImports,
+          maybeAddImports,
+          Optional.empty());
+    }
+
     public BuilderReplacementSpec(
         MethodMatcher matcher,
         Set<String> methodNamesToExtractParameters,
