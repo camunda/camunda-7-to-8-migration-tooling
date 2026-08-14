@@ -9,7 +9,9 @@ package io.camunda.migration.code.recipes.delegate;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import io.camunda.migration.code.recipes.sharedRecipes.AbstractMigrationRecipe;
@@ -81,15 +83,7 @@ public class MigrateExecutionRecipe extends Recipe {
                 return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
-              boolean implementsJavaDelegate =
-                  classDeclaration.getImplements() != null
-                      && classDeclaration.getImplements().stream()
-                          .anyMatch(
-                              type ->
-                                  TypeUtils.isOfClassType(
-                                      type.getType(),
-                                      "org.camunda.bpm.engine.delegate.JavaDelegate"));
-              if (!implementsJavaDelegate) {
+              if (!isJavaDelegateAssignable(classDeclaration)) {
                 return super.visitClassDeclaration(classDeclaration, ctx);
               }
 
@@ -206,6 +200,34 @@ public class MigrateExecutionRecipe extends Recipe {
             }
           });
     }
+  }
+
+  private static boolean isJavaDelegateAssignable(J.ClassDeclaration classDeclaration) {
+    JavaType type = classDeclaration.getType();
+    return type != null
+        && isAssignableTo(type, "org.camunda.bpm.engine.delegate.JavaDelegate", new HashSet<>());
+  }
+
+  private static boolean isAssignableTo(
+      JavaType type, String fullyQualifiedName, Set<String> visited) {
+    if (!visited.add(type.toString())) {
+      return false;
+    }
+    if (TypeUtils.isOfClassType(type, fullyQualifiedName)) {
+      return true;
+    }
+    if (type instanceof JavaType.FullyQualified fullyQualified) {
+      JavaType.FullyQualified supertype = fullyQualified.getSupertype();
+      if (supertype != null && isAssignableTo(supertype, fullyQualifiedName, visited)) {
+        return true;
+      }
+      for (JavaType.FullyQualified iface : fullyQualified.getInterfaces()) {
+        if (isAssignableTo(iface, fullyQualifiedName, visited)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static class CopyExecutionListenerToJobWorkerRecipe extends Recipe {
