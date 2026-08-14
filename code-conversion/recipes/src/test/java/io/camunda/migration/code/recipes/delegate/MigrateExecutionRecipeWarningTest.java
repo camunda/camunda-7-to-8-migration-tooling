@@ -60,4 +60,62 @@ public class MigrateExecutionRecipeWarningTest implements RewriteTest {
             }
             """));
   }
+
+  @Test
+  void preservesOriginalDelegateWhenAllRecipesWarn() {
+    rewriteRun(
+        spec -> spec.recipeFromResources("io.camunda.migration.code.recipes.AllDelegateRecipes"),
+        java(
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.annotation.JobWorker;
+            import io.camunda.client.api.response.ActivatedJob;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.Map;
+
+            @Component
+            public class UnmigratableDelegate implements JavaDelegate {
+
+                @JobWorker(type = "unmigratableDelegate")
+                public Map<String, Object> executeJob(ActivatedJob job) {
+                    return null;
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) throws Exception {
+                    execution.setVariable("done", true);
+                }
+            }
+            """,
+            """
+            package org.camunda.community.migration.example;
+
+            import io.camunda.client.annotation.JobWorker;
+            import io.camunda.client.api.response.ActivatedJob;
+            import org.camunda.bpm.engine.delegate.DelegateExecution;
+            import org.camunda.bpm.engine.delegate.JavaDelegate;
+            import org.springframework.stereotype.Component;
+
+            import java.util.Map;
+
+            /* Could not copy delegate body: execute(DelegateExecution) or executeJob(ActivatedJob) is not in the expected shape. Migrate the logic manually.*/
+            @Component
+            public class UnmigratableDelegate implements JavaDelegate {
+
+                @JobWorker(type = "unmigratableDelegate")
+                public Map<String, Object> executeJob(ActivatedJob job) {
+                    return null;
+                }
+
+                @Override
+                public void execute(DelegateExecution execution) throws Exception {
+                    execution.setVariable("done", true);
+                }
+            }
+            """));
+  }
 }

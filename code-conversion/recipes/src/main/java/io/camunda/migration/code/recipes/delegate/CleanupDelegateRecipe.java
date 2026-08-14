@@ -54,6 +54,12 @@ public class CleanupDelegateRecipe extends Recipe {
               return classDecl;
             }
 
+            // Preserve delegate code when migration already warned that the body could not be
+            // copied automatically, so users can still migrate it manually.
+            if (hasDelegateBodyWarning(classDecl)) {
+              return super.visitClassDeclaration(classDecl, ctx);
+            }
+
             // Filter out the JavaDelegate interface and any subinterfaces of it
             List<TypeTree> updatedImplements = classDecl.getImplements() == null ? Collections.emptyList() :
                 classDecl.getImplements().stream()
@@ -74,6 +80,15 @@ public class CleanupDelegateRecipe extends Recipe {
             return classDecl
                 .withBody(classDecl.getBody().withStatements(filteredStatements))
                 .withImplements(updatedImplements.isEmpty() ? null : updatedImplements);
+          }
+
+          private boolean hasDelegateBodyWarning(J.ClassDeclaration classDecl) {
+            List<Comment> comments =
+                classDecl.getComments() == null ? Collections.emptyList() : classDecl.getComments();
+            return comments.stream()
+                .filter(c -> c instanceof TextComment)
+                .map(c -> (TextComment) c)
+                .anyMatch(c -> c.getText().contains("delegate body"));
           }
 
           private boolean isJavaDelegateAssignable(JavaType type) {
