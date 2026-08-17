@@ -51,6 +51,7 @@
     <version.httpcore5>5.4.3</version.httpcore5>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
+    <plugin.version.central-publishing>0.8.0</plugin.version.central-publishing>
     <plugin.version.frontend-maven>2.0.2</plugin.version.frontend-maven>
     <plugin.version.surefire>3.5.6</plugin.version.surefire>
     <plugin.version.failsafe>3.5.6</plugin.version.failsafe>
@@ -70,6 +71,7 @@
     <nexus.release.repository.id>camunda-artifactory</nexus.release.repository.id>
     <nexus.staging.deploy.id>camunda-artifactory</nexus.staging.deploy.id>
     <central.sonatype.deployment.name>${project.groupId}:${project.artifactId}:${project.version}</central.sonatype.deployment.name>
+    <central.autoPublish>false</central.autoPublish>
   </properties>
 
   <modules>
@@ -209,6 +211,11 @@
           </configuration>
         </plugin>
         <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${plugin.version.central-publishing}</version>
+        </plugin>
+        <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <configuration>
@@ -258,6 +265,13 @@
     </pluginManagement>
 
     <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <configuration>
+          <autoPublish>${central.autoPublish}</autoPublish>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
