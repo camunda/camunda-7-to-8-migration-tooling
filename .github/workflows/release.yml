@@ -198,7 +198,7 @@ jobs:
             -DskipTests=true \
             -Dskip.central.release=${SKIP_REPO_DEPLOY} \
             -Dskip.camunda.release=true \
-            -DautoPublish=true \
+            -Dcentral.autoPublish=true \
             -DwaitUntil=published
 
       - name: Verify Maven Central publication
