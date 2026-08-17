@@ -51,6 +51,7 @@
     <version.commons-lang3>3.20.0</version.commons-lang3>
     <plugin.version.compiler>3.15.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
+    <plugin.version.central-publishing>0.8.0</plugin.version.central-publishing>
     <plugin.version.frontend-maven>2.0.2</plugin.version.frontend-maven>
     <plugin.version.surefire>3.5.6</plugin.version.surefire>
     <plugin.version.failsafe>3.5.6</plugin.version.failsafe>
@@ -203,6 +204,11 @@
           <configuration>
             <stagingProgressTimeoutMinutes>40</stagingProgressTimeoutMinutes>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${plugin.version.central-publishing}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
