@@ -30,14 +30,14 @@
     <version.java>21</version.java>
 
     <version.camunda-7>7.24.11-ee</version.camunda-7>
-    <version.camunda-8>8.9.14</version.camunda-8>
+    <version.camunda-8>8.9.16</version.camunda-8>
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
-    <version.jackson-bom>2.22.1</version.jackson-bom>
-    <version.jackson-3-bom>3.2.1</version.jackson-3-bom>
+    <version.jackson-bom>2.22.2</version.jackson-bom>
+    <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
-    <logback.version>1.6.1</logback.version>
+    <logback.version>1.6.3</logback.version>
     <tomcat.version>11.0.24</tomcat.version>
     <version.netty>4.2.17.Final</version.netty>
     <version.assertj>3.27.7</version.assertj>
