@@ -57,6 +57,7 @@
     }
   ],
   "vulnerabilityAlerts": {
-    "enabled": false
+    "enabled": true,
+    "addLabels": ["security"]
   }
 }
