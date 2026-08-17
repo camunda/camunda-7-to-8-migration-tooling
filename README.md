@@ -111,6 +111,33 @@ Every source file must contain the license header. See [license header template]
 5. Update documentation if needed
 6. Submit a pull request with a clear description
 
+## Releasing
+
+The `Release` GitHub Actions workflow is the supported way to publish release artifacts.
+
+### Standard release
+
+1. Create a `release/<version>` branch from the commit you want to release, or run from the relevant `maintenance/<line>` branch when releasing an existing maintenance line.
+2. Run the `Release` workflow from that `release/<version>` or `maintenance/<line>` branch with:
+   - `RELEASE_VERSION=<version>`
+   - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT`
+   - `IS_DRY_RUN=false`
+   - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
+3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
+4. The workflow waits until the deployment is published and verifies that all Maven Central artifacts are available before the release succeeds.
+
+### Backfill Maven Central for an existing tag
+
+If a GitHub release/tag already exists but Maven Central is missing the artifacts, rerun the `Release` workflow with:
+
+- `RELEASE_VERSION=<existing-tag>`
+- `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT` (required workflow input; ignored in backfill mode)
+- `IS_DRY_RUN=false`
+- `ONLY_PUSH_TO_MAVEN_CENTRAL=true`
+
+Run the workflow from the current `maintenance/0.3` branch so it uses the fixed publication workflow, not the old workflow definition stored in the release tag. This mode skips `release:prepare`, checks out the release tag, rebuilds the artifacts from that source, and publishes them to Maven Central only.
+It performs the same publication verification and fails if any expected artifact is still unavailable after the Central propagation timeout.
+
 ## License
 
 The source files in this repository are made available under the [Camunda License Version 1.0](./CAMUNDA-LICENSE-1.0.txt).
