@@ -31,12 +31,6 @@
       ]
     },
     {
-      "description": "Do not update npm packages in diagram-converter TODO: camunda/camunda-7-to-8-migration-tooling/issues/583",
-      "matchManagers": ["npm"],
-      "matchFileNames": ["diagram-converter/**"],
-      "enabled": false
-    },
-    {
       "description": "On any maintenance branch, restrict Camunda 8 packages to patch updates only (no minor or major).",
       "matchBaseBranches": ["/^maintenance\\//"],
       "matchUpdateTypes": ["minor", "major"],
