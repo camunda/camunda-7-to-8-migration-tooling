@@ -620,9 +620,8 @@ public class DistributionSmokeTest {
     try {
       if (!proc.waitFor(5, TimeUnit.SECONDS)) {
         proc.destroyForcibly();
-        proc.waitFor(5, TimeUnit.SECONDS);
       }
-      waitForDescendantsToExit(descendants, 5, TimeUnit.SECONDS);
+      waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
     } catch (final InterruptedException e) {
       descendants.forEach(ProcessHandle::destroyForcibly);
       proc.destroyForcibly();
@@ -630,10 +629,7 @@ public class DistributionSmokeTest {
       // file locks are released before @TempDir cleanup. The interrupt flag is clear
       // here, so onExit().get() can block normally.
       try {
-        final long cleanupDeadlineNanos =
-            System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        waitForProcessHandlesToExit(List.of(proc.toHandle()), cleanupDeadlineNanos);
-        waitForProcessHandlesToExit(descendants, cleanupDeadlineNanos);
+        waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
       } catch (InterruptedException ignored) {
         // best effort
       }
@@ -641,11 +637,15 @@ public class DistributionSmokeTest {
     }
   }
 
-  private void waitForDescendantsToExit(
-      final List<ProcessHandle> descendants, final long timeout, final TimeUnit unit)
+  private void waitForProcessTreeToExit(
+      final Process proc,
+      final List<ProcessHandle> descendants,
+      final long timeout,
+      final TimeUnit unit)
       throws InterruptedException {
-    waitForProcessHandlesToExit(
-        descendants, System.nanoTime() + unit.toNanos(timeout));
+    final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
+    waitForProcessHandlesToExit(List.of(proc.toHandle()), deadlineNanos);
+    waitForProcessHandlesToExit(descendants, deadlineNanos);
   }
 
   private void waitForProcessHandlesToExit(
