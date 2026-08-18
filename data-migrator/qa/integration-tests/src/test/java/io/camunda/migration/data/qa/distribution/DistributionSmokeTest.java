@@ -628,6 +628,11 @@ public class DistributionSmokeTest {
       // Best-effort wait for descendants before restoring the interrupt flag so that
       // file locks are released before @TempDir cleanup. The interrupt flag is clear
       // here, so onExit().get() can block normally.
+      try {
+        proc.onExit().get(1, TimeUnit.SECONDS);
+      } catch (ExecutionException | TimeoutException | InterruptedException ignored) {
+        // best effort
+      }
       for (final ProcessHandle child : descendants) {
         try {
           child.onExit().get(1, TimeUnit.SECONDS);
