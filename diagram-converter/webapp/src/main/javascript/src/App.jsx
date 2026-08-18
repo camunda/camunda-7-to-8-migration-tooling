@@ -109,9 +109,12 @@ function App() {
     let mostSevere = 'INFO';
 
     for (const msg of messages) {
+      const severityIndex = severityOrder.indexOf(msg.severity);
+      const mostSevereIndex = severityOrder.indexOf(mostSevere);
+
       if (
-        severityOrder.indexOf(msg.severity) >
-        severityOrder.indexOf(mostSevere)
+        severityIndex !== -1 &&
+        (mostSevereIndex === -1 || severityIndex < mostSevereIndex)
       ) {
         mostSevere = msg.severity;
       }
