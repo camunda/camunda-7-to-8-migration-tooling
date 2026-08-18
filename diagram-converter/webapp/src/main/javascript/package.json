@@ -27,7 +27,7 @@
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
-    "glob": "^11.0.1",
+    "glob": "^13.0.0",
     "globals": "^15.15.0",
     "typescript": "^5.9.2",
     "vite": "^6.2.0"
