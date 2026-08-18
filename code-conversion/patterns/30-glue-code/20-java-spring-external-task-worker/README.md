@@ -13,5 +13,5 @@ There are often multiple methods that achieve the same result. The patterns try 
 
 ## OpenRewrite recipe (WIP)
 
--   [Recipe "JavaDelegateSpringToZeebeWorkerSpring"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllExternalWorkerRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/externalWorkerRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)

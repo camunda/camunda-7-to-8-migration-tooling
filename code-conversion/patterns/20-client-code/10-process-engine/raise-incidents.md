@@ -10,7 +10,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ## CamundaClient (Camunda 8)
 
@@ -25,4 +25,4 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
