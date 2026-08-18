@@ -23,6 +23,43 @@ function normalizeHeadingLevels(content, levelOffset = 0) {
   });
 }
 
+function rewriteRelativeLinks(content, sourcePath) {
+  const patternRoot = path.resolve(PATTERN_ROOT);
+
+  return content.replace(
+    /(!?\[[^\]]*\])\(([^)\s]+)([^)]*)\)/g,
+    (match, label, destination, suffix) => {
+      if (
+        !destination ||
+        destination.startsWith('#') ||
+        destination.startsWith('/') ||
+        destination.startsWith('//') ||
+        /^[a-z][a-z\d+.-]*:/i.test(destination)
+      ) {
+        return match;
+      }
+
+      const fragmentIndex = destination.indexOf('#');
+      const linkPath =
+        fragmentIndex === -1
+          ? destination
+          : destination.substring(0, fragmentIndex);
+      const fragment =
+        fragmentIndex === -1 ? '' : destination.substring(fragmentIndex);
+
+      if (!linkPath) return match;
+
+      const targetPath = path.resolve(path.dirname(sourcePath), linkPath);
+      const rebasedPath = path
+        .relative(patternRoot, targetPath)
+        .split(path.sep)
+        .join('/');
+
+      return `${label}(${rebasedPath || '.'}${fragment}${suffix})`;
+    }
+  );
+}
+
 function extractTitleFromFile(content, fallbackFilename) {
   const match = content.match(/^#\s+(.+)/m);
   if (match) return match[1].trim();
@@ -67,7 +104,10 @@ function collectAllContent(dir, depth = 1) {
     const raw = fs.readFileSync(readmePath, 'utf-8');
     const match = raw.match(/^#\s+(.*)/m);
     readmeTitle = match ? match[1].trim() : null;
-    readmeBody = raw.replace(/^#\s+.*\n?/, '').trim();
+    readmeBody = rewriteRelativeLinks(
+      raw.replace(/^#\s+.*\n?/, '').trim(),
+      readmePath
+    );
   }
 
   const sectionTitle = readmeTitle || stripPrefix(path.basename(dir));
@@ -88,7 +128,10 @@ function collectAllContent(dir, depth = 1) {
     const match = raw.match(/^#\s+(.*)/m);
     const title = match ? match[1].trim() : filename;
 
-    const cleanedContent = raw.replace(/^#\s+.*\n?/, '').trim();
+    const cleanedContent = rewriteRelativeLinks(
+      raw.replace(/^#\s+.*\n?/, '').trim(),
+      filePath
+    );
 
     content += `\n${'#'.repeat(depth + 1)} ${title}\n\n`;
     content += normalizeHeadingLevels(cleanedContent, depth + 1).trim() + '\n\n---\n';
@@ -103,6 +146,27 @@ function collectAllContent(dir, depth = 1) {
 }
 
 
+function decodeHtmlEntities(text) {
+  return text
+    .replace(/&#(\d+);/g, (_, codePoint) =>
+      String.fromCodePoint(Number.parseInt(codePoint, 10))
+    )
+    .replace(/&#x([\da-f]+);/gi, (_, codePoint) =>
+      String.fromCodePoint(Number.parseInt(codePoint, 16))
+    )
+    .replace(/&(amp|lt|gt|quot|apos|nbsp);/g, (_, entity) => {
+      const entities = {
+        amp: '&',
+        lt: '<',
+        gt: '>',
+        quot: '"',
+        apos: "'",
+        nbsp: ' '
+      };
+      return entities[entity];
+    });
+}
+
 function generateTOC(markdown) {
   const lines = markdown.split('\n');
   const tocLines = [];
@@ -112,7 +176,7 @@ function generateTOC(markdown) {
     if (match) {
       const level = match[1].length;
       const title = match[2].trim();
-      const anchor = title
+      const anchor = decodeHtmlEntities(title)
         .toLowerCase()
         .replace(/[^\w\s-]/g, '')
         .replace(/\s+/g, '-');
