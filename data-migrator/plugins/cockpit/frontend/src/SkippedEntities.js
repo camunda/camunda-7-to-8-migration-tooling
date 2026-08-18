@@ -7,7 +7,7 @@
  */
 
 import React, {useEffect, useMemo, useState} from "react";
-import {createColumnHelper} from '@tanstack/react-table';
+import {legacyCreateColumnHelper as createColumnHelper} from '@tanstack/react-table/legacy';
 import PaginatedTable from "./PaginatedTable";
 import {ENTITY_TYPES} from "./utils/types";
 import {injectLiveReload} from "./utils/utils";
