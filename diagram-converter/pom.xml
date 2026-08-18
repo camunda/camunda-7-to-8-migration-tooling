@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-    <version>0.3.4-SNAPSHOT</version>
+    <version>0.3.7-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -30,7 +30,7 @@
     <version.checker-qual>4.2.2</version.checker-qual>
     <version.commons-collections4>4.6.0</version.commons-collections4>
     <version.rest-assured>6.0.1</version.rest-assured>
-    <plugin.version.spotless-maven-plugin>3.9.0</plugin.version.spotless-maven-plugin>
+    <plugin.version.spotless-maven-plugin>3.10.0</plugin.version.spotless-maven-plugin>
     <plugin.version.maven-site-plugin>3.22.0</plugin.version.maven-site-plugin>
     <plugin.version.maven-assembly-plugin>3.8.0</plugin.version.maven-assembly-plugin>
     <plugin.version.maven-source-plugin>3.4.0</plugin.version.maven-source-plugin>

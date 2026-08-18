@@ -61,45 +61,48 @@ async function navigateToDecisionByName(page: Page, decisionName: string) {
 test.describe('Operate - Decision Instances', () => {
   // Configure this test suite to run in isolation with its own browser context
   test.describe.configure({ mode: 'serial' });
+  // Firefox can take longer to finish navigation on CI runners. Leave enough
+  // time for the login page to load and for the test body to execute.
+  test.setTimeout(120000);
 
   test.beforeEach(async ({ page, context }) => {
     // Clear cookies and storage to ensure clean state between tests
     await context.clearCookies();
     await context.clearPermissions();
 
-    // Navigate directly to Camunda Operate login page
+    // Navigate directly to Camunda Operate login page. Waiting for the DOM is
+    // sufficient here; waiting for every resource and network-idle can exceed
+    // the default test timeout on slower Firefox CI runners.
     // Note: Operate is running on port 8088 as configured in docker-compose.yml
-    await page.goto('http://localhost:8088/operate/login');
+    await page.goto('http://localhost:8088/operate/login', {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    });
 
-    // Wait for the page to load
-    await page.waitForLoadState('networkidle');
+    // Wait for the Angular-rendered login form instead of checking visibility
+    // immediately after navigation. A fresh Playwright context has no session,
+    // so Operate should always present the login form here.
+    const usernameInput = page.locator('input[name="username"]');
+    await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
-    // Check if we need to log in (login form is visible)
-    const isLoginPage = await page.locator('input[name="username"]').isVisible().catch(() => false);
+    // Fill in login credentials - Camunda 8 default demo user
+    const passwordInput = page.locator('input[name="password"]');
+    const submitButton = page.locator('button[type="submit"]');
 
-    if (isLoginPage) {
-      // Fill in login credentials - Camunda 8 default demo user
-      const usernameInput = page.locator('input[name="username"]');
-      const passwordInput = page.locator('input[name="password"]');
-      const submitButton = page.locator('button[type="submit"]');
+    await usernameInput.fill('demo');
+    await passwordInput.fill('demo');
 
-      await usernameInput.waitFor({ state: 'visible', timeout: 10000 });
+    // Take screenshot before login
+    await page.screenshot({ path: 'test-results/operate-before-login.png', fullPage: true });
 
-      await usernameInput.fill('demo');
-      await passwordInput.fill('demo');
+    await submitButton.click();
 
-      // Take screenshot before login
-      await page.screenshot({ path: 'test-results/operate-before-login.png', fullPage: true });
+    await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+      timeout: 15000,
+    });
 
-      await submitButton.click();
-
-      await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
-        timeout: 15000,
-      });
-
-      // Take screenshot after login
-      await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
-    }
+    // Take screenshot after login
+    await page.screenshot({ path: 'test-results/operate-after-login.png', fullPage: true });
   });
 
   test.afterEach(async ({ page, context }) => {
