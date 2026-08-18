@@ -644,8 +644,8 @@ public class DistributionSmokeTest {
       final TimeUnit unit)
       throws InterruptedException {
     final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
-    waitForProcessHandlesToExit(List.of(proc.toHandle()), deadlineNanos);
     waitForProcessHandlesToExit(descendants, deadlineNanos);
+    waitForProcessHandlesToExit(List.of(proc.toHandle()), deadlineNanos);
   }
 
   private void waitForProcessHandlesToExit(
