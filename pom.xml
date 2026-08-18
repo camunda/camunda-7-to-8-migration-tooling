@@ -150,7 +150,7 @@
         <artifactId>httpclient5</artifactId>
         <version>${version.httpclient5}</version>
       </dependency>
-      <!-- CVE-2026-13006: pin logback to 1.5.37 (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
+      <!-- CVE-2026-13006: pin logback to ${logback.version} (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
