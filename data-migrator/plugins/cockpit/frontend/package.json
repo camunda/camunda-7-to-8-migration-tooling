@@ -16,7 +16,7 @@
   "type": "module",
   "dependencies": {
     "@babel/runtime": "~8.0.0",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "^9.0.0",
     "react": "~19.2.0",
     "react-dom": "~19.2.0"
   },
@@ -39,6 +39,6 @@
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-scss": "~4.0.0",
     "sass": "^1.79.4",
-    "typescript": "^5.9.2"
+    "typescript": "^7.0.0"
   }
 }
