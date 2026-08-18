@@ -63,7 +63,7 @@
               <goal>install-node-and-npm</goal>
             </goals>
             <configuration>
-              <nodeVersion>v22.9.0</nodeVersion>
+              <nodeVersion>v22.18.0</nodeVersion>
               <!-- Specify Node.js version -->
               <npmVersion>11.0.0</npmVersion>
               <!-- Specify npm version -->
