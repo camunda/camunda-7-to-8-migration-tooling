@@ -18,7 +18,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.AfterEach;
@@ -604,22 +607,71 @@ public class DistributionSmokeTest {
    * spawns a child JVM that holds file locks on the extracted JARs; {@link Process#destroy()} only
    * kills the {@code cmd.exe} parent. Descendants are destroyed first, then the parent, with a
    * {@link Process#destroyForcibly()} fallback. {@link InterruptedException} from {@code waitFor}
-   * restores the interrupt flag and triggers an immediate forcible kill so cleanup always completes.
+   * triggers forcible termination followed by bounded best-effort waits for the parent and
+   * descendants before restoring the interrupt flag, allowing file locks to be released.
    */
   protected void destroyProcessTree(final Process proc) {
     if (proc == null) {
       return;
     }
-    proc.descendants().forEach(ProcessHandle::destroyForcibly);
+    final List<ProcessHandle> descendants = proc.descendants().toList();
+    descendants.forEach(ProcessHandle::destroyForcibly);
     proc.destroy();
     try {
       if (!proc.waitFor(5, TimeUnit.SECONDS)) {
         proc.destroyForcibly();
-        proc.waitFor(5, TimeUnit.SECONDS);
       }
+      waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
     } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
+      descendants.forEach(ProcessHandle::destroyForcibly);
       proc.destroyForcibly();
+      // Best-effort wait for the parent and descendants before restoring the interrupt flag so that
+      // file locks are released before @TempDir cleanup. The interrupt flag is clear
+      // here, so onExit().get() can block normally.
+      try {
+        waitForProcessTreeToExit(proc, descendants, 5, TimeUnit.SECONDS);
+      } catch (InterruptedException ignored) {
+        // best effort
+      }
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  private void waitForProcessTreeToExit(
+      final Process proc,
+      final List<ProcessHandle> descendants,
+      final long timeout,
+      final TimeUnit unit)
+      throws InterruptedException {
+    final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
+    waitForProcessHandlesToExit(descendants, deadlineNanos);
+    waitForProcessHandlesToExit(List.of(proc.toHandle()), deadlineNanos);
+  }
+
+  private void waitForProcessHandlesToExit(
+      final List<ProcessHandle> processes, final long deadlineNanos)
+      throws InterruptedException {
+    for (final ProcessHandle process : processes) {
+      final long remainingNanos = deadlineNanos - System.nanoTime();
+      if (remainingNanos <= 0) {
+        process.destroyForcibly();
+        continue;
+      }
+      try {
+        process.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+      } catch (ExecutionException ignored) {
+        // process state is already terminal
+      } catch (TimeoutException ignored) {
+        process.destroyForcibly();
+        final long remainingAfterDestroyNanos = deadlineNanos - System.nanoTime();
+        try {
+          if (remainingAfterDestroyNanos > 0) {
+            process.onExit().get(remainingAfterDestroyNanos, TimeUnit.NANOSECONDS);
+          }
+        } catch (ExecutionException | TimeoutException ignoredAfterDestroy) {
+          // best effort: process termination was already requested
+        }
+      }
     }
   }
 }
