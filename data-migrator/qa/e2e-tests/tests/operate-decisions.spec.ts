@@ -66,7 +66,7 @@ test.describe('Operate - Decision Instances', () => {
   test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
-    // Clear cookies and storage to ensure clean state between tests
+    // Clear cookies and permissions to ensure clean state between tests
     await context.clearCookies();
     await context.clearPermissions();
 
