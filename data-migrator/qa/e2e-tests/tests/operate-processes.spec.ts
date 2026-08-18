@@ -7,6 +7,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { navigateToOperateLogin } from './operate-navigation';
 
 const OPERATE_URL = 'http://localhost:8088/operate';
 
@@ -31,7 +32,7 @@ async function installChangelogHandler(page: Page) {
  * Helper: login to Operate if needed.
  */
 async function login(page: Page) {
-  await page.goto(`${OPERATE_URL}/login`);
+  await navigateToOperateLogin(page);
   await page.waitForLoadState('networkidle');
 
   const isLoginPage = await page
