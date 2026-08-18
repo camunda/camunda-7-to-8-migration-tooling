@@ -83,7 +83,7 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 
 **Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
 
-**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`. Until the upstream dependency alignment is fixed, override the managed version in the application:
+**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later for API compatibility. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`; `5.6.3` is the minimum version that also addresses CVE-2026-64607. Until the upstream dependency alignment is fixed, override the managed version in the application:
 
 ```
 <dependencyManagement>
@@ -91,7 +91,7 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
 			<artifactId>httpclient5</artifactId>
-			<version>5.6.1</version>
+			<version>5.6.3</version>
 		</dependency>
 	</dependencies>
 </dependencyManagement>
