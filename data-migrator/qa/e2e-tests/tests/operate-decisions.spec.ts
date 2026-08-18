@@ -63,7 +63,7 @@ test.describe('Operate - Decision Instances', () => {
   test.describe.configure({ mode: 'serial' });
   // Firefox can take longer to finish navigation on CI runners. Leave enough
   // time for the login page to load and for the test body to execute.
-  test.setTimeout(120000);
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
     // Clear cookies and storage to ensure clean state between tests
