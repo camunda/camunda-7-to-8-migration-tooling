@@ -644,7 +644,7 @@ public class DistributionSmokeTest {
     }
   }
 
-  protected void waitForDescendantsToExit(
+  private void waitForDescendantsToExit(
       final List<ProcessHandle> descendants, final long timeout, final TimeUnit unit)
       throws InterruptedException {
     final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
