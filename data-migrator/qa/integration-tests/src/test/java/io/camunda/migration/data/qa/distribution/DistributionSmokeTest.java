@@ -626,20 +626,16 @@ public class DistributionSmokeTest {
     } catch (final InterruptedException e) {
       descendants.forEach(ProcessHandle::destroyForcibly);
       proc.destroyForcibly();
-      // Best-effort wait for descendants before restoring the interrupt flag so that
+      // Best-effort wait for the parent and descendants before restoring the interrupt flag so that
       // file locks are released before @TempDir cleanup. The interrupt flag is clear
       // here, so onExit().get() can block normally.
       try {
-        proc.onExit().get(1, TimeUnit.SECONDS);
-      } catch (ExecutionException | TimeoutException | InterruptedException ignored) {
+        final long cleanupDeadlineNanos =
+            System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        waitForProcessHandlesToExit(List.of(proc.toHandle()), cleanupDeadlineNanos);
+        waitForProcessHandlesToExit(descendants, cleanupDeadlineNanos);
+      } catch (InterruptedException ignored) {
         // best effort
-      }
-      for (final ProcessHandle child : descendants) {
-        try {
-          child.onExit().get(1, TimeUnit.SECONDS);
-        } catch (ExecutionException | TimeoutException | InterruptedException ignored) {
-          // best effort
-        }
       }
       Thread.currentThread().interrupt();
     }
@@ -648,23 +644,29 @@ public class DistributionSmokeTest {
   private void waitForDescendantsToExit(
       final List<ProcessHandle> descendants, final long timeout, final TimeUnit unit)
       throws InterruptedException {
-    final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
-    for (final ProcessHandle child : descendants) {
+    waitForProcessHandlesToExit(
+        descendants, System.nanoTime() + unit.toNanos(timeout));
+  }
+
+  private void waitForProcessHandlesToExit(
+      final List<ProcessHandle> processes, final long deadlineNanos)
+      throws InterruptedException {
+    for (final ProcessHandle process : processes) {
       final long remainingNanos = deadlineNanos - System.nanoTime();
       if (remainingNanos <= 0) {
-        child.destroyForcibly();
+        process.destroyForcibly();
         continue;
       }
       try {
-        child.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+        process.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
       } catch (ExecutionException ignored) {
         // process state is already terminal
       } catch (TimeoutException ignored) {
-        child.destroyForcibly();
+        process.destroyForcibly();
         final long remainingAfterDestroyNanos = deadlineNanos - System.nanoTime();
         try {
           if (remainingAfterDestroyNanos > 0) {
-            child.onExit().get(remainingAfterDestroyNanos, TimeUnit.NANOSECONDS);
+            process.onExit().get(remainingAfterDestroyNanos, TimeUnit.NANOSECONDS);
           }
         } catch (ExecutionException | TimeoutException ignoredAfterDestroy) {
           // best effort: process termination was already requested
