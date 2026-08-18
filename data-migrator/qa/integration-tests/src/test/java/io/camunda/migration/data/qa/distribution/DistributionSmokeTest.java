@@ -607,7 +607,8 @@ public class DistributionSmokeTest {
    * spawns a child JVM that holds file locks on the extracted JARs; {@link Process#destroy()} only
    * kills the {@code cmd.exe} parent. Descendants are destroyed first, then the parent, with a
    * {@link Process#destroyForcibly()} fallback. {@link InterruptedException} from {@code waitFor}
-   * restores the interrupt flag and triggers an immediate forcible kill so cleanup always completes.
+   * triggers forcible termination followed by bounded best-effort waits for the parent and
+   * descendants before restoring the interrupt flag, allowing file locks to be released.
    */
   protected void destroyProcessTree(final Process proc) {
     if (proc == null) {
