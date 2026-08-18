@@ -103,6 +103,23 @@ function App() {
   });
 
 
+  function getMostSevere(messages) {
+    const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
+
+    let mostSevere = 'INFO';
+
+    for (const msg of messages) {
+      if (
+        severityOrder.indexOf(msg.severity) >
+        severityOrder.indexOf(mostSevere)
+      ) {
+        mostSevere = msg.severity;
+      }
+    }
+
+    return mostSevere;
+  }
+
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') setIsPreviewOpen(false); };
     document.addEventListener('keydown', handler);
@@ -144,22 +161,6 @@ function App() {
     return () => clearTimeout(timer);
   }, [allDone, totalFindings]);
 
-    function getMostSevere(messages) {
-      const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
-
-      let mostSevere = 'INFO';
-
-      for (const msg of messages) {
-        if (
-          severityOrder.indexOf(msg.severity) >
-          severityOrder.indexOf(mostSevere)
-        ) {
-          mostSevere = msg.severity;
-        }
-      }
-
-      return mostSevere;
-    }
 
   function createFormData(files) {
     const formData = new FormData();
