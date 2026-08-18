@@ -57,4 +57,4 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
 ```
 
 -   in Camunda 8, a signal is always correlated to all suitable signal subscriptions
--   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/modify-process-instance/)
+-   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/modify-process-instance/)

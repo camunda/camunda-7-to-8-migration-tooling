@@ -83,7 +83,7 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 
 **Java client artifact**: Use `io.camunda:camunda-client-java`. The legacy `io.camunda:zeebe-client-java` artifact is deprecated and will be discontinued in Camunda 8.10.
 
-**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`. Until the upstream dependency alignment is fixed, override the managed version in the application:
+**Spring Boot 3.5.x and Apache HttpClient**: Spring Boot 3.5.x may manage `org.apache.httpcomponents.client5:httpclient5` to `5.5.2`, while `io.camunda:camunda-client-java` 8.9.13 requires `5.6.1` or later for API compatibility. This mismatch can prevent the `CamundaClient` bean from starting with a `NoSuchMethodError`; `5.6.3` is the minimum version that also addresses CVE-2026-64607. Until the upstream dependency alignment is fixed, override the managed version in the application:
 
 ```
 <dependencyManagement>
@@ -91,7 +91,7 @@ Also, configure your connection to the Camunda 8 cluster in the `application.pro
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
 			<artifactId>httpclient5</artifactId>
-			<version>5.6.1</version>
+			<version>5.6.3</version>
 		</dependency>
 	</dependencies>
 </dependencyManagement>
@@ -145,8 +145,8 @@ The different methods of these services are grouped into separated .md files by 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "ProcessEngineToZeebeClient"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/client/ProcessEngineToZeebeClient.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllClientRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/clientRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)
 
 
 #### Class-level Changes
@@ -300,7 +300,7 @@ The following patterns focus on methods how to broadcast signals in Camunda 7 an
 ```
 
 -   in Camunda 8, a signal is always correlated to all suitable signal subscriptions
--   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/modify-process-instance/)
+-   to complete a specific signal event in a running process instance without broadcasting a global signal, use the [Modify process instance API](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/modify-process-instance/)
 
 ---
 
@@ -620,7 +620,7 @@ The following patterns focus on methods how to handle variables in Camunda 7 and
 ```
 
 -   various filter, sorting and pagination options
--   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/camunda-api-rest/specifications/search-variables/)
+-   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/specifications/search-variables/)
 
 ###### Setting Variables
 
@@ -809,7 +809,7 @@ public class ProcessPaymentsApplication {
 
 -   the annotation `@Deployment` can be used to specify specific files or multiple resources via a wildcard pattern to be deployed to the engine
 -   Camunda 8 has no implicit classpath auto-deployment equivalent to the Camunda 7 Spring Boot starter defaults. Even if your Camunda 7 app had no `@EnableProcessApplication`, you must still add explicit deployment wiring (`@Deployment` or deploy commands) for BPMN/DMN resources.
--   for more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/getting-started/#deploy-process-models)
+-   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/#deploy-process-models)
 
 ###### Deploy BPMN Model
 
@@ -1076,7 +1076,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ###### CamundaClient (Camunda 8)
 
@@ -1091,7 +1091,7 @@ The following patterns focus on methods how to raise incidents in Camunda 7 and 
     }
 ```
 
--   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../java-spring-delegate/) or [External Task Worker](../java-spring-external-task-worker/)
+-   incidents should be raised in the context of a job worker, see code conversion examples for a [JavaDelegate](../../30-glue-code/10-java-spring-delegate/README.md) or [External Task Worker](../../30-glue-code/20-java-spring-external-task-worker/README.md)
 
 ---
 
@@ -1300,8 +1300,8 @@ The glue code patterns look into the different scenarios and proposes code conve
 |-----------------------------------|-------------------------------------------------|----------------------------|-----------------------------------------------------------------------|------|
 | `camunda:class`                   | `camunda:class="com.example.MyDelegate"`        | `myDelegate`               | Class name is converted to camelCase; assumes a `@JobWorker` Spring bean | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
 | `camunda:delegateExpression`      | `camunda:delegateExpression="${myBean}"`        | `myBean`                   | Bean name is used directly; assumes a `@JobWorker`-annotated method   | [JavaDelegate &#8594; Job Worker (Spring)](10-java-spring-delegate/) |
-| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [15-java-expression/]() |
-| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | []() |
+| `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](15-java-expression/README.md) |
+| No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | — |
 
 
 ### JavaDelegate &#8594; Job Worker (Spring)
@@ -1392,7 +1392,7 @@ When you convert your diagrams from Camunda 7 to Camunda 8 using the [Migration 
 ```
 
 
-For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/spring-zeebe-sdk/get-started/).
+For more information, check [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/).
 
 ---
 
@@ -1509,7 +1509,7 @@ Check the [README](./README.md) for more details on class-level changes.
 -   the initial number of retries is set in the BPMN xml
 -   the job worker handles decrementing the number of retries and the retry backoff strategy explicitely
 -   the job can fail with variables to skip work in the next retry that was already done in a previous job run
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -1593,7 +1593,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   raising an incident directly uses the same **fail job** API as handling a retryable failure
 -   the number of retries is set to 0 to raise the incident
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -1700,7 +1700,7 @@ Check the [README](./README.md) for more details on class-level changes.
     }
 ```
 
--   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#using-variable).
+-   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#using-variable-recommended).
 -   _.send().join()_ is blocking and waits for the response from the cluster
 
 ###### autoComplete = false (reactive)
@@ -1796,8 +1796,8 @@ There are often multiple methods that achieve the same result. The patterns try 
 
 ###### OpenRewrite recipe (WIP)
 
--   [Recipe "JavaDelegateSpringToZeebeWorkerSpring"](../recipes/src/main/java/org/camunda/migration/rewrite/recipes/glue/JavaDelegateSpringToZeebeWorkerSpring.java)
--   [Learn how to apply recipes](../recipes/)
+-   [Recipe "AllExternalWorkerRecipes"](../../../recipes/src/main/resources/META-INF/rewrite/externalWorkerRecipes.yml)
+-   [Learn how to apply recipes](../../../recipes/README.md)
 
 
 #### Class-level Changes
@@ -1984,7 +1984,7 @@ Check the [README](./README.md) for more details on class-level changes.
 -   the initial number of retries is set in the BPMN xml
 -   the job worker handles decrementing the number of retries and the retry backoff strategy explicitely
 -   the job can fail with variables to skip work in the next retry that was already done in a previous job run
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -2074,7 +2074,7 @@ Check the [README](./README.md) for more details on class-level changes.
 
 -   raising an incident directly uses the same **fail job** API as handling a retryable failure
 -   the number of retries is set to 0 to raise the incident
--   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#failing-jobs-in-a-controlled-way)
+-   for more information on failing a job in a controlled way, look at [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#fail-jobs-in-a-controlled-way)
 
 ###### autoComplete = false (blocking)
 
@@ -2185,7 +2185,7 @@ Check the [README](./README.md) for more details on class-level changes.
     }
 ```
 
--   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/next/apis-tools/spring-zeebe-sdk/configuration/#using-variable).
+-   _@Variable_ can be used to fetch and cast a specific variable. For more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/configuration/#using-variable-recommended).
 -   _.send().join()_ is blocking and waits for the response from the cluster
 
 ###### autoComplete = false (reactive)

@@ -17,7 +17,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@camunda/design-system": "^0.45.0",
-    "lucide-react": "1.17.0"
+    "lucide-react": "1.31.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
@@ -27,7 +27,7 @@
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",
-    "glob": "^11.0.1",
+    "glob": "^13.0.0",
     "globals": "^15.15.0",
     "typescript": "^5.9.2",
     "vite": "^8.0.0"
