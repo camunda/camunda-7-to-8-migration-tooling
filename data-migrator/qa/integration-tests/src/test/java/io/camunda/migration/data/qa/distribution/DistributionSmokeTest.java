@@ -650,17 +650,23 @@ public class DistributionSmokeTest {
       throws InterruptedException {
     final long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
     for (final ProcessHandle child : descendants) {
-      while (child.isAlive() && System.nanoTime() < deadlineNanos) {
-        Thread.sleep(50);
-      }
-      if (child.isAlive()) {
+      final long remainingNanos = deadlineNanos - System.nanoTime();
+      if (remainingNanos <= 0) {
         child.destroyForcibly();
-        final long remainingNanos = deadlineNanos - System.nanoTime();
+        continue;
+      }
+      try {
+        child.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+      } catch (ExecutionException ignored) {
+        // process state is already terminal
+      } catch (TimeoutException ignored) {
+        child.destroyForcibly();
+        final long remainingAfterDestroyNanos = deadlineNanos - System.nanoTime();
         try {
-          if (remainingNanos > 0) {
-            child.onExit().get(remainingNanos, TimeUnit.NANOSECONDS);
+          if (remainingAfterDestroyNanos > 0) {
+            child.onExit().get(remainingAfterDestroyNanos, TimeUnit.NANOSECONDS);
           }
-        } catch (ExecutionException | TimeoutException ignored) {
+        } catch (ExecutionException | TimeoutException ignoredAfterDestroy) {
           // best effort: process termination was already requested
         }
       }
