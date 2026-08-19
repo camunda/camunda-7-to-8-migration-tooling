@@ -109,6 +109,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-59889: make the fixed Jackson BOM inherited by every module, including modules without a local BOM import. -->
+      <dependency>
+        <groupId>com.fasterxml.jackson</groupId>
+        <artifactId>jackson-bom</artifactId>
+        <version>${version.jackson-bom}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>io.netty</groupId>
         <artifactId>netty-bom</artifactId>
