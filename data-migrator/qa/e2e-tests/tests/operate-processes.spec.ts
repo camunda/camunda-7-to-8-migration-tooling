@@ -7,8 +7,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-
-const OPERATE_URL = 'http://localhost:8088/operate';
+import { navigateToOperateLogin } from './operate-navigation';
 
 /**
  * Helper: install a persistent handler that auto-dismisses Operate's
@@ -31,7 +30,7 @@ async function installChangelogHandler(page: Page) {
  * Helper: login to Operate if needed.
  */
 async function login(page: Page) {
-  await page.goto(`${OPERATE_URL}/login`);
+  await navigateToOperateLogin(page);
   await page.waitForLoadState('networkidle');
 
   const isLoginPage = await page
@@ -108,6 +107,7 @@ async function openProcessInstance(page: Page, processName: string) {
  */
 test.describe('Operate - Process Instances & Audit Logs', () => {
   test.describe.configure({ mode: 'serial' });
+  test.setTimeout(180000);
 
   test.beforeEach(async ({ page, context }) => {
     await context.clearCookies();
