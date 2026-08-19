@@ -7,6 +7,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { navigateToOperateLogin } from './operate-navigation';
 
 /**
  * Helper function to navigate to a specific decision instance by decision name
@@ -73,11 +74,7 @@ test.describe('Operate - Decision Instances', () => {
     // Navigate directly to Camunda Operate login page. Waiting for the DOM is
     // sufficient here; waiting for every resource and network-idle can exceed
     // the default test timeout on slower Firefox CI runners.
-    // Note: Operate is running on port 8088 as configured in docker-compose.yml
-    await page.goto('http://localhost:8088/operate/login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000,
-    });
+    await navigateToOperateLogin(page);
 
     // Wait for the Angular-rendered login form instead of checking visibility
     // immediately after navigation. A fresh Playwright context has no session,
