@@ -4,527 +4,139 @@ description: |-
   Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Use for code migration, model migration, or both.
 ---
 
-# Camunda 7 → 8 Migration
+# Camunda 7 to 8 Migration
 
-You are a migration expert helping the user migrate a Camunda 7 project to Camunda 8. A project can contain **two independent kinds of assets**, each with its own migration path:
+Migrate a Camunda 7 project to Camunda 8. A project can contain two independent kinds of assets, each with its own migration path:
 
-- **Code** — Java/Spring glue and client code, config, tests. Migrated with **OpenRewrite recipes** (deterministic) plus AI cleanup.
-- **Models** — BPMN/DMN diagrams using the `camunda:` namespace. Migrated with the **Diagram Converter** (deterministic) or agentically.
+- Code: Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes (deterministic) plus AI cleanup.
+- Models: BPMN/DMN diagrams using the camunda: namespace. Migrated with the Diagram Converter (deterministic) or agentically.
 
-Treat these as separate operations that compose. Ask what the user wants (Step 1, Question 3) and run only the relevant path(s).
+## Entry Criteria
 
-## Shared rules
+1. Project uses Camunda 7 (camunda-bpm) dependencies in Maven or Gradle
+2. Project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with camunda: namespace, or application config with camunda.* keys
+3. Target is Camunda 8 version 8.8, 8.9, or 8.10
+4. For OpenRewrite approach (recommended): Maven or Gradle build system available
+5. For Diagram Converter CLI: Java 21+ available (alternatives exist if not)
 
-These apply throughout — referenced below instead of repeated.
+## Implementation Steps
 
-- **Distinguish code from models.** OpenRewrite/AI handles code; the Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow. Ask for scope (Q3) rather than assuming.
-- **Use project-local models first.** Treat any BPMN/DMN file found under the project root as the source of truth. Do not offer or request C7 engine access when local models are present. Offer the engine source only after the project-root scan finds no models and the user selected a model scope.
-- **Commits are opt-in.** Check whether the project has uncommitted changes before starting; if dirty, ask the user to commit or stash. Never auto-commit. After each phase, ask whether to commit and proceed only on explicit approval.
-- **Prefer intent over shell dialect.** Use the available agent tools to inspect files, discover configuration, create directories, download artifacts, and run commands. When command execution is required, choose the platform-appropriate invocation for the current environment instead of assuming POSIX shell syntax or Unix-only helpers.
-- **Never mutate user assets silently.** Models convert to `converted-c8-*` copies; originals stay intact. Converted files and CSV/XLSX/MD reports are generated outputs for the user to review.
-- **Load the reference before editing.** Never guess API/XML mappings. For gaps, prefer `docs.camunda.io` via WebFetch over training knowledge.
-  - Code → pattern catalog: `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/ALL_IN_ONE.md`. If context is tight, fetch only the individual files under `code-conversion/patterns/`.
-  - Agentic models → diagram-converter docs (see M2).
-- **Respect the target version** (Q2). Don't offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+. Pass the same version to the CLI via `--platform-version`.
-- **Prefer deterministic over agentic.** Code: OpenRewrite + AI over AI-only. Models: CLI (M1) over agentic rewrite (M2). Use agentic only when the deterministic path can't run.
-- **Conversion is not completion.** Converter finding severities: WARNING, TASK, REVIEW, INFO. TASK/REVIEW/WARNING need human follow-up and JUEL conversion is partial — always say so, then offer the Step 5 follow-up.
-- **Diagram Converter: fail fast on Java, download don't ask.** Require Java 21+; stop with a clear message (offer M2/M3) if missing. Download the CLI from the latest GitHub release into `.camunda-migration/`, reuse an existing download, never commit the JAR.
-- **Don't redo what the tools changed.** In Approach A, check for existing transforms before rewriting. After a converter run, don't re-apply conversions it already did.
-- **Ask before High-complexity files and edge cases.** Auto-apply only unambiguous 1:1 mappings. For anything else — JUEL invoking beans, BPMN error mapping, async/correlation, IdentityService/FormService, custom batches, multi-instance listeners, ambiguous TODOs or findings, compile errors without a direct catalog match — propose via `AskUserQuestion` first. When unsure, ask.
-- **Keep changes minimal.** No refactors, renames, or improvements beyond the migration.
-- **Keep `MIGRATION_REPORT.md` current** — both inventories, decisions, phase status, validation results.
+### Step 1: Gather Inputs
 
-## Step 1: Gather inputs
+See `references/interview-questions.md` for the full question set and batching rules.
 
-Before calling `AskUserQuestion`, pick a candidate project root (use the provided argument if present, otherwise the current working directory), then detect the build tool by checking that directory for `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle). Also glob for models (`**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`) so you can tailor the scope question (Q3) to what appears to be present. This candidate scan is only used to shape Q3; the confirmed project-root scan after Q1 is what gates whether the C7 engine option (Q5 / E1) is offered.
+1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml).
+2. Ask Question 1 (project location) via AskUserQuestion.
+3. After confirmation, re-scan the confirmed root if it differs from the candidate.
+4. Ask Questions 2-3 (target version, scope) together.
+5. Ask conditional Questions 4-6 (code approach, model approach, build tool) as applicable.
+6. When user accepts defaults, proceed directly.
 
-Then ask the questions below with `AskUserQuestion`. **Tool limits: at most 4 questions per call, and every question that supplies `options` must have at least 2 options.** Because Q1 must be answered before the confirmed project root is known and up to 6 questions may apply, batch them:
+Shared rules that apply throughout all subsequent steps:
+- Distinguish code from models. OpenRewrite/AI handles code; Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow.
+- Use project-local models first. Do not offer C7 engine access when local models are present.
+- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit.
+- Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
+- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact.
+- Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
+- Respect the target version. Do not offer features from a higher version than selected.
+- Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
+- Conversion is not completion. Converter findings (WARNING, TASK, REVIEW, INFO) need human follow-up.
+- Do not redo what the tools changed. Check for existing transforms before rewriting.
+- Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
+- Keep changes minimal. No refactors, renames, or improvements beyond the migration.
+- Keep MIGRATION_REPORT.md current with inventories, decisions, phase status, and validation results.
 
-- **Call 1** — ask **Question 1** (project location) first.
-- **Re-scan** — after Q1 is answered, if the selected root differs from the candidate, re-detect the build tool and re-glob for models in the confirmed root.
-- **Call 2** — the always-applicable questions now that the root is confirmed: **Q2, Q3** (2 questions).
-- **Call 3** — the conditional approach questions that apply given the Q3 answer and your updated detection: any of Q4, Q5, Q6 (≤3 questions).
+### Step 2: Assessment (always runs)
 
-Only include a conditional question when its stated condition holds, and never put more than 4 in one call. If a single call would exceed 4, split it further. Use the post-Q1 scan result for all subsequent gating decisions, especially whether to include the C7 engine source options (Q5 / E1).
+Scan the project and produce inventories relevant to the chosen scope.
 
-**Question 1 — Project location**
+#### Code Inventory
 
-Confirm the project root you detected. Provide two options so the question is valid:
+Identify and classify all Camunda 7 related Java/config files into a table with columns: File, Type, Complexity, Notes. See `references/code-transform-checklist.md` for detection hints and type classifications.
 
-- **Use `<detected path>`** *(recommended)* — the argument path if one was passed, otherwise the current working directory.
-- **Enter a different path** — let the user type the path in the free-form field.
+#### Model Inventory
 
-(If you prefer a pure free-text prompt instead, omit `options` entirely — do not send a single-option question.)
+Glob for model files. For each, note whether it uses the camunda: namespace and record its path in a table with columns: File, Type, Uses camunda: ns, Notes.
 
-**Question 2 — Target Camunda 8 version**
+If inventory is empty and user selected model migration, record that no local models were found and that E1 was offered.
 
-Ask which specific Camunda 8 version the user is migrating to (user can't select anything else):
+#### Summary
 
-- **8.10** *(next version, not yet GA)* —; includes all features from 8.8 and 8.9 too.
-- **8.9** *(latest stable)* — adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator.
-- **8.8** — first version with the unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
+Present: total code/model files, overall complexity, whether OpenRewrite would help, blockers requiring manual decision, and a note that running instances/history/audit data are out of scope (point to Data Migrator).
 
-The target version changes which patterns apply **and** is passed to the Diagram Converter as `--platform-version` (valid values `8.0`–`8.10`; this skill only offers `8.8`–`8.10`). Record the concrete `major.minor` the user selects and use it throughout.
+Write assessment to MIGRATION_REPORT.md. Use AskUserQuestion to wait for confirmation before proceeding.
 
-**Question 3 — Migration scope**
+### Step 3: Execute Migration
 
-Ask what the user wants to migrate (tailor the wording to what you detected — code files, model files, or both, user can't select anything else):
+Run Part A if scope includes code, Part B if scope includes models. For Code + models, see `references/composing-code-and-models.md`.
 
-- **Code + models** *(recommended when both are present — default to this)* — Runs both Part A and Part B and composes them.
-- **Code only** — Java/Spring code. Runs Part A.
-- **Models only** — BPMN/DMN diagrams. Runs Part B.
-- **Assessment only** — Scan and report scope/complexity/effort for code and models. No changes.
+#### Part A - Code Migration
 
-When no local model files were found, do not silently drop models from a combined request. Keep **Code only** as the default recommendation, and offer the C7 engine source below only if the user explicitly selects **Code + models** or **Models only**.
+Apply the Transform checklist from `references/code-transform-checklist.md` using the selected approach:
 
-**Question 4 — Code migration approach** *(include only if code files are present and user selected code migration, user can't select anything else)*:
+- Approach A (OpenRewrite + AI): See `references/code-migration-approaches.md` for full OpenRewrite setup, Java compatibility checks, and AI cleanup procedure.
+- Approach B (AI only): Load pattern catalog, work full checklist items 1-7 in order, confirming each.
+- Approach C (Assessment only): Detailed report with effort estimates, no code changes.
 
-- **A. OpenRewrite (deterministic) + AI** *(recommended)* — Runs OpenRewrite recipes first for deterministic bulk transforms (delegates, workers, client code). When prompted you can ask AI to resolve remaining `// TODO` comments, compilation errors, config, and test code. Best for most codebases.
-- **B. AI only** — AI migrates everything directly without OpenRewrite. Use this when you can't run OpenRewrite (non-Maven/Gradle builds, restricted environments) or want to review every change individually.
-- **C. Assessment only** — Scan the codebase and produce a report: file inventory, complexity estimate, effort breakdown. No code changes.
+#### Part B - Model Migration
 
-**Question 5 — Model source and migration approach** *(include only if the user selected model migration, user can't select anything else)*:
+Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approach:
 
-Show **only one** of the two groups below, based on the model scan result from Step 1:
-- If local model files were found under the project root, show only the **M1–M3** local-model options.
-- If no local model files were found, show only the **E1–E2** engine-source options; do not offer E1 when local models are present.
+- Approach M1 (Diagram Converter CLI + AI): See `references/model-migration-approaches.md` for CLI download, execution, and findings handling.
+- Approach M2 (Agentic AI): Direct XML rewrite without CLI. See `references/model-migration-approaches.md`.
+- Approach M3 (Online Converter): User uploads at hosted service manually.
+- Approach E1 (C7 Engine Source): Fetch from C7 REST API when no local models. See `references/model-migration-approaches.md`.
 
-**Local models found — choose one of M1–M3:**
+### Step 4: Validation (always runs)
 
-- **M1. Diagram Converter CLI (deterministic) + AI** *(recommended)* — Downloads the official `camunda-7-to-8-diagram-converter-cli` from GitHub releases into the project and runs it locally against your BPMN/DMN files, targeting your Camunda 8 version. Deterministic and repeatable; produces converted files plus analysis reports (CSV/XLSX). **Requires Java 21+.** When prompted you can ask AI to address remaining TODO items and suggest changes.
-- **M2. Agentic AI** — AI rewrites the BPMN/DMN XML directly (namespace, listeners, JUEL→FEEL, event mappings). Use when Java 21 is unavailable, you want to review every change, or a niche case the CLI doesn't cover. Slower and non-deterministic.
-- **M3. Online Diagram Converter (hosted)** — Upload your diagrams at **https://diagram-converter.camunda.io/** and download the converted results. No local Java needed; uses the hosted service.
-- Any of the above can be run in **analyze-only** mode first (see "Analyze-only mode" in Part B) to see findings without producing converted files.
+#### Code Validation (if code was migrated)
 
-**No local models found — choose one of E1–E2:**
+1. Compile: run `mvn compile` or platform-appropriate Gradle compile task. Fix all errors.
+2. Check for remaining C7 references: search for `org.camunda.bpm` imports. Each is a missed migration.
+3. Check for remaining TODOs: search for `// TODO` migration comments. Each needs manual review.
+4. Check for legacy C8 client: search for `ZeebeClient` and `zeebe-client-java` (deprecated, removed in 8.10; migrate to CamundaClient).
+5. Check for leftover business keys: search for `businessKey`. Map to businessId (8.9+) or tags (8.8).
+6. Run tests: run `mvn test` or platform-appropriate Gradle test task. Fix failures.
+7. Check common pitfalls:
+   - Critical naming swap: C7 processDefinitionKey (string key) becomes C8 bpmnProcessId; C7 processDefinitionId (UUID) becomes C8 processDefinitionKey. Same for decision definitions.
+   - Process instance IDs changed from String to Long.
+   - VariableMap usage: variables are now plain JSON, TypedValue API is gone.
+   - HistoryService references: map to search endpoints (eventually consistent).
+   - Batch operations: available since 8.8; only custom batch handlers need manual design.
 
-- **E1. Camunda 7 engine (recommended)** — Fetch BPMN/DMN definitions from a reachable C7 REST API and pass them through the same deterministic conversion flow. The CLI engine path converts fetched XML in memory and writes converted outputs; named-key acquisition can stage raw XML and use M1 local mode. Ask for C7 access before connecting; the required details are described in Part B.
-- **E2. Provide a model path** — Wait for the user to provide another file or directory, re-run model detection there, and then show M1–M3.
+#### Model Validation (if models were migrated)
 
-**Question 6 — Build tool** *(include only if scope includes code, approach is A, and detection was ambiguous — both Maven and Gradle found, or neither)*: "Which build tool should I use for the OpenRewrite step: Maven or Gradle?" If exactly one build tool was detected, do not ask; state the detection in the approach question text instead (e.g. "Detected Maven."). Do not proceed until you have the answer.
+1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
+2. Every WARNING/TASK/REVIEW finding is either fixed or recorded as remaining follow-up in MIGRATION_REPORT.md.
+3. Originals are intact and were not overwritten.
 
-When the user accepts the defaults (recommended options) without changing anything, proceed directly. Be opinionated — the recommended options are what most projects need.
+Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
----
+### Step 5: AI Follow-up (offer after validation)
 
-## Step 2: Assessment (always runs, regardless of scope)
+If there are remaining TODOs, findings, compilation issues, or unresolved items, proactively offer to resolve them:
 
-Scan the project at the provided path. Produce two inventories as relevant to the chosen scope.
+> I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
-### Code inventory
+Use AskUserQuestion with options:
+- Yes, fix what you can (recommended): AI resolves unambiguous items, proposes each for review.
+- Show me the list first: Present full list grouped by type, then ask which to fix.
+- No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
 
-Identify and classify all Camunda 7 related Java/config files:
+When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. Ask whether to commit after each batch.
 
-| File | Type | Complexity | Notes |
-|------|------|------------|-------|
-| ... | JavaDelegate / ExternalTaskWorker / Listener / ClientCode / TestCode / Config / JUEL | Low / Medium / High | Key concerns |
+## Validation / Exit Criteria
 
-**Detection hints:**
-- `implements JavaDelegate` → JavaDelegate
-- `@ExternalTaskSubscription` or `ExternalTaskHandler` → External task worker
-- `implements ExecutionListener` or `implements TaskListener` → Listener (C8: execution listeners 8.6+, user task listeners 8.8+, global user task listeners 8.9+)
-- `ProcessEngine`, `RuntimeService`, `TaskService` autowired → Client code
-- `HistoryService` → Client code (maps to Orchestration Cluster search endpoints; historic *data* needs the History Data Migrator)
-- `DecisionService` → Client code (maps to `newEvaluateDecisionCommand`)
-- `IdentityService`, `FormService` → Client code, flag for manual design (Identity Data Migrator covers authorizations since 8.9)
-- `businessKey` usage → flag: maps to Business ID (8.9+) or tags (8.8)
-- Batch operations (`...Async` methods, `ManagementService` batches) → Client code (Orchestration Cluster batch operations since 8.8)
-- `ZeebeClient` / Spring Zeebe SDK (`io.camunda.spring:spring-boot-starter-camunda` or `zeebe-client-java`) → legacy C8 client code; migrate to `CamundaClient` / `camunda-spring-boot-starter` (ZeebeClient is removed in 8.10)
-- `@Test` + Camunda 7 test rules → Test code
-- `application.properties` / `application.yaml` with `camunda.*` keys → Config
-- `ProcessEnginePlugin`, BPMN parse listeners → flag: global behavior; user-task cases map to global user task listeners (8.9+), others need manual design
-
-**Special blockers to flag explicitly:**
-- Listeners or delegates attached to multi-instance *bodies* that compute the collection variable — this sequencing does not exist in C8 (listeners fire after collection evaluation). Requires model change (preceding service task). High complexity.
-- Custom batch handlers (`ManagementService#createBatch` with custom jobs) — no generic C8 equivalent.
-
-### Model inventory
-
-Glob for `**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`. For each, note whether it uses the `camunda:` namespace (needs conversion) and record its path:
-
-| File | Type | Uses `camunda:` ns | Notes |
-|------|------|--------------------|-------|
-| ... | BPMN / DMN | yes / no | e.g. JavaDelegate refs, JUEL expressions, listeners |
-
-If the inventory is empty and the user selected model migration, record that no local source models were found and that E1 (C7 engine source) was offered. Do not report an empty local inventory as a successful model migration.
-
-These are migrated in **Part B** (not by OpenRewrite). Do not attempt to hand-edit them here — that is the Diagram Converter's job.
-
-### Summary
-
-After the tables, present:
-- Total code files and total model files to migrate
-- Overall complexity estimate
-- Whether OpenRewrite would help (JavaDelegates or ExternalTaskWorkers present?)
-- Any blockers requiring manual decision before starting
-- One short note on data migration scope: running instances, history/audit data, and authorizations are **not** code or model migration — point to the [Data Migrator](https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/data-migrator/) (runtime since 8.8; history and identity since 8.9, history requires RDBMS secondary storage)
-
-**Write the assessment to `MIGRATION_REPORT.md` in the project root** (both tables, decisions, blockers). Keep this file updated as phases complete — it is the durable record of the migration across sessions.
-
-Use `AskUserQuestion` to wait for user confirmation before proceeding.
-
----
-
-## Step 3: Execute migration
-
-Commit policy and reference loading: see Shared rules. Run **Part A** if the scope includes code, **Part B** if it includes models. For **Code + models**, see "Composing code + model migration" at the end of this step.
-
----
-
-## Part A — Code migration (Java/Spring)
-
-Both approaches apply the same **Transform checklist** below. Approach A runs OpenRewrite first for the deterministic bulk, then uses the checklist for the rest; Approach B works the whole checklist manually.
-
-### Transform checklist
-
-Confirm each item before the next (commit policy: Shared rules). Tags mark what OpenRewrite already handles.
-
-**1. Dependencies & configuration**
-- Resolve the latest released GA Camunda version from Maven Central's artifact metadata, not its search API. Query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml` (the equivalent `repo1.maven.org` path is also available) for the starter artifact selected below. From `<versions>`, choose the highest version matching the target Camunda minor (`8.8.x`, `8.9.x`, etc.) and exclude `-SNAPSHOT`, `-alpha`, `-beta`, and `-rc` versions. If no GA version exists for the target, ask before using a pre-release.
-- Pick the starter by Spring Boot version: 3.x → `io.camunda:camunda-spring-boot-3-starter`; 4.x → `io.camunda:camunda-spring-boot-starter`.
-- Add the Camunda public repository only if the selected artifact/version is not available on Maven Central. Do not use its metadata to select a GA version, because its public feed can list snapshots without the corresponding GA releases:
-  - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
-  - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
-- Remove `org.camunda.bpm.*`, `camunda-bom`, and embedded-engine deps (H2, JDBC starter).
-- Add the starter; add `io.camunda:camunda-process-test-spring` (test scope) if tests exist.
-- For Spring Boot 3.5.x with Camunda 8.9.13, check the resolved `org.apache.httpcomponents.client5:httpclient5` version. If the Spring Boot BOM selects 5.5.2, override it to 5.6.1 or later in the application dependency management until upstream dependency alignment is fixed; verify with `mvn dependency:tree -Dincludes=org.apache.httpcomponents.client5:httpclient5`.
-- If removing Camunda 7 webapp/rest starters also removes your only SLF4J binding, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
-- Ensure Spring Boot dependency management is set (parent or BOM). If `@PostConstruct` is only used to start process instances, migrate that flow to `@EventListener(CamundaPostDeploymentEvent.class)` first instead of patching dependencies (for example adding `jakarta.annotation-api`) just to keep `jakarta.annotation`.
-- Replace `@EnableProcessApplication` with `@Deployment`. If the C7 app relied on implicit classpath auto-deployment (no `@EnableProcessApplication` present), still add explicit `@Deployment(resources = ...)` for BPMN/DMN files because C8 has no equivalent implicit deployment.
-- Replace `camunda.*` keys with `camunda.client.*` in `application.properties`/`.yaml` ([properties reference](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/properties-reference/)).
-- Reference: "Maven dependency and configuration".
-
-**2. Client code** (`ProcessEngine` → `CamundaClient`)
-- Replace `ProcessEngine`/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with `CamundaClient`.
-- Map: start instances (incl. `businessId`/tags), message correlation, signal broadcast, cancel, user tasks, variables, `HistoryService` → search requests, `DecisionService` → `newEvaluateDecisionCommand`, batch `...Async` → batch operations (8.8+).
-- If migrated code starts instances from `@PostConstruct` while using `@Deployment`, move that startup logic to `@EventListener(CamundaPostDeploymentEvent.class)` to avoid deployment-order races.
-- Reference: "Client code → ProcessEngine" (incl. Business Key, Batch Operations, Evaluate Decisions, Query History).
-
-**3. JavaDelegate → Job Worker** *(OpenRewrite covers this)*
-- Remove `implements JavaDelegate`; convert `execute(DelegateExecution)` to a `@JobWorker` method.
-- Variable access → method params / `@Variable`. `BpmnError` → `CamundaError.bpmnError(...)`. Remove `TypedValue` usage.
-- Reference: "Glue code → JavaDelegate → Job Worker".
-
-**4. External task workers** *(OpenRewrite covers this)*
-- `@ExternalTaskSubscription` → `@JobWorker`; update variable access and failure/incident handling.
-- Reference: "Glue code → External Task Worker".
-
-**5. Listeners** *(not covered by OpenRewrite)*
-- `ExecutionListener` → execution listener job workers (`zeebe:executionListener` + `@JobWorker`).
-- `TaskListener` → user task listener job workers (job result with corrections/deny).
-- Globally registered listeners (engine plugins, parse listeners) on user tasks → global user task listeners (8.9+).
-- Flag multi-instance body listeners that prepare collections — requires a model change.
-- Reference: "Glue code → Listeners".
-
-**6. Test code** *(not fully covered by OpenRewrite)*
-- `@Rule` Camunda test rules → `@CamundaSpringProcessTest`.
-- Update assertions (`isWaitingAt("id")` → `hasActiveElements("id")`), message correlation, timers, and user task completion — use `processTestContext` (`completeUserTask`, `completeJob`, `mockJobWorker`, `increaseTime`).
-- Disable real workers where mocked: `camunda.client.worker.defaults.enabled=false` with per-worker overrides.
-- On 8.9+, use CPT shared-runtime mode for large suites.
-- Reference: "Test assertions".
-
-**7. JUEL expressions** *(not covered by OpenRewrite)*
-- Pure data expressions → FEEL (the converter automates this model-side, Part B). Conditional events are native since 8.9. Only bean-invoking expressions need a JUEL job worker or a refactor into job workers.
-- Reference: "Expression → Job Worker".
-
-### Approach A — OpenRewrite + AI (recommended)
-
-**1. Run OpenRewrite** — deterministic bulk transforms for delegates, external workers, and client code.
-
-RECIPES_VERSION by Camunda target, use the latest from these minor versions: 8.8 → `0.2.x`; 8.9 and 8.10 → `0.3.x`.
-
-REWRITE_VERSION: Before adding the plugin, resolve the latest released version via WebFetch:
-- `rewrite-maven-plugin` (OpenRewrite): `https://repo.maven.apache.org/maven2/org/openrewrite/maven/rewrite-maven-plugin/maven-metadata.xml` → select the highest stable version from `<versions>`, excluding snapshots and pre-releases.
-
-
-Use those resolved versions in the snippets below (replacing `REWRITE_VERSION` and `RECIPES_VERSION`).
-
-Check if the OpenRewrite plugin is already in the build file. If not, add it:
-
-For Maven — add to `pom.xml`:
-```xml
-<plugin>
-  <groupId>org.openrewrite.maven</groupId>
-  <artifactId>rewrite-maven-plugin</artifactId>
-  <version>REWRITE_VERSION</version>
-  <configuration>
-    <activeRecipes>
-      <recipe>io.camunda.migration.code.recipes.AllClientRecipes</recipe>
-      <recipe>io.camunda.migration.code.recipes.AllDelegateRecipes</recipe>
-      <recipe>io.camunda.migration.code.recipes.AllExternalWorkerRecipes</recipe>
-    </activeRecipes>
-    <skipMavenParsing>false</skipMavenParsing>
-  </configuration>
-  <dependencies>
-    <dependency>
-      <groupId>io.camunda</groupId>
-      <artifactId>camunda-7-to-8-code-conversion-recipes</artifactId>
-      <version>RECIPES_VERSION</version>
-    </dependency>
-  </dependencies>
-</plugin>
-```
-
-**Before running**, check Java runtime compatibility for OpenRewrite itself, then check Spotless + Java compatibility:
-
-1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
-   - For the currently reported combination (`rewrite-maven-plugin` 6.12.0 + `camunda-7-to-8-code-conversion-recipes` 0.3.x), the known-safe window is Java **21-23** (recipes require Java 21+, while this rewrite plugin line can fail on Java 24+).
-   - Detect installed JDKs with a platform-appropriate method (for example `/usr/libexec/java_home -V` on macOS), then choose a compatible one and scope `JAVA_HOME`/`PATH` to that JDK only for the rewrite step.
-   - If no compatible JDK is installed, ask via `AskUserQuestion` to install one (for example `brew install openjdk@21` on macOS), wait for confirmation, then re-detect installed JDKs and select a compatible one before continuing.
-2. Inspect the Maven/Gradle build files to determine whether Spotless is configured.
-3. If Spotless is present **and** the selected Java major version ≥ 17:
-   - Run the OpenRewrite Maven goal with the JVM flags Spotless needs on Java 17+:
-     - `--add-opens=java.base/java.lang=ALL-UNNAMED`
-     - `--add-opens=java.base/java.util=ALL-UNNAMED`
-     - `--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED`
-     - `--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED`
-     - `--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED`
-     - `--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED`
-     - `--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED`
-   - Apply those flags using a portable Maven JVM option mechanism:
-     - If the project already has a `.mvn` directory, prefer appending them temporarily to `.mvn/jvm.config` while preserving any existing content. Otherwise, use `JAVA_TOOL_OPTIONS` rather than creating repository configuration solely for this temporary step.
-     - Arrange cleanup so it runs whether `mvn rewrite:run` succeeds or fails: restore the exact previous `.mvn/jvm.config` content or remove the file if this step created it, and restore the previous `JAVA_TOOL_OPTIONS` value if it was changed.
-     - Do not stage or commit the temporary changes; preserve any legitimate pre-existing tracked configuration.
-   - If this still fails with a Spotless error, ask the user: "Spotless is incompatible with your current Java version. Would you like to skip it for now (`mvn rewrite:run -Dspotless.skip=true`) or switch to another JDK that still stays inside the currently selected OpenRewrite+recipes compatibility window?"
-4. If Spotless is not present, or the selected Java major version < 17, run `mvn rewrite:run` directly.
-
-For Gradle — add to `build.gradle`:
-```groovy
-plugins {
-    id("org.openrewrite.rewrite") version "REWRITE_VERSION"
-}
-rewrite {
-    activeRecipe("io.camunda.migration.code.recipes.AllClientRecipes")
-    activeRecipe("io.camunda.migration.code.recipes.AllDelegateRecipes")
-    activeRecipe("io.camunda.migration.code.recipes.AllExternalWorkerRecipes")
-}
-```
-Run the OpenRewrite task with the platform-appropriate Gradle wrapper: for example, `./gradlew rewriteRun` on macOS or Linux (including in PowerShell), `.\gradlew.bat rewriteRun` in PowerShell on Windows, or `gradlew.bat rewriteRun` in Windows Command Prompt.
-
-Before AI cleanup, ask whether to commit the OpenRewrite result (commit policy: Shared rules).
-
-**2. AI cleanup — after OpenRewrite**
-
-Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern catalog (Shared rules), then work the Transform checklist for what OpenRewrite left:
-
-- Resolve all `// TODO` comments it inserted, and fix compile errors.
-- Apply items **1** (deps/config), **5** (listeners), **6** (tests), **7** (JUEL), and any **2** (client code) the recipes didn't cover.
-
----
-
-### Approach B — AI only
-
-Load the pattern catalog (Shared rules), then work the full Transform checklist (items 1–7) in order, confirming each before the next.
-
----
-
-### Approach C — Assessment only
-
-Present the code assessment table from Step 2 with additional detail:
-- Per-file effort estimate (hours)
-- Total estimated effort
-- Which files OpenRewrite can handle automatically vs. require manual AI work
-- Recommended approach (A or B) based on codebase size and complexity
-- Known risks or blockers (incl. multi-instance listener pattern, custom batches, IdentityService/FormService usage)
-- Data migration scope note (Data Migrator: runtime / history / identity)
-
-Write the full report to `MIGRATION_REPORT.md`. Then stop — make no code changes.
-
----
-
-## Part B — Model migration (BPMN/DMN)
-
-Converts BPMN/DMN from the `camunda:` namespace to `zeebe:`: job types for delegates, listener mappings, simple JUEL→FEEL, event definitions, version-gated features. Prefer the deterministic CLI (M1). See Shared rules for severities and "conversion is not completion".
-
-### Source selection
-
-Use the model scan from Step 1 before choosing a conversion path:
-
-- If one or more local model files were found under the project root, use local mode and do not offer or request C7 engine access. Run M1, M2, or M3 against those files.
-- If no local model files were found and the user selected E1, fetch the requested definitions from C7 first. For all-latest acquisition, the engine subcommand converts fetched XML in memory; for named-key acquisition, stage the raw XML and run the existing local conversion flow. Do not continue with an empty input directory.
-
-### Approach E1 — Camunda 7 engine source (only when no local models were found)
-
-The Diagram Converter CLI already has an `engine` subcommand for C7 REST acquisition. Use it only for the no-local-model case; it queries the latest process and decision definitions and their XML, converts the fetched XML in memory, and writes the converted outputs and optional analysis reports.
-
-**1. Ask for C7 access**
-
-Before contacting the system, use `AskUserQuestion` to request the access needed for this run:
-
-- Preferred: the C7 engine REST base URL, including its `/engine-rest` context path when applicable.
-- Authentication: no authentication or Basic authentication username/password. Obtain secrets through the agent's secure credential mechanism; never write them to `MIGRATION_REPORT.md` or commit them. **Caution:** the CLI's `--password` flag exposes secrets in shell history and OS process listings, so use a trusted environment and prefer temporary or dedicated credentials.
-- If REST access is unavailable, ask whether a supported database-backed extractor is available and request only the connection details it requires. The released `engine` CLI path supports REST with optional Basic authentication, not direct database extraction or OIDC; stop with that limitation rather than pretending a DB/OIDC connection was used.
-
-Also ask whether to fetch all latest process/decision definitions or only named keys. The existing `engine` command fetches all latest definitions. For a named set, query the C7 REST list endpoints with the appropriate key filters, fetch each definition's `/xml` resource, write the XML files to a staging directory such as `.camunda-migration/c7-models/`, and then run M1 local mode on that directory.
-
-**2. Fetch and convert**
-
-For the all-latest case, download/reuse the CLI as in M1, create `.camunda-migration/c7-models`, and invoke it with the platform-appropriate command runner:
-
-```
-java -Dfile.encoding=UTF-8 -jar <jar> engine <c7-rest-url> --target-directory .camunda-migration/c7-models --platform-version <target-version> [--username <username> --password <password>] [--csv] [--xlsx]
-```
-
-Keep the target directory as generated working state, never as a replacement for project source files. Report every converted BPMN/DMN output and analysis artifact. For named-key acquisition, retain the raw staged XML and invoke the `local` subcommand so the downstream conversion is identical to a file-based migration.
-
-**3. Handle failures without partial success**
-
-Treat an unreachable endpoint, TLS/DNS failure, `401`/`403`, malformed XML, or an empty response for a requested definition as a blocking error. Report the URL, operation, status/error, and the concrete next action (correct the URL, grant REST access, or provide supported credentials). Do not silently continue, convert a partial set, or report success when any requested definition failed to fetch.
-
-### Approach M1 — Diagram Converter CLI +AI (deterministic, recommended)
-
-**1. Java 21+ prerequisite — fail fast**
-
-Detect whether Java is installed and record its major version.
-
-If `java` is missing or the major version is **< 21**, STOP the CLI path and explain clearly, e.g.:
-
-> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Install Java 21+ and re-run, or choose **M2 (agentic AI)** which needs no Java, or **M3 (online converter)**.
-
-Do not silently skip model migration — surface the blocker and offer the alternatives.
-
-**2. Resolve the latest release and download the CLI into the project**
-
-The CLI is published as a self-contained executable JAR named `camunda-7-to-8-diagram-converter-cli-<tag>.jar` on the repo's GitHub releases, where the asset suffix matches the resolved release tag. Determine the latest release tag for `camunda/camunda-7-to-8-migration-tooling`, ensure `.camunda-migration/` exists in the project root, and compute the target path `.camunda-migration/camunda-7-to-8-diagram-converter-cli-<tag>.jar`.
-
-If that JAR already exists, reuse it. Otherwise, download the matching release asset from:
-
-`https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`
-
-If GitHub CLI is available you may use it to resolve release metadata; otherwise use another available download mechanism. The important part is the outcome: latest tag resolved, target directory present, existing JAR reused when possible, and the matching asset downloaded when absent.
-
-The JAR is large (~30 MB). If the project is a git repo, add `.camunda-migration/` to `.gitignore` — do not commit the downloaded tool.
-
-**3. Run the converter in local mode, targeting the user's C8 version**
-
-The CLI's `local` subcommand accepts a single file **or** a directory (recursive by default). Always pass `--platform-version` set to the version from Step 1 Question 2 so version-gated conversions (e.g. conditional events on 8.9+) are applied correctly.
-
-Invoke Java with the platform-appropriate command runner for the current environment using this argument shape:
-
-```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version>
-```
-
-Recommended flags to add in the normal migration flow:
-- `--csv` / `--xlsx` — write analysis reports for review
-- `-o` / `--override` — overwrite pre-existing converted files
-- `--check` — analyze-only (no converted diagrams exported) — see "Analyze-only mode"
-- `-nr` / `--not-recursive` — disable recursive search when a directory is given
-
-Useful options:
-- `--platform-version <v>` — target C8 version (`8.0`–`8.10`); defaults to latest if omitted. **Always set it.**
-- `--prefix <str>` — prefix for generated filenames (default `converted-c8-`). The converter writes a **new file next to the source**, e.g. `converted-c8-order-process.bpmn`, so originals are never mutated in place.
-- `-o` / `--override` — overwrite an existing converted file (otherwise it writes `... (1).bpmn` to avoid clobbering).
-- `--csv`, `--xlsx`, `--md` — write an analysis report (`analysis-results.csv` / `.xlsx` / `.md`) in the target directory.
-- `--check` — analyze only; no converted diagrams are exported.
-
-**4. Surface the outputs to the user**
-
-After the run, report back:
-- **Converted files** — list every `converted-c8-*.bpmn` / `*.dmn` produced and where.
-- **Analysis findings** — summarize from the CLI stdout and/or the CSV/XLSX report, grouped by severity (WARNING / TASK / REVIEW / INFO) with counts and the top items.
-- **Analysis artifacts** — if you generated `--csv` / `--xlsx`, point the user to them for review.
-
-**5. Follow up on findings**
-
-REVIEW/WARNING/TASK findings remain and JUEL conversion is partial — resolve them in Step 5, working on the `converted-c8-*` copies (never the originals).
-
-### Approach M2 — Agentic AI (direct XML rewrite)
-
-Use when Java 21 is unavailable, the user wants to review every change, or the CLI can't handle a case. Fetch the current diagram-conversion guidance rather than relying on training knowledge:
-`https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
-
-Then, for each in-scope diagram, produce a **new** `converted-c8-<name>.bpmn`/`.dmn` (never edit the original in place) applying, respecting the target version:
-- `camunda:` namespace/extension elements → `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
-- Execution/task listeners → `zeebe:executionListeners` / user task listeners
-- JavaDelegate/expression references → job types (or blank, to be filled)
-- Simple JUEL → FEEL for pure data expressions; flag bean-invoking expressions for manual work
-- Conditional events natively only on 8.9+; otherwise flag
-- DMN: update decision/definition namespaces and expression language as needed
-
-Emit a findings summary mirroring the CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. This path is slower and non-deterministic — recommend M1 whenever Java 21 is available.
-
-### Approach M3 — Online Diagram Converter (hosted)
-
-If the user prefers not to run the local CLI, point them to the hosted converter:
-
-> Upload your BPMN/DMN files at **https://diagram-converter.camunda.io/**, set the target version there, and download the converted results.
-
-This path does not automate the hosted service. Once the user brings the converted files back into the project, you can offer the same agentic findings follow-up as in M1 step 5.
-
-### Analyze-only mode
-
-For "analyze but don't convert": run M1 with `--check` (optionally `--csv`/`--xlsx`) to produce findings and reports with no converted files, or do an M2 read-only pass. Present the findings grouped by severity and stop — make no diagram changes.
-
----
-
-## Composing code + model migration
-
-When the scope is **Code + models**:
-- The two paths are independent — run each with its chosen approach. Order doesn't strictly matter; a reasonable default is **models first** (diagrams define the job types/listeners the code must implement), then code, but follow the user's preference.
-- Keep both inventories and both sets of results in `MIGRATION_REPORT.md`.
-- After both complete, cross-check: job types emitted by the Diagram Converter should match the `@JobWorker(type = ...)` values produced by the code migration. Flag mismatches for the user.
-- After both complete, ask whether to wire deployment of converted files in application code via `AskUserQuestion`:
-  - **Yes, add/update `@Deployment` for converted files** *(recommended when code scope includes a Spring Boot app)* — add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns (for example, `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn"})`) and never the original diagrams.
-  - **No, I will handle deployment outside app startup** — leave code unchanged and record this decision in `MIGRATION_REPORT.md`.
-
----
-
-## Step 4: Validation (always runs)
-
-### Code validation (if code was migrated)
-
-1. **Compile**: run `mvn compile` or the platform-appropriate Gradle wrapper compile task, such as `./gradlew compileJava` on macOS or Linux (including in PowerShell), `.\gradlew.bat compileJava` in PowerShell on Windows, or `gradlew.bat compileJava` in Windows Command Prompt — fix all errors
-2. **Check for remaining C7 references**: Search for `org.camunda.bpm` imports — each is a missed migration
-3. **Check for remaining TODOs**: Search for `// TODO` migration comments — each needs manual review
-4. **Check for legacy C8 client**: Search for `ZeebeClient` and `zeebe-client-java` — deprecated, removed in 8.10; migrate to `CamundaClient`
-5. **Check for leftover business keys**: Search for `businessKey` — map to `businessId` (8.9+) or tags (8.8), don't silently drop
-6. **Run tests**: run `mvn test` or the platform-appropriate Gradle wrapper test task, such as `./gradlew test` on macOS or Linux (including in PowerShell), `.\gradlew.bat test` in PowerShell on Windows, or `gradlew.bat test` in Windows Command Prompt — fix failures
-7. **Check common pitfalls**:
-  - **Critical naming swap**: C7 `processDefinitionKey` (the string key like `"my-process"`) becomes C8 `bpmnProcessId`; C7 `processDefinitionId` (the UUID) becomes C8 `processDefinitionKey` — easy to miss, causes silent runtime bugs. Same swap applies to decision definitions.
-  - Process instance IDs changed from `String` to `Long` — check all ID handling
-  - `VariableMap` usage — variables are now plain JSON, `TypedValue` API is gone
-  - `HistoryService` references — map to Orchestration Cluster search endpoints (eventually consistent — no read-after-write inside workers); historic *data* needs the History Data Migrator (8.9, RDBMS)
-  - Batch operations — available since 8.8 via the Orchestration Cluster API (cancel/resolve/migrate/modify; delete since 8.9); only *custom* batch handlers need manual design
-
-### Model validation (if models were migrated)
-
-1. **Converted files present**: confirm a `converted-c8-*` file exists for each in-scope diagram (unless analyze-only).
-2. **Findings triaged**: every WARNING/TASK/REVIEW finding is either fixed (with human review) or explicitly recorded as remaining follow-up in `MIGRATION_REPORT.md`.
-3. **Originals intact**: the user's original diagrams were not overwritten.
-
-Present a summary:
-```
-Validation Summary
-------------------
-✅ Compilation: OK
-⚠️  Remaining org.camunda.bpm imports: 3 → [list files]
-⚠️  Remaining TODOs: 5 → [list them]
-⚠️  Remaining businessKey usages: 2 → [list them]
-✅ Tests: 42 passed, 0 failed
-✅ Models converted: 4 → [list converted-c8-* files]
-⚠️  Model findings needing follow-up: 6 (2 REVIEW, 3 TASK, 1 WARNING) → [see analysis report]
-```
-
-Record the summary in `MIGRATION_REPORT.md`.
-
----
-
-## Step 5: AI follow-up (offer after validation)
-
-After presenting the validation summary, if there are remaining TODOs, REVIEW/WARNING/TASK findings, compilation issues, or unresolved items, **proactively offer** to resolve them:
-
-> I found [N] remaining items that need follow-up. Would you like me to take care of them? I can:
-> - Fix remaining `// TODO` comments based on the pattern catalog
-> - Resolve REVIEW/TASK/WARNING findings in the converted models
-> - Suggest fixes for compilation errors or test failures
-> - Fill in blank job types or FEEL expressions where the mapping is clear
->
-> I'll propose each change for your review before applying it.
-
-Use `AskUserQuestion` with:
-- **Yes, fix what you can** *(recommended)* — AI resolves unambiguous items, proposes each for review.
-- **Show me the list first** — Present the full list of remaining items grouped by type, then ask which to fix.
-- **No, I'll handle the rest manually** — Stop here; record remaining items in `MIGRATION_REPORT.md`.
-
-When the user opts in, work through items one at a time: apply unambiguous fixes directly (using the pattern catalog / converter docs as reference), propose ambiguous ones via `AskUserQuestion`, and skip anything the user declines. Ask whether to commit after each batch of resolved items.
+1. All Camunda 7 dependencies (org.camunda.bpm.*) are removed from build files
+2. No remaining org.camunda.bpm imports in Java source files
+3. Project compiles successfully with Camunda 8 dependencies
+4. All tests pass (or failures are documented with explanation)
+5. All // TODO migration comments are resolved or explicitly recorded
+6. No ZeebeClient/zeebe-client-java references remain (deprecated)
+7. businessKey usages are mapped to businessId (8.9+) or tags (8.8)
+8. Configuration uses camunda.client.* keys instead of camunda.* keys
+9. For model migration: converted-c8-* files exist for all in-scope diagrams
+10. For model migration: all WARNING/TASK/REVIEW findings are resolved or documented
+11. MIGRATION_REPORT.md contains complete inventories, decisions, and validation results
+12. Original model files are intact (never overwritten)
