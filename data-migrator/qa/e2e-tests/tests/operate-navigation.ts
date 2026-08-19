@@ -23,10 +23,17 @@ export async function navigateToOperateLogin(page: Page) {
 
   for (let attempt = 0; attempt < NAVIGATION_ATTEMPTS; attempt += 1) {
     try {
-      await page.goto(OPERATE_LOGIN_URL, {
+      const response = await page.goto(OPERATE_LOGIN_URL, {
         waitUntil: 'domcontentloaded',
         timeout: NAVIGATION_TIMEOUT,
       });
+
+      if (!response || !response.ok()) {
+        throw new Error(
+          `Operate login returned HTTP ${response?.status() ?? 'no response'}`,
+        );
+      }
+
       return;
     } catch (error) {
       lastError = error;
