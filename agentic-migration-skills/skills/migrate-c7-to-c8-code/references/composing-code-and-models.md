@@ -48,7 +48,7 @@ Take all rows with messageId `expression-method-not-possible` (message contains 
 Handle these rows as ONE named category, not individually:
 
 - Group every occurrence under the named category **FEEL method-invocation** and surface it with a single total count (optionally broken down per element type via the `elementType` column / message context prefix). Never list occurrences row by row — this is often the single largest work item in a real report.
-- Present one recommended decision point for the whole category: **precompute via job worker** vs **refactor into DMN** (decision process: `code-transform-checklist.md` item 7). Let the user decide once per category, or per sub-group of occurrences sharing one invoked method/expression.
+- Present one recommended decision point for the whole category: **precompute via job worker** vs **refactor into DMN** (with the exceptional **JUEL job worker** fallback when the expression must stay dynamic; full decision process: `code-transform-checklist.md` item 7). Let the user decide once per category, or per sub-group of occurrences sharing one invoked method/expression.
 - Cross-check against the code migration output: extract each distinct invoked method/expression from the findings' `message` column and verify the chosen remediation covers it — a `@JobWorker` that computes the value into a variable, or a DMN definition referenced by a preceding business rule task. List invoked methods with no remediation as uncovered.
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
