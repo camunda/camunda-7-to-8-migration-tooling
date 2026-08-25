@@ -70,7 +70,22 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
-- Only bean-invoking expressions need a JUEL job worker or a refactor into job workers.
+- Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
+
+### Named category: FEEL method-invocation
+
+Every expression that invokes a Java method (e.g. `${order.getTotal()}`, `${pricingService.quote(customer)}`) fails for the same root cause: FEEL cannot call Java methods — whether the receiver is a Spring bean or a plain variable (e.g. `${objectVar.getAddress().getStreet()}`, `${execution.getVariable("a").size()}`). Treat all occurrences as ONE countable category — **FEEL method-invocation** — regardless of where they appear: sequence-flow/gateway condition expressions, multi-instance `collection` or completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...).
+
+Count occurrences for sizing, but make the remediation decision ONCE per category (or per coherent sub-group sharing one receiver expression) — not per row.
+
+**Decision process (present all options to the user and let them choose):**
+
+1. **Precompute via job worker** (default): add a preceding service task whose `@JobWorker` calls the method (or performs the equivalent logic) and stores the result in a plain process variable; replace the expression with a FEEL reference to that variable (e.g. `=total`). For multi-instance `collection`, this is the required shape (the collection must exist as a variable before the multi-instance body starts).
+2. **Compute via execution listener** (most elegant when you don't want an extra visible shape in the diagram): attach a `zeebe:executionListener` (8.6+) backed by a `@JobWorker` that computes the value into a variable — e.g. on the `end` event of the preceding element or the `start` event of the element carrying the expression. Caveats: the listener must run BEFORE the expression is evaluated, so for multi-instance `collection` it must sit on a preceding element (never the MI body itself — the collection is read at activation); listeners are jobs too (failures create incidents on the element); and the flow's precompute step becomes invisible in the diagram, so document it.
+3. **Refactor into DMN** (when the expression encodes a business rule/decision, typical for gateway conditions): move the logic into a DMN table in a preceding business rule task and read its output variable.
+4. **JUEL job worker** (exceptional, only when the expression must stay dynamic): keep the JUEL string in a task header and evaluate it inside a generic worker. ⚠️ This is dynamic expression evaluation — only ever evaluate trusted, model-controlled expressions (never user input), and constrain the evaluation context (e.g. bean allow-list) to avoid code injection.
+
+This category is out of scope for auto-generation: detect, count, and name it — the human decides the approach per category.
 
 ---
 

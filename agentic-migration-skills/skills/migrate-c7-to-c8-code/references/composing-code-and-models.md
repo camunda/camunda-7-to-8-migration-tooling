@@ -41,6 +41,18 @@ The cross-check for this shape: verify exactly one worker subscribes to the shar
 
 Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT.md.
 
+### 3. FEEL method-invocation category
+
+Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). Regardless of element type — sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...) — the root cause is identical: a JUEL expression invoked a Java method — on a bean or on a plain variable (e.g. `${execution.getVariable("a").size()}`) — which FEEL cannot do. The remediation pattern is identical too: a preceding job worker, execution listener, or DMN business rule table computes the value into a plain variable that FEEL can read.
+
+Handle these rows as ONE named category, not individually:
+
+- Group every occurrence under the named category **FEEL method-invocation** and surface it with a single total count (optionally broken down per element type via the `elementType` column / message context prefix). Never list occurrences row by row — this is often the single largest work item in a real report.
+- Present one recommended decision point for the whole category, listing ALL options: **precompute via job worker** (default) vs **compute via execution listener** (no visible shape added) vs **refactor into DMN** (business-rule logic) vs the exceptional **JUEL job worker** fallback (full decision process: `code-transform-checklist.md` item 7). Let the user decide once per category, or per sub-group of occurrences sharing one invoked method/expression.
+- Cross-check against the code migration output: extract each distinct invoked method/expression from the findings' `message` column and verify the chosen remediation covers it — a `@JobWorker` (service task or execution listener) that computes the value into a variable, or a DMN definition referenced by a preceding business rule task. List invoked methods with no remediation as uncovered.
+
+Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
+
 ## Deployment Wiring
 
 After both complete, ask whether to wire deployment of converted files in application code via AskUserQuestion:
