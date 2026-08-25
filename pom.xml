@@ -130,6 +130,12 @@
         <artifactId>tomcat-embed-core</artifactId>
         <version>${tomcat.version}</version>
       </dependency>
+      <!-- CVE-2026-59296: pin micrometer-core to the fixed 1.17.1 version -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-core</artifactId>
+        <version>1.17.1</version>
+      </dependency>
       <dependency>
         <groupId>org.apache.tomcat.embed</groupId>
         <artifactId>tomcat-embed-el</artifactId>
