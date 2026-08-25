@@ -34,7 +34,7 @@ Do NOT generate one `@JobWorker` per BPMN element for a collapsed job type - the
 Instead, flag for the user that the shared job type needs a single dispatcher/adapter job worker:
 
 - One `@JobWorker(type = "<shared job type>")` for the whole group.
-- The worker reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:taskHeader` whose key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`) and whose value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
+- The worker reads the retained original expression from the job's task headers. The converter always preserves it as a `zeebe:header` entry (inside `zeebe:taskHeaders`) whose key is the original C7 attribute name (`expression`, `delegateExpression`, or `class`) and whose value is the original expression string (e.g. `${myBean.myMethod(execution)}`).
 - The worker routes on that header value to the correct legacy bean/method (e.g. via a Spring bean lookup by name, or an explicit mapping table).
 
 The cross-check for this shape: verify exactly one worker subscribes to the shared job type, and that its routing covers every distinct original expression found in the findings rows for that job type. List uncovered expressions for the user.
