@@ -43,7 +43,7 @@ Record the detected shape (1:1 vs many-to-one, per job type) in MIGRATION_REPORT
 
 ### 3. FEEL method-invocation category
 
-Take all rows with messageId `expression-method-not-possible` (message ends with "Method invocation is not possible in FEEL."). Regardless of element type — sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, or timer expressions — the root cause is identical: a JUEL expression invoked a Java bean method, which FEEL cannot do. The remediation pattern is identical too: a preceding job worker or DMN business rule table computes the value into a plain variable that FEEL can read.
+Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). Regardless of element type — sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...) — the root cause is identical: a JUEL expression invoked a Java bean method, which FEEL cannot do. The remediation pattern is identical too: a preceding job worker or DMN business rule table computes the value into a plain variable that FEEL can read.
 
 Handle these rows as ONE named category, not individually:
 

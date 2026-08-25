@@ -82,7 +82,7 @@ Count occurrences for sizing, but make the remediation decision ONCE per categor
 
 1. **Precompute via job worker** (default): add a preceding service task whose `@JobWorker` calls the bean method and stores the result in a plain process variable; replace the expression with a FEEL reference to that variable (e.g. `=total`). For multi-instance `collection`, this is the required shape (the collection must exist as a variable before the multi-instance body starts).
 2. **Refactor into DMN** (when the expression encodes a business rule/decision, typical for gateway conditions): move the logic into a DMN table in a preceding business rule task and read its output variable.
-3. **JUEL job worker** (exceptional, only when the expression must stay dynamic): keep the JUEL string in a task header and evaluate it inside a generic worker.
+3. **JUEL job worker** (exceptional, only when the expression must stay dynamic): keep the JUEL string in a task header and evaluate it inside a generic worker. ⚠️ This is dynamic expression evaluation — only ever evaluate trusted, model-controlled expressions (never user input), and constrain the evaluation context (e.g. bean allow-list) to avoid code injection.
 
 This category is out of scope for auto-generation: detect, count, and name it — the human decides the approach per category.
 
