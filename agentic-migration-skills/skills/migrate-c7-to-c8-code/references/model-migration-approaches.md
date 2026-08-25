@@ -29,7 +29,7 @@ Steps:
 4. If that JAR already exists, reuse it
 5. Otherwise download from: `https://github.com/camunda/camunda-7-to-8-migration-tooling/releases/download/<tag>/camunda-7-to-8-diagram-converter-cli-<tag>.jar`
 
-The JAR is ~30 MB. If the project is a git repo, add `.camunda-migration/` to `.gitignore`.
+The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migration/` to `.gitignore`; only modify `.gitignore` after the user confirms via AskUserQuestion.
 
 ### 3. Run the Converter
 
