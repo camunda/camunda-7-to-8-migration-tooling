@@ -96,6 +96,12 @@
         <artifactId>tomcat-embed-websocket</artifactId>
         <version>${tomcat.version}</version>
       </dependency>
+      <!-- CVE-2026-59296: pin micrometer-core ahead of Spring Boot BOM. -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-core</artifactId>
+        <version>${version.micrometer}</version>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
