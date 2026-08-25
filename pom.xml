@@ -116,6 +116,21 @@
         <artifactId>micrometer-core</artifactId>
         <version>${version.micrometer}</version>
       </dependency>
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-commons</artifactId>
+        <version>${version.micrometer}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-observation</artifactId>
+        <version>${version.micrometer}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-jakarta9</artifactId>
+        <version>${version.micrometer}</version>
+      </dependency>
       <!-- CVE-2026-59889: make the fixed Jackson BOM inherited by every module, including modules without a local BOM import. -->
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
