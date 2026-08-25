@@ -40,7 +40,8 @@ java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <ta
 ```
 
 Recommended flags:
-- `--csv` / `--xlsx` - write analysis reports for review
+- `--csv` - always pass this; the CSV report is the machine-readable input parsed in step 5
+- `--xlsx` - optional, for human spreadsheet review
 - `-o` / `--override` - overwrite pre-existing converted files
 - `--check` - analyze-only (no converted diagrams exported)
 - `-nr` / `--not-recursive` - disable recursive search
@@ -56,11 +57,48 @@ The converter writes a new file next to the source (e.g., `converted-c8-order-pr
 After the run, report:
 - Converted files: list every `converted-c8-*.bpmn` / `*.dmn` produced
 - Analysis findings: summarize from CLI stdout and/or CSV/XLSX report, grouped by severity (WARNING / TASK / REVIEW / INFO)
-- Analysis artifacts: point user to CSV/XLSX files if generated
+- Analysis artifacts: point user to the CSV file (always) and the XLSX file if generated
+
+Severity counts are only a headline. Do not start per-finding work from them — parse and group the full report first (step 5).
 
 ### 5. Follow Up on Findings
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies (never the originals).
+
+On a real project the report can hold thousands of rows but only a handful of distinct categories. Parse the report and group by category first — the category, not the individual row, is the unit of work for follow-up.
+
+#### 5a. Parse the CSV report
+
+Read `analysis-results.csv` programmatically (it is written next to the converted files when `--csv` is passed, which M1 always does). Do not rely on stdout severity counts as a substitute.
+
+Format: `;`-separated, one header row, columns:
+
+```
+filename;elementName;elementId;elementType;severity;messageId;message;link
+```
+
+If the CSV is missing (e.g. only `analysis-results.md` was generated), re-run the converter with `--check --csv` on the same input. Analyze-only mode writes no converted files and produces the CSV quickly. The markdown report is grouped per element and carries no `messageId` column — it is for human reading, not for parsing.
+
+#### 5b. Group findings by category
+
+Group rows by `messageId` (the category). For each category compute:
+
+- Total count, and count per severity
+- Distinct `elementType` values affected (e.g. serviceTask, sequenceFlow, multiInstanceLoopCharacteristics)
+- One representative example: a `message` with its `filename` and `elementId`
+- The `link`, pointing at conversion guidance for that category
+
+Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then by count descending.
+
+#### 5c. Present the grouped summary
+
+Present the grouped table before any per-finding follow-up work starts, and record it in MIGRATION_REPORT.md:
+
+| Category (messageId) | Severity | Count | Element types | Example |
+|---|---|---|---|---|
+| `expression-method-not-possible` | REVIEW | 1,308 | sequenceFlow, exclusiveGateway | "Method invocation is not possible in FEEL: ..." in order-process.bpmn, element `Gateway_1` |
+
+This grouped structure is the foundation for everything that follows: cross-checking categories against the code migration output, per-category verdicts, and category-specific handling all consume this table.
 
 ---
 
@@ -123,4 +161,4 @@ Treat unreachable endpoint, TLS/DNS failure, 401/403, malformed XML, or empty re
 
 ## Analyze-Only Mode
 
-For "analyze but don't convert": run M1 with `--check` (optionally `--csv`/`--xlsx`) to produce findings and reports with no converted files, or do an M2 read-only pass. Present findings grouped by severity and stop.
+For "analyze but don't convert": run M1 with `--check --csv` (optionally `--xlsx`) to produce findings and reports with no converted files, or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5, and stop.
