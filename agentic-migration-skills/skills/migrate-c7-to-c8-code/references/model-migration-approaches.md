@@ -57,7 +57,7 @@ The converter writes a new file next to the source (e.g., `converted-c8-order-pr
 After the run, report:
 - Converted files: list every `converted-c8-*.bpmn` / `*.dmn` produced
 - Analysis findings: summarize from CLI stdout and/or CSV/XLSX report, grouped by severity (WARNING / TASK / REVIEW / INFO)
-- Analysis artifacts: point user to CSV/XLSX files if generated
+- Analysis artifacts: point user to the CSV file (always) and the XLSX file if generated
 
 Severity counts are only a headline. Do not start per-finding work from them — parse and group the full report first (step 5).
 
