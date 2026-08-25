@@ -70,7 +70,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
-- Bean-invoking expressions are the named category **FEEL method-invocation**, handled below.
+- Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
 
 ### Named category: FEEL method-invocation
 
