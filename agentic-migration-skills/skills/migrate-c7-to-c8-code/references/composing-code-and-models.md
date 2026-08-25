@@ -53,6 +53,14 @@ Handle these rows as ONE named category, not individually:
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
+### 4. Assign verdicts to the verdict table
+
+Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d), with the matched code artifact named in the table's cross-reference column:
+
+- 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
+- Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix** — these become AI follow-up work items.
+- Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
+
 ## Deployment Wiring
 
 After both complete, ask whether to wire deployment of converted files in application code via AskUserQuestion:

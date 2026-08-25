@@ -108,14 +108,14 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 #### Model Validation (if models were migrated)
 
 1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
-2. Every WARNING/TASK/REVIEW finding is either fixed or recorded as remaining follow-up in MIGRATION_REPORT.md.
+2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
 3. Originals are intact and were not overwritten.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
 ### Step 5: AI Follow-up (offer after validation)
 
-If there are remaining TODOs, findings, compilation issues, or unresolved items, proactively offer to resolve them:
+If there are remaining TODOs, findings, compilation issues, or unresolved items, proactively offer to resolve them. For model findings, work from the per-category verdict table (Step 4): categories with verdict **needs fix** are the follow-up work items; do not present findings as one undifferentiated list.
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
@@ -124,7 +124,7 @@ Use AskUserQuestion with options:
 - Show me the list first: Present full list grouped by type, then ask which to fix.
 - No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
 
-When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. Ask whether to commit after each batch.
+When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
 
 ## Validation / Exit Criteria
 
@@ -137,6 +137,6 @@ When user opts in: apply unambiguous fixes directly using the pattern catalog, p
 7. businessKey usages are mapped to businessId (8.9+) or tags (8.8)
 8. Configuration uses camunda.client.* keys instead of camunda.* keys
 9. For model migration: converted-c8-* files exist for all in-scope diagrams
-10. For model migration: all WARNING/TASK/REVIEW findings are resolved or documented
+10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md
 11. MIGRATION_REPORT.md contains complete inventories, decisions, and validation results
 12. Original model files are intact (never overwritten)

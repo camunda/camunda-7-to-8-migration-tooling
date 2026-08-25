@@ -100,6 +100,29 @@ Present the grouped table before any per-finding follow-up work starts, and reco
 
 This grouped structure is the foundation for everything that follows: cross-checking categories against the code migration output, per-category verdicts, and category-specific handling all consume this table.
 
+#### 5d. Emit a per-category verdict table
+
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each category exactly one verdict and record the table in MIGRATION_REPORT.md. Do not leave findings as severity counts or a generic "findings need follow-up" note — on a real project with thousands of rows, the verdict table is what makes review tractable.
+
+Verdicts:
+
+- **no action** — nothing to do: the converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage.
+- **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category (one decision per category, not per row), or confirming a cross-check result.
+- **needs fix** — concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation.
+
+| Category (messageId) | Count | Cross-referenced code artifact | Verdict |
+|---|---|---|---|
+| `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
+| `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
+| `form-reference` | 96 | n/a | no action |
+
+Rules:
+
+- One row per category, sorted as in 5b (highest severity, then count descending).
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
+- Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
+- Categories with verdict **needs fix** are the input to the AI follow-up step.
+
 ---
 
 ## Approach M2 - Agentic AI (direct XML rewrite)
