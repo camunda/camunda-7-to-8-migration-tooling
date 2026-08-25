@@ -34,6 +34,7 @@
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.0</version.spring-boot>
+    <version.micrometer-core>1.17.1</version.micrometer-core>
     <version.jackson-bom>2.22.2</version.jackson-bom>
     <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
@@ -114,6 +115,12 @@
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-59296: pin micrometer-core to the fixed version -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-core</artifactId>
+        <version>${version.micrometer-core}</version>
       </dependency>
       <!-- CVE-2026-55955: pin tomcat-embed to 11.0.23 -->
       <dependency>
