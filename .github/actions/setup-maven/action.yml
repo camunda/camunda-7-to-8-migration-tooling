@@ -63,7 +63,7 @@ runs:
         secret/data/products/cambpm/ci/artifactory TOKEN | ARTIFACTORY_PSW;
   - name: Setup Java
     id: setup-java
-    uses: actions/setup-java@v5
+    uses: actions/setup-java@v6
     with:
       java-version: ${{ inputs.java-version }}
       distribution: ${{ inputs.distribution }}
