@@ -19,4 +19,4 @@ After both complete, ask whether to wire deployment of converted files in applic
 
 ## Report Keeping
 
-Keep both inventories and both sets of results in MIGRATION_REPORT.md.
+Keep both inventories and both sets of results in `MIGRATION_REPORT.md` in the confirmed project root.

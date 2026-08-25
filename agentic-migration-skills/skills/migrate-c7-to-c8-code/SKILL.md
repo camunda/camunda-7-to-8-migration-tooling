@@ -45,7 +45,7 @@ Shared rules that apply throughout all subsequent steps:
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Keep MIGRATION_REPORT.md current with inventories, decisions, phase status, and validation results.
+- Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results.
 
 ### Step 2: Assessment (always runs)
 

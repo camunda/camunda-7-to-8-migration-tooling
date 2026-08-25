@@ -19,7 +19,7 @@ This shapes the scope question. The confirmed scan after Q1 gates whether C7 eng
 ## Question 1 - Project Location
 
 Confirm the detected project root. Provide two options:
-- Use <detected path> (recommended)
+- Use `<detected path>` (recommended)
 - Enter a different path
 
 ---

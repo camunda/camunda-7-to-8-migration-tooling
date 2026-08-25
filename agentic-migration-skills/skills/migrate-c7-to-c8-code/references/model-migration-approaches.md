@@ -14,7 +14,7 @@ Use the model scan from the assessment before choosing a conversion path:
 
 Detect whether Java is installed and record its major version. If java is missing or major version < 21, STOP and explain:
 
-> The Diagram Converter CLI requires Java 21+. Detected: <version or "not found">. Install Java 21+ and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
+> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Install Java 21+ and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
 Do not silently skip model migration.
 

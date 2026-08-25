@@ -118,4 +118,4 @@ Present the code assessment table with additional detail:
 - Known risks or blockers (multi-instance listener pattern, custom batches, IdentityService/FormService usage)
 - Data migration scope note (Data Migrator: runtime / history / identity)
 
-Write the full report to MIGRATION_REPORT.md. Make no code changes.
+Write the full report to `MIGRATION_REPORT.md` in the confirmed project root. Make no code changes.
