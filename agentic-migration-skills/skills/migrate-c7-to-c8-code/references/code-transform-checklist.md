@@ -70,7 +70,21 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
-- Only bean-invoking expressions need a JUEL job worker or a refactor into job workers.
+- Bean-invoking expressions are the named category **FEEL method-invocation**, handled below.
+
+### Named category: FEEL method-invocation
+
+Every expression that invokes a Java bean method (e.g. `${order.getTotal()}`, `${pricingService.quote(customer)}`) fails for the same root cause: FEEL cannot call Java methods. Treat all occurrences as ONE countable category — **FEEL method-invocation** — regardless of where they appear: sequence-flow/gateway condition expressions, multi-instance `collection` or completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...).
+
+Count occurrences for sizing, but make the remediation decision ONCE per category (or per coherent sub-group sharing one bean) — not per row.
+
+**Decision process:**
+
+1. **Precompute via job worker** (default): add a preceding service task whose `@JobWorker` calls the bean method and stores the result in a plain process variable; replace the expression with a FEEL reference to that variable (e.g. `=total`). For multi-instance `collection`, this is the required shape (the collection must exist as a variable before the multi-instance body starts).
+2. **Refactor into DMN** (when the expression encodes a business rule/decision, typical for gateway conditions): move the logic into a DMN table in a preceding business rule task and read its output variable.
+3. **JUEL job worker** (exceptional, only when the expression must stay dynamic): keep the JUEL string in a task header and evaluate it inside a generic worker.
+
+This category is out of scope for auto-generation: detect, count, and name it — the human decides the approach per category.
 
 ---
 
