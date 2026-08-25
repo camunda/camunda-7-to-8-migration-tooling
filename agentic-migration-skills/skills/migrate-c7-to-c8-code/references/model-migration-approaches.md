@@ -69,7 +69,7 @@ On a real project the report can hold thousands of rows but only a handful of di
 
 #### 5a. Parse the CSV report
 
-Read `analysis-results.csv` programmatically (it is written next to the converted files when `--csv` is passed, which M1 always does). Do not rely on stdout severity counts as a substitute.
+Read `analysis-results.csv` programmatically (written when `--csv` is passed, which M1 always does). It lands in the input root: the directory passed to `local`, or the file's parent directory when converting a single file — not next to each converted file. Do not rely on stdout severity counts as a substitute.
 
 Format: `;`-separated, one header row, columns:
 
