@@ -121,7 +121,7 @@ Rules:
 - One row per category, sorted as in 5b (highest severity, then count descending).
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
 - Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
-- Categories with verdict **needs fix** are the input to the AI follow-up step.
+- Categories with verdict **needs fix** are the direct work items for the AI follow-up step. Categories with verdict **needs review** are also surfaced there, but only to collect the pending user decision (via AskUserQuestion) before any fix is attempted.
 
 ---
 
