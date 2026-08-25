@@ -102,7 +102,7 @@ This grouped structure is the foundation for everything that follows: cross-chec
 
 #### 5d. Emit a per-category verdict table
 
-After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each category exactly one verdict and record the table in MIGRATION_REPORT.md. Do not leave findings as severity counts or a generic "findings need follow-up" note — on a real project with thousands of rows, the verdict table is what makes review tractable.
+After grouping (and after the code cross-checks in `composing-code-and-models.md` when code is also in scope), assign each WARNING/TASK/REVIEW category exactly one verdict and record the table in MIGRATION_REPORT.md. INFO categories may be included as well, typically with verdict no action, but are not required. Do not leave findings as severity counts or a generic "findings need follow-up" note — on a real project with thousands of rows, the verdict table is what makes review tractable.
 
 Verdicts:
 
