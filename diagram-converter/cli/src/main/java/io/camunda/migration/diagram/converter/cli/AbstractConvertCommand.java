@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -72,6 +74,12 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       description =
           "If enabled, a CSV file will be created containing the results for the analysis")
   boolean csv;
+
+  @Option(
+      names = {"--json"},
+      description =
+          "If enabled, a JSON file will be created containing the results for the analysis")
+  boolean json;
 
   @Option(
       names = {"--xlsx"},
@@ -134,7 +142,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   private void writeResults(
       Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {
-    if ((!check || csv || xlsx || markdown) && !createTargetDirectory()) {
+    if ((!check || csv || xlsx || markdown || json) && !createTargetDirectory()) {
       return;
     }
     if (!check) {
@@ -150,7 +158,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
           LOG_CLI.info("Created {}", file);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
           LOG_CLI.error("Error while creating diagram file: {}", createMessage(e));
           returnCode = 1;
         }
@@ -161,7 +169,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(csvFile)) {
         converter.writeCsvFile(results, fw);
         LOG_CLI.info("Created {}", csvFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating csv results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -171,8 +179,20 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileOutputStream fos = new FileOutputStream(xlsxFile)) {
         new ExcelWriter().writeResultsToExcel(converter.createLineItemDTOList(results), fos);
         LOG_CLI.info("Created {}", xlsxFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating xlsx results: {}", createMessage(e));
+        returnCode = 1;
+      }
+    }
+    if (json) {
+      File jsonFile = determineFileName(new File(targetDirectory(), "analysis-results.json"));
+      // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
+      // -Dfile.encoding override can't corrupt the machine-readable report
+      try (Writer fw = Files.newBufferedWriter(jsonFile.toPath(), StandardCharsets.UTF_8)) {
+        converter.writeJsonFile(results, fw);
+        LOG_CLI.info("Created {}", jsonFile);
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error("Error while creating json results: {}", createMessage(e));
         returnCode = 1;
       }
     }
@@ -181,7 +201,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(markdownFile)) {
         converter.writeMarkdownFile(results, fw);
         LOG_CLI.info("Created {}", markdownFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating markdown results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -211,19 +231,24 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   }
 
   private DiagramCheckResult checkModel(Entry<File, ModelInstance> modelInstance) {
+    String modelIdentifier = modelIdentifier(modelInstance.getKey());
     try {
       return converter.check(
-          modelInstance.getKey().getPath(),
+          modelIdentifier,
           modelInstance.getValue(),
           ConverterPropertiesFactory.getInstance().merge(converterProperties()));
     } catch (Exception e) {
-      LOG_CLI.error("Problem while converting: {}", createMessage(e));
+      LOG_CLI.error("Problem while converting {}: {}", modelIdentifier, createMessage(e));
       returnCode = 1;
       return null;
     }
   }
 
   protected abstract Map<File, ModelInstance> modelInstances();
+
+  protected String modelIdentifier(File modelFile) {
+    return modelFile.getAbsolutePath();
+  }
 
   protected DefaultConverterProperties converterProperties() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
@@ -275,12 +300,16 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   }
 
   protected String createMessage(Exception e) {
-    StringBuilder message = new StringBuilder(e.getMessage());
+    StringBuilder message = new StringBuilder(exceptionMessage(e));
     Throwable ex = e.getCause();
     while (ex != null) {
-      message.append(",").append("\n").append("caused by: ").append(ex.getMessage());
+      message.append(",").append("\n").append("caused by: ").append(exceptionMessage(ex));
       ex = ex.getCause();
     }
     return message.toString();
+  }
+
+  private String exceptionMessage(Throwable t) {
+    return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
   }
 }
