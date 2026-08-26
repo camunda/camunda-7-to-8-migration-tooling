@@ -390,7 +390,7 @@ public class ConverterControllerTest {
   @Test
   void singleBpmnCheckWithJsonResultPrefersJsonSuffixOverLowerQualityCsv()
       throws URISyntaxException {
-    // a higher-q structured JSON suffix must win over a lower-q concrete type
+    // a higher-q structured-suffix JSON wildcard must win over a lower-q concrete type
     List<DiagramCheckResult> checkResult =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
@@ -402,6 +402,30 @@ public class ConverterControllerTest {
             .as(new TypeRef<List<DiagramCheckResult>>() {});
 
     assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithConcreteJsonSuffixPrefersSupportedVendorType() throws URISyntaxException {
+    // a concrete suffix type like application/problem+json is not application/json-compatible;
+    // the supported vendor type must win
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                "application/problem+json;q=1.0, "
+                    + ConverterController.APPLICATION_ANALYSIS_JSON
+                    + ";q=0.9")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // flat report shape (messageId key) proves the vendor representation was selected
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
   }
 
   @Test

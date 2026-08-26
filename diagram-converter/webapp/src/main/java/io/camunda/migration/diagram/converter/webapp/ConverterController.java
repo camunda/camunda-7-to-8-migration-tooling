@@ -248,10 +248,10 @@ public class ConverterController {
                     mediaType.isWildcardType()
                         || mediaType.isWildcardSubtype()
                         || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType))
-                        || ("application".equals(mediaType.getType())
-                            && mediaType.getSubtype().endsWith("+json")
-                            && !mediaType.equalsTypeAndSubtype(
-                                MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON))))
+                        || (mediaType.isWildcardSubtype()
+                            && "application".equals(mediaType.getType())
+                            && mediaType.getSubtype().startsWith("*")
+                            && mediaType.getSubtype().endsWith("+json")))
             .collect(Collectors.toList());
     if (mediaTypes.isEmpty()) {
       return Optional.empty();
@@ -267,21 +267,19 @@ public class ConverterController {
   }
 
   private MediaType resolveWildcard(MediaType mediaType) {
-    // resolve wildcards and structured-syntax suffixes to the concrete supported representation so
-    // downstream type/subtype checks see a concrete type: text/* -> text/csv, application/* and
-    // */* -> application/json, application/*+json -> application/json
+    // resolve wildcards and the structured-suffix wildcard to the concrete supported
+    // representation so downstream type/subtype checks see a concrete type: text/* -> text/csv,
+    // application/* and */* -> application/json, application/*+json -> application/json
     if (mediaType.isWildcardType()) {
       return MediaType.APPLICATION_JSON;
     }
     if (mediaType.isWildcardSubtype()) {
+      if (mediaType.getSubtype().endsWith("+json")) {
+        return MediaType.APPLICATION_JSON;
+      }
       return "text".equals(mediaType.getType())
           ? MediaType.valueOf(TEXT_CSV)
           : MediaType.APPLICATION_JSON;
-    }
-    if ("application".equals(mediaType.getType())
-        && mediaType.getSubtype().endsWith("+json")
-        && !mediaType.equalsTypeAndSubtype(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON))) {
-      return MediaType.APPLICATION_JSON;
     }
     return mediaType;
   }
