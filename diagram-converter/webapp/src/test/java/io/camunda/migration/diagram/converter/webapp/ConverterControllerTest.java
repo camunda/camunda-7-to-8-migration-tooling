@@ -332,6 +332,23 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithJsonResultDefaultsToJsonWhenNoBestMatch() throws URISyntaxException {
+    // a structured-syntax suffix Accept (application/*+json) is compatible with application/json;
+    // no supported best match exists, so the endpoint defaults to JSON rather than a 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*+json")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
   void convertBpmn() throws URISyntaxException {
     byte[] bpmn =
         RestAssured.given()

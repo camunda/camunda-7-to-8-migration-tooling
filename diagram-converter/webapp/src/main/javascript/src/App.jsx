@@ -751,8 +751,8 @@ function App() {
                   </Button>
                   <p>
                     JSON file containing plain results in a stable, machine-readable
-                    format — for AI / machine analysis, e.g. as input for an AI
-                    assistant running the Camunda 7 to 8 migration.
+                    format — for AI / machine analysis, e.g. as input for the AI
+                    migration skill driving the Camunda 7 to 8 migration.
                   </p>
                   </div>
                 </div>

@@ -208,7 +208,9 @@ public class ConverterController {
   }
 
   private boolean jsonRequested(String[] contentType) {
-    // JSON is the default representation: an absent or wildcard-best Accept header counts as JSON
+    // JSON is the default representation: an absent Accept header, a wildcard best match, or no
+    // determinable best match (Spring's produces negotiation already accepted the request) all
+    // count as JSON
     return contentType == null
         || contentType.length == 0
         || bestMatch(contentType)
@@ -217,7 +219,7 @@ public class ConverterController {
                     mediaType.isWildcardType()
                         || mediaType.isWildcardSubtype()
                         || mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON))
-            .orElse(false);
+            .orElse(true);
   }
 
   private boolean excelRequested(String[] contentType) {
