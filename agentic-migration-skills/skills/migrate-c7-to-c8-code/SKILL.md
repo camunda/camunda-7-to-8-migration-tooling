@@ -35,9 +35,9 @@ See `references/interview-questions.md` for the full question set and batching r
 Shared rules that apply throughout all subsequent steps:
 - Distinguish code from models. OpenRewrite/AI handles code; Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow.
 - Use project-local models first. Do not offer C7 engine access when local models are present.
-- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit.
+- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit; never commit without an explicit user request.
 - Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
-- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact.
+- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. If the user targets a separate output location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets into the target instead of editing in place.
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
@@ -45,7 +45,10 @@ Shared rules that apply throughout all subsequent steps:
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results.
+- Preserve structural fidelity. Keep package names, class names, file/folder layout, and resource paths exactly as in the C7 project wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent at all, and record the reason in MIGRATION_REPORT.md.
+- Preserve behavior and dependency footprint. Startup behavior (what runs when, how many instances) and application constraints (e.g. a C7 app exposing no REST endpoints) carry over unchanged — including transitively: do not add dependencies the C7 app did not need (e.g. spring-boot-starter-web) for unrelated reasons.
+- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API access). Verify whether Camunda 8 removed the limitation before replicating the pattern or adding a worker around it.
+- Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results. It is the single source of truth for the migration — update it as work proceeds, every incompatibility and design decision lands there, not scattered across chat.
 
 ### Step 2: Assessment (always runs)
 
@@ -109,7 +112,8 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 
 1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
 2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
-3. Originals are intact and were not overwritten.
+3. Converted BPMN files that were manually edited lint clean — see the linting section in `references/model-migration-approaches.md`.
+4. Originals are intact and were not overwritten.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 

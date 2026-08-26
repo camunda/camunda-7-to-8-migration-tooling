@@ -65,6 +65,8 @@ Severity counts are only a headline. Do not start per-finding work from them —
 
 REVIEW/WARNING/TASK findings remain and JUEL conversion is partial. Resolve them in the AI follow-up step, working on the `converted-c8-*` copies (never the originals).
 
+Trust the converter's output for what it did NOT flag: job types and listener wiring it emitted are authoritative — apply manual fixes only for what the report flags. Do not second-guess or re-derive converted structures.
+
 On a real project the report can hold thousands of rows but only a handful of distinct categories. Parse the report and group by category first — the category, not the individual row, is the unit of work for follow-up.
 
 #### 5a. Parse the CSV report
@@ -114,7 +116,7 @@ Verdicts:
 |---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
-| `form-reference` | 96 | n/a | no action |
+| `form-reference` | 96 | one `.form` per C7 form (see 5e) | needs fix |
 
 Rules:
 
@@ -122,6 +124,17 @@ Rules:
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
 - Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
 - Categories with verdict **needs fix** are the direct work items for the AI follow-up step. Categories with verdict **needs review** are also surfaced there, but only to collect the pending user decision (via AskUserQuestion) before any fix is attempted.
+
+#### 5e. Named category: Forms
+
+C7 form references (`camunda:formKey`, `camunda:formData` / generated forms, embedded forms) surface as findings (typically `form-reference`). Handle them as one category:
+
+- **One C8 form per C7 form.** For every C7 form (generated or otherwise), create a Camunda 8 `.form` and reference it from the user task. Do not drop forms or merge several C7 forms into one.
+- **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. Camunda 8 forms removed those limitations:
+  - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`) — no flattening worker needed for passthrough fields.
+  - `text` components support feelers templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}` — counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
+  - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference — prefer it over a plain-text filename display or a hand-built HTML anchor. Wrap the reference in a one-element array here in the form's FEEL only; the process variable itself holds the plain reference.
+- **Add a worker only when the form genuinely cannot do it**: real business logic, external calls, side effects. A service task that only reshapes variables for form consumption is a C7 workaround — do not port it.
 
 ---
 
@@ -140,7 +153,7 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Conditional events natively only on 8.9+; otherwise flag
 - DMN: update decision/definition namespaces and expression language as needed
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review.
+Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. Lint every rewritten BPMN file per the linting section below.
 
 ---
 
@@ -179,6 +192,33 @@ For named-key acquisition, query C7 REST list endpoints with key filters, fetch 
 ### 3. Handle Failures
 
 Treat unreachable endpoint, TLS/DNS failure, 401/403, malformed XML, or empty response as a blocking error. Report URL, operation, status/error, and concrete next action. Do not silently continue or report success when any requested definition failed.
+
+---
+
+## Linting Converted BPMN (M1 and M2)
+
+After any manual edit to a converted BPMN file (findings follow-up, form wiring, expression fixes), lint immediately — missing DI, overlapping flows, and disconnected nodes are cheapest to catch at edit time, not at the end.
+
+Use bpmnlint with the Camunda compatibility ruleset matching the target version:
+
+1. Install once in the project (or a scratch directory): `npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat`
+2. `.bpmnlintrc`:
+
+```json
+{
+  "extends": [
+    "bpmnlint:recommended",
+    "plugin:camunda-compat/camunda-cloud-<target-version>"
+  ],
+  "moddleExtensions": {
+    "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
+  }
+}
+```
+
+3. Run: `npx bpmnlint <converted-file>.bpmn`
+
+Fix or record every lint error before continuing.
 
 ---
 

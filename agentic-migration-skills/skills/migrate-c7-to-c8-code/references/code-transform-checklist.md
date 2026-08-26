@@ -10,6 +10,8 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
+- Verify Spring Boot compatibility from the artifact, not from assumption: read the selected starter's (or BOM's) POM on Maven Central and confirm the Spring Boot version range it is built against actually covers the project's Spring Boot version. Do not assume a pairing works because both versions are "latest".
+- Preserve the dependency footprint. Do not add dependencies the C7 app did not need (e.g. never pull in `spring-boot-starter-web` for a C7 app that exposed no REST endpoints) — including transitively, via starter choices.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
@@ -27,7 +29,9 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
 - Map: start instances (incl. businessId/tags), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
-- If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
+- When a C7 API has a C8 counterpart, use the matching CamundaClient API (e.g. HistoryService to search requests) instead of introducing new process variables to carry what the API can already return.
+- Business key: map to businessId (8.9+) or tags (8.8). Both are set at instance start and are immutable. If the C7 process changes its business key during execution, neither fits — use a dedicated `businessKey` process variable instead, and flag the semantic difference (no longer an engine-level correlation identity) in MIGRATION_REPORT.md.
+- Preserve startup behavior exactly: what starts, when it starts, and how many instances. If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
 
 ---
 
@@ -37,6 +41,9 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Variable access becomes method params / @Variable.
 - BpmnError becomes `CamundaError.bpmnError(...)`.
 - Remove TypedValue usage.
+- Keep worker behavior unchanged. Inputs and outputs of a migrated worker stay the same; never add new features to an existing worker during migration. New logic belongs in a new, separate worker.
+- `FileValue` variables map to the Document API (`camundaClient.newCreateDocumentCommand()`), never to a bare filename string. Store the plain document reference in the process variable; wrap it in a one-element array only in the FEEL of the form that consumes it (see the Forms category in `model-migration-approaches.md`), not in the variable itself.
+- Outbound HTTP calls (C7 http-connector, hand-rolled HTTP clients in delegates): prefer a standard out-of-the-box connector — the REST connector for outbound HTTP — wherever one covers the need, instead of porting HTTP client code into a worker.
 
 ---
 
@@ -72,6 +79,12 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Conditional events are native since 8.9.
 - Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
 
+### Named category: Script expressions (Groovy, JavaScript, ...)
+
+Script-language expressions — typical on sequence-flow condition expressions (`<conditionExpression xsi:type="tFormalExpression" language="groovy">`), script tasks, and `camunda:script` in listeners — cannot run in C8: FEEL is the only expression language and cannot execute scripts. Treat all occurrences as ONE category per script language.
+
+Default remediation: move the script logic into a preceding service task whose `@JobWorker` computes the outcome (e.g. a boolean for a gateway) into a plain process variable, and replace the sequence-flow expression with a FEEL reference to that variable. For a script task, convert the task itself into a service task with a worker holding the script logic. Decision weighting matches the FEEL method-invocation category (precompute via job worker is the default).
+
 ### Named category: FEEL method-invocation
 
 Every expression that invokes a Java method (e.g. `${order.getTotal()}`, `${pricingService.quote(customer)}`) fails for the same root cause: FEEL cannot call Java methods — whether the receiver is a Spring bean or a plain variable (e.g. `${objectVar.getAddress().getStreet()}`, `${execution.getVariable("a").size()}`). Treat all occurrences as ONE countable category — **FEEL method-invocation** — regardless of where they appear: sequence-flow/gateway condition expressions, multi-instance `collection` or completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...).
@@ -102,7 +115,10 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
-| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8) |
+| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8); if mutated during the process, use a `businessKey` process variable |
+| `FileValue` / `Values.fileValue(...)` | Flag: maps to Document API (`newCreateDocumentCommand`), never a filename string |
+| Groovy/JavaScript in `conditionExpression`, script tasks, `camunda:script` | Script expression (maps to preceding job worker) |
+| `camunda:connector` / http-connector, HTTP client code in delegates | Flag: prefer out-of-the-box REST connector |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |
