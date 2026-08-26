@@ -428,6 +428,7 @@ jobs:
 
       - name: Build and test diagram-converter module on Windows
         working-directory: diagram-converter
+        # The distro profile is active by default; only checkFormat is omitted on Windows.
         run: mvn verify --batch-mode
 
   # Compile-check all modules against the previous Camunda 8 version
