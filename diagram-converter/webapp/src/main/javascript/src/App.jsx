@@ -350,6 +350,19 @@ function App() {
       "Downloading CSV failed"
     );
   }
+  async function downloadJSON() {
+    const formData = createFormData(validFiles);
+    await handleDownloadResponse("analysis-results.json",
+      await fetch(baseUrl + "/check", {
+        body: formData,
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.camunda.analysis+json",
+        },
+      }),
+      "Downloading JSON failed"
+    );
+  }
   async function downloadZIP() {
     const formData = createFormData(validFiles);
     await handleDownloadResponse("converted-models.zip",
@@ -724,6 +737,22 @@ function App() {
                   <p>
                     Comma Separated Values (CSV) file containing plain results to
                     import into your favorite tooling.
+                  </p>
+                  </div>
+                <div className="download-row">
+                  <Button
+                    variant="secondary"
+                    size="default"
+                    onClick={downloadJSON}
+                    disabled={validFiles.length === 0}
+                  >
+                    <Download />
+                    Download JSON
+                  </Button>
+                  <p>
+                    JSON file containing plain results in a stable, machine-readable
+                    format — for AI / machine analysis, e.g. as input for an AI
+                    assistant running the Camunda 7 to 8 migration.
                   </p>
                   </div>
                 </div>

@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -46,6 +47,14 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin(origins = "*")
 public class ConverterController {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterController.class);
+
+  /**
+   * Media type for the flat, machine-readable analysis report: a JSON array with one flat object
+   * per finding (same format as the CLI's {@code analysis-results.json}), intended for AI / machine
+   * analysis.
+   */
+  public static final String APPLICATION_ANALYSIS_JSON = "application/vnd.camunda.analysis+json";
+
   private final DiagramConverterService bpmnConverter;
   private final BuildProperties buildProperties;
   private final ExcelWriter excelWriter;
@@ -63,12 +72,16 @@ public class ConverterController {
   /**
    * POST a list of BPMN or DMN models for analyzing tasks. Can be returned in various formats: -
    * JSON representation of a {@link List} of {@link DiagramCheckResult}s - Excel file, filled with
-   * result data - CSV file containing result data
+   * result data - CSV file containing result data - flat machine-readable JSON report (a JSON array
+   * of {@link DiagramConverterResultDTO} entries, one per finding, same format as the CLI's
+   * analysis-results.json) for AI / machine analysis, requested with {@link
+   * #APPLICATION_ANALYSIS_JSON}
    */
   @PostMapping(
       value = "/check",
       produces = {
         MediaType.APPLICATION_JSON_VALUE,
+        APPLICATION_ANALYSIS_JSON,
         "text/csv",
         "application/excel",
         "application/vnd.ms-excel",
@@ -124,7 +137,17 @@ public class ConverterController {
     }
 
     // return response depending on the requested format
-    if (jsonRequested(contentType)) { // JSON
+    if (analysisJsonRequested(contentType)) { // flat machine-readable JSON report
+
+      StringWriter sw = new StringWriter();
+      bpmnConverter.writeJsonFile(resultList, sw);
+      Resource file = new ByteArrayResource(sw.toString().getBytes(StandardCharsets.UTF_8));
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"analysis-results.json\"")
+          .contentType(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON))
+          .body(file);
+
+    } else if (jsonRequested(contentType)) { // JSON
       return ResponseEntity.ok(resultList);
 
     } else if (excelRequested(contentType)) { // EXCEL
@@ -163,6 +186,10 @@ public class ConverterController {
 
   private boolean csvRequested(String[] contentType) {
     return contentType != null && Arrays.asList(contentType).contains("text/csv");
+  }
+
+  private boolean analysisJsonRequested(String[] contentType) {
+    return contentType != null && Arrays.asList(contentType).contains(APPLICATION_ANALYSIS_JSON);
   }
 
   private boolean jsonRequested(String[] contentType) {

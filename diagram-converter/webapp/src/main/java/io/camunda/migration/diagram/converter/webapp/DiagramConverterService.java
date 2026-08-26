@@ -86,6 +86,10 @@ public class DiagramConverterService {
     diagramConverter.writeCsvFile(results, writer);
   }
 
+  public void writeJsonFile(List<DiagramCheckResult> results, Writer writer) {
+    diagramConverter.writeJsonFile(results, writer);
+  }
+
   public List<DiagramConverterResultDTO> createLineItemDTOList(List<DiagramCheckResult> results) {
     return diagramConverter.createLineItemDTOList(results);
   }

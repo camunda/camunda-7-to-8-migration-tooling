@@ -8,6 +8,7 @@
 package io.camunda.migration.diagram.converter.webapp;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.hamcrest.Matchers.containsString;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -100,6 +102,41 @@ public class ConverterControllerTest {
                   .anySatisfy(
                       result -> assertThat(result.getElementId()).isEqualTo("Activity_Example2"));
             });
+  }
+
+  @Test
+  void singleBpmnCheckWithAnalysisJsonResult() throws URISyntaxException {
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ConverterController.APPLICATION_ANALYSIS_JSON)
+            .post("/check")
+            .then()
+            .header("Content-Disposition", containsString("analysis-results.json"))
+            .header("Content-Type", containsString(ConverterController.APPLICATION_ANALYSIS_JSON))
+            .extract()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    assertThat(report)
+        .hasSize(1)
+        .first()
+        .satisfies(entry -> assertThat(entry.get("filename")).isEqualTo("example.bpmn"))
+        .matches(
+            entry ->
+                entry
+                    .keySet()
+                    .containsAll(
+                        List.of(
+                            "elementName",
+                            "elementId",
+                            "elementType",
+                            "severity",
+                            "messageId",
+                            "message",
+                            "link")),
+            "Entry carries the full flat report fields");
   }
 
   @Test
