@@ -158,6 +158,19 @@ public class ConvertLocalCommandTest {
   }
 
   @Test
+  void shouldHandleNullExceptionMessagesInCreateMessage() {
+    ConvertLocalCommand command = new ConvertLocalCommand();
+
+    // unchecked exceptions like NPE carry a null message; error handling must not crash on them
+    assertThat(command.createMessage(new NullPointerException()))
+        .isEqualTo(NullPointerException.class.getName());
+    assertThat(
+            command.createMessage(
+                new RuntimeException("outer", new IllegalArgumentException((String) null))))
+        .isEqualTo("outer,\ncaused by: " + IllegalArgumentException.class.getName());
+  }
+
+  @Test
   void shouldNotCreateConvertedDiagrams(@TempDir File tempDir) {
     setupDir("c7.bpmn", tempDir);
     ConvertLocalCommand command = new ConvertLocalCommand();

@@ -296,12 +296,16 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   }
 
   protected String createMessage(Exception e) {
-    StringBuilder message = new StringBuilder(e.getMessage());
+    StringBuilder message = new StringBuilder(exceptionMessage(e));
     Throwable ex = e.getCause();
     while (ex != null) {
-      message.append(",").append("\n").append("caused by: ").append(ex.getMessage());
+      message.append(",").append("\n").append("caused by: ").append(exceptionMessage(ex));
       ex = ex.getCause();
     }
     return message.toString();
+  }
+
+  private String exceptionMessage(Throwable t) {
+    return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
   }
 }
