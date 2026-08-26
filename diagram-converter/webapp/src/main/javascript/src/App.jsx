@@ -228,15 +228,14 @@ function App() {
   }
   async function downloadJSON() {
     const formData = createFormData(validFiles);
-    await handleDownloadResponse("analysis-results.json",
+    await download1("analysis-results.json",
       await fetch(baseUrl + "/check", {
         body: formData,
         method: "POST",
         headers: {
           Accept: "application/vnd.camunda.analysis+json",
         },
-      }),
-      "Downloading JSON failed"
+      })
     );
   }
   async function downloadZIP() {
