@@ -146,6 +146,8 @@ public class ConverterControllerTest {
   void singleBpmnCheckWithAnalysisJsonResultAcceptsParameterizedAcceptHeader()
       throws URISyntaxException {
     // clients may append parameters such as charset or q-values to the Accept header
+    // (malformed Accept values are rejected by Spring's produces negotiation with 406 before the
+    // controller runs)
     List<Map<String, String>> report =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
