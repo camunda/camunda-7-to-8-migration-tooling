@@ -113,7 +113,7 @@ Use these to classify files during assessment:
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
 | `businessKey` usage | Flag: maps to Business ID / tags (see pattern catalog; mutable keys become a process variable) |
-| `FileValue` / `Values.fileValue(...)` | Flag: maps to Document API (see pattern catalog) |
+| `FileValue` / `Variables.fileValue(...)` | Flag: maps to Document API (see pattern catalog) |
 | Groovy/JavaScript in `conditionExpression`, script tasks, `camunda:script` | Script expression (maps to preceding job worker) |
 | `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
