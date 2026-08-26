@@ -115,7 +115,7 @@ Present a validation summary showing status of: compilation, remaining C7 import
 
 ### Step 5: AI Follow-up (offer after validation)
 
-If there are remaining TODOs, findings, compilation issues, or unresolved items, proactively offer to resolve them. For model findings, work from the per-category verdict table (Step 4): categories with verdict **needs fix** are the follow-up work items; do not present findings as one undifferentiated list.
+If there are remaining TODOs, findings, compilation issues, deletion candidates, or unresolved items, proactively offer to resolve them. For model findings, work from the per-category verdict table (Step 4): categories with verdict **needs fix** are the follow-up work items; do not present findings as one undifferentiated list.
 
 > I found [N] remaining items that need follow-up. Would you like me to take care of them?
 
@@ -125,6 +125,8 @@ Use AskUserQuestion with options:
 - No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
 
 When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
+
+A second action type beyond fixing TODOs/findings is **delete now-redundant code**: the model/code cross-check flags C7-side workaround code as deletion candidates when a finding reports the capability is now native in Zeebe (see `references/composing-code-and-models.md`, "Now-redundant workaround code"). Deleting code is never unambiguous — even under "Yes, fix what you can", present every deletion candidate via AskUserQuestion with its reasoning (the triggering finding, what the code did, why it is now redundant) and delete only on explicit confirmation. Record confirmed deletions and declined candidates in MIGRATION_REPORT.md.
 
 ## Validation / Exit Criteria
 
