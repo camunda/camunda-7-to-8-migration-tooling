@@ -568,13 +568,7 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 
 #### File Variables &#8594; Document API
 
-In Camunda 7, files are stored as process variables of type `FileValue` (via the Typed Value API), carrying the file content plus filename and MIME type metadata.
-
-Camunda 8 has no typed file variable. Files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
-
-| Camunda 7                          | Camunda 8                                                        |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `FileValue` variable (`Values.fileValue(...)`) | Document uploaded via `camundaClient.newCreateDocumentCommand()`; the `DocumentReference` is stored as the process variable |
+In Camunda 7, files are stored as `FileValue` process variables (Typed Value API) carrying content plus filename and MIME type. Camunda 8 has no typed file variable: files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
 
 ###### Creating a File Variable
 
@@ -603,9 +597,8 @@ Camunda 8 has no typed file variable. Files become **documents** managed by the 
     }
 ```
 
--   store the plain `DocumentReference` in the process variable — do not wrap it in an array in the variable itself
--   forms consuming the reference (for example a `documentPreview` component) expect a FEEL expression over an *array* of references; do the one-element wrap (`[contract]`) in the form's FEEL expression, not in the variable
--   documents have a store-specific time-to-live and size limits — check the [document handling docs](https://docs.camunda.io/docs/components/document-handling/getting-started/) for your storage backend
+-   store the plain `DocumentReference` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
+-   documents have store-specific time-to-live and size limits — check the document handling docs for your storage backend
 
 ---
 
@@ -1351,18 +1344,14 @@ The glue code patterns look into the different scenarios and proposes code conve
 
 ### Outbound HTTP &#8594; REST Connector
 
-In Camunda 7, outbound HTTP calls are made with the `camunda:connector` / **http-connector** extension on service tasks, or with hand-rolled HTTP client code inside a JavaDelegate or external task worker.
-
-Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) for outbound HTTP. Prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
+C7 outbound HTTP uses the `camunda:connector` / **http-connector** extension or hand-rolled HTTP client code inside a delegate/worker. Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) — prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
 
 | Camunda 7                                          | Camunda 8                                  |
 | -------------------------------------------------- | ------------------------------------------ |
-| `camunda:connector` with http-connector on a task  | Service task templated with the out-of-the-box REST connector (URL, method, headers, authentication, and result expression configured on the element) |
-| HTTP client code inside a delegate/worker          | Same — keep a custom `@JobWorker` only for what the connector cannot express (complex multi-step logic, non-HTTP protocols) |
+| `camunda:connector` with http-connector, HTTP client code in a delegate/worker | Service task with the out-of-the-box REST connector (URL, method, headers, authentication, result expression configured on the element; no Java code) |
 
--   connector templates are applied in the Modeler or as element templates in the BPMN XML; no Java code is needed for the HTTP call itself
--   the connector's result expression maps the HTTP response into process variables — this replaces the delegate's `setVariable` calls
--   for more information, see [the REST connector docs](https://docs.camunda.io/docs/components/connectors/protocol/rest/)
+-   the connector's result expression maps the HTTP response into process variables — replacing the delegate's `setVariable` calls
+-   keep a custom `@JobWorker` only for what the connector cannot express (complex multi-step logic, non-HTTP protocols)
 
 ---
 

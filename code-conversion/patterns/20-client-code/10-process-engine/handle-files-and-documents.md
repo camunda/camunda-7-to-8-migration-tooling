@@ -1,12 +1,6 @@
 # File Variables &#8594; Document API
 
-In Camunda 7, files are stored as process variables of type `FileValue` (via the Typed Value API), carrying the file content plus filename and MIME type metadata.
-
-Camunda 8 has no typed file variable. Files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
-
-| Camunda 7                          | Camunda 8                                                        |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `FileValue` variable (`Values.fileValue(...)`) | Document uploaded via `camundaClient.newCreateDocumentCommand()`; the `DocumentReference` is stored as the process variable |
+In Camunda 7, files are stored as `FileValue` process variables (Typed Value API) carrying content plus filename and MIME type. Camunda 8 has no typed file variable: files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
 
 ## Creating a File Variable
 
@@ -35,6 +29,5 @@ Camunda 8 has no typed file variable. Files become **documents** managed by the 
     }
 ```
 
--   store the plain `DocumentReference` in the process variable — do not wrap it in an array in the variable itself
--   forms consuming the reference (for example a `documentPreview` component) expect a FEEL expression over an *array* of references; do the one-element wrap (`[contract]`) in the form's FEEL expression, not in the variable
--   documents have a store-specific time-to-live and size limits — check the [document handling docs](https://docs.camunda.io/docs/components/document-handling/getting-started/) for your storage backend
+-   store the plain `DocumentReference` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
+-   documents have store-specific time-to-live and size limits — check the document handling docs for your storage backend

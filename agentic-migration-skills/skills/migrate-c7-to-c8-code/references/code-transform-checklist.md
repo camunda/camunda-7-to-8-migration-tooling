@@ -10,8 +10,8 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
-- Verify Spring Boot compatibility from the artifact, not from assumption: read the selected starter's (or BOM's) POM on Maven Central and confirm the Spring Boot version range it is built against actually covers the project's Spring Boot version. Do not assume a pairing works because both versions are "latest".
-- Preserve the dependency footprint. Do not add dependencies the C7 app did not need (e.g. never pull in `spring-boot-starter-web` for a C7 app that exposed no REST endpoints) — including transitively, via starter choices.
+- Verify Spring Boot compatibility from the selected starter's/BOM's POM on Maven Central — do not assume a pairing works because both versions are "latest".
+- Preserve the dependency footprint: never add dependencies the C7 app did not need (e.g. `spring-boot-starter-web` when it exposed no REST endpoints), including transitively via starter choices.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
@@ -80,9 +80,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 ### Named category: Script expressions (Groovy, JavaScript, ...)
 
-Script-language expressions — typical on sequence-flow condition expressions (`<conditionExpression xsi:type="tFormalExpression" language="groovy">`), script tasks, and `camunda:script` in listeners — cannot run in C8: FEEL is the only expression language and cannot execute scripts. Treat all occurrences as ONE category per script language.
-
-Default remediation: move the script logic into a preceding service task whose `@JobWorker` computes the outcome (e.g. a boolean for a gateway) into a plain process variable, and replace the sequence-flow expression with a FEEL reference to that variable. For a script task, convert the task itself into a service task with a worker holding the script logic. Decision weighting matches the FEEL method-invocation category (precompute via job worker is the default).
+Script-language expressions (sequence-flow conditions with `language="groovy"`, script tasks, `camunda:script` in listeners) cannot run in C8 — FEEL cannot execute scripts. Treat as ONE category per script language. Default remediation (same decision weighting as FEEL method-invocation): move the script logic into a preceding service task whose `@JobWorker` computes the outcome into a plain variable; replace the expression with a FEEL reference. A script task itself becomes a service task with a worker holding the script logic.
 
 ### Named category: FEEL method-invocation
 

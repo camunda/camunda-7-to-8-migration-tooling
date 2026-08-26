@@ -37,7 +37,7 @@ Shared rules that apply throughout all subsequent steps:
 - Use project-local models first. Do not offer C7 engine access when local models are present.
 - Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit; never commit without an explicit user request.
 - Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
-- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. If the user targets a separate output location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets into the target instead of editing in place.
+- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. When migrating into a separate target location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets over, never edit in place.
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
@@ -45,10 +45,9 @@ Shared rules that apply throughout all subsequent steps:
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Preserve structural fidelity. Keep package names, class names, file/folder layout, and resource paths exactly as in the C7 project wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent at all, and record the reason in MIGRATION_REPORT.md.
-- Preserve behavior and dependency footprint. Startup behavior (what runs when, how many instances) and application constraints (e.g. a C7 app exposing no REST endpoints) carry over unchanged — including transitively: do not add dependencies the C7 app did not need (e.g. spring-boot-starter-web) for unrelated reasons.
-- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API access). Verify whether Camunda 8 removed the limitation before replicating the pattern or adding a worker around it. Converter findings that flag natively-supported capabilities drive the same check for deleting C7-side workaround code — see the cross-check in `references/composing-code-and-models.md`.
-- Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results. It is the single source of truth for the migration — update it as work proceeds, every incompatibility and design decision lands there, not scattered across chat.
+- Preserve fidelity: package names, class names, file/folder layout, resource paths, startup behavior, and dependency footprint (e.g. no REST endpoints → no spring-boot-starter-web) carry over unchanged wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent, and record why in MIGRATION_REPORT.md.
+- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API). Verify whether C8 removed the limitation before replicating the pattern or adding a worker. Converter findings flagging natively-supported capabilities drive the same check for deleting C7-side workaround code — see `references/composing-code-and-models.md`.
+- Keep `MIGRATION_REPORT.md` in the confirmed project root current — it is the single source of truth for inventories, decisions, incompatibilities, and validation results; update as work proceeds, not in scattered notes.
 
 ### Step 2: Assessment (always runs)
 

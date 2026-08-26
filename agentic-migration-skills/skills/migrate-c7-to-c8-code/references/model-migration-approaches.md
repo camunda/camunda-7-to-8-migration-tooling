@@ -197,28 +197,14 @@ Treat unreachable endpoint, TLS/DNS failure, 401/403, malformed XML, or empty re
 
 ## Linting Converted BPMN (M1 and M2)
 
-After any manual edit to a converted BPMN file (findings follow-up, form wiring, expression fixes), lint immediately — missing DI, overlapping flows, and disconnected nodes are cheapest to catch at edit time, not at the end.
+After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version — missing DI, overlaps, and disconnected flows are cheapest to catch at edit time:
 
-Use bpmnlint with the Camunda compatibility ruleset matching the target version:
-
-1. Install once in the project (or a scratch directory): `npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat`
-2. `.bpmnlintrc`:
-
-```json
-{
-  "extends": [
-    "bpmnlint:recommended",
-    "plugin:camunda-compat/camunda-cloud-<target-version>"
-  ],
-  "moddleExtensions": {
-    "zeebe": "zeebe-bpmn-moddle/resources/zeebe.json"
-  }
-}
+```sh
+npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once
+npx bpmnlint <converted-file>.bpmn
 ```
 
-3. Run: `npx bpmnlint <converted-file>.bpmn`
-
-Fix or record every lint error before continuing.
+`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-version>`, and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
 
 ---
 
