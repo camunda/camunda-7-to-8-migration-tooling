@@ -284,32 +284,41 @@ jobs:
           retention-days: 7
 
   code-conversion-windows:
+    needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
       contents: read
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.code-conversion == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Enable long paths for Git on Windows
+        if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -372,38 +381,42 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Compile-check all modules against the previous Camunda 8 version
-  # to catch API-level incompatibilities before merge.
-  compile-previous-version:
-    needs: [read-versions, detect-changes]
-
   diagram-converter-windows:
+    needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
       contents: read
+    if: |
+      github.event_name != 'pull_request' ||
+      needs.detect-changes.outputs.diagram-converter == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    outputs:
+      maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
       - name: Enable long paths for Git on Windows
+        if: runner.os == 'Windows'
         run: git config --global core.longpaths true
 
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       - name: Import secrets
         id: secrets
-        uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3.4.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
           method: approle
           roleId: ${{ secrets.VAULT_ROLE_ID }}
           secretId: ${{ secrets.VAULT_SECRET_ID }}
           secrets: |
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_USR;
-            secret/data/products/cambpm/ci/nexus NEXUS_APP_CAMUNDA_COM_PSW;
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
 
       - name: Setup Maven
+        id: setup-maven
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
@@ -414,7 +427,10 @@ jobs:
         working-directory: diagram-converter
         run: mvn verify --batch-mode
 
-  it-runtime-postgresql:
+  # Compile-check all modules against the previous Camunda 8 version
+  # to catch API-level incompatibilities before merge.
+  compile-previous-version:
+    needs: [read-versions, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
@@ -1154,7 +1170,9 @@ jobs:
       - detect-changes
       - distro
       - code-conversion
+      - code-conversion-windows
       - diagram-converter
+      - diagram-converter-windows
       - compile-previous-version
       - it-runtime-h2
       - it-history-h2
@@ -1169,7 +1187,9 @@ jobs:
     env:
       EXPECT_DISTRO: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.data-migrator == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_CODE_CONVERSION: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code-conversion == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+      EXPECT_CODE_CONVERSION_WINDOWS: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code-conversion == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_DIAGRAM_CONVERTER: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+      EXPECT_DIAGRAM_CONVERTER_WINDOWS: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_COMPILE_PREVIOUS: ${{ github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-compile-previous-version == 'true' }}
       EXPECT_RUNTIME_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:runtime') || (needs.detect-changes.outputs.run-runtime == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
       EXPECT_HISTORY_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:history') || (needs.detect-changes.outputs.run-history == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:runtime') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
@@ -1178,7 +1198,9 @@ jobs:
       EXPECT_E2E: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.run-e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'ci:e2e') }}
       CACHE_DISTRO: ${{ needs.distro.outputs.maven-cache-hit }}
       CACHE_CODE_CONVERSION: ${{ needs.code-conversion.outputs.maven-cache-hit }}
+      CACHE_CODE_CONVERSION_WINDOWS: ${{ needs.code-conversion-windows.outputs.maven-cache-hit }}
       CACHE_DIAGRAM_CONVERTER: ${{ needs.diagram-converter.outputs.maven-cache-hit }}
+      CACHE_DIAGRAM_CONVERTER_WINDOWS: ${{ needs.diagram-converter-windows.outputs.maven-cache-hit }}
       CACHE_COMPILE_PREVIOUS: ${{ needs.compile-previous-version.outputs.maven-cache-hit }}
       CACHE_RUNTIME_H2: ${{ needs.it-runtime-h2.outputs.maven-cache-hit }}
       CACHE_HISTORY_H2: ${{ needs.it-history-h2.outputs.maven-cache-hit }}
@@ -1204,7 +1226,9 @@ jobs:
             const requiredChecks = [
               { key: "distro", label: "distro", expected: parseBool(process.env.EXPECT_DISTRO) },
               { key: "code-conversion", label: "code-conversion", expected: parseBool(process.env.EXPECT_CODE_CONVERSION) },
+              { key: "code-conversion-windows", label: "code-conversion-windows", expected: parseBool(process.env.EXPECT_CODE_CONVERSION_WINDOWS) },
               { key: "diagram-converter", label: "diagram-converter", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER) },
+              { key: "diagram-converter-windows", label: "diagram-converter-windows", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER_WINDOWS) },
               { key: "compile-previous-version", label: "compile-previous-version", expected: parseBool(process.env.EXPECT_COMPILE_PREVIOUS) },
               { key: "it-runtime-h2", label: "it-runtime-h2", expected: parseBool(process.env.EXPECT_RUNTIME_H2) },
               { key: "it-history-h2", label: "it-history-h2", expected: parseBool(process.env.EXPECT_HISTORY_H2) },
@@ -1281,7 +1305,9 @@ jobs:
             const cacheValues = [
               process.env.CACHE_DISTRO,
               process.env.CACHE_CODE_CONVERSION,
+              process.env.CACHE_CODE_CONVERSION_WINDOWS,
               process.env.CACHE_DIAGRAM_CONVERTER,
+              process.env.CACHE_DIAGRAM_CONVERTER_WINDOWS,
               process.env.CACHE_COMPILE_PREVIOUS,
               process.env.CACHE_RUNTIME_H2,
               process.env.CACHE_HISTORY_H2,
