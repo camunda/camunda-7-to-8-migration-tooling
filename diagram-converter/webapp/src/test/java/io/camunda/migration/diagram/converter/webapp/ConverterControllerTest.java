@@ -388,6 +388,23 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithJsonResultPrefersJsonSuffixOverLowerQualityCsv()
+      throws URISyntaxException {
+    // a higher-q structured JSON suffix must win over a lower-q concrete type
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*+json;q=1.0, text/csv;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
   void convertBpmn() throws URISyntaxException {
     byte[] bpmn =
         RestAssured.given()
