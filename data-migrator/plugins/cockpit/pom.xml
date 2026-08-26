@@ -40,6 +40,13 @@
       <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
+    <!-- Keep Jackson host-provided while pinning the version in the published plugin POM. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${version.jackson-bom}</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-7-to-8-data-migrator-core</artifactId>
