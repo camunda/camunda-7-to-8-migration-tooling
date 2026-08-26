@@ -224,6 +224,28 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithCsvResultAndParameterizedAcceptHeader()
+      throws URISyntaxException, IOException {
+    String body =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/csv; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .print();
+    try (CSVReader reader =
+        new CSVReaderBuilder(new StringReader(body))
+            .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
+            .build()) {
+      assertThat(reader.readAll()).isNotEmpty();
+    } catch (CsvException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
   void singleBpmnCheckWithExcelResult() throws Exception {
     byte[] response =
         RestAssured.given()

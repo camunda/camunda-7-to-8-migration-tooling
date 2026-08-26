@@ -19,10 +19,13 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.camunda.bpm.model.xml.ModelInstance;
@@ -185,38 +188,58 @@ public class ConverterController {
   }
 
   private boolean csvRequested(String[] contentType) {
-    return contentType != null && Arrays.asList(contentType).contains("text/csv");
+    return bestMatch(contentType)
+        .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.valueOf("text/csv")))
+        .orElse(false);
   }
 
   private boolean analysisJsonRequested(String[] contentType) {
-    if (contentType == null) {
-      return false;
-    }
-    MediaType analysisJson = MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON);
-    return Arrays.stream(contentType)
-        .map(MediaType::parseMediaType)
-        .anyMatch(mediaType -> mediaType.equalsTypeAndSubtype(analysisJson));
+    return bestMatch(contentType)
+        .map(
+            mediaType ->
+                mediaType.equalsTypeAndSubtype(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON)))
+        .orElse(false);
   }
 
   private boolean jsonRequested(String[] contentType) {
-    // JSON is the default representation: an absent or wildcard Accept header counts as JSON
+    // JSON is the default representation: an absent or wildcard-best Accept header counts as JSON
     return contentType == null
         || contentType.length == 0
-        || Arrays.stream(contentType)
-            .map(MediaType::parseMediaType)
-            .anyMatch(
+        || bestMatch(contentType)
+            .map(
                 mediaType ->
                     mediaType.isWildcardType()
                         || mediaType.isWildcardSubtype()
-                        || mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON));
+                        || mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON))
+            .orElse(false);
   }
 
   private boolean excelRequested(String[] contentType) {
-    return contentType != null
-        && (Arrays.asList(contentType).contains("application/excel")
-            || Arrays.asList(contentType).contains("application/vnd.ms-excel")
-            || Arrays.asList(contentType)
-                .contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+    return bestMatch(contentType)
+        .map(
+            mediaType ->
+                Arrays.asList(
+                        "application/excel",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    .contains(mediaType.toString()))
+        .orElse(false);
+  }
+
+  private Optional<MediaType> bestMatch(String[] contentType) {
+    if (contentType == null || contentType.length == 0) {
+      return Optional.empty();
+    }
+    List<MediaType> mediaTypes =
+        Arrays.stream(contentType).map(MediaType::parseMediaType).collect(Collectors.toList());
+    // quality first (q= parameter), then specificity (fewer wildcards), matching Spring's former
+    // sortBySpecificityAndQuality semantics
+    mediaTypes.sort(
+        Comparator.comparingDouble(MediaType::getQualityValue)
+            .reversed()
+            .thenComparing(MediaType::isWildcardType)
+            .thenComparing(MediaType::isWildcardSubtype));
+    return Optional.of(mediaTypes.get(0));
   }
 
   /**
