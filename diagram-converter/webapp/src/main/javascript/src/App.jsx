@@ -42,6 +42,23 @@ const SUPPORTED_PLATFORM_VERSIONS = [
 ];
 const DEFAULT_PLATFORM_VERSION = "8.9";
 
+function getMostSevere(messages) {
+  const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
+
+  let mostSevere = 'INFO';
+
+  for (const msg of messages) {
+    if (
+      severityOrder.indexOf(msg.severity) >
+      severityOrder.indexOf(mostSevere)
+    ) {
+      mostSevere = msg.severity;
+    }
+  }
+
+  return mostSevere;
+}
+
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
 
@@ -143,23 +160,6 @@ function App() {
     }, 0);
     return () => clearTimeout(timer);
   }, [allDone, totalFindings]);
-
-    function getMostSevere(messages) {
-      const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
-
-      let mostSevere = 'INFO';
-
-      for (const msg of messages) {
-        if (
-          severityOrder.indexOf(msg.severity) >
-          severityOrder.indexOf(mostSevere)
-        ) {
-          mostSevere = msg.severity;
-        }
-      }
-
-      return mostSevere;
-    }
 
   function createFormData(files) {
     const formData = new FormData();
