@@ -189,7 +189,13 @@ public class ConverterController {
   }
 
   private boolean analysisJsonRequested(String[] contentType) {
-    return contentType != null && Arrays.asList(contentType).contains(APPLICATION_ANALYSIS_JSON);
+    if (contentType == null) {
+      return false;
+    }
+    MediaType analysisJson = MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON);
+    return Arrays.stream(contentType)
+        .map(MediaType::parseMediaType)
+        .anyMatch(mediaType -> mediaType.equalsTypeAndSubtype(analysisJson));
   }
 
   private boolean jsonRequested(String[] contentType) {

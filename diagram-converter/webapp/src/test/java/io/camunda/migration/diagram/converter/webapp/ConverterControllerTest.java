@@ -143,6 +143,29 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithAnalysisJsonResultAcceptsParameterizedAcceptHeader()
+      throws URISyntaxException {
+    // clients may append parameters such as charset or q-values to the Accept header
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                ConverterController.APPLICATION_ANALYSIS_JSON
+                    + "; charset=UTF-8, application/json;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // the flat report carries messageId per entry; the nested preview JSON would not
+    assertThat(report)
+        .hasSize(1)
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
+  }
+
+  @Test
   void singleBpmnCheckWithCsvResult() throws URISyntaxException, IOException {
     String body =
         RestAssured.given()
