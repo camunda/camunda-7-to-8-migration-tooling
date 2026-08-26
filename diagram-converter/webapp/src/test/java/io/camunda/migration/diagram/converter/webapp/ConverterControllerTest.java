@@ -122,6 +122,23 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithJsonResultAndWildcardAcceptHeader() throws URISyntaxException {
+    // JSON is the default representation; a generic client sending */* or application/* must not
+    // get a 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("*/*")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
   void singleBpmnCheckWithAnalysisJsonResult() throws URISyntaxException {
     List<Map<String, String>> report =
         RestAssured.given()

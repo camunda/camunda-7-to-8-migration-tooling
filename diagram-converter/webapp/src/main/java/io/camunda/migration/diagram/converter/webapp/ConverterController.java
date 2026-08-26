@@ -199,11 +199,16 @@ public class ConverterController {
   }
 
   private boolean jsonRequested(String[] contentType) {
+    // JSON is the default representation: an absent or wildcard Accept header counts as JSON
     return contentType == null
         || contentType.length == 0
         || Arrays.stream(contentType)
             .map(MediaType::parseMediaType)
-            .anyMatch(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON));
+            .anyMatch(
+                mediaType ->
+                    mediaType.isWildcardType()
+                        || mediaType.isWildcardSubtype()
+                        || mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON));
   }
 
   private boolean excelRequested(String[] contentType) {
