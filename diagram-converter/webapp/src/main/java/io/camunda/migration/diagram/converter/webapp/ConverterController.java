@@ -208,17 +208,13 @@ public class ConverterController {
   }
 
   private boolean jsonRequested(String[] contentType) {
-    // JSON is the default representation: an absent Accept header, a wildcard best match, or no
-    // determinable best match (Spring's produces negotiation already accepted the request) all
-    // count as JSON
+    // JSON is the default representation: an absent Accept header or no determinable best match
+    // (Spring's produces negotiation already accepted the request) counts as JSON; a wildcard best
+    // match is resolved to application/json by bestMatch
     return contentType == null
         || contentType.length == 0
         || bestMatch(contentType)
-            .map(
-                mediaType ->
-                    mediaType.isWildcardType()
-                        || mediaType.isWildcardSubtype()
-                        || mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON))
+            .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON))
             .orElse(true);
   }
 
@@ -263,7 +259,21 @@ public class ConverterController {
             .reversed()
             .thenComparing(MediaType::isWildcardType)
             .thenComparing(MediaType::isWildcardSubtype));
-    return Optional.of(mediaTypes.get(0));
+    return Optional.of(mediaTypes.get(0)).map(this::resolveWildcard);
+  }
+
+  private MediaType resolveWildcard(MediaType mediaType) {
+    // resolve wildcards to the concrete supported representation so downstream type/subtype
+    // checks see a concrete type: text/* -> text/csv, application/* and */* -> application/json
+    if (mediaType.isWildcardType()) {
+      return MediaType.APPLICATION_JSON;
+    }
+    if (mediaType.isWildcardSubtype()) {
+      return "text".equals(mediaType.getType())
+          ? MediaType.valueOf(TEXT_CSV)
+          : MediaType.APPLICATION_JSON;
+    }
+    return mediaType;
   }
 
   /**

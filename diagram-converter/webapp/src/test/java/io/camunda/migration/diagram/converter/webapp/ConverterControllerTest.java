@@ -246,6 +246,45 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithCsvResultAndTextWildcardAcceptHeader()
+      throws URISyntaxException, IOException {
+    // text/* resolves to the supported text/csv representation
+    String body =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/*")
+            .post("/check")
+            .getBody()
+            .print();
+    try (CSVReader reader =
+        new CSVReaderBuilder(new StringReader(body))
+            .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
+            .build()) {
+      assertThat(reader.readAll()).isNotEmpty();
+    } catch (CsvException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  void singleBpmnCheckWithJsonResultAndApplicationWildcardAcceptHeader() throws URISyntaxException {
+    // application/* resolves to the default application/json representation
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
   void singleBpmnCheckWithExcelResult() throws Exception {
     byte[] response =
         RestAssured.given()
