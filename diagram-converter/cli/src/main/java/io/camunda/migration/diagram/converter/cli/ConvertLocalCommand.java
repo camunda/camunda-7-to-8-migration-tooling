@@ -48,6 +48,20 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
   @Parameters(index = "0", description = "The file to convert or directory to search in")
   File file;
 
+  @Override
+  protected String modelIdentifier(File modelFile) {
+    Path absoluteModelPath = modelFile.toPath().toAbsolutePath().normalize();
+    Path absoluteInputRoot =
+        (file.isDirectory() ? file.toPath() : file.getAbsoluteFile().getParentFile().toPath())
+            .toAbsolutePath()
+            .normalize();
+
+    if (absoluteModelPath.startsWith(absoluteInputRoot)) {
+      return absoluteInputRoot.relativize(absoluteModelPath).toString();
+    }
+    return absoluteModelPath.toString();
+  }
+
   @Option(
       names = {"-nr", "--not-recursive"},
       description = "If enabled, recursive search in subfolders will be omitted")
