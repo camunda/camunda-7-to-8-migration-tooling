@@ -15,6 +15,9 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    cssMinify: "esbuild",
+  },
   resolve: {
     alias: {
       "~@ibm/plex": path.resolve(dirname, "node_modules/@ibm/plex"),
