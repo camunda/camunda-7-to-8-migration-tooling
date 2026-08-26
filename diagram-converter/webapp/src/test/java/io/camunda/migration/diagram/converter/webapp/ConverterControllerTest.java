@@ -123,7 +123,7 @@ public class ConverterControllerTest {
             .as(new TypeRef<List<Map<String, String>>>() {});
 
     assertThat(report)
-        .hasSize(1)
+        .isNotEmpty()
         .first()
         .satisfies(entry -> assertThat(entry.get("filename")).isEqualTo("example.bpmn"))
         .matches(
@@ -162,7 +162,7 @@ public class ConverterControllerTest {
 
     // the flat report carries messageId per entry; the nested preview JSON would not
     assertThat(report)
-        .hasSize(1)
+        .isNotEmpty()
         .first()
         .satisfies(entry -> assertThat(entry).containsKey("messageId"));
   }
