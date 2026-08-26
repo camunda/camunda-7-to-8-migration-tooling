@@ -275,9 +275,7 @@ public class DiagramConverter {
 
   public void writeJsonFile(List<DiagramCheckResult> results, Writer writer) {
     try {
-      OBJECT_MAPPER
-          .writerWithDefaultPrettyPrinter()
-          .writeValue(writer, createLineItemDTOList(results));
+      OBJECT_MAPPER.writeValue(writer, createLineItemDTOList(results));
     } catch (IOException e) {
       throw new RuntimeException("Error while writing json file", e);
     }
