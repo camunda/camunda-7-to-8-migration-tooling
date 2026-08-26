@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -184,7 +186,9 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     }
     if (json) {
       File jsonFile = determineFileName(new File(targetDirectory(), "analysis-results.json"));
-      try (FileWriter fw = new FileWriter(jsonFile)) {
+      // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
+      // -Dfile.encoding override can't corrupt the machine-readable report
+      try (Writer fw = Files.newBufferedWriter(jsonFile.toPath(), StandardCharsets.UTF_8)) {
         converter.writeJsonFile(results, fw);
         LOG_CLI.info("Created {}", jsonFile);
       } catch (IOException | RuntimeException e) {
