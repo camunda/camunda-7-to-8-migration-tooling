@@ -429,6 +429,27 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithUnsatisfiableWildcardPrefersSupportedVendorType()
+      throws URISyntaxException {
+    // image/* cannot be satisfied by any produces type; the supported vendor type must win
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("image/*;q=1.0, " + ConverterController.APPLICATION_ANALYSIS_JSON + ";q=0.9")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // flat report shape (messageId key) proves the vendor representation was selected
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
+  }
+
+  @Test
   void convertBpmn() throws URISyntaxException {
     byte[] bpmn =
         RestAssured.given()

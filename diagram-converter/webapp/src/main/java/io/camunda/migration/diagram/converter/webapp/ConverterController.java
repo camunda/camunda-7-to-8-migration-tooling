@@ -246,12 +246,10 @@ public class ConverterController {
             .filter(
                 mediaType ->
                     mediaType.isWildcardType()
-                        || mediaType.isWildcardSubtype()
-                        || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType))
                         || (mediaType.isWildcardSubtype()
-                            && "application".equals(mediaType.getType())
-                            && mediaType.getSubtype().startsWith("*")
-                            && mediaType.getSubtype().endsWith("+json")))
+                            && ("application".equals(mediaType.getType())
+                                || "text".equals(mediaType.getType())))
+                        || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType)))
             .collect(Collectors.toList());
     if (mediaTypes.isEmpty()) {
       return Optional.empty();
