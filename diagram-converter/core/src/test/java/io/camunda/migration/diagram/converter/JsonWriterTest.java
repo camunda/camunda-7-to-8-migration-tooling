@@ -11,10 +11,15 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+import com.opencsv.exceptions.CsvException;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,16 +94,31 @@ public class JsonWriterTest {
 
     StringWriter csvWriter = new StringWriter();
     SERVICE.writeCsvFile(results, csvWriter);
-    String csv = csvWriter.toString();
+    List<String[]> csvLines = readCsv(csvWriter);
 
-    assertThat(csv).contains(entry.get("filename").asText());
-    assertThat(csv).contains(entry.get("elementName").asText());
-    assertThat(csv).contains(entry.get("elementId").asText());
-    assertThat(csv).contains(entry.get("elementType").asText());
-    assertThat(csv).contains(entry.get("severity").asText());
-    assertThat(csv).contains(entry.get("messageId").asText());
-    assertThat(csv).contains(entry.get("message").asText());
-    assertThat(csv).contains(entry.get("link").asText());
+    assertThat(csvLines).hasSize(2);
+    assertThat(csvLines.get(1))
+        .containsExactly(
+            entry.get("filename").asText(),
+            entry.get("elementName").asText(),
+            entry.get("elementId").asText(),
+            entry.get("elementType").asText(),
+            entry.get("severity").asText(),
+            entry.get("messageId").asText(),
+            entry.get("message").asText(),
+            entry.get("link").asText());
+  }
+
+  private List<String[]> readCsv(StringWriter writer) {
+    StringReader reader = new StringReader(writer.toString());
+    try (CSVReader csvReader =
+        new CSVReaderBuilder(reader)
+            .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
+            .build()) {
+      return csvReader.readAll();
+    } catch (IOException | CsvException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private List<DiagramCheckResult> mockResults() {
