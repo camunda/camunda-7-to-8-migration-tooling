@@ -144,7 +144,7 @@ public class ConverterController {
       Resource file = new ByteArrayResource(sw.toString().getBytes(StandardCharsets.UTF_8));
       return ResponseEntity.ok()
           .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"analysis-results.json\"")
-          .contentType(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON))
+          .contentType(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON + ";charset=UTF-8"))
           .body(file);
 
     } else if (jsonRequested(contentType)) { // JSON

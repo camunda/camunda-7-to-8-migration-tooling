@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.webapp;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -115,7 +116,9 @@ public class ConverterControllerTest {
             .post("/check")
             .then()
             .header("Content-Disposition", containsString("analysis-results.json"))
-            .header("Content-Type", containsString(ConverterController.APPLICATION_ANALYSIS_JSON))
+            .header(
+                "Content-Type",
+                equalTo(ConverterController.APPLICATION_ANALYSIS_JSON + ";charset=UTF-8"))
             .extract()
             .as(new TypeRef<List<Map<String, String>>>() {});
 
