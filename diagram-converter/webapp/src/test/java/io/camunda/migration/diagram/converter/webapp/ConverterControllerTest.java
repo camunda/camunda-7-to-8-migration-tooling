@@ -8,6 +8,8 @@
 package io.camunda.migration.diagram.converter.webapp;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -25,6 +27,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -103,6 +106,101 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithJsonResultAndParameterizedAcceptHeader() throws URISyntaxException {
+    // parameterized application/json must still negotiate to the nested preview JSON, not 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/json; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithJsonResultAndWildcardAcceptHeader() throws URISyntaxException {
+    // JSON is the default representation; a generic client sending */* or application/* must not
+    // get a 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("*/*")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithAnalysisJsonResult() throws URISyntaxException {
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(ConverterController.APPLICATION_ANALYSIS_JSON)
+            .post("/check")
+            .then()
+            .header("Content-Disposition", containsString("analysis-results.json"))
+            .header(
+                "Content-Type",
+                equalTo(ConverterController.APPLICATION_ANALYSIS_JSON + ";charset=UTF-8"))
+            .extract()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry.get("filename")).isEqualTo("example.bpmn"))
+        .matches(
+            entry ->
+                entry
+                    .keySet()
+                    .containsAll(
+                        List.of(
+                            "elementName",
+                            "elementId",
+                            "elementType",
+                            "severity",
+                            "messageId",
+                            "message",
+                            "link")),
+            "Entry carries the full flat report fields");
+  }
+
+  @Test
+  void singleBpmnCheckWithAnalysisJsonResultAcceptsParameterizedAcceptHeader()
+      throws URISyntaxException {
+    // clients may append parameters such as charset or q-values to the Accept header
+    // (malformed Accept values are rejected by Spring's produces negotiation with 406 before the
+    // controller runs)
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                ConverterController.APPLICATION_ANALYSIS_JSON
+                    + "; charset=UTF-8, application/json;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // the flat report carries messageId per entry; the nested preview JSON would not
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
+  }
+
+  @Test
   void singleBpmnCheckWithCsvResult() throws URISyntaxException, IOException {
     String body =
         RestAssured.given()
@@ -123,6 +221,67 @@ public class ConverterControllerTest {
     } catch (CsvException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Test
+  void singleBpmnCheckWithCsvResultAndParameterizedAcceptHeader()
+      throws URISyntaxException, IOException {
+    String body =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/csv; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .print();
+    try (CSVReader reader =
+        new CSVReaderBuilder(new StringReader(body))
+            .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
+            .build()) {
+      assertThat(reader.readAll()).isNotEmpty();
+    } catch (CsvException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  void singleBpmnCheckWithCsvResultAndTextWildcardAcceptHeader()
+      throws URISyntaxException, IOException {
+    // text/* resolves to the supported text/csv representation
+    String body =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/*")
+            .post("/check")
+            .getBody()
+            .print();
+    try (CSVReader reader =
+        new CSVReaderBuilder(new StringReader(body))
+            .withCSVParser(new CSVParserBuilder().withSeparator(';').build())
+            .build()) {
+      assertThat(reader.readAll()).isNotEmpty();
+    } catch (CsvException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Test
+  void singleBpmnCheckWithJsonResultAndApplicationWildcardAcceptHeader() throws URISyntaxException {
+    // application/* resolves to the default application/json representation
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
   }
 
   @Test
@@ -175,6 +334,119 @@ public class ConverterControllerTest {
       assertThat(List.of(filename1, filename2))
           .containsExactlyInAnyOrder("example.bpmn", "example2.bpmn");
     }
+  }
+
+  @Test
+  void singleBpmnCheckWithUnsupportedHigherQualityFallsBackToSupported() throws URISyntaxException {
+    // an unsupported media type with higher q must not win over a supported one
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/html;q=1.0, application/json;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithExcelResultAndParameterizedAcceptHeader() throws Exception {
+    byte[] response =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .asByteArray();
+
+    try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(response))) {
+      assertThat(workbook.getNumberOfSheets()).isGreaterThan(0);
+    }
+  }
+
+  @Test
+  void singleBpmnCheckWithJsonResultDefaultsToJsonWhenNoBestMatch() throws URISyntaxException {
+    // a structured-syntax suffix Accept (application/*+json) is compatible with application/json;
+    // no supported best match exists, so the endpoint defaults to JSON rather than a 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*+json")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithJsonResultPrefersJsonSuffixOverLowerQualityCsv()
+      throws URISyntaxException {
+    // a higher-q structured-suffix JSON wildcard must win over a lower-q concrete type
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/*+json;q=1.0, text/csv;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithConcreteJsonSuffixPrefersSupportedVendorType() throws URISyntaxException {
+    // a concrete suffix type like application/problem+json is not application/json-compatible;
+    // the supported vendor type must win
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                "application/problem+json;q=1.0, "
+                    + ConverterController.APPLICATION_ANALYSIS_JSON
+                    + ";q=0.9")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // flat report shape (messageId key) proves the vendor representation was selected
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
+  }
+
+  @Test
+  void singleBpmnCheckWithUnsatisfiableWildcardPrefersSupportedVendorType()
+      throws URISyntaxException {
+    // image/* cannot be satisfied by any produces type; the supported vendor type must win
+    List<Map<String, String>> report =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("image/*;q=1.0, " + ConverterController.APPLICATION_ANALYSIS_JSON + ";q=0.9")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<Map<String, String>>>() {});
+
+    // flat report shape (messageId key) proves the vendor representation was selected
+    assertThat(report)
+        .isNotEmpty()
+        .first()
+        .satisfies(entry -> assertThat(entry).containsKey("messageId"));
   }
 
   @Test
