@@ -40,6 +40,13 @@
       <version>${version.camunda-7}</version>
       <scope>provided</scope>
     </dependency>
+    <!-- Keep the fixed Jackson version in the published POM without bundling it. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${version.jackson-bom}</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-7-to-8-data-migrator-core</artifactId>
