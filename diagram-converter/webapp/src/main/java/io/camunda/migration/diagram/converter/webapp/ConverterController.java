@@ -16,12 +16,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.camunda.bpm.model.xml.ModelInstance;
@@ -46,6 +50,20 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin(origins = "*")
 public class ConverterController {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterController.class);
+
+  private static final String TEXT_CSV = "text/csv";
+  private static final String APPLICATION_EXCEL = "application/excel";
+  private static final String APPLICATION_MS_EXCEL = "application/vnd.ms-excel";
+  private static final String APPLICATION_XLSX =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  /**
+   * Media type for the flat, machine-readable analysis report: a JSON array with one flat object
+   * per finding (same format as the CLI's {@code analysis-results.json}), intended for AI / machine
+   * analysis.
+   */
+  public static final String APPLICATION_ANALYSIS_JSON = "application/vnd.camunda.analysis+json";
+
   private final DiagramConverterService bpmnConverter;
   private final BuildProperties buildProperties;
   private final ExcelWriter excelWriter;
@@ -63,16 +81,20 @@ public class ConverterController {
   /**
    * POST a list of BPMN or DMN models for analyzing tasks. Can be returned in various formats: -
    * JSON representation of a {@link List} of {@link DiagramCheckResult}s - Excel file, filled with
-   * result data - CSV file containing result data
+   * result data - CSV file containing result data - flat machine-readable JSON report (a JSON array
+   * of {@link DiagramConverterResultDTO} entries, one per finding, same format as the CLI's
+   * analysis-results.json) for AI / machine analysis, requested with {@link
+   * #APPLICATION_ANALYSIS_JSON}
    */
   @PostMapping(
       value = "/check",
       produces = {
         MediaType.APPLICATION_JSON_VALUE,
-        "text/csv",
-        "application/excel",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        APPLICATION_ANALYSIS_JSON,
+        TEXT_CSV,
+        APPLICATION_EXCEL,
+        APPLICATION_MS_EXCEL,
+        APPLICATION_XLSX
       },
       consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
   public ResponseEntity<?> check(
@@ -124,7 +146,17 @@ public class ConverterController {
     }
 
     // return response depending on the requested format
-    if (jsonRequested(contentType)) { // JSON
+    if (analysisJsonRequested(contentType)) { // flat machine-readable JSON report
+
+      StringWriter sw = new StringWriter();
+      bpmnConverter.writeJsonFile(resultList, sw);
+      Resource file = new ByteArrayResource(sw.toString().getBytes(StandardCharsets.UTF_8));
+      return ResponseEntity.ok()
+          .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"analysis-results.json\"")
+          .contentType(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON + ";charset=UTF-8"))
+          .body(file);
+
+    } else if (jsonRequested(contentType)) { // JSON
       return ResponseEntity.ok(resultList);
 
     } else if (excelRequested(contentType)) { // EXCEL
@@ -162,20 +194,92 @@ public class ConverterController {
   }
 
   private boolean csvRequested(String[] contentType) {
-    return contentType != null && Arrays.asList(contentType).contains("text/csv");
+    return bestMatch(contentType)
+        .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.valueOf(TEXT_CSV)))
+        .orElse(false);
+  }
+
+  private boolean analysisJsonRequested(String[] contentType) {
+    return bestMatch(contentType)
+        .map(
+            mediaType ->
+                mediaType.equalsTypeAndSubtype(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON)))
+        .orElse(false);
   }
 
   private boolean jsonRequested(String[] contentType) {
+    // JSON is the default representation: an absent Accept header or no determinable best match
+    // (Spring's produces negotiation already accepted the request) counts as JSON; a wildcard best
+    // match is resolved to application/json by bestMatch
     return contentType == null
         || contentType.length == 0
-        || Arrays.asList(contentType).contains(MediaType.APPLICATION_JSON_VALUE);
+        || bestMatch(contentType)
+            .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON))
+            .orElse(true);
   }
 
   private boolean excelRequested(String[] contentType) {
-    return contentType != null && Arrays.asList(contentType).contains("application/excel")
-        || Arrays.asList(contentType).contains("application/vnd.ms-excel")
-        || Arrays.asList(contentType)
-            .contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    return bestMatch(contentType)
+        .map(
+            mediaType ->
+                mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_EXCEL))
+                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_MS_EXCEL))
+                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_XLSX)))
+        .orElse(false);
+  }
+
+  private Optional<MediaType> bestMatch(String[] contentType) {
+    if (contentType == null || contentType.length == 0) {
+      return Optional.empty();
+    }
+    List<MediaType> supported =
+        List.of(
+            MediaType.APPLICATION_JSON,
+            MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON),
+            MediaType.valueOf(TEXT_CSV),
+            MediaType.valueOf(APPLICATION_EXCEL),
+            MediaType.valueOf(APPLICATION_MS_EXCEL),
+            MediaType.valueOf(APPLICATION_XLSX));
+    List<MediaType> mediaTypes =
+        Arrays.stream(contentType)
+            .map(MediaType::parseMediaType)
+            .filter(
+                mediaType ->
+                    mediaType.isWildcardType()
+                        || (mediaType.isWildcardSubtype()
+                            && ("application".equals(mediaType.getType())
+                                || "text".equals(mediaType.getType())))
+                        || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType)))
+            .collect(Collectors.toList());
+    if (mediaTypes.isEmpty()) {
+      return Optional.empty();
+    }
+    // quality first (q= parameter), then specificity (fewer wildcards), matching Spring's former
+    // sortBySpecificityAndQuality semantics
+    mediaTypes.sort(
+        Comparator.comparingDouble(MediaType::getQualityValue)
+            .reversed()
+            .thenComparing(MediaType::isWildcardType)
+            .thenComparing(MediaType::isWildcardSubtype));
+    return Optional.of(mediaTypes.get(0)).map(this::resolveWildcard);
+  }
+
+  private MediaType resolveWildcard(MediaType mediaType) {
+    // resolve wildcards and the structured-suffix wildcard to the concrete supported
+    // representation so downstream type/subtype checks see a concrete type: text/* -> text/csv,
+    // application/* and */* -> application/json, application/*+json -> application/json
+    if (mediaType.isWildcardType()) {
+      return MediaType.APPLICATION_JSON;
+    }
+    if (mediaType.isWildcardSubtype()) {
+      if (mediaType.getSubtype().endsWith("+json")) {
+        return MediaType.APPLICATION_JSON;
+      }
+      return "text".equals(mediaType.getType())
+          ? MediaType.valueOf(TEXT_CSV)
+          : MediaType.APPLICATION_JSON;
+    }
+    return mediaType;
   }
 
   /**
