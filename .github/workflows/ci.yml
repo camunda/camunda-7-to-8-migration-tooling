@@ -327,7 +327,10 @@ jobs:
 
       - name: Build and test code-conversion module on Windows
         working-directory: code-conversion
-        run: mvn verify --batch-mode
+        # CPT uses Testcontainers and is not supported on Windows runners.
+        run: >-
+          mvn verify --batch-mode
+          "-Dsurefire.excludes=**/ProcessPaymentsApplicationTests.java,**/MyExecutionListenerTest.java"
 
   diagram-converter:
     needs: [detect-changes]
