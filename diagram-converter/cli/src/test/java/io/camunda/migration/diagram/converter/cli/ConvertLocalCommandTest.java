@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -126,6 +127,47 @@ public class ConvertLocalCommandTest {
         .hasSize(2)
         .anyMatch(file -> file.getName().equals("c7.bpmn"))
         .anyMatch(file -> file.getName().equals("converted-c8-c7.bpmn"));
+  }
+
+  @Test
+  void shouldCreateJson(@TempDir File tempDir) throws IOException {
+    setupDir("c7.bpmn", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.json = true;
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(3)
+        .anyMatch(file -> file.getName().equals("c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("converted-c8-c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("analysis-results.json"));
+    File jsonFile = new File(tempDir, "analysis-results.json");
+    assertThat(new ObjectMapper().readTree(jsonFile).isArray()).isTrue();
+  }
+
+  @Test
+  void shouldNotCreateJson(@TempDir File tempDir) {
+    setupDir("c7.bpmn", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .noneMatch(file -> file.getName().equals("analysis-results.json"));
+  }
+
+  @Test
+  void shouldHandleNullExceptionMessagesInCreateMessage() {
+    ConvertLocalCommand command = new ConvertLocalCommand();
+
+    // unchecked exceptions like NPE carry a null message; error handling must not crash on them
+    assertThat(command.createMessage(new NullPointerException()))
+        .isEqualTo(NullPointerException.class.getName());
+    assertThat(
+            command.createMessage(
+                new RuntimeException("outer", new IllegalArgumentException((String) null))))
+        .isEqualTo("outer,\ncaused by: " + IllegalArgumentException.class.getName());
   }
 
   @Test
