@@ -53,13 +53,27 @@ Handle these rows as ONE named category, not individually:
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
-### 4. Assign verdicts to the verdict table
+### 4. Now-redundant workaround code (deletion candidates)
+
+Some findings do not describe missing support but the opposite: a C7-side workaround is obsolete because Zeebe now provides the capability natively. Detect this family by message content — rows whose `message` contains "now natively possible with Zeebe". Today the family has one member: `collection-hint` ("Collecting results in a multi instance is now natively possible with Zeebe. Please review.", TASK), emitted once per converted multi-instance `camunda:collection`.
+
+For each row in this family, hunt for the code that manually implemented what Zeebe now does natively, and flag it as a **deletion candidate**. For multi-instance result collection, the typical C7 workaround shape is an execution listener on the multi-instance body's `end` event, or a delegate inside the body, that appends each instance's result to an aggregate collection variable:
+
+1. Resolve the element from the row's `filename` + `elementId` — this is the multi-instance activity.
+2. Find listeners and delegates attached to that element: `execution-listener` / `execution-listener-supported` rows for the same element name the listener implementation; `delegate-expression-as-job-type` rows for the same element name the delegate and its job type. Map both to classes via the code inventory (SKILL.md step 2) and, after code migration, to the corresponding `@JobWorker`s.
+3. Inspect each candidate's body: if its purpose is to aggregate instance results into a collection variable (read a per-instance result, append to a list, write it back), it is a deletion candidate — Zeebe collects results natively via `outputCollection`/`outputElement` on `zeebe:loopCharacteristics`.
+4. Record every deletion candidate (file, class/method, the finding row that triggered it) in MIGRATION_REPORT.md. Never delete code during the cross-check.
+
+A candidate is only safe to delete once the converted diagram actually uses the native capability (for multi-instance results: `outputCollection`/`outputElement` are set — the converter does not set them automatically) or the user confirms the aggregation is no longer needed. Both are user decisions, collected in the Step 5 AI Follow-up flow.
+
+### 5. Assign verdicts to the verdict table
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d), with the matched code artifact named in the table's cross-reference column:
 
 - 1:1 job-type match confirmed, dispatcher covering every original expression, or every invoked method covered by a remediation: **no action** (the category is fully covered).
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix** — these become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
+- Deletion candidates recorded for a now-redundant workaround category: **needs review** — removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
 
 ## Deployment Wiring
 
