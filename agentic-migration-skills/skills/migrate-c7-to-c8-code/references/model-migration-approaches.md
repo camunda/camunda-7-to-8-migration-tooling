@@ -94,7 +94,7 @@ On a real project the report can hold thousands of rows but only a handful of di
 
 Skip this check when the report comes from this skill's own CLI run — that run already passed the chosen `--platform-version`, and leftover reports from earlier local runs are never consumed at all (see Pre-flight: Leftover Artifacts).
 
-This check fires only for a report deliberately imported without a fresh run — generated earlier, by someone else, or by the hosted converter (M3). Only a JSON report is consumable (see 5a — there is no CSV parsing path); if the import is CSV, markdown, or XLSX only, re-run the CLI locally with `--check --json` on the input models instead. For an imported JSON report, confirm it was generated for the currently chosen target platform version before consuming it. Findings are version-dependent: e.g. conditional events are flagged as unsupported in a report targeting 8.6 but are native since 8.9, so a stale report can send the user chasing findings that don't apply to their target.
+This check fires only for a report deliberately imported without a fresh run — generated earlier, by someone else, or downloaded from the hosted converter (M3, which produces the same file via its 'Download JSON' button). Only a JSON report is consumable (see 5a — there is no CSV parsing path); if the import is CSV, markdown, or XLSX only, re-run the CLI locally with `--check --json --xlsx` on the input models instead. For an imported JSON report, confirm it was generated for the currently chosen target platform version before consuming it. Findings are version-dependent: e.g. conditional events are flagged as unsupported in a report targeting 8.6 but are native since 8.9, so a stale report can send the user chasing findings that don't apply to their target.
 
 Determine the report's target version:
 
@@ -103,7 +103,7 @@ Determine the report's target version:
 
 If the report's version doesn't match the chosen target, or it can't be determined, warn the user and offer via AskUserQuestion before grouping (5b) or any cross-checks:
 
-- **Re-run the converter at the chosen target** (recommended) - run the CLI from step 2 with `--check --json --platform-version <target-version>` on the same input. Analyze-only mode is fast, writes no converted files, and produces a fresh JSON report for 5a.
+- **Re-run the converter at the chosen target** (recommended) - run the CLI from step 2 with `--check --json --xlsx --platform-version <target-version>` on the same input. Analyze-only mode is fast, writes no converted files, and produces fresh JSON and XLSX reports for 5a.
 - **Keep the imported report** - proceed as-is and record in MIGRATION_REPORT.md that the findings were generated against a different or unknown target version.
 
 #### 5a. Parse the JSON report
@@ -118,7 +118,7 @@ filename, elementName, elementId, elementType, severity, messageId, message, lin
 
 Parse it with real JSON tooling (e.g. `jq` or the runtime's built-in JSON parser) — never with ad-hoc string splitting. JSON needs no quoting or escaping workarounds, so the parsed findings are identical on every run regardless of which agent or model executes the skill.
 
-If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated — the hosted converter in M3 has no JSON output), re-run the converter with `--check --json` on the same input. Analyze-only mode writes no converted files and produces the JSON report quickly. The markdown and XLSX reports are for human reading; CSV is not consumed at all — this skill has no CSV parsing path, and the JSON report is the only machine-readable findings source.
+If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated), re-run the converter with `--check --json --xlsx` on the same input. Analyze-only mode writes no converted files and produces both reports quickly. The markdown and XLSX reports are for human reading; CSV is not consumed at all — this skill has no CSV parsing path, and the JSON report is the only machine-readable findings source. (The hosted converter in M3 produces the same JSON file via its 'Download JSON' button.)
 
 #### 5b. Group findings by category
 
@@ -191,7 +191,7 @@ Point user to the hosted converter:
 
 > Upload your BPMN/DMN files at https://diagram-converter.camunda.io/, set the target version there, and download the converted results.
 
-This path does not automate the hosted service. The hosted converter produces CSV/markdown/XLSX reports, which this skill does not parse — once the user brings the converted files back into the project, produce the machine-readable findings by running the CLI locally in analyze-only mode (`--check --json --xlsx`, see M1) on the same models, then offer the same agentic findings follow-up as in M1 step 5.
+This path does not automate the hosted service. Once the user brings the converted files back into the project, offer the same agentic findings follow-up as in M1 step 5. For the machine-readable findings, use the hosted converter's 'Download JSON' button — it produces the same `analysis-results.json` the CLI writes; its CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
 
 ---
 
