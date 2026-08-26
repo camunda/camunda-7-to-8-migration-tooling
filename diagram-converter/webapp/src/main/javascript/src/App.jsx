@@ -55,6 +55,22 @@ function App() {
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
   });
 
+  function getMostSevere(messages) {
+    const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
+
+    let mostSevere = 'INFO';
+
+    for (const msg of messages) {
+      if (
+        severityOrder.indexOf(msg.severity) >
+        severityOrder.indexOf(mostSevere)
+      ) {
+        mostSevere = msg.severity;
+      }
+    }
+
+    return mostSevere;
+  }
 
   useEffect(() => {
       if (isPreviewOpen && previewbpmnXml) {
@@ -81,23 +97,6 @@ function App() {
 
       }
     }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
-
-    function getMostSevere(messages) {
-      const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
-
-      let mostSevere = 'INFO';
-
-      for (const msg of messages) {
-        if (
-          severityOrder.indexOf(msg.severity) >
-          severityOrder.indexOf(mostSevere)
-        ) {
-          mostSevere = msg.severity;
-        }
-      }
-
-      return mostSevere;
-    }
 
   function createFormData(files) {
     const formData = new FormData();
