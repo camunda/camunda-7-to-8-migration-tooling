@@ -156,7 +156,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
           converter.printXml(modelInstance.getValue().getDocument(), true, fw);
           fw.flush();
           LOG_CLI.info("Created {}", file);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
           LOG_CLI.error("Error while creating diagram file: {}", createMessage(e));
           returnCode = 1;
         }
@@ -167,7 +167,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(csvFile)) {
         converter.writeCsvFile(results, fw);
         LOG_CLI.info("Created {}", csvFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating csv results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -177,7 +177,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileOutputStream fos = new FileOutputStream(xlsxFile)) {
         new ExcelWriter().writeResultsToExcel(converter.createLineItemDTOList(results), fos);
         LOG_CLI.info("Created {}", xlsxFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating xlsx results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -187,7 +187,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(jsonFile)) {
         converter.writeJsonFile(results, fw);
         LOG_CLI.info("Created {}", jsonFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating json results: {}", createMessage(e));
         returnCode = 1;
       }
@@ -197,7 +197,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       try (FileWriter fw = new FileWriter(markdownFile)) {
         converter.writeMarkdownFile(results, fw);
         LOG_CLI.info("Created {}", markdownFile);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         LOG_CLI.error("Error while creating markdown results: {}", createMessage(e));
         returnCode = 1;
       }
