@@ -56,7 +56,7 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version>
+java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version> --json
 ```
 
 Recommended flags:
