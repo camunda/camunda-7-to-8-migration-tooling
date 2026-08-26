@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter;
 
 import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.samskivert.mustache.Mustache;
@@ -53,6 +54,7 @@ import org.slf4j.LoggerFactory;
 public class DiagramConverter {
   private static final Logger LOG = LoggerFactory.getLogger(DiagramConverter.class);
   private static final Template MARKDOWN_TEMPLATE;
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
     try (InputStream in =
@@ -268,6 +270,14 @@ public class DiagramConverter {
       csvWriter.writeAll(createLines(results));
     } catch (IOException e) {
       throw new RuntimeException("Error while writing csv file", e);
+    }
+  }
+
+  public void writeJsonFile(List<DiagramCheckResult> results, Writer writer) {
+    try {
+      OBJECT_MAPPER.writeValue(writer, createLineItemDTOList(results));
+    } catch (IOException e) {
+      throw new RuntimeException("Error while writing json file", e);
     }
   }
 
