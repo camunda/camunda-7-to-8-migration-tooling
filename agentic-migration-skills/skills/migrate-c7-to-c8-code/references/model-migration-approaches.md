@@ -118,7 +118,7 @@ filename, elementName, elementId, elementType, severity, messageId, message, lin
 
 Parse it with real JSON tooling (e.g. `jq` or the runtime's built-in JSON parser) — never with ad-hoc string splitting. JSON needs no quoting or escaping workarounds, so the parsed findings are identical on every run regardless of which agent or model executes the skill.
 
-If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated — the hosted converter in M3 has no JSON output), re-run the converter with `--check --json` on the same input. Analyze-only mode writes no converted files and produces the JSON report quickly. The markdown, CSV, and XLSX reports are for human reading, not for parsing — this skill has no CSV parsing path; the JSON report is the only machine-readable findings source.
+If the JSON report is missing (e.g. only `analysis-results.md` or a CSV/XLSX was generated — the hosted converter in M3 has no JSON output), re-run the converter with `--check --json` on the same input. Analyze-only mode writes no converted files and produces the JSON report quickly. The markdown and XLSX reports are for human reading; CSV is not consumed at all — this skill has no CSV parsing path, and the JSON report is the only machine-readable findings source.
 
 #### 5b. Group findings by category
 
