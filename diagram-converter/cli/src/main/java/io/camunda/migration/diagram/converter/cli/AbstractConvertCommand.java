@@ -74,6 +74,12 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   boolean csv;
 
   @Option(
+      names = {"--json"},
+      description =
+          "If enabled, a JSON file will be created containing the results for the analysis")
+  boolean json;
+
+  @Option(
       names = {"--xlsx"},
       description =
           "If enabled, a XLSX file will be created containing the results for the analysis")
@@ -134,7 +140,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   private void writeResults(
       Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {
-    if ((!check || csv || xlsx || markdown) && !createTargetDirectory()) {
+    if ((!check || csv || xlsx || markdown || json) && !createTargetDirectory()) {
       return;
     }
     if (!check) {
@@ -173,6 +179,16 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         LOG_CLI.info("Created {}", xlsxFile);
       } catch (IOException e) {
         LOG_CLI.error("Error while creating xlsx results: {}", createMessage(e));
+        returnCode = 1;
+      }
+    }
+    if (json) {
+      File jsonFile = determineFileName(new File(targetDirectory(), "analysis-results.json"));
+      try (FileWriter fw = new FileWriter(jsonFile)) {
+        converter.writeJsonFile(results, fw);
+        LOG_CLI.info("Created {}", jsonFile);
+      } catch (IOException e) {
+        LOG_CLI.error("Error while creating json results: {}", createMessage(e));
         returnCode = 1;
       }
     }
