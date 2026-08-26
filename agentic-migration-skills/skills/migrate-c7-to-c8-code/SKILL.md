@@ -47,7 +47,7 @@ Shared rules that apply throughout all subsequent steps:
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
 - Preserve structural fidelity. Keep package names, class names, file/folder layout, and resource paths exactly as in the C7 project wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent at all, and record the reason in MIGRATION_REPORT.md.
 - Preserve behavior and dependency footprint. Startup behavior (what runs when, how many instances) and application constraints (e.g. a C7 app exposing no REST endpoints) carry over unchanged — including transitively: do not add dependencies the C7 app did not need (e.g. spring-boot-starter-web) for unrelated reasons.
-- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API access). Verify whether Camunda 8 removed the limitation before replicating the pattern or adding a worker around it.
+- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API access). Verify whether Camunda 8 removed the limitation before replicating the pattern or adding a worker around it. Converter findings that flag natively-supported capabilities drive the same check for deleting C7-side workaround code — see the cross-check in `references/composing-code-and-models.md`.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results. It is the single source of truth for the migration — update it as work proceeds, every incompatibility and design decision lands there, not scattered across chat.
 
 ### Step 2: Assessment (always runs)
@@ -99,7 +99,7 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 2. Check for remaining C7 references: search for `org.camunda.bpm` imports. Each is a missed migration.
 3. Check for remaining TODOs: search for `// TODO` migration comments. Each needs manual review.
 4. Check for legacy C8 client: search for `ZeebeClient` and `zeebe-client-java` (deprecated, removed in 8.10; migrate to CamundaClient).
-5. Check for leftover business keys: search for `businessKey`. Map to businessId (8.9+) or tags (8.8).
+5. Check for leftover business keys: search for `businessKey`. Map per the pattern catalog (businessId 8.9+ / tags 8.8); keys mutated during the process stay a `businessKey` process variable.
 6. Run tests: run `mvn test` or platform-appropriate Gradle test task. Fix failures.
 7. Check common pitfalls:
    - Critical naming swap: C7 processDefinitionKey (string key) becomes C8 bpmnProcessId; C7 processDefinitionId (UUID) becomes C8 processDefinitionKey. Same for decision definitions.
@@ -140,7 +140,7 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 4. All tests pass (or failures are documented with explanation)
 5. All // TODO migration comments are resolved or explicitly recorded
 6. No ZeebeClient/zeebe-client-java references remain (deprecated)
-7. businessKey usages are mapped to businessId (8.9+) or tags (8.8)
+7. businessKey usages are mapped per the pattern catalog (businessId 8.9+ / tags 8.8), or kept as a `businessKey` process variable when the key is mutated during the process
 8. Configuration uses camunda.client.* keys instead of camunda.* keys
 9. For model migration: converted-c8-* files exist for all in-scope diagrams
 10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md
