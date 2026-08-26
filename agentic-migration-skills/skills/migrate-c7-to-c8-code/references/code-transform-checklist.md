@@ -30,7 +30,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
 - Map: start instances (incl. businessId/tags), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
 - When a C7 API has a C8 counterpart, use the matching CamundaClient API (e.g. HistoryService to search requests) instead of introducing new process variables to carry what the API can already return.
-- Business key: map to businessId (8.9+) or tags (8.8). Both are set at instance start and are immutable. If the C7 process changes its business key during execution, neither fits — use a dedicated `businessKey` process variable instead, and flag the semantic difference (no longer an engine-level correlation identity) in MIGRATION_REPORT.md.
+- Business key: map per the pattern catalog (Business ID 8.9+ / tags 8.8, both immutable — mutable keys become a `businessKey` process variable). A mutable key loses its engine-level correlation identity in C8 — flag that semantic difference in MIGRATION_REPORT.md.
 - Preserve startup behavior exactly: what starts, when it starts, and how many instances. If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
 
 ---
@@ -42,8 +42,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 - BpmnError becomes `CamundaError.bpmnError(...)`.
 - Remove TypedValue usage.
 - Keep worker behavior unchanged. Inputs and outputs of a migrated worker stay the same; never add new features to an existing worker during migration. New logic belongs in a new, separate worker.
-- `FileValue` variables map to the Document API (`camundaClient.newCreateDocumentCommand()`), never to a bare filename string. Store the plain document reference in the process variable; wrap it in a one-element array only in the FEEL of the form that consumes it (see the Forms category in `model-migration-approaches.md`), not in the variable itself.
-- Outbound HTTP calls (C7 http-connector, hand-rolled HTTP clients in delegates): prefer a standard out-of-the-box connector — the REST connector for outbound HTTP — wherever one covers the need, instead of porting HTTP client code into a worker.
+- `FileValue` variables and outbound HTTP calls map per the pattern catalog (Document API; out-of-the-box REST connector).
 
 ---
 
@@ -115,10 +114,10 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
-| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8); if mutated during the process, use a `businessKey` process variable |
-| `FileValue` / `Values.fileValue(...)` | Flag: maps to Document API (`newCreateDocumentCommand`), never a filename string |
+| `businessKey` usage | Flag: maps to Business ID / tags (see pattern catalog; mutable keys become a process variable) |
+| `FileValue` / `Values.fileValue(...)` | Flag: maps to Document API (see pattern catalog) |
 | Groovy/JavaScript in `conditionExpression`, script tasks, `camunda:script` | Script expression (maps to preceding job worker) |
-| `camunda:connector` / http-connector, HTTP client code in delegates | Flag: prefer out-of-the-box REST connector |
+| `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |
