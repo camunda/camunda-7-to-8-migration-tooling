@@ -207,10 +207,11 @@ public class ConverterController {
   }
 
   private boolean excelRequested(String[] contentType) {
-    return contentType != null && Arrays.asList(contentType).contains("application/excel")
-        || Arrays.asList(contentType).contains("application/vnd.ms-excel")
-        || Arrays.asList(contentType)
-            .contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    return contentType != null
+        && (Arrays.asList(contentType).contains("application/excel")
+            || Arrays.asList(contentType).contains("application/vnd.ms-excel")
+            || Arrays.asList(contentType)
+                .contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
   }
 
   /**
