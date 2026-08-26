@@ -106,6 +106,22 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithJsonResultAndParameterizedAcceptHeader() throws URISyntaxException {
+    // parameterized application/json must still negotiate to the nested preview JSON, not 400
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("application/json; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
   void singleBpmnCheckWithAnalysisJsonResult() throws URISyntaxException {
     List<Map<String, String>> report =
         RestAssured.given()

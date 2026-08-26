@@ -201,7 +201,9 @@ public class ConverterController {
   private boolean jsonRequested(String[] contentType) {
     return contentType == null
         || contentType.length == 0
-        || Arrays.asList(contentType).contains(MediaType.APPLICATION_JSON_VALUE);
+        || Arrays.stream(contentType)
+            .map(MediaType::parseMediaType)
+            .anyMatch(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON));
   }
 
   private boolean excelRequested(String[] contentType) {
