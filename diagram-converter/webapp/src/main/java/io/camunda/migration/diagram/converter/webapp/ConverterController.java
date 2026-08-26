@@ -51,6 +51,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class ConverterController {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterController.class);
 
+  private static final String TEXT_CSV = "text/csv";
+  private static final String APPLICATION_EXCEL = "application/excel";
+  private static final String APPLICATION_MS_EXCEL = "application/vnd.ms-excel";
+  private static final String APPLICATION_XLSX =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
   /**
    * Media type for the flat, machine-readable analysis report: a JSON array with one flat object
    * per finding (same format as the CLI's {@code analysis-results.json}), intended for AI / machine
@@ -85,10 +91,10 @@ public class ConverterController {
       produces = {
         MediaType.APPLICATION_JSON_VALUE,
         APPLICATION_ANALYSIS_JSON,
-        "text/csv",
-        "application/excel",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        TEXT_CSV,
+        APPLICATION_EXCEL,
+        APPLICATION_MS_EXCEL,
+        APPLICATION_XLSX
       },
       consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
   public ResponseEntity<?> check(
@@ -189,7 +195,7 @@ public class ConverterController {
 
   private boolean csvRequested(String[] contentType) {
     return bestMatch(contentType)
-        .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.valueOf("text/csv")))
+        .map(mediaType -> mediaType.equalsTypeAndSubtype(MediaType.valueOf(TEXT_CSV)))
         .orElse(false);
   }
 
@@ -218,11 +224,9 @@ public class ConverterController {
     return bestMatch(contentType)
         .map(
             mediaType ->
-                Arrays.asList(
-                        "application/excel",
-                        "application/vnd.ms-excel",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                    .contains(mediaType.toString()))
+                mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_EXCEL))
+                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_MS_EXCEL))
+                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_XLSX)))
         .orElse(false);
   }
 
@@ -230,8 +234,26 @@ public class ConverterController {
     if (contentType == null || contentType.length == 0) {
       return Optional.empty();
     }
+    List<MediaType> supported =
+        List.of(
+            MediaType.APPLICATION_JSON,
+            MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON),
+            MediaType.valueOf(TEXT_CSV),
+            MediaType.valueOf(APPLICATION_EXCEL),
+            MediaType.valueOf(APPLICATION_MS_EXCEL),
+            MediaType.valueOf(APPLICATION_XLSX));
     List<MediaType> mediaTypes =
-        Arrays.stream(contentType).map(MediaType::parseMediaType).collect(Collectors.toList());
+        Arrays.stream(contentType)
+            .map(MediaType::parseMediaType)
+            .filter(
+                mediaType ->
+                    mediaType.isWildcardType()
+                        || mediaType.isWildcardSubtype()
+                        || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType)))
+            .collect(Collectors.toList());
+    if (mediaTypes.isEmpty()) {
+      return Optional.empty();
+    }
     // quality first (q= parameter), then specificity (fewer wildcards), matching Spring's former
     // sortBySpecificityAndQuality semantics
     mediaTypes.sort(

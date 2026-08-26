@@ -298,6 +298,40 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void singleBpmnCheckWithUnsupportedHigherQualityFallsBackToSupported() throws URISyntaxException {
+    // an unsupported media type with higher q must not win over a supported one
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept("text/html;q=1.0, application/json;q=0.8")
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult).isNotEmpty();
+  }
+
+  @Test
+  void singleBpmnCheckWithExcelResultAndParameterizedAcceptHeader() throws Exception {
+    byte[] response =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .accept(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=UTF-8")
+            .post("/check")
+            .getBody()
+            .asByteArray();
+
+    try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(response))) {
+      assertThat(workbook.getNumberOfSheets()).isGreaterThan(0);
+    }
+  }
+
+  @Test
   void convertBpmn() throws URISyntaxException {
     byte[] bpmn =
         RestAssured.given()
