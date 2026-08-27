@@ -5,22 +5,15 @@ on:
       - main
       - maintenance/*
       - release/*
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
   schedule:
     - cron: "0 5 * * *"  # Daily mornings for general CI
+  workflow_call:
 
 jobs:
   # Read Camunda 8 versions from pom.xml to avoid hard-coding in CI
-  # Ignore non-CI PR label events while preserving explicit ci:* escalation.
   read-versions:
-    if: |
-      github.event_name != 'pull_request' ||
-      (
-        github.event.action != 'labeled' &&
-        github.event.action != 'unlabeled'
-      ) ||
-      startsWith(github.event.label.name, 'ci:')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -88,13 +81,6 @@ jobs:
   # Detect changed module surfaces and derive default test scopes for PRs.
   # For non-PR events we execute the full CI surface.
   detect-changes:
-    if: |
-      github.event_name != 'pull_request' ||
-      (
-        github.event.action != 'labeled' &&
-        github.event.action != 'unlabeled'
-      ) ||
-      startsWith(github.event.label.name, 'ci:')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -1220,16 +1206,7 @@ jobs:
       - it-history-h2-windows
       - it-identity-h2
       - e2e
-    if: |
-      always() &&
-      (
-        github.event_name != 'pull_request' ||
-        (
-          github.event.action != 'labeled' &&
-          github.event.action != 'unlabeled'
-        ) ||
-        startsWith(github.event.label.name, 'ci:')
-      )
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       actions: read
