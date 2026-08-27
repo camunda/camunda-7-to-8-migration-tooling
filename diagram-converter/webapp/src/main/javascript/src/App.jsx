@@ -718,9 +718,9 @@ function App() {
             <section>
               <h3>Your Files</h3>
               <p>
-                Download models converted to Camunda 8 individually or as one Zip
-                file. Use the eye icon to preview analysis findings on BPMN models
-                or view the uploaded forms.
+                Download files converted to Camunda 8 individually or as one Zip
+                file. Use the eye icon to preview the analysis findings per file —
+                BPMN files also render the diagram, forms a form preview.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
@@ -780,14 +780,14 @@ function App() {
                 disabled={validFiles.length === 0}
               >
                 <Download />
-                Download converted models as ZIP
+                Download converted files as ZIP
               </Button>
             </section>
             <hr />
 
             <section>
               <h3>Analysis results</h3>
-              <p>Download the analysis results for all successfully converted models:</p>
+              <p>Download the analysis results for all successfully converted files:</p>
               <div className="download-options">
                 <div className="download-row">
                   <Button
