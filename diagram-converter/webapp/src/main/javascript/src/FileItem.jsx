@@ -25,6 +25,7 @@ export default function DropZone({
   isConverted,
   downloadAction,
   previewAction,
+  previewTitle = "Preview the analyzer results for this model",
   onDelete,
 }) {
   return (
@@ -55,7 +56,7 @@ export default function DropZone({
         )}
         {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
         {isChecked && previewAction && (
-          <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
+          <button className="download" onClick={previewAction} title={previewTitle} aria-label={previewTitle}>
             <View />
           </button>
         )}
@@ -69,7 +70,7 @@ export default function DropZone({
           <button onClick={onDelete}>
             <TrashCan />
           </button>
-        )}        
+        )}
 
         {status === "error" && (
           <Tooltip label="File upload failure">

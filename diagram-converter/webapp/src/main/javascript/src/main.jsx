@@ -12,6 +12,7 @@ import "./index.css";
 import 'bpmn-js/dist/assets/diagram-js.css';
 import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
 import 'bpmn-js/dist/assets/bpmn-js.css';
+import "@bpmn-io/form-js-viewer/dist/assets/form-js.css";
 
 import App from "./App.jsx";
 

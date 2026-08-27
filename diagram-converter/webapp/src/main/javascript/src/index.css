@@ -248,6 +248,20 @@ hr {
   border: 1px solid #ccc; 
 }
 
+.form-preview-container {
+  width: 100%;
+  min-height: 320px;
+  padding: 1rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--neutral-background-subtle);
+}
+
+.form-preview-error {
+  color: #da1e28;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
