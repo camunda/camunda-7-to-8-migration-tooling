@@ -375,8 +375,9 @@ function App() {
             <section>
               <h4>Instructions:</h4>
               <p>
-                Upload your BPMN and DMN models. You can upload one or more
-                files at once.
+                Upload your BPMN and DMN models to analyze and convert, or
+                Camunda Forms (.form files) to convert. You can upload one or
+                more files at once.
               </p>
             </section>
             <div className="fileUploadBox">
@@ -526,7 +527,7 @@ function App() {
                   status={fileResults[idx].status}
                   isChecked={ fileResults[idx].checkResponseJson != null }
                   isConverted={fileResults[idx].convertedFileBlob != null}
-                  previewAction={() => preview(fileResults[idx])}
+                  previewAction={file.name.endsWith(".form") ? undefined : () => preview(fileResults[idx])}
                   downloadAction={() => download(fileResults[idx])}
                   error={
                     !fileResults[idx].ok == "error" ? "File upload failure" : ""
