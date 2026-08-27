@@ -28,11 +28,11 @@ describe("FileItem", () => {
         status="success"
         isChecked
         previewAction={previewAction}
-        previewTitle="Preview this form"
+        previewTitle="Preview form"
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview this form" }));
+    fireEvent.click(screen.getByRole("button", { name: "Preview form" }));
 
     expect(previewAction).toHaveBeenCalledOnce();
   });

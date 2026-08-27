@@ -9,7 +9,7 @@ export function parseFormSchema(content) {
   if (content === null || content === undefined || content === "") {
     return {
       schema: null,
-      error: "Unable to render this form because its content is unavailable.",
+      error: "The form content is unavailable.",
     };
   }
 
@@ -22,14 +22,14 @@ export function parseFormSchema(content) {
     }
     return {
       schema: null,
-      error: "Unable to render this form because its content is not valid JSON.",
+      error: "The form content is not valid JSON.",
     };
   }
 
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     return {
       schema: null,
-      error: "Unable to render this form because its content is not a JSON object.",
+      error: "The form content is not a JSON object.",
     };
   }
 

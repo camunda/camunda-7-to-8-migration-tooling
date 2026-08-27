@@ -313,10 +313,10 @@ function App() {
     switch (errorBody.errorCode) {
       case "FILE_COUNT_LIMIT_EXCEEDED":
         return <>
-          Too many files uploaded. The online version supports up to {errorBody.maxPartCount} parts per request.
-          {" "}To learn how to run the diagram converter locally with a custom limit, consult the{" "}
+          Too many files. The online version accepts up to {errorBody.maxPartCount} files at once.
+          {" "}To convert more files,{" "}
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
-            target="_blank" rel="noopener noreferrer">diagram converter guide</a>.
+            target="_blank" rel="noopener noreferrer">run the diagram converter locally</a>.
         </>;
       default:
         return "Download failed. Please try again.";
@@ -351,7 +351,7 @@ function App() {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       }),
-      "Downloading XLSX failed"
+      "XLSX download failed"
     );
   }
   async function downloadCSV() {
@@ -364,7 +364,7 @@ function App() {
           Accept: "text/csv",
         },
       }),
-      "Downloading CSV failed"
+      "CSV download failed"
     );
   }
   async function downloadJSON() {
@@ -377,7 +377,7 @@ function App() {
           Accept: "application/vnd.camunda.analysis+json",
         },
       }),
-      "Downloading JSON failed"
+      "JSON download failed"
     );
   }
   async function downloadZIP() {
@@ -387,7 +387,7 @@ function App() {
         body: formData,
         method: "POST",
       }),
-      "Downloading ZIP failed"
+      "ZIP download failed"
     );
   }
 
@@ -470,14 +470,14 @@ function App() {
   return (
     <div className="container">
       <div className="whiteBox hero">
-        <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
+        <h2>Migration Analyzer &amp; Diagram Converter</h2>
         <p>
-          Convert your BPMN and DMN models to Camunda 8 — then identify gaps and assess migration effort.
+          Convert your BPMN and DMN models to Camunda 8 and see what needs attention.
         </p>
         <div className="heroMeta">
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
             rel="noopener noreferrer" target="_blank">
-            Diagram Converter Guide
+            Documentation
           </a>
           <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases"
             rel="noopener noreferrer" target="_blank">
@@ -485,13 +485,13 @@ function App() {
           </a>
           <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free"
             rel="noopener noreferrer" target="_blank">
-            Legal terms &amp; data privacy
+            Legal &amp; privacy
           </a>
         </div>
       </div>
       <div className="whiteBox centered">
         <div className="progressindicators">
-          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Migration analysis and conversion steps">
+          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Conversion steps">
             <StepperStep>Configure</StepperStep>
             <StepperStep>Results</StepperStep>
           </Stepper>
@@ -503,9 +503,9 @@ function App() {
             <section className="flowStep">
               <div className="flowStepHeader">
                 <span className="flowStepNumber">1</span>
-                <h4>Add your files</h4>
+                <h4>Add files</h4>
               </div>
-              <p>Upload one or more BPMN and DMN models to analyze and convert, or Camunda Forms (.form files) to convert.</p>
+              <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert.</p>
               <div className="fileUploadBox">
                 <DropZone
                   onFiles={(files) => {
@@ -532,7 +532,7 @@ function App() {
                 <span className="flowStepNumber">2</span>
                 <h4>Configure conversion</h4>
               </div>
-              <p>Choose your target Camunda 8 version. Defaults to the latest stable (8.9).</p>
+              <p>Choose the Camunda 8 version to convert to.</p>
               <div
                 ref={versionSegmentedRef}
                 className="versionSegmented"
@@ -577,7 +577,7 @@ function App() {
               {showConfig && (
                   <fieldset className="flex flex-col gap-2 rounded-md border bg-background p-4">
                     <legend className="px-1 text-sm font-medium text-foreground">
-                      Advanced configuration options
+                      Advanced options
                     </legend>
                     <label className="flex items-center gap-2">
                       <Checkbox
@@ -590,11 +590,11 @@ function App() {
                           }))
                         }
                       />
-                      <span>Add Data Migration Execution Listener</span>
+                      <span>Add data migration execution listener</span>
                     </label>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="dataMigrationExecutionListenerJobType" className="text-sm font-medium">
-                        Execution Listener Job Type
+                        Execution listener job type
                       </label>
                       <Input
                         id="dataMigrationExecutionListenerJobType"
@@ -635,11 +635,11 @@ function App() {
                           }))
                         }
                       />
-                      <span>Enable default job type</span>
+                      <span>Always use default job type</span>
                     </label>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="defaultJobType" className="text-sm font-medium">
-                        Default Job Type
+                        Default job type
                       </label>
                       <Input
                         id="defaultJobType"
@@ -674,18 +674,17 @@ function App() {
         {step === 2 && (
           <>
             <section>
-              <h3>Your Models</h3>
+              <h3>Converted models</h3>
               <p>
-                Download models converted to Camunda 8 individually or as one Zip
-                file. You can also preview analysis results on BPMN models or view
-                the uploaded forms.
+                Download each converted model or all of them as a ZIP. Preview
+                the analysis findings per model before downloading.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
                   <Alert
                     variant="warning"
                     title={`${totalFindings} finding${totalFindings !== 1 ? 's' : ''} detected for Camunda ${platformVersion}`}
-                    description="Some elements may not be fully supported in this version. Use the preview per model or download the XLSX report for a complete overview."
+                    description="Some elements may not be fully supported in this version. Preview a model or download the XLSX report for details."
                     className="incompatibility-notification"
                   >
                     <Button variant="secondary" size="sm" onClick={downloadXLS}>
@@ -710,7 +709,7 @@ function App() {
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
                   previewAction={isForm ? () => previewForm(r) : () => preview(r)}
-                  previewTitle={isForm ? "Preview this form" : undefined}
+                  previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={
@@ -738,14 +737,14 @@ function App() {
                 disabled={validFiles.length === 0}
               >
                 <Download />
-                Download converted models as ZIP
+                Download all as ZIP
               </Button>
             </section>
             <hr />
 
             <section>
               <h3>Analysis results</h3>
-              <p>Download the  for all successfully converted models:</p>
+              <p>Download the findings for all converted models:</p>
               <div className="download-options">
                 <div className="download-row">
                   <Button
@@ -759,8 +758,7 @@ function App() {
                     Download XLSX
                   </Button>
                   <p>
-                    Microsoft Excel file (XLSX) containing results and prepared
-                    analysis.
+                    Excel workbook with all findings, ready to review and share.
                   </p>
                 </div>
                 <div className="download-row">
@@ -774,8 +772,7 @@ function App() {
                     Download CSV
                   </Button>
                   <p>
-                    Comma Separated Values (CSV) file containing plain results to
-                    import into your favorite tooling.
+                    Plain-text findings to import into other tools.
                   </p>
                   </div>
                 <div className="download-row">
@@ -789,27 +786,26 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    JSON file containing plain results in a stable, machine-readable
-                    format — for AI / machine analysis, e.g. as input for the AI
-                    migration skill driving the Camunda 7 to 8 migration.
+                    Machine-readable findings, e.g. as input for AI-assisted
+                    migration tooling.
                   </p>
                   </div>
                 </div>
               <p>
-                For more information on the analysis results,{" "}
+                Learn more about the findings in the{" "}
                 <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank">
-                  see the documentation
+                  documentation
                 </a>
                 .
               </p>
             </section>
             <hr />
 
-            <h3>Next steps for your migration</h3>
+            <h3>Next steps</h3>
             <section>
               <p>
-                Discover next steps for your migration from Camunda 7 to Camunda
-                8 in the migration guide.
+                Continue your Camunda 7 to 8 migration with the step-by-step
+                migration guide.
               </p>
               <Button
                 variant="secondary"
@@ -819,7 +815,7 @@ function App() {
                 rel="noopener noreferrer"
               >
                 <ExternalLink />
-                Migration Guide
+                Open migration guide
               </Button>
             </section>
           </>
@@ -830,7 +826,7 @@ function App() {
     <div className="modal">
       <div className="modal-header">
         <div className="left">
-        <h2>{previewType === "form" ? "Form preview" : "Analysis preview"}</h2>
+        <h2>Preview</h2>
         </div>
         <div>
           <Button
@@ -853,7 +849,7 @@ function App() {
           {previewTableRows.length > 0 && <>
             <h3>Findings</h3>
             <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
-              Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
+              Elements in this model that need attention during migration.
             </p>
             <Table className="analysis-table">
               <TableHeader>

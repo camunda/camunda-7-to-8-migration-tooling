@@ -39,7 +39,7 @@ export default function FileItem({
   isConverted,
   downloadAction,
   previewAction,
-  previewTitle = "Preview the analyzer results for this model",
+  previewTitle = "Preview analysis findings",
   onDelete,
   findingCount,
 }) {
@@ -93,7 +93,7 @@ export default function FileItem({
         )}
         {status === "uploading" && !isConverted && <Spinner />}
         {isConverted && downloadAction && !error && (
-          <button className="download" onClick={downloadAction} title="Download the converted model">
+          <button className="download" onClick={downloadAction} title="Download converted model">
             <Download />
           </button>
         )}
