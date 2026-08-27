@@ -51,6 +51,7 @@ function App() {
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewIsBpmn, setPreviewIsBpmn] = useState(false);
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -130,30 +131,35 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (isPreviewOpen && previewbpmnXml) {
-          const viewer = new BpmnJS({ container: '#bpmnDiagram' });
-          viewer.importXML(previewbpmnXml).then(() => {
-            const canvas = viewer.get('canvas');
-            canvas.zoom('fit-viewport');
+      if (!isPreviewOpen || !previewIsBpmn || !previewbpmnXml) return;
 
-            const elementsWithMessages =
-              previewCheckJson?.[0]?.results?.filter((el) => el.messages?.length > 0) || [];
+      const viewer = new BpmnJS({ container: '#bpmnDiagram' });
+      viewer.importXML(previewbpmnXml).then(() => {
+        const canvas = viewer.get('canvas');
+        canvas.zoom('fit-viewport');
 
-            elementsWithMessages.forEach((el) => {
-              if (el.elementId) {
-                  const severity = getMostSevere(el.messages);
-                  if (severity) {
-                    // Mark wit the same color everytime for the moment
-                    //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-                    canvas.addMarker(el.elementId, `highlight-info`);
-                  }
+        const elementsWithMessages =
+          previewCheckJson
+            .flatMap((item) => item.results || [])
+            .filter((el) => el.messages?.length > 0);
+
+        elementsWithMessages.forEach((el) => {
+          if (el.elementId) {
+              const severity = getMostSevere(el.messages);
+              if (severity) {
+                // Mark wit the same color everytime for the moment
+                //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
+                canvas.addMarker(el.elementId, `highlight-info`);
               }
-            });
+          }
+        });
 
-          });
+      }).catch((err) => {
+        console.error('Failed to render BPMN preview', err);
+      });
 
-      }
-    }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
+      return () => viewer.destroy();
+    }, [isPreviewOpen, previewIsBpmn, previewbpmnXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -374,7 +380,7 @@ function App() {
     );
   }
 
-  async function preview(response) {
+  async function preview(response, file) {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader([
@@ -387,21 +393,25 @@ function App() {
     ]);
 
     setPreviewTableRows(
-      response.checkResponseJson?.[0]?.results.flatMap((element, elementIdx) =>
-        element.messages.map((message, msgIdx) => ({
-          id: `${elementIdx}-${msgIdx}`,
-          elementType: element.elementType,
-          elementId: element.elementId,
-          elementName: element.elementName || '(unnamed)',
-          severity: message.severity,
-          message: message.message,
-          link: message.link || null,
-        }))
-      ) || []);
+      response.checkResponseJson.flatMap((item, itemIdx) =>
+        (item.results || []).flatMap((element, elementIdx) =>
+          (element.messages || []).map((message, msgIdx) => ({
+            id: `${itemIdx}-${elementIdx}-${msgIdx}`,
+            elementType: element.elementType || '-',
+            elementId: element.elementId || '-',
+            elementName: element.elementName || '(unnamed)',
+            severity: message.severity,
+            message: message.message,
+            link: message.link || null,
+          }))
+        )
+      )
+    );
 
 
     setPreviewCheckJson(response.checkResponseJson);
     setPreviewbpmnXml(response.originalModelXml);
+    setPreviewIsBpmn(!!file?.name?.endsWith(".bpmn"));
 
     setIsPreviewOpen(true);
   }
@@ -641,7 +651,7 @@ function App() {
               <h3>Your Models</h3>
               <p>
                 Download models converted to Camunda 8 individually or as one Zip
-                file. You can also preview the analysis result on the BPMN model.
+                file. Use the eye icon to preview the analysis findings per model.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
@@ -671,7 +681,7 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={file.name.endsWith(".form") ? undefined : () => preview(r)}
+                  previewAction={() => preview(r, file)}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={
@@ -706,7 +716,7 @@ function App() {
 
             <section>
               <h3>Analysis results</h3>
-              <p>Download the  for all successfully converted models:</p>
+              <p>Download the analysis results for all successfully converted models:</p>
               <div className="download-options">
                 <div className="download-row">
                   <Button
@@ -805,9 +815,14 @@ function App() {
         </div>
       </div>
 
-      <div id="bpmnDiagram" className="diagram-container"></div>
+      {previewIsBpmn && <div id="bpmnDiagram" className="diagram-container"></div>}
+      {!previewIsBpmn && (
+        <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
+          Diagram preview is only available for BPMN models. The findings for this file are listed below.
+        </p>
+      )}
       {previewTableRows.length === 0 && (
-        <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this model.</p>
+        <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this file.</p>
       )}
       {previewTableRows.length > 0 && <>
       <h3>Findings</h3>
