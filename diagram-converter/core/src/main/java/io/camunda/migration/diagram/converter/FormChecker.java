@@ -8,7 +8,6 @@
 package io.camunda.migration.diagram.converter;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
@@ -84,8 +83,6 @@ public class FormChecker {
   private static final String KEY_FIELD = "key";
   private static final String TYPE_FIELD = "type";
   private static final String LABEL_FIELD = "label";
-
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private FormChecker() {}
 
