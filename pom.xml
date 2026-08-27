@@ -25,9 +25,8 @@
   </licenses>
 
   <properties>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
     <version.java>21</version.java>
+    <maven.compiler.release>${version.java}</maven.compiler.release>
 
     <version.camunda-7>7.24.11-ee</version.camunda-7>
     <version.camunda-8>8.9.17</version.camunda-8>
