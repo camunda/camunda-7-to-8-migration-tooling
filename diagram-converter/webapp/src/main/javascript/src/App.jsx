@@ -28,8 +28,10 @@ import {
 } from "./findings";
 import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
+import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
+import { getPreviewType } from "./modelType";
 import {
   DEFAULT_PLATFORM_VERSION,
   getPlatformVersionAriaLabel,
@@ -66,10 +68,11 @@ function App() {
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
-  const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
   const [previewFormError, setPreviewFormError] = useState("");
   const [previewDiagramError, setPreviewDiagramError] = useState(false);
+  const [previewDmnError, setPreviewDmnError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
   const [previewFileName, setPreviewFileName] = useState("");
   const [selectedFindingElementId, setSelectedFindingElementId] = useState(null);
@@ -125,11 +128,11 @@ function App() {
   }
 
   useEffect(() => {
-      if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
+      if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewModelXml) return;
 
       const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
       let isActive = true;
-      viewer.importXML(previewbpmnXml).then(() => {
+      viewer.importXML(previewModelXml).then(() => {
         if (!isActive) return;
         const canvas = viewer.get('canvas');
         canvas.zoom('fit-viewport');
@@ -160,7 +163,7 @@ function App() {
         selectedMarkerElementIdRef.current = null;
         viewer.destroy();
       };
-    }, [isPreviewOpen, previewType, previewDiagramError, previewbpmnXml, previewCheckJson]);
+    }, [isPreviewOpen, previewType, previewDiagramError, previewModelXml, previewCheckJson]);
 
   function selectFindingElement(elementId) {
     if (!elementId || elementId === '-') return;
@@ -555,27 +558,20 @@ function App() {
     setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
 
     setPreviewCheckJson(response.checkResponseJson);
-    const isBpmn =
-      typeof response.originalModelXml === "string" &&
-      response.originalModelXml.includes("omg.org/spec/BPMN");
+    const modelType = getPreviewType(fileName);
+    const isBpmn = modelType === "bpmn";
     const modelXml =
       isBpmn && response?.convertedFileBlob
         ? await response.convertedFileBlob.text()
         : response.originalModelXml;
-    setPreviewbpmnXml(modelXml);
+    setPreviewModelXml(modelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDiagramError(false);
+    setPreviewDmnError("");
     setPreviewFileName(fileName);
     setSelectedFindingElementId(null);
-    // BPMN is detected by content, not extension: the dropzone also accepts
-    // .xml files, which can be BPMN (or DMN) models.
-    setPreviewType(
-      typeof response.originalModelXml === "string" &&
-      response.originalModelXml.includes("omg.org/spec/BPMN")
-        ? "bpmn"
-        : "other"
-    );
+    setPreviewType(modelType);
 
     setIsPreviewOpen(true);
   }
@@ -583,11 +579,12 @@ function App() {
   function openFormPreview(schema, errorMessage = "", fileName = "") {
     setPreviewFormSchema(schema);
     setPreviewFormError(errorMessage);
-    setPreviewbpmnXml("");
+    setPreviewModelXml("");
     setPreviewCheckJson([]);
     setPreviewTableHeader([]);
     setPreviewTableRows([]);
     setPreviewDiagramError(false);
+    setPreviewDmnError("");
     setPreviewFileName(fileName);
     setSelectedFindingElementId(null);
     setPreviewType("form");
@@ -953,7 +950,8 @@ function App() {
               </p>
               {files.map((file, idx) => {
                 const result = fileResults[idx];
-                const isForm = file.name.toLowerCase().endsWith(".form");
+                const modelType = getPreviewType(file.name);
+                const isForm = modelType === "form";
                 return (
                 <FileItem
                   key={file.name + "-" + idx}
@@ -1096,10 +1094,15 @@ function App() {
         </div>
       </div>
 
-      {(previewType === "bpmn" || previewType === "other") && (
+      {(previewType === "bpmn" || previewType === "dmn" || previewType === "other") && (
         <>
           {previewType === "bpmn" && !previewDiagramError && (
             <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
+          )}
+          {previewType === "dmn" && (
+            previewDmnError
+              ? <p className="form-preview-error" role="alert">DMN preview unavailable: {previewDmnError}</p>
+              : <DmnPreview xml={previewModelXml} onError={setPreviewDmnError} />
           )}
           {(previewType === "other" || (previewType === "bpmn" && previewDiagramError)) && (
             <p style={{ marginTop: '1rem' }}>
