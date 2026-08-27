@@ -147,7 +147,7 @@ function App() {
           if (el.elementId) {
               const severity = getMostSevere(el.messages);
               if (severity) {
-                // Mark wit the same color everytime for the moment
+                // Mark with the same color every time for the moment
                 //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
                 canvas.addMarker(el.elementId, `highlight-info`);
               }
