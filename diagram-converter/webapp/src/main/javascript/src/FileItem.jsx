@@ -39,6 +39,7 @@ export default function FileItem({
   isConverted,
   downloadAction,
   previewAction,
+  previewTitle = "Preview the analyzer results for this model",
   onDelete,
   findingCount,
 }) {
@@ -81,7 +82,12 @@ export default function FileItem({
         )}
         {status === "uploading" && !isChecked && <Spinner />}
         {isChecked && previewAction && (
-          <button className="download" onClick={previewAction} title="Preview the analyzer results for this model">
+          <button
+            className="download"
+            onClick={previewAction}
+            title={previewTitle}
+            aria-label={previewTitle}
+          >
             <Eye />
           </button>
         )}

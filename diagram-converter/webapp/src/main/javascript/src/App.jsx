@@ -28,6 +28,8 @@ import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "luc
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
+import FormPreview from "./FormPreview";
+import { parseFormSchema } from "./formSchema";
 
 // Target Camunda 8 versions offered in the UI. This is a curated subset of the
 // versions the backend understands (SemanticVersion.java); we only surface the
@@ -50,7 +52,10 @@ function App() {
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewType, setPreviewType] = useState(null);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewFormSchema, setPreviewFormSchema] = useState(null);
+  const [previewFormError, setPreviewFormError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -64,6 +69,7 @@ function App() {
   const [showConfig, setShowConfig] = useState(false);
   const incompatibilityNotifRef = useRef(null);
   const versionSegmentedRef = useRef(null);
+  const bpmnPreviewRef = useRef(null);
 
   function handleVersionKeyDown(e) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -130,9 +136,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (isPreviewOpen && previewbpmnXml) {
-          const viewer = new BpmnJS({ container: '#bpmnDiagram' });
+      if (isPreviewOpen && previewType === "bpmn" && previewbpmnXml) {
+          const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
+          let isActive = true;
           viewer.importXML(previewbpmnXml).then(() => {
+            if (!isActive) return;
+
             const canvas = viewer.get('canvas');
             canvas.zoom('fit-viewport');
 
@@ -150,10 +159,18 @@ function App() {
               }
             });
 
+          }).catch((error) => {
+            if (isActive) {
+              console.error("Unable to render BPMN preview:", error);
+            }
           });
 
+          return () => {
+            isActive = false;
+            viewer.destroy();
+          };
       }
-    }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
+    }, [isPreviewOpen, previewType, previewbpmnXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -402,8 +419,27 @@ function App() {
 
     setPreviewCheckJson(response.checkResponseJson);
     setPreviewbpmnXml(response.originalModelXml);
+    setPreviewFormSchema(null);
+    setPreviewFormError("");
+    setPreviewType("bpmn");
 
     setIsPreviewOpen(true);
+  }
+
+  function openFormPreview(schema, errorMessage = "") {
+    setPreviewFormSchema(schema);
+    setPreviewFormError(errorMessage);
+    setPreviewbpmnXml("");
+    setPreviewCheckJson([]);
+    setPreviewTableHeader([]);
+    setPreviewTableRows([]);
+    setPreviewType("form");
+    setIsPreviewOpen(true);
+  }
+
+  function previewForm(response) {
+    const { schema, error } = parseFormSchema(response?.originalModelXml);
+    openFormPreview(schema, error);
   }
 
   async function download(response) {
@@ -641,7 +677,8 @@ function App() {
               <h3>Your Models</h3>
               <p>
                 Download models converted to Camunda 8 individually or as one Zip
-                file. You can also preview the analysis result on the BPMN model.
+                file. You can also preview analysis results on BPMN models or view
+                the uploaded forms.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
@@ -659,6 +696,7 @@ function App() {
               )}
               {files.map((file, idx) => {
                 const r = fileResults[idx];
+                const isForm = file.name.toLowerCase().endsWith(".form");
                 const fileFindingCount = r.checkResponseJson
                   ? r.checkResponseJson
                       .flatMap(item => item.results || [])
@@ -671,7 +709,8 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={file.name.endsWith(".form") ? undefined : () => preview(r)}
+                  previewAction={isForm ? () => previewForm(r) : () => preview(r)}
+                  previewTitle={isForm ? "Preview this form" : undefined}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={
@@ -791,7 +830,7 @@ function App() {
     <div className="modal">
       <div className="modal-header">
         <div className="left">
-        <h2>Analysis preview</h2>
+        <h2>{previewType === "form" ? "Form preview" : "Analysis preview"}</h2>
         </div>
         <div>
           <Button
@@ -805,45 +844,54 @@ function App() {
         </div>
       </div>
 
-      <div id="bpmnDiagram" className="diagram-container"></div>
-      {previewTableRows.length === 0 && (
-        <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this model.</p>
+      {previewType === "bpmn" && (
+        <>
+          <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
+          {previewTableRows.length === 0 && (
+            <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this model.</p>
+          )}
+          {previewTableRows.length > 0 && <>
+            <h3>Findings</h3>
+            <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
+              Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
+            </p>
+            <Table className="analysis-table">
+              <TableHeader>
+                <TableRow>
+                  {previewTableHeader.map((header) => (
+                    <TableHead key={header.key}>
+                      {header.header}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {previewTableRows.map((row) => (
+                  <TableRow key={row.id}>
+                    {previewTableHeader.map((header) => {
+                      const value = row[header.key];
+                      return (
+                        <TableCell key={`${row.id}-${header.key}`}>
+                          {header.key === 'link'
+                            ? value
+                              ? <a href={value} target="_blank" rel="noopener noreferrer">Link</a>
+                              : '-'
+                            : value}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>}
+        </>
       )}
-      {previewTableRows.length > 0 && <>
-      <h3>Findings</h3>
-      <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
-        Elements in this model that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
-      </p>
-      <Table className="analysis-table">
-        <TableHeader>
-          <TableRow>
-            {previewTableHeader.map((header) => (
-              <TableHead key={header.key}>
-                {header.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {previewTableRows.map((row) => (
-            <TableRow key={row.id}>
-              {previewTableHeader.map((header) => {
-                const value = row[header.key];
-                return (
-                  <TableCell key={`${row.id}-${header.key}`}>
-                    {header.key === 'link'
-                      ? value
-                        ? <a href={value} target="_blank" rel="noopener noreferrer">Link</a>
-                        : '-'
-                      : value}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      </>}
+      {previewType === "form" && (
+        previewFormError
+          ? <Alert variant="destructive" title="Form preview unavailable" description={previewFormError} />
+          : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />
+      )}
 
     </div>
   </div>
