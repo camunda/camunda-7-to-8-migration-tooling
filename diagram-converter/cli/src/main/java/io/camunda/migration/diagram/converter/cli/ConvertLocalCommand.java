@@ -10,6 +10,7 @@ package io.camunda.migration.diagram.converter.cli;
 import static io.camunda.migration.diagram.converter.cli.ConvertCommand.*;
 
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormConverter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -88,12 +89,40 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
     } else {
       if (isValidFile(file)) {
         files.add(file);
-      } else {
-        LOG_CLI.error("The selected file is no bpmn or dmn file");
-        throw new IllegalArgumentException("The selected file is no bpmn or dmn file");
+      } else if (!FormConverter.isFormFile(file.getName())) {
+        LOG_CLI.error("The selected file is not a bpmn, dmn or form file");
+        throw new IllegalArgumentException("The selected file is not a bpmn, dmn or form file");
       }
     }
     return handleFiles(files);
+  }
+
+  @Override
+  protected List<File> formFiles() {
+    if (!file.exists()) {
+      return List.of();
+    }
+    if (!file.isDirectory()) {
+      return FormConverter.isFormFile(file.getName()) ? List.of(file) : List.of();
+    }
+    List<File> formFiles = new ArrayList<>();
+    try {
+      if (notRecursive) {
+        try (Stream<Path> stream = Files.list(file.toPath())) {
+          stream
+              .filter(Files::isRegularFile)
+              .map(Path::toFile)
+              .filter(f -> FormConverter.isFormFile(f.getName()))
+              .forEach(formFiles::add);
+        }
+      } else {
+        Files.walkFileTree(file.toPath(), new FindFormFilePathVisitor(formFiles));
+      }
+    } catch (Exception e) {
+      LOG_CLI.error("Error while finding form files: {}", createMessage(e));
+      returnCode = 1;
+    }
+    return formFiles;
   }
 
   private Map<File, ModelInstance> handleFiles(Collection<File> files) {
@@ -168,6 +197,43 @@ public class ConvertLocalCommand extends AbstractConvertCommand {
         LOG.debug("Visited file, added '{}'", file.toFile().getAbsolutePath());
       } else {
         LOG.debug("Visited file, not added '{}'", file.toFile().getAbsolutePath());
+      }
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+      LOG.debug("Visiting file failed '{}'", file.toFile().getAbsolutePath());
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+      LOG.debug("Done visiting directory '{}'", dir.toFile().getAbsolutePath());
+      return FileVisitResult.CONTINUE;
+    }
+  }
+
+  public static class FindFormFilePathVisitor implements PathVisitor {
+    private static final Logger LOG = LoggerFactory.getLogger(FindFormFilePathVisitor.class);
+    private final List<File> files;
+
+    public FindFormFilePathVisitor(List<File> files) {
+      this.files = files;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+        throws IOException {
+      LOG.debug("Start visiting directory '{}'", dir.toFile().getAbsolutePath());
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      if (FormConverter.isFormFile(file.toFile().getName())) {
+        files.add(file.toFile());
+        LOG.debug("Visited form file, added '{}'", file.toFile().getAbsolutePath());
       }
       return FileVisitResult.CONTINUE;
     }
