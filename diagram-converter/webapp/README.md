@@ -1,5 +1,9 @@
 # Diagram Converter Webapp
 
+The webapp accepts Camunda Forms (`.form` files) alongside BPMN and DMN models.
+Forms are converted by updating their platform metadata and can be opened as a
+read-only rendered preview from the results list.
+
 ## Rest API
 
 `POST /check`: Check required tasks for Camunda 7 to 8 migration for all provided models
@@ -7,7 +11,7 @@
 - Request:
   - Format: `FormData`
   - Fields
-    - `file` (`MultipartFile`): 1..n BPMN file(s) _(mandatory)_
+    - `file` (`MultipartFile`): 1..n BPMN, DMN or form file(s) _(mandatory)_
     - `adapterJobType` (`String`): type of the job all service tasks formerly
       implemented as delegates or expressions should have. _(optional)_
     - `platformVersion` (`String`): version of the target platform _(optional)_
@@ -19,12 +23,12 @@
     [check results](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/DiagramCheckResult.java),
     either in `application/json` format or flattened as `text/csv` or a Microsoft Excel file (XLST).
 
-`POST /convert`: convert the provided model from Camunda 7 to 8
+`POST /convert`: convert the provided BPMN, DMN or form model from Camunda 7 to 8
 
 - Request:
   - Format: `FormData`
   - Fields
-    - `file` (`MultipartFile`): BPMN file _(mandatory)_
+    - `file` (`MultipartFile`): BPMN, DMN or form file _(mandatory)_
     - `appendDocumentation` (`Boolean`): whether the check results should also
       be added to the documentation of each BPMN element _(default: `false`)_
     - `adapterJobType` (`String`): type of the job all service tasks formerly
@@ -32,9 +36,10 @@
     - `platformVersion` (`String`): version of the target platform _(optional)_
     - `adapterEnabled` (`Boolean`): whether the adapter job type should be set in the converted diagram _(default: `true`)_
 - Response:
-  - `200`: Everything fine. The body contains a BPMN diagram. The header
+  - `200`: Everything fine. The body contains the converted model. The header
     contains a `Content-Disposition` field that declares this as attachment and
-    holds a filename. The `Content-Type` is `application/bpmn+xml`.
+    holds a filename. The `Content-Type` is `application/bpmn+xml`,
+    `application/dmn+xml` or `application/json` for forms.
 
 `POST /convertBatch`: Convert all provided models from Camunda 7 to 8 and return a ZIP file
 

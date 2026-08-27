@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "bpmn-js": "^18.6.1",
+    "@bpmn-io/form-js-viewer": "^1.25.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@camunda/design-system": "^0.49.0",
