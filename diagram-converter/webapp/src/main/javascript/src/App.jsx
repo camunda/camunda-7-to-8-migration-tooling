@@ -28,7 +28,8 @@ import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "luc
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
-import { Form } from "@bpmn-io/form-js-viewer";
+import FormPreview from "./FormPreview";
+import { parseFormSchema } from "./formSchema";
 
 // Target Camunda 8 versions offered in the UI. This is a curated subset of the
 // versions the backend understands (SemanticVersion.java); we only surface the
@@ -69,7 +70,6 @@ function App() {
   const incompatibilityNotifRef = useRef(null);
   const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
-  const formPreviewRef = useRef(null);
 
   function handleVersionKeyDown(e) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -167,34 +167,6 @@ function App() {
           };
       }
     }, [isPreviewOpen, previewType, previewbpmnXml, previewCheckJson]);
-
-  useEffect(() => {
-    if (!isPreviewOpen || previewType !== "form" || !previewFormSchema || !formPreviewRef.current) {
-      return;
-    }
-
-    const form = new Form({ container: formPreviewRef.current });
-    let isActive = true;
-
-    form
-      .importSchema(previewFormSchema)
-      .then(() => {
-        if (isActive) {
-          form.setProperty("readOnly", true);
-        }
-      })
-      .catch((error) => {
-        if (isActive) {
-          const message = error instanceof Error ? error.message : "Unknown rendering error";
-          setPreviewFormError(`Unable to render this form: ${message}`);
-        }
-      });
-
-    return () => {
-      isActive = false;
-      form.destroy();
-    };
-  }, [isPreviewOpen, previewType, previewFormSchema]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -462,34 +434,8 @@ function App() {
   }
 
   function previewForm(response) {
-    if (!response?.originalModelXml) {
-      openFormPreview(null, "Unable to render this form because its content is unavailable.");
-      return;
-    }
-
-    let schema;
-    try {
-      schema = JSON.parse(response.originalModelXml);
-    } catch (error) {
-      if (!(error instanceof SyntaxError)) {
-        throw error;
-      }
-      openFormPreview(
-        null,
-        "Unable to render this form because its content is not valid JSON."
-      );
-      return;
-    }
-
-    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-      openFormPreview(
-        null,
-        "Unable to render this form because its content is not a JSON object."
-      );
-      return;
-    }
-
-    openFormPreview(schema);
+    const { schema, error } = parseFormSchema(response?.originalModelXml);
+    openFormPreview(schema, error);
   }
 
   async function download(response) {
@@ -940,7 +886,7 @@ function App() {
       {previewType === "form" && (
         previewFormError
           ? <Alert variant="destructive" title="Form preview unavailable" description={previewFormError} />
-          : <div ref={formPreviewRef} className="form-preview-container" />
+          : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />
       )}
 
     </div>
