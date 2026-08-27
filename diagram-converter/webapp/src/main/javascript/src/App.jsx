@@ -561,7 +561,7 @@ function App() {
                 ))}
               </div>
 
-              <form className="configBox" style={{ marginTop: "1.5rem" }}>
+              <form className="configBox" style={{ marginTop: "1.5rem" }} onSubmit={(e) => e.preventDefault()}>
                 <button
                   type="button"
                   className="configToggle"
@@ -774,7 +774,7 @@ function App() {
                   <p>
                     Plain-text findings to import into other tools.
                   </p>
-                  </div>
+                </div>
                 <div className="download-row">
                   <Button
                     variant="secondary"
@@ -789,8 +789,8 @@ function App() {
                     Machine-readable findings, e.g. as input for AI-assisted
                     migration tooling.
                   </p>
-                  </div>
                 </div>
+              </div>
               <p>
                 Learn more about the findings in the{" "}
                 <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank" rel="noopener noreferrer">
