@@ -29,6 +29,8 @@ import { Download, Launch, Close, Settings } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
+import FormPreview from "./FormPreview";
+import { parseFormSchema } from "./formSchema";
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -40,7 +42,10 @@ function App() {
   const isSaaS = window.location.hostname !== "localhost";
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewType, setPreviewType] = useState(null);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewFormSchema, setPreviewFormSchema] = useState(null);
+  const [previewFormError, setPreviewFormError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -93,6 +98,8 @@ function App() {
               }
             });
 
+          }).catch((error) => {
+            console.error("Unable to render BPMN preview:", error);
           });
 
       }
@@ -278,8 +285,27 @@ function App() {
 
     setPreviewCheckJson(response.checkResponseJson);
     setPreviewbpmnXml(response.originalModelXml);
+    setPreviewFormSchema(null);
+    setPreviewFormError("");
+    setPreviewType("bpmn");
 
     setIsPreviewOpen(true);
+  }
+
+  function openFormPreview(schema, errorMessage = "") {
+    setPreviewFormSchema(schema);
+    setPreviewFormError(errorMessage);
+    setPreviewbpmnXml("");
+    setPreviewCheckJson([]);
+    setPreviewTableHeader([]);
+    setPreviewTableRows([]);
+    setPreviewType("form");
+    setIsPreviewOpen(true);
+  }
+
+  function previewForm(response) {
+    const { schema, error } = parseFormSchema(response?.originalModelXml);
+    openFormPreview(schema, error);
   }
 
   async function download(response) {
@@ -518,22 +544,27 @@ function App() {
               <h3>Your Models</h3>
               <p>
                 Download models converted to Camunda 8 individually or as one Zip
-                file. You can also preview the analysis result on the BPMN model.
+                file. You can also preview analysis results on BPMN models or view
+                the uploaded forms.
               </p>
-              {files.map((file, idx) => (
+              {files.map((file, idx) => {
+                const isForm = file.name.toLowerCase().endsWith(".form");
+                return (
                 <FileItem
                   key={file.name + "-" + idx}
                   name={file.name}
                   status={fileResults[idx].status}
                   isChecked={ fileResults[idx].checkResponseJson != null }
                   isConverted={fileResults[idx].convertedFileBlob != null}
-                  previewAction={file.name.endsWith(".form") ? undefined : () => preview(fileResults[idx])}
+                  previewAction={isForm ? () => previewForm(fileResults[idx]) : () => preview(fileResults[idx])}
+                  previewTitle={isForm ? "Preview this form" : undefined}
                   downloadAction={() => download(fileResults[idx])}
                   error={
                     !fileResults[idx].ok == "error" ? "File upload failure" : ""
                   }
                 />
-              ))}
+                );
+              })}
               <Button
                 kind="tertiary"
                 size="lg"
@@ -632,7 +663,7 @@ function App() {
     <div className="modal">
       <div className="modal-header">
         <div className="left">
-        <h2>Analysis preview</h2>
+        <h2>{previewType === "form" ? "Form preview" : "Analysis preview"}</h2>
         </div>
         <div>
           <Button
@@ -646,6 +677,7 @@ function App() {
         </div>
       </div>
 
+      {previewType === "bpmn" && <>
       <div id="bpmnDiagram" className="diagram-container"></div>
       <DataTable rows={previewTableRows} headers={previewTableHeader}>
   {({ rows, headers, getHeaderProps, getRowProps }) => (
@@ -689,6 +721,12 @@ function App() {
     </Table>
   )}
 </DataTable>
+      </>}
+      {previewType === "form" && (
+        previewFormError
+          ? <p className="form-preview-error" role="alert">{previewFormError}</p>
+          : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />
+      )}
 
 
 
