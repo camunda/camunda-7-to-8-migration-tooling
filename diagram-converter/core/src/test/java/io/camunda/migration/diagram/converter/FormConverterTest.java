@@ -51,7 +51,7 @@ class FormConverterTest {
 
     JsonNode root = OBJECT_MAPPER.readTree(converted);
     assertThat(root.get("executionPlatform").asText()).isEqualTo("Camunda Cloud");
-    assertThat(root.get("executionPlatformVersion").asText()).isEqualTo("8.9.0");
+    assertThat(root.get("executionPlatformVersion").asText()).isEqualTo("8.8.0");
   }
 
   @Test
@@ -61,7 +61,7 @@ class FormConverterTest {
         OBJECT_MAPPER.readTree(FormConverter.convert(C7_FORM, defaultProperties()));
 
     assertThat(converted.get("executionPlatform").asText()).isEqualTo("Camunda Cloud");
-    assertThat(converted.get("executionPlatformVersion").asText()).isEqualTo("8.9.0");
+    assertThat(converted.get("executionPlatformVersion").asText()).isEqualTo("8.8.0");
 
     ((ObjectNode) source).remove("executionPlatform");
     ((ObjectNode) source).remove("executionPlatformVersion");
@@ -109,7 +109,7 @@ class FormConverterTest {
 
     JsonNode root = OBJECT_MAPPER.readTree(converted);
     assertThat(root.get("executionPlatform").asText()).isEqualTo("Camunda Cloud");
-    assertThat(root.get("executionPlatformVersion").asText()).isEqualTo("8.9.0");
+    assertThat(root.get("executionPlatformVersion").asText()).isEqualTo("8.8.0");
     assertThat(root.get("id").asText()).isEqualTo("myForm");
   }
 
