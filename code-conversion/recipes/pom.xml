@@ -58,6 +58,13 @@
         <artifactId>micrometer-core</artifactId>
         <version>${version.micrometer}</version>
       </dependency>
+      <!-- CVE-2020-29582: pin kotlin-stdlib ahead of the rewrite-recipe-bom
+           and Spring Boot BOM imports. -->
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib</artifactId>
+        <version>${version.kotlin-stdlib}</version>
+      </dependency>
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>

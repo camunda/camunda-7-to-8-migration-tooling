@@ -48,6 +48,7 @@
     <version.npm>10.8.2</version.npm>
     <version.netty>4.2.17.Final</version.netty>
     <version.micrometer>1.17.1</version.micrometer>
+    <version.kotlin-stdlib>2.3.21</version.kotlin-stdlib>
     <version.httpcore5>5.4.3</version.httpcore5>
     <version.httpclient5>5.6.4</version.httpclient5>
     <version.commons-lang3>3.20.0</version.commons-lang3>
@@ -130,6 +131,23 @@
         <groupId>io.micrometer</groupId>
         <artifactId>micrometer-jakarta9</artifactId>
         <version>${version.micrometer}</version>
+      </dependency>
+      <!-- CVE-2020-29582: pin kotlin-stdlib to 2.3.21 (aligned with main and
+           maintenance/0.3) so scanners stop flagging the 1.9.25 resolution. -->
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib</artifactId>
+        <version>${version.kotlin-stdlib}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib-jdk8</artifactId>
+        <version>${version.kotlin-stdlib}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-stdlib-jdk7</artifactId>
+        <version>${version.kotlin-stdlib}</version>
       </dependency>
       <!-- CVE-2026-59889: make the fixed Jackson BOM inherited by every module, including modules without a local BOM import. -->
       <dependency>
