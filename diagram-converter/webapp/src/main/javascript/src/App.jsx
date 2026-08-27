@@ -132,7 +132,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (!isPreviewOpen || !previewIsBpmn || !previewbpmnXml) return;
+      if (!isPreviewOpen || !previewIsBpmn || previewDiagramError || !previewbpmnXml) return;
 
       const viewer = new BpmnJS({ container: '#bpmnDiagram' });
       viewer.importXML(previewbpmnXml).then(() => {
@@ -161,7 +161,7 @@ function App() {
       });
 
       return () => viewer.destroy();
-    }, [isPreviewOpen, previewIsBpmn, previewbpmnXml, previewCheckJson]);
+    }, [isPreviewOpen, previewIsBpmn, previewDiagramError, previewbpmnXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
