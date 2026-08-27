@@ -7,9 +7,13 @@
  */
 package io.camunda.migration.diagram.converter.webapp;
 
+import io.camunda.migration.diagram.converter.ConverterProperties;
+import io.camunda.migration.diagram.converter.ConverterPropertiesFactory;
+import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverterResultDTO;
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -35,9 +40,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -123,6 +130,17 @@ public class ConverterController {
     for (Iterator diagramFilesIterator = diagramFiles.iterator();
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
+
+      // Form files are JSON and have no diagram elements to analyze - return an empty result
+      if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+        DiagramCheckResult formResult = new DiagramCheckResult();
+        formResult.setFilename(diagramFile.getOriginalFilename());
+        // keep the response schema consistent with BPMN/DMN results
+        formResult.setConverterVersion(buildProperties.getVersion());
+        resultList.add(formResult);
+        continue;
+      }
+
       DiagramType diagramType = determineDiagramType(diagramFile);
 
       try (InputStream in = diagramFile.getInputStream()) {
@@ -283,13 +301,13 @@ public class ConverterController {
   }
 
   /**
-   * POST method to actually convert a BPMN or DMN model.
+   * POST method to actually convert a BPMN, DMN or form model.
    *
    * @throws InterruptedException
    */
   @PostMapping(
       value = "/convert",
-      produces = {"application/bpmn+xml", "application/dmn+xml"},
+      produces = {"application/bpmn+xml", "application/dmn+xml", MediaType.APPLICATION_JSON_VALUE},
       consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
   public ResponseEntity<?> getFile(
       @RequestParam("file") MultipartFile diagramFile,
@@ -312,6 +330,26 @@ public class ConverterController {
               defaultValue = "migrator")
           String dataMigrationExecutionListenerJobType) {
 
+    // Form files are JSON - convert them by updating the platform metadata fields only
+    if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+      try (InputStream in = diagramFile.getInputStream()) {
+        String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        String converted = FormConverter.convert(content, converterProperties(platformVersion));
+        Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
+        return ResponseEntity.ok()
+            .header(
+                HttpHeaders.CONTENT_DISPOSITION,
+                attachmentDisposition(convertedFileName(diagramFile.getOriginalFilename())))
+            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .body(file);
+      } catch (IOException | IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(e.getMessage());
+      } catch (Exception e) {
+        LOG.error("Error while converting form file", e);
+        return ResponseEntity.internalServerError().body(e.getMessage());
+      }
+    }
+
     DiagramType diagramType = determineDiagramType(diagramFile);
     try (InputStream in = diagramFile.getInputStream()) {
       ModelInstance modelInstance = diagramType.readDiagram(in);
@@ -325,11 +363,11 @@ public class ConverterController {
           addDataMigrationExecutionListener,
           dataMigrationExecutionListenerJobType);
       String xml = bpmnConverter.printXml(modelInstance.getDocument(), true);
-      Resource file = new ByteArrayResource(xml.getBytes());
+      Resource file = new ByteArrayResource(xml.getBytes(StandardCharsets.UTF_8));
       return ResponseEntity.ok()
           .header(
               HttpHeaders.CONTENT_DISPOSITION,
-              "attachment; filename=\"converted-c8-" + diagramFile.getOriginalFilename() + "\"")
+              attachmentDisposition(convertedFileName(diagramFile.getOriginalFilename())))
           .header(HttpHeaders.CONTENT_TYPE, diagramType.getContentType())
           .body(file);
     } catch (IOException e) {
@@ -376,6 +414,26 @@ public class ConverterController {
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
 
+      // Form files are JSON - convert them by updating the platform metadata fields only
+      if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
+        try (InputStream in = diagramFile.getInputStream()) {
+          String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+          String converted = FormConverter.convert(content, converterProperties(platformVersion));
+          Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
+          putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
+        } catch (IllegalArgumentException e) {
+          // client error (invalid JSON or platform version) - no stack trace noise
+          return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IOException e) {
+          LOG.error("IO Error while converting form file in batch", e);
+          return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+          LOG.error("Error while converting form file in batch", e);
+          return ResponseEntity.internalServerError().body(e.getMessage());
+        }
+        continue;
+      }
+
       DiagramType diagramType = determineDiagramType(diagramFile);
       try (InputStream in = diagramFile.getInputStream()) {
 
@@ -390,8 +448,8 @@ public class ConverterController {
             addDataMigrationExecutionListener,
             dataMigrationExecutionListenerJobType);
         String xml = bpmnConverter.printXml(modelInstance.getDocument(), true);
-        Resource file = new ByteArrayResource(xml.getBytes());
-        resultList.put("converted-c8-" + diagramFile.getOriginalFilename(), file);
+        Resource file = new ByteArrayResource(xml.getBytes(StandardCharsets.UTF_8));
+        putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
 
       } catch (IOException e) {
         LOG.error("IO Error while converting resources in batch", e);
@@ -440,5 +498,60 @@ public class ConverterController {
       throw new IllegalArgumentException("No file provided");
     }
     return DiagramType.fromFileName(originalFilename);
+  }
+
+  private ConverterProperties converterProperties(String platformVersion) {
+    DefaultConverterProperties properties = new DefaultConverterProperties();
+    // treat blank values as absent so the configured default applies
+    properties.setPlatformVersion(StringUtils.hasText(platformVersion) ? platformVersion : null);
+    return ConverterPropertiesFactory.getInstance().merge(properties);
+  }
+
+  /**
+   * Builds the name of a converted output file from the user-supplied filename. Only the filename
+   * portion is used, preventing path traversal via separators in the original filename from
+   * propagating into ZIP entry names or response headers.
+   */
+  private String convertedFileName(String originalFilename) {
+    if (originalFilename == null) {
+      return "converted-c8-file";
+    }
+    // normalize Windows-style separators so they are stripped on any platform
+    String baseName = StringUtils.getFilename(originalFilename.replace('\\', '/'));
+    if (!StringUtils.hasText(baseName)) {
+      // e.g. filename ended with a path separator
+      return "converted-c8-file";
+    }
+    return "converted-c8-" + baseName;
+  }
+
+  private String attachmentDisposition(String fileName) {
+    return ContentDisposition.attachment()
+        .filename(fileName, StandardCharsets.UTF_8)
+        .build()
+        .toString();
+  }
+
+  /**
+   * Adds a converted file to the batch results, disambiguating the ZIP entry name (appending {@code
+   * " (1)"}, {@code " (2)"}, ... before the extension, like the CLI does) when multiple uploaded
+   * files share the same name so no converted file silently disappears from the output ZIP.
+   */
+  private void putConverted(Map<String, Resource> results, String fileName, Resource content) {
+    String entryName = fileName;
+    int counter = 0;
+    while (results.containsKey(entryName)) {
+      counter++;
+      int extensionIndex = fileName.lastIndexOf('.');
+      entryName =
+          extensionIndex >= 0
+              ? fileName.substring(0, extensionIndex)
+                  + " ("
+                  + counter
+                  + ")"
+                  + fileName.substring(extensionIndex)
+              : fileName + " (" + counter + ")";
+    }
+    results.put(entryName, content);
   }
 }

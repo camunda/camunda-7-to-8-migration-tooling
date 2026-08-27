@@ -469,7 +469,7 @@ function App() {
                 <span className="flowStepNumber">1</span>
                 <h4>Add your files</h4>
               </div>
-              <p>Upload one or more BPMN and DMN models to analyze and convert.</p>
+              <p>Upload one or more BPMN and DMN models or Camunda Forms (.form files) to analyze and convert.</p>
               <div className="fileUploadBox">
                 <DropZone
                   onFiles={(files) => {
@@ -671,7 +671,7 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={() => preview(r)}
+                  previewAction={file.name.endsWith(".form") ? undefined : () => preview(r)}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={

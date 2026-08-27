@@ -1,0 +1,17 @@
+{
+  "executionPlatform": "Camunda Platform",
+  "executionPlatformVersion": "7.23.0",
+  "id": "formId",
+  "components": [
+    {
+      "label": "Customer name",
+      "type": "textfield",
+      "key": "customerName",
+      "validate": {
+        "required": true
+      }
+    }
+  ],
+  "type": "default",
+  "schemaVersion": 16
+}
