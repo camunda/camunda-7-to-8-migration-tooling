@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter.cli;
 
 import static io.camunda.migration.diagram.converter.cli.ConvertCommand.*;
 
+import io.camunda.migration.diagram.converter.ConverterProperties;
 import io.camunda.migration.diagram.converter.ConverterPropertiesFactory;
 import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
@@ -153,6 +154,8 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     if (!createTargetDirectory()) {
       return;
     }
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(converterProperties());
     for (File formFile : formFileList) {
       File outFile = prefixFileName(formFile);
       if (!override && outFile.exists()) {
@@ -162,9 +165,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
       }
       try {
         String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
-        String converted =
-            FormConverter.convert(
-                content, ConverterPropertiesFactory.getInstance().merge(converterProperties()));
+        String converted = FormConverter.convert(content, properties);
         // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
         // -Dfile.encoding override can't corrupt the converted form
         Files.writeString(outFile.toPath(), converted, StandardCharsets.UTF_8);
