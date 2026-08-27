@@ -67,6 +67,17 @@ public class FormConverter {
     }
   }
 
+  /**
+   * Parses the given form JSON.
+   *
+   * @param formContent the content of a form file
+   * @return the parsed JSON tree
+   * @throws IllegalArgumentException if the content is not valid JSON
+   */
+  static JsonNode parse(String formContent) {
+    return readTree(formContent);
+  }
+
   private static JsonNode readTree(String formContent) {
     try {
       return OBJECT_MAPPER.readTree(formContent);
