@@ -29,7 +29,7 @@ export default function FormPreview({ schema, onError }) {
       .catch((error) => {
         if (isActive) {
           const message = error instanceof Error ? error.message : "Unknown rendering error";
-          onError(`Unable to render this form: ${message}`);
+          onError(`The form could not be displayed: ${message}`);
         }
       });
 
