@@ -110,7 +110,7 @@ public class FormChecker {
     result.setConverterVersion(FormChecker.class.getPackage().getImplementationVersion());
     Map<String, ElementCheckResult> elementResults = new LinkedHashMap<>();
     checkFileLevel(filename, form, elementResults);
-    checkComponents(form.path(COMPONENTS_FIELD), elementResults);
+    checkComponents(form.path(COMPONENTS_FIELD), COMPONENTS_FIELD, elementResults);
     result.setResults(new ArrayList<>(elementResults.values()));
     return result;
   }
@@ -143,26 +143,29 @@ public class FormChecker {
   }
 
   private static void checkComponents(
-      JsonNode components, Map<String, ElementCheckResult> elementResults) {
+      JsonNode components, String path, Map<String, ElementCheckResult> elementResults) {
     if (!components.isArray()) {
       return;
     }
+    int index = 0;
     for (JsonNode component : components) {
+      String componentPath = path + "/" + index++;
       if (!component.isObject()) {
         continue;
       }
-      checkComponent((ObjectNode) component, elementResults);
+      checkComponent((ObjectNode) component, componentPath, elementResults);
       // containers (e.g. group, dynamiclist) nest their own components
-      checkComponents(component.path(COMPONENTS_FIELD), elementResults);
+      checkComponents(
+          component.path(COMPONENTS_FIELD), componentPath + "/" + COMPONENTS_FIELD, elementResults);
     }
   }
 
   private static void checkComponent(
-      ObjectNode component, Map<String, ElementCheckResult> elementResults) {
+      ObjectNode component, String path, Map<String, ElementCheckResult> elementResults) {
     String type = component.path(TYPE_FIELD).asText(null);
     ElementCheckResult elementResult = null;
     if (type == null || !KNOWN_COMPONENT_TYPES.contains(type)) {
-      elementResult = componentResult(component, type, elementResults);
+      elementResult = componentResult(component, type, path, elementResults);
       addMessage(elementResult, MessageFactory.formComponentUnknown(String.valueOf(type)));
     }
     for (Map.Entry<String, JsonNode> property : component.properties()) {
@@ -174,7 +177,7 @@ public class FormChecker {
       collectJuelExpressions(property.getValue(), expressions);
       for (String expression : expressions) {
         if (elementResult == null) {
-          elementResult = componentResult(component, type, elementResults);
+          elementResult = componentResult(component, type, path, elementResults);
         }
         addMessage(elementResult, MessageFactory.formJuelExpression(expression, property.getKey()));
       }
@@ -182,10 +185,15 @@ public class FormChecker {
   }
 
   private static ElementCheckResult componentResult(
-      ObjectNode component, String type, Map<String, ElementCheckResult> elementResults) {
+      ObjectNode component,
+      String type,
+      String path,
+      Map<String, ElementCheckResult> elementResults) {
     String id = componentId(component);
+    // key the map by the component's position in the JSON tree: the key/id/type fallback used as
+    // display id is not necessarily unique (e.g. several keyless textfields)
     return elementResults.computeIfAbsent(
-        FORM_ELEMENT_TYPE + ":" + id,
+        FORM_ELEMENT_TYPE + ":" + path,
         key ->
             createElementResult(
                 id, type != null ? type : "unknown", component.path(LABEL_FIELD).asText(null)));

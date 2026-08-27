@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter;
 
 import static org.assertj.core.api.Assertions.*;
 
+import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
 import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import org.junit.jupiter.api.Test;
@@ -315,6 +316,36 @@ class FormCheckerTest {
     assertThat(result.getResults())
         .extracting(ElementCheckResult::getElementId)
         .containsExactly("myForm", "first", "second");
+  }
+
+  @Test
+  void shouldKeepFindingsSeparateForComponentsWithoutKeyOrId() {
+    DiagramCheckResult result =
+        check(
+            """
+            {
+              "executionPlatform": "Camunda Platform",
+              "executionPlatformVersion": "7.23.0",
+              "id": "myForm",
+              "components": [
+                { "type": "textfield", "defaultValue": "${a}" },
+                { "type": "textfield", "defaultValue": "${b}" }
+              ],
+              "type": "default",
+              "schemaVersion": 18
+            }
+            """);
+
+    // both keyless textfields fall back to the type as display id, but must not be merged
+    assertThat(result.getResults()).hasSize(2);
+    assertThat(result.getResults())
+        .extracting(ElementCheckResult::getElementId)
+        .containsExactly("textfield", "textfield");
+    assertThat(result.getResults())
+        .flatExtracting(ElementCheckResult::getMessages)
+        .extracting(ElementCheckMessage::getMessage)
+        .anySatisfy(message -> assertThat(message).contains("${a}"))
+        .anySatisfy(message -> assertThat(message).contains("${b}"));
   }
 
   @Test
