@@ -338,40 +338,35 @@ function App() {
       <div className="whiteBox">
         <div>
           <div>
-            <h2>Camunda Migration Analyzer & Diagram Converter</h2>
+            <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
             <p>
-            Understand your BPMN models before migrating. Identify gaps, assess effort, and convert compatible elements.
+              Convert BPMN, DMN, and Camunda Form files to Camunda 8 and see what needs attention.
             </p>
             <p>
-              For more information visit the{" "}
               <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
                 rel="noopener noreferrer" target="_blank">
-                diagram converter guide
-              </a>.
+                Documentation
+              </a>
             </p>
             {!isSaaS && (
               <div>
                 <p>
-                  If you prefer an online version of this tool{" "}
                   <a href="https://diagram-converter.camunda.io">
-                    access it here
+                    Open online version
                   </a>
-                  .
                 </p>
               </div>
             )}
             {isSaaS && (
               <div>
                 <p>
-                  If you prefer a local version of this tool{" "}
                   <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases">
-                    download it here
+                    Download local version
                   </a>
-                  .
                 </p>
                 <p>
                   <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free">
-                    Check our legal terms and data privacy information.
+                    Legal &amp; privacy
                   </a>
                 </p>
               </div>
@@ -385,12 +380,12 @@ function App() {
             <ProgressStep
               current={step < 2}
               complete={step > 1}
-              label="Upload Models"
+              label="Configure"
             />
             <ProgressStep
               current={step === 2}
               complete={step > 2}
-              label="Analyze Results"
+              label="Results"
             />
           </ProgressIndicator>
         </div>
@@ -399,11 +394,10 @@ function App() {
         {step === 0 && (
           <>
             <section>
-              <h4>Instructions:</h4>
+              <h4>Add files</h4>
               <p>
-                Upload your BPMN and DMN models to analyze and convert, or
-                Camunda Forms (.form files) to convert. You can upload one or
-                more files at once.
+                Upload BPMN or DMN models to analyze and convert, or Camunda Forms
+                to convert.
               </p>
             </section>
             <div className="fileUploadBox">
@@ -426,14 +420,13 @@ function App() {
               ))}
             </div>
             <p>
-              Then go ahead and click the button below to analyze and convert
-              your models.
+              Click the button below to analyze and convert your files.
             </p>
 
-            <Form className="configBox">
+            <Form className="configBox" onSubmit={(e) => e.preventDefault()}>
               <h4>
                 <Settings style={{ marginRight: '0.5rem' }} />
-                Advanced Configuration Options
+                Advanced options
                 <Button
                   kind="ghost"
                   size="sm"
@@ -447,9 +440,9 @@ function App() {
                 <FormGroup legendText="">
                   <Checkbox
                     id="addDataMigrationExecutionListener"
-                    labelText="Add Data Migration Execution Listener"
+                    labelText="Add data migration execution listener"
                     checked={configOptions.addDataMigrationExecutionListener}
-                    helperText="Add a listener to the blank start event of the process to be used by the Camunda 7 Data Migrator. Enable if you want to use the runtime migrator later."
+                    helperText="Add a listener for use with the Camunda 7 Data Migrator."
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -459,7 +452,7 @@ function App() {
                   />
                   <TextInput
                     id="dataMigrationExecutionListenerJobType"
-                    labelText="Execution Listener Job Type"
+                    labelText="Execution listener job type"
                     value={configOptions.dataMigrationExecutionListenerJobType}
                     disabled={!configOptions.addDataMigrationExecutionListener}
                     onChange={(e) =>
@@ -474,7 +467,7 @@ function App() {
                     id="keepJobTypeBlank"
                     labelText="Keep job type blank"
                     checked={configOptions.keepJobTypeBlank}
-                    helperText="Don't set the job type in process models at all."
+                    helperText="Don't set a job type in process models."
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -485,9 +478,9 @@ function App() {
                   <div className="form-spacer" />
                   <Checkbox
                     id="defaultJobTypeEnabled"
-                    labelText="Enable default job type"
+                    labelText="Always use default job type"
                     checked={configOptions.defaultJobTypeEnabled}
-                    helperText="If enabled, tasks will always get the job type below. If disabled, the delegate expression or delegate class name will be used as job type."
+                    helperText="Always use the job type below instead of the delegate expression or class name."
                     disabled={configOptions.keepJobTypeBlank}
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
@@ -498,7 +491,7 @@ function App() {
                   />
                   <TextInput
                     id="defaultJobType"
-                    labelText="Default Job Type"
+                    labelText="Default job type"
                     value={configOptions.defaultJobType}
                     disabled={configOptions.keepJobTypeBlank}
                     onChange={(e) =>
@@ -541,11 +534,10 @@ function App() {
             */}
 
             <section>
-              <h3>Your Models</h3>
+              <h3>Converted models</h3>
               <p>
-                Download models converted to Camunda 8 individually or as one Zip
-                file. You can also preview analysis results on BPMN models or view
-                the uploaded forms.
+                Download each converted file or all of them as a ZIP. Preview a
+                file to inspect it first.
               </p>
               {files.map((file, idx) => {
                 const isForm = file.name.toLowerCase().endsWith(".form");
@@ -557,7 +549,7 @@ function App() {
                   isChecked={ fileResults[idx].checkResponseJson != null }
                   isConverted={fileResults[idx].convertedFileBlob != null}
                   previewAction={isForm ? () => previewForm(fileResults[idx]) : () => preview(fileResults[idx])}
-                  previewTitle={isForm ? "Preview this form" : undefined}
+                  previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(fileResults[idx])}
                   error={
                     !fileResults[idx].ok == "error" ? "File upload failure" : ""
@@ -572,14 +564,14 @@ function App() {
                 onClick={downloadZIP}
                 disabled={validFiles.length === 0}
               >
-                Download converted models as ZIP
+                Download all as ZIP
               </Button>
             </section>
             <hr />
 
             <section>
               <h3>Analysis results</h3>
-              <p>Download the  for all successfully converted models:</p>
+              <p>Download the findings for all converted models:</p>
               <div className="download-options">
                 <div className="download-row">
                   <Button
@@ -593,8 +585,7 @@ function App() {
                     Download XLSX
                   </Button>
                   <p>
-                    Microsoft Excel file (XLSX) containing results and prepared
-                    analysis.
+                    Excel workbook with all findings, ready to review and share.
                   </p>
                 </div>
                 <div className="download-row">
@@ -608,10 +599,9 @@ function App() {
                     Download CSV
                   </Button>
                   <p>
-                    Comma Separated Values (CSV) file containing plain results to
-                    import into your favorite tooling.
+                    Plain-text findings to import into other tools.
                   </p>
-                  </div>
+                </div>
                 <div className="download-row">
                   <Button
                     variant="secondary"
@@ -623,27 +613,26 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    JSON file containing plain results in a stable, machine-readable
-                    format — for AI / machine analysis, e.g. as input for the AI
-                    migration skill driving the Camunda 7 to 8 migration.
+                    Machine-readable findings, e.g. as input for AI-assisted
+                    migration tooling.
                   </p>
-                  </div>
+                </div>
                 </div>
               <p>
-                For more information on the analysis results,{" "}
-                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank">
-                  see the documentation
+                Learn more about the findings in the{" "}
+                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank" rel="noopener noreferrer">
+                  documentation
                 </a>
                 .
               </p>
             </section>
             <hr />
 
-            <h3>Next steps for your migration</h3>
+            <h3>Next steps</h3>
             <section>
               <p>
-                Discover next steps for your migration from Camunda 7 to Camunda
-                8 in the migration guide.
+                Continue your Camunda 7 to 8 migration with the step-by-step
+                migration guide.
               </p>
               <Button
                 kind="tertiary"
@@ -651,8 +640,9 @@ function App() {
                 renderIcon={Launch}
                 href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
                 target="_blank"
+                rel="noopener noreferrer"
               >
-                Migration Guide
+                Open migration guide
               </Button>
             </section>
           </>
@@ -663,7 +653,7 @@ function App() {
     <div className="modal">
       <div className="modal-header">
         <div className="left">
-        <h2>{previewType === "form" ? "Form preview" : "Analysis preview"}</h2>
+        <h2>Preview</h2>
         </div>
         <div>
           <Button

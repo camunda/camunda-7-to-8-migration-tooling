@@ -25,7 +25,7 @@ export default function DropZone({
   isConverted,
   downloadAction,
   previewAction,
-  previewTitle = "Preview the analyzer results for this model",
+  previewTitle = "Preview analysis findings",
   onDelete,
 }) {
   return (
@@ -61,8 +61,8 @@ export default function DropZone({
           </button>
         )}
         {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
-        {isConverted && downloadAction && (
-          <button className="download" onClick={downloadAction} title="Download the converted model">
+        {isConverted && downloadAction && !error && (
+          <button className="download" onClick={downloadAction} title="Download converted model" aria-label="Download converted model">
             <Download />
           </button>
         )}
