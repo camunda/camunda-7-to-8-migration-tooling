@@ -93,7 +93,7 @@ export default function FileItem({
         )}
         {status === "uploading" && !isConverted && <Spinner />}
         {isConverted && downloadAction && !error && (
-          <button className="download" onClick={downloadAction} title="Download converted model">
+          <button className="download" onClick={downloadAction} title="Download converted model" aria-label="Download converted model">
             <Download />
           </button>
         )}

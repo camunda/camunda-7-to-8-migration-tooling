@@ -676,8 +676,8 @@ function App() {
             <section>
               <h3>Converted models</h3>
               <p>
-                Download each converted model or all of them as a ZIP. Preview
-                the analysis findings per model before downloading.
+                Download each converted file or all of them as a ZIP. Preview a
+                file to inspect it first.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
