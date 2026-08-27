@@ -691,6 +691,43 @@ public class MessageFactory {
     return INSTANCE.staticMessage("modeler-template-version");
   }
 
+  public static Message formAlreadyCamunda8(String executionPlatform) {
+    return INSTANCE.composeMessage(
+        "form-already-camunda-8",
+        ContextBuilder.builder().entry("executionPlatform", executionPlatform).build());
+  }
+
+  public static Message formSchemaVersionOutdated(
+      String schemaVersion, String latestSchemaVersion) {
+    return INSTANCE.composeMessage(
+        "form-schema-version-outdated",
+        ContextBuilder.builder()
+            .entry("schemaVersion", schemaVersion)
+            .entry("latestSchemaVersion", latestSchemaVersion)
+            .build());
+  }
+
+  public static Message formSchemaVersionMissing(String latestSchemaVersion) {
+    return INSTANCE.composeMessage(
+        "form-schema-version-missing",
+        ContextBuilder.builder().entry("latestSchemaVersion", latestSchemaVersion).build());
+  }
+
+  public static Message formJuelExpression(String expression, String propertyName) {
+    return INSTANCE.composeMessage(
+        "form-juel-expression",
+        ContextBuilder.builder()
+            .entry("expression", expression)
+            .entry("propertyName", propertyName)
+            .build());
+  }
+
+  public static Message formComponentUnknown(String componentType) {
+    return INSTANCE.composeMessage(
+        "form-component-unknown",
+        ContextBuilder.builder().entry("componentType", componentType).build());
+  }
+
   private ComposedMessage composeMessage(String templateName, Map<String, String> context) {
     ComposedMessage message = new ComposedMessage();
     MessageTemplate template = messageTemplateProvider.getMessageTemplate(templateName);
