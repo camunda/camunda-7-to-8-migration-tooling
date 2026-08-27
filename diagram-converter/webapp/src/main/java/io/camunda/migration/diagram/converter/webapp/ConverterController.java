@@ -342,7 +342,11 @@ public class ConverterController {
                 attachmentDisposition(convertedFileName(diagramFile.getOriginalFilename())))
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .body(file);
-      } catch (IOException | IllegalArgumentException e) {
+      } catch (IllegalArgumentException e) {
+        // client error (invalid JSON or platform version) - no stack trace noise
+        return ResponseEntity.badRequest().body(e.getMessage());
+      } catch (IOException e) {
+        LOG.error("IO Error while reading form file", e);
         return ResponseEntity.badRequest().body(e.getMessage());
       } catch (Exception e) {
         LOG.error("Error while converting form file", e);
