@@ -159,6 +159,10 @@ function App() {
               }
             });
 
+          }).catch((error) => {
+            if (isActive) {
+              console.error("Unable to render BPMN preview:", error);
+            }
           });
 
           return () => {

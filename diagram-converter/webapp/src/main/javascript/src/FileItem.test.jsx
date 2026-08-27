@@ -32,7 +32,7 @@ describe("FileItem", () => {
       />
     );
 
-    fireEvent.click(screen.getByTitle("Preview this form"));
+    fireEvent.click(screen.getByRole("button", { name: "Preview this form" }));
 
     expect(previewAction).toHaveBeenCalledOnce();
   });

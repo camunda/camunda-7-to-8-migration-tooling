@@ -82,7 +82,12 @@ export default function FileItem({
         )}
         {status === "uploading" && !isChecked && <Spinner />}
         {isChecked && previewAction && (
-          <button className="download" onClick={previewAction} title={previewTitle}>
+          <button
+            className="download"
+            onClick={previewAction}
+            title={previewTitle}
+            aria-label={previewTitle}
+          >
             <Eye />
           </button>
         )}
