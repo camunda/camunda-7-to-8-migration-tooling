@@ -313,8 +313,8 @@ function App() {
     switch (errorBody.errorCode) {
       case "FILE_COUNT_LIMIT_EXCEEDED":
         return <>
-          Too many files. The online version accepts up to {errorBody.maxPartCount} files at once.
-          {" "}To convert more files,{" "}
+          Too many files at once. Remove some files and try again.
+          {" "}To convert larger sets,{" "}
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
             target="_blank" rel="noopener noreferrer">run the diagram converter locally</a>.
         </>;
@@ -470,7 +470,7 @@ function App() {
   return (
     <div className="container">
       <div className="whiteBox hero">
-        <h2>Migration Analyzer &amp; Diagram Converter</h2>
+        <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
         <p>
           Convert your BPMN and DMN models to Camunda 8 and see what needs attention.
         </p>
@@ -793,7 +793,7 @@ function App() {
                 </div>
               <p>
                 Learn more about the findings in the{" "}
-                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank">
+                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank" rel="noopener noreferrer">
                   documentation
                 </a>
                 .
