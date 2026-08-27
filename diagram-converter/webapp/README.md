@@ -17,7 +17,7 @@ read-only rendered preview from the results list.
     - `platformVersion` (`String`): version of the target platform _(optional)_
     - `adapterEnabled` (`Boolean`): whether the adapter job type should be set in the converted diagram _(default: `true`)_
   - Headers
-    - `Accept`: Either `application/json`, `text/csv` or `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+    - `Accept`: Either `application/json`, `application/vnd.camunda.analysis+json`, `text/csv` or `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - Response:
   - `200`: Everything fine. The body contains a
     [check results](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/DiagramCheckResult.java),
