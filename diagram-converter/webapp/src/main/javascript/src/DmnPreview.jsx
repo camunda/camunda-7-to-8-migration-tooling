@@ -6,38 +6,41 @@
  * except in compliance with the Camunda License 1.0.
  */
 import { useEffect, useRef } from "react";
-import { Form } from "@bpmn-io/form-js-viewer";
+import DmnJS from "dmn-js";
 
-export default function FormPreview({ schema, onError }) {
+export default function DmnPreview({ xml, onError }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!schema || !containerRef.current) {
+    if (!xml || !containerRef.current) {
       return;
     }
 
-    const form = new Form({ container: containerRef.current });
+    const viewer = new DmnJS({ container: containerRef.current });
     let isActive = true;
 
-    form
-      .importSchema(schema)
+    viewer
+      .importXML(xml)
       .then(() => {
-        if (isActive) {
-          form.setProperty("readOnly", true);
+        if (!isActive) {
+          return;
         }
+
+        const canvas = viewer.getActiveViewer?.()?.get?.("canvas");
+        canvas?.zoom?.("fit-viewport");
       })
       .catch((error) => {
         if (isActive) {
           const message = error instanceof Error ? error.message : "Unknown rendering error";
-          onError(`The form could not be displayed: ${message}`);
+          onError(`Unable to render this DMN model: ${message}`);
         }
       });
 
     return () => {
       isActive = false;
-      form.destroy();
+      viewer.destroy();
     };
-  }, [schema, onError]);
+  }, [xml, onError]);
 
-  return <div ref={containerRef} className="form-preview-container" />;
+  return <div ref={containerRef} className="diagram-container dmn-preview-container" />;
 }

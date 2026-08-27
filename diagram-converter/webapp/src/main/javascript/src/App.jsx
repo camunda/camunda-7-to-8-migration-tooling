@@ -29,8 +29,10 @@ import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import { FINDINGS_TABLE_HEADER, buildFindingsRows } from "./findings";
 import BpmnJS from 'bpmn-js';
+import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
+import { getPreviewType } from "./modelType";
 
 // Target Camunda 8 versions offered in the UI. This is a curated subset of the
 // versions the backend understands (SemanticVersion.java); we only surface the
@@ -76,7 +78,14 @@ function FindingsSection({ header, rows }) {
                   <TableCell key={`${row.id}-${h.key}`}>
                     {h.key === 'link'
                       ? value
-                        ? <a href={value} target="_blank" rel="noopener noreferrer">Link</a>
+                        ? <a
+                            href={value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Open finding documentation: ${value}`}
+                          >
+                            Open
+                          </a>
                         : '-'
                       : value}
                   </TableCell>
@@ -99,10 +108,11 @@ function App() {
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
-  const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
   const [previewFormError, setPreviewFormError] = useState("");
   const [previewDiagramError, setPreviewDiagramError] = useState(false);
+  const [previewDmnError, setPreviewDmnError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -183,11 +193,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
+      if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewModelXml) return;
 
       const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
       let isActive = true;
-      viewer.importXML(previewbpmnXml).then(() => {
+      viewer.importXML(previewModelXml).then(() => {
         if (!isActive) return;
 
         const canvas = viewer.get('canvas');
@@ -200,12 +210,12 @@ function App() {
 
         elementsWithMessages.forEach((el) => {
           if (el.elementId) {
-              const severity = getMostSevere(el.messages);
-              if (severity) {
-                // Mark with the same color every time for the moment
-                //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-                canvas.addMarker(el.elementId, `highlight-info`);
-              }
+            const severity = getMostSevere(el.messages);
+            if (severity) {
+              // Mark with the same color every time for the moment
+              //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
+              canvas.addMarker(el.elementId, `highlight-info`);
+            }
           }
         });
 
@@ -220,7 +230,7 @@ function App() {
         isActive = false;
         viewer.destroy();
       };
-    }, [isPreviewOpen, previewType, previewDiagramError, previewbpmnXml, previewCheckJson]);
+    }, [isPreviewOpen, previewType, previewDiagramError, previewModelXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -363,10 +373,10 @@ function App() {
     switch (errorBody.errorCode) {
       case "FILE_COUNT_LIMIT_EXCEEDED":
         return <>
-          Too many files uploaded. The online version supports up to {errorBody.maxPartCount} parts per request.
-          {" "}To learn how to run the diagram converter locally with a custom limit, consult the{" "}
+          Too many files at once. Remove some files and try again.
+          {" "}To convert larger sets,{" "}
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
-            target="_blank" rel="noopener noreferrer">diagram converter guide</a>.
+            target="_blank" rel="noopener noreferrer">run the diagram converter locally</a>.
         </>;
       default:
         return "Download failed. Please try again.";
@@ -401,7 +411,7 @@ function App() {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       }),
-      "Downloading XLSX failed"
+      "XLSX download failed"
     );
   }
   async function downloadCSV() {
@@ -414,7 +424,7 @@ function App() {
           Accept: "text/csv",
         },
       }),
-      "Downloading CSV failed"
+      "CSV download failed"
     );
   }
   async function downloadJSON() {
@@ -427,7 +437,7 @@ function App() {
           Accept: "application/vnd.camunda.analysis+json",
         },
       }),
-      "Downloading JSON failed"
+      "JSON download failed"
     );
   }
   async function downloadZIP() {
@@ -437,29 +447,23 @@ function App() {
         body: formData,
         method: "POST",
       }),
-      "Downloading ZIP failed"
+      "ZIP download failed"
     );
   }
 
-  async function preview(response) {
+  async function preview(response, modelType) {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
     setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
 
     setPreviewCheckJson(response.checkResponseJson);
-    setPreviewbpmnXml(response.originalModelXml);
+    setPreviewModelXml(response.originalModelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDiagramError(false);
-    // BPMN is detected by content, not extension: the dropzone also accepts
-    // .xml files, which can be BPMN (or DMN) models.
-    setPreviewType(
-      typeof response.originalModelXml === "string" &&
-      response.originalModelXml.includes("omg.org/spec/BPMN")
-        ? "bpmn"
-        : "other"
-    );
+    setPreviewDmnError("");
+    setPreviewType(modelType);
 
     setIsPreviewOpen(true);
   }
@@ -467,11 +471,12 @@ function App() {
   function openFormPreview(schema, errorMessage = "") {
     setPreviewFormSchema(schema);
     setPreviewFormError(errorMessage);
-    setPreviewbpmnXml("");
+    setPreviewModelXml("");
     setPreviewCheckJson([]);
     setPreviewTableHeader([]);
     setPreviewTableRows([]);
     setPreviewDiagramError(false);
+    setPreviewDmnError("");
     setPreviewType("form");
     setIsPreviewOpen(true);
   }
@@ -514,12 +519,12 @@ function App() {
       <div className="whiteBox hero">
         <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
         <p>
-          Convert your BPMN and DMN models to Camunda 8 — then identify gaps and assess migration effort.
+          Convert BPMN, DMN, and Camunda Form files to Camunda 8 and see what needs attention.
         </p>
         <div className="heroMeta">
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
             rel="noopener noreferrer" target="_blank">
-            Diagram Converter Guide
+            Documentation
           </a>
           <a href="https://github.com/camunda/camunda-7-to-8-migration-tooling/releases"
             rel="noopener noreferrer" target="_blank">
@@ -527,13 +532,13 @@ function App() {
           </a>
           <a href="https://legal.camunda.com/licensing-and-other-legal-terms#trial-and-free"
             rel="noopener noreferrer" target="_blank">
-            Legal terms &amp; data privacy
+            Legal &amp; privacy
           </a>
         </div>
       </div>
       <div className="whiteBox centered">
         <div className="progressindicators">
-          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Migration analysis and conversion steps">
+          <Stepper currentStep={step === 0 ? 0 : 1} aria-label="Conversion steps">
             <StepperStep>Configure</StepperStep>
             <StepperStep>Results</StepperStep>
           </Stepper>
@@ -545,9 +550,9 @@ function App() {
             <section className="flowStep">
               <div className="flowStepHeader">
                 <span className="flowStepNumber">1</span>
-                <h4>Add your files</h4>
+                <h4>Add files</h4>
               </div>
-              <p>Upload one or more BPMN and DMN models to analyze and convert, or Camunda Forms (.form files) to convert.</p>
+              <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert.</p>
               <div className="fileUploadBox">
                 <DropZone
                   onFiles={(files) => {
@@ -574,7 +579,7 @@ function App() {
                 <span className="flowStepNumber">2</span>
                 <h4>Configure conversion</h4>
               </div>
-              <p>Choose your target Camunda 8 version. Defaults to the latest stable (8.9).</p>
+              <p>Choose the Camunda 8 version to convert to.</p>
               <div
                 ref={versionSegmentedRef}
                 className="versionSegmented"
@@ -603,7 +608,7 @@ function App() {
                 ))}
               </div>
 
-              <form className="configBox" style={{ marginTop: "1.5rem" }}>
+              <form className="configBox" style={{ marginTop: "1.5rem" }} onSubmit={(e) => e.preventDefault()}>
                 <button
                   type="button"
                   className="configToggle"
@@ -619,7 +624,7 @@ function App() {
               {showConfig && (
                   <fieldset className="flex flex-col gap-2 rounded-md border bg-background p-4">
                     <legend className="px-1 text-sm font-medium text-foreground">
-                      Advanced configuration options
+                      Advanced options
                     </legend>
                     <label className="flex items-center gap-2">
                       <Checkbox
@@ -632,11 +637,11 @@ function App() {
                           }))
                         }
                       />
-                      <span>Add Data Migration Execution Listener</span>
+                      <span>Add data migration execution listener</span>
                     </label>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="dataMigrationExecutionListenerJobType" className="text-sm font-medium">
-                        Execution Listener Job Type
+                        Execution listener job type
                       </label>
                       <Input
                         id="dataMigrationExecutionListenerJobType"
@@ -677,11 +682,11 @@ function App() {
                           }))
                         }
                       />
-                      <span>Enable default job type</span>
+                      <span>Always use default job type</span>
                     </label>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="defaultJobType" className="text-sm font-medium">
-                        Default Job Type
+                        Default job type
                       </label>
                       <Input
                         id="defaultJobType"
@@ -716,11 +721,12 @@ function App() {
         {step === 2 && (
           <>
             <section>
-              <h3>Your Files</h3>
+              <h3>Converted files</h3>
               <p>
-                Download files converted to Camunda 8 individually or as one Zip
-                file. Use the eye icon to preview the analysis findings per file —
-                BPMN files also render the diagram, forms a form preview.
+                Download files converted to Camunda 8 individually or as one ZIP
+                file. Use the eye icon to preview analysis findings for each file;
+                BPMN and DMN files also render a diagram, and forms show a form
+                preview.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
@@ -738,7 +744,8 @@ function App() {
               )}
               {files.map((file, idx) => {
                 const r = fileResults[idx];
-                const isForm = file.name.toLowerCase().endsWith(".form");
+                const modelType = getPreviewType(file.name);
+                const isForm = modelType === "form";
                 const fileFindingCount = r.checkResponseJson
                   ? r.checkResponseJson
                       .flatMap(item => item.results || [])
@@ -751,8 +758,8 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(r) : () => preview(r)}
-                  previewTitle={isForm ? "Preview this form" : undefined}
+                  previewAction={isForm ? () => previewForm(r) : () => preview(r, modelType)}
+                  previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={
@@ -780,7 +787,7 @@ function App() {
                 disabled={validFiles.length === 0}
               >
                 <Download />
-                Download converted files as ZIP
+                Download all converted files as ZIP
               </Button>
             </section>
             <hr />
@@ -801,8 +808,7 @@ function App() {
                     Download XLSX
                   </Button>
                   <p>
-                    Microsoft Excel file (XLSX) containing results and prepared
-                    analysis.
+                    Excel workbook with all findings, ready to review and share.
                   </p>
                 </div>
                 <div className="download-row">
@@ -816,10 +822,9 @@ function App() {
                     Download CSV
                   </Button>
                   <p>
-                    Comma Separated Values (CSV) file containing plain results to
-                    import into your favorite tooling.
+                    Plain-text findings to import into other tools.
                   </p>
-                  </div>
+                </div>
                 <div className="download-row">
                   <Button
                     variant="secondary"
@@ -831,27 +836,26 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    JSON file containing plain results in a stable, machine-readable
-                    format — for AI / machine analysis, e.g. as input for the AI
-                    migration skill driving the Camunda 7 to 8 migration.
+                    Machine-readable findings, e.g. as input for AI-assisted
+                    migration tooling.
                   </p>
-                  </div>
                 </div>
+              </div>
               <p>
-                For more information on the analysis results,{" "}
-                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank">
-                  see the documentation
+                Learn more about the findings in the{" "}
+                <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/#migration-analyzer" target="_blank" rel="noopener noreferrer">
+                  documentation
                 </a>
                 .
               </p>
             </section>
             <hr />
 
-            <h3>Next steps for your migration</h3>
+            <h3>Next steps</h3>
             <section>
               <p>
-                Discover next steps for your migration from Camunda 7 to Camunda
-                8 in the migration guide.
+                Continue your Camunda 7 to 8 migration with the step-by-step
+                migration guide.
               </p>
               <Button
                 variant="secondary"
@@ -861,7 +865,7 @@ function App() {
                 rel="noopener noreferrer"
               >
                 <ExternalLink />
-                Migration Guide
+                Open migration guide
               </Button>
             </section>
           </>
@@ -872,7 +876,7 @@ function App() {
     <div className="modal">
       <div className="modal-header">
         <div className="left">
-        <h2>{previewType === "form" ? "Form preview" : "Analysis preview"}</h2>
+        <h2>Preview</h2>
         </div>
         <div>
           <Button
@@ -886,16 +890,27 @@ function App() {
         </div>
       </div>
 
-      {(previewType === "bpmn" || previewType === "other") && (
+      {(previewType === "bpmn" || previewType === "dmn" || previewType === "other") && (
         <>
           {previewType === "bpmn" && !previewDiagramError && (
             <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
           )}
-          {(previewType === "other" || previewDiagramError) && (
+          {previewType === "dmn" && (
+            previewDmnError ? (
+              <Alert
+                variant="destructive"
+                title="DMN preview unavailable"
+                description={previewDmnError}
+              />
+            ) : (
+              <DmnPreview xml={previewModelXml} onError={setPreviewDmnError} />
+            )
+          )}
+          {(previewType === "other" || (previewType === "bpmn" && previewDiagramError)) && (
             <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
               {previewDiagramError
                 ? 'The diagram could not be rendered. The findings for this file are listed below.'
-                : 'Diagram preview is only available for BPMN models. The findings for this file are listed below.'}
+                : 'Diagram preview is only available for BPMN or DMN files. The findings for this file are listed below.'}
             </p>
           )}
           <FindingsSection header={previewTableHeader} rows={previewTableRows} />
