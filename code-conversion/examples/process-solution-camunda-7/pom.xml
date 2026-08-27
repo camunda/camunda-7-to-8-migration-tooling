@@ -16,7 +16,7 @@
   <description>Example Camunda 7 process solution used as input for OpenRewrite code conversion recipes.</description>
 
   <properties>
-    <maven.compiler.release>21</maven.compiler.release>
+    <maven.compiler.release>${version.java}</maven.compiler.release>
   </properties>
 
   <dependencies>

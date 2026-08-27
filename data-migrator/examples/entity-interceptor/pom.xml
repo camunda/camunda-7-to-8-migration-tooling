@@ -16,7 +16,7 @@
     <description>Example entity interceptor for Camunda 7 to 8 Migration Tooling - Data</description>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>${version.java}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
