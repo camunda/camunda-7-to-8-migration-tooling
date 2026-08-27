@@ -23,7 +23,7 @@ import java.io.IOException;
  * conversion is a metadata-only update of the two platform fields on the root object: {@code
  * executionPlatform} is set to {@value #TARGET_EXECUTION_PLATFORM} and {@code
  * executionPlatformVersion} to the target platform version. All other properties (components,
- * layout, validation, ids, ...) are left untouched.
+ * layout, validation, ids, ...) are semantically unchanged; the JSON may be re-formatted.
  */
 public class FormConverter {
 
@@ -48,7 +48,8 @@ public class FormConverter {
    * @param formContent the content of a Camunda 7 form file
    * @param properties the converter properties, providing the target platform version
    * @return the converted form JSON with updated platform metadata
-   * @throws IllegalArgumentException if the content is not a JSON object
+   * @throws IllegalArgumentException if the content is not valid JSON or not a JSON object, or the
+   *     platform version is missing or invalid
    */
   public static String convert(String formContent, ConverterProperties properties) {
     String targetVersion = resolveTargetVersion(properties);

@@ -28,4 +28,4 @@ java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.j
 
 Diagrams must have the `.bpmn`, `.bpmn20.xml`, `.dmn`, or `.dmn11.xml` file ending to be processed.
 
-Camunda 7 form files (`.form`) are converted as well: they are JSON documents, so the converter only updates the platform metadata (`executionPlatform` becomes `Camunda Cloud`, `executionPlatformVersion` becomes the target platform version) and leaves all other content untouched. Form files are skipped in `--check` mode.
+Camunda 7 form files (`.form`) are converted as well: they are JSON documents, so the converter only updates the platform metadata (`executionPlatform` becomes `Camunda Cloud`, `executionPlatformVersion` becomes the target platform version). All other fields and values are preserved semantically; the JSON may be re-formatted. Form files are skipped in `--check` mode.
