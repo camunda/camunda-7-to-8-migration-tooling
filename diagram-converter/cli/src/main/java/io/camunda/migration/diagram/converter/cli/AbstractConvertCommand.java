@@ -15,6 +15,7 @@ import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -137,7 +138,45 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     Map<File, ModelInstance> modelInstances = modelInstances();
     List<DiagramCheckResult> results = checkModels(modelInstances);
     writeResults(modelInstances, results);
+    convertFormFiles(formFiles());
     return returnCode;
+  }
+
+  protected List<File> formFiles() {
+    return List.of();
+  }
+
+  private void convertFormFiles(List<File> formFileList) {
+    if (check || formFileList.isEmpty()) {
+      return;
+    }
+    if (!createTargetDirectory()) {
+      return;
+    }
+    for (File formFile : formFileList) {
+      File outFile = prefixFileName(formFile);
+      if (!override && outFile.exists()) {
+        LOG_CLI.error("File already exists: {}", outFile);
+        returnCode = 1;
+        continue;
+      }
+      try {
+        String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
+        String converted =
+            FormConverter.convert(
+                content, ConverterPropertiesFactory.getInstance().merge(converterProperties()));
+        // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
+        // -Dfile.encoding override can't corrupt the converted form
+        Files.writeString(outFile.toPath(), converted, StandardCharsets.UTF_8);
+        LOG_CLI.info("Created {}", outFile);
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error(
+            "Error while converting form file {}: {}",
+            formFile.getAbsolutePath(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
   }
 
   private void writeResults(
