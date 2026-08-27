@@ -472,7 +472,7 @@ function App() {
       <div className="whiteBox hero">
         <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
         <p>
-          Convert your BPMN and DMN models to Camunda 8 and see what needs attention.
+          Convert BPMN, DMN, and Camunda Form files to Camunda 8 and see what needs attention.
         </p>
         <div className="heroMeta">
           <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/"
