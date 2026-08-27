@@ -112,7 +112,7 @@ public class FormChecker {
     Map<String, ElementCheckResult> elementResults = new LinkedHashMap<>();
     checkFileLevel(filename, form, elementResults);
     checkComponents(form.path(COMPONENTS_FIELD), COMPONENTS_FIELD, elementResults);
-    result.setResults(new ArrayList<>(elementResults.values()));
+    result.getResults().addAll(elementResults.values());
     return result;
   }
 
