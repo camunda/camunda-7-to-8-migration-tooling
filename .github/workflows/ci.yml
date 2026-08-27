@@ -301,7 +301,8 @@ jobs:
   code-conversion-windows:
     needs: [detect-changes]
     runs-on: windows-latest
-    timeout-minutes: 30
+    # Gradle Tooling API dependency resolution can exceed 30 minutes on cold Windows runners.
+    timeout-minutes: 45
     permissions:
       contents: read
     if: |
