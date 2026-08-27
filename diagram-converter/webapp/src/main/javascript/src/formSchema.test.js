@@ -23,17 +23,17 @@ describe("parseFormSchema", () => {
     (content) => {
       expect(parseFormSchema(content)).toEqual({
         schema: null,
-        error: "Unable to render this form because its content is unavailable.",
+        error: "The form content is unavailable.",
       });
     }
   );
 
   it.each([
-    ["{ invalid", "Unable to render this form because its content is not valid JSON."],
-    ["[]", "Unable to render this form because its content is not a JSON object."],
-    [0, "Unable to render this form because its content is not a JSON object."],
-    [false, "Unable to render this form because its content is not a JSON object."],
-    ["0", "Unable to render this form because its content is not a JSON object."],
+    ["{ invalid", "The form content is not valid JSON."],
+    ["[]", "The form content is not a JSON object."],
+    [0, "The form content is not a JSON object."],
+    [false, "The form content is not a JSON object."],
+    ["0", "The form content is not a JSON object."],
   ])("reports invalid content", (content, error) => {
     expect(parseFormSchema(content)).toEqual({ schema: null, error });
   });

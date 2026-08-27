@@ -93,7 +93,7 @@ describe("FormPreview", () => {
 
     await waitFor(() =>
       expect(onError).toHaveBeenCalledWith(
-        "Unable to render this form: unsupported component"
+        "The form could not be displayed: unsupported component"
       )
     );
   });

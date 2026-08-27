@@ -33,13 +33,29 @@ export default function DropZone({ onFiles }) {
   return (
     <div
       className="DropZone"
+      role="button"
+      tabIndex={0}
       onDragOver={(evt) => evt.preventDefault()}
       onDrop={processFile}
       onClick={selectFileToUpload}
+      onKeyDown={(evt) => {
+        if (evt.key === "Enter") {
+          evt.preventDefault();
+          selectFileToUpload();
+        } else if (evt.key === " ") {
+          // Prevent page scroll; activate on keyup like a native button
+          evt.preventDefault();
+        }
+      }}
+      onKeyUp={(evt) => {
+        if (evt.key === " ") {
+          selectFileToUpload();
+        }
+      }}
     >
-      <img src={InboxIcon} />
-      <h2>Click or drag file to this area to upload</h2>
-      <p>Upload .xml .bpmn .dmn and .form files. </p>
+      <img src={InboxIcon} alt="" />
+      <h2>Click or drag files here to upload</h2>
+      <p>Supports .bpmn, .dmn, .form, and .xml files.</p>
     </div>
   );
 }
