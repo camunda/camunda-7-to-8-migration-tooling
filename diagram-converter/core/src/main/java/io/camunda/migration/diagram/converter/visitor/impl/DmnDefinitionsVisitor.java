@@ -29,10 +29,6 @@ public class DmnDefinitionsVisitor extends AbstractDmnElementVisitor {
     SemanticVersion desiredVersion =
         SemanticVersion.parse(context.getProperties().getPlatformVersion());
     DomElement element = context.getElement();
-    String executionPlatform = element.getAttribute(NamespaceUri.MODELER, VERSION_HEADER);
-    if (executionPlatform != null && executionPlatform.startsWith("8")) {
-      throw new RuntimeException("This diagram is already a Camunda 8 diagram");
-    }
     element.registerNamespace(MODELER_NAMESPACE_NAME, NamespaceUri.MODELER);
     element.registerNamespace(ZEEBE_NAMESPACE_NAME, NamespaceUri.ZEEBE);
     element.registerNamespace(CONVERSION_NAMESPACE_NAME, CONVERSION);

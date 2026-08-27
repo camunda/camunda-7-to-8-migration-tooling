@@ -16,6 +16,7 @@ import io.camunda.migration.diagram.converter.DiagramType;
 import io.camunda.migration.diagram.converter.FormChecker;
 import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
+import io.camunda.migration.diagram.converter.exception.DiagramAlreadyConvertedException;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -384,6 +385,8 @@ public class ConverterController {
           .body(file);
     } catch (IOException e) {
       return ResponseEntity.badRequest().body(e.getMessage());
+    } catch (DiagramAlreadyConvertedException e) {
+      throw e;
     } catch (Exception e) {
       LOG.error("Error while converting resources", e);
       return ResponseEntity.internalServerError().body(e.getMessage());
