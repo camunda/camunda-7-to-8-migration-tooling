@@ -33,9 +33,17 @@ export default function DropZone({ onFiles }) {
   return (
     <div
       className="DropZone"
+      role="button"
+      tabIndex={0}
       onDragOver={(evt) => evt.preventDefault()}
       onDrop={processFile}
       onClick={selectFileToUpload}
+      onKeyDown={(evt) => {
+        if (evt.key === "Enter" || evt.key === " ") {
+          evt.preventDefault();
+          selectFileToUpload();
+        }
+      }}
     >
       <img src={InboxIcon} alt="" />
       <h2>Click or drag files here to upload</h2>
