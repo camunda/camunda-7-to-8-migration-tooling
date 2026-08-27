@@ -14,12 +14,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -168,6 +171,170 @@ public class ConvertLocalCommandTest {
             command.createMessage(
                 new RuntimeException("outer", new IllegalArgumentException((String) null))))
         .isEqualTo("outer,\ncaused by: " + IllegalArgumentException.class.getName());
+  }
+
+  @Test
+  void shouldConvertFormFileInDirectory(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(2)
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    JsonNode source = objectMapper.readTree(new File(tempDir, "simple.form"));
+    JsonNode converted = objectMapper.readTree(new File(tempDir, "converted-c8-simple.form"));
+    assertThat(converted.get("executionPlatform").asText()).isEqualTo("Camunda Cloud");
+    assertThat(converted.get("executionPlatformVersion").asText()).isEqualTo("8.8.0");
+    ((ObjectNode) source).remove(List.of("executionPlatform", "executionPlatformVersion"));
+    ((ObjectNode) converted).remove(List.of("executionPlatform", "executionPlatformVersion"));
+    assertThat(converted)
+        .as("Only the platform metadata may change during form conversion")
+        .isEqualTo(source);
+  }
+
+  @Test
+  void shouldConvertSingleFormFile(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = new File(tempDir, "simple.form");
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(2)
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+    assertThat(Files.readString(new File(tempDir, "converted-c8-simple.form").toPath()))
+        .contains("\"Camunda Cloud\"")
+        .contains("\"8.8.0\"");
+  }
+
+  @Test
+  void shouldConvertMixedFilesIncludingForm(@TempDir File tempDir) {
+    setupDir("c7.bpmn", tempDir);
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(4)
+        .anyMatch(file -> file.getName().equals("c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("converted-c8-c7.bpmn"))
+        .anyMatch(file -> file.getName().equals("simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
+  }
+
+  @Test
+  void shouldConvertMultipleFormFiles(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    Files.copy(
+        new File(tempDir, "simple.form").toPath(),
+        new File(tempDir, "another.form").toPath(),
+        REPLACE_EXISTING);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(4)
+        .anyMatch(file -> file.getName().equals("converted-c8-simple.form"))
+        .anyMatch(file -> file.getName().equals("converted-c8-another.form"));
+  }
+
+  @Test
+  void shouldSkipFormFileConversionInCheckMode(@TempDir File tempDir) {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.check = true;
+    Integer call = command.call();
+    assertEquals(0, call);
+    assertThat(tempDir.listFiles())
+        .hasSize(1)
+        .anyMatch(file -> file.getName().equals("simple.form"));
+  }
+
+  @Test
+  void shouldProcessNestedFormFilesByDefault(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    File nestedDir = new File(tempDir, "nested");
+    assertThat(nestedDir.mkdirs()).isTrue();
+    Files.copy(
+        new File(tempDir, "simple.form").toPath(),
+        new File(nestedDir, "nested.form").toPath(),
+        REPLACE_EXISTING);
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+
+    Integer call = command.call();
+
+    assertEquals(0, call);
+    assertThat(new File(tempDir, "converted-c8-simple.form")).exists();
+    assertThat(new File(nestedDir, "converted-c8-nested.form")).exists();
+  }
+
+  @Test
+  void shouldSkipNestedFormFilesWhenNotRecursive(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    File nestedDir = new File(tempDir, "nested");
+    assertThat(nestedDir.mkdirs()).isTrue();
+    Files.copy(
+        new File(tempDir, "simple.form").toPath(),
+        new File(nestedDir, "nested.form").toPath(),
+        REPLACE_EXISTING);
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.notRecursive = true;
+
+    Integer call = command.call();
+
+    assertEquals(0, call);
+    assertThat(new File(tempDir, "converted-c8-simple.form")).exists();
+    assertThat(new File(nestedDir, "converted-c8-nested.form")).doesNotExist();
+  }
+
+  @Test
+  void shouldNotOverwriteExistingConvertedFormWithoutOverride(@TempDir File tempDir)
+      throws IOException {
+    setupDir("simple.form", tempDir);
+    File input = new File(tempDir, "simple.form");
+    File output = new File(tempDir, "converted-c8-simple.form");
+
+    ConvertLocalCommand firstCommand = new ConvertLocalCommand();
+    firstCommand.file = input;
+    assertThat(firstCommand.call()).isZero();
+
+    Files.writeString(output.toPath(), "existing output");
+
+    ConvertLocalCommand secondCommand = new ConvertLocalCommand();
+    secondCommand.file = input;
+    assertThat(secondCommand.call()).isEqualTo(1);
+    assertThat(Files.readString(output.toPath())).isEqualTo("existing output");
+
+    ConvertLocalCommand overrideCommand = new ConvertLocalCommand();
+    overrideCommand.file = input;
+    overrideCommand.override = true;
+    assertThat(overrideCommand.call()).isZero();
+    assertThat(Files.readString(output.toPath())).isNotEqualTo("existing output");
+  }
+
+  @Test
+  void shouldReturnErrorCodeForInvalidFormJson(@TempDir File tempDir) throws IOException {
+    File invalidForm = new File(tempDir, "invalid.form");
+    Files.writeString(invalidForm.toPath(), "this is not json");
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = invalidForm;
+
+    assertThat(command.call()).isEqualTo(1);
+    assertThat(new File(tempDir, "converted-c8-invalid.form")).doesNotExist();
   }
 
   @Test

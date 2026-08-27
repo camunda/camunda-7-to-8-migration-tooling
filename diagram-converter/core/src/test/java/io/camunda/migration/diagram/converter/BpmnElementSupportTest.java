@@ -152,7 +152,7 @@ public class BpmnElementSupportTest {
 
   @TestFactory
   Stream<DynamicTest> testConditionalEvents() {
-    DiagramCheckResult result = loadAndCheck("conditional-events.bpmn");
+    DiagramCheckResult result = loadAndCheckAgainstVersion("conditional-events.bpmn", "8.9");
     return eventTypeTest(
         "Conditional",
         isSupported(result, "ConditionalStartStartEvent"),
