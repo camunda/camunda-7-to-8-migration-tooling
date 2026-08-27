@@ -52,6 +52,7 @@ function App() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
   const [previewIsBpmn, setPreviewIsBpmn] = useState(false);
+  const [previewDiagramError, setPreviewDiagramError] = useState(false);
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -156,6 +157,7 @@ function App() {
 
       }).catch((err) => {
         console.error('Failed to render BPMN preview', err);
+        setPreviewDiagramError(true);
       });
 
       return () => viewer.destroy();
@@ -380,7 +382,7 @@ function App() {
     );
   }
 
-  async function preview(response, file) {
+  async function preview(response) {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader([
@@ -411,7 +413,13 @@ function App() {
 
     setPreviewCheckJson(response.checkResponseJson);
     setPreviewbpmnXml(response.originalModelXml);
-    setPreviewIsBpmn(!!file?.name?.endsWith(".bpmn"));
+    // BPMN is detected by content, not extension: the dropzone also accepts
+    // .xml files, which can be BPMN (or DMN) models.
+    setPreviewIsBpmn(
+      typeof response.originalModelXml === "string" &&
+      response.originalModelXml.includes("omg.org/spec/BPMN")
+    );
+    setPreviewDiagramError(false);
 
     setIsPreviewOpen(true);
   }
@@ -681,7 +689,7 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={() => preview(r, file)}
+                  previewAction={() => preview(r)}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
                   error={
@@ -815,10 +823,12 @@ function App() {
         </div>
       </div>
 
-      {previewIsBpmn && <div id="bpmnDiagram" className="diagram-container"></div>}
-      {!previewIsBpmn && (
+      {previewIsBpmn && !previewDiagramError && <div id="bpmnDiagram" className="diagram-container"></div>}
+      {(!previewIsBpmn || previewDiagramError) && (
         <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>
-          Diagram preview is only available for BPMN models. The findings for this file are listed below.
+          {previewDiagramError
+            ? 'The diagram could not be rendered. The findings for this file are listed below.'
+            : 'Diagram preview is only available for BPMN models. The findings for this file are listed below.'}
         </p>
       )}
       {previewTableRows.length === 0 && (
