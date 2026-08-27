@@ -31,6 +31,7 @@ const processesLink = (page: Page) => page.locator('a[href="#/processes"]:visibl
 async function openProcessesPage(page: Page) {
   await page.goto('/camunda/app/cockpit/default/#/processes', {
     waitUntil: 'domcontentloaded',
+    timeout: 15000,
   });
   await page.waitForURL(/#\/processes/, { timeout: 15000 });
 }
