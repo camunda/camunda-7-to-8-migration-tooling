@@ -260,6 +260,47 @@ public class ConvertLocalCommandTest {
   }
 
   @Test
+  void shouldIncludeFormFindingsInCsvReport(@TempDir File tempDir) throws IOException {
+    setupDir("simple.form", tempDir);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.check = true;
+    command.csv = true;
+    Integer call = command.call();
+    assertEquals(0, call);
+    File csvFile = new File(tempDir, "analysis-results.csv");
+    assertThat(csvFile).exists();
+    String csv = Files.readString(csvFile.toPath());
+    assertThat(csv).contains("simple.form").contains("form-schema-version-outdated");
+  }
+
+  @Test
+  void shouldIncludeFormFindingsInJsonReportForMultipleForms(@TempDir File tempDir)
+      throws IOException {
+    setupDir("simple.form", tempDir);
+    File nestedDir = new File(tempDir, "nested");
+    assertThat(nestedDir.mkdirs()).isTrue();
+    Files.copy(
+        new File(tempDir, "simple.form").toPath(),
+        new File(nestedDir, "nested.form").toPath(),
+        REPLACE_EXISTING);
+
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = tempDir;
+    command.check = true;
+    command.json = true;
+    Integer call = command.call();
+    assertEquals(0, call);
+    File jsonFile = new File(tempDir, "analysis-results.json");
+    assertThat(jsonFile).exists();
+    String json = Files.readString(jsonFile.toPath());
+    assertThat(json)
+        .contains("simple.form")
+        .contains("nested.form")
+        .contains("form-schema-version-outdated");
+  }
+
+  @Test
   void shouldProcessNestedFormFilesByDefault(@TempDir File tempDir) throws IOException {
     setupDir("simple.form", tempDir);
     File nestedDir = new File(tempDir, "nested");

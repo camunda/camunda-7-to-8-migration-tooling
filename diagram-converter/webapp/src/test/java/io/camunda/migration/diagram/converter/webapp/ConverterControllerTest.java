@@ -16,6 +16,8 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
+import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
+import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckResult;
 import io.camunda.zeebe.model.bpmn.Bpmn;
 import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.restassured.RestAssured;
@@ -539,7 +541,7 @@ public class ConverterControllerTest {
   }
 
   @Test
-  void checkFormReturnsEmptyResult() throws URISyntaxException {
+  void checkFormReturnsFindings() throws URISyntaxException {
     List<DiagramCheckResult> checkResult =
         RestAssured.given()
             .contentType(ContentType.MULTIPART)
@@ -554,7 +556,61 @@ public class ConverterControllerTest {
         .hasSize(1)
         .first()
         .matches(result -> result.getFilename().equals("simple.form"), "Filename is set correctly")
-        .matches(result -> result.getResults().isEmpty(), "Forms have no diagram elements");
+        .matches(
+            result ->
+                result.getResults().stream()
+                    .flatMap(element -> element.getMessages().stream())
+                    .anyMatch(message -> message.getId().equals("form-schema-version-outdated")),
+            "Outdated schema version is reported");
+  }
+
+  @Test
+  void checkMultipleFormsReturnsFindingsPerFile() throws URISyntaxException {
+    String juelForm =
+        """
+        {
+          "executionPlatform": "Camunda Platform",
+          "executionPlatformVersion": "7.23.0",
+          "id": "juelForm",
+          "components": [
+            { "label": "Hello ${name}", "type": "textfield", "key": "greeting" }
+          ],
+          "type": "default",
+          "schemaVersion": 18
+        }
+        """;
+
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .multiPart(
+                "file", "juel.form", juelForm.getBytes(StandardCharsets.UTF_8), "application/json")
+            .accept(ContentType.JSON)
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult)
+        .hasSize(2)
+        .extracting(DiagramCheckResult::getFilename)
+        .containsExactly("simple.form", "juel.form");
+    assertThat(checkResult.get(0).getResults())
+        .flatExtracting(ElementCheckResult::getMessages)
+        .extracting(ElementCheckMessage::getId)
+        .containsExactly("form-schema-version-outdated");
+    assertThat(checkResult.get(1).getResults())
+        .flatExtracting(ElementCheckResult::getMessages)
+        .extracting(ElementCheckMessage::getId)
+        .containsExactly("form-juel-expression");
+    assertThat(checkResult.get(1).getResults())
+        .first()
+        .satisfies(
+            element -> {
+              assertThat(element.getElementId()).isEqualTo("greeting");
+              assertThat(element.getElementType()).isEqualTo("textfield");
+            });
   }
 
   @Test
