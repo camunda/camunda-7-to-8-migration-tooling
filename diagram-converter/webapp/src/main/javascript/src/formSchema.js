@@ -6,7 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 export function parseFormSchema(content) {
-  if (!content) {
+  if (content === null || content === undefined || content === "") {
     return {
       schema: null,
       error: "Unable to render this form because its content is unavailable.",
