@@ -39,8 +39,16 @@ export default function DropZone({ onFiles }) {
       onDrop={processFile}
       onClick={selectFileToUpload}
       onKeyDown={(evt) => {
-        if (evt.key === "Enter" || evt.key === " ") {
+        if (evt.key === "Enter") {
           evt.preventDefault();
+          selectFileToUpload();
+        } else if (evt.key === " ") {
+          // Prevent page scroll; activate on keyup like a native button
+          evt.preventDefault();
+        }
+      }}
+      onKeyUp={(evt) => {
+        if (evt.key === " ") {
           selectFileToUpload();
         }
       }}
