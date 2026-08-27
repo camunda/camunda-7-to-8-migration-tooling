@@ -163,7 +163,8 @@ public class FormChecker {
     ElementCheckResult elementResult = null;
     if (type == null || !KNOWN_COMPONENT_TYPES.contains(type)) {
       elementResult = componentResult(component, type, path, elementResults);
-      addMessage(elementResult, MessageFactory.formComponentUnknown(String.valueOf(type)));
+      addMessage(
+          elementResult, MessageFactory.formComponentUnknown(type != null ? type : "missing"));
     }
     for (Map.Entry<String, JsonNode> property : component.properties()) {
       if (COMPONENTS_FIELD.equals(property.getKey())) {

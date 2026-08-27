@@ -319,6 +319,36 @@ class FormCheckerTest {
   }
 
   @Test
+  void shouldReportComponentWithMissingType() {
+    DiagramCheckResult result =
+        check(
+            """
+            {
+              "executionPlatform": "Camunda Platform",
+              "executionPlatformVersion": "7.23.0",
+              "id": "myForm",
+              "components": [
+                { "label": "No type", "key": "typeless" }
+              ],
+              "type": "default",
+              "schemaVersion": 18
+            }
+            """);
+
+    assertThat(result.getResults()).hasSize(1);
+    ElementCheckResult element = result.getResults().get(0);
+    assertThat(element.getElementId()).isEqualTo("typeless");
+    assertThat(element.getElementType()).isEqualTo("unknown");
+    assertThat(element.getMessages())
+        .singleElement()
+        .satisfies(
+            message -> {
+              assertThat(message.getId()).isEqualTo("form-component-unknown");
+              assertThat(message.getMessage()).contains("missing");
+            });
+  }
+
+  @Test
   void shouldKeepFindingsSeparateForComponentsWithoutKeyOrId() {
     DiagramCheckResult result =
         check(
