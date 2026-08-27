@@ -306,6 +306,16 @@ hr {
   margin-bottom: 20px;
 }
 
+.form-preview-container {
+  width: 100%;
+  min-height: 320px;
+  padding: 1rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--neutral-background-subtle);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
