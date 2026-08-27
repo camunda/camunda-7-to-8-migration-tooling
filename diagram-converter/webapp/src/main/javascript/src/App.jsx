@@ -28,8 +28,10 @@ import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "luc
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
 import BpmnJS from 'bpmn-js';
+import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
+import { getPreviewType } from "./modelType";
 
 // Target Camunda 8 versions offered in the UI. This is a curated subset of the
 // versions the backend understands (SemanticVersion.java); we only surface the
@@ -70,9 +72,10 @@ function App() {
   const [validFiles, setValidFiles] = useState([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
-  const [previewbpmnXml, setPreviewbpmnXml] = useState("");
+  const [previewModelXml, setPreviewModelXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
   const [previewFormError, setPreviewFormError] = useState("");
+  const [previewDmnError, setPreviewDmnError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -133,10 +136,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-      if (isPreviewOpen && previewType === "bpmn" && previewbpmnXml) {
+      if (isPreviewOpen && previewType === "bpmn" && previewModelXml) {
           const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
           let isActive = true;
-          viewer.importXML(previewbpmnXml).then(() => {
+          viewer.importXML(previewModelXml).then(() => {
             if (!isActive) return;
 
             const canvas = viewer.get('canvas');
@@ -167,7 +170,7 @@ function App() {
             viewer.destroy();
           };
       }
-    }, [isPreviewOpen, previewType, previewbpmnXml, previewCheckJson]);
+    }, [isPreviewOpen, previewType, previewModelXml, previewCheckJson]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -387,7 +390,7 @@ function App() {
     );
   }
 
-  async function preview(response) {
+  async function preview(response, modelType) {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader([
@@ -414,10 +417,11 @@ function App() {
 
 
     setPreviewCheckJson(response.checkResponseJson);
-    setPreviewbpmnXml(response.originalModelXml);
+    setPreviewModelXml(response.originalModelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
-    setPreviewType("bpmn");
+    setPreviewDmnError("");
+    setPreviewType(modelType);
 
     setIsPreviewOpen(true);
   }
@@ -425,10 +429,11 @@ function App() {
   function openFormPreview(schema, errorMessage = "") {
     setPreviewFormSchema(schema);
     setPreviewFormError(errorMessage);
-    setPreviewbpmnXml("");
+    setPreviewModelXml("");
     setPreviewCheckJson([]);
     setPreviewTableHeader([]);
     setPreviewTableRows([]);
+    setPreviewDmnError("");
     setPreviewType("form");
     setIsPreviewOpen(true);
   }
@@ -673,7 +678,8 @@ function App() {
               <h3>Converted models</h3>
               <p>
                 Download each converted file or all of them as a ZIP. Preview a
-                file to inspect it first.
+                file to inspect it first, including analysis results for BPMN and DMN
+                models.
               </p>
               {allDone && totalFindings > 0 && (
                 <div ref={incompatibilityNotifRef}>
@@ -691,7 +697,8 @@ function App() {
               )}
               {files.map((file, idx) => {
                 const r = fileResults[idx];
-                const isForm = file.name.toLowerCase().endsWith(".form");
+                const modelType = getPreviewType(file.name);
+                const isForm = modelType === "form";
                 const fileFindingCount = r.checkResponseJson
                   ? r.checkResponseJson
                       .flatMap(item => item.results || [])
@@ -704,7 +711,7 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(r) : () => preview(r)}
+                  previewAction={isForm ? () => previewForm(r) : () => preview(r, modelType)}
                   previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
@@ -836,9 +843,19 @@ function App() {
         </div>
       </div>
 
-      {previewType === "bpmn" && (
+      {(previewType === "bpmn" || previewType === "dmn") && (
         <>
-          <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
+          {previewType === "bpmn" ? (
+            <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
+          ) : previewDmnError ? (
+            <Alert
+              variant="destructive"
+              title="DMN preview unavailable"
+              description={previewDmnError}
+            />
+          ) : (
+            <DmnPreview xml={previewModelXml} onError={setPreviewDmnError} />
+          )}
           {previewTableRows.length === 0 && (
             <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this model.</p>
           )}
