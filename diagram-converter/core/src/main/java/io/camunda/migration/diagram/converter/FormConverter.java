@@ -67,12 +67,34 @@ public class FormConverter {
     }
   }
 
+  /**
+   * Parses the given form JSON.
+   *
+   * @param formContent the content of a form file
+   * @return the parsed JSON tree
+   * @throws IllegalArgumentException if the content is not valid JSON
+   */
+  static JsonNode parse(String formContent) {
+    return readTree(formContent);
+  }
+
   private static JsonNode readTree(String formContent) {
     try {
       return OBJECT_MAPPER.readTree(formContent);
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException("Form content is not valid JSON: " + e.getMessage(), e);
     }
+  }
+
+  /**
+   * Resolves and validates the target platform version from the converter properties.
+   *
+   * @param properties the converter properties, providing the target platform version
+   * @return the target platform version in patch-zero form (e.g. {@code 8.9.0})
+   * @throws IllegalArgumentException if the platform version is missing or invalid
+   */
+  static String targetVersion(ConverterProperties properties) {
+    return resolveTargetVersion(properties);
   }
 
   private static String resolveTargetVersion(ConverterProperties properties) {
