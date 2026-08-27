@@ -13,6 +13,7 @@ import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverterResultDTO;
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormChecker;
 import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.BufferedOutputStream;
@@ -125,19 +126,26 @@ public class ConverterController {
       @RequestHeader(HttpHeaders.ACCEPT) String[] contentType) {
 
     ArrayList<DiagramCheckResult> resultList = new ArrayList<DiagramCheckResult>();
+    // computed once per request instead of per uploaded form file
+    ConverterProperties formCheckProperties = converterProperties(platformVersion);
 
     // Check all files
     for (Iterator diagramFilesIterator = diagramFiles.iterator();
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
 
-      // Form files are JSON and have no diagram elements to analyze - return an empty result
+      // Form files are JSON and use a dedicated checker instead of the DOM visitor pipeline
       if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
-        DiagramCheckResult formResult = new DiagramCheckResult();
-        formResult.setFilename(diagramFile.getOriginalFilename());
-        // keep the response schema consistent with BPMN/DMN results
-        formResult.setConverterVersion(buildProperties.getVersion());
-        resultList.add(formResult);
+        try (InputStream in = diagramFile.getInputStream()) {
+          String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+          resultList.add(
+              FormChecker.check(diagramFile.getOriginalFilename(), content, formCheckProperties));
+        } catch (IOException e) {
+          LOG.error("Error while reading input stream of form file", e);
+          return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+          return ResponseEntity.badRequest().body(e.getMessage());
+        }
         continue;
       }
 
