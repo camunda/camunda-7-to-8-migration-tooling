@@ -511,13 +511,13 @@ public class ConverterController {
   }
 
   /**
-   * Treats blank {@code platformVersion} values as absent so the configured default applies
-   * consistently across file types. Only {@code null} is treated as absent by {@link
+   * Trims the {@code platformVersion} and treats blank values as absent so the configured default
+   * applies consistently across file types. Only {@code null} is treated as absent by {@link
    * ConverterPropertiesFactory#merge}; a blank value would otherwise shadow the default and fail
    * version parsing for BPMN/DMN conversions (e.g. {@code SemanticVersion.parse}).
    */
   private String normalizePlatformVersion(String platformVersion) {
-    return StringUtils.hasText(platformVersion) ? platformVersion : null;
+    return StringUtils.hasText(platformVersion) ? platformVersion.trim() : null;
   }
 
   /**

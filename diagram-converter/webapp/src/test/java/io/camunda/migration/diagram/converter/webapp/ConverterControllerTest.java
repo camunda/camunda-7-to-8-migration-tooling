@@ -660,6 +660,25 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void convertFormWithPaddedPlatformVersionTrimsWhitespace() throws URISyntaxException {
+    byte[] form =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .formParam("platformVersion", " 8.8 ")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    String converted = new String(form, StandardCharsets.UTF_8);
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
   void convertFormWithInvalidPlatformVersionReturnsBadRequest() throws URISyntaxException {
     RestAssured.given()
         .contentType(ContentType.MULTIPART)
