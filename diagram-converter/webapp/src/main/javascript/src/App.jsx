@@ -32,15 +32,15 @@ import BpmnJS from 'bpmn-js';
 // Target Camunda 8 versions offered in the UI. This is a curated subset of the
 // versions the backend understands (SemanticVersion.java); we only surface the
 // versions users realistically target today. The default mirrors the backend
-// default in converter-properties.properties (zeebe-platform.version=8.9), which
-// is the latest generally available release. 8.10 is offered for users already
-// targeting the upcoming release.
+// default in converter-properties.properties (zeebe-platform.version=8.8), which
+// is the latest generally available release for this release line. 8.9 is offered
+// for users already targeting the upcoming release.
 const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.8", label: "8.8", hint: "Previous stable" },
-  { value: "8.9", label: "8.9", hint: "Latest stable" },
-  { value: "8.10", label: "8.10", hint: "Next version" },
+  { value: "8.7", label: "8.7", hint: "Previous stable" },
+  { value: "8.8", label: "8.8", hint: "Latest stable" },
+  { value: "8.9", label: "8.9", hint: "Next version" },
 ];
-const DEFAULT_PLATFORM_VERSION = "8.9";
+const DEFAULT_PLATFORM_VERSION = "8.8";
 
 function getMostSevere(messages) {
   const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
