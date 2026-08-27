@@ -25,9 +25,13 @@ import { test, expect, Page } from '@playwright/test';
 // regardless of DOM order (the hidden responsive copy may come first).
 const processesLink = (page: Page) => page.locator('a[href="#/processes"]:visible').first();
 
-// Navigate from the dashboard to the plugin's processes page.
+// Navigate directly to the plugin's processes page. The AngularJS navbar can
+// replace the link while it is settling, so clicking it can remain in
+// Playwright's actionability retry loop indefinitely.
 async function openProcessesPage(page: Page) {
-  await processesLink(page).click();
+  await page.goto('/camunda/app/cockpit/default/#/processes', {
+    waitUntil: 'domcontentloaded',
+  });
   await page.waitForURL(/#\/processes/, { timeout: 15000 });
 }
 
