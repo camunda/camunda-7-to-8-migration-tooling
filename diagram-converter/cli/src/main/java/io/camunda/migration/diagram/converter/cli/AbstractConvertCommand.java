@@ -16,6 +16,7 @@ import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
 import io.camunda.migration.diagram.converter.DiagramType;
+import io.camunda.migration.diagram.converter.FormChecker;
 import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
@@ -26,6 +27,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -137,14 +139,36 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   public final Integer call() {
     returnCode = 0;
     Map<File, ModelInstance> modelInstances = modelInstances();
+    List<File> formFileList = formFiles();
     List<DiagramCheckResult> results = checkModels(modelInstances);
+    results.addAll(checkFormFiles(formFileList));
     writeResults(modelInstances, results);
-    convertFormFiles(formFiles());
+    convertFormFiles(formFileList);
     return returnCode;
   }
 
   protected List<File> formFiles() {
     return List.of();
+  }
+
+  private List<DiagramCheckResult> checkFormFiles(List<File> formFileList) {
+    if (formFileList.isEmpty()) {
+      return List.of();
+    }
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(converterProperties());
+    List<DiagramCheckResult> results = new ArrayList<>();
+    for (File formFile : formFileList) {
+      try {
+        String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
+        results.add(FormChecker.check(modelIdentifier(formFile), content, properties));
+      } catch (IOException | RuntimeException e) {
+        LOG_CLI.error(
+            "Error while checking form file {}: {}", formFile.getAbsolutePath(), createMessage(e));
+        returnCode = 1;
+      }
+    }
+    return results;
   }
 
   private void convertFormFiles(List<File> formFileList) {
