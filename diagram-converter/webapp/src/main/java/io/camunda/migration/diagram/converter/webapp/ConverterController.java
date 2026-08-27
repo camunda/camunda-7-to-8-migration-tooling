@@ -151,7 +151,7 @@ public class ConverterController {
                 diagramFile.getOriginalFilename(),
                 modelInstance,
                 defaultJobType,
-                platformVersion,
+                normalizePlatformVersion(platformVersion),
                 keepJobTypeBlank,
                 alwaysUseDefaultJobType,
                 addDataMigrationExecutionListener,
@@ -361,7 +361,7 @@ public class ConverterController {
           modelInstance,
           appendDocumentation,
           defaultJobType,
-          platformVersion,
+          normalizePlatformVersion(platformVersion),
           keepJobTypeBlank,
           alwaysUseDefaultJobType,
           addDataMigrationExecutionListener,
@@ -446,7 +446,7 @@ public class ConverterController {
             modelInstance,
             appendDocumentation,
             defaultJobType,
-            platformVersion,
+            normalizePlatformVersion(platformVersion),
             keepJobTypeBlank,
             alwaysUseDefaultJobType,
             addDataMigrationExecutionListener,
@@ -506,9 +506,18 @@ public class ConverterController {
 
   private ConverterProperties converterProperties(String platformVersion) {
     DefaultConverterProperties properties = new DefaultConverterProperties();
-    // treat blank values as absent so the configured default applies
-    properties.setPlatformVersion(StringUtils.hasText(platformVersion) ? platformVersion : null);
+    properties.setPlatformVersion(normalizePlatformVersion(platformVersion));
     return ConverterPropertiesFactory.getInstance().merge(properties);
+  }
+
+  /**
+   * Treats blank {@code platformVersion} values as absent so the configured default applies
+   * consistently across file types. Only {@code null} is treated as absent by {@link
+   * ConverterPropertiesFactory#merge}; a blank value would otherwise shadow the default and fail
+   * version parsing for BPMN/DMN conversions (e.g. {@code SemanticVersion.parse}).
+   */
+  private String normalizePlatformVersion(String platformVersion) {
+    return StringUtils.hasText(platformVersion) ? platformVersion : null;
   }
 
   /**

@@ -639,6 +639,27 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void convertBpmnWithBlankPlatformVersionFallsBackToDefault() throws URISyntaxException {
+    // a blank platformVersion must behave like an absent one for all file types: the configured
+    // default applies instead of failing version parsing in core (e.g. SemanticVersion.parse)
+    byte[] bpmn =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .formParam("platformVersion", " ")
+            .accept("application/bpmn+xml")
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    assertThat(new String(bpmn, StandardCharsets.UTF_8))
+        .contains("executionPlatformVersion=\"8.9.0\"");
+  }
+
+  @Test
   void convertFormWithInvalidPlatformVersionReturnsBadRequest() throws URISyntaxException {
     RestAssured.given()
         .contentType(ContentType.MULTIPART)
