@@ -86,6 +86,17 @@ public class FormConverter {
     }
   }
 
+  /**
+   * Resolves and validates the target platform version from the converter properties.
+   *
+   * @param properties the converter properties, providing the target platform version
+   * @return the target platform version in patch-zero form (e.g. {@code 8.9.0})
+   * @throws IllegalArgumentException if the platform version is missing or invalid
+   */
+  static String targetVersion(ConverterProperties properties) {
+    return resolveTargetVersion(properties);
+  }
+
   private static String resolveTargetVersion(ConverterProperties properties) {
     String platformVersion = properties.getPlatformVersion();
     if (platformVersion == null || platformVersion.isBlank()) {

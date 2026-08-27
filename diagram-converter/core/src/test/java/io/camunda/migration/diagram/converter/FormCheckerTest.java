@@ -392,6 +392,17 @@ class FormCheckerTest {
         .hasMessageContaining("must be a JSON object");
   }
 
+  @Test
+  void shouldRejectInvalidPlatformVersion() {
+    DefaultConverterProperties properties = new DefaultConverterProperties();
+    properties.setPlatformVersion("not-a-version");
+
+    assertThatThrownBy(
+            () -> FormChecker.check("myForm.form", String.format(CLEAN_C7_FORM, 18), properties))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Not a valid platform version");
+  }
+
   private DiagramCheckResult check(String formContent) {
     return FormChecker.check(
         "myForm.form", formContent, ConverterPropertiesFactory.getInstance().get());

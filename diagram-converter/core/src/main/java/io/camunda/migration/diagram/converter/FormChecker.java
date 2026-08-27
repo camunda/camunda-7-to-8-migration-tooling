@@ -93,10 +93,14 @@ public class FormChecker {
    * @param formContent the content of a form file
    * @param properties the converter properties, providing the target platform version
    * @return the check result containing one entry per finding
-   * @throws IllegalArgumentException if the content is not valid JSON or not a JSON object
+   * @throws IllegalArgumentException if the content is not valid JSON or not a JSON object, or the
+   *     platform version is missing or invalid
    */
   public static DiagramCheckResult check(
       String filename, String formContent, ConverterProperties properties) {
+    // validates the target platform version up front, consistent with FormConverter.convert; it
+    // is also the basis for future version-dependent findings
+    FormConverter.targetVersion(properties);
     JsonNode root = FormConverter.parse(formContent);
     if (!(root instanceof ObjectNode form)) {
       throw new IllegalArgumentException(

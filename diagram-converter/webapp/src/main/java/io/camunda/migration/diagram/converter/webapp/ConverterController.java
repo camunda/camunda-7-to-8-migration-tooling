@@ -126,6 +126,8 @@ public class ConverterController {
       @RequestHeader(HttpHeaders.ACCEPT) String[] contentType) {
 
     ArrayList<DiagramCheckResult> resultList = new ArrayList<DiagramCheckResult>();
+    // computed once per request instead of per uploaded form file
+    ConverterProperties formCheckProperties = converterProperties(platformVersion);
 
     // Check all files
     for (Iterator diagramFilesIterator = diagramFiles.iterator();
@@ -137,10 +139,7 @@ public class ConverterController {
         try (InputStream in = diagramFile.getInputStream()) {
           String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
           resultList.add(
-              FormChecker.check(
-                  diagramFile.getOriginalFilename(),
-                  content,
-                  converterProperties(platformVersion)));
+              FormChecker.check(diagramFile.getOriginalFilename(), content, formCheckProperties));
         } catch (IOException e) {
           LOG.error("Error while reading input stream of form file", e);
           return ResponseEntity.badRequest().body(e.getMessage());
