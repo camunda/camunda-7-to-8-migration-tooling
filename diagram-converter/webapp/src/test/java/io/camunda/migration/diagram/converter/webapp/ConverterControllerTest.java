@@ -26,6 +26,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -532,5 +536,264 @@ public class ConverterControllerTest {
       // Final assertions
       assertThat(entryCount).as("There should be exactly 2 entries in the zip").isEqualTo(2);
     }
+  }
+
+  @Test
+  void checkFormReturnsEmptyResult() throws URISyntaxException {
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .accept(ContentType.JSON)
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult)
+        .hasSize(1)
+        .first()
+        .matches(result -> result.getFilename().equals("simple.form"), "Filename is set correctly")
+        .matches(result -> result.getResults().isEmpty(), "Forms have no diagram elements");
+  }
+
+  @Test
+  void convertForm() throws URISyntaxException {
+    byte[] form =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .getBody()
+            .asByteArray();
+
+    String converted = new String(form, StandardCharsets.UTF_8);
+    assertThat(converted).contains("\"executionPlatform\": \"Camunda Cloud\"");
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+    assertThat(converted).contains("\"customerName\"");
+  }
+
+  @Test
+  void convertFormRespectsPlatformVersionParam() throws URISyntaxException {
+    byte[] form =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .formParam("platformVersion", "8.8")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .getBody()
+            .asByteArray();
+
+    String converted = new String(form, StandardCharsets.UTF_8);
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
+  void convertBatchIncludesFormFiles() throws URISyntaxException, IOException {
+    byte[] zip =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .accept("application/zip")
+            .post("/convertBatch")
+            .getBody()
+            .asByteArray();
+
+    Map<String, String> entries = new HashMap<>();
+    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zip))) {
+      ZipEntry zipEntry;
+      while ((zipEntry = zis.getNextEntry()) != null) {
+        entries.put(zipEntry.getName(), new String(zis.readAllBytes(), StandardCharsets.UTF_8));
+        zis.closeEntry();
+      }
+    }
+
+    assertThat(entries).containsOnlyKeys("converted-c8-example.bpmn", "converted-c8-simple.form");
+    assertThat(entries.get("converted-c8-simple.form"))
+        .contains("\"executionPlatform\": \"Camunda Cloud\"")
+        .contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
+  void convertFormWithBlankPlatformVersionFallsBackToDefault() throws URISyntaxException {
+    byte[] form =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .formParam("platformVersion", " ")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .getBody()
+            .asByteArray();
+
+    String converted = new String(form, StandardCharsets.UTF_8);
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
+  void convertBpmnWithBlankPlatformVersionFallsBackToDefault() throws URISyntaxException {
+    // a blank platformVersion must behave like an absent one for all file types: the configured
+    // default applies instead of failing version parsing in core (e.g. SemanticVersion.parse)
+    byte[] bpmn =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("example.bpmn").toURI()))
+            .formParam("platformVersion", " ")
+            .accept("application/bpmn+xml")
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    assertThat(new String(bpmn, StandardCharsets.UTF_8))
+        .contains("executionPlatformVersion=\"8.8.0\"");
+  }
+
+  @Test
+  void convertFormWithPaddedPlatformVersionTrimsWhitespace() throws URISyntaxException {
+    byte[] form =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+            .formParam("platformVersion", " 8.8 ")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    String converted = new String(form, StandardCharsets.UTF_8);
+    assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
+  void convertFormWithInvalidPlatformVersionReturnsBadRequest() throws URISyntaxException {
+    RestAssured.given()
+        .contentType(ContentType.MULTIPART)
+        .multiPart("file", new File(getClass().getClassLoader().getResource("simple.form").toURI()))
+        .formParam("platformVersion", "not-a-version")
+        .accept(ContentType.JSON)
+        .post("/convert")
+        .then()
+        .statusCode(400);
+  }
+
+  @Test
+  void convertFormWithInvalidJsonReturnsBadRequest() {
+    RestAssured.given()
+        .contentType(ContentType.MULTIPART)
+        .multiPart("file", "broken.form", "this is not json".getBytes(StandardCharsets.UTF_8))
+        .accept(ContentType.JSON)
+        .post("/convert")
+        .then()
+        .statusCode(400);
+  }
+
+  @Test
+  void convertBatchWithInvalidFormJsonReturnsBadRequest() {
+    RestAssured.given()
+        .contentType(ContentType.MULTIPART)
+        .multiPart("file", "broken.form", "this is not json".getBytes(StandardCharsets.UTF_8))
+        .accept("application/zip")
+        .post("/convertBatch")
+        .then()
+        .statusCode(400);
+  }
+
+  @Test
+  void convertSanitizesFilenameInContentDisposition() throws URISyntaxException, IOException {
+    byte[] formBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("simple.form").toURI()).toPath());
+    String contentDisposition =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "../../evil.form", formBytes, "application/json")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .getHeader("Content-Disposition");
+
+    assertThat(contentDisposition).contains("converted-c8-evil.form");
+    assertThat(contentDisposition).doesNotContain("..").doesNotContain("/");
+  }
+
+  @Test
+  void convertBatchSanitizesZipEntryNames() throws URISyntaxException, IOException {
+    byte[] formBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("simple.form").toURI()).toPath());
+    byte[] bpmnBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("example.bpmn").toURI()).toPath());
+    byte[] zip =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "../../evil.form", formBytes, "application/json")
+            .multiPart("file", "..\\..\\evil.bpmn", bpmnBytes, "application/bpmn+xml")
+            .accept("application/zip")
+            .post("/convertBatch")
+            .getBody()
+            .asByteArray();
+
+    List<String> entryNames = new ArrayList<>();
+    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zip))) {
+      ZipEntry zipEntry;
+      while ((zipEntry = zis.getNextEntry()) != null) {
+        entryNames.add(zipEntry.getName());
+        zis.closeEntry();
+      }
+    }
+
+    assertThat(entryNames)
+        .containsExactlyInAnyOrder("converted-c8-evil.form", "converted-c8-evil.bpmn");
+  }
+
+  @Test
+  void convertBatchKeepsDuplicateFileNames() throws URISyntaxException, IOException {
+    byte[] formBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("simple.form").toURI()).toPath());
+    byte[] bpmnBytes =
+        Files.readAllBytes(
+            new File(getClass().getClassLoader().getResource("example.bpmn").toURI()).toPath());
+    byte[] zip =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "same.form", formBytes, "application/json")
+            .multiPart("file", "same.form", formBytes, "application/json")
+            .multiPart("file", "same.bpmn", bpmnBytes, "application/bpmn+xml")
+            .multiPart("file", "same.bpmn", bpmnBytes, "application/bpmn+xml")
+            .accept("application/zip")
+            .post("/convertBatch")
+            .getBody()
+            .asByteArray();
+
+    List<String> entryNames = new ArrayList<>();
+    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zip))) {
+      ZipEntry zipEntry;
+      while ((zipEntry = zis.getNextEntry()) != null) {
+        entryNames.add(zipEntry.getName());
+        zis.closeEntry();
+      }
+    }
+
+    assertThat(entryNames)
+        .containsExactlyInAnyOrder(
+            "converted-c8-same.form",
+            "converted-c8-same (1).form",
+            "converted-c8-same.bpmn",
+            "converted-c8-same (1).bpmn");
   }
 }
