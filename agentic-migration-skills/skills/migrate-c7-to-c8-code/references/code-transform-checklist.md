@@ -8,8 +8,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 ## 1. Dependencies and Configuration
 
-- Start from the selected target or maintenance branch's existing configuration. Verify the Camunda platform, Spring Boot line, starter, and dependency compatibility against official Camunda documentation or Maven metadata; do not upgrade to a newer platform merely because it is available.
-- When a version must be selected rather than preserved from the target configuration, resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
+- Resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -27,9 +26,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 ## 2. Client Code (ProcessEngine to CamundaClient)
 
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
-- Map: start instances (including tags for stable business keys), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
-- Map every C7 call to the matching CamundaClient API supported by the selected target version. Preserve existing worker inputs and outputs, including variables, headers, result names, and error semantics.
-- Put genuinely new behavior in a separate worker instead of changing the contract of a migrated worker.
+- Map: start instances (incl. businessId/tags), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
 - If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
 
 ---
@@ -74,7 +71,6 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
 - Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
-- Complex Groovy or script logic on sequence flows is not a safe FEEL conversion. Move it to an upstream service task/job worker and ask for human review rather than inventing an expression mapping.
 
 ### Named category: FEEL method-invocation
 
@@ -93,6 +89,27 @@ This category is out of scope for auto-generation: detect, count, and name it â€
 
 ---
 
+## 8. Generated Task Form Dependencies (NOT covered by OpenRewrite)
+
+When model inventory finds `camunda:formData`, `camunda:formField`, or
+`camunda:formProperty`, inspect code that supplied or consumed their runtime behavior:
+
+- `FormFieldValidator` implementations and named validator beans/classes require a new
+  backend/application validation design; form-js validation is not server-side enforcement.
+- `FormService`, `TaskFormData`, `StartFormData`, `FormField`, and `FormProperty` consumers may
+  depend on C7 metadata that no longer exists at runtime.
+- `submitTaskForm`/`submitStartForm` and REST form-submission clients may depend on field ids,
+  aliases, type conversion, business-key extraction, or validation exceptions.
+- Code reading custom form-field properties must be redesigned even if the metadata is copied to
+  the C8 form component.
+- Code expecting C7 `Date` or full-range Java `long` values must be reconciled with C8 form output.
+
+Do not delete or rewrite these consumers from form structure alone. Cross-check each against the
+user-approved decisions from `form-migration.md`, then implement only the agreed worker, listener,
+API, input/output mapping, or application validation.
+
+---
+
 ## Detection Hints for Assessment
 
 Use these to classify files during assessment:
@@ -106,7 +123,10 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
-| `businessKey` usage | Flag: map stable keys to tags; use a `businessKey` process variable when the key changes during execution |
+| `FormFieldValidator` or `camunda:constraint name="validator"` | Generated-form backend validation (manual design) |
+| `TaskFormData`, `StartFormData`, `FormField`, `FormProperty` | Generated-form metadata consumer |
+| `submitTaskForm`, `submitStartForm`, `/submit-form`, `/form-variables` | Generated-form submission client |
+| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |
@@ -118,3 +138,4 @@ Use these to classify files during assessment:
 Flag these explicitly:
 - Listeners or delegates attached to multi-instance bodies that compute the collection variable (sequencing does not exist in C8; requires model change with preceding service task). High complexity.
 - Custom batch handlers (`ManagementService#createBatch` with custom jobs) - no generic C8 equivalent.
+- Generated-form custom validators, business-key fields, writable/readable form properties, expression-backed form properties, and date-pattern/type assumptions - require the decisions and code cross-check in `form-migration.md`.

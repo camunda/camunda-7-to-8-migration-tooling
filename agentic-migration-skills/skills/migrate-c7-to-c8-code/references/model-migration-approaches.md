@@ -6,13 +6,11 @@ Use the model scan from the assessment before choosing a conversion path:
 - If local model files were found under the project root, use local mode. Do NOT offer or request C7 engine access.
 - If no local model files were found and user selected E1, fetch definitions from C7 first.
 
----
-
-## Deterministic conversion and human review
-
-- Prefer the official Diagram Converter whenever it supports the model. Always pass the exact selected target platform version, and do not hand-edit namespaces as a substitute when the converter applies.
-- A converted file is not automatically safe to deploy. Treat every TASK/WARNING/REVIEW finding, unsafe or partial transformation, unsupported behavior, and generated Task Form as an explicit human-review item in `MIGRATION_REPORT.md`.
-- If Camunda 8 has no safe representation for a C7 construct, stop and ask the user for a decision. Do not invent a namespace, expression, or behavior mapping.
+Before conversion, namespace-parse the exact original BPMN files and inventory Generated Task
+Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`). Keep source path, process
+id, and owner id/type so each definition can be paired with a fresh converted output. The
+converter removes this metadata, so post-conversion discovery is too late. See
+`form-migration.md`.
 
 ---
 
@@ -21,6 +19,7 @@ Use the model scan from the assessment before choosing a conversion path:
 Before any local approach (M1, M2, E1), scan the project for outputs of previous migration attempts:
 
 - `converted-c8-*.bpmn` / `converted-c8-*.dmn` (or the `--prefix` equivalent)
+- accepted generated forms beside converted BPMN and drafts under `.camunda-migration/generated-form-drafts/`
 - `analysis-results.csv` / `.json` / `.md` / `.xlsx`, including ` (n)`-suffixed siblings such as `analysis-results (1).json` — a sure sign of a previous run
 
 The `.camunda-migration/` CLI JAR is an intentional cache, not a leftover — never flag it.
@@ -89,6 +88,7 @@ After the run, report:
 - Skipped files: any `File already exists` errors, naming the stale targets — those diagrams were NOT converted; offer to re-run once the user removes the stale copies (see Pre-flight: Leftover Artifacts)
 - Analysis findings: summarize from CLI stdout and/or the JSON report, grouped by severity (WARNING / TASK / REVIEW / INFO)
 - Analysis artifacts: point the user to the XLSX report — it is the human-readable artifact for reviewing and sharing findings with the customer. The JSON report is the machine-readable input for step 5.
+- Generated Task Forms: list source owners discovered before conversion. They remain manual `form-data` follow-up items until the form procedure completes.
 
 Severity counts are only a headline. Do not start per-finding work from them — parse and group the full report first (step 5).
 
@@ -171,6 +171,18 @@ Rules:
 - The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
 - Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
 - Categories with verdict **needs fix** are the direct work items for the AI follow-up step. Categories with verdict **needs review** are also surfaced there, but only to collect the pending user decision (via AskUserQuestion) before any fix is attempted.
+- `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate Camunda 8 form. Keep it as needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
+- A source-only `camunda:formProperty` definition from an older/imported report that lacks the current converter's `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
+
+#### 5e. Generate and review Camunda 8 forms
+
+Run `form-migration.md` for every source form from the pre-conversion inventory. The procedure
+uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible
+warnings for unresolved mappings, asks the user about semantic gaps, and edits only the fresh
+converted BPMN after explicit acceptance.
+
+Do not infer a form from a `form-data` message, mark the finding resolved merely because the
+converter removed it, or link a form that still lacks the user's required decisions.
 
 ---
 
@@ -183,25 +195,15 @@ Fetch current diagram-conversion guidance:
 
 For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (never edit original) applying:
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
+- remove C7 generated-form elements from the converted copy after their source inventory is captured; `form-migration.md` creates separate standard `.form` resources
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
 - Simple JUEL to FEEL for pure data expressions; flag bean-invoking expressions for manual work
-- Complex Groovy or script logic on sequence flows must move to an upstream service task/job worker; do not synthesize a FEEL expression.
 - Conditional events natively only on 8.9+; otherwise flag
 - DMN: update decision/definition namespaces and expression language as needed
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review.
-
----
-
-## Forms and data semantics
-
-Apply these checks to every model migration approach:
-
-- Inventory every C7 form, including generated Task Forms. Migrate each to a standard C8 form and link it from the converted BPMN. Generated Task Forms must be explicitly flagged for this skill to handle manually; do not treat them as automatically converted.
-- For a C7 `FileValue`, use a Document API reference rather than a filename-only reference.
-- Preserve path-as-key mappings and their FEEL semantics. Surface unsupported form validation rules for user review instead of silently dropping or inventing them.
-- Replace stable C7 business keys with C8 tags by default. If the key changes during execution, use a `businessKey` process variable instead. Verify any target-specific alternative against the selected version and record the decision in `MIGRATION_REPORT.md`.
+After the converted copy exists, run `form-migration.md` against the original/converted pair.
 
 ---
 
@@ -213,6 +215,10 @@ Point user to the hosted converter:
 
 This path does not automate the hosted service. Once the user brings the converted files back into the project, offer the same agentic findings follow-up as in M1 step 5. For the machine-readable findings, use the hosted converter's 'Download JSON' button — it produces the same `analysis-results.json` the CLI writes; its CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
 
+Generated-form follow-up additionally requires the exact original BPMN and an unambiguous pairing
+to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7
+form metadata from the report.
+
 ---
 
 ## Approach E1 - Camunda 7 Engine Source (only when no local models found)
@@ -223,19 +229,31 @@ Use AskUserQuestion to request:
 - The C7 engine REST base URL, including `/engine-rest` context path when applicable
 - Authentication: no authentication or Basic authentication username/password
 - Obtain secrets through the agent's secure credential mechanism; never write them to MIGRATION_REPORT.md or commit them
-- Caution: the CLI's `--password` flag exposes secrets in shell history; use temporary/dedicated credentials
 
 Also ask whether to fetch all latest process/decision definitions or only named keys.
 
 ### 2. Fetch and Convert
 
-For the all-latest case, download/reuse the CLI as in M1, create `.camunda-migration/c7-models`, and invoke:
+Create `.camunda-migration/c7-models`. Query the C7 REST process-definition and
+decision-definition list endpoints, using `latestVersion=true` for the all-latest case and key
+filters for named acquisition. For every selected definition:
 
-```
-java -Dfile.encoding=UTF-8 -jar <jar> engine <c7-rest-url> --target-directory .camunda-migration/c7-models --platform-version <target-version> --json --xlsx [--username <username> --password <password>]
-```
+1. Fetch its `/xml` resource using the secure authentication mechanism. Parse the JSON response
+   and extract the nonempty `bpmn20Xml` or `dmnXml` string; do not write the JSON envelope as a
+   diagram.
+2. Group definitions by resource name and exact XML payload. A deployment resource may contain
+   multiple processes/decisions, so persist each unique resource/payload pair once rather than
+   once per definition. If one resource name has distinct payloads, derive collision-safe
+   deterministic filenames from the sorted definition keys.
+3. Write only the extracted XML payload to a deterministic `.bpmn`/`.dmn` path under
+   `.camunda-migration/c7-models`.
+4. Record every corresponding definition id/key against that one source path so the converted
+   output can be paired exactly.
+5. Run M1 local mode on `.camunda-migration/c7-models`.
 
-For named-key acquisition, query C7 REST list endpoints with key filters, fetch each definition's `/xml` resource, write XML files to `.camunda-migration/c7-models/`, then run M1 local mode on that directory.
+Treat the fetched XML as the original source for `form-migration.md` and retain the exact mapping
+between fetched and converted paths. Do not use the CLI `engine` subcommand here: it does not
+persist the raw source XML required to generate forms safely.
 
 ### 3. Handle Failures
 
@@ -245,4 +263,4 @@ Treat unreachable endpoint, TLS/DNS failure, 401/403, malformed XML, or empty re
 
 ## Analyze-Only Mode
 
-For "analyze but don't convert": run M1 with `--check --json --xlsx` to produce findings and reports with no converted files, or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5, and stop.
+For "analyze but don't convert": run M1 with `--check --json --xlsx` to produce findings and reports with no converted files, or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived Generated Task Form inventory and likely decision categories, but do not create `.form` files or edit BPMN. Then stop.

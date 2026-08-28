@@ -53,7 +53,24 @@ Handle these rows as ONE named category, not individually:
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
-### 4. Now-redundant workaround code (deletion candidates)
+### 4. Generated-form code and behavior
+
+For every `form-data` or `generated-form-property-source` item, cross-check the code inventory
+before accepting the generated form:
+
+- Locate `FormFieldValidator` implementations and validator beans/classes named by
+  `camunda:constraint name="validator"`.
+- Locate `FormService`, `TaskFormData`, `StartFormData`, `FormField`, `FormProperty`,
+  `submitTaskForm`, `submitStartForm`, and form REST API consumers.
+- Locate code that depends on a form field becoming the business key, custom field properties,
+  C7 Java `Date`/`Long` values, form-property aliases/expressions, or server-side validation.
+- Verify the chosen form mapping and any worker/listener/API redesign cover every consumer.
+
+Use `form-migration.md` to collect decisions. Uncovered consumers are **needs fix**; a pending
+mapping or enforcement decision is **needs review**. A generated form is not accepted merely
+because its JSON renders.
+
+### 5. Now-redundant workaround code (deletion candidates)
 
 Some findings do not describe missing support but the opposite: a C7-side workaround is obsolete because Zeebe now provides the capability natively. Detect this family primarily by `messageId`, falling back to `message` content — rows whose `message` contains "now natively possible with Zeebe" — to catch future family members whose `messageId` is not yet known. Today the family has one member: `collection-hint` ("Collecting results in a multi instance is now natively possible with Zeebe. Please review.", TASK), emitted once per converted multi-instance `camunda:collection`.
 
@@ -66,7 +83,7 @@ For each row in this family, hunt for the code that manually implemented what Ze
 
 A candidate is only safe to delete once the converted diagram actually uses the native capability (for multi-instance results: `outputCollection`/`outputElement` are set — the converter does not set them automatically) or the user confirms the aggregation is no longer needed. Both are user decisions, collected in the Step 5 AI Follow-up flow.
 
-### 5. Assign verdicts to the verdict table
+### 6. Assign verdicts to the verdict table
 
 Each cross-check result maps to a verdict in the per-category verdict table (see `model-migration-approaches.md` step 5d), with the matched code artifact named in the table's cross-reference column:
 
@@ -74,14 +91,15 @@ Each cross-check result maps to a verdict in the per-category verdict table (see
 - Mismatched job types, uncovered original expressions, or uncovered invoked methods: **needs fix** — these become AI follow-up work items.
 - Remediation decision still pending for a category (e.g. the FEEL method-invocation option not yet chosen): **needs review**.
 - Deletion candidates recorded for a now-redundant workaround category: **needs review** — removing code always requires an explicit user decision. When no workaround code exists for any row in such a category, the finding is informational: **no action**.
+- Generated forms with uncovered code consumers or incomplete linkage/deployment: **needs fix**. Pending form or validation decisions: **needs review**. Only accepted, validated, linked, and deployed forms with covered consumers become **no action**.
 
 ## Deployment Wiring
 
 After both complete, ask whether to wire deployment of converted files in application code via AskUserQuestion:
 
-- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn"})`. Never target original diagrams.
+- **Yes, add/update @Deployment for converted files** (recommended when code scope includes a Spring Boot app) - add or update `@Deployment(resources = ...)` so it targets only converted resources with explicit recursive classpath patterns. Include accepted generated forms when present, for example: `@Deployment(resources = {"classpath*:**/converted-c8-*.bpmn", "classpath*:**/converted-c8-*.dmn", "classpath*:**/converted-c8-*.form"})`. Never target original diagrams, draft forms, or declined forms.
 - **No, I will handle deployment outside app startup** - leave code unchanged and record this decision in MIGRATION_REPORT.md.
 
 ## Report Keeping
 
-Keep one living `MIGRATION_REPORT.md` in the confirmed project root as the source of truth. Keep both inventories and all findings, warnings, incompatibilities, behavior changes, cross-check results, decisions, intentional deviations, and validation results there; do not create competing migration summaries.
+Keep both inventories and both sets of results in `MIGRATION_REPORT.md` in the confirmed project root.

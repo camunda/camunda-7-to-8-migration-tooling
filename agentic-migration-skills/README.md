@@ -67,7 +67,12 @@ The skill recommends a model intended for complex reasoning, with illustrative I
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly — for when Java 21 is unavailable or you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/) — no local Java needed |
 
-If no BPMN/DMN model is found under the project root, the skill can offer the Diagram Converter's C7 engine source mode instead. It asks for a reachable C7 REST URL and the required authentication before fetching; when local models are present, it does not offer or request engine access. The released engine mode supports REST with optional Basic authentication and fetches latest BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
+For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy
+`formProperty`), the Diagram Converter deliberately leaves a manual finding. The skill uses the
+original BPMN metadata to generate deterministic standard Camunda 8 `.form` files, presents every
+semantic gap for user review, and links/deploys only explicitly accepted forms.
+
+If no BPMN/DMN model is found under the project root, the skill can offer C7 engine REST as a source. It asks for a reachable C7 REST URL and the required authentication, persists the original definitions, then runs the Diagram Converter locally; when local models are present, it does not offer or request engine access. REST supports optional Basic authentication and latest or named BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
 The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a POSIX shell dialect.
 
