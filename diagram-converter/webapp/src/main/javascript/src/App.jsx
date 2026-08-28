@@ -839,7 +839,6 @@ function App() {
                     variant="default"
                     size="default"
                     onClick={downloadXLS}
-                    className="withMarginBottom"
                     disabled={validFiles.length === 0}
                   >
                     <Download />
