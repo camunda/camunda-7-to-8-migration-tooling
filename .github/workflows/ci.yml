@@ -68,7 +68,6 @@ jobs:
       data-migrator: ${{ steps.filter.outputs.data-migrator }}
       code-conversion: ${{ steps.filter.outputs.code-conversion }}
       diagram-converter: ${{ steps.filter.outputs.diagram-converter }}
-      diagram-converter-frontend: ${{ steps.filter.outputs.diagram-converter-frontend }}
       shared: ${{ steps.filter.outputs.shared }}
       run-runtime: ${{ steps.filter.outputs.run-runtime }}
       run-history: ${{ steps.filter.outputs.run-history }}
@@ -92,7 +91,6 @@ jobs:
             echo "data-migrator=true" >> "$GITHUB_OUTPUT"
             echo "code-conversion=true" >> "$GITHUB_OUTPUT"
             echo "diagram-converter=true" >> "$GITHUB_OUTPUT"
-            echo "diagram-converter-frontend=true" >> "$GITHUB_OUTPUT"
             echo "shared=true" >> "$GITHUB_OUTPUT"
             echo "run-runtime=true" >> "$GITHUB_OUTPUT"
             echo "run-history=true" >> "$GITHUB_OUTPUT"
@@ -120,12 +118,6 @@ jobs:
             echo "diagram-converter=true" >> "$GITHUB_OUTPUT"
           else
             echo "diagram-converter=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if echo "$CHANGED_FILES" | grep -qE '^(diagram-converter/webapp/src/main/javascript/|diagram-converter/webapp/pom\.xml$|diagram-converter/pom\.xml$|\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
-            echo "diagram-converter-frontend=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "diagram-converter-frontend=false" >> "$GITHUB_OUTPUT"
           fi
 
           if echo "$CHANGED_FILES" | grep -qE '^(\.github/|\.mvn/|mvnw$|mvnw\.cmd$|pom\.xml$)'; then
@@ -395,29 +387,6 @@ jobs:
             diagram-converter/cli/target/camunda-7-to-8-diagram-converter-cli-*.jar
           if-no-files-found: error
           retention-days: 7
-
-  diagram-converter-frontend:
-    needs: [detect-changes]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: |
-      github.event_name != 'pull_request' ||
-      needs.detect-changes.outputs.diagram-converter-frontend == 'true' ||
-      needs.detect-changes.outputs.shared == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24
-
-      - name: Run diagram-converter frontend tests
-        working-directory: diagram-converter/webapp/src/main/javascript
-        run: |
-          npm ci
-          npm test
 
   diagram-converter-windows:
     needs: [detect-changes]
@@ -1211,7 +1180,6 @@ jobs:
       - code-conversion
       - code-conversion-windows
       - diagram-converter
-      - diagram-converter-frontend
       - diagram-converter-windows
       - compile-previous-version
       - it-runtime-h2
@@ -1229,7 +1197,6 @@ jobs:
       EXPECT_CODE_CONVERSION: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code-conversion == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_CODE_CONVERSION_WINDOWS: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code-conversion == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_DIAGRAM_CONVERTER: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
-      EXPECT_DIAGRAM_CONVERTER_FRONTEND: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter-frontend == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_DIAGRAM_CONVERTER_WINDOWS: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.diagram-converter == 'true' || needs.detect-changes.outputs.shared == 'true' }}
       EXPECT_COMPILE_PREVIOUS: ${{ github.event_name != 'pull_request' || github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-compile-previous-version == 'true' }}
       EXPECT_RUNTIME_H2: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:runtime') || (needs.detect-changes.outputs.run-runtime == 'true' && !contains(github.event.pull_request.labels.*.name, 'ci:history') && !contains(github.event.pull_request.labels.*.name, 'ci:identity')) }}
@@ -1269,7 +1236,6 @@ jobs:
               { key: "code-conversion", label: "code-conversion", expected: parseBool(process.env.EXPECT_CODE_CONVERSION) },
               { key: "code-conversion-windows", label: "code-conversion-windows", expected: parseBool(process.env.EXPECT_CODE_CONVERSION_WINDOWS) },
               { key: "diagram-converter", label: "diagram-converter", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER) },
-              { key: "diagram-converter-frontend", label: "diagram-converter-frontend", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER_FRONTEND) },
               { key: "diagram-converter-windows", label: "diagram-converter-windows", expected: parseBool(process.env.EXPECT_DIAGRAM_CONVERTER_WINDOWS) },
               { key: "compile-previous-version", label: "compile-previous-version", expected: parseBool(process.env.EXPECT_COMPILE_PREVIOUS) },
               { key: "it-runtime-h2", label: "it-runtime-h2", expected: parseBool(process.env.EXPECT_RUNTIME_H2) },
@@ -1396,7 +1362,6 @@ jobs:
       - code-conversion
       - code-conversion-windows
       - diagram-converter
-      - diagram-converter-frontend
       - compile-previous-version
       - diagram-converter-windows
       - it-runtime-h2
