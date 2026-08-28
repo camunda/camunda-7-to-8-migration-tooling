@@ -746,11 +746,7 @@ function App() {
                 const r = fileResults[idx];
                 const modelType = getPreviewType(file.name, r.originalModelXml);
                 const isForm = modelType === "form";
-                const fileFindingCount = r.checkResponseJson
-                  ? r.checkResponseJson
-                      .flatMap(item => item.results || [])
-                      .reduce((s, el) => s + (el.messages?.length || 0), 0)
-                  : 0;
+                const fileFindingCount = buildFindingsRows(r.checkResponseJson).length;
                 return (
                 <FileItem
                   key={file.name + "-" + idx}
