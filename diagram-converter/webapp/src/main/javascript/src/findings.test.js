@@ -18,6 +18,14 @@ describe('buildFindingsRows', () => {
     expect(buildFindingsRows([{}])).toEqual([]);
   });
 
+  it('returns no rows for malformed non-array result data', () => {
+    expect(buildFindingsRows({ results: [] })).toEqual([]);
+    expect(buildFindingsRows('not an array')).toEqual([]);
+    expect(buildFindingsRows([{ results: {} }])).toEqual([]);
+    expect(buildFindingsRows([{ results: [{ messages: {} }] }])).toEqual([]);
+    expect(buildFindingsRows([{ results: [null, { messages: [null] }] }])).toEqual([]);
+  });
+
   it('flattens findings across multiple result items and elements', () => {
     const rows = buildFindingsRows([
       {

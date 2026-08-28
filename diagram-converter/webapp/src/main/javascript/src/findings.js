@@ -18,17 +18,35 @@ export const FINDINGS_TABLE_HEADER = [
 // Flattens the /check response (List<DiagramCheckResult>) into table rows,
 // one row per finding message across all result items.
 export function buildFindingsRows(checkResponseJson) {
-  return (checkResponseJson || []).flatMap((item, itemIdx) =>
-    (item.results || []).flatMap((element, elementIdx) =>
-      (element.messages || []).map((message, msgIdx) => ({
-        id: `${itemIdx}-${elementIdx}-${msgIdx}`,
-        elementType: element.elementType || '-',
-        elementId: element.elementId || '-',
-        elementName: element.elementName || '(unnamed)',
-        severity: message.severity,
-        message: message.message,
-        link: message.link || null,
-      }))
-    )
-  );
+  if (!Array.isArray(checkResponseJson)) {
+    return [];
+  }
+
+  return checkResponseJson.flatMap((item, itemIdx) => {
+    if (!item || typeof item !== 'object' || !Array.isArray(item.results)) {
+      return [];
+    }
+
+    return item.results.flatMap((element, elementIdx) => {
+      if (!element || typeof element !== 'object' || !Array.isArray(element.messages)) {
+        return [];
+      }
+
+      return element.messages.flatMap((message, msgIdx) => {
+        if (!message || typeof message !== 'object') {
+          return [];
+        }
+
+        return [{
+          id: `${itemIdx}-${elementIdx}-${msgIdx}`,
+          elementType: element.elementType || '-',
+          elementId: element.elementId || '-',
+          elementName: element.elementName || '(unnamed)',
+          severity: message.severity,
+          message: message.message,
+          link: message.link || null,
+        }];
+      });
+    });
+  });
 }

@@ -744,7 +744,7 @@ function App() {
               )}
               {files.map((file, idx) => {
                 const r = fileResults[idx];
-                const modelType = getPreviewType(file.name);
+                const modelType = getPreviewType(file.name, r.originalModelXml);
                 const isForm = modelType === "form";
                 const fileFindingCount = r.checkResponseJson
                   ? r.checkResponseJson
