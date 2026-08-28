@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.camunda.bpm.model.xml.ModelException;
 import org.camunda.bpm.model.xml.ModelInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +65,8 @@ public class ConverterController {
   private static final String APPLICATION_MS_EXCEL = "application/vnd.ms-excel";
   private static final String APPLICATION_XLSX =
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  private static final String INVALID_DIAGRAM_MESSAGE =
+      "The uploaded file is not a valid BPMN or DMN file.";
 
   /**
    * Media type for the flat, machine-readable analysis report: a JSON array with one flat object
@@ -149,10 +152,20 @@ public class ConverterController {
         continue;
       }
 
-      DiagramType diagramType = determineDiagramType(diagramFile);
+      DiagramType diagramType;
+      try {
+        diagramType = determineDiagramType(diagramFile);
+      } catch (IllegalArgumentException e) {
+        return invalidDiagramResponse();
+      }
 
       try (InputStream in = diagramFile.getInputStream()) {
-        ModelInstance modelInstance = diagramType.readDiagram(in);
+        ModelInstance modelInstance;
+        try {
+          modelInstance = diagramType.readDiagram(in);
+        } catch (ModelException e) {
+          return invalidDiagramResponse();
+        }
 
         DiagramCheckResult diagramCheckResult =
             bpmnConverter.check(
@@ -362,9 +375,21 @@ public class ConverterController {
       }
     }
 
-    DiagramType diagramType = determineDiagramType(diagramFile);
+    DiagramType diagramType;
+    try {
+      diagramType = determineDiagramType(diagramFile);
+    } catch (IllegalArgumentException e) {
+      return invalidDiagramResponse();
+    }
+
     try (InputStream in = diagramFile.getInputStream()) {
-      ModelInstance modelInstance = diagramType.readDiagram(in);
+      ModelInstance modelInstance;
+      try {
+        modelInstance = diagramType.readDiagram(in);
+      } catch (ModelException e) {
+        return invalidDiagramResponse();
+      }
+
       bpmnConverter.convert(
           modelInstance,
           appendDocumentation,
@@ -446,10 +471,22 @@ public class ConverterController {
         continue;
       }
 
-      DiagramType diagramType = determineDiagramType(diagramFile);
+      DiagramType diagramType;
+      try {
+        diagramType = determineDiagramType(diagramFile);
+      } catch (IllegalArgumentException e) {
+        return invalidDiagramResponse();
+      }
+
       try (InputStream in = diagramFile.getInputStream()) {
 
-        ModelInstance modelInstance = diagramType.readDiagram(in);
+        ModelInstance modelInstance;
+        try {
+          modelInstance = diagramType.readDiagram(in);
+        } catch (ModelException e) {
+          return invalidDiagramResponse();
+        }
+
         bpmnConverter.convert(
             modelInstance,
             appendDocumentation,
@@ -518,6 +555,10 @@ public class ConverterController {
       return ResponseEntity.badRequest().body("The uploaded .form file is not a valid JSON form.");
     }
     return ResponseEntity.badRequest().body(message);
+  }
+
+  private ResponseEntity<String> invalidDiagramResponse() {
+    return ResponseEntity.badRequest().body(INVALID_DIAGRAM_MESSAGE);
   }
 
   private ConverterProperties converterProperties(String platformVersion) {
