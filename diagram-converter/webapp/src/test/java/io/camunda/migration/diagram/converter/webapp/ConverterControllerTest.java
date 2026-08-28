@@ -23,6 +23,7 @@ import io.camunda.zeebe.model.bpmn.BpmnModelInstance;
 import io.restassured.RestAssured;
 import io.restassured.common.mapper.TypeRef;
 import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -43,6 +44,8 @@ import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.camunda.bpm.model.xml.instance.DomElement;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -862,6 +865,51 @@ public class ConverterControllerTest {
         .statusCode(400);
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"invalid.bpmn", "invalid.dmn", "invalid.txt"})
+  void checkInvalidDiagramReturnsBadRequest(String filename) {
+    String errorMessage =
+        invalidDiagramRequest(filename)
+            .accept(ContentType.JSON)
+            .post("/check")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded file is not a valid BPMN or DMN file.");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"invalid.bpmn", "invalid.dmn", "invalid.txt"})
+  void convertInvalidDiagramReturnsBadRequest(String filename) {
+    String errorMessage =
+        invalidDiagramRequest(filename)
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded file is not a valid BPMN or DMN file.");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"invalid.bpmn", "invalid.dmn", "invalid.txt"})
+  void convertBatchInvalidDiagramReturnsBadRequest(String filename) {
+    String errorMessage =
+        invalidDiagramRequest(filename)
+            .accept("application/zip")
+            .post("/convertBatch")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded file is not a valid BPMN or DMN file.");
+  }
+
   @Test
   void convertSanitizesFilenameInContentDisposition() throws URISyntaxException, IOException {
     byte[] formBytes =
@@ -945,5 +993,15 @@ public class ConverterControllerTest {
             "converted-c8-same (1).form",
             "converted-c8-same.bpmn",
             "converted-c8-same (1).bpmn");
+  }
+
+  private static RequestSpecification invalidDiagramRequest(String filename) {
+    return RestAssured.given()
+        .contentType(ContentType.MULTIPART)
+        .multiPart(
+            "file",
+            filename,
+            "this is not a valid diagram".getBytes(StandardCharsets.UTF_8),
+            "application/xml");
   }
 }
