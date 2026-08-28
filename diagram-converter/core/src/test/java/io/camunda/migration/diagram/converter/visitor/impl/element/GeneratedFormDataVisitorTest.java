@@ -102,6 +102,18 @@ class GeneratedFormDataVisitorTest {
             </bpmn:userTask>
             """),
         Arguments.of(
+            "FormDataStart",
+            "formData",
+            """
+            <bpmn:startEvent id="FormDataStart">
+              <bpmn:extensionElements>
+                <camunda:formData>
+                  <camunda:formField id="name" type="string"/>
+                </camunda:formData>
+              </bpmn:extensionElements>
+            </bpmn:startEvent>
+            """),
+        Arguments.of(
             "FormPropertyStart",
             "formProperty",
             """
