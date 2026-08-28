@@ -101,6 +101,8 @@ mvn clean verify -Pintegration
 
 Document the baseline commit SHA in the PR description so reviewers can verify it.
 
+Before editing, run the baseline from the intended base commit with the repository-required Java/toolchain and record its SHA. Investigate every failure rather than dismissing it as pre-existing. After editing, run the smallest complete validation for the changed surface and include the baseline, commands, and results in the PR description.
+
 ### Rules
 
 - **Do NOT dismiss test failures as pre-existing or unrelated.** If CI was green before your changes and is red after, your changes caused it. Investigate.
@@ -178,6 +180,8 @@ Examples (with the `related to #<issue-number>` body line shown inline for brevi
 - Use conventional commits format for PR titles
 - Reference issues with `related to #<issue-number>` (not `closes`)
 - Keep PRs focused on a single feature or fix
+- Give each issue or self-contained change its own PR; split larger work when useful and use stacked PRs only for dependent layers.
+- Lead the PR description with the motivation, then summarize the approach and call out compatibility considerations, intentional deviations, baseline SHA, and validation results.
 - Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows)
 - A human reviewer will merge - do not merge PRs
 
