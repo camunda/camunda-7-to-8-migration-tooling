@@ -54,6 +54,40 @@ public class ConverterControllerTest {
   private static final Logger LOG = LoggerFactory.getLogger(ConverterControllerTest.class);
   @LocalServerPort int port;
 
+  private static final String XML_CONTENT_IN_FORM_FILE =
+      """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <bpmn:definitions
+          xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+          xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+          id="Definitions_JuelForm"
+          targetNamespace="http://example.com/juel-form">
+        <bpmn:process id="JuelFormProcess" isExecutable="true">
+          <bpmn:startEvent id="StartEvent_1">
+            <bpmn:outgoing>Flow_1</bpmn:outgoing>
+          </bpmn:startEvent>
+          <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="UserTask_1" />
+          <bpmn:userTask id="UserTask_1" name="Test JUEL Form">
+            <bpmn:extensionElements>
+              <camunda:formData>
+                <camunda:formField
+                    id="answer"
+                    label="Calculated answer"
+                    type="long"
+                    defaultValue="${1 + 1}" />
+              </camunda:formData>
+            </bpmn:extensionElements>
+            <bpmn:incoming>Flow_1</bpmn:incoming>
+            <bpmn:outgoing>Flow_2</bpmn:outgoing>
+          </bpmn:userTask>
+          <bpmn:sequenceFlow id="Flow_2" sourceRef="UserTask_1" targetRef="EndEvent_1" />
+          <bpmn:endEvent id="EndEvent_1">
+            <bpmn:incoming>Flow_2</bpmn:incoming>
+          </bpmn:endEvent>
+        </bpmn:process>
+      </bpmn:definitions>
+      """;
+
   @BeforeEach
   void setup() {
     RestAssured.port = port;
@@ -646,6 +680,66 @@ public class ConverterControllerTest {
 
     String converted = new String(form, StandardCharsets.UTF_8);
     assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
+  }
+
+  @Test
+  void checkXmlWithFormFilenameReturnsBadRequest() {
+    String errorMessage =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "generated.form",
+                XML_CONTENT_IN_FORM_FILE.getBytes(StandardCharsets.UTF_8),
+                "application/xml")
+            .accept(ContentType.JSON)
+            .post("/check")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded .form file is not a valid JSON form.");
+  }
+
+  @Test
+  void convertXmlWithFormFilenameReturnsBadRequest() {
+    String errorMessage =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "generated.form",
+                XML_CONTENT_IN_FORM_FILE.getBytes(StandardCharsets.UTF_8),
+                "application/xml")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded .form file is not a valid JSON form.");
+  }
+
+  @Test
+  void convertBatchXmlWithFormFilenameReturnsBadRequest() {
+    String errorMessage =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "generated.form",
+                XML_CONTENT_IN_FORM_FILE.getBytes(StandardCharsets.UTF_8),
+                "application/xml")
+            .accept("application/zip")
+            .post("/convertBatch")
+            .then()
+            .statusCode(400)
+            .extract()
+            .asString();
+
+    assertThat(errorMessage).isEqualTo("The uploaded .form file is not a valid JSON form.");
   }
 
   @Test
