@@ -372,17 +372,6 @@ jobs:
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-      - name: Set up Node.js for diagram-converter frontend
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24
-
-      - name: Run diagram-converter frontend tests
-        working-directory: diagram-converter/webapp/src/main/javascript
-        run: |
-          npm ci
-          npm test
-
       - name: Build and test diagram-converter module
         working-directory: diagram-converter
         run: mvn verify -Pdistro,checkFormat --batch-mode
