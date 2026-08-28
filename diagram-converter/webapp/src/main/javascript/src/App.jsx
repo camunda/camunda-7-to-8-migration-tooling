@@ -289,7 +289,10 @@ function App() {
         if (!checkResponse.ok) {
           const result = {
             status: "error",
-            errorMessage: `Analysis failed (HTTP ${checkResponse.status})`,
+            errorMessage: await responseErrorMessage(
+              checkResponse,
+              `Analysis failed (HTTP ${checkResponse.status})`
+            ),
             originalModelXml: originalModelXml,
             checkResponseJson: null,
           };
@@ -327,7 +330,10 @@ function App() {
         if (!convertResponse.ok) {
           result = {
             status: "error",
-            errorMessage: `Conversion failed (HTTP ${convertResponse.status})`,
+            errorMessage: await responseErrorMessage(
+              convertResponse,
+              `Conversion failed (HTTP ${convertResponse.status})`
+            ),
             originalModelXml: originalModelXml,
             checkResponseJson: checkResponseJson,
           };
@@ -355,6 +361,29 @@ function App() {
       (_, idx) => uploadResults[idx].status === "success"
     );
     setValidFiles(validFiles);
+  }
+
+  async function responseErrorMessage(response, fallback) {
+    const message = (await response.text()).trim();
+    if (!message) return fallback;
+
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/json")) return message;
+
+    try {
+      const errorBody = JSON.parse(message);
+      switch (errorBody.errorCode) {
+        case "FILE_COUNT_LIMIT_EXCEEDED":
+          return "Too many files at once. Remove some files and try again.";
+        case "MULTIPART_ERROR":
+          return "The uploaded files could not be processed.";
+        default:
+          return fallback;
+      }
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      return message;
+    }
   }
 
   function buildErrorMessage(errorBody) {
