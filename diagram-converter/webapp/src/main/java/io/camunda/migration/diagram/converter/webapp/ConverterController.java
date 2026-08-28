@@ -144,7 +144,7 @@ public class ConverterController {
           LOG.error("Error while reading input stream of form file", e);
           return ResponseEntity.badRequest().body(e.getMessage());
         } catch (IllegalArgumentException e) {
-          return ResponseEntity.badRequest().body(e.getMessage());
+          return invalidFormResponse(e);
         }
         continue;
       }
@@ -352,7 +352,7 @@ public class ConverterController {
             .body(file);
       } catch (IllegalArgumentException e) {
         // client error (invalid JSON or platform version) - no stack trace noise
-        return ResponseEntity.badRequest().body(e.getMessage());
+        return invalidFormResponse(e);
       } catch (IOException e) {
         LOG.error("IO Error while reading form file", e);
         return ResponseEntity.badRequest().body(e.getMessage());
@@ -435,7 +435,7 @@ public class ConverterController {
           putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
         } catch (IllegalArgumentException e) {
           // client error (invalid JSON or platform version) - no stack trace noise
-          return ResponseEntity.badRequest().body(e.getMessage());
+          return invalidFormResponse(e);
         } catch (IOException e) {
           LOG.error("IO Error while converting form file in batch", e);
           return ResponseEntity.badRequest().body(e.getMessage());
@@ -510,6 +510,14 @@ public class ConverterController {
       throw new IllegalArgumentException("No file provided");
     }
     return DiagramType.fromFileName(originalFilename);
+  }
+
+  private ResponseEntity<?> invalidFormResponse(IllegalArgumentException exception) {
+    String message = exception.getMessage();
+    if (!StringUtils.hasText(message) || message.startsWith("Form content")) {
+      return ResponseEntity.badRequest().body("The uploaded .form file is not a valid JSON form.");
+    }
+    return ResponseEntity.badRequest().body(message);
   }
 
   private ConverterProperties converterProperties(String platformVersion) {
