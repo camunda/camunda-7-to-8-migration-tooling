@@ -54,7 +54,8 @@ Shared rules that apply throughout all subsequent steps:
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
-- Conversion is not completion. Converter findings (WARNING, TASK, REVIEW, INFO) need human follow-up.
+- Conversion is not completion. Converter WARNING, TASK, and REVIEW findings need human follow-up.
+  INFO findings are informational unless a later cross-check identifies work.
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
