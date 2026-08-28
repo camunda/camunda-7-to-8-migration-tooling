@@ -16,7 +16,7 @@ Migrate a Camunda 7 project to Camunda 8. A project can contain two independent 
 Before scanning, inspect any active model identifier or capability metadata exposed by the host; do not infer it or use undocumented variables. This skill is optimized for an Anthropic Claude Sonnet- or Opus-class model, or a comparable frontier reasoning model.
 
 If the model is explicitly lightweight (mini, small, lite, flash, haiku, etc.) or cannot be verified, warn the user and use AskUserQuestion (or the host equivalent):
-- **Switch to a Sonnet-class or comparable frontier model (recommended)** — explain the host's model selector, then stop until the host confirms.
+- **Switch to an Anthropic Claude Sonnet- or Opus-class model (recommended)** — explain the host's model selector, wait for the user's confirmation, then re-read host-provided model metadata before continuing.
 - **Continue** — use deterministic approaches and extra human review; record the warning and choice in `MIGRATION_REPORT.md`.
 
 Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model changes. Record the model status in `MIGRATION_REPORT.md` after the project root is confirmed.
