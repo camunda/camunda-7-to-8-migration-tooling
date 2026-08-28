@@ -1,4 +1,34 @@
 categories:
+  - category: generated forms
+    cases:
+      - name: Legacy generated form properties on user task
+        givenBpmn: |
+          <bpmn:userTask id="FormPropertyTask">
+            <bpmn:extensionElements>
+              <camunda:formProperty id="name" type="string"/>
+              <camunda:formProperty id="approved" type="boolean"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="FormPropertyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Element 'formProperty' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually.</conversion:message>
+      - name: Legacy generated form properties on start event
+        givenBpmn: |
+          <bpmn:startEvent id="FormPropertyStart">
+            <bpmn:extensionElements>
+              <camunda:formProperty id="name" type="string"/>
+              <camunda:formProperty id="approved" type="boolean"/>
+            </bpmn:extensionElements>
+          </bpmn:startEvent>
+        expectedBpmn: |
+          <bpmn:startEvent id="FormPropertyStart" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+          <conversion:message severity="TASK">Element 'formProperty' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output
