@@ -320,7 +320,25 @@ function App() {
 
   async function responseErrorMessage(response, fallback) {
     const message = (await response.text()).trim();
-    return message || fallback;
+    if (!message) return fallback;
+
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/json")) return message;
+
+    try {
+      const errorBody = JSON.parse(message);
+      switch (errorBody.errorCode) {
+        case "FILE_COUNT_LIMIT_EXCEEDED":
+          return "Too many files at once. Remove some files and try again.";
+        case "MULTIPART_ERROR":
+          return "The uploaded files could not be processed.";
+        default:
+          return fallback;
+      }
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      return message;
+    }
   }
 
   function buildErrorMessage(errorBody) {
