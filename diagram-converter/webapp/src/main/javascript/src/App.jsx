@@ -12,7 +12,6 @@ import {
   ProgressStep,
   Button,
   Callout,
-  DataTable,
   Table,
   TableHead,
   TableRow,
@@ -28,9 +27,50 @@ import {
 import { Download, Launch, Close, Settings } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
+import { FINDINGS_TABLE_HEADER, buildFindingsRows } from "./findings";
 import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
+
+function FindingsSection({ header, rows }) {
+  if (rows.length === 0) {
+    return <p style={{ marginTop: '1rem' }}>No findings for this file.</p>;
+  }
+  return (
+    <>
+      <h3>Findings</h3>
+      <p style={{ marginBottom: '0.75rem' }}>
+        Elements in this file that need attention during migration. Each row describes one finding - its location, severity, and a message explaining what to address.
+      </p>
+      <Table className="analysis-table">
+        <TableHead>
+          <TableRow>
+            {header.map((h) => (
+              <TableHeader key={h.key}>
+                {h.header}
+              </TableHeader>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              {header.map((h) => (
+                <TableCell key={`${row.id}-${h.key}`}>
+                  {h.key === 'link'
+                    ? row.link
+                      ? <a href={row.link} target="_blank" rel="noopener noreferrer">Link</a>
+                      : '-'
+                    : row[h.key]}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </>
+  );
+}
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -46,6 +86,7 @@ function App() {
   const [previewbpmnXml, setPreviewbpmnXml] = useState("");
   const [previewFormSchema, setPreviewFormSchema] = useState(null);
   const [previewFormError, setPreviewFormError] = useState("");
+  const [previewDiagramError, setPreviewDiagramError] = useState(false);
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
@@ -78,32 +119,36 @@ function App() {
   }
 
   useEffect(() => {
-      if (isPreviewOpen && previewbpmnXml) {
-          const viewer = new BpmnJS({ container: '#bpmnDiagram' });
-          viewer.importXML(previewbpmnXml).then(() => {
-            const canvas = viewer.get('canvas');
-            canvas.zoom('fit-viewport');
+      if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
 
-            const elementsWithMessages =
-              previewCheckJson?.[0]?.results?.filter((el) => el.messages?.length > 0) || [];
+      const viewer = new BpmnJS({ container: '#bpmnDiagram' });
+      viewer.importXML(previewbpmnXml).then(() => {
+        const canvas = viewer.get('canvas');
+        canvas.zoom('fit-viewport');
 
-            elementsWithMessages.forEach((el) => {
-              if (el.elementId) {
-                  const severity = getMostSevere(el.messages);
-                  if (severity) {
-                    // Mark wit the same color everytime for the moment
-                    //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-                    canvas.addMarker(el.elementId, `highlight-info`);
-                  }
+        const elementsWithMessages =
+          (Array.isArray(previewCheckJson) ? previewCheckJson : [])
+            .flatMap((item) => (Array.isArray(item?.results) ? item.results : []))
+            .filter((el) => Array.isArray(el?.messages) && el.messages.length > 0);
+
+        elementsWithMessages.forEach((el) => {
+          if (el.elementId) {
+              const severity = getMostSevere(el.messages);
+              if (severity) {
+                // Mark with the same color every time for the moment
+                //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
+                canvas.addMarker(el.elementId, `highlight-info`);
               }
-            });
+          }
+        });
 
-          }).catch((error) => {
-            console.error("Unable to render BPMN preview:", error);
-          });
+      }).catch((error) => {
+        console.error("Unable to render BPMN preview:", error);
+        setPreviewDiagramError(true);
+      });
 
-      }
-    }, [isPreviewOpen, previewbpmnXml, previewCheckJson]);
+      return () => viewer.destroy();
+    }, [isPreviewOpen, previewType, previewDiagramError, previewbpmnXml, previewCheckJson]);
 
   function createFormData(files) {
     const formData = new FormData();
@@ -258,36 +303,22 @@ function App() {
   async function preview(response) {
     if (!response?.checkResponseJson) return;
 
-    setPreviewTableHeader([
-      { key: 'elementType', header: 'Element Type' },
-      { key: 'elementId', header: 'Element ID' },
-      { key: 'elementName', header: 'Element Name' },
-      { key: 'severity', header: 'Severity' },
-      { key: 'message', header: 'Message' },
-      { key: 'link', header: 'Link' },
-    ]);
-
-    setPreviewTableRows(
-      response.checkResponseJson?.[0]?.results.flatMap((element, elementIdx) =>
-        element.messages.map((message, msgIdx) => ({
-          id: `${elementIdx}-${msgIdx}`,
-          elementType: element.elementType,
-          elementId: element.elementId,
-          elementName: element.elementName || '(unnamed)',
-          severity: message.severity,
-          message: message.message,
-          link: message.link
-            ? `<a href="${message.link}" target="_blank" rel="noopener noreferrer">Link</a>`
-            : '-',
-        }))
-      ) || []);
-
+    setPreviewTableHeader(FINDINGS_TABLE_HEADER);
+    setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
 
     setPreviewCheckJson(response.checkResponseJson);
     setPreviewbpmnXml(response.originalModelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
-    setPreviewType("bpmn");
+    setPreviewDiagramError(false);
+    // BPMN is detected by content, not extension: the dropzone also accepts
+    // .xml files, which can be BPMN (or DMN) models.
+    setPreviewType(
+      typeof response.originalModelXml === "string" &&
+      response.originalModelXml.includes("omg.org/spec/BPMN")
+        ? "bpmn"
+        : "other"
+    );
 
     setIsPreviewOpen(true);
   }
@@ -299,6 +330,7 @@ function App() {
     setPreviewCheckJson([]);
     setPreviewTableHeader([]);
     setPreviewTableRows([]);
+    setPreviewDiagramError(false);
     setPreviewType("form");
     setIsPreviewOpen(true);
   }
@@ -306,6 +338,9 @@ function App() {
   function previewForm(response) {
     const { schema, error } = parseFormSchema(response?.originalModelXml);
     openFormPreview(schema, error);
+    setPreviewCheckJson(response?.checkResponseJson || []);
+    setPreviewTableHeader(FINDINGS_TABLE_HEADER);
+    setPreviewTableRows(buildFindingsRows(response?.checkResponseJson));
   }
 
   async function download(response) {
@@ -534,10 +569,11 @@ function App() {
             */}
 
             <section>
-              <h3>Converted models</h3>
+              <h3>Converted files</h3>
               <p>
-                Download each converted file or all of them as a ZIP. Preview a
-                file to inspect it first.
+                Download each converted file or all of them as a ZIP. Use the eye
+                icon to preview analysis findings for each file; BPMN files also
+                render a diagram, and forms show a form preview.
               </p>
               {files.map((file, idx) => {
                 const isForm = file.name.toLowerCase().endsWith(".form");
@@ -571,7 +607,7 @@ function App() {
 
             <section>
               <h3>Analysis results</h3>
-              <p>Download the findings for all converted models:</p>
+              <p>Download the findings for all converted files:</p>
               <div className="download-options">
                 <div className="download-row">
                   <Button
@@ -667,55 +703,28 @@ function App() {
         </div>
       </div>
 
-      {previewType === "bpmn" && <>
-      <div id="bpmnDiagram" className="diagram-container"></div>
-      <DataTable rows={previewTableRows} headers={previewTableHeader}>
-  {({ rows, headers, getHeaderProps, getRowProps }) => (
-    <Table className="analysis-table">
-      <TableHead>
-        <TableRow>
-          {headers.map((header) => {
-            const headerProps = getHeaderProps({ header });
-            const { key, ...rest } = headerProps;
-
-            return (
-              <TableHeader key={key} {...rest}>
-                {header.header}
-              </TableHeader>
-            );
-          })}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map((row) => {
-          const rowProps = getRowProps({ row });
-          const { key, ...restRowProps } = rowProps;
-
-          return (
-            <TableRow key={key} {...restRowProps}>
-              {row.cells.map((cell) => (
-                <TableCell key={cell.id}>
-                  {cell.info.header === 'link' && cell.value?.startsWith('<a')
-                    ? (
-                        <span
-                          dangerouslySetInnerHTML={{ __html: cell.value }}
-                        />
-                      )
-                    : cell.value}
-                </TableCell>
-              ))}
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  )}
-</DataTable>
-      </>}
+      {(previewType === "bpmn" || previewType === "other") && (
+        <>
+          {previewType === "bpmn" && !previewDiagramError && (
+            <div id="bpmnDiagram" className="diagram-container"></div>
+          )}
+          {(previewType === "other" || (previewType === "bpmn" && previewDiagramError)) && (
+            <p style={{ marginTop: '1rem' }}>
+              {previewDiagramError
+                ? 'The diagram could not be rendered. The findings for this file are listed below.'
+                : 'Diagram preview is only available for BPMN files. The findings for this file are listed below.'}
+            </p>
+          )}
+          <FindingsSection header={previewTableHeader} rows={previewTableRows} />
+        </>
+      )}
       {previewType === "form" && (
-        previewFormError
-          ? <p className="form-preview-error" role="alert">{previewFormError}</p>
-          : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />
+        <>
+          {previewFormError
+            ? <p className="form-preview-error" role="alert">{previewFormError}</p>
+            : <FormPreview schema={previewFormSchema} onError={setPreviewFormError} />}
+          <FindingsSection header={previewTableHeader} rows={previewTableRows} />
+        </>
       )}
 
 
