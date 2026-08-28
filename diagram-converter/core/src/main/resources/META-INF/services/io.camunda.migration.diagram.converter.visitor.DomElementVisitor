@@ -3,6 +3,8 @@ io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVis
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$FormFieldVisitor
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$FormPropertyVisitor
 io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormDataVisitor$ValidationVisitor
+io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormOwnerVisitor$StartEventVisitor
+io.camunda.migration.diagram.converter.visitor.impl.element.GeneratedFormOwnerVisitor$UserTaskVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AssigneeVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AsyncAfterVisitor
 io.camunda.migration.diagram.converter.visitor.impl.attribute.AsyncBeforeVisitor
