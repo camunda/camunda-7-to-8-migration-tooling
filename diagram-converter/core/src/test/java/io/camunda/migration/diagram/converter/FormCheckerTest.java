@@ -120,7 +120,7 @@ class FormCheckerTest {
   }
 
   @Test
-  void shouldReportJuelExpressionsOnComponent() {
+  void shouldReportTransformedAndUntransformedJuelExpressionsOnComponent() {
     DiagramCheckResult result =
         check(
             """
@@ -150,17 +150,21 @@ class FormCheckerTest {
         .hasSize(2)
         .allSatisfy(
             message -> {
-              assertThat(message.getId()).isEqualTo("form-juel-expression");
               assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
             })
         .anySatisfy(
-            message ->
-                assertThat(message.getMessage()).contains("${customerName}").contains("label"))
+            message -> {
+              assertThat(message.getId()).isEqualTo("form-juel-expression");
+              assertThat(message.getMessage()).contains("${customerName}").contains("label");
+            })
         .anySatisfy(
-            message ->
-                assertThat(message.getMessage())
-                    .contains("#{defaultGreeting}")
-                    .contains("defaultValue"));
+            message -> {
+              assertThat(message.getId()).isEqualTo("expression");
+              assertThat(message.getMessage())
+                  .contains("#{defaultGreeting}")
+                  .contains("= defaultGreeting")
+                  .contains("defaultValue");
+            });
   }
 
   @Test
@@ -188,7 +192,7 @@ class FormCheckerTest {
   }
 
   @Test
-  void shouldReportJuelExpressionsInNestedProperties() {
+  void shouldReportTransformedJuelExpressionsInNestedProperties() {
     DiagramCheckResult result =
         check(
             """
@@ -218,7 +222,13 @@ class FormCheckerTest {
     assertThat(element.getMessages())
         .singleElement()
         .satisfies(
-            message -> assertThat(message.getMessage()).contains("${optionA}").contains("values"));
+            message -> {
+              assertThat(message.getId()).isEqualTo("expression");
+              assertThat(message.getMessage())
+                  .contains("${optionA}")
+                  .contains("= optionA")
+                  .contains("values");
+            });
   }
 
   @Test

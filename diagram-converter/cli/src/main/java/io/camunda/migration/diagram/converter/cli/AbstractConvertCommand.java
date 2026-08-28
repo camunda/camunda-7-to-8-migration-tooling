@@ -16,7 +16,7 @@ import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverter;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
 import io.camunda.migration.diagram.converter.DiagramType;
-import io.camunda.migration.diagram.converter.FormChecker;
+import io.camunda.migration.diagram.converter.FormConversionResult;
 import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.File;
@@ -27,9 +27,9 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -140,10 +140,11 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     returnCode = 0;
     Map<File, ModelInstance> modelInstances = modelInstances();
     List<File> formFileList = formFiles();
+    Map<File, FormConversionResult> formResults = processFormFiles(formFileList);
     List<DiagramCheckResult> results = checkModels(modelInstances);
-    results.addAll(checkFormFiles(formFileList));
+    results.addAll(formResults.values().stream().map(FormConversionResult::checkResult).toList());
     writeResults(modelInstances, results);
-    convertFormFiles(formFileList);
+    writeConvertedFormFiles(formResults);
     return returnCode;
   }
 
@@ -151,36 +152,39 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     return List.of();
   }
 
-  private List<DiagramCheckResult> checkFormFiles(List<File> formFileList) {
+  private Map<File, FormConversionResult> processFormFiles(List<File> formFileList) {
     if (formFileList.isEmpty()) {
-      return List.of();
+      return Map.of();
     }
     ConverterProperties properties =
         ConverterPropertiesFactory.getInstance().merge(converterProperties());
-    List<DiagramCheckResult> results = new ArrayList<>();
+    Map<File, FormConversionResult> results = new LinkedHashMap<>();
     for (File formFile : formFileList) {
       try {
         String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
-        results.add(FormChecker.check(modelIdentifier(formFile), content, properties));
+        results.put(
+            formFile,
+            FormConverter.convertAndCheck(modelIdentifier(formFile), content, properties));
       } catch (IOException | RuntimeException e) {
         LOG_CLI.error(
-            "Error while checking form file {}: {}", formFile.getAbsolutePath(), createMessage(e));
+            "Error while processing form file {}: {}",
+            formFile.getAbsolutePath(),
+            createMessage(e));
         returnCode = 1;
       }
     }
     return results;
   }
 
-  private void convertFormFiles(List<File> formFileList) {
-    if (check || formFileList.isEmpty()) {
+  private void writeConvertedFormFiles(Map<File, FormConversionResult> formResults) {
+    if (check || formResults.isEmpty()) {
       return;
     }
     if (!createTargetDirectory()) {
       return;
     }
-    ConverterProperties properties =
-        ConverterPropertiesFactory.getInstance().merge(converterProperties());
-    for (File formFile : formFileList) {
+    for (Entry<File, FormConversionResult> formResult : formResults.entrySet()) {
+      File formFile = formResult.getKey();
       File outFile = prefixFileName(formFile);
       if (!override && outFile.exists()) {
         LOG_CLI.error("File already exists: {}", outFile);
@@ -188,11 +192,10 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         continue;
       }
       try {
-        String content = Files.readString(formFile.toPath(), StandardCharsets.UTF_8);
-        String converted = FormConverter.convert(content, properties);
         // JSON is specified as UTF-8 (RFC 8259); pin the charset so an explicit
         // -Dfile.encoding override can't corrupt the converted form
-        Files.writeString(outFile.toPath(), converted, StandardCharsets.UTF_8);
+        Files.writeString(
+            outFile.toPath(), formResult.getValue().convertedForm(), StandardCharsets.UTF_8);
         LOG_CLI.info("Created {}", outFile);
       } catch (IOException | RuntimeException e) {
         LOG_CLI.error(
