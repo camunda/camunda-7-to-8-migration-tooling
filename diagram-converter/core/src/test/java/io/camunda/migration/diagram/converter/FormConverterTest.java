@@ -128,6 +128,14 @@ class FormConverterTest {
   }
 
   @Test
+  void shouldRejectEmptyContent() {
+    assertThatThrownBy(() -> FormConverter.convert("", defaultProperties()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must be a JSON object")
+        .hasMessageContaining("empty");
+  }
+
+  @Test
   void shouldRejectInvalidPlatformVersion() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setPlatformVersion("not-a-version");

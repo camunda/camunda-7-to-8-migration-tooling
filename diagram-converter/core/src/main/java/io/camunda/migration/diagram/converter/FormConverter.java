@@ -80,7 +80,11 @@ public class FormConverter {
 
   private static JsonNode readTree(String formContent) {
     try {
-      return OBJECT_MAPPER.readTree(formContent);
+      JsonNode root = OBJECT_MAPPER.readTree(formContent);
+      if (root == null || root.isMissingNode()) {
+        throw new IllegalArgumentException("Form content must be a JSON object, but was empty");
+      }
+      return root;
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException("Form content is not valid JSON: " + e.getMessage(), e);
     }

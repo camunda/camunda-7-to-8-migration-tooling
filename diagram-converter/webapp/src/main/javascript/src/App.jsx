@@ -244,7 +244,10 @@ function App() {
         if (!checkResponse.ok) {
           const result = {
             status: "error",
-            errorMessage: `Analysis failed (HTTP ${checkResponse.status})`,
+            errorMessage: await responseErrorMessage(
+              checkResponse,
+              `Analysis failed (HTTP ${checkResponse.status})`
+            ),
             originalModelXml: originalModelXml,
             checkResponseJson: null,
           };
@@ -282,7 +285,10 @@ function App() {
         if (!convertResponse.ok) {
           result = {
             status: "error",
-            errorMessage: `Conversion failed (HTTP ${convertResponse.status})`,
+            errorMessage: await responseErrorMessage(
+              convertResponse,
+              `Conversion failed (HTTP ${convertResponse.status})`
+            ),
             originalModelXml: originalModelXml,
             checkResponseJson: checkResponseJson,
           };
@@ -310,6 +316,11 @@ function App() {
       (_, idx) => uploadResults[idx].status === "success"
     );
     setValidFiles(validFiles);
+  }
+
+  async function responseErrorMessage(response, fallback) {
+    const message = (await response.text()).trim();
+    return message || fallback;
   }
 
   function buildErrorMessage(errorBody) {
