@@ -43,7 +43,6 @@ const bpmnMocks = vi.hoisted(() => {
 
 const testState = vi.hoisted(() => ({
   files: [],
-  dmnPreviewProps: [],
   formPreviewProps: [],
 }));
 
@@ -89,13 +88,6 @@ vi.mock("@camunda/design-system", () => ({
 
 vi.mock("bpmn-js", () => ({
   default: bpmnMocks.MockBpmnJS,
-}));
-
-vi.mock("./DmnPreview", () => ({
-  default: (props) => {
-    testState.dmnPreviewProps.push(props);
-    return <div data-testid="dmn-preview" />;
-  },
 }));
 
 vi.mock("./DropZone", () => ({
@@ -145,7 +137,7 @@ async function openPreview({ fileName, content, checkResponseJson }) {
   fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
 
   const analyzeButton = screen.getByRole("button", {
-    name: /Analyze and convert to Camunda/,
+    name: /Analyze and convert/,
   });
   await waitFor(() => expect(analyzeButton.disabled).toBe(false));
   fireEvent.click(analyzeButton);
@@ -164,7 +156,6 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
   testState.files.length = 0;
-  testState.dmnPreviewProps.length = 0;
   testState.formPreviewProps.length = 0;
   bpmnMocks.instances.length = 0;
 });
@@ -226,12 +217,10 @@ describe("analysis findings preview", () => {
       "Ship order",
       "WARNING",
       "Review the service task implementation.",
-      "Open",
+      "Link",
     ]);
 
-    const documentationLink = within(rows[1]).getByRole("link", {
-      name: `Open finding documentation: ${documentationUrl}`,
-    });
+    const documentationLink = within(rows[1]).getByRole("link");
     expect(documentationLink.getAttribute("href")).toBe(documentationUrl);
     expect(documentationLink.getAttribute("target")).toBe("_blank");
   });
@@ -288,11 +277,6 @@ describe("preview routing", () => {
       expectedType: "bpmn",
     },
     {
-      fileName: "decision.dmn",
-      content: '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" />',
-      expectedType: "dmn",
-    },
-    {
       fileName: "customer.form",
       content: JSON.stringify({ type: "default", components: [] }),
       expectedType: "form",
@@ -314,15 +298,9 @@ describe("preview routing", () => {
       expect(screen.queryByTestId("dmn-preview")).toBeNull();
       expect(screen.queryByTestId("form-preview")).toBeNull();
       expect(bpmnMocks.instances[0].importedXml).toEqual([content]);
-    } else if (expectedType === "dmn") {
-      expect(await screen.findByTestId("dmn-preview")).toBeTruthy();
-      expect(document.querySelector("#bpmnDiagram")).toBeNull();
-      expect(screen.queryByTestId("form-preview")).toBeNull();
-      expect(testState.dmnPreviewProps.at(-1).xml).toBe(content);
     } else {
       expect(await screen.findByTestId("form-preview")).toBeTruthy();
       expect(document.querySelector("#bpmnDiagram")).toBeNull();
-      expect(screen.queryByTestId("dmn-preview")).toBeNull();
       expect(testState.formPreviewProps.at(-1).schema).toEqual({
         type: "default",
         components: [],
