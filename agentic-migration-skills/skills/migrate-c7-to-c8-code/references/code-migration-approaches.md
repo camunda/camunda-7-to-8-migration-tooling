@@ -2,6 +2,8 @@
 
 ## Approach A - OpenRewrite + AI (recommended)
 
+Before resolving versions, inspect the selected target or maintenance branch's existing configuration and verify Camunda, Spring Boot, recipe, and dependency compatibility against official Camunda documentation or Maven metadata. Do not blindly choose a newer platform version.
+
 ### 1. Run OpenRewrite
 
 RECIPES_VERSION by Camunda target (use latest from these minor versions):
