@@ -1,8 +1,14 @@
 # Diagram Converter Webapp
 
 The webapp accepts Camunda Forms (`.form` files) alongside BPMN and DMN models.
-Forms are converted by updating their platform metadata and can be opened as a
-read-only rendered preview from the results list.
+Forms are converted by updating their platform metadata and transforming exact
+simple JUEL variable references such as `${customerName}` or `#{customerName}`
+in component properties to FEEL (`= customerName`). Each transformation is
+reported for review. Complex expressions remain unchanged and are reported for
+manual migration. Schema versions and deprecated component properties are
+preserved because changing them without a schema-aware migration could alter
+form behavior. Forms can be opened as a read-only rendered preview from the
+results list.
 
 ## Rest API
 
