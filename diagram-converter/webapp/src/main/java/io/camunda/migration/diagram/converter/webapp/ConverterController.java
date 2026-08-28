@@ -13,7 +13,6 @@ import io.camunda.migration.diagram.converter.DefaultConverterProperties;
 import io.camunda.migration.diagram.converter.DiagramCheckResult;
 import io.camunda.migration.diagram.converter.DiagramConverterResultDTO;
 import io.camunda.migration.diagram.converter.DiagramType;
-import io.camunda.migration.diagram.converter.FormChecker;
 import io.camunda.migration.diagram.converter.FormConverter;
 import io.camunda.migration.diagram.converter.excel.ExcelWriter;
 import java.io.BufferedOutputStream;
@@ -142,7 +141,9 @@ public class ConverterController {
         try (InputStream in = diagramFile.getInputStream()) {
           String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
           resultList.add(
-              FormChecker.check(diagramFile.getOriginalFilename(), content, formCheckProperties));
+              FormConverter.convertAndCheck(
+                      diagramFile.getOriginalFilename(), content, formCheckProperties)
+                  .checkResult());
         } catch (IOException e) {
           LOG.error("Error while reading input stream of form file", e);
           return ResponseEntity.badRequest().body(e.getMessage());
@@ -351,11 +352,16 @@ public class ConverterController {
               defaultValue = "migrator")
           String dataMigrationExecutionListenerJobType) {
 
-    // Form files are JSON - convert them by updating the platform metadata fields only
+    // Form files are JSON and use the combined conversion and checking traversal
     if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
       try (InputStream in = diagramFile.getInputStream()) {
         String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        String converted = FormConverter.convert(content, converterProperties(platformVersion));
+        String converted =
+            FormConverter.convertAndCheck(
+                    diagramFile.getOriginalFilename(),
+                    content,
+                    converterProperties(platformVersion))
+                .convertedForm();
         Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
         return ResponseEntity.ok()
             .header(
@@ -451,11 +457,16 @@ public class ConverterController {
         diagramFilesIterator.hasNext(); ) {
       MultipartFile diagramFile = (MultipartFile) diagramFilesIterator.next();
 
-      // Form files are JSON - convert them by updating the platform metadata fields only
+      // Form files are JSON and use the combined conversion and checking traversal
       if (FormConverter.isFormFile(diagramFile.getOriginalFilename())) {
         try (InputStream in = diagramFile.getInputStream()) {
           String content = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-          String converted = FormConverter.convert(content, converterProperties(platformVersion));
+          String converted =
+              FormConverter.convertAndCheck(
+                      diagramFile.getOriginalFilename(),
+                      content,
+                      converterProperties(platformVersion))
+                  .convertedForm();
           Resource file = new ByteArrayResource(converted.getBytes(StandardCharsets.UTF_8));
           putConverted(resultList, convertedFileName(diagramFile.getOriginalFilename()), file);
         } catch (IllegalArgumentException e) {
