@@ -19,11 +19,9 @@ import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import java.io.IOException;
 
 /**
- * Converts Camunda 7 form files ({@code *.form}) to Camunda 8. Forms are JSON documents, so the
- * conversion is a metadata-only update of the two platform fields on the root object: {@code
- * executionPlatform} is set to {@value #TARGET_EXECUTION_PLATFORM} and {@code
- * executionPlatformVersion} to the target platform version. All other properties (components,
- * layout, validation, ids, ...) are semantically unchanged; the JSON may be re-formatted.
+ * Converts Camunda 7 form files ({@code *.form}) to Camunda 8. Platform metadata is updated and
+ * simple JUEL variable references in component properties are transformed to FEEL. Findings are
+ * collected during the same traversal used for conversion.
  */
 public class FormConverter {
 
@@ -47,35 +45,42 @@ public class FormConverter {
    *
    * @param formContent the content of a Camunda 7 form file
    * @param properties the converter properties, providing the target platform version
-   * @return the converted form JSON with updated platform metadata
+   * @return the converted form JSON with updated platform metadata and safe expression
+   *     transformations
    * @throws IllegalArgumentException if the content is not valid JSON or not a JSON object, or the
    *     platform version is missing or invalid
    */
   public static String convert(String formContent, ConverterProperties properties) {
+    return convertAndCheck(FormChecker.FORM_ELEMENT_TYPE + FILE_EXTENSION, formContent, properties)
+        .convertedForm();
+  }
+
+  /**
+   * Converts and checks the given form JSON in one parse and component traversal.
+   *
+   * @param filename the name of the form file, used in the check result
+   * @param formContent the content of a Camunda 7 form file
+   * @param properties the converter properties, providing the target platform version
+   * @return the converted form and findings collected during conversion
+   * @throws IllegalArgumentException if the content is not valid JSON or not a JSON object, or the
+   *     platform version is missing or invalid
+   */
+  public static FormConversionResult convertAndCheck(
+      String filename, String formContent, ConverterProperties properties) {
     String targetVersion = resolveTargetVersion(properties);
     JsonNode root = readTree(formContent);
     if (!(root instanceof ObjectNode form)) {
       throw new IllegalArgumentException(
           "Form content must be a JSON object, but was: " + root.getNodeType());
     }
+    DiagramCheckResult checkResult = FormProcessor.process(filename, form);
     form.put(EXECUTION_PLATFORM_FIELD, TARGET_EXECUTION_PLATFORM);
     form.put(EXECUTION_PLATFORM_VERSION_FIELD, targetVersion);
     try {
-      return WRITER.writeValueAsString(form);
+      return new FormConversionResult(WRITER.writeValueAsString(form), checkResult);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Error while writing converted form", e);
     }
-  }
-
-  /**
-   * Parses the given form JSON.
-   *
-   * @param formContent the content of a form file
-   * @return the parsed JSON tree
-   * @throws IllegalArgumentException if the content is not valid JSON
-   */
-  static JsonNode parse(String formContent) {
-    return readTree(formContent);
   }
 
   private static JsonNode readTree(String formContent) {
@@ -91,17 +96,6 @@ public class FormConverter {
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException("Form content is not valid JSON: " + e.getMessage(), e);
     }
-  }
-
-  /**
-   * Resolves and validates the target platform version from the converter properties.
-   *
-   * @param properties the converter properties, providing the target platform version
-   * @return the target platform version in patch-zero form (e.g. {@code 8.9.0})
-   * @throws IllegalArgumentException if the platform version is missing or invalid
-   */
-  static String targetVersion(ConverterProperties properties) {
-    return resolveTargetVersion(properties);
   }
 
   private static String resolveTargetVersion(ConverterProperties properties) {
