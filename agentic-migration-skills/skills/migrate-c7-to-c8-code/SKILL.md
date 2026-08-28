@@ -82,7 +82,8 @@ types/validators, and initial status. This source inventory is required because 
 longer contains the C7 form metadata and form-property-only models may not emit a `form-data`
 finding with older converter releases.
 
-If inventory is empty and user selected model migration, record that no local models were found and that E1 was offered.
+If the model-file inventory is empty and the user selected model migration, record that no local
+models were found and that E1 was offered.
 
 #### Summary
 
