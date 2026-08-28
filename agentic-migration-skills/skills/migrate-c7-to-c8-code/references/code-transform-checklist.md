@@ -27,7 +27,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 ## 2. Client Code (ProcessEngine to CamundaClient)
 
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
-- Map: start instances (including TAGs for stable business keys), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
+- Map: start instances (including tags for stable business keys), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
 - Map every C7 call to the matching CamundaClient API supported by the selected target version. Preserve existing worker inputs and outputs, including variables, headers, result names, and error semantics.
 - Put genuinely new behavior in a separate worker instead of changing the contract of a migrated worker.
 - If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
@@ -106,7 +106,7 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
-| `businessKey` usage | Flag: map stable keys to TAGs; use a `businessKey` process variable when the key changes during execution |
+| `businessKey` usage | Flag: map stable keys to tags; use a `businessKey` process variable when the key changes during execution |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |

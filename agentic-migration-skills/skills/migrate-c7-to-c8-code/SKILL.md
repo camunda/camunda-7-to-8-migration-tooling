@@ -110,7 +110,7 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 2. Check for remaining C7 references: search for `org.camunda.bpm` imports. Each is a missed migration.
 3. Check for remaining TODOs: search for `// TODO` migration comments. Each needs manual review.
 4. Check for legacy C8 client: search for `ZeebeClient` and `zeebe-client-java` (deprecated, removed in 8.10; migrate to CamundaClient).
-5. Check for leftover business keys: search for `businessKey`. Map stable C7 business keys to C8 TAGs; if the key changes during execution, use a `businessKey` process variable. Verify and record any target-specific `businessId` decision.
+5. Check for leftover business keys: search for `businessKey`. Map stable C7 business keys to C8 tags; if the key changes during execution, use a `businessKey` process variable. Verify and record any target-specific `businessId` decision.
 6. Run tests: run `mvn test` or platform-appropriate Gradle test task. Fix failures.
 7. Check common pitfalls:
    - Critical naming swap: C7 processDefinitionKey (string key) becomes C8 bpmnProcessId; C7 processDefinitionId (UUID) becomes C8 processDefinitionKey. Same for decision definitions.
@@ -151,7 +151,7 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 4. All tests pass (or failures are documented with explanation)
 5. All // TODO migration comments are resolved or explicitly recorded
 6. No ZeebeClient/zeebe-client-java references remain (deprecated)
-7. Stable business keys are mapped to TAGs; keys that change during execution use a `businessKey` process variable, with any target-specific `businessId` decision verified and recorded
+7. Stable business keys are mapped to tags; keys that change during execution use a `businessKey` process variable, with any target-specific `businessId` decision verified and recorded
 8. Configuration uses camunda.client.* keys instead of camunda.* keys
 9. For model migration: converted-c8-* files exist for all in-scope diagrams
 10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md

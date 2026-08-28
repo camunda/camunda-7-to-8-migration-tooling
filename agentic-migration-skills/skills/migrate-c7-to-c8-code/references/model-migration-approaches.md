@@ -201,7 +201,7 @@ Apply these checks to every model migration approach:
 - Inventory every C7 form, including generated Task Forms. Migrate each to a standard C8 form and link it from the converted BPMN. Generated Task Forms must be explicitly flagged for this skill to handle manually; do not treat them as automatically converted.
 - For a C7 `FileValue`, use a Document API reference rather than a filename-only reference.
 - Preserve path-as-key mappings and their FEEL semantics. Surface unsupported form validation rules for user review instead of silently dropping or inventing them.
-- Replace stable C7 business keys with C8 TAGs by default. If the key changes during execution, use a `businessKey` process variable instead. Verify any target-specific alternative against the selected version and record the decision in `MIGRATION_REPORT.md`.
+- Replace stable C7 business keys with C8 tags by default. If the key changes during execution, use a `businessKey` process variable instead. Verify any target-specific alternative against the selected version and record the decision in `MIGRATION_REPORT.md`.
 
 ---
 
