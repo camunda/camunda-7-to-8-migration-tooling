@@ -8,7 +8,8 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 ## 1. Dependencies and Configuration
 
-- Resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
+- Start from the selected target or maintenance branch's existing configuration. Verify the Camunda platform, Spring Boot line, starter, and dependency compatibility against official Camunda documentation or Maven metadata; do not upgrade to a newer platform merely because it is available.
+- When a version must be selected rather than preserved from the target configuration, resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -26,7 +27,9 @@ Confirm each item before the next (commit policy: ask user before committing).
 ## 2. Client Code (ProcessEngine to CamundaClient)
 
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
-- Map: start instances (incl. businessId/tags), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
+- Map: start instances (including tags for stable business keys), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
+- Map every C7 call to the matching CamundaClient API supported by the selected target version. Preserve existing worker inputs and outputs, including variables, headers, result names, and error semantics.
+- Put genuinely new behavior in a separate worker instead of changing the contract of a migrated worker.
 - If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
 
 ---
@@ -71,6 +74,7 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
 - Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
+- Complex Groovy or script logic on sequence flows is not a safe FEEL conversion. Move it to an upstream service task/job worker and ask for human review rather than inventing an expression mapping.
 
 ### Named category: FEEL method-invocation
 
@@ -102,7 +106,7 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
-| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8) |
+| `businessKey` usage | Flag: map stable keys to tags; use a `businessKey` process variable when the key changes during execution |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |

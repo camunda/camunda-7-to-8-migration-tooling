@@ -8,6 +8,14 @@ Use the model scan from the assessment before choosing a conversion path:
 
 ---
 
+## Deterministic conversion and human review
+
+- Prefer the official Diagram Converter whenever it supports the model. Always pass the exact selected target platform version, and do not hand-edit namespaces as a substitute when the converter applies.
+- A converted file is not automatically safe to deploy. Treat every TASK/WARNING/REVIEW finding, unsafe or partial transformation, unsupported behavior, and generated Task Form as an explicit human-review item in `MIGRATION_REPORT.md`.
+- If Camunda 8 has no safe representation for a C7 construct, stop and ask the user for a decision. Do not invent a namespace, expression, or behavior mapping.
+
+---
+
 ## Pre-flight: Leftover Artifacts
 
 Before any local approach (M1, M2, E1), scan the project for outputs of previous migration attempts:
@@ -178,10 +186,22 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
 - Simple JUEL to FEEL for pure data expressions; flag bean-invoking expressions for manual work
+- Complex Groovy or script logic on sequence flows must move to an upstream service task/job worker; do not synthesize a FEEL expression.
 - Conditional events natively only on 8.9+; otherwise flag
 - DMN: update decision/definition namespaces and expression language as needed
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review.
+
+---
+
+## Forms and data semantics
+
+Apply these checks to every model migration approach:
+
+- Inventory every C7 form, including generated Task Forms. Migrate each to a standard C8 form and link it from the converted BPMN. Generated Task Forms must be explicitly flagged for this skill to handle manually; do not treat them as automatically converted.
+- For a C7 `FileValue`, use a Document API reference rather than a filename-only reference.
+- Preserve path-as-key mappings and their FEEL semantics. Surface unsupported form validation rules for user review instead of silently dropping or inventing them.
+- Replace stable C7 business keys with C8 tags by default. If the key changes during execution, use a `businessKey` process variable instead. Verify any target-specific alternative against the selected version and record the decision in `MIGRATION_REPORT.md`.
 
 ---
 

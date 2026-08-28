@@ -84,4 +84,4 @@ After both complete, ask whether to wire deployment of converted files in applic
 
 ## Report Keeping
 
-Keep both inventories and both sets of results in `MIGRATION_REPORT.md` in the confirmed project root.
+Keep one living `MIGRATION_REPORT.md` in the confirmed project root as the source of truth. Keep both inventories and all findings, warnings, incompatibilities, behavior changes, cross-check results, decisions, intentional deviations, and validation results there; do not create competing migration summaries.
