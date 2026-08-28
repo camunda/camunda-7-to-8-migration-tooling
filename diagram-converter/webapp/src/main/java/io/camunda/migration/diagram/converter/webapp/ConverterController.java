@@ -514,7 +514,7 @@ public class ConverterController {
 
   private ResponseEntity<?> invalidFormResponse(IllegalArgumentException exception) {
     String message = exception.getMessage();
-    if (message != null && message.startsWith("Form content")) {
+    if (!StringUtils.hasText(message) || message.startsWith("Form content")) {
       return ResponseEntity.badRequest().body("The uploaded .form file is not a valid JSON form.");
     }
     return ResponseEntity.badRequest().body(message);

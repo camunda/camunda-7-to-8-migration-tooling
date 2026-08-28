@@ -133,6 +133,10 @@ class FormConverterTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("must be a JSON object")
         .hasMessageContaining("empty");
+    assertThatThrownBy(() -> FormConverter.convert("   ", defaultProperties()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must be a JSON object")
+        .hasMessageContaining("empty");
   }
 
   @Test

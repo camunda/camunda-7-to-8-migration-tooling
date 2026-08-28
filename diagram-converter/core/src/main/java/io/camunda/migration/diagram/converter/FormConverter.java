@@ -79,6 +79,9 @@ public class FormConverter {
   }
 
   private static JsonNode readTree(String formContent) {
+    if (formContent == null || formContent.isBlank()) {
+      throw new IllegalArgumentException("Form content must be a JSON object, but was empty");
+    }
     try {
       JsonNode root = OBJECT_MAPPER.readTree(formContent);
       if (root == null || root.isMissingNode()) {
