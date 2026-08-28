@@ -2,6 +2,7 @@
 name: migrate-c7-to-c8-code
 description: |-
   Migrates Camunda 7 / camunda-bpm projects to Camunda 8. Handles Java/Spring code (JavaDelegates, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, application.properties/application.yaml with camunda.* keys) and BPMN/DMN models (diagrams with the camunda: namespace). Use for code migration, model migration, or both.
+license: Camunda License 1.0
 ---
 
 # Camunda 7 to 8 Migration
@@ -35,7 +36,7 @@ Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model
 
 See `references/interview-questions.md` for the full question set and batching rules.
 
-1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml).
+1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml). Namespace-scan original BPMN for Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`).
 2. Ask Question 1 (project location) via AskUserQuestion.
 3. After confirmation, re-scan the confirmed root if it differs from the candidate.
 4. Ask Questions 2-3 (target version, scope) together.
@@ -57,6 +58,8 @@ Shared rules that apply throughout all subsequent steps:
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results.
 - Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
+- Generated Task Forms are an agentic follow-up, not a Diagram Converter feature. Preserve the converter's `form-data` manual finding, generate standard `.form` resources from the exact original BPMN, and use `references/form-migration.md` for every decision and linkage.
+- Never accept, link, or deploy a generated form until the user has reviewed it. Ask about every semantic gap or unsupported construct; do not invent replacements.
 
 ### Step 2: Assessment (always runs)
 
@@ -69,6 +72,12 @@ Identify and classify all Camunda 7 related Java/config files into a table with 
 #### Model Inventory
 
 Glob for model files. For each, note whether it uses the camunda: namespace and record its path in a table with columns: File, Type, Uses camunda: ns, Notes.
+
+Namespace-parse every original BPMN and add a Generated Task Form inventory: source file, process
+id, owning user task/start event, `formData`/`formProperty`, field count, business-key field, custom
+types/validators, and initial status. This source inventory is required because converted BPMN no
+longer contains the C7 form metadata and form-property-only models may not emit a `form-data`
+finding with older converter releases.
 
 If inventory is empty and user selected model migration, record that no local models were found and that E1 was offered.
 
@@ -87,7 +96,7 @@ Run Part A if scope includes code, Part B if scope includes models. For Code + m
 Apply the Transform checklist from `references/code-transform-checklist.md` using the selected approach:
 
 - Approach A (OpenRewrite + AI): See `references/code-migration-approaches.md` for full OpenRewrite setup, Java compatibility checks, and AI cleanup procedure.
-- Approach B (AI only): Load pattern catalog, work full checklist items 1-7 in order, confirming each.
+- Approach B (AI only): Load pattern catalog, work full checklist items 1-8 in order, confirming each.
 - Approach C (Assessment only): Detailed report with effort estimates, no code changes.
 
 #### Part B - Model Migration
@@ -98,6 +107,10 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 - Approach M2 (Agentic AI): Direct XML rewrite without CLI. See `references/model-migration-approaches.md`.
 - Approach M3 (Online Converter): User uploads at hosted service manually.
 - Approach E1 (C7 Engine Source): Fetch from C7 REST API when no local models. See `references/model-migration-approaches.md`.
+
+For every approach, run the Generated Task Form procedure in `references/form-migration.md` after
+the original and converted BPMN files are paired. It deterministically creates draft Camunda 8
+forms, collects required user decisions, and links only explicitly accepted forms.
 
 ### Step 4: Validation (always runs)
 
@@ -121,6 +134,9 @@ Convert BPMN/DMN from the camunda: namespace to zeebe: using the selected approa
 1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
 2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
 3. Originals are intact and were not overwritten.
+4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
+5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
+6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
@@ -135,7 +151,7 @@ Use AskUserQuestion with options:
 - Show me the list first: Present full list grouped by type, then ask which to fix.
 - No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
 
-When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
+When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`: generate drafts deterministically, present each form for explicit review, and link only accepted forms. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
 
 A second action type beyond fixing TODOs/findings is **delete now-redundant code**: the model/code cross-check flags C7-side workaround code as deletion candidates when a finding reports the capability is now native in Zeebe (see `references/composing-code-and-models.md`, "Now-redundant workaround code"). Deleting code is never unambiguous — even under "Yes, fix what you can", present every deletion candidate via AskUserQuestion with its reasoning (the triggering finding, what the code did, why it is now redundant) and delete only on explicit confirmation. Record confirmed deletions and declined candidates in MIGRATION_REPORT.md.
 
@@ -153,3 +169,6 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md
 11. MIGRATION_REPORT.md contains complete inventories, decisions, and validation results
 12. Original model files are intact (never overwritten)
+13. Every original Generated Task Form is accounted for, including form-property-only definitions
+14. Every accepted generated form is a standard Camunda 8 `.form`, explicitly accepted, linked by matching form id, and covered by deployment
+15. No draft, blocked, or declined generated form is linked or deployed

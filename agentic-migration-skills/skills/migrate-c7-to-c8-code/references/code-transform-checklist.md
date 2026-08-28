@@ -89,6 +89,27 @@ This category is out of scope for auto-generation: detect, count, and name it â€
 
 ---
 
+## 8. Generated Task Form Dependencies (NOT covered by OpenRewrite)
+
+When model inventory finds `camunda:formData`, `camunda:formField`, or
+`camunda:formProperty`, inspect code that supplied or consumed their runtime behavior:
+
+- `FormFieldValidator` implementations and named validator beans/classes require a new
+  backend/application validation design; form-js validation is not server-side enforcement.
+- `FormService`, `TaskFormData`, `StartFormData`, `FormField`, and `FormProperty` consumers may
+  depend on C7 metadata that no longer exists at runtime.
+- `submitTaskForm`/`submitStartForm` and REST form-submission clients may depend on field ids,
+  aliases, type conversion, business-key extraction, or validation exceptions.
+- Code reading custom form-field properties must be redesigned even if the metadata is copied to
+  the C8 form component.
+- Code expecting C7 `Date` or full-range Java `long` values must be reconciled with C8 form output.
+
+Do not delete or rewrite these consumers from form structure alone. Cross-check each against the
+user-approved decisions from `form-migration.md`, then implement only the agreed worker, listener,
+API, input/output mapping, or application validation.
+
+---
+
 ## Detection Hints for Assessment
 
 Use these to classify files during assessment:
@@ -102,6 +123,9 @@ Use these to classify files during assessment:
 | `HistoryService` | Client code (maps to search endpoints) |
 | `DecisionService` | Client code (maps to newEvaluateDecisionCommand) |
 | `IdentityService`, `FormService` | Client code (flag for manual design) |
+| `FormFieldValidator` or `camunda:constraint name="validator"` | Generated-form backend validation (manual design) |
+| `TaskFormData`, `StartFormData`, `FormField`, `FormProperty` | Generated-form metadata consumer |
+| `submitTaskForm`, `submitStartForm`, `/submit-form`, `/form-variables` | Generated-form submission client |
 | `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
@@ -114,3 +138,4 @@ Use these to classify files during assessment:
 Flag these explicitly:
 - Listeners or delegates attached to multi-instance bodies that compute the collection variable (sequencing does not exist in C8; requires model change with preceding service task). High complexity.
 - Custom batch handlers (`ManagementService#createBatch` with custom jobs) - no generic C8 equivalent.
+- Generated-form custom validators, business-key fields, writable/readable form properties, expression-backed form properties, and date-pattern/type assumptions - require the decisions and code cross-check in `form-migration.md`.
