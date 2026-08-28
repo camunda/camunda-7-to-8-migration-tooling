@@ -11,6 +11,16 @@ Migrate a Camunda 7 project to Camunda 8. A project can contain two independent 
 - Code: Java/Spring glue and client code, config, tests. Migrated with OpenRewrite recipes (deterministic) plus AI cleanup.
 - Models: BPMN/DMN diagrams using the camunda: namespace. Migrated with the Diagram Converter (deterministic) or agentically.
 
+## Step 0: Model suitability
+
+Before scanning, inspect any active model identifier or capability metadata exposed by the host; do not infer it or use undocumented variables. This skill is optimized for Claude Sonnet/Opus or a comparable frontier reasoning model.
+
+If the model is explicitly lightweight (mini, small, lite, flash, haiku, etc.) or cannot be verified, warn the user and use AskUserQuestion (or the host equivalent):
+- **Switch to a Sonnet-class or comparable frontier model (recommended)** — explain the host's model selector, then stop until the host confirms.
+- **Continue** — use deterministic approaches and extra human review; record the warning and choice in `MIGRATION_REPORT.md`.
+
+Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model changes. Record the model status in `MIGRATION_REPORT.md` after the project root is confirmed.
+
 ## Entry Criteria
 
 1. Project uses Camunda 7 (camunda-bpm) dependencies in Maven or Gradle
@@ -46,6 +56,7 @@ Shared rules that apply throughout all subsequent steps:
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results.
+- Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
 
 ### Step 2: Assessment (always runs)
 
@@ -63,7 +74,7 @@ If inventory is empty and user selected model migration, record that no local mo
 
 #### Summary
 
-Present: total code/model files, overall complexity, whether OpenRewrite would help, blockers requiring manual decision, and a note that running instances/history/audit data are out of scope (point to Data Migrator).
+Present: total code/model files, overall complexity, whether OpenRewrite would help, blockers requiring manual decision, the model preflight result (including any user acknowledgment), and a note that running instances/history/audit data are out of scope (point to Data Migrator).
 
 Write assessment to MIGRATION_REPORT.md. Use AskUserQuestion to wait for confirmation before proceeding.
 

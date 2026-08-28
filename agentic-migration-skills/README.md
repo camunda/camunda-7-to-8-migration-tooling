@@ -47,6 +47,10 @@ From your Camunda 7 project directory:
 
 The skill asks what to migrate — **code**, **models**, or **both** — then walks you through the approaches for each.
 
+### Model recommendation
+
+The skill recommends an Anthropic Claude Sonnet-class or comparable frontier reasoning model. At activation it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
+
 **Code migration:**
 
 | Approach | What it does |

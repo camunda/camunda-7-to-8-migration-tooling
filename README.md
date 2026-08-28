@@ -62,7 +62,7 @@ gh skill install camunda/camunda-7-to-8-migration-tooling migrate-c7-to-c8-code 
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-The skill will ask for your project path and walk you through three options:
+After checking model suitability, the skill will ask for your project path and walk you through three options:
 
 | Approach | What it does |
 |----------|-------------|
@@ -71,6 +71,8 @@ The skill will ask for your project path and walk you through three options:
 | **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no changes made |
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
+
+The skill recommends an Anthropic Claude Sonnet-class or comparable frontier reasoning model and, when activated, asks before proceeding with a lightweight or unverifiable model.
 
 
 ## Documentation
