@@ -13,10 +13,10 @@ Migrate a Camunda 7 project to Camunda 8. A project can contain two independent 
 
 ## Step 0: Model suitability
 
-Before scanning, inspect any active model identifier or capability metadata exposed by the host; do not infer it or use undocumented variables. This skill is optimized for an Anthropic Claude Sonnet- or Opus-class model, or a comparable frontier reasoning model.
+Before scanning, inspect any active model identifier or capability metadata exposed by the host; do not infer it or use undocumented variables. This skill is intended for complex, multi-file reasoning. Illustrative recommended IDs include `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`; illustrative caution IDs include `gpt-5-mini`, `gpt-5.4-mini`, and `gemini-3.7-flash`. These are routing examples, not a benchmark or exhaustive ranking; use host capability metadata when available and treat unknown IDs as unverified.
 
 If the model is explicitly lightweight (mini, small, lite, flash, haiku, etc.) or cannot be verified, warn the user and use AskUserQuestion (or the host equivalent):
-- **Switch to an Anthropic Claude Sonnet- or Opus-class model (recommended)** — explain the host's model selector, wait for the user's confirmation, then re-read host-provided model metadata before continuing.
+- **Switch to a model intended for complex reasoning (recommended)** — explain the host's model selector, wait for the user's confirmation, then re-read host-provided model metadata before continuing.
 - **Continue** — use deterministic approaches and extra human review; after the project root is confirmed, record the warning and choice in `MIGRATION_REPORT.md`.
 
 Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model changes. Record the model status in `MIGRATION_REPORT.md` after the project root is confirmed.

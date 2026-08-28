@@ -72,7 +72,7 @@ After checking model suitability, the skill will ask for your project path and w
 
 The skill fetches the latest [pattern catalog](./code-conversion/patterns/ALL_IN_ONE.md) at runtime, so it always reflects current migration guidance.
 
-When activated, the skill recommends an Anthropic Claude Sonnet- or Opus-class model, or a comparable frontier reasoning model, and asks before proceeding with a lightweight or unverifiable model.
+When activated, the skill recommends a model intended for complex reasoning (for example `claude-sonnet-*`, `claude-opus-*`, or `gpt-5.6-luna`), and asks before proceeding with a lightweight or unverifiable model. These are routing hints, not a benchmark.
 
 
 ## Documentation

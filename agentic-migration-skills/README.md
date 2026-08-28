@@ -49,7 +49,7 @@ The skill asks what to migrate — **code**, **models**, or **both** — then wa
 
 ### Model recommendation
 
-The skill recommends an Anthropic Claude Sonnet- or Opus-class model, or a comparable frontier reasoning model. At activation, it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
+The skill recommends a model intended for complex reasoning, with illustrative IDs such as `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, or `gpt-5.6-sol`. These are routing hints, not a benchmark. At activation, it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
 
 **Code migration:**
 
