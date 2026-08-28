@@ -193,6 +193,25 @@ function App() {
              "Accept": "application/json"
           },
         });
+
+        if (!checkResponse.ok) {
+          const result = {
+            status: "error",
+            errorMessage: await responseErrorMessage(
+              checkResponse,
+              `Analysis failed (HTTP ${checkResponse.status})`
+            ),
+            originalModelXml: originalModelXml,
+            checkResponseJson: null,
+          };
+          setFileResults((prevResults) => {
+            const updated = [...prevResults];
+            updated[idx] = result;
+            return updated;
+          });
+          return result;
+        }
+
         const checkResponseJson = await checkResponse.json();
 
         let result = {
@@ -224,6 +243,24 @@ function App() {
           }
         }
 
+        if (!convertResponse.ok) {
+          result = {
+            status: "error",
+            errorMessage: await responseErrorMessage(
+              convertResponse,
+              `Conversion failed (HTTP ${convertResponse.status})`
+            ),
+            originalModelXml: originalModelXml,
+            checkResponseJson: checkResponseJson,
+          };
+          setFileResults((prevResults) => {
+            const updated = [...prevResults];
+            updated[idx] = result;
+            return updated;
+          });
+          return result;
+        }
+
         // Convert response to blob
         const blob = await convertResponse.blob();
 
@@ -248,6 +285,29 @@ function App() {
       (_, idx) => uploadResults[idx].status === "success"
     );
     setValidFiles(validFiles);
+  }
+
+  async function responseErrorMessage(response, fallback) {
+    const message = (await response.text()).trim();
+    if (!message) return fallback;
+
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/json")) return message;
+
+    try {
+      const errorBody = JSON.parse(message);
+      switch (errorBody.errorCode) {
+        case "FILE_COUNT_LIMIT_EXCEEDED":
+          return "Too many files at once. Remove some files and try again.";
+        case "MULTIPART_ERROR":
+          return "The uploaded files could not be processed.";
+        default:
+          return fallback;
+      }
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      return message;
+    }
   }
 
   async function downloadXLS() {
