@@ -675,7 +675,6 @@ function App() {
                     size="md"
                     renderIcon={Download}
                     onClick={downloadXLS}
-                    className="withMarginBottom"
                     disabled={validFiles.length === 0}
                   >
                     Download XLSX
