@@ -36,7 +36,7 @@ Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model
 
 See `references/interview-questions.md` for the full question set and batching rules.
 
-1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml). Namespace-scan original BPMN for Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`).
+1. Detect project root, build tool (pom.xml or build.gradle/build.gradle.kts), and model files (*.bpmn, *.bpmn20.xml, *.dmn, *.dmn11.xml).
 2. Ask Question 1 (project location) via AskUserQuestion.
 3. After confirmation, re-scan the confirmed root if it differs from the candidate.
 4. Ask Questions 2-3 (target version, scope) together.
@@ -44,7 +44,9 @@ See `references/interview-questions.md` for the full question set and batching r
 6. When user accepts defaults, proceed directly.
 
 Shared rules that apply throughout all subsequent steps:
-- Distinguish code from models. OpenRewrite/AI handles code; Diagram Converter handles models. Never hand-edit BPMN/DMN in the code flow.
+- Distinguish code from models. OpenRewrite/AI handles code. The Diagram Converter handles models
+  for M1, M3, and E1; only M2 performs agentic BPMN/DMN edits, and only on converted copies. Never
+  hand-edit BPMN/DMN in the code flow.
 - Use project-local models first. Do not offer C7 engine access when local models are present.
 - Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit.
 - Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
