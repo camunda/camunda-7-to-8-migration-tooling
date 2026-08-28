@@ -199,6 +199,8 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Execution/task listeners to `zeebe:executionListeners` / user task listeners
 - JavaDelegate/expression references to job types (or blank, to be filled)
 - Simple JUEL to FEEL for pure data expressions; flag bean-invoking expressions for manual work
+- Never translate complex script or Groovy condition logic into FEEL automatically; preserve the
+  source for review and require an explicit worker/service-task or other user-approved redesign
 - Conditional events natively only on 8.9+; otherwise flag
 - DMN: update decision/definition namespaces and expression language as needed
 

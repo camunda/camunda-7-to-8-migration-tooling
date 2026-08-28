@@ -8,7 +8,13 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 ## 1. Dependencies and Configuration
 
-- Resolve the latest released GA Camunda version from Maven Central artifact metadata: query `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions, choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a pre-release.
+- If the project already pins a released GA Camunda 8 version in the selected target minor, preserve
+  it unless the user explicitly opts into a patch upgrade. Otherwise resolve the latest released
+  GA version from Maven Central artifact metadata: query
+  `https://repo.maven.apache.org/maven2/io/camunda/<artifact-id>/maven-metadata.xml`. From versions,
+  choose the highest version matching the target Camunda minor (8.8.x, 8.9.x, etc.) and exclude
+  SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a
+  pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`

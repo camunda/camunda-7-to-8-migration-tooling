@@ -109,9 +109,10 @@ Generate a normal linked Camunda Form, not an embedded job-worker form:
 ```
 
 Set `executionPlatformVersion` to the selected target's patch-zero version. Schema version 18 is
-the repository's known form baseline for supported targets 8.8, 8.9, and 8.10. Do not fabricate a
-Camunda Modeler exporter entry. If the selected target falls outside the skill's supported range,
-load that target's form schema and ask before choosing different metadata.
+this skill's deterministic generated-form default for supported targets 8.8, 8.9, and 8.10.
+Validate every draft against the official target-compatible form schema before acceptance. Do not
+fabricate a Camunda Modeler exporter entry. If the selected target falls outside the skill's
+supported range, load that target's form schema and ask before choosing different metadata.
 
 Every generated input component uses a stable id, key, and layout. Components other than
 `datetime` use `label`; a date-only `datetime` uses `dateLabel`:
