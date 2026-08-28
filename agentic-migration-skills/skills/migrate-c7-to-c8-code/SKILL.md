@@ -17,7 +17,7 @@ Before scanning, inspect any active model identifier or capability metadata expo
 
 If the model is explicitly lightweight (mini, small, lite, flash, haiku, etc.) or cannot be verified, warn the user and use AskUserQuestion (or the host equivalent):
 - **Switch to an Anthropic Claude Sonnet- or Opus-class model (recommended)** — explain the host's model selector, wait for the user's confirmation, then re-read host-provided model metadata before continuing.
-- **Continue** — use deterministic approaches and extra human review; record the warning and choice in `MIGRATION_REPORT.md`.
+- **Continue** — use deterministic approaches and extra human review; after the project root is confirmed, record the warning and choice in `MIGRATION_REPORT.md`.
 
 Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model changes. Record the model status in `MIGRATION_REPORT.md` after the project root is confirmed.
 
