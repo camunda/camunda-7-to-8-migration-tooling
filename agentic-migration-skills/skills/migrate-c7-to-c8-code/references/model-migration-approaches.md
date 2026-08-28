@@ -31,7 +31,7 @@ If anything is found, warn via AskUserQuestion before converting:
 - **OK, proceed** - run without `-o`/`--override`; old files stay untouched.
 - **Cancel** - stop so the user can back up or clean up first.
 
-Never consume a pre-existing report or converted file found on disk: it may come from an interrupted attempt or a different `--platform-version`. The findings flow (M1 steps 3-5) works only from the artifacts of this session's own run.
+For local approaches (M1, M2, E1), never consume a pre-existing report or converted file found on disk: it may come from an interrupted attempt or a different `--platform-version`. The findings flow (M1 steps 3-5) works only from the artifacts of this session's own run. M3 is the exception: user-provided hosted-converter outputs are allowed only after the imported-report version/pairing checks in step 5.
 
 ---
 

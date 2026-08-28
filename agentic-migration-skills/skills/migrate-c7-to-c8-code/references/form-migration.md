@@ -143,9 +143,9 @@ Apply only these built-in type candidates:
 | missing/custom | no inferred input component | Insert a visible migration warning at the field's position | User must choose a C8 component and data contract |
 
 The C7 field id is a flat process-variable name. A C8 form key containing dots is a nested data
-path, and the form schema only accepts word segments separated by dots. Copy an id to `key` only
-when it matches `^\w+$` and preserves the intended variable. Ask about dotted ids, punctuation,
-whitespace, aliases, or any required input/output mapping.
+path, and the form schema accepts only word segments separated by dots. Auto-copy an id to `key`
+only when it matches `^\w+$` and preserves the intended variable. Treat dotted ids, punctuation,
+whitespace, aliases, or any required input/output mapping as review-required (no auto-mapping).
 
 If a label is absent, use the source field id only in the draft, insert a visible warning, and ask
 the user to confirm or provide a label.
