@@ -91,6 +91,25 @@ public class ConverterControllerTest {
       </bpmn:definitions>
       """;
 
+  private static final String FORM_WITH_EXPRESSIONS =
+      """
+      {
+        "executionPlatform": "Camunda Platform",
+        "executionPlatformVersion": "7.23.0",
+        "id": "expressionForm",
+        "components": [
+          {
+            "label": "${customerName}",
+            "type": "textfield",
+            "key": "customerName",
+            "defaultValue": "${customerService.lookup()}"
+          }
+        ],
+        "type": "default",
+        "schemaVersion": 18
+      }
+      """;
+
   @BeforeEach
   void setup() {
     RestAssured.port = port;
@@ -666,6 +685,47 @@ public class ConverterControllerTest {
     assertThat(converted).contains("\"executionPlatform\": \"Camunda Cloud\"");
     assertThat(converted).contains("\"executionPlatformVersion\": \"8.8.0\"");
     assertThat(converted).contains("\"customerName\"");
+  }
+
+  @Test
+  void checkAndConvertFormExpressions() {
+    List<DiagramCheckResult> checkResult =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "expressions.form",
+                FORM_WITH_EXPRESSIONS.getBytes(StandardCharsets.UTF_8),
+                "application/json")
+            .accept(ContentType.JSON)
+            .post("/check")
+            .getBody()
+            .as(new TypeRef<List<DiagramCheckResult>>() {});
+
+    assertThat(checkResult)
+        .singleElement()
+        .satisfies(
+            result ->
+                assertThat(result.getResults())
+                    .flatExtracting(ElementCheckResult::getMessages)
+                    .extracting(ElementCheckMessage::getId)
+                    .containsExactly("expression", "form-juel-expression"));
+
+    String converted =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "expressions.form",
+                FORM_WITH_EXPRESSIONS.getBytes(StandardCharsets.UTF_8),
+                "application/json")
+            .accept(ContentType.JSON)
+            .post("/convert")
+            .asString();
+
+    assertThat(converted)
+        .contains("\"label\": \"= customerName\"")
+        .contains("\"defaultValue\": \"${customerService.lookup()}\"");
   }
 
   @Test
