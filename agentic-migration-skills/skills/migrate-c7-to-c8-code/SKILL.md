@@ -57,7 +57,7 @@ Shared rules that apply throughout all subsequent steps:
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Keep one living `MIGRATION_REPORT.md` in the confirmed project root as the source of truth for inventories, findings and warnings, incompatibilities, behavior changes, decisions, intentional deviations, phase status, and validation results.
+- Keep one living `MIGRATION_REPORT.md` in the confirmed project root as the source of truth for inventories, findings, warnings, incompatibilities, behavior changes, decisions, intentional deviations, phase status, and validation results.
 - Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
 - For backports, `maintenance/0.2` maps to Camunda 8.8 and `maintenance/0.3` maps to Camunda 8.9. Preserve the target branch configuration; use `git cherry-pick -x` for manual backports, resolve conflicts surgically, do not copy incompatible main-only APIs, and report intentional deviations. Never merge or enable auto-merge; a human merges after required CI is green.
 
