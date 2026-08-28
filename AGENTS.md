@@ -185,6 +185,17 @@ Examples (with the `related to #<issue-number>` body line shown inline for brevi
 
 GitHub Actions CI (`.github/workflows/ci.yml`) runs on push to `main`/`maintenance/*`, PRs, and nightly (weekdays 5 AM).
 
+### Maintenance Branch Mapping
+
+Use this explicit release-line mapping when choosing a backport target:
+
+| Maintenance branch | Camunda release line |
+|--------------------|----------------------|
+| `maintenance/0.2` | Camunda 8.8 |
+| `maintenance/0.3` | Camunda 8.9 |
+
+The `zeebe-platform.version` property and form converter default target values are configuration values, not the maintenance release-line mapping, and may be one minor version behind. Backport to the branch identified above and preserve that target branch's existing configuration unless a separate version-bump change is requested.
+
 ### Merge-blocking vs asynchronous checks
 
 - **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics. `compile-previous-version` is part of this blocking surface when in scope.
