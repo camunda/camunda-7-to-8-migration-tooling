@@ -149,12 +149,7 @@ function App() {
 
   const allDone = fileResults.length > 0 && fileResults.every(r => r.status !== 'uploading');
   const totalFindings = allDone
-    ? fileResults.reduce((sum, r) => {
-        if (!r.checkResponseJson) return sum;
-        return sum + r.checkResponseJson
-          .flatMap(item => item.results || [])
-          .reduce((s, el) => s + (el.messages?.length || 0), 0);
-      }, 0)
+    ? fileResults.reduce((sum, r) => sum + buildFindingsRows(r.checkResponseJson).length, 0)
     : 0;
 
   const [configOptions, setConfigOptions] = useState({
@@ -204,9 +199,9 @@ function App() {
         canvas.zoom('fit-viewport');
 
         const elementsWithMessages =
-          previewCheckJson
-            .flatMap((item) => item.results || [])
-            .filter((el) => el.messages?.length > 0);
+          (Array.isArray(previewCheckJson) ? previewCheckJson : [])
+            .flatMap((item) => (Array.isArray(item?.results) ? item.results : []))
+            .filter((el) => Array.isArray(el?.messages) && el.messages.length > 0);
 
         elementsWithMessages.forEach((el) => {
           if (el.elementId) {
