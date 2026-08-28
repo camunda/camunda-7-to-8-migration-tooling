@@ -95,7 +95,8 @@ order. The same source, target version, and decisions must produce byte-identica
 
 ## Standard Camunda 8 form shape
 
-Generate a normal linked Camunda Form, not an embedded job-worker form:
+Generate a normal linked Camunda Form, not an embedded job-worker form. For example, a form
+targeting Camunda 8.9 has this shape:
 
 ```json
 {
