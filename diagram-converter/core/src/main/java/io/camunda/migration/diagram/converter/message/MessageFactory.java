@@ -12,6 +12,8 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
 public class MessageFactory {
+  private static final String FORM_FEEL_EXPRESSIONS_LINK =
+      "https://docs.camunda.io/docs/components/modeler/feel/what-is-feel/";
   private static final MessageFactory INSTANCE = new MessageFactory();
 
   private final MessageTemplateProvider messageTemplateProvider = new MessageTemplateProvider();
@@ -720,6 +722,15 @@ public class MessageFactory {
             .entry("expression", expression)
             .entry("propertyName", propertyName)
             .build());
+  }
+
+  public static Message formExpressionTransformed(
+      String juelExpression, String feelExpression, String propertyName) {
+    return expression(
+        "Form property '" + propertyName + "'",
+        juelExpression,
+        feelExpression,
+        FORM_FEEL_EXPRESSIONS_LINK);
   }
 
   public static Message formComponentUnknown(String componentType) {

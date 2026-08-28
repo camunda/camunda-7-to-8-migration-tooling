@@ -214,6 +214,50 @@ public class ConvertLocalCommandTest {
   }
 
   @Test
+  void shouldTransformSafeFormExpressionsAndReportUnsafeOnes(@TempDir File tempDir)
+      throws IOException {
+    File input = new File(tempDir, "expressions.form");
+    Files.writeString(
+        input.toPath(),
+        """
+        {
+          "executionPlatform": "Camunda Platform",
+          "executionPlatformVersion": "7.23.0",
+          "id": "expressionForm",
+          "components": [
+            {
+              "label": "${customerName}",
+              "type": "textfield",
+              "key": "customerName",
+              "defaultValue": "${customerService.lookup()}"
+            }
+          ],
+          "type": "default",
+          "schemaVersion": 18
+        }
+        """);
+    ConvertLocalCommand command = new ConvertLocalCommand();
+    command.file = input;
+    command.json = true;
+
+    assertThat(command.call()).isZero();
+
+    JsonNode converted =
+        new ObjectMapper().readTree(new File(tempDir, "converted-c8-expressions.form"));
+    assertThat(converted.path("components").path(0).path("label").asText())
+        .isEqualTo("= customerName");
+    assertThat(converted.path("components").path(0).path("defaultValue").asText())
+        .isEqualTo("${customerService.lookup()}");
+    assertThat(Files.readString(new File(tempDir, "analysis-results.json").toPath()))
+        .contains("\"messageId\":\"expression\"")
+        .contains("Please review transformed expression")
+        .contains("${customerName}")
+        .contains("= customerName")
+        .contains("\"messageId\":\"form-juel-expression\"")
+        .contains("${customerService.lookup()}");
+  }
+
+  @Test
   void shouldConvertMixedFilesIncludingForm(@TempDir File tempDir) {
     setupDir("c7.bpmn", tempDir);
     setupDir("simple.form", tempDir);
