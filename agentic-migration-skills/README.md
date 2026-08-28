@@ -49,7 +49,7 @@ The skill asks what to migrate — **code**, **models**, or **both** — then wa
 
 ### Model recommendation
 
-The skill recommends an Anthropic Claude Sonnet-class or comparable frontier reasoning model. At activation it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
+The skill recommends an Anthropic Claude Sonnet- or Opus-class model, or a comparable frontier reasoning model. At activation, it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
 
 **Code migration:**
 
