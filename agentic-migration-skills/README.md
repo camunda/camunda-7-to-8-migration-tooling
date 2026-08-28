@@ -47,6 +47,10 @@ From your Camunda 7 project directory:
 
 The skill asks what to migrate — **code**, **models**, or **both** — then walks you through the approaches for each.
 
+### Model recommendation
+
+The skill recommends a model intended for complex reasoning, with illustrative IDs such as `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, or `gpt-5.6-sol`. These are routing hints, not a benchmark. At activation, it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
+
 **Code migration:**
 
 | Approach | What it does |
