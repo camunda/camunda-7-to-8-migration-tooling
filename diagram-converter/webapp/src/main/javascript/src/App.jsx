@@ -88,7 +88,6 @@ function FindingsSection({ header, rows, onSelectElement, selectedElementId }) {
                           type="button"
                           className="findingElementLink"
                           onClick={() => onSelectElement(row.elementId)}
-                          aria-pressed={selectedElementId === row.elementId}
                         >
                           {value}
                         </button>

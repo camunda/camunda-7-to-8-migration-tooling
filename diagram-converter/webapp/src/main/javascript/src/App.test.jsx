@@ -553,6 +553,7 @@ describe("linking a finding row to its diagram element", () => {
     );
     expect(viewer.canvas.addMarker).toHaveBeenCalledWith("task_1", "finding-selected");
     expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("true");
+    expect(elementLink.getAttribute("aria-pressed")).toBeNull();
   });
 
   it("keeps rows without a stable element reference as plain, non-interactive text", async () => {
