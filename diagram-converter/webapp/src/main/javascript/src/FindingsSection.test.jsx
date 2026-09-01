@@ -86,6 +86,25 @@ describe("FindingsSection labels and legend", () => {
     ]);
   });
 
+  it("keeps unknown severity codes in the table, filter and legend", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[row(1, "FUTURE"), row(2, "INFO")]}
+      />
+    );
+
+    expect(severityCellsInOrder()).toEqual([
+      "No action needed (INFO)",
+      "FUTURE (FUTURE)",
+    ]);
+    expect(screen.getByRole("button", { name: /FUTURE FUTURE \(1\)/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByText("What do these severities mean?"));
+
+    expect(screen.getAllByRole("term").map((term) => term.textContent)).toContain("FUTURE FUTURE");
+  });
+
   it("only lists severities present in the current result set in the legend", () => {
     render(
       <FindingsSection header={FINDINGS_TABLE_HEADER} rows={[row(1, "TASK"), row(2, "INFO")]} />
@@ -157,6 +176,20 @@ describe("FindingsSection filtering (mixed-severity state)", () => {
 
     expect(screen.queryByText(/Showing \d+ of \d+ findings/)).toBeNull();
     expect(severityCellsInOrder()).toHaveLength(2);
+  });
+
+  it("resets filters when a new result set is loaded", () => {
+    const firstRows = [row(1, "WARNING"), row(2, "INFO")];
+    const nextRows = [row(3, "WARNING"), row(4, "INFO")];
+    const view = render(<FindingsSection header={FINDINGS_TABLE_HEADER} rows={firstRows} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /No action needed INFO \(1\)/ }));
+    expect(severityCellsInOrder()).toHaveLength(1);
+
+    view.rerender(<FindingsSection header={FINDINGS_TABLE_HEADER} rows={nextRows} />);
+
+    expect(severityCellsInOrder()).toHaveLength(2);
+    expect(screen.queryByText(/Showing \d+ of \d+ findings/)).toBeNull();
   });
 
   it("shows a clear message when every visible severity is filtered out", () => {

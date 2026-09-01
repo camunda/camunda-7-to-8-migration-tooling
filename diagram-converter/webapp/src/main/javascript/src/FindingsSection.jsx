@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 import {
   Table,
@@ -23,6 +23,8 @@ function severityRank(severity) {
   return index === -1 ? SEVERITY_ORDER.length : index;
 }
 
+const EMPTY_HIDDEN_SEVERITIES = new Set();
+
 // Renders the findings table for a previewed file, plus the controls needed
 // to make large or mixed-severity result sets actionable:
 //  - a severity filter so users can show only the findings that matter to
@@ -31,14 +33,12 @@ function severityRank(severity) {
 //    language, and
 //  - a "showing X of Y" summary so the current filter state stays visible.
 export default function FindingsSection({ header, rows }) {
-  const [hiddenSeverities, setHiddenSeverities] = useState(() => new Set());
-
-  // Reset the filter whenever a new set of findings is loaded (e.g. the user
-  // opens the preview for a different file), so filters never carry over
-  // between unrelated result sets.
-  useEffect(() => {
-    setHiddenSeverities(new Set());
-  }, [rows]);
+  const [filterState, setFilterState] = useState(() => ({
+    rows,
+    hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
+  }));
+  const hiddenSeverities =
+    filterState.rows === rows ? filterState.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
 
   if (rows.length === 0) {
     return (
@@ -46,28 +46,39 @@ export default function FindingsSection({ header, rows }) {
     );
   }
 
-  const severityCounts = SEVERITY_ORDER
-    .map((severity) => ({ severity, count: rows.filter((row) => row.severity === severity).length }))
-    .filter(({ count }) => count > 0);
+  const severityCounts = [...rows.reduce((counts, row) => {
+    counts.set(row.severity, (counts.get(row.severity) || 0) + 1);
+    return counts;
+  }, new Map())]
+    .map(([severity, count]) => ({ severity, count }))
+    .sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
 
   const sortedRows = [...rows].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
   const visibleRows = sortedRows.filter((row) => !hiddenSeverities.has(row.severity));
   const isFiltered = hiddenSeverities.size > 0;
 
   function toggleSeverity(severity) {
-    setHiddenSeverities((prev) => {
-      const next = new Set(prev);
+    setFilterState((prev) => {
+      const previousHiddenSeverities =
+        prev.rows === rows ? prev.hiddenSeverities : EMPTY_HIDDEN_SEVERITIES;
+      const next = new Set(previousHiddenSeverities);
       if (next.has(severity)) {
         next.delete(severity);
       } else {
         next.add(severity);
       }
-      return next;
+      return {
+        rows,
+        hiddenSeverities: next,
+      };
     });
   }
 
   function showAll() {
-    setHiddenSeverities(new Set());
+    setFilterState({
+      rows,
+      hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
+    });
   }
 
   return (
