@@ -60,6 +60,8 @@ export default function FileItem({
 }) {
   const severityKey = getSeverityStyleKey(highestSeverity);
   const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
+  const highestSeverityLabel = highestSeverity || "Unknown";
+  const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
   return (
     <div className="FileItem">
       <div className="left">
@@ -79,10 +81,11 @@ export default function FileItem({
         {findingCount > 0 && (
           <span
             className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
-            title={`Highest severity: ${highestSeverity || 'Unknown'}`}
+            title={`Highest severity: ${highestSeverityLabel}`}
+            aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
           >
             <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
-            {findingCount} finding{findingCount !== 1 ? 's' : ''}
+            {findingCountLabel}
           </span>
         )}
 

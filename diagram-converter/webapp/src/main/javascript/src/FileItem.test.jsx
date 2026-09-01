@@ -57,6 +57,7 @@ describe("FileItem", () => {
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.className).not.toContain("fileItemFindingCount-warning");
     expect(badge.getAttribute("title")).toBe("Highest severity: INFO");
+    expect(badge.getAttribute("aria-label")).toBe("3 findings, highest severity INFO");
   });
 
   it("styles the badge for the highest severity in a mixed-severity file", () => {
@@ -82,6 +83,7 @@ describe("FileItem", () => {
     const badge = screen.getByText("2 findings").closest("span");
     expect(badge.className).toContain("fileItemFindingCount-info");
     expect(badge.getAttribute("title")).toBe("Highest severity: Unknown");
+    expect(badge.getAttribute("aria-label")).toBe("2 findings, highest severity Unknown");
   });
 
   it("uses singular finding text for a single finding", () => {
@@ -95,5 +97,18 @@ describe("FileItem", () => {
     );
 
     expect(screen.getByText("1 finding")).toBeTruthy();
+  });
+
+  it("exposes the badge severity to assistive technology", () => {
+    render(
+      <FileItem
+        name="review.bpmn"
+        status="success"
+        findingCount={2}
+        highestSeverity="REVIEW"
+      />
+    );
+
+    expect(screen.getByLabelText("2 findings, highest severity REVIEW")).toBeTruthy();
   });
 });
