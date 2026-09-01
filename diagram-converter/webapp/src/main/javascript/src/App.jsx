@@ -32,6 +32,21 @@ import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
 
+// Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
+// every uploaded file plus the config fields in a single multipart request.
+// The server accepts at most 100 multipart parts (server.tomcat.max-part-count)
+// and createFormData() always appends 6 non-file fields, leaving 94 parts
+// available for files. Keep these values in sync with the server configuration.
+const MAX_MULTIPART_PARTS = 100;
+const FIXED_FORM_FIELD_COUNT = 6;
+const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
+// Warn a bit before the hard limit so users can trim the batch (or switch to
+// the local converter) before a combined download fails outright.
+const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
+
+const LOCAL_CONVERTER_DOCS_URL =
+  "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
+
 function FindingsSection({ header, rows }) {
   if (rows.length === 0) {
     return <p style={{ marginTop: '1rem' }}>No findings for this file.</p>;
@@ -42,32 +57,41 @@ function FindingsSection({ header, rows }) {
       <p style={{ marginBottom: '0.75rem' }}>
         Elements in this file that need attention during migration. Each row describes one finding - its location, severity, and a message explaining what to address.
       </p>
-      <Table className="analysis-table">
-        <TableHead>
-          <TableRow>
-            {header.map((h) => (
-              <TableHeader key={h.key}>
-                {h.header}
-              </TableHeader>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
+      <div className="analysisTableWrapper">
+        <Table className="analysis-table">
+          <TableHead>
+            <TableRow>
               {header.map((h) => (
-                <TableCell key={`${row.id}-${h.key}`}>
-                  {h.key === 'link'
-                    ? row.link
-                      ? <a href={row.link} target="_blank" rel="noopener noreferrer">Link</a>
-                      : '-'
-                    : row[h.key]}
-                </TableCell>
+                <TableHeader key={h.key}>
+                  {h.header}
+                </TableHeader>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                {header.map((h) => (
+                  <TableCell key={`${row.id}-${h.key}`}>
+                    {h.key === 'link'
+                      ? row.link
+                        ? <a
+                            href={row.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Open finding documentation: ${row.link}`}
+                          >
+                            Link
+                          </a>
+                        : '-'
+                      : row[h.key]}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </>
   );
 }
@@ -601,6 +625,22 @@ function App() {
                 Upload BPMN or DMN models to analyze and convert, or Camunda Forms
                 to convert.
               </p>
+              <p className="uploadGuidance">
+                Combined actions (the ZIP download and the XLSX/CSV/JSON analysis
+                reports) support up to {MAX_BATCH_FILES} files per batch. Need to
+                convert more at once?{" "}
+                <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                  Run the diagram converter locally
+                </a>.
+              </p>
+              <p className="uploadGuidance">
+                Uploaded files are sent to Camunda&apos;s hosted service for
+                analysis and conversion. For proprietary or sensitive models,{" "}
+                <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                  use the local converter
+                </a>{" "}
+                instead.
+              </p>
             </section>
             <div className="fileUploadBox">
               <DropZone
@@ -608,6 +648,25 @@ function App() {
                   setFiles((prevFiles) => [...prevFiles, ...files]);
                 }}
               />
+              {files.length >= BATCH_FILE_WARNING_THRESHOLD && (
+                <div className="uploadLimitNotice" role="alert">
+                  <strong>
+                    {files.length > MAX_BATCH_FILES
+                      ? `Batch limit exceeded (${MAX_BATCH_FILES} max, ${files.length} added)`
+                      : files.length === MAX_BATCH_FILES
+                      ? `Batch limit reached (${MAX_BATCH_FILES} files)`
+                      : `Approaching the batch limit (${files.length} of ${MAX_BATCH_FILES} files)`}
+                  </strong>
+                  <p>
+                    Combined ZIP and analysis-report downloads support up to{" "}
+                    {MAX_BATCH_FILES} files. Remove some files, or{" "}
+                    <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                      run the diagram converter locally
+                    </a>{" "}
+                    to convert this batch.
+                  </p>
+                </div>
+              )}
               {files.map((file, idx) => (
                 <FileItem
                   key={file.name + "-" + idx}

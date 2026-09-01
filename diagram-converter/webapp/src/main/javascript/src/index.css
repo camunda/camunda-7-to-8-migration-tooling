@@ -51,9 +51,11 @@ section {
   display: flex;
   margin: auto;
   background-color: #f4f4f4;
-  width: 1184px;
+  width: 100%;
+  max-width: 1184px;
+  box-sizing: border-box;
   flex-direction: column;
-  padding-top: 32px;
+  padding: 32px 24px 0;
 }
 
 h1 {
@@ -169,13 +171,24 @@ h1 {
 
   .left {
     display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
     img {
       margin-left: 4px;
       margin-right: 8px;
+      flex-shrink: 0;
     }
 
     span {
       font-size: 14px;
+      /* Long filenames truncate with an ellipsis instead of stretching the
+       * row or pushing the download/preview/remove actions off-screen; the
+       * full name remains available through the title attribute. */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
 
       &.downloadable {
         color: #1890ff;
@@ -191,7 +204,9 @@ h1 {
   .right {
     margin-right: 10px;
     display: flex;
+    align-items: center;
     gap: 3px;
+    flex-shrink: 0;
     button {
       border: none;
       background-color: transparent;
@@ -349,6 +364,14 @@ table {
   margin-top: 1rem;
 }
 
+/* Findings tables can be wide (six columns including long messages and
+ * links). Scope the horizontal scroll to this wrapper so a wide table
+ * scrolls within its own region instead of the modal or page. */
+.analysisTableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 th, td {
   border: 1px solid #ddd;
   padding: 0.5rem;
@@ -381,4 +404,64 @@ th, td {
 }
 .form-spacer {
   margin-top: 2rem;
+}
+
+/* Upfront file/batch limit and hosted-processing disclosure shown next to
+ * the drop zone, before anything is uploaded. */
+.uploadGuidance {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--neutral-foreground-subtle);
+}
+
+.uploadGuidance a {
+  color: var(--primary-action-default);
+}
+
+.uploadLimitNotice {
+  width: 100%;
+  max-inline-size: 100%;
+  margin-bottom: 12px;
+}
+
+/* Responsive layout: keep the configure and results flows usable at mobile,
+ * tablet, and split-view widths without page-level horizontal scrolling.
+ * Wide content (the findings table, the version selector) scrolls or
+ * reflows within its own region instead. */
+@media (max-width: 640px) {
+  .whiteBox.centered {
+    padding: 20px;
+  }
+
+  .versionSegmented {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .versionSegment {
+    min-width: 0;
+    flex: 1 1 33%;
+  }
+
+  .download-row {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+    justify-items: start;
+  }
+
+  .download-row button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .flowStep {
+    padding-left: 44px;
+  }
+
+  .flowStepNumber {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
 }
