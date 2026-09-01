@@ -7,9 +7,9 @@
  */
 
 export const FINDINGS_TABLE_HEADER = [
-  { key: 'elementType', header: 'Element Type' },
+  { key: 'elementType', header: 'Element type' },
   { key: 'elementId', header: 'Element ID' },
-  { key: 'elementName', header: 'Element Name' },
+  { key: 'elementName', header: 'Element name' },
   { key: 'severity', header: 'Severity' },
   { key: 'message', header: 'Message' },
   { key: 'link', header: 'Link' },

@@ -560,6 +560,15 @@ th, td {
   color: var(--neutral-foreground-subtle);
 }
 
+/* Short plain-language explanation shown under an advanced option or its
+   dependent field, including why a dependent field is disabled. */
+.configOptionHint {
+  margin: 0 0 0 1.5rem;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--neutral-foreground-subtle);
+}
+
 /* Legend is visually hidden but available to screen readers */
 .configBox legend {
   position: absolute;
