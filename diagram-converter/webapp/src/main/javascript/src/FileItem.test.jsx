@@ -74,6 +74,16 @@ describe("FileItem", () => {
     expect(badge.getAttribute("title")).toBe("Highest severity: WARNING");
   });
 
+  it("does not claim an INFO severity when the highest severity is unknown", () => {
+    render(
+      <FileItem name="unrecognized.bpmn" status="success" findingCount={2} highestSeverity={null} />
+    );
+
+    const badge = screen.getByText("2 findings").closest("span");
+    expect(badge.className).toContain("fileItemFindingCount-info");
+    expect(badge.getAttribute("title")).toBe("Highest severity: Unknown");
+  });
+
   it("uses singular finding text for a single finding", () => {
     render(
       <FileItem

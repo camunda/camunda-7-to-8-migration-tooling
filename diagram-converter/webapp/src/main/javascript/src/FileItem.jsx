@@ -79,7 +79,7 @@ export default function FileItem({
         {findingCount > 0 && (
           <span
             className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
-            title={`Highest severity: ${highestSeverity || 'INFO'}`}
+            title={`Highest severity: ${highestSeverity || 'Unknown'}`}
           >
             <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
             {findingCount} finding{findingCount !== 1 ? 's' : ''}
