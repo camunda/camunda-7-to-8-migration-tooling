@@ -36,4 +36,13 @@ describe("FileItem", () => {
 
     expect(previewAction).toHaveBeenCalledOnce();
   });
+
+  it("exposes the full filename via a title attribute so long, truncated names stay reachable", () => {
+    const longName =
+      "a-very-long-process-definition-name-that-would-otherwise-break-the-layout.bpmn";
+
+    render(<FileItem name={longName} status="edit" />);
+
+    expect(screen.getByText(longName).getAttribute("title")).toBe(longName);
+  });
 });
