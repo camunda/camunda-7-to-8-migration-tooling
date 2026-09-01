@@ -25,7 +25,10 @@ describe("FileItem", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview form" }));
+    const previewButton = screen.getByRole("button", { name: "Preview form" });
+    expect(previewButton.type).toBe("button");
+
+    fireEvent.click(previewButton);
 
     expect(previewAction).toHaveBeenCalledOnce();
   });

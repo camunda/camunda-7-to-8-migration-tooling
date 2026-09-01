@@ -67,6 +67,7 @@ export default function FileItem({
           )}
           {isChecked && previewAction && (
             <button
+              type="button"
               className="download"
               onClick={previewAction}
               title={previewTitle}
