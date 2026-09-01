@@ -6,29 +6,28 @@
  * except in compliance with the Camunda License 1.0.
  */
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@camunda/design-system";
-
-import {
   Download,
   Trash,
   Eye,
   AlertTriangle,
   Check,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 
 function Spinner() {
   return (
     <Loader2
-      aria-label="Loading"
-      role="status"
+      aria-hidden="true"
       className="size-4 animate-spin text-primary-action-default"
     />
   );
+}
+
+// Single, unambiguous in-progress indicator for a file row: one spinner plus
+// one status label describing the current phase (analyze, then convert).
+function statusLabel(isChecked) {
+  return isChecked ? "Converting…" : "Analyzing…";
 }
 
 export default function FileItem({
@@ -41,75 +40,76 @@ export default function FileItem({
   previewAction,
   previewTitle = "Preview analysis findings",
   onDelete,
+  onRetry,
   findingCount,
 }) {
   return (
     <div className="FileItem">
-      <div className="left">
-        {status === "success" && (
-          <div className="fileItemCheck">
-            <Check />
-          </div>
-        )}
-        <span>{name}</span>
-      </div>
-      <div className="right">
-        {findingCount > 0 && (
-          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
-        )}
+      <div className="FileItemMain">
+        <div className="left">
+          {status === "success" && (
+            <div className="fileItemCheck">
+              <Check />
+            </div>
+          )}
+          <span>{name}</span>
+        </div>
+        <div className="right">
+          {findingCount > 0 && (
+            <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
+          )}
 
-        {error && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  tabIndex={0}
-                  role="img"
-                  aria-label={error}
-                  style={{ color: "var(--danger-action-default)" }}
-                >
-                  <AlertTriangle />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>{error}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-        {status === "uploading" && !isChecked && <Spinner />}
-        {isChecked && previewAction && (
-          <button
-            type="button"
-            className="download"
-            onClick={previewAction}
-            title={previewTitle}
-            aria-label={previewTitle}
-          >
-            <Eye />
-          </button>
-        )}
-        {status === "uploading" && !isConverted && <Spinner />}
-        {isConverted && downloadAction && !error && (
-          <button
-            type="button"
-            className="download"
-            onClick={downloadAction}
-            title={`Download ${name}`}
-            aria-label={`Download ${name}`}
-          >
-            <Download />
-          </button>
-        )}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            title={`Remove ${name}`}
-            aria-label={`Remove ${name}`}
-          >
-            <Trash />
-          </button>
-        )}
+          {status === "uploading" && (
+            <span className="fileItemStatus" role="status">
+              <Spinner />
+              <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
+            </span>
+          )}
+          {isChecked && previewAction && (
+            <button
+              className="download"
+              onClick={previewAction}
+              title={previewTitle}
+              aria-label={previewTitle}
+            >
+              <Eye />
+            </button>
+          )}
+          {isConverted && downloadAction && !error && (
+            <button
+              type="button"
+              className="download"
+              onClick={downloadAction}
+              title={`Download ${name}`}
+              aria-label={`Download ${name}`}
+            >
+              <Download />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title={`Remove ${name}`}
+              aria-label={`Remove ${name}`}
+            >
+              <Trash />
+            </button>
+          )}
+        </div>
       </div>
+      {error && (
+        <div className="FileItemError" role="alert">
+          <AlertTriangle aria-hidden="true" className="fileItemErrorIcon" />
+          <span className="fileItemErrorText">{error}</span>
+          {onRetry && (
+            <button type="button" className="fileItemRetry" onClick={onRetry}>
+              <RefreshCw aria-hidden="true" />
+              Retry
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
