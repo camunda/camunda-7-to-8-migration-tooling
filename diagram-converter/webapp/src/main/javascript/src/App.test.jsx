@@ -407,3 +407,60 @@ describe("preview routing", () => {
     expect(testState.dmnPreviewProps.at(-1).xml).toBe(convertedContent);
   });
 });
+
+describe("accessibility", () => {
+  it("renders exactly one h1, followed by a logical heading outline", () => {
+    render(<App />);
+
+    const headings = screen.getAllByRole("heading");
+    const h1s = headings.filter((heading) => heading.tagName === "H1");
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe(
+      "Camunda Migration Analyzer & Diagram Converter"
+    );
+
+    // The configure step's section headings follow the h1 as h2s (not h3/h4),
+    // so the drop zone's instruction no longer competes with the page title.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Add files" })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Configure conversion" })
+    ).toBeTruthy();
+  });
+
+  it("gives the remove-file button an accessible name that includes the filename", () => {
+    testState.files.splice(0, testState.files.length, {
+      name: "invoice.bpmn",
+      text: vi.fn(),
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    expect(
+      screen.getByRole("button", { name: "Remove invoice.bpmn" })
+    ).toBeTruthy();
+  });
+
+  it("gives the download button an accessible name that includes the filename, once converted", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content:
+        '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    expect(
+      await screen.findByRole("button", { name: "Download process.bpmn" })
+    ).toBeTruthy();
+  });
+});
