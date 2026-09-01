@@ -9,7 +9,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DropZone from "./DropZone";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("DropZone", () => {
   it("does not mark up its instruction as a heading, so it never competes with the page title", () => {
@@ -46,7 +49,5 @@ describe("DropZone", () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     fireEvent.keyUp(dropZone, { key: " " });
     expect(clickSpy).toHaveBeenCalledTimes(2);
-
-    clickSpy.mockRestore();
   });
 });
