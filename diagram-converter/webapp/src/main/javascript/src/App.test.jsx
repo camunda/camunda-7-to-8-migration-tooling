@@ -216,9 +216,9 @@ describe("analysis findings preview", () => {
         .getAllByRole("columnheader")
         .map((header) => header.textContent)
     ).toEqual([
-      "Element Type",
+      "Element type",
       "Element ID",
-      "Element Name",
+      "Element name",
       "Severity",
       "Message",
       "Link",
@@ -405,5 +405,149 @@ describe("preview routing", () => {
     });
 
     expect(testState.dmnPreviewProps.at(-1).xml).toBe(convertedContent);
+  });
+});
+
+describe("advanced options", () => {
+  function renderConfigureStep() {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced options" }));
+  }
+
+  it("explains what each advanced option does", () => {
+    renderConfigureStep();
+
+    expect(
+      screen.getByText(
+        /Adds an execution listener to blank start events so the Camunda 7 Data Migrator can track migrated instances\./
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Leaves the job type empty on converted delegates so you can set it yourself after conversion\./
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Fills every delegate's job type with the default value below, for example to route all delegates to one job worker such as the Camunda 7 Adapter\./
+      )
+    ).toBeTruthy();
+  });
+
+  it("explains why the execution listener job type field is disabled and how to enable it", () => {
+    renderConfigureStep();
+
+    const jobTypeInput = screen.getByLabelText("Execution listener job type");
+    expect(jobTypeInput.disabled).toBe(true);
+    expect(
+      screen.getByText(
+        /Available when "Add data migration execution listener" is selected\./
+      )
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Add data migration execution listener" })
+    );
+    expect(jobTypeInput.disabled).toBe(false);
+  });
+
+  it("explains why the always-use-default checkbox and default job type field are disabled and how to enable them", () => {
+    renderConfigureStep();
+
+    const alwaysUseDefaultCheckbox = screen.getByRole("checkbox", {
+      name: "Always use default job type",
+    });
+    const defaultJobTypeInput = screen.getByLabelText("Default job type");
+    expect(alwaysUseDefaultCheckbox.disabled).toBe(false);
+    expect(defaultJobTypeInput.disabled).toBe(false);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Keep job type blank" }));
+
+    expect(alwaysUseDefaultCheckbox.disabled).toBe(true);
+    expect(defaultJobTypeInput.disabled).toBe(true);
+    // Both the checkbox and its dependent text field explain why they are
+    // disabled and how to re-enable them.
+    expect(
+      screen.getAllByText(/Available when "Keep job type blank" is cleared\./)
+    ).toHaveLength(2);
+  });
+});
+
+describe("progress and step numbering", () => {
+  it("uses letters for the nested configure steps so they never collide with the top-level step numbers", () => {
+    render(<App />);
+
+    // Top-level progress indicator: "Configure" / "Results".
+    expect(screen.getByText("Configure")).toBeTruthy();
+    expect(screen.getByText("Results")).toBeTruthy();
+
+    // Nested steps inside "Configure" use letters, not digits, so there is
+    // never a second, conflicting "1"/"2" alongside the top-level indicator.
+    expect(screen.getByText("A")).toBeTruthy();
+    expect(screen.getByText("B")).toBeTruthy();
+    expect(screen.queryByText("1")).toBeNull();
+    expect(screen.queryByText("2")).toBeNull();
+  });
+});
+
+describe("voice and tone", () => {
+  it("does not use 'please' in the download failure message", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    const downloadButton = await screen.findByRole("button", {
+      name: "Download all converted files as ZIP",
+    });
+    // Wait for the analyze/convert flow to finish (button enables once a
+    // successfully converted file is available) before swapping the fetch
+    // mock so we don't intercept the in-flight analyze/convert requests.
+    await waitFor(() => expect(downloadButton.disabled).toBe(false));
+
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        json: vi.fn().mockRejectedValue(new Error("not json")),
+      })
+    );
+    fireEvent.click(downloadButton);
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("Download failed. Try again.")).toBeTruthy();
+    expect(screen.queryByText(/please/i)).toBeNull();
+  });
+
+  it("spells out 'for example' instead of 'e.g.' in the JSON download hint", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    expect(
+      await screen.findByText(
+        /Machine-readable findings, for example as input for AI-assisted migration tooling\./
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/e\.g\./)).toBeNull();
   });
 });
