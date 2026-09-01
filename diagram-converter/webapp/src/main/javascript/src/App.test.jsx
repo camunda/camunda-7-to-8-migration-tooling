@@ -483,10 +483,15 @@ describe("progress and step numbering", () => {
 
     // Nested steps inside "Configure" use letters, not digits, so there is
     // never a second, conflicting "1"/"2" alongside the top-level indicator.
-    expect(screen.getByText("A")).toBeTruthy();
-    expect(screen.getByText("B")).toBeTruthy();
-    expect(screen.queryByText("1")).toBeNull();
-    expect(screen.queryByText("2")).toBeNull();
+    // Scope the assertion to .flowStepNumber elements to avoid false positives
+    // from unrelated digits elsewhere in the UI.
+    const stepNumbers = document
+      .querySelectorAll(".flowStepNumber");
+    const stepNumberTexts = Array.from(stepNumbers).map((el) => el.textContent);
+    expect(stepNumberTexts).toContain("A");
+    expect(stepNumberTexts).toContain("B");
+    expect(stepNumberTexts).not.toContain("1");
+    expect(stepNumberTexts).not.toContain("2");
   });
 });
 
