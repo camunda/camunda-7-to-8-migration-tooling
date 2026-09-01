@@ -17,9 +17,14 @@ import {
   Trash,
   Eye,
   AlertTriangle,
+  AlertCircle,
+  MessageCircleWarning,
+  Info,
   Check,
   Loader2,
 } from "lucide-react";
+
+import { getSeverityStyleKey } from "./findings";
 
 function Spinner() {
   return (
@@ -30,6 +35,15 @@ function Spinner() {
     />
   );
 }
+
+// One icon per severity tier so the badge doesn't rely on color alone to
+// tell a warning-heavy file apart from an informational-only one.
+const SEVERITY_BADGE_ICON = {
+  warning: AlertTriangle,
+  task: AlertCircle,
+  review: MessageCircleWarning,
+  info: Info,
+};
 
 export default function FileItem({
   name,
@@ -42,7 +56,10 @@ export default function FileItem({
   previewTitle = "Preview analysis findings",
   onDelete,
   findingCount,
+  highestSeverity,
 }) {
+  const severityKey = getSeverityStyleKey(highestSeverity);
+  const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
   return (
     <div className="FileItem">
       <div className="left">
@@ -60,7 +77,13 @@ export default function FileItem({
       </div>
       <div className="right">
         {findingCount > 0 && (
-          <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
+          <span
+            className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
+            title={`Highest severity: ${highestSeverity || 'INFO'}`}
+          >
+            <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
+            {findingCount} finding{findingCount !== 1 ? 's' : ''}
+          </span>
         )}
 
         {error && (
