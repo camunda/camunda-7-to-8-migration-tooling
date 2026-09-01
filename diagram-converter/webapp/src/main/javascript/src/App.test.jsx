@@ -373,4 +373,21 @@ describe("preview routing", () => {
       JSON.parse(convertedContent)
     );
   });
+
+  it("renders the converted BPMN content in the preview", async () => {
+    const originalContent =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL/"><process id="original" /></definitions>';
+    const convertedContent =
+      '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL/"><process id="converted" /></definitions>';
+
+    await openPreview({
+      fileName: "process.bpmn",
+      content: originalContent,
+      convertedContent,
+      checkResponseJson: [],
+    });
+
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    expect(bpmnMocks.instances[0].importedXml).toEqual([convertedContent]);
+  });
 });
