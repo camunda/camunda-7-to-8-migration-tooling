@@ -488,10 +488,7 @@ describe("progress and step numbering", () => {
     const stepNumbers = document
       .querySelectorAll(".flowStepNumber");
     const stepNumberTexts = Array.from(stepNumbers).map((el) => el.textContent);
-    expect(stepNumberTexts).toContain("A");
-    expect(stepNumberTexts).toContain("B");
-    expect(stepNumberTexts).not.toContain("1");
-    expect(stepNumberTexts).not.toContain("2");
+    expect(stepNumberTexts).toEqual(["A", "B"]);
   });
 });
 
