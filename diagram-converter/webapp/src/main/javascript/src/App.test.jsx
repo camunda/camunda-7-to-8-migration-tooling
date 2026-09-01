@@ -57,6 +57,7 @@ const bpmnMocks = vi.hoisted(() => {
 
 const testState = vi.hoisted(() => ({
   files: [],
+  dmnPreviewProps: [],
   formPreviewProps: [],
 }));
 
@@ -136,6 +137,13 @@ vi.mock("./FormPreview", () => ({
   default: (props) => {
     testState.formPreviewProps.push(props);
     return <div data-testid="form-preview" />;
+  },
+}));
+
+vi.mock("./DmnPreview", () => ({
+  default: (props) => {
+    testState.dmnPreviewProps.push(props);
+    return <div data-testid="dmn-preview" />;
   },
 }));
 
@@ -237,6 +245,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
   testState.files.length = 0;
+  testState.dmnPreviewProps.length = 0;
   testState.formPreviewProps.length = 0;
   bpmnMocks.instances.length = 0;
 });
@@ -438,6 +447,22 @@ describe("preview routing", () => {
 
     await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
     expect(bpmnMocks.instances[0].importedXml).toEqual([convertedContent]);
+  });
+
+  it("renders the converted DMN content in the preview", async () => {
+    const originalContent =
+      '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"><decision id="original" /></definitions>';
+    const convertedContent =
+      '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"><decision id="converted" /></definitions>';
+
+    await openPreview({
+      fileName: "decision.dmn",
+      content: originalContent,
+      convertedContent,
+      checkResponseJson: [],
+    });
+
+    expect(testState.dmnPreviewProps.at(-1).xml).toBe(convertedContent);
   });
 });
 
