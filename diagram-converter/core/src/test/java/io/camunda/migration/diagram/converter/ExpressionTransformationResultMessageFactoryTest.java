@@ -27,7 +27,7 @@ class ExpressionTransformationResultMessageFactoryTest {
         new ExpressionTransformationResult(
             "Job priority",
             "${execution.getProcessInstanceId()}",
-            "${execution.getProcessInstanceId()}",
+            "=execution.getProcessInstanceId()",
             false,
             true);
 
@@ -42,7 +42,7 @@ class ExpressionTransformationResultMessageFactoryTest {
   void shouldReturnMethodMessageWhenExpressionHasMethodInvocation() {
     ExpressionTransformationResult result =
         new ExpressionTransformationResult(
-            "Job priority", "${order.getPriority()}", "${order.getPriority()}", true, false);
+            "Job priority", "${order.getPriority()}", "=order.getPriority()", true, false);
 
     Message message =
         ExpressionTransformationResultMessageFactory.getMessage(result, "https://example.test");
@@ -57,7 +57,7 @@ class ExpressionTransformationResultMessageFactoryTest {
         new ExpressionTransformationResult(
             "Job priority",
             "${execution.order.getPriority()}",
-            "${execution.order.getPriority()}",
+            "=execution.order.getPriority()",
             true,
             true);
 
