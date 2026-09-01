@@ -620,13 +620,13 @@ function App() {
             target="_blank" rel="noopener noreferrer">run the diagram converter locally</a>.
         </>;
       default:
-        return "Download failed. Please try again.";
+        return "Download failed. Try again.";
     }
   }
 
   async function handleDownloadResponse(filename, response, title) {
     if (!response.ok) {
-      let errorMessage = "Download failed. Please try again.";
+      let errorMessage = "Download failed. Try again.";
       try {
         const errorBody = await response.json();
         errorMessage = buildErrorMessage(errorBody);
@@ -803,7 +803,7 @@ function App() {
           <>
             <section className="flowStep">
               <div className="flowStepHeader">
-                <span className="flowStepNumber">1</span>
+                <span className="flowStepNumber">A</span>
                 <h4>Add files</h4>
               </div>
               <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert.</p>
@@ -830,7 +830,7 @@ function App() {
 
             <section className="flowStep">
               <div className="flowStepHeader">
-                <span className="flowStepNumber">2</span>
+                <span className="flowStepNumber">B</span>
                 <h4>Configure conversion</h4>
               </div>
               <p>Choose the Camunda 8 version to convert to.</p>
@@ -884,6 +884,7 @@ function App() {
                       <Checkbox
                         id="addDataMigrationExecutionListener"
                         checked={configOptions.addDataMigrationExecutionListener}
+                        aria-describedby="addDataMigrationExecutionListenerHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -893,6 +894,10 @@ function App() {
                       />
                       <span>Add data migration execution listener</span>
                     </label>
+                    <p id="addDataMigrationExecutionListenerHint" className="configOptionHint">
+                      Adds an execution listener to blank start events so the Camunda 7 Data
+                      Migrator can track migrated instances.
+                    </p>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="dataMigrationExecutionListenerJobType" className="text-sm font-medium">
                         Execution listener job type
@@ -901,6 +906,7 @@ function App() {
                         id="dataMigrationExecutionListenerJobType"
                         value={configOptions.dataMigrationExecutionListenerJobType}
                         disabled={!configOptions.addDataMigrationExecutionListener}
+                        aria-describedby="dataMigrationExecutionListenerJobTypeHint"
                         onChange={(e) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -908,12 +914,17 @@ function App() {
                           }))
                         }
                       />
+                      <p id="dataMigrationExecutionListenerJobTypeHint" className="configOptionHint">
+                        Job type used by the listener. Available when "Add data migration
+                        execution listener" is selected.
+                      </p>
                     </div>
                     <div className="form-spacer" />
                     <label className="flex items-center gap-2">
                       <Checkbox
                         id="keepJobTypeBlank"
                         checked={configOptions.keepJobTypeBlank}
+                        aria-describedby="keepJobTypeBlankHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -923,12 +934,17 @@ function App() {
                       />
                       <span>Keep job type blank</span>
                     </label>
+                    <p id="keepJobTypeBlankHint" className="configOptionHint">
+                      Leaves the job type empty on converted delegates so you can set it
+                      yourself after conversion.
+                    </p>
                     <div className="form-spacer" />
                     <label className="flex items-center gap-2">
                       <Checkbox
                         id="alwaysUseDefaultJobType"
                         checked={configOptions.alwaysUseDefaultJobType}
                         disabled={configOptions.keepJobTypeBlank}
+                        aria-describedby="alwaysUseDefaultJobTypeHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -938,6 +954,11 @@ function App() {
                       />
                       <span>Always use default job type</span>
                     </label>
+                    <p id="alwaysUseDefaultJobTypeHint" className="configOptionHint">
+                      Fills every delegate's job type with the default value below, for
+                      example to route all delegates to one job worker such as the Camunda 7
+                      Adapter. Available when "Keep job type blank" is cleared.
+                    </p>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="defaultJobType" className="text-sm font-medium">
                         Default job type
@@ -946,6 +967,7 @@ function App() {
                         id="defaultJobType"
                         value={configOptions.defaultJobType}
                         disabled={configOptions.keepJobTypeBlank}
+                        aria-describedby="defaultJobTypeHint"
                         onChange={(e) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -953,6 +975,10 @@ function App() {
                           }))
                         }
                       />
+                      <p id="defaultJobTypeHint" className="configOptionHint">
+                        Job type applied when "Always use default job type" is selected.
+                        Available when "Keep job type blank" is cleared.
+                      </p>
                     </div>
                   </fieldset>
               )}
@@ -1097,8 +1123,8 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    Machine-readable findings, e.g. as input for AI-assisted
-                    migration tooling.
+                    Machine-readable findings, for example as input for
+                    AI-assisted migration tooling.
                   </p>
                 </div>
               </div>
