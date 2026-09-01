@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
   Table,
@@ -31,17 +31,14 @@ function severityRank(severity) {
 //    language, and
 //  - a "showing X of Y" summary so the current filter state stays visible.
 export default function FindingsSection({ header, rows }) {
-  const [priorRows, setPriorRows] = useState(rows);
   const [hiddenSeverities, setHiddenSeverities] = useState(() => new Set());
 
   // Reset the filter whenever a new set of findings is loaded (e.g. the user
   // opens the preview for a different file), so filters never carry over
-  // between unrelated result sets. Adjusting state during render (rather
-  // than in an effect) avoids an extra render pass.
-  if (rows !== priorRows) {
-    setPriorRows(rows);
+  // between unrelated result sets.
+  useEffect(() => {
     setHiddenSeverities(new Set());
-  }
+  }, [rows]);
 
   if (rows.length === 0) {
     return (
