@@ -454,6 +454,34 @@ describe("advanced options", () => {
     fireEvent.click(screen.getByRole("button", { name: "Advanced options" }));
   }
 
+  it("programmatically associates each advanced-option checkbox with its guidance text", () => {
+    renderConfigureStep();
+
+    const checkboxDescriptions = [
+      {
+        label: "Add data migration execution listener",
+        descriptionId: "addDataMigrationExecutionListenerHint",
+        text: "Adds an execution listener to blank start events so the Camunda 7 Data Migrator can track migrated instances.",
+      },
+      {
+        label: "Keep job type blank",
+        descriptionId: "keepJobTypeBlankHint",
+        text: "Leaves the job type empty on converted delegates so you can set it yourself after conversion.",
+      },
+      {
+        label: "Always use default job type",
+        descriptionId: "alwaysUseDefaultJobTypeHint",
+        text: "Fills every delegate's job type with the default value below, for example to route all delegates to one job worker such as the Camunda 7 Adapter. Available when \"Keep job type blank\" is cleared.",
+      },
+    ];
+
+    checkboxDescriptions.forEach(({ label, descriptionId, text }) => {
+      const checkbox = screen.getByRole("checkbox", { name: label });
+      expect(checkbox.getAttribute("aria-describedby")).toBe(descriptionId);
+      expect(document.getElementById(descriptionId)?.textContent?.replace(/\s+/g, " ").trim()).toBe(text);
+    });
+  });
+
   it("explains what each advanced option does", () => {
     renderConfigureStep();
 

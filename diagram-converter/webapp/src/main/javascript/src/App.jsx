@@ -769,6 +769,7 @@ function App() {
                       <Checkbox
                         id="addDataMigrationExecutionListener"
                         checked={configOptions.addDataMigrationExecutionListener}
+                        aria-describedby="addDataMigrationExecutionListenerHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -778,7 +779,7 @@ function App() {
                       />
                       <span>Add data migration execution listener</span>
                     </label>
-                    <p className="configOptionHint">
+                    <p id="addDataMigrationExecutionListenerHint" className="configOptionHint">
                       Adds an execution listener to blank start events so the Camunda 7 Data
                       Migrator can track migrated instances.
                     </p>
@@ -808,6 +809,7 @@ function App() {
                       <Checkbox
                         id="keepJobTypeBlank"
                         checked={configOptions.keepJobTypeBlank}
+                        aria-describedby="keepJobTypeBlankHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -817,7 +819,7 @@ function App() {
                       />
                       <span>Keep job type blank</span>
                     </label>
-                    <p className="configOptionHint">
+                    <p id="keepJobTypeBlankHint" className="configOptionHint">
                       Leaves the job type empty on converted delegates so you can set it
                       yourself after conversion.
                     </p>
