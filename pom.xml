@@ -33,6 +33,7 @@
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.1</version.spring-boot>
+    <version.spring-framework>7.0.9</version.spring-framework>
     <version.micrometer-core>1.17.1</version.micrometer-core>
     <version.jackson-bom>2.22.2</version.jackson-bom>
     <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
@@ -108,6 +109,17 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-47883, CVE-2026-47884, CVE-2026-47885, CVE-2026-47886,
+           CVE-2026-47889, CVE-2026-59281, CVE-2026-59282, CVE-2026-59283:
+           inherit the fixed Spring Framework BOM in every module, including
+           modules without a local Spring or Spring Boot BOM import. -->
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-framework-bom</artifactId>
+        <version>${version.spring-framework}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <!-- CVE-2026-59889: make the fixed Jackson BOM inherited by every module, including modules without a local BOM import. -->
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
