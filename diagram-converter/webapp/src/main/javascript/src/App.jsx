@@ -9,12 +9,6 @@ import { useState, useEffect, useRef } from "react";
 
 import {
   Button,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
   Checkbox,
   Input,
   Alert,
@@ -27,7 +21,8 @@ import {
 import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
-import { FINDINGS_TABLE_HEADER, buildFindingsRows } from "./findings";
+import { FINDINGS_TABLE_HEADER, SEVERITY_ORDER, buildFindingsRows } from "./findings";
+import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
 import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
@@ -46,58 +41,6 @@ const SUPPORTED_PLATFORM_VERSIONS = [
   { value: "8.10", label: "8.10", hint: "Next version" },
 ];
 const DEFAULT_PLATFORM_VERSION = "8.9";
-
-function FindingsSection({ header, rows }) {
-  if (rows.length === 0) {
-    return (
-      <p style={{ color: 'var(--neutral-foreground-subtle)', marginTop: '1rem' }}>No findings for this file.</p>
-    );
-  }
-  return (
-    <>
-      <h3>Findings</h3>
-      <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
-        Elements in this file that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
-      </p>
-      <Table className="analysis-table">
-        <TableHeader>
-          <TableRow>
-            {header.map((h) => (
-              <TableHead key={h.key}>
-                {h.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              {header.map((h) => {
-                const value = row[h.key];
-                return (
-                  <TableCell key={`${row.id}-${h.key}`}>
-                    {h.key === 'link'
-                      ? value
-                        ? <a
-                            href={value}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Open finding documentation: ${value}`}
-                          >
-                            Open
-                          </a>
-                        : '-'
-                      : value}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </>
-  );
-}
 
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
@@ -161,14 +104,14 @@ function App() {
   });
 
 
+  // Uses the same SEVERITY_ORDER as the findings table/legend so the
+  // preview highlight always reflects the same severity ranking shown there.
   function getMostSevere(messages) {
-    const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
-
     let mostSevere = 'INFO';
 
     for (const msg of messages) {
-      const severityIndex = severityOrder.indexOf(msg.severity);
-      const mostSevereIndex = severityOrder.indexOf(mostSevere);
+      const severityIndex = SEVERITY_ORDER.indexOf(msg.severity);
+      const mostSevereIndex = SEVERITY_ORDER.indexOf(mostSevere);
 
       if (
         severityIndex !== -1 &&
