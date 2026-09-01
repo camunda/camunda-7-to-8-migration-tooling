@@ -69,14 +69,22 @@ vi.mock("@camunda/design-system", () => ({
       {children}
     </div>
   ),
-  Button: ({ children, href, ...props }) =>
-    href ? (
+  Button: ({ children, href, asChild, ...props }) => {
+    if (asChild) {
+      // Mirrors the real design-system Button's `asChild` (Radix Slot):
+      // render the single child element as-is instead of wrapping it in a
+      // native <button>, so a real <a href> stays a real, keyboard-operable
+      // link in tests too.
+      return children;
+    }
+    return href ? (
       <a href={href} {...props}>
         {children}
       </a>
     ) : (
       <button {...props}>{children}</button>
-    ),
+    );
+  },
   Checkbox: ({ id, checked, onCheckedChange, ...props }) => (
     <input
       id={id}
@@ -187,6 +195,38 @@ async function openPreview({
   fireEvent.click(previewButton);
 
   await screen.findByRole("heading", { name: `Preview: ${fileName}` });
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+// A real File (not a plain mock) so FormData/fetch mocks that need to tell
+// files apart by name (e.g. retry-only-the-failed-file) can read it back via
+// formData.get("file").name.
+function mockFile(name, content = "<xml/>") {
+  return new File([content], name);
+}
+
+async function uploadAndAnalyze(files) {
+  testState.files.splice(0, testState.files.length, ...files);
+  render(<App />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+  const analyzeButton = screen.getByRole("button", {
+    name: /Analyze and convert to Camunda/,
+  });
+  await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+  fireEvent.click(analyzeButton);
+}
+
+function fileRow(fileName) {
+  return screen.getByText(fileName).closest(".FileItem");
 }
 
 beforeEach(() => {
@@ -694,5 +734,260 @@ describe("preview overlay behaves as a modal dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("per-file request failures and retry", () => {
+  it("stops the spinner and shows an accessible retry-able error when the network request fails", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) return Promise.reject(new TypeError("Failed to fetch"));
+      throw new Error("convert should not be called when /check fails");
+    });
+
+    await uploadAndAnalyze([
+      { name: "offline.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = await screen.findByText("offline.bpmn").then((el) => el.closest(".FileItem"));
+    const alert = await within(row).findByRole("alert");
+    expect(alert.textContent).toMatch(/could not reach the server/i);
+
+    // The spinner/status must be gone once the row is in an error state.
+    expect(within(row).queryByRole("status")).toBeNull();
+
+    // Retry is offered and reprocesses without a full page reload.
+    expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("surfaces a plain-language error and offers retry for a non-2xx analyze response", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue(""),
+        });
+      }
+      throw new Error("convert should not be called when /check is non-2xx");
+    });
+
+    await uploadAndAnalyze([
+      { name: "server-error.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = fileRow("server-error.bpmn");
+    const alert = await within(row).findByRole("alert");
+    expect(alert.textContent).toMatch(/analysis failed \(http 500\)/i);
+    expect(within(row).getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("surfaces a plain-language error when the analyze response body cannot be parsed", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockRejectedValue(new SyntaxError("Unexpected token")),
+        });
+      }
+      throw new Error("convert should not be called when /check response is malformed");
+    });
+
+    await uploadAndAnalyze([
+      { name: "malformed.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = fileRow("malformed.bpmn");
+    const alert = await within(row).findByRole("alert");
+    expect(alert.textContent).toMatch(/analysis response could not be read/i);
+  });
+
+  it("retries only the failed file, preserving other completed rows and their converted content", async () => {
+    let badConvertAttempts = 0;
+
+    fetchMock.mockImplementation((url, options) => {
+      const fileName = options.body.get("file").name;
+
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+
+      // /convert
+      if (fileName === "bad.bpmn" && badConvertAttempts === 0) {
+        badConvertAttempts += 1;
+        return Promise.resolve({
+          ok: false,
+          status: 502,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          text: vi.fn().mockResolvedValue(""),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([
+      mockFile("good.bpmn"),
+      mockFile("bad.bpmn"),
+    ]);
+
+    const goodRow = await screen.findByText("good.bpmn").then((el) => el.closest(".FileItem"));
+    await within(goodRow).findByRole("button", { name: "Download converted model" });
+
+    const badRow = fileRow("bad.bpmn");
+    await within(badRow).findByRole("alert");
+    const callsBeforeRetry = fetchMock.mock.calls.length;
+
+    fireEvent.click(within(badRow).getByRole("button", { name: "Retry" }));
+
+    await within(badRow).findByRole("button", { name: "Download converted model" });
+
+    // Retry only re-ran /check + /convert for the failed file.
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeRetry + 2);
+
+    // The other, already-completed row was left untouched.
+    expect(within(goodRow).getByRole("button", { name: "Download converted model" })).toBeTruthy();
+    expect(within(goodRow).queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("navigation between configure and results", () => {
+  it("returns to configure without discarding the uploaded file list", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([
+      { name: "keep-me.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    await screen.findByRole("heading", { name: "Converted files" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to configure" }));
+
+    expect(await screen.findByRole("heading", { name: "Add files" })).toBeTruthy();
+    expect(screen.getByText("keep-me.bpmn")).toBeTruthy();
+  });
+
+  it("starts a new batch that clears the previous files and results", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([
+      { name: "replace-me.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    await screen.findByRole("heading", { name: "Converted files" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Convert more files" }));
+
+    expect(await screen.findByRole("heading", { name: "Add files" })).toBeTruthy();
+    expect(screen.queryByText("replace-me.bpmn")).toBeNull();
+  });
+});
+
+describe("migration guide action", () => {
+  it("renders a real, keyboard-operable link that reaches the migration guide", async () => {
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) {
+        return Promise.resolve({
+          ok: true,
+          headers: { get: vi.fn().mockReturnValue(null) },
+          json: vi.fn().mockResolvedValue([]),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        headers: { get: vi.fn().mockReturnValue(null) },
+        blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+      });
+    });
+
+    await uploadAndAnalyze([
+      { name: "any.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const link = await screen.findByRole("link", { name: /open migration guide/i });
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe(
+      "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-journey/?utm_source=analyzer"
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+});
+
+describe("single loading indicator per file", () => {
+  it("shows exactly one spinner and status label per phase instead of two", async () => {
+    const checkDeferred = deferred();
+    const convertDeferred = deferred();
+
+    fetchMock.mockImplementation((url) => {
+      if (url.endsWith("/check")) return checkDeferred.promise;
+      return convertDeferred.promise;
+    });
+
+    await uploadAndAnalyze([
+      { name: "slow.bpmn", text: vi.fn().mockResolvedValue("<xml/>") },
+    ]);
+
+    const row = fileRow("slow.bpmn");
+
+    // Analyzing phase: exactly one status indicator, not two.
+    await waitFor(() => expect(within(row).getAllByRole("status")).toHaveLength(1));
+    expect(within(row).getByRole("status").textContent).toMatch(/analyzing/i);
+
+    checkDeferred.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      json: vi.fn().mockResolvedValue([]),
+    });
+
+    // Converting phase: still exactly one status indicator.
+    await waitFor(() =>
+      expect(within(row).getByRole("status").textContent).toMatch(/converting/i)
+    );
+    expect(within(row).getAllByRole("status")).toHaveLength(1);
+
+    convertDeferred.resolve({
+      ok: true,
+      headers: { get: vi.fn().mockReturnValue(null) },
+      blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
+    });
+
+    await within(row).findByRole("button", { name: "Download converted model" });
+    expect(within(row).queryByRole("status")).toBeNull();
   });
 });
