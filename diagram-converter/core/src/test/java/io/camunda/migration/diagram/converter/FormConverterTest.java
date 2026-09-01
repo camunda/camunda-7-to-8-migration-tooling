@@ -211,7 +211,7 @@ class FormConverterTest {
         .allSatisfy(
             message -> {
               assertThat(message.getId()).isEqualTo("form-juel-expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
             });
   }
 

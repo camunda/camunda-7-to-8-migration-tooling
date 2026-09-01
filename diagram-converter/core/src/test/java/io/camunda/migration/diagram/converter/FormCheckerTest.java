@@ -148,18 +148,16 @@ class FormCheckerTest {
     assertThat(element.getElementName()).isEqualTo("Hello ${customerName}");
     assertThat(element.getMessages())
         .hasSize(2)
-        .allSatisfy(
-            message -> {
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-            })
         .anySatisfy(
             message -> {
               assertThat(message.getId()).isEqualTo("form-juel-expression");
+              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
               assertThat(message.getMessage()).contains("${customerName}").contains("label");
             })
         .anySatisfy(
             message -> {
               assertThat(message.getId()).isEqualTo("expression");
+              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
               assertThat(message.getMessage())
                   .contains("#{defaultGreeting}")
                   .contains("= defaultGreeting")
@@ -298,7 +296,11 @@ class FormCheckerTest {
     assertThat(element.getElementId()).isEqualTo("nested");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(message -> assertThat(message.getId()).isEqualTo("form-juel-expression"));
+        .satisfies(
+            message -> {
+              assertThat(message.getId()).isEqualTo("form-juel-expression");
+              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+            });
   }
 
   @Test
