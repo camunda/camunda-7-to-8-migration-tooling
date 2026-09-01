@@ -2,8 +2,6 @@
 
 ## Approach A - OpenRewrite + AI (recommended)
 
-Before resolving versions, inspect the selected target or maintenance branch's existing configuration and verify Camunda, Spring Boot, recipe, and dependency compatibility against official Camunda documentation or Maven metadata. Do not blindly choose a newer platform version.
-
 ### 1. Run OpenRewrite
 
 RECIPES_VERSION by Camunda target (use latest from these minor versions):
@@ -102,7 +100,7 @@ Before running, check Java runtime compatibility:
 Ask the user whether to run AI cleanup; proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then work the Transform checklist for what OpenRewrite left:
 
 - Resolve all `// TODO` comments it inserted, and fix compile errors.
-- Apply checklist items 1 (deps/config), 5 (listeners), 6 (tests), 7 (JUEL), and any 2 (client code) the recipes did not cover.
+- Apply checklist items 1 (deps/config), 5 (listeners), 6 (tests), 7 (JUEL), 8 (generated-form dependencies), and any 2 (client code) the recipes did not cover.
 
 Before AI cleanup, ask whether to commit the OpenRewrite result.
 
@@ -110,7 +108,7 @@ Before AI cleanup, ask whether to commit the OpenRewrite result.
 
 ## Approach B - AI Only
 
-Load the pattern catalog (see references/pattern-catalog-sources.md), then work the full Transform checklist (items 1-7) in order, confirming each before the next.
+Load the pattern catalog (see references/pattern-catalog-sources.md), then work the full Transform checklist (items 1-8) in order, confirming each before the next.
 
 Use this when:
 - Non-Maven/Gradle builds
