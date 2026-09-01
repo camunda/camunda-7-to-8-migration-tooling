@@ -482,7 +482,12 @@ function App() {
     setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
 
     setPreviewCheckJson(response.checkResponseJson);
-    setPreviewModelXml(response.originalModelXml);
+    const modelXml =
+      (modelType === "bpmn" || modelType === "dmn") &&
+      response?.convertedFileBlob
+        ? await response.convertedFileBlob.text()
+        : response.originalModelXml;
+    setPreviewModelXml(modelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDiagramError(false);
@@ -505,8 +510,11 @@ function App() {
     setIsPreviewOpen(true);
   }
 
-  function previewForm(response) {
-    const { schema, error } = parseFormSchema(response?.originalModelXml);
+  async function previewForm(response) {
+    const formContent = response?.convertedFileBlob
+      ? await response.convertedFileBlob.text()
+      : response?.originalModelXml;
+    const { schema, error } = parseFormSchema(formContent);
     openFormPreview(schema, error);
     setPreviewCheckJson(response?.checkResponseJson || []);
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
