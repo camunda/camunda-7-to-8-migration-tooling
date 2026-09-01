@@ -23,7 +23,7 @@ public class RetrievePaymentWorkerIncident {
         try {
             // do something...
         } catch (Exception e) {
-            throw CamundaError.jobError("My error message", Map.of("transactionId", "TX12345"), 0, null, e);
+            throw CamundaError.jobError("My error message", Map.of("transactionId", "TX12345"), 0, (Duration) null, e);
         }
         return Map.of("transactionId", "TX12345");
     }
