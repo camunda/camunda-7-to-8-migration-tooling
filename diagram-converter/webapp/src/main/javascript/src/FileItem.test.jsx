@@ -9,13 +9,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import FileItem from "./FileItem";
 
-vi.mock("@camunda/design-system", () => ({
-  Tooltip: ({ children }) => children,
-  TooltipContent: ({ children }) => children,
-  TooltipProvider: ({ children }) => children,
-  TooltipTrigger: ({ children }) => children,
-}));
-
 afterEach(cleanup);
 
 describe("FileItem", () => {
