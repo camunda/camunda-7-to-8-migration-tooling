@@ -527,7 +527,10 @@ describe("voice and tone", () => {
 
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText("Download failed. Try again.")).toBeTruthy();
-    expect(screen.queryByText(/please/i)).toBeNull();
+    // Scope to the alert itself rather than the whole document, so this
+    // only guards the download failure copy and doesn't become brittle if
+    // unrelated UI text elsewhere happens to contain "please".
+    expect(within(alert).queryByText(/please/i)).toBeNull();
   });
 
   it("spells out 'for example' instead of 'e.g.' in the JSON download hint", async () => {
@@ -545,11 +548,13 @@ describe("voice and tone", () => {
     await waitFor(() => expect(analyzeButton.disabled).toBe(false));
     fireEvent.click(analyzeButton);
 
-    expect(
-      await screen.findByText(
-        /Machine-readable findings, for example as input for AI-assisted migration tooling\./
-      )
-    ).toBeTruthy();
-    expect(screen.queryByText(/e\.g\./)).toBeNull();
+    const jsonHint = await screen.findByText(
+      /Machine-readable findings, for example as input for AI-assisted migration tooling\./
+    );
+    expect(jsonHint).toBeTruthy();
+    // Scope to the hint element itself rather than the whole document, so
+    // this only guards the JSON download hint copy and doesn't become
+    // brittle if an unrelated abbreviation appears elsewhere in the UI.
+    expect(jsonHint.textContent).not.toMatch(/e\.g\./);
   });
 });
