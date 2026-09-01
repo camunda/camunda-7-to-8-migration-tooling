@@ -461,13 +461,13 @@ describe("upload onboarding guidance", () => {
 
     expect(screen.getByText(/up to 94 files per batch/i)).toBeTruthy();
     expect(
-      screen.getByText(/sent to Camunda.s hosted service for/i)
+      screen.getByText(/sent to Camunda's hosted service for/i)
     ).toBeTruthy();
 
-    const localConverterLinks = screen.getAllByRole("link", {
-      name: /diagram converter locally/i,
-    });
-    expect(localConverterLinks.length).toBeGreaterThan(0);
+    const localConverterLinks = [
+      screen.getByRole("link", { name: /run the diagram converter locally/i }),
+      screen.getByRole("link", { name: /use the local converter/i }),
+    ];
     localConverterLinks.forEach((link) => {
       expect(link.getAttribute("href")).toBe(
         "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"

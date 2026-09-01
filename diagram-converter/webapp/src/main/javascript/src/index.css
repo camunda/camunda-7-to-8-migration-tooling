@@ -246,7 +246,7 @@ h1 {
       font-size: 14px;
       /* Long filenames truncate with an ellipsis instead of stretching the
        * row or pushing the download/preview/remove actions off-screen; the
-       * full name is still available via the title tooltip. */
+       * full name remains available through the title attribute. */
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
