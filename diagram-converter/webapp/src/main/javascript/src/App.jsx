@@ -632,8 +632,10 @@ function App() {
                   <Alert
                     variant="warning"
                     title={
-                      files.length >= MAX_BATCH_FILES
-                        ? `Batch limit reached (${files.length} files)`
+                      files.length > MAX_BATCH_FILES
+                        ? `Batch limit exceeded (${MAX_BATCH_FILES} max, ${files.length} added)`
+                        : files.length === MAX_BATCH_FILES
+                        ? `Batch limit reached (${MAX_BATCH_FILES} files)`
                         : `Approaching the batch limit (${files.length} of ${MAX_BATCH_FILES} files)`
                     }
                     description={

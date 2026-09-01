@@ -491,4 +491,24 @@ describe("upload onboarding guidance", () => {
       new RegExp(`Batch limit reached \\(${MAX_BATCH_FILES} files\\)`)
     );
   });
+
+  it("reports the batch limit as exceeded, with the fixed limit and current count, past the limit", () => {
+    const uploadedCount = MAX_BATCH_FILES + 3;
+    testState.files.splice(
+      0,
+      testState.files.length,
+      ...Array.from({ length: uploadedCount }, (_, i) => ({
+        name: `model-${i}.bpmn`,
+        text: vi.fn(),
+      }))
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toMatch(
+      new RegExp(`Batch limit exceeded \\(${MAX_BATCH_FILES} max, ${uploadedCount} added\\)`)
+    );
+  });
 });
