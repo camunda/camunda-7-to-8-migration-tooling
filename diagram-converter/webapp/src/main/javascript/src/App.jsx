@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 import {
   Button,
@@ -261,7 +261,10 @@ function App() {
   // Turns the preview overlay into a real modal dialog while it is open:
   // moves focus in, traps Tab/Shift+Tab within it, closes on Escape, locks
   // background scrolling, and restores focus to whatever opened it on close.
-  useEffect(() => {
+  // Uses useLayoutEffect (not useEffect) so the initial focus move happens
+  // synchronously right after the dialog mounts, before paint — avoiding a
+  // race where focus briefly stays outside the dialog on slower runners.
+  useLayoutEffect(() => {
     if (!isPreviewOpen) return undefined;
 
     const dialogEl = previewDialogRef.current;
