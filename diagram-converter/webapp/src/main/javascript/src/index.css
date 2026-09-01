@@ -116,6 +116,50 @@ h1 {
   margin-bottom: 18px;
 }
 
+.versionSegmented {
+  display: flex;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.versionSegment {
+  flex: 1;
+  min-height: 3.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #8d8d8d;
+  background: #f4f4f4;
+  color: #161616;
+  cursor: pointer;
+  text-align: left;
+}
+
+.versionSegment + .versionSegment {
+  border-left: 0;
+}
+
+.versionSegment:hover,
+.versionSegment:focus-visible {
+  background: #e0e0e0;
+}
+
+.versionSegment--selected {
+  border-color: #0f62fe;
+  background: #edf5ff;
+  box-shadow: inset 0 -3px 0 #0f62fe;
+  font-weight: 600;
+}
+
+.versionSegmentNumber,
+.versionSegmentHint {
+  display: block;
+}
+
+.versionSegmentHint {
+  color: #525252;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
 .analyzeButton {
   margin-top: 40px;
 }
@@ -334,6 +378,12 @@ hr {
   width: 100%;
   max-height: 95%;
   overflow-y: auto;
+
+  &:focus-visible {
+    outline: 2px solid #0f62fe;
+    outline-offset: -2px;
+  }
+
   .modal-header {
     display: flex;
     justify-content: space-between;
@@ -355,21 +405,83 @@ th, td {
   text-align: left;
 }
 
-
-
-.highlight-info:not(.djs-connection) .djs-visual  > :nth-child(1) {
-  stroke: #078bffb0 !important; 
+.findingElementLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: #0f62fe;
+  text-decoration: underline;
+  cursor: pointer;
 }
-.highlight-task:not(.djs-connection) .djs-visual  > :nth-child(1) {
-  stroke: #ffc107 !important; 
+.findingElementLink:hover,
+.findingElementLink:focus-visible {
+  color: #0043ce;
 }
 
-.highlight-warning:not(.djs-connection) .djs-visual  > :nth-child(1) {  
-  stroke: #ffc107 !important; 
+.analysis-table tr[aria-selected="true"] {
+  background: #edf5ff;
 }
 
-.highlight-review:not(.djs-connection) .djs-visual  > :nth-child(1) {
-  stroke: #0dcaf0 !important; 
+.highlight-info:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: #078bff !important;
+  stroke-width: 1.5px !important;
+}
+.highlight-task:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: #f1c21b !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 8, 4 !important;
+}
+.highlight-warning:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: #da1e28 !important;
+  stroke-width: 3px !important;
+}
+.highlight-review:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: #1192e8 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 2, 3 !important;
+}
+
+.finding-selected:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 3px #0f62fe);
+}
+
+.fileItemFindingCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.fileItemFindingCount svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.fileItemFindingCount-warning {
+  color: #a2191f;
+  background: #fff1f1;
+}
+
+.fileItemFindingCount-task {
+  color: #8e6a00;
+  background: #fff8e1;
+}
+
+.fileItemFindingCount-review {
+  color: #00539a;
+  background: #e5f6ff;
+}
+
+.fileItemFindingCount-info {
+  color: #393939;
+  background: #f4f4f4;
 }
 
 .configBox {
