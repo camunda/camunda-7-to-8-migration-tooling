@@ -878,8 +878,8 @@ function App() {
             </section>
             <hr />
 
-            <h2 className="sectionHeading">Next steps</h2>
             <section>
+              <h2 className="sectionHeading">Next steps</h2>
               <p>
                 Continue your Camunda 7 to 8 migration with the step-by-step
                 migration guide.

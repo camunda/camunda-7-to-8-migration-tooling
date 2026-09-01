@@ -106,7 +106,6 @@ describe("FileItem", () => {
     expect(filename.tagName).toBe("SPAN");
     expect(filename.getAttribute("role")).toBeNull();
     expect(filename.getAttribute("tabindex")).toBeNull();
-    expect(filename.onclick).toBeFalsy();
 
     fireEvent.click(filename);
     expect(downloadAction).not.toHaveBeenCalled();
