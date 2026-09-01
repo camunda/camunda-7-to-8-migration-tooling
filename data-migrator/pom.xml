@@ -17,7 +17,7 @@
   <dependencyManagement>
     <dependencies>
       <!-- Until there is an official engine-spring artifact for Spring 7,
-      import the fixed Framework BOM to override Camunda 7's transitive Spring libraries. -->
+      import the fixed Spring Framework BOM to override Camunda 7's transitive Spring libraries. -->
       <dependency>
         <groupId>org.springframework</groupId>
         <artifactId>spring-framework-bom</artifactId>
