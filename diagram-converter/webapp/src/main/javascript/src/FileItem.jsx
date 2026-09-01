@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { Loading, Tooltip } from "@carbon/react";
+import { Loading } from "@carbon/react";
 
 import {
   Download,
@@ -17,7 +17,11 @@ import {
 
 import Paperclip from "./Paperclip.svg";
 
-export default function DropZone({
+function statusLabel(isChecked) {
+  return isChecked ? "Converting..." : "Analyzing...";
+}
+
+export default function FileItem({
   name,
   error,
   status,
@@ -27,59 +31,70 @@ export default function DropZone({
   previewAction,
   previewTitle = "Preview analysis findings",
   onDelete,
+  onRetry,
 }) {
   return (
     <div className="FileItem">
-      <div className="left">
-        <img src={Paperclip} />
-        <span
-          className={downloadAction && !error ? "downloadable" : ""}
-          onClick={error ? undefined : downloadAction}
-        >
-          {name}
-        </span>
-        {status === "success" && (
-          <div style={{ color: "#2ada1e"}}>
-            <CheckmarkFilled />
-          </div>
-        )}
-
-      </div>
-      <div className="right">
-
-        {error && (
-          <Tooltip label={error}>
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
+      <div className="FileItemMain">
+        <div className="left">
+          <img src={Paperclip} />
+          <span
+            className={isConverted && downloadAction && !error ? "downloadable" : ""}
+            onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
+          >
+            {name}
+          </span>
+          {status === "success" && (
+            <div style={{ color: "#2ada1e" }}>
+              <CheckmarkFilled />
             </div>
-          </Tooltip>
-        )}
-        {status === "uploading" && !isChecked && <Loading small withOverlay={false} />}
-        {isChecked && previewAction && (
-          <button className="download" onClick={previewAction} title={previewTitle} aria-label={previewTitle}>
-            <View />
-          </button>
-        )}
-        {status === "uploading" && !isConverted && <Loading small withOverlay={false} />}
-        {isConverted && downloadAction && !error && (
-          <button className="download" onClick={downloadAction} title="Download converted model" aria-label="Download converted model">
-            <Download />
-          </button>
-        )}
-        {onDelete && (
-          <button onClick={onDelete}>
-            <TrashCan />
-          </button>
-        )}
-
-        {status === "error" && (
-          <Tooltip label="File upload failure">
-            <div style={{ color: "#da1e28" }}>
-              <WarningFilled />
-            </div>
-          </Tooltip>
-        )}
+          )}
+        </div>
+        <div className="right">
+          {status === "uploading" && (
+            <span className="fileItemStatus" role="status">
+              <Loading small withOverlay={false} />
+              <span className="fileItemStatusLabel">{statusLabel(isChecked)}</span>
+            </span>
+          )}
+          {isChecked && previewAction && (
+            <button
+              className="download"
+              onClick={previewAction}
+              title={previewTitle}
+              aria-label={previewTitle}
+            >
+              <View />
+            </button>
+          )}
+          {isConverted && downloadAction && !error && (
+            <button
+              className="download"
+              onClick={downloadAction}
+              title="Download converted model"
+              aria-label="Download converted model"
+            >
+              <Download />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={onDelete}>
+              <TrashCan />
+            </button>
+          )}
+        </div>
       </div>
+      {error && (
+        <div className="FileItemError" role="alert">
+          <WarningFilled aria-hidden="true" className="fileItemErrorIcon" />
+          <span className="fileItemErrorText">{error}</span>
+          {onRetry && (
+            <button type="button" className="fileItemRetry" onClick={onRetry}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

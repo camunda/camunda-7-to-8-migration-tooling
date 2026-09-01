@@ -178,113 +178,210 @@ function App() {
     return formData;
   }
 
+  function updateFileResult(idx, result) {
+    setFileResults((prevResults) => {
+      const updated = [...prevResults];
+      updated[idx] = result;
+      return updated;
+    });
+  }
+
+  // Plain-language message for a failed fetch() call itself (offline, DNS
+  // failure, CORS, connection reset, etc.) as opposed to a non-2xx response,
+  // which is handled by responseErrorMessage.
+  function networkErrorMessage() {
+    return "Could not reach the server. Check your connection and try again.";
+  }
+
+  // Runs analyze (/check) and convert (/convert) for a single file, updating
+  // fileResults as each phase completes. Used both for the initial batch
+  // upload and for retrying a single failed file, so failures never affect
+  // sibling rows and a retry only reprocesses the file it targets.
+  async function processFile(file, idx) {
+    const formData = createFormData(file);
+
+    let originalModelXml;
+    try {
+      originalModelXml = await file.text();
+    } catch {
+      const result = {
+        status: "error",
+        errorMessage: "The file could not be read. Please try again.",
+        originalModelXml: "",
+        checkResponseJson: null,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    let checkResponse;
+    try {
+      checkResponse = await fetch(baseUrl + "/check", {
+        body: formData,
+        method: "POST",
+        headers: {
+           "Accept": "application/json"
+        },
+      });
+    } catch {
+      const result = {
+        status: "error",
+        errorMessage: networkErrorMessage(),
+        originalModelXml: originalModelXml,
+        checkResponseJson: null,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    if (!checkResponse.ok) {
+      const result = {
+        status: "error",
+        errorMessage: await responseErrorMessage(
+          checkResponse,
+          `Analysis failed (HTTP ${checkResponse.status})`
+        ),
+        originalModelXml: originalModelXml,
+        checkResponseJson: null,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    let checkResponseJson;
+    try {
+      checkResponseJson = await checkResponse.json();
+    } catch {
+      const result = {
+        status: "error",
+        errorMessage: "The analysis response could not be read. Please try again.",
+        originalModelXml: originalModelXml,
+        checkResponseJson: null,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    let result = {
+      status: "uploading",
+      originalModelXml: originalModelXml,
+      checkResponseJson: checkResponseJson,
+    };
+    updateFileResult(idx, result);
+
+    let convertResponse;
+    try {
+      convertResponse = await fetch(baseUrl + "/convert", {
+        body: formData,
+        method: "POST",
+      });
+    } catch {
+      result = {
+        status: "error",
+        errorMessage: networkErrorMessage(),
+        originalModelXml: originalModelXml,
+        checkResponseJson: checkResponseJson,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    // Extract filename from the Content-Disposition header
+    let filename = "downloaded-model.bpmn"; // Default filename
+
+    const contentDisposition = convertResponse.headers.get("Content-Disposition");
+    if (contentDisposition) {
+      const match = contentDisposition.match(
+          /filename\*?=(?:UTF-8'')?["']?([^"';]*)["']?/i
+      );
+      if (match) {
+        filename = decodeURIComponent(match[1]); // Decode if necessary
+      }
+    }
+
+    if (!convertResponse.ok) {
+      result = {
+        status: "error",
+        errorMessage: await responseErrorMessage(
+          convertResponse,
+          `Conversion failed (HTTP ${convertResponse.status})`
+        ),
+        originalModelXml: originalModelXml,
+        checkResponseJson: checkResponseJson,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    let blob;
+    try {
+      blob = await convertResponse.blob();
+    } catch {
+      result = {
+        status: "error",
+        errorMessage: "The converted file could not be read. Please try again.",
+        originalModelXml: originalModelXml,
+        checkResponseJson: checkResponseJson,
+      };
+      updateFileResult(idx, result);
+      return result;
+    }
+
+    result = {
+      status: "success",
+      originalModelXml: originalModelXml,
+      checkResponseJson: checkResponseJson,
+      convertedFileBlob: blob,
+      filename
+    };
+
+    updateFileResult(idx, result);
+    return result;
+  }
+
   async function analyzeAndConvert() {
     setStep(2);
     setFileResults(files.map(() => ({ status: "uploading" })));
 
     const uploadResults = await Promise.all(
-      files.map(async (file, idx) => {
-        const formData = createFormData(file);
-        const originalModelXml = await file.text();
-        const checkResponse = await fetch(baseUrl + "/check", {
-          body: formData,
-          method: "POST",
-          headers: {
-             "Accept": "application/json"
-          },
-        });
-
-        if (!checkResponse.ok) {
-          const result = {
-            status: "error",
-            errorMessage: await responseErrorMessage(
-              checkResponse,
-              `Analysis failed (HTTP ${checkResponse.status})`
-            ),
-            originalModelXml: originalModelXml,
-            checkResponseJson: null,
-          };
-          setFileResults((prevResults) => {
-            const updated = [...prevResults];
-            updated[idx] = result;
-            return updated;
-          });
-          return result;
-        }
-
-        const checkResponseJson = await checkResponse.json();
-
-        let result = {
-          status: "uploading",
-          originalModelXml: originalModelXml,
-          checkResponseJson: checkResponseJson,
-        };
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
-
-        const convertResponse = await fetch(baseUrl + "/convert", {
-          body: formData,
-          method: "POST",
-        });
-
-        // Extract filename from the Content-Disposition header
-        let filename = "downloaded-model.bpmn"; // Default filename
-
-        const contentDisposition = convertResponse.headers.get("Content-Disposition");
-        if (contentDisposition) {
-          const match = contentDisposition.match(
-              /filename\*?=(?:UTF-8'')?["']?([^"';]*)["']?/i
-          );
-          if (match) {
-            filename = decodeURIComponent(match[1]); // Decode if necessary
-          }
-        }
-
-        if (!convertResponse.ok) {
-          result = {
-            status: "error",
-            errorMessage: await responseErrorMessage(
-              convertResponse,
-              `Conversion failed (HTTP ${convertResponse.status})`
-            ),
-            originalModelXml: originalModelXml,
-            checkResponseJson: checkResponseJson,
-          };
-          setFileResults((prevResults) => {
-            const updated = [...prevResults];
-            updated[idx] = result;
-            return updated;
-          });
-          return result;
-        }
-
-        // Convert response to blob
-        const blob = await convertResponse.blob();
-
-        result = {
-          status: checkResponse.ok && convertResponse.ok ? "success" : "error",
-          originalModelXml: originalModelXml,
-          checkResponseJson: checkResponseJson,
-          convertedFileBlob: blob,
-          filename
-        };
-
-        setFileResults((prevResults) => {
-          const updated = [...prevResults];
-          updated[idx] = result;
-          return updated;
-        });
-        return result;
-      })
+      files.map((file, idx) => processFile(file, idx))
     );
 
-    const validFiles = files.filter(
+    const newValidFiles = files.filter(
       (_, idx) => uploadResults[idx].status === "success"
     );
-    setValidFiles(validFiles);
+    setValidFiles(newValidFiles);
+  }
+
+  // Reprocesses only the file at `idx`. Other rows (completed or failed) are
+  // left untouched, and the ZIP/report downloads only ever see files whose
+  // latest result is a success.
+  async function retryFile(idx) {
+    const file = files[idx];
+    updateFileResult(idx, { status: "uploading" });
+
+    const result = await processFile(file, idx);
+
+    setValidFiles((prevValidFiles) => {
+      const withoutFile = prevValidFiles.filter((f) => f !== file);
+      return result.status === "success" ? [...withoutFile, file] : withoutFile;
+    });
+  }
+
+  // Returns to the configure step without discarding the uploaded files or
+  // their previous results, so users can adjust options and re-run without
+  // re-uploading.
+  function backToConfigure() {
+    setStep(0);
+  }
+
+  // Starts a fresh batch: clears the uploaded files, all per-file results and
+  // any lingering download error before returning to the configure step.
+  function startNewBatch() {
+    setFiles([]);
+    setFileResults([]);
+    setValidFiles([]);
+    setStep(0);
   }
 
   async function responseErrorMessage(response, fallback) {
@@ -638,6 +735,14 @@ function App() {
             </section>
             */}
 
+            <div className="resultsNav">
+              <Button kind="secondary" size="sm" onClick={backToConfigure}>
+                Back to configure
+              </Button>
+              <Button kind="secondary" size="sm" onClick={startNewBatch}>
+                Convert more files
+              </Button>
+            </div>
             <section>
               <h3>Converted files</h3>
               <p>
@@ -646,20 +751,24 @@ function App() {
                 render a diagram, and forms show a form preview.
               </p>
               {files.map((file, idx) => {
+                const result = fileResults[idx];
                 const isForm = file.name.toLowerCase().endsWith(".form");
                 return (
                 <FileItem
                   key={file.name + "-" + idx}
                   name={file.name}
-                  status={fileResults[idx].status}
-                  isChecked={ fileResults[idx].checkResponseJson != null }
-                  isConverted={fileResults[idx].convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(fileResults[idx]) : () => preview(fileResults[idx])}
+                  status={result.status}
+                  isChecked={result.checkResponseJson != null}
+                  isConverted={result.convertedFileBlob != null}
+                  previewAction={isForm ? () => previewForm(result) : () => preview(result)}
                   previewTitle={isForm ? "Preview form" : undefined}
-                  downloadAction={() => download(fileResults[idx])}
+                  downloadAction={() => download(result)}
                   error={
-                    !fileResults[idx].ok == "error" ? "File upload failure" : ""
+                    result.status === "error"
+                      ? result.errorMessage || "File processing failed"
+                      : ""
                   }
+                  onRetry={result.status === "error" ? () => retryFile(idx) : undefined}
                 />
                 );
               })}
