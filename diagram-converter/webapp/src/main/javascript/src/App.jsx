@@ -27,7 +27,12 @@ import {
 import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
-import { FINDINGS_TABLE_HEADER, buildFindingsRows, getHighestSeverity } from "./findings";
+import {
+  FINDINGS_TABLE_HEADER,
+  buildFindingsRows,
+  getHighestSeverity,
+  getSeverityStyleKey,
+} from "./findings";
 import BpmnJS from 'bpmn-js';
 import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
@@ -77,7 +82,7 @@ function FindingsSection({ header, rows, onSelectElement, selectedElementId }) {
             return (
               <TableRow
                 key={row.id}
-                aria-selected={isLinkable && selectedElementId === row.elementId ? true : undefined}
+                aria-selected={isLinkable ? selectedElementId === row.elementId : undefined}
               >
                 {header.map((h) => {
                   const value = row[h.key];
@@ -205,10 +210,8 @@ function App() {
 
         elementsWithMessages.forEach((el) => {
           if (el.elementId) {
-            const severity = getHighestSeverity(el.messages);
-            if (severity) {
-              canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-            }
+            const severityStyleKey = getSeverityStyleKey(getHighestSeverity(el.messages));
+            canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
           }
         });
 

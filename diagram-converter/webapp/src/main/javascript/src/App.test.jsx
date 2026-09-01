@@ -521,6 +521,32 @@ describe("finding severity communicates without relying on color alone", () => {
     );
   });
 
+  it("keeps findings visible with an info highlight when severities are unknown", async () => {
+    await openPreview({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [
+        {
+          results: [
+            {
+              elementId: "task_1",
+              messages: [
+                { severity: "UNKNOWN", message: "Unrecognized severity." },
+                { message: "Missing severity." },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await waitFor(() => expect(bpmnMocks.instances).toHaveLength(1));
+    expect(bpmnMocks.instances[0].canvas.addMarker).toHaveBeenCalledWith(
+      "task_1",
+      "highlight-info"
+    );
+  });
+
   it("styles the file list findings badge by the highest severity, not always warning", async () => {
     configureUpload({
       fileName: "informational.bpmn",
@@ -583,6 +609,7 @@ describe("linking a finding row to its diagram element", () => {
     const viewer = await openBpmnPreviewWithFindings();
 
     const elementLink = screen.getByRole("button", { name: "task_1" });
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
     fireEvent.click(elementLink);
 
     expect(viewer.canvas.scrollToElement).toHaveBeenCalledWith(
@@ -615,7 +642,7 @@ describe("linking a finding row to its diagram element", () => {
     expect(() => fireEvent.click(elementLink)).not.toThrow();
 
     expect(viewer.canvas.scrollToElement).not.toHaveBeenCalled();
-    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBeNull();
+    expect(elementLink.closest("tr").getAttribute("aria-selected")).toBe("false");
   });
 
   it("does not offer element linking for DMN previews, preserving the graceful fallback", async () => {
