@@ -409,10 +409,17 @@ describe("preview routing", () => {
 });
 
 describe("upload onboarding guidance", () => {
+  // The 94-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
+  // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
+  // createFormData() always appends 6 non-file fields (platformVersion + 5
+  // config options), leaving 94 parts available for files.
+  const MAX_BATCH_FILES = 94;
+  const BATCH_FILE_WARNING_THRESHOLD = 85;
+
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
 
-    expect(screen.getByText(/up to 100 files per batch/i)).toBeTruthy();
+    expect(screen.getByText(/up to 94 files per batch/i)).toBeTruthy();
     expect(
       screen.getByText(/sent to Camunda.s hosted service for/i)
     ).toBeTruthy();
@@ -451,7 +458,7 @@ describe("upload onboarding guidance", () => {
     testState.files.splice(
       0,
       testState.files.length,
-      ...Array.from({ length: 90 }, (_, i) => ({
+      ...Array.from({ length: BATCH_FILE_WARNING_THRESHOLD }, (_, i) => ({
         name: `model-${i}.bpmn`,
         text: vi.fn(),
       }))
@@ -461,14 +468,16 @@ describe("upload onboarding guidance", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
 
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toMatch(/Approaching the batch limit \(90 of 100 files\)/);
+    expect(alert.textContent).toMatch(
+      new RegExp(`Approaching the batch limit \\(${BATCH_FILE_WARNING_THRESHOLD} of ${MAX_BATCH_FILES} files\\)`)
+    );
   });
 
   it("reports the batch limit as reached once the limit is met", () => {
     testState.files.splice(
       0,
       testState.files.length,
-      ...Array.from({ length: 100 }, (_, i) => ({
+      ...Array.from({ length: MAX_BATCH_FILES }, (_, i) => ({
         name: `model-${i}.bpmn`,
         text: vi.fn(),
       }))
@@ -478,6 +487,8 @@ describe("upload onboarding guidance", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
 
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toMatch(/Batch limit reached \(100 files\)/);
+    expect(alert.textContent).toMatch(
+      new RegExp(`Batch limit reached \\(${MAX_BATCH_FILES} files\\)`)
+    );
   });
 });

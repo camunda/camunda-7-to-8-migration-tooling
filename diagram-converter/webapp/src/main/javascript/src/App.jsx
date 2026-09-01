@@ -49,13 +49,19 @@ const DEFAULT_PLATFORM_VERSION = "8.9";
 
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.
-// This mirrors server.tomcat.max-part-count in application.yaml, which is
-// where the server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the
-// two in sync if that value ever changes.
-const MAX_BATCH_FILES = 100;
+// The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
+// server.tomcat.max-part-count in application.yaml, which is where the
+// server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
+// sync if that value ever changes). createFormData() always appends
+// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 5 config
+// options), so the actual per-batch file limit is lower than the raw part
+// count.
+const MAX_MULTIPART_PARTS = 100;
+const FIXED_FORM_FIELD_COUNT = 6;
+const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
-const BATCH_FILE_WARNING_THRESHOLD = 90;
+const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
