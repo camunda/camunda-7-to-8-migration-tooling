@@ -152,7 +152,10 @@ class FormCheckerTest {
             message -> {
               assertThat(message.getId()).isEqualTo("form-juel-expression");
               assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
-              assertThat(message.getMessage()).contains("${customerName}").contains("label");
+              assertThat(message.getMessage())
+                  .contains("${customerName}")
+                  .contains("label")
+                  .contains("Migrate this expression manually.");
             })
         .anySatisfy(
             message -> {
@@ -300,6 +303,7 @@ class FormCheckerTest {
             message -> {
               assertThat(message.getId()).isEqualTo("form-juel-expression");
               assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+              assertThat(message.getMessage()).contains("Migrate this expression manually.");
             });
   }
 
