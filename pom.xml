@@ -34,6 +34,7 @@
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.1</version.spring-boot>
+    <version.spring-framework>7.0.9</version.spring-framework>
     <version.jackson-bom>2.22.2</version.jackson-bom>
     <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
@@ -134,6 +135,27 @@
         <groupId>io.micrometer</groupId>
         <artifactId>micrometer-core</artifactId>
         <version>1.17.1</version>
+      </dependency>
+      <!-- CVE-2026-47883 / CVE-2026-47884 / CVE-2026-47885 / CVE-2026-47886 / CVE-2026-47889 / CVE-2026-59281 / CVE-2026-59282 / CVE-2026-59283: pin Spring artifacts explicitly so imported BOMs cannot select affected versions. -->
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-beans</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-expression</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-web</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-webmvc</artifactId>
+        <version>${version.spring-framework}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.tomcat.embed</groupId>
