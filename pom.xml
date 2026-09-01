@@ -34,6 +34,7 @@
     <camunda8.docker.image>camunda/camunda:SNAPSHOT</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.1</version.spring-boot>
+    <version.spring-framework>7.0.9</version.spring-framework>
     <version.jackson-bom>2.22.2</version.jackson-bom>
     <version.jackson-3-bom>3.2.2</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
@@ -135,6 +136,27 @@
         <artifactId>micrometer-core</artifactId>
         <version>1.17.1</version>
       </dependency>
+      <!-- CVE-2026-47883 / CVE-2026-47884 / CVE-2026-47885 / CVE-2026-47886 / CVE-2026-47889 / CVE-2026-59281 / CVE-2026-59282 / CVE-2026-59283: pin Spring artifacts explicitly so imported BOMs cannot select affected versions. -->
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-beans</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-expression</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-web</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-webmvc</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
       <dependency>
         <groupId>org.apache.tomcat.embed</groupId>
         <artifactId>tomcat-embed-el</artifactId>
@@ -157,7 +179,7 @@
         <artifactId>httpcore5-h2</artifactId>
         <version>${version.httpcore5}</version>
       </dependency>
-      <!-- CVE-2026-64607: pin httpclient5 to the version containing the classic I/O connection release fix -->
+      <!-- CVE-2026-64607 / CVE-2026-71290: pin httpclient5 to 5.6.4 -->
       <dependency>
         <groupId>org.apache.httpcomponents.client5</groupId>
         <artifactId>httpclient5</artifactId>
@@ -174,7 +196,7 @@
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
       </dependency>
-      <!-- CVE-2026-54515 / CVE-2026-59889: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
+      <!-- CVE-2026-54515 / CVE-2026-59889 / CVE-2026-77310: close residual jackson-databind gaps in modules not covered by the per-module jackson-bom import (plugins/cockpit, examples/*) -->
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
@@ -340,7 +362,7 @@
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
           <execution>
-            <id>reject-vulnerable-jackson-databind</id>
+            <id>reject-vulnerable-dependencies</id>
             <phase>validate</phase>
             <goals>
               <goal>enforce</goal>
@@ -349,6 +371,27 @@
               <rules>
                 <bannedDependencies>
                   <excludes>
+                    <exclude>org.springframework:spring-web:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-web:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-web:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-web:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-web:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-webmvc:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-webmvc:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-beans:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-beans:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-beans:[7.0,7.0.9)</exclude>
+                    <exclude>org.springframework:spring-expression:(,5.3.50)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.0,6.0.31)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.1,6.1.29)</exclude>
+                    <exclude>org.springframework:spring-expression:[6.2,6.2.20)</exclude>
+                    <exclude>org.springframework:spring-expression:[7.0,7.0.9)</exclude>
+                    <exclude>org.apache.httpcomponents.client5:httpclient5:[5.4,5.6.4)</exclude>
                     <exclude>com.fasterxml.jackson.core:jackson-databind:[2.8,2.18.9)</exclude>
                     <exclude>com.fasterxml.jackson.core:jackson-databind:[2.19,2.21.5)</exclude>
                     <exclude>com.fasterxml.jackson.core:jackson-databind:[2.22,2.22.1)</exclude>
@@ -356,7 +399,9 @@
                     <exclude>tools.jackson.core:jackson-databind:[3.2,3.2.1)</exclude>
                   </excludes>
                   <message>
-                    jackson-databind must not resolve to a version affected by CVE-2026-54515 or CVE-2026-59889.
+                    Use a patched Spring Framework line (5.3.50+, 6.0.31+, 6.1.29+, 6.2.20+, or 7.0.9+),
+                    HttpClient5 5.6.4+, and jackson-databind 2.18.9+ on 2.18, 2.21.5+ on 2.21, 2.22.1+ on 2.22,
+                    3.1.5+ on 3.1, or 3.2.1+ on 3.2.
                   </message>
                   <searchTransitive>true</searchTransitive>
                 </bannedDependencies>
