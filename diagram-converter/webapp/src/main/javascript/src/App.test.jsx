@@ -115,7 +115,12 @@ vi.mock("./FormPreview", () => ({
 
 const fetchMock = vi.fn();
 
-function configureUpload({ fileName, content, checkResponseJson }) {
+function configureUpload({
+  fileName,
+  content,
+  checkResponseJson,
+  convertedContent = content,
+}) {
   testState.files.splice(0, testState.files.length, {
     name: fileName,
     text: vi.fn().mockResolvedValue(content),
@@ -133,13 +138,18 @@ function configureUpload({ fileName, content, checkResponseJson }) {
     return Promise.resolve({
       ok: true,
       headers: { get: vi.fn().mockReturnValue(null) },
-      blob: vi.fn().mockResolvedValue(new Blob(["converted model"])),
+      blob: vi.fn().mockResolvedValue(new Blob([convertedContent])),
     });
   });
 }
 
-async function openPreview({ fileName, content, checkResponseJson }) {
-  configureUpload({ fileName, content, checkResponseJson });
+async function openPreview({
+  fileName,
+  content,
+  checkResponseJson,
+  convertedContent,
+}) {
+  configureUpload({ fileName, content, checkResponseJson, convertedContent });
   render(<App />);
 
   fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
@@ -328,5 +338,39 @@ describe("preview routing", () => {
         components: [],
       });
     }
+  });
+
+  it("renders the converted form content in the form preview", async () => {
+    const originalContent = JSON.stringify({
+      type: "default",
+      components: [
+        {
+          type: "textfield",
+          key: "customerName",
+          defaultValue: "${defaultCustomerName}",
+        },
+      ],
+    });
+    const convertedContent = JSON.stringify({
+      type: "default",
+      components: [
+        {
+          type: "textfield",
+          key: "customerName",
+          defaultValue: "= defaultCustomerName",
+        },
+      ],
+    });
+
+    await openPreview({
+      fileName: "customer.form",
+      content: originalContent,
+      convertedContent,
+      checkResponseJson: [],
+    });
+
+    expect(testState.formPreviewProps.at(-1).schema).toEqual(
+      JSON.parse(convertedContent)
+    );
   });
 });
