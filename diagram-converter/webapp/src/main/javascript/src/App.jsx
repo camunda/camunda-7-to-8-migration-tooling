@@ -37,13 +37,6 @@ import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
 
-const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.7", label: "8.7", hint: "Previous stable" },
-  { value: "8.8", label: "8.8", hint: "Latest stable" },
-  { value: "8.9", label: "8.9", hint: "Next version" },
-];
-const DEFAULT_PLATFORM_VERSION = "8.8";
-
 function FindingsSection({ header, rows, onSelectElement, selectedElementId }) {
   if (rows.length === 0) {
     return <p style={{ marginTop: '1rem' }}>No findings for this file.</p>;
@@ -136,9 +129,7 @@ function App() {
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
   const [previewTableRows, setPreviewTableRows] = useState([]);
 
-  const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
   const [showConfig, setShowConfig] = useState(false);
-  const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
   const bpmnViewerRef = useRef(null);
   const selectedMarkerElementIdRef = useRef(null);
@@ -150,28 +141,6 @@ function App() {
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
   });
-
-  function handleVersionKeyDown(e) {
-    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
-    if (!keys.includes(e.key)) return;
-    e.preventDefault();
-    const currentIdx = SUPPORTED_PLATFORM_VERSIONS.findIndex(
-      (version) => version.value === platformVersion
-    );
-    let nextIdx = currentIdx;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIdx = (currentIdx + 1) % SUPPORTED_PLATFORM_VERSIONS.length;
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIdx = (currentIdx - 1 + SUPPORTED_PLATFORM_VERSIONS.length) %
-        SUPPORTED_PLATFORM_VERSIONS.length;
-    } else if (e.key === 'Home') {
-      nextIdx = 0;
-    } else if (e.key === 'End') {
-      nextIdx = SUPPORTED_PLATFORM_VERSIONS.length - 1;
-    }
-    setPlatformVersion(SUPPORTED_PLATFORM_VERSIONS[nextIdx].value);
-    versionSegmentedRef.current?.querySelectorAll('button')[nextIdx]?.focus();
-  }
 
   useEffect(() => {
       if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
@@ -292,8 +261,6 @@ function App() {
       // Append each file, optionally using indexed keys if needed
       formData.append("file", file);
     });
-
-    if (platformVersion) formData.append("platformVersion", platformVersion);
 
     if (configOptions.defaultJobType !== undefined)
       formData.append("defaultJobType", configOptions.defaultJobType);
@@ -764,36 +731,6 @@ function App() {
               Click the button below to analyze and convert your files.
             </p>
 
-            <section className="flowStep">
-              <h4>Configure conversion</h4>
-              <p>Choose the Camunda 8 version to convert to.</p>
-              <div
-                ref={versionSegmentedRef}
-                className="versionSegmented"
-                role="radiogroup"
-                aria-label="Target Camunda 8 version"
-                onKeyDown={handleVersionKeyDown}
-              >
-                {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
-                  <button
-                    key={version.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={platformVersion === version.value}
-                    tabIndex={platformVersion === version.value ? 0 : -1}
-                    className={
-                      "versionSegment" +
-                      (platformVersion === version.value ? " versionSegment--selected" : "")
-                    }
-                    onClick={() => setPlatformVersion(version.value)}
-                  >
-                    <span className="versionSegmentNumber">{version.label}</span>
-                    <span className="versionSegmentHint">{version.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
             <Form className="configBox" onSubmit={(e) => e.preventDefault()}>
               <h4>
                 <Settings style={{ marginRight: '0.5rem' }} />
@@ -886,7 +823,7 @@ function App() {
                 onClick={analyzeAndConvert}
                 disabled={files.length === 0}
               >
-                Analyze and convert to Camunda {platformVersion}
+                Analyze and convert
               </Button>
             </div>
           </>

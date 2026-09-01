@@ -116,50 +116,6 @@ h1 {
   margin-bottom: 18px;
 }
 
-.versionSegmented {
-  display: flex;
-  width: 100%;
-  margin-top: 1rem;
-}
-
-.versionSegment {
-  flex: 1;
-  min-height: 3.5rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #8d8d8d;
-  background: #f4f4f4;
-  color: #161616;
-  cursor: pointer;
-  text-align: left;
-}
-
-.versionSegment + .versionSegment {
-  border-left: 0;
-}
-
-.versionSegment:hover,
-.versionSegment:focus-visible {
-  background: #e0e0e0;
-}
-
-.versionSegment--selected {
-  border-color: #0f62fe;
-  background: #edf5ff;
-  box-shadow: inset 0 -3px 0 #0f62fe;
-  font-weight: 600;
-}
-
-.versionSegmentNumber,
-.versionSegmentHint {
-  display: block;
-}
-
-.versionSegmentHint {
-  color: #525252;
-  font-size: 0.75rem;
-  font-weight: 400;
-}
-
 .analyzeButton {
   margin-top: 40px;
 }

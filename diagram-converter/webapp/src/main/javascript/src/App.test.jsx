@@ -540,7 +540,7 @@ describe("finding severity communicates without relying on color alone", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
     const analyzeButton = screen.getByRole("button", {
-      name: /Analyze and convert to Camunda/,
+      name: /Analyze and convert/,
     });
     await waitFor(() => expect(analyzeButton.disabled).toBe(false));
     fireEvent.click(analyzeButton);
