@@ -491,7 +491,11 @@ function App() {
     setPreviewTableRows(buildFindingsRows(response.checkResponseJson));
 
     setPreviewCheckJson(response.checkResponseJson);
-    setPreviewModelXml(response.originalModelXml);
+    const modelXml =
+      modelType === "bpmn" && response?.convertedFileBlob
+        ? await response.convertedFileBlob.text()
+        : response.originalModelXml;
+    setPreviewModelXml(modelXml);
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDmnError("");
