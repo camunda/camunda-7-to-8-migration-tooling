@@ -492,7 +492,8 @@ function App() {
 
     setPreviewCheckJson(response.checkResponseJson);
     const modelXml =
-      modelType === "bpmn" && response?.convertedFileBlob
+      (modelType === "bpmn" || modelType === "dmn") &&
+      response?.convertedFileBlob
         ? await response.convertedFileBlob.text()
         : response.originalModelXml;
     setPreviewModelXml(modelXml);
