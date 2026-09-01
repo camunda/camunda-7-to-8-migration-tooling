@@ -65,6 +65,10 @@ section {
     font-size: 24px;
     line-height: 32px;
     font-weight: 600;
+    /* Explicit top margin: h1's UA default (0.67em) differs from the h2
+       default this heading used to rely on (0.83em), so pin it instead
+       of leaving spacing to vary by tag and user agent. */
+    margin-top: 20px;
     margin-bottom: 10px;
   }
 
@@ -246,12 +250,15 @@ h3 {
 }
 
 /* Same visual style as h3, used for h2 section headings that follow the
-   page's single h1 (see .whiteBox h1) without changing their appearance. */
+   page's single h1 (see .whiteBox h1) without changing their appearance.
+   Margin is set explicitly because h2's UA default (0.83em) differs from
+   the h3 default (1em) this heading used to rely on. */
 .sectionHeading {
   font-weight: 600;
   font-size: 19px;
   line-height: 26px;
   text-decoration: none;
+  margin: 19px 0;
 }
 
 hr {
