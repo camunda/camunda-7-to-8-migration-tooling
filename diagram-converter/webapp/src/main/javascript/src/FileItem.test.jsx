@@ -53,14 +53,16 @@ describe("FileItem", () => {
   });
 
   it("gives each remove-file button a distinct accessible name across a batch of files", () => {
-    const { rerender } = render(
-      <FileItem name="order.bpmn" status="edit" onDelete={vi.fn()} />
+    render(
+      <>
+        <FileItem name="order.bpmn" status="edit" onDelete={vi.fn()} />
+        <FileItem name="claim.dmn" status="edit" onDelete={vi.fn()} />
+      </>
     );
+
     expect(
       screen.getByRole("button", { name: "Remove order.bpmn" })
     ).toBeTruthy();
-
-    rerender(<FileItem name="claim.dmn" status="edit" onDelete={vi.fn()} />);
     expect(
       screen.getByRole("button", { name: "Remove claim.dmn" })
     ).toBeTruthy();

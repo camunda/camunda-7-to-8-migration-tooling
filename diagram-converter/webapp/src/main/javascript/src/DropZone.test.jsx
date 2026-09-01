@@ -25,20 +25,28 @@ describe("DropZone", () => {
     expect(instruction.tagName).toBe("P");
   });
 
-  it("exposes the upload control as a single keyboard-operable button", () => {
-    const onFiles = vi.fn();
-    render(<DropZone onFiles={onFiles} />);
+  it("activates the underlying file picker on both Enter and Space", () => {
+    const clickSpy = vi
+      .spyOn(HTMLInputElement.prototype, "click")
+      .mockImplementation(() => {});
+
+    render(<DropZone onFiles={vi.fn()} />);
 
     const dropZone = screen.getByRole("button", {
       name: /Click or drag files here to upload/,
     });
     expect(dropZone.getAttribute("tabindex")).toBe("0");
 
+    fireEvent.keyDown(dropZone, { key: "Enter" });
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    // Space only activates on keyup (native button semantics), so keydown
+    // alone must not trigger the file picker a second time.
+    fireEvent.keyDown(dropZone, { key: " " });
+    expect(clickSpy).toHaveBeenCalledTimes(1);
     fireEvent.keyUp(dropZone, { key: " " });
-    // selectFileToUpload() opens a native file picker (not invoking onFiles
-    // directly), so we only assert the key handler doesn't throw and the
-    // element remains focusable/operable — the file-selection flow itself is
-    // covered by App.test.jsx via the mocked DropZone.
-    expect(dropZone).toBeTruthy();
+    expect(clickSpy).toHaveBeenCalledTimes(2);
+
+    clickSpy.mockRestore();
   });
 });
