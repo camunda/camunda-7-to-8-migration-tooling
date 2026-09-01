@@ -209,13 +209,20 @@ h1 {
 }
 
 .FileItem {
-  height: 22px;
+  min-height: 22px;
   background-color: var(--color-zinc-50);
   margin-bottom: 12px;
+  padding: 6px 0;
 
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+
+  .FileItemMain {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
   .left {
     display: flex;
@@ -260,6 +267,60 @@ h1 {
       color: var(--primary-action-default);
     }
   }
+
+  .fileItemStatus {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .fileItemStatusLabel {
+    font-size: 12px;
+    color: var(--neutral-foreground-subtle);
+    white-space: nowrap;
+  }
+
+  .FileItemError {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px 0 8px;
+    color: var(--danger-foreground-subtle);
+    font-size: 12px;
+
+    .fileItemErrorIcon {
+      flex-shrink: 0;
+    }
+
+    .fileItemErrorText {
+      flex: 1;
+    }
+
+    .fileItemRetry {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      color: var(--primary-action-default);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      padding: 0;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+.resultsNav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 h3 {
