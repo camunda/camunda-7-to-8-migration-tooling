@@ -734,7 +734,7 @@ function App() {
                 <span className="flowStepNumber">A</span>
                 <h2>Add files</h2>
               </div>
-              <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert only.</p>
+              <p>Upload BPMN, DMN, or Camunda Form files to analyze and convert.</p>
               <p className="uploadGuidance">
                 Batch actions (ZIP download, XLSX/CSV/JSON reports) support up to {MAX_BATCH_FILES} files.
                 Files are processed by Camunda&apos;s hosted service. To convert more files or keep
