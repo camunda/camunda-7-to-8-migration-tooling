@@ -14,7 +14,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
-} from "@camunda/design-system";
+} from "@carbon/react";
 
 import { SEVERITY_ORDER, getSeverityInfo } from "./findings";
 
@@ -156,15 +156,15 @@ export default function FindingsSection({
       ) : (
         <div className="analysisTableWrapper">
           <Table className="analysis-table">
-            <TableHeader>
+            <TableHead>
               <TableRow>
                 {header.map((h) => (
-                  <TableHead key={h.key}>
+                  <TableHeader key={h.key}>
                     {h.header}
-                  </TableHead>
+                  </TableHeader>
                 ))}
               </TableRow>
-            </TableHeader>
+            </TableHead>
             <TableBody>
               {visibleRows.map((row) => {
                 const isLinkable =
@@ -200,7 +200,7 @@ export default function FindingsSection({
                                 rel="noopener noreferrer"
                                 aria-label={`Open finding documentation: ${value}`}
                               >
-                                Open
+                                Link
                               </a>
                             ) : '-'
                           ) : h.key === 'severity' ? (

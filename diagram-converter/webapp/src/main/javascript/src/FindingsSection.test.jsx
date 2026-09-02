@@ -10,12 +10,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import FindingsSection from "./FindingsSection";
 import { FINDINGS_TABLE_HEADER } from "./findings";
 
-vi.mock("@camunda/design-system", () => ({
+vi.mock("@carbon/react", () => ({
   Table: ({ children, ...props }) => <table {...props}>{children}</table>,
   TableBody: ({ children, ...props }) => <tbody {...props}>{children}</tbody>,
   TableCell: ({ children, ...props }) => <td {...props}>{children}</td>,
-  TableHead: ({ children, ...props }) => <th {...props}>{children}</th>,
-  TableHeader: ({ children, ...props }) => <thead {...props}>{children}</thead>,
+  TableHead: ({ children, ...props }) => <thead {...props}>{children}</thead>,
+  TableHeader: ({ children, ...props }) => <th {...props}>{children}</th>,
   TableRow: ({ children, ...props }) => <tr {...props}>{children}</tr>,
 }));
 
