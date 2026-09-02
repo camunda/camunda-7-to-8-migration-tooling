@@ -455,6 +455,111 @@ th, td {
   background: #f4f4f4;
 }
 
+.severity-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.severity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: calc(var(--radius) + 4px);
+  border: 1px solid var(--neutral-border-subtle);
+  background: var(--neutral-background-subtle);
+  color: var(--neutral-foreground-subtle);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.severity-chip[aria-pressed="false"] {
+  opacity: 0.5;
+}
+
+.severity-chip[data-severity="WARNING"] {
+  border-color: var(--danger-border-subtle);
+  background: var(--danger-background-subtle);
+  color: var(--danger-foreground-strong);
+}
+
+.severity-chip[data-severity="TASK"] {
+  border-color: var(--warning-border-subtle);
+  background: var(--warning-background-subtle);
+  color: var(--warning-foreground-strong);
+}
+
+.severity-chip[data-severity="REVIEW"] {
+  border-color: var(--info-border-subtle);
+  background: var(--info-background-subtle);
+  color: var(--info-foreground-strong);
+}
+
+.severity-chip[data-severity="INFO"] {
+  border-color: var(--neutral-border-subtle);
+  background: var(--neutral-background-medium);
+  color: var(--neutral-foreground-strong);
+}
+
+.severity-chip-code {
+  font-weight: 400;
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.severity-legend {
+  margin-bottom: 0.75rem;
+  color: var(--neutral-foreground-subtle);
+  font-size: 0.875rem;
+}
+
+.severity-legend summary {
+  cursor: pointer;
+  color: var(--primary-action-default);
+  font-weight: 600;
+}
+
+.severity-legend dl {
+  margin: 0.5rem 0 0;
+}
+
+.severity-legend-item {
+  margin-bottom: 0.5rem;
+}
+
+.severity-legend-item dt {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.severity-legend-item dd {
+  margin: 0;
+}
+
+.severity-filter-summary {
+  color: var(--neutral-foreground-subtle);
+  font-size: 0.875rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-action-default);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.severity-cell-code {
+  color: var(--neutral-foreground-subtle);
+  font-size: 0.8rem;
+}
+
+
 .configBox {
   margin-top: 1rem;
   padding: 1rem;
