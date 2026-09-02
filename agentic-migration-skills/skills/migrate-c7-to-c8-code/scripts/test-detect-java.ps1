@@ -4,14 +4,16 @@ $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $detector = Join-Path $scriptDirectory 'detect-java.ps1'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) "camunda-java-detect-test-$([guid]::NewGuid())"
 $originalJavaHome = [Environment]::GetEnvironmentVariable('JAVA_HOME')
+$originalProgramFiles = [Environment]::GetEnvironmentVariable('ProgramFiles')
+$originalProgramFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
 
 function New-FakeJdk {
     param(
-        [string] $Home,
+        [string] $JdkHome,
         [string] $Version
     )
 
-    $bin = Join-Path $Home 'bin'
+    $bin = Join-Path $JdkHome 'bin'
     New-Item -ItemType Directory -Path $bin -Force | Out-Null
     $java = Join-Path $bin 'java.cmd'
     $javac = Join-Path $bin 'javac.cmd'
@@ -32,6 +34,11 @@ function Assert-OutputContains {
     if ($Output -notcontains $Expected) {
         throw "Expected output to contain '$Expected'. Actual output: $($Output -join "`n")"
     }
+}
+
+if (-not $IsWindows) {
+    Write-Output 'Skipping detect-java.ps1 tests on non-Windows platforms'
+    exit 0
 }
 
 try {
@@ -61,12 +68,34 @@ try {
     }
     Assert-OutputContains $result 'JAVA_FOUND=false'
 
+    Remove-Item Env:JAVA_HOME -ErrorAction SilentlyContinue
+    $env:ProgramFiles = Join-Path $testRoot 'Program Files'
+    Remove-Item 'Env:ProgramFiles(x86)' -ErrorAction SilentlyContinue
+    New-FakeJdk (Join-Path $env:ProgramFiles 'BellSoft\LibericaJDK-41') '41.0.2'
+    $result = & $detector -MinMajor 41 -MaxMajor 41
+    if ($LASTEXITCODE -ne 0) {
+        throw "Expected a BellSoft Liberica JDK under Program Files to be discovered."
+    }
+    Assert-OutputContains $result 'JAVA_FOUND=true'
+    Assert-OutputContains $result 'JAVA_MAJOR=41'
+    Assert-OutputContains $result 'JAVA_SOURCE=WINDOWS_PROGRAM_FILES'
+
     Write-Output 'detect-java.ps1 tests passed'
 } finally {
     if ($null -eq $originalJavaHome) {
         Remove-Item Env:JAVA_HOME -ErrorAction SilentlyContinue
     } else {
         $env:JAVA_HOME = $originalJavaHome
+    }
+    if ($null -eq $originalProgramFiles) {
+        Remove-Item Env:ProgramFiles -ErrorAction SilentlyContinue
+    } else {
+        $env:ProgramFiles = $originalProgramFiles
+    }
+    if ($null -eq $originalProgramFilesX86) {
+        Remove-Item 'Env:ProgramFiles(x86)' -ErrorAction SilentlyContinue
+    } else {
+        ${env:ProgramFiles(x86)} = $originalProgramFilesX86
     }
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -71,7 +71,7 @@ function Add-JavaCandidate {
         [string] $Source,
         [int] $Priority,
         [string] $JavaPath,
-        [string] $Home
+        [string] $JdkHome
     )
 
     $resolvedJava = Resolve-ExistingPath $JavaPath
@@ -84,7 +84,7 @@ function Add-JavaCandidate {
         return
     }
 
-    $resolvedHome = Resolve-ExistingPath $Home
+    $resolvedHome = Resolve-ExistingPath $JdkHome
     if ($null -eq $resolvedHome) {
         $javaBin = Split-Path -Parent $resolvedJava
         $resolvedHome = Resolve-ExistingPath (Join-Path $javaBin '..')
@@ -115,10 +115,10 @@ function Add-HomeCandidate {
     param(
         [string] $Source,
         [int] $Priority,
-        [string] $Home
+        [string] $JdkHome
     )
 
-    $resolvedHome = Resolve-ExistingPath $Home
+    $resolvedHome = Resolve-ExistingPath $JdkHome
     if ($null -eq $resolvedHome) {
         return
     }
