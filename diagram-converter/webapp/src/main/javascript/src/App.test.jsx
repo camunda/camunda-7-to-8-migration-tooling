@@ -293,7 +293,7 @@ describe("analysis findings preview", () => {
       "bpmn:ServiceTask",
       "task_1",
       "Ship order",
-      "WARNING",
+      "No direct mapping (WARNING)",
       "Review the service task implementation.",
       "Open",
     ]);
@@ -334,7 +334,7 @@ describe("analysis findings preview", () => {
       within(rows[1])
         .getAllByRole("cell")
         .map((cell) => cell.textContent)
-    ).toEqual(["-", "-", "(unnamed)", "REVIEW", "Review this form.", "-"]);
+    ).toEqual(["-", "-", "(unnamed)", "Verify after conversion (REVIEW)", "Review this form.", "-"]);
   });
 
   it("shows an empty state when the analysis response has no findings", async () => {

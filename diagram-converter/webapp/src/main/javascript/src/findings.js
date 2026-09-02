@@ -6,6 +6,43 @@
  * except in compliance with the Camunda License 1.0.
  */
 
+// Analyzer severities, ranked from most to least urgent. This is the single
+// source of truth for severity ordering across the findings table, the
+// severity filter/legend, the per-file findings badge and the diagram/form
+// preview highlighting — keep them in sync by importing from here rather than
+// duplicating the list.
+export const SEVERITY_ORDER = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
+
+// Plain-language labels and explanations for each raw analyzer severity code,
+// matching the terminology from the migration-analyzer documentation
+// (https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/).
+// Raw codes remain visible in the UI as secondary detail so users who already
+// know the analyzer vocabulary (e.g. from downloaded reports) can cross-reference them.
+export const SEVERITY_INFO = {
+  WARNING: {
+    label: 'No direct mapping',
+    description: "A Camunda 7 concept can't be directly mapped to a Camunda 8 equivalent. Review the Camunda 8 roadmap or explore a workaround.",
+  },
+  TASK: {
+    label: 'Manual action required',
+    description: 'Manual changes are required to make this element work in Camunda 8.',
+  },
+  REVIEW: {
+    label: 'Verify after conversion',
+    description: 'The conversion changed an expression or attribute. Verify that the intended behavior is unchanged.',
+  },
+  INFO: {
+    label: 'No action needed',
+    description: 'This was converted automatically and needs no follow-up.',
+  },
+};
+
+// Returns the plain-language label/description for a severity code, falling
+// back to the raw code itself for any value the UI doesn't recognize.
+export function getSeverityInfo(severity) {
+  return SEVERITY_INFO[severity] || { label: severity || 'Unknown', description: '' };
+}
+
 export const FINDINGS_TABLE_HEADER = [
   { key: 'elementType', header: 'Element type' },
   { key: 'elementId', header: 'Element ID' },
@@ -14,11 +51,6 @@ export const FINDINGS_TABLE_HEADER = [
   { key: 'message', header: 'Message' },
   { key: 'link', header: 'Link' },
 ];
-
-// Ordered from most to least severe. Shared by the findings table, the
-// per-file findings badge and the diagram/form preview highlighting so all
-// three surfaces agree on what "most severe" means for a given file.
-export const SEVERITY_ORDER = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
 
 // Maps each severity to a CSS class suffix (used for both diagram highlight
 // classes, e.g. `highlight-warning`, and the findings count badge). Kept as
