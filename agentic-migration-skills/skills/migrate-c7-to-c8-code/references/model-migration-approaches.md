@@ -174,7 +174,33 @@ Rules:
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate Camunda 8 form. Keep it as needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older/imported report that lacks the current converter's `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 
-#### 5e. Generate and review Camunda 8 forms
+#### 5e. Strip converter annotations from converted models
+
+After every finding has a verdict, remove temporary converter annotations from the fresh
+`converted-c8-*` copies. The verdict table and `MIGRATION_REPORT.md` are the durable record; do not
+leave the report embedded in the deployable model.
+
+Use a namespace-aware XML parser or XML tooling for this cleanup, never regular expressions. For
+each converted BPMN/DMN file:
+
+- Remove every `conversion:*` element, including `conversion:message`, `conversion:reference`, and
+  `conversion:referencedBy`, and remove `conversion:*` attributes such as
+  `conversion:converterVersion`.
+- Remove the `conversion` namespace declaration after no `conversion` element or attribute remains.
+- Remove empty `bpmn:extensionElements` left behind by the annotation removal.
+- Remove `xmlns:camunda` (or another declaration for the Camunda 7 BPMN
+  (`http://camunda.org/schema/1.0/bpmn`) or DMN (`http://camunda.org/schema/1.0/dmn`) namespace)
+  only when no remaining element, attribute, or QName-valued attribute uses that namespace.
+  Preserve and report any genuine remaining Camunda 7 QName instead of making it undeclared.
+- Remove a BPMN definitions-level `expressionLanguage` attribute when it is the leftover Camunda 7
+  XPath declaration. Do not remove a valid DMN expression language or an expression attribute
+  without resolving its finding first.
+
+Reparse every cleaned file and fail the cleanup if it is not well-formed or if any
+`conversion:*` node/attribute or unused Camunda 7 namespace declaration remains. Run this step
+before model validation and before linking or deploying generated forms.
+
+#### 5f. Generate and review Camunda 8 forms
 
 Run `form-migration.md` for every source form from the pre-conversion inventory. The procedure
 uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible

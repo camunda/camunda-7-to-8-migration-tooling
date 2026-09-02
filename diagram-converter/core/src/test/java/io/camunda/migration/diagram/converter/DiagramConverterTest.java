@@ -646,6 +646,40 @@ public class DiagramConverterTest {
   }
 
   @Test
+  void shouldRemoveUnusedCamundaNamespaceFromConvertedBpmn() {
+    BpmnModelInstance modelInstance = loadAndConvert("history-time-to-live.bpmn");
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).doesNotContain("xmlns:camunda");
+  }
+
+  @Test
+  void shouldRetainCamundaNamespaceWhenConvertedBpmnStillUsesIt() {
+    BpmnModelInstance modelInstance = loadAndConvert("conditional-event-missing-id.bpmn");
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).contains("xmlns:camunda").contains("camunda:diagramRelationId");
+  }
+
+  @Test
+  void shouldRemoveUnusedCamundaNamespaceFromConvertedDmn() {
+    DmnModelInstance modelInstance =
+        Dmn.readModelFromStream(getClass().getClassLoader().getResourceAsStream("testing-dmn.dmn"));
+    DiagramConverterFactory.getInstance()
+        .get()
+        .convert(modelInstance, ConverterPropertiesFactory.getInstance().get());
+
+    StringWriter writer = new StringWriter();
+    DiagramConverterFactory.getInstance().get().printXml(modelInstance.getDocument(), true, writer);
+
+    assertThat(writer.toString()).doesNotContain("xmlns:camunda");
+  }
+
+  @Test
   void testShouldAppendDataMigrationListenerOnlyOnProcessStartEvent() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setAddDataMigrationExecutionListener(true);

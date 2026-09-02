@@ -56,6 +56,9 @@ Shared rules that apply throughout all subsequent steps:
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
 - Conversion is not completion. Converter WARNING, TASK, and REVIEW findings need human follow-up.
   INFO findings are informational unless a later cross-check identifies work.
+- Converter annotations are temporary review metadata. After the model verdict table is complete,
+  strip `conversion:*` elements and attributes from converted copies with namespace-aware XML tooling;
+  keep the verdict table in `MIGRATION_REPORT.md`.
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
@@ -141,6 +144,9 @@ forms, collects required user decisions, and links only explicitly accepted form
 4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
 5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
 6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
+7. Temporary converter annotations are stripped from converted copies after the verdict table is
+   complete: no `conversion:*` nodes or attributes, no unused Camunda 7 namespace declarations,
+   and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
@@ -176,3 +182,6 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 13. Every original Generated Task Form is accounted for, including form-property-only definitions
 14. Every accepted generated form is a standard Camunda 8 `.form`, explicitly accepted, linked by matching form id, and covered by deployment
 15. No draft, blocked, or declined generated form is linked or deployed
+16. Converted model copies contain no temporary `conversion:*` nodes or attributes, no unused
+    Camunda 7 namespace declarations, and no leftover BPMN definitions-level XPath
+    `expressionLanguage` attribute
