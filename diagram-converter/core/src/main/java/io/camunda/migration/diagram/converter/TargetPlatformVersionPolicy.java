@@ -8,6 +8,8 @@
 package io.camunda.migration.diagram.converter;
 
 final class TargetPlatformVersionPolicy {
+  // Update this value together with the converter property and frontend version catalog, then
+  // backport that same change to every maintenance branch.
   static final String LATEST_STABLE_VERSION = "8.9";
 
   private TargetPlatformVersionPolicy() {}
