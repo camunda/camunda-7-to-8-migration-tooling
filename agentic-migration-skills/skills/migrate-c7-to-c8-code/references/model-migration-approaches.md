@@ -188,13 +188,16 @@ converter removed it, or link a form that still lacks the user's required decisi
 
 #### 5f. Named category: Forms
 
-C7 form references (`camunda:formKey`, `camunda:formData` / generated forms, embedded forms) surface as findings (typically `form-reference`). Handle them as one category:
+C7 form references such as `camunda:formKey` and embedded form references surface as findings
+(typically `form-reference`). Handle those references as one category. Generated Task Forms
+(`camunda:formData` and source-only `camunda:formProperty`) remain the separate `form-data` /
+`generated-form-property-source` workflow above; do not recategorize or skip them.
 
-- **One C8 form per C7 form.** For every C7 form (generated or otherwise), create a Camunda 8 `.form` and reference it from the user task. Do not drop forms or merge several C7 forms into one.
+- **One C8 form per C7 form.** For every C7 form (generated or otherwise), create a Camunda 8 `.form` and reference it from its owning user task or start event. Do not drop forms or merge several C7 forms into one.
 - **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. Camunda 8 forms removed those limitations:
   - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`) — no flattening worker needed for passthrough fields.
   - `text` components support feelers templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}` — counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
-  - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference — prefer it over a plain-text filename display or a hand-built HTML anchor. Wrap the reference in a one-element array here in the form's FEEL only; the process variable itself holds the plain reference.
+  - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference — prefer it over a plain-text filename display or a hand-built HTML anchor. When the process variable holds one document-reference object, wrap it in a one-element array in the form's FEEL only; do not change the variable to a form-specific array or a filename.
 - **Add a worker only when the form genuinely cannot do it**: real business logic, external calls, side effects. A service task that only reshapes variables for form consumption is a C7 workaround — do not port it.
 
 ---
