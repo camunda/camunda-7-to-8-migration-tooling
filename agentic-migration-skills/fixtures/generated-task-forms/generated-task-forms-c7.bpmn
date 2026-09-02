@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_KycGeneratedForm" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.41.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:process id="kycApplicationReview" name="KYC application review" isExecutable="true">
+    <bpmn:startEvent id="Start_ApplicationReceived" name="Application received">
+      <bpmn:outgoing>Flow_ToReview</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_ReviewKycApplication" name="Review KYC application">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="applicationId" label="Application ID" type="string" defaultValue="KYC-2026-0001">
+            <camunda:validation>
+              <camunda:constraint name="required" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="applicantName" label="Applicant name" type="string" defaultValue="Ada Lovelace">
+            <camunda:validation>
+              <camunda:constraint name="required" />
+              <camunda:constraint name="minlength" config="2" />
+              <camunda:constraint name="maxlength" config="120" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="annualIncome" label="Annual income" type="long" defaultValue="85000">
+            <camunda:validation>
+              <camunda:constraint name="min" config="0" />
+              <camunda:constraint name="max" config="1000000" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="consentGiven" label="Consent given" type="boolean" defaultValue="false" />
+          <camunda:formField id="dateOfBirth" label="Date of birth" type="date" datePattern="yyyy-MM-dd" defaultValue="1985-12-01" />
+          <camunda:formField id="riskTier" label="Risk tier" type="enum" defaultValue="standard">
+            <camunda:value id="standard" name="Standard" />
+            <camunda:value id="enhanced" name="Enhanced due diligence" />
+            <camunda:value id="high" name="High risk" />
+          </camunda:formField>
+          <camunda:formField id="reviewNotes" label="Review notes" type="string">
+            <camunda:validation>
+              <camunda:constraint name="maxlength" config="2000" />
+            </camunda:validation>
+          </camunda:formField>
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_ToReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToComplete</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_ApplicationReviewed" name="Application reviewed">
+      <bpmn:incoming>Flow_ToComplete</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_ToReview" sourceRef="Start_ApplicationReceived" targetRef="Task_ReviewKycApplication" />
+    <bpmn:sequenceFlow id="Flow_ToComplete" sourceRef="Task_ReviewKycApplication" targetRef="End_ApplicationReviewed" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_KycGeneratedForm">
+    <bpmndi:BPMNPlane id="BPMNPlane_KycGeneratedForm" bpmnElement="kycApplicationReview">
+      <bpmndi:BPMNShape id="Start_ApplicationReceived_di" bpmnElement="Start_ApplicationReceived">
+        <dc:Bounds x="120" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="95" y="145" width="86" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ReviewKycApplication_di" bpmnElement="Task_ReviewKycApplication">
+        <dc:Bounds x="260" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_ApplicationReviewed_di" bpmnElement="End_ApplicationReviewed">
+        <dc:Bounds x="460" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="432" y="145" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_ToReview_di" bpmnElement="Flow_ToReview">
+        <di:waypoint x="156" y="120" />
+        <di:waypoint x="260" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ToComplete_di" bpmnElement="Flow_ToComplete">
+        <di:waypoint x="360" y="120" />
+        <di:waypoint x="460" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
