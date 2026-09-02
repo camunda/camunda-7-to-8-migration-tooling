@@ -137,13 +137,14 @@ forms, collects required user decisions, and links only explicitly accepted form
 
 #### Model Validation (if models were migrated)
 
+After any manual BPMN edit, lint the converted file with the Camunda compatibility ruleset for the target version — see the linting section in `references/model-migration-approaches.md`.
+
 1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
 2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
-3. Converted BPMN files that were manually edited lint clean — see the linting section in `references/model-migration-approaches.md`.
-4. Originals are intact and were not overwritten.
-5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
-6. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
-7. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
+3. Originals are intact and were not overwritten.
+4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
+5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
+6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
