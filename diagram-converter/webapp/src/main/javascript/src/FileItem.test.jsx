@@ -200,7 +200,6 @@ describe("FileItem", () => {
         highestSeverity="REVIEW"
       />
     );
-
     expect(screen.getByLabelText("2 findings, highest severity REVIEW")).toBeTruthy();
   });
 });
