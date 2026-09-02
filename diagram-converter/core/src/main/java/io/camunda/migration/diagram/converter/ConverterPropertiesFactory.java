@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 
 public class ConverterPropertiesFactory extends AbstractFactory<ConverterProperties> {
   public static final String DELIMITER = ".";
-  private static final String PLATFORM_VERSION_PROPERTY = "zeebe-platform.version";
   private static final Logger LOG = LoggerFactory.getLogger(ConverterPropertiesFactory.class);
   private static final ConverterPropertiesFactory INSTANCE = new ConverterPropertiesFactory();
   private static final Properties PROPERTIES = new Properties();
@@ -29,8 +28,6 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
             .getClassLoader()
             .getResourceAsStream("converter-properties.properties")) {
       PROPERTIES.load(in);
-      TargetPlatformVersionPolicy.validateDefault(
-          PROPERTIES.getProperty(PLATFORM_VERSION_PROPERTY));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -51,7 +48,11 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
 
   private ConverterProperties merge(
       DefaultConverterProperties base, ConverterProperties properties) {
+    boolean usesConfiguredPlatformVersion = properties.getPlatformVersion() == null;
     readDefaultValues(base, properties);
+    if (usesConfiguredPlatformVersion) {
+      TargetPlatformVersionPolicy.verifyConfiguredDefault(base.getPlatformVersion());
+    }
     return base;
   }
 

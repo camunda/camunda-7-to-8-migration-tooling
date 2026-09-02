@@ -8,16 +8,18 @@
 package io.camunda.migration.diagram.converter;
 
 final class TargetPlatformVersionPolicy {
-  static final String LATEST_STABLE = "8.9";
+  // Update this value together with the converter property and frontend version catalog, then
+  // backport that same change to every maintenance branch.
+  static final String LATEST_STABLE_VERSION = "8.9";
 
   private TargetPlatformVersionPolicy() {}
 
-  static void validateDefault(String platformVersion) {
-    if (!LATEST_STABLE.equals(platformVersion)) {
+  static void verifyConfiguredDefault(String platformVersion) {
+    if (!LATEST_STABLE_VERSION.equals(platformVersion)) {
       throw new IllegalStateException(
-          "The default target platform version must be "
-              + LATEST_STABLE
-              + " but was "
+          "The configured default target platform version must be "
+              + LATEST_STABLE_VERSION
+              + ", but was "
               + platformVersion);
     }
   }

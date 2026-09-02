@@ -24,9 +24,7 @@ const latestStableVersions = SUPPORTED_PLATFORM_VERSIONS.filter(
 );
 
 if (latestStableVersions.length !== 1) {
-  throw new Error(
-    "The target version list must contain exactly one latest stable version."
-  );
+  throw new Error("The target version list must contain exactly one latest stable version.");
 }
 
 export const DEFAULT_PLATFORM_VERSION = latestStableVersions[0].value;
