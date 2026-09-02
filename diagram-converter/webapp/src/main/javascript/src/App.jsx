@@ -746,22 +746,14 @@ function App() {
                 <span className="flowStepNumber">A</span>
                 <h2>Add files</h2>
               </div>
-              <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert.</p>
+              <p>Upload BPMN, DMN, or Camunda Form files to analyze and convert.</p>
               <p className="uploadGuidance">
-                Combined actions (the ZIP download and the XLSX/CSV/JSON analysis
-                reports) support up to {MAX_BATCH_FILES} files per batch. Need to
-                convert more at once?{" "}
+                Batch actions (ZIP download, XLSX/CSV/JSON reports) support up to {MAX_BATCH_FILES} files.
+                Files are processed by Camunda&apos;s hosted service. To convert more files or keep
+                sensitive models private,{" "}
                 <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
-                  Run the diagram converter locally
+                  run the converter locally
                 </a>.
-              </p>
-              <p className="uploadGuidance">
-                Uploaded files are sent to Camunda&apos;s hosted service for
-                analysis and conversion. For proprietary or sensitive models,{" "}
-                <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
-                  use the local converter
-                </a>{" "}
-                instead.
               </p>
               <div className="fileUploadBox">
                 <DropZone
