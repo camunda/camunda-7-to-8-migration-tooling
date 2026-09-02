@@ -11,6 +11,10 @@ import react from "@vitejs/plugin-react";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Design System CSS contains container-query placeholders unsupported by Lightning CSS.
+    cssMinify: false,
+  },
   test: {
     environment: "jsdom",
   },
