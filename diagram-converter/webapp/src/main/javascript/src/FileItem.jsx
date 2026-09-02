@@ -75,6 +75,7 @@ export default function FileItem({
           <span
             className={isConverted && downloadAction && !error ? "downloadable" : ""}
             onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
+            title={name}
           >
             {name}
           </span>
