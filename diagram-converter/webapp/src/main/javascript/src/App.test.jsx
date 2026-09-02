@@ -506,14 +506,15 @@ describe("upload onboarding guidance", () => {
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
 
-    expect(screen.getByText(/up to 95 files per batch/i)).toBeTruthy();
     expect(
-      screen.getByText(/sent to Camunda's hosted service for/i)
+      screen.getByText(new RegExp(`support up to ${MAX_BATCH_FILES} files`, "i"))
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/processed by Camunda's hosted service/i)
     ).toBeTruthy();
 
     const localConverterLinks = [
-      screen.getByRole("link", { name: /run the diagram converter locally/i }),
-      screen.getByRole("link", { name: /use the local converter/i }),
+      screen.getByRole("link", { name: /run the converter locally/i }),
     ];
     localConverterLinks.forEach((link) => {
       expect(link.getAttribute("href")).toBe(
