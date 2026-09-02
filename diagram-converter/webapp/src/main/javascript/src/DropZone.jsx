@@ -54,7 +54,7 @@ export default function DropZone({ onFiles }) {
       }}
     >
       <img src={InboxIcon} alt="" />
-      <h2>Click or drag files here to upload</h2>
+      <p className="dropZoneTitle">Click or drag files here to upload</p>
       <p>Supports .bpmn, .dmn, .form, and .xml files.</p>
     </div>
   );
