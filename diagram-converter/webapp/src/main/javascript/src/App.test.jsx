@@ -441,6 +441,60 @@ describe("preview routing", () => {
   });
 });
 
+describe("accessibility", () => {
+  it("renders one page h1 followed by section-level h2 headings", () => {
+    render(<App />);
+
+    const headings = screen.getAllByRole("heading");
+    const h1s = headings.filter((heading) => heading.tagName === "H1");
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe(
+      "Camunda Migration Analyzer & Diagram Converter"
+    );
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Add files" })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: /Advanced options/ })
+    ).toBeTruthy();
+  });
+
+  it("gives the remove-file button an accessible name that includes the filename", () => {
+    testState.files.splice(0, testState.files.length, {
+      name: "invoice.bpmn",
+      text: vi.fn(),
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    expect(
+      screen.getByRole("button", { name: "Remove invoice.bpmn" })
+    ).toBeTruthy();
+  });
+
+  it("gives the download button an accessible name that includes the filename, once converted", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content:
+        '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    expect(
+      await screen.findByRole("button", { name: "Download process.bpmn" })
+    ).toBeTruthy();
+  });
+});
+
 describe("finding severity communicates without relying on color alone", () => {
   it.each(["WARNING", "TASK", "REVIEW", "INFO"])(
     "marks a %s finding's diagram element with a distinct highlight class, not always the same one",
@@ -937,7 +991,7 @@ describe("per-file request failures and retry", () => {
     ]);
 
     const goodRow = await screen.findByText("good.bpmn").then((el) => el.closest(".FileItem"));
-    await within(goodRow).findByRole("button", { name: "Download converted model" });
+    await within(goodRow).findByRole("button", { name: "Download good.bpmn" });
 
     const badRow = fileRow("bad.bpmn");
     await within(badRow).findByRole("alert");
@@ -945,13 +999,13 @@ describe("per-file request failures and retry", () => {
 
     fireEvent.click(within(badRow).getByRole("button", { name: "Retry" }));
 
-    await within(badRow).findByRole("button", { name: "Download converted model" });
+    await within(badRow).findByRole("button", { name: "Download bad.bpmn" });
 
     // Retry only re-ran /check + /convert for the failed file.
     expect(fetchMock.mock.calls.length).toBe(callsBeforeRetry + 2);
 
     // The other, already-completed row was left untouched.
-    expect(within(goodRow).getByRole("button", { name: "Download converted model" })).toBeTruthy();
+    expect(within(goodRow).getByRole("button", { name: "Download good.bpmn" })).toBeTruthy();
     expect(within(goodRow).queryByRole("alert")).toBeNull();
   });
 });
@@ -1083,7 +1137,7 @@ describe("single loading indicator per file", () => {
       blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
     });
 
-    await within(row).findByRole("button", { name: "Download converted model" });
+    await within(row).findByRole("button", { name: "Download slow.bpmn" });
     expect(within(row).queryByRole("status")).toBeNull();
   });
 });
