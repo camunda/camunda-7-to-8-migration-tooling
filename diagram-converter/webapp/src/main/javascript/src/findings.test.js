@@ -113,6 +113,17 @@ describe('FINDINGS_TABLE_HEADER', () => {
       'link',
     ]);
   });
+
+  it('uses sentence-case headings, keeping acronyms like ID uppercase', () => {
+    expect(FINDINGS_TABLE_HEADER.map((h) => h.header)).toEqual([
+      'Element type',
+      'Element ID',
+      'Element name',
+      'Severity',
+      'Message',
+      'Link',
+    ]);
+  });
 });
 
 describe('getHighestSeverity', () => {
