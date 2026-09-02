@@ -130,8 +130,8 @@ For POSIX commands, use the recorded executable directly and put its JDK first
 on `PATH`:
 
 ```text
-JAVA_HOME=<detected home> PATH="<detected home>/bin:$PATH" \
-  "$JAVA_CMD" -Dfile.encoding=UTF-8 -jar <jar> ...
+JAVA_HOME="<detected home>" PATH="<detected home>/bin:$PATH" \
+  "<detected java executable>" -Dfile.encoding=UTF-8 -jar <jar> ...
 ```
 
 For PowerShell, set `$env:JAVA_HOME` and prepend `<home>\bin` to
