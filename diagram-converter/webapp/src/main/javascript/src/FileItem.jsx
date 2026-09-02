@@ -10,10 +10,15 @@ import {
   Trash,
   Eye,
   AlertTriangle,
+  AlertCircle,
+  MessageCircleWarning,
+  Info,
   Check,
   Loader2,
   RefreshCw,
 } from "lucide-react";
+
+import { getSeverityStyleKey } from "./findings";
 
 function Spinner() {
   return (
@@ -30,6 +35,15 @@ function statusLabel(isChecked) {
   return isChecked ? "Converting…" : "Analyzing…";
 }
 
+// One icon per severity tier so the badge doesn't rely on color alone to
+// tell a warning-heavy file apart from an informational-only one.
+const SEVERITY_BADGE_ICON = {
+  warning: AlertTriangle,
+  task: AlertCircle,
+  review: MessageCircleWarning,
+  info: Info,
+};
+
 export default function FileItem({
   name,
   error,
@@ -42,7 +56,13 @@ export default function FileItem({
   onDelete,
   onRetry,
   findingCount,
+  highestSeverity,
 }) {
+  const severityKey = getSeverityStyleKey(highestSeverity);
+  const SeverityIcon = SEVERITY_BADGE_ICON[severityKey];
+  const highestSeverityLabel = highestSeverity || "Unknown";
+  const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
+
   return (
     <div className="FileItem">
       <div className="FileItemMain">
@@ -52,11 +72,18 @@ export default function FileItem({
               <Check />
             </div>
           )}
-          <span>{name}</span>
+          <span title={name}>{name}</span>
         </div>
         <div className="right">
           {findingCount > 0 && (
-            <span className="fileItemFindingCount">{findingCount} finding{findingCount !== 1 ? 's' : ''}</span>
+            <span
+              className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
+              title={`Highest severity: ${highestSeverityLabel}`}
+              aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
+            >
+              <SeverityIcon aria-hidden="true" className="fileItemFindingCountIcon" />
+              {findingCountLabel}
+            </span>
           )}
 
           {status === "uploading" && (

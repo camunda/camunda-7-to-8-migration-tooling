@@ -9,12 +9,19 @@
 /*
  * Token legend (all resolved inside .c4-ui except --color-* which are :root):
  *   Surfaces    --neutral-background-subtle (white), --color-zinc-100 (light gray bg)
- *   Text        --foreground, --neutral-foreground-subtle
+ *   Text        --foreground, --neutral-foreground-subtle, --neutral-foreground-strong
  *   Primary     --primary-action-default/hover/active, --primary-background-subtle/strong,
  *               --primary-border-subtle/strong, --primary-foreground-subtle/strong
- *   Info        --info-action-default (BPMN "info"/"review" highlight only)
+ *   Danger      --danger-action-default, --danger-background-subtle, --danger-foreground-strong
+ *               (severity: WARNING — most severe)
  *   Warning     --warning-background-subtle, --warning-foreground-strong, --warning-action-default
+ *               (severity: TASK)
+ *   Info        --info-action-default, --info-background-subtle, --info-foreground-strong
+ *               (severity: REVIEW)
  *   Borders     --border
+ *
+ * Severity → color mapping (findings badge, diagram/form highlights) follows
+ * SEVERITY_ORDER in findings.js: WARNING > TASK > REVIEW > INFO.
  */
 
 :root {
@@ -48,9 +55,11 @@ section {
   display: flex;
   margin: auto;
   background-color: var(--color-zinc-100);
-  width: 1184px;
+  width: 100%;
+  max-width: 1184px;
+  box-sizing: border-box;
   flex-direction: column;
-  padding-top: 32px;
+  padding: 32px 24px 0;
 }
 
 .whiteBox {
@@ -217,6 +226,8 @@ section {
     display: flex;
     align-items: center;
     padding-left: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
 
     .fileItemCheck {
       color: var(--success-foreground-subtle);
@@ -224,10 +235,18 @@ section {
       margin-right: 8px;
       display: flex;
       align-items: center;
+      flex-shrink: 0;
     }
 
     span {
       font-size: 14px;
+      /* Long filenames truncate with an ellipsis instead of stretching the
+       * row or pushing the download/preview/remove actions off-screen; the
+       * full name remains available through the title attribute. */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
   }
 
@@ -236,6 +255,7 @@ section {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
     button {
       border: none;
       background-color: transparent;
@@ -386,6 +406,11 @@ hr {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
 
+  &:focus-visible {
+    outline: 2px solid var(--primary-action-default);
+    outline-offset: -2px;
+  }
+
   h2 {
     font-size: 24px;
     line-height: 32px;
@@ -404,10 +429,37 @@ hr {
   }
 }
 
+.findingElementLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--primary-action-default);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.findingElementLink:hover,
+.findingElementLink:focus-visible {
+  color: var(--primary-action-hover, var(--primary-action-default));
+}
+
+.analysis-table tr[aria-selected="true"] {
+  background: var(--primary-background-subtle);
+}
+
+
 table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
+}
+
+/* Findings tables can be wide (six columns including long messages and
+ * links). Scope the horizontal scroll to this wrapper so a wide table
+ * scrolls within its own region instead of the modal or page. */
+.analysisTableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 th, td {
@@ -416,17 +468,39 @@ th, td {
   text-align: left;
 }
 
-.highlight-info:not(.djs-connection) .djs-visual > :nth-child(1) {
-  stroke: var(--info-action-default) !important;
+/*
+ * Severity highlight markers applied to flagged BPMN elements. Each tier
+ * pairs a distinct color with a distinct stroke width/pattern so severity
+ * is legible without relying on color alone (e.g. for color-blind users).
+ *   WARNING (most severe): solid, thick, danger color
+ *   TASK:                  dashed, warning color
+ *   REVIEW:                dotted, info color
+ *   INFO (least severe):   solid, thin, neutral color
+ */
+.highlight-warning:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: var(--danger-action-default) !important;
+  stroke-width: 3px !important;
 }
 .highlight-task:not(.djs-connection) .djs-visual > :nth-child(1) {
   stroke: var(--warning-action-default) !important;
-}
-.highlight-warning:not(.djs-connection) .djs-visual > :nth-child(1) {
-  stroke: var(--warning-action-default) !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 8, 4 !important;
 }
 .highlight-review:not(.djs-connection) .djs-visual > :nth-child(1) {
   stroke: var(--info-action-default) !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 2, 3 !important;
+}
+.highlight-info:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke: var(--neutral-foreground-strong) !important;
+  stroke-width: 1.5px !important;
+}
+
+/* Extra emphasis for the element matching the currently selected finding
+ * row, layered on top of the severity highlight above. */
+.finding-selected:not(.djs-connection) .djs-visual > :nth-child(1) {
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 3px var(--primary-action-default));
 }
 
 .download-error-notification {
@@ -442,14 +516,37 @@ th, td {
 }
 
 .fileItemFindingCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--warning-foreground-strong);
-  background: var(--warning-background-subtle);
   border-radius: calc(var(--radius) + 4px);
   padding: 1px 7px;
   white-space: nowrap;
 }
+.fileItemFindingCountIcon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.fileItemFindingCount-warning {
+  color: var(--danger-foreground-strong);
+  background: var(--danger-background-subtle);
+}
+.fileItemFindingCount-task {
+  color: var(--warning-foreground-strong);
+  background: var(--warning-background-subtle);
+}
+.fileItemFindingCount-review {
+  color: var(--info-foreground-strong);
+  background: var(--info-background-subtle);
+}
+.fileItemFindingCount-info {
+  color: var(--neutral-foreground-strong);
+  background: var(--color-zinc-100);
+}
+
 
 .configBox {
   margin-top: 1rem;
@@ -632,4 +729,64 @@ th, td {
   font-size: 11px;
   line-height: 13px;
   opacity: 0.8;
+}
+
+/* Upfront file/batch limit and hosted-processing disclosure shown next to
+ * the drop zone, before anything is uploaded. */
+.uploadGuidance {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--neutral-foreground-subtle);
+}
+
+.uploadGuidance a {
+  color: var(--primary-action-default);
+}
+
+.uploadLimitNotice {
+  width: 100%;
+  max-inline-size: 100%;
+  margin-bottom: 12px;
+}
+
+/* Responsive layout: keep the configure and results flows usable at mobile,
+ * tablet, and split-view widths without page-level horizontal scrolling.
+ * Wide content (the findings table, the version selector) scrolls or
+ * reflows within its own region instead. */
+@media (max-width: 640px) {
+  .whiteBox.centered {
+    padding: 20px;
+  }
+
+  .versionSegmented {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .versionSegment {
+    min-width: 0;
+    flex: 1 1 33%;
+  }
+
+  .download-row {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+    justify-items: start;
+  }
+
+  .download-row button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .flowStep {
+    padding-left: 44px;
+  }
+
+  .flowStepNumber {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
 }
