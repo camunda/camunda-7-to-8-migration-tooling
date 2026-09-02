@@ -165,7 +165,7 @@ Verdicts:
 |---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
-| `form-reference` | 96 | one `.form` per C7 form (see 5e) | needs fix |
+| `form-reference` | 96 | one `.form` per C7 form (see 5f) | needs fix |
 
 Rules:
 
@@ -285,7 +285,7 @@ npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # onc
 npx bpmnlint <converted-file>.bpmn
 ```
 
-`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-version>`, and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
+`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
 
 ---
 
