@@ -32,8 +32,11 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.xml.XMLConstants;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
@@ -50,11 +53,16 @@ import org.camunda.bpm.model.xml.instance.DomDocument;
 import org.camunda.bpm.model.xml.instance.DomElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Element;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
 
 public class DiagramConverter {
   private static final Logger LOG = LoggerFactory.getLogger(DiagramConverter.class);
   private static final Template MARKDOWN_TEMPLATE;
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Set<String> CAMUNDA_NAMESPACES = Set.of(CAMUNDA, CAMUNDA_DMN);
 
   static {
     try (InputStream in =
@@ -131,8 +139,90 @@ public class DiagramConverter {
               }
               conversions.forEach(conversion -> conversion.convert(element, convertible, messages));
             });
+    removeUnusedCamundaNamespaceDeclarations(rootElement.getDocument());
     LOG.info("Done with conversion");
     return result;
+  }
+
+  private void removeUnusedCamundaNamespaceDeclarations(DomDocument document) {
+    Node documentNode = document.getDomSource().getNode();
+    Set<String> usedNamespaces = collectCamundaNamespaces(documentNode);
+    removeUnusedCamundaNamespaceDeclarations(documentNode, usedNamespaces);
+  }
+
+  private Set<String> collectCamundaNamespaces(Node node) {
+    Set<String> usedNamespaces = new HashSet<>();
+    collectCamundaNamespaces(node, usedNamespaces);
+    return usedNamespaces;
+  }
+
+  private void collectCamundaNamespaces(Node node, Set<String> usedNamespaces) {
+    addIfCamundaNamespace(node.getNamespaceURI(), usedNamespaces);
+    if (node instanceof Element element) {
+      NamedNodeMap attributes = element.getAttributes();
+      for (int i = 0; i < attributes.getLength(); i++) {
+        Node attribute = attributes.item(i);
+        if (isNamespaceDeclaration(attribute)) {
+          continue;
+        }
+        addIfCamundaNamespace(attribute.getNamespaceURI(), usedNamespaces);
+        collectQNameNamespace(element, attribute, usedNamespaces);
+      }
+    }
+
+    Node child = node.getFirstChild();
+    while (child != null) {
+      collectCamundaNamespaces(child, usedNamespaces);
+      child = child.getNextSibling();
+    }
+  }
+
+  private void collectQNameNamespace(Element element, Node attribute, Set<String> usedNamespaces) {
+    String value = attribute.getNodeValue();
+    if (value == null) {
+      return;
+    }
+    for (String token : value.trim().split("\\s+")) {
+      int separator = token.indexOf(':');
+      if (separator > 0 && separator < token.length() - 1) {
+        addIfCamundaNamespace(
+            element.lookupNamespaceURI(token.substring(0, separator)), usedNamespaces);
+      }
+    }
+  }
+
+  private void addIfCamundaNamespace(String namespaceUri, Set<String> usedNamespaces) {
+    if (isCamundaNamespace(namespaceUri)) {
+      usedNamespaces.add(namespaceUri);
+    }
+  }
+
+  private boolean isCamundaNamespace(String namespaceUri) {
+    return namespaceUri != null && CAMUNDA_NAMESPACES.contains(namespaceUri);
+  }
+
+  private void removeUnusedCamundaNamespaceDeclarations(Node node, Set<String> usedNamespaces) {
+    if (node instanceof Element element) {
+      NamedNodeMap attributes = element.getAttributes();
+      for (int i = attributes.getLength() - 1; i >= 0; i--) {
+        Node attribute = attributes.item(i);
+        if (isNamespaceDeclaration(attribute)
+            && isCamundaNamespace(attribute.getNodeValue())
+            && !usedNamespaces.contains(attribute.getNodeValue())) {
+          element.removeAttributeNode((Attr) attribute);
+        }
+      }
+    }
+
+    Node child = node.getFirstChild();
+    while (child != null) {
+      removeUnusedCamundaNamespaceDeclarations(child, usedNamespaces);
+      child = child.getNextSibling();
+    }
+  }
+
+  private boolean isNamespaceDeclaration(Node node) {
+    return XMLConstants.XMLNS_ATTRIBUTE_NS_URI.equals(node.getNamespaceURI());
   }
 
   private List<ElementCheckMessage> collectMessages(
