@@ -46,6 +46,8 @@ class FormConverterTest {
   @Test
   void shouldIdentifyFormFile() {
     assertThat(FormConverter.isFormFile("myForm.form")).isTrue();
+    assertThat(FormConverter.isFormFile("myForm.FORM")).isTrue();
+    assertThat(FormConverter.isFormFile("myForm.FoRm")).isTrue();
     assertThat(FormConverter.isFormFile("myForm.bpmn")).isFalse();
     assertThat(FormConverter.isFormFile("myForm.dmn")).isFalse();
     assertThat(FormConverter.isFormFile(null)).isFalse();
