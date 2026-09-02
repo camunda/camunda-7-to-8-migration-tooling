@@ -535,7 +535,9 @@ describe("upload onboarding guidance", () => {
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
 
-    expect(screen.getByText(/support up to 94 files/i)).toBeTruthy();
+    expect(
+      screen.getByText(new RegExp(`support up to ${MAX_BATCH_FILES} files`, "i"))
+    ).toBeTruthy();
     expect(
       screen.getByText(/processed by Camunda's hosted service/i)
     ).toBeTruthy();
