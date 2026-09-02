@@ -32,7 +32,12 @@ const EMPTY_HIDDEN_SEVERITIES = new Set();
 //  - a short legend translating the raw analyzer severity codes into plain
 //    language, and
 //  - a "showing X of Y" summary so the current filter state stays visible.
-export default function FindingsSection({ header, rows }) {
+export default function FindingsSection({
+  header,
+  rows,
+  onSelectElement,
+  selectedElementId,
+}) {
   const [filterState, setFilterState] = useState(() => ({
     rows,
     hiddenSeverities: EMPTY_HIDDEN_SEVERITIES,
@@ -86,6 +91,7 @@ export default function FindingsSection({ header, rows }) {
       <h3>Findings</h3>
       <p style={{ color: 'var(--neutral-foreground-subtle)', marginBottom: '0.75rem' }}>
         Elements in this file that need attention during migration. Each row describes one finding — its location, severity, and a message explaining what to address.
+        {onSelectElement && ' Select an element ID to locate it in the diagram.'}
       </p>
 
       {severityCounts.length > 1 && (
@@ -138,47 +144,69 @@ export default function FindingsSection({ header, rows }) {
           No findings match the selected severities.
         </p>
       ) : (
-        <Table className="analysis-table">
-          <TableHeader>
-            <TableRow>
-              {header.map((h) => (
-                <TableHead key={h.key}>
-                  {h.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleRows.map((row) => (
-              <TableRow key={row.id}>
-                {header.map((h) => {
-                  const value = row[h.key];
-                  return (
-                    <TableCell key={`${row.id}-${h.key}`}>
-                      {h.key === 'link' ? (
-                        value ? (
-                          <a
-                            href={value}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Open finding documentation: ${value}`}
-                          >
-                            Open
-                          </a>
-                        ) : '-'
-                      ) : h.key === 'severity' ? (
-                        <span className="severity-cell">
-                          <span className="severity-cell-label">{getSeverityInfo(value).label}</span>
-                          <span className="severity-cell-code"> ({value})</span>
-                        </span>
-                      ) : value}
-                    </TableCell>
-                  );
-                })}
+        <div className="analysisTableWrapper">
+          <Table className="analysis-table">
+            <TableHeader>
+              <TableRow>
+                {header.map((h) => (
+                  <TableHead key={h.key}>
+                    {h.header}
+                  </TableHead>
+                ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {visibleRows.map((row) => {
+                const isLinkable =
+                  !!onSelectElement && !!row.elementId && row.elementId !== '-';
+                return (
+                  <TableRow
+                    key={row.id}
+                    aria-selected={isLinkable ? selectedElementId === row.elementId : undefined}
+                  >
+                    {header.map((h) => {
+                      const value = row[h.key];
+                      if (h.key === 'elementId' && isLinkable) {
+                        return (
+                          <TableCell key={`${row.id}-${h.key}`}>
+                            <button
+                              type="button"
+                              className="findingElementLink"
+                              onClick={() => onSelectElement(row.elementId)}
+                            >
+                              {value}
+                            </button>
+                          </TableCell>
+                        );
+                      }
+                      return (
+                        <TableCell key={`${row.id}-${h.key}`}>
+                          {h.key === 'link' ? (
+                            value ? (
+                              <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open finding documentation: ${value}`}
+                              >
+                                Open
+                              </a>
+                            ) : '-'
+                          ) : h.key === 'severity' ? (
+                            <span className="severity-cell">
+                              <span className="severity-cell-label">{getSeverityInfo(value).label}</span>
+                              <span className="severity-cell-code"> ({value})</span>
+                            </span>
+                          ) : value}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </>
   );

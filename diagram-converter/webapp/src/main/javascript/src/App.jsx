@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 import {
   Button,
@@ -21,7 +21,12 @@ import {
 import { Download, ExternalLink, X, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
-import { FINDINGS_TABLE_HEADER, SEVERITY_ORDER, buildFindingsRows } from "./findings";
+import {
+  FINDINGS_TABLE_HEADER,
+  buildFindingsRows,
+  getHighestSeverity,
+  getSeverityStyleKey,
+} from "./findings";
 import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
 import DmnPreview from "./DmnPreview";
@@ -42,6 +47,24 @@ const SUPPORTED_PLATFORM_VERSIONS = [
 ];
 const DEFAULT_PLATFORM_VERSION = "8.9";
 
+// Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
+// every uploaded file plus the config fields in a single multipart request.
+// The server accepts at most MAX_MULTIPART_PARTS parts total (mirrors
+// server.tomcat.max-part-count in application.yaml, which is where the
+// server-side FILE_COUNT_LIMIT_EXCEEDED error originates; keep the two in
+// sync if that value ever changes). createFormData() always appends
+// FIXED_FORM_FIELD_COUNT non-file fields (platformVersion + the 5 config
+// options), so the actual per-batch file limit is lower than the raw part
+// count.
+const MAX_MULTIPART_PARTS = 100;
+const FIXED_FORM_FIELD_COUNT = 6;
+const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
+// Warn a bit before the hard limit so users can trim the batch (or switch to
+// the local converter) before a combined download fails outright.
+const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
+
+const LOCAL_CONVERTER_DOCS_URL =
+  "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
 
@@ -57,6 +80,8 @@ function App() {
   const [previewDiagramError, setPreviewDiagramError] = useState(false);
   const [previewDmnError, setPreviewDmnError] = useState("");
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
+  const [previewFileName, setPreviewFileName] = useState("");
+  const [selectedFindingElementId, setSelectedFindingElementId] = useState(null);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
   const [previewTableRows, setPreviewTableRows] = useState([]);
@@ -70,6 +95,9 @@ function App() {
   const incompatibilityNotifRef = useRef(null);
   const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
+  const bpmnViewerRef = useRef(null);
+  const selectedMarkerElementIdRef = useRef(null);
+  const previewDialogRef = useRef(null);
 
   function handleVersionKeyDown(e) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -104,32 +132,6 @@ function App() {
   });
 
 
-  // Uses the same SEVERITY_ORDER as the findings table/legend so the
-  // preview highlight always reflects the same severity ranking shown there.
-  function getMostSevere(messages) {
-    let mostSevere = 'INFO';
-
-    for (const msg of messages) {
-      const severityIndex = SEVERITY_ORDER.indexOf(msg.severity);
-      const mostSevereIndex = SEVERITY_ORDER.indexOf(mostSevere);
-
-      if (
-        severityIndex !== -1 &&
-        (mostSevereIndex === -1 || severityIndex < mostSevereIndex)
-      ) {
-        mostSevere = msg.severity;
-      }
-    }
-
-    return mostSevere;
-  }
-
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') setIsPreviewOpen(false); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
-
   useEffect(() => {
       if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewModelXml) return;
 
@@ -148,15 +150,12 @@ function App() {
 
         elementsWithMessages.forEach((el) => {
           if (el.elementId) {
-            const severity = getMostSevere(el.messages);
-            if (severity) {
-              // Mark with the same color every time for the moment
-              //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-              canvas.addMarker(el.elementId, `highlight-info`);
-            }
+            const severityStyleKey = getSeverityStyleKey(getHighestSeverity(el.messages));
+            canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
           }
         });
 
+        bpmnViewerRef.current = viewer;
       }).catch((error) => {
         if (isActive) {
           console.error("Unable to render BPMN preview:", error);
@@ -166,9 +165,105 @@ function App() {
 
       return () => {
         isActive = false;
+        bpmnViewerRef.current = null;
+        selectedMarkerElementIdRef.current = null;
         viewer.destroy();
       };
     }, [isPreviewOpen, previewType, previewDiagramError, previewModelXml, previewCheckJson]);
+
+  // Locates a finding's element in the rendered BPMN diagram: scrolls it
+  // into view, applies bpmn-js's own selection outline, and layers an
+  // extra `finding-selected` marker so the row ↔ element relationship is
+  // visible even once the built-in selection outline fades. No-ops when
+  // the diagram isn't ready or the element can't be found (e.g. a stale
+  // reference), preserving the existing graceful fallback behavior.
+  function selectFindingElement(elementId) {
+    if (!elementId || elementId === '-') return;
+    const viewer = bpmnViewerRef.current;
+    if (!viewer) return;
+
+    try {
+      const elementRegistry = viewer.get('elementRegistry');
+      const element = elementRegistry.get(elementId);
+      if (!element) return;
+
+      const canvas = viewer.get('canvas');
+      if (selectedMarkerElementIdRef.current && selectedMarkerElementIdRef.current !== elementId) {
+        canvas.removeMarker(selectedMarkerElementIdRef.current, 'finding-selected');
+      }
+      canvas.addMarker(elementId, 'finding-selected');
+      selectedMarkerElementIdRef.current = elementId;
+      canvas.scrollToElement(element);
+      viewer.get('selection').select(element);
+      setSelectedFindingElementId(elementId);
+    } catch (error) {
+      console.error("Unable to locate finding element in the diagram:", error);
+    }
+  }
+
+  // Turns the preview overlay into a real modal dialog while it is open:
+  // moves focus in, traps Tab/Shift+Tab within it, closes on Escape, locks
+  // background scrolling, and restores focus to whatever opened it on close.
+  // Uses useLayoutEffect (not useEffect) so the initial focus move happens
+  // synchronously right after the dialog mounts, before paint — avoiding a
+  // race where focus briefly stays outside the dialog on slower runners.
+  useLayoutEffect(() => {
+    if (!isPreviewOpen) return undefined;
+
+    const dialogEl = previewDialogRef.current;
+    const opener = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    function getFocusable() {
+      return dialogEl ? Array.from(dialogEl.querySelectorAll(focusableSelector)) : [];
+    }
+
+    const initialFocusTarget = getFocusable()[0] || dialogEl;
+    initialFocusTarget?.focus();
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setIsPreviewOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogEl) return;
+
+      const items = getFocusable();
+      if (items.length === 0) {
+        e.preventDefault();
+        dialogEl.focus();
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      const isInsideDialog = dialogEl.contains(active);
+
+      if (e.shiftKey && (active === first || !isInsideDialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !isInsideDialog)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.body.style.overflow = previousBodyOverflow;
+      if (opener instanceof HTMLElement && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, [isPreviewOpen]);
 
   useEffect(() => {
     if (!allDone || totalFindings === 0) return;
@@ -449,17 +544,17 @@ function App() {
         return <>
           Too many files at once. Remove some files and try again.
           {" "}To convert larger sets,{" "}
-          <a href="https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application"
+          <a href={LOCAL_CONVERTER_DOCS_URL}
             target="_blank" rel="noopener noreferrer">run the diagram converter locally</a>.
         </>;
       default:
-        return "Download failed. Please try again.";
+        return "Download failed. Try again.";
     }
   }
 
   async function handleDownloadResponse(filename, response, title) {
     if (!response.ok) {
-      let errorMessage = "Download failed. Please try again.";
+      let errorMessage = "Download failed. Try again.";
       try {
         const errorBody = await response.json();
         errorMessage = buildErrorMessage(errorBody);
@@ -525,7 +620,7 @@ function App() {
     );
   }
 
-  async function preview(response, modelType) {
+  async function preview(response, modelType, fileName) {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
@@ -543,11 +638,13 @@ function App() {
     setPreviewDiagramError(false);
     setPreviewDmnError("");
     setPreviewType(modelType);
+    setPreviewFileName(fileName || "");
+    setSelectedFindingElementId(null);
 
     setIsPreviewOpen(true);
   }
 
-  function openFormPreview(schema, errorMessage = "") {
+  function openFormPreview(schema, errorMessage = "", fileName = "") {
     setPreviewFormSchema(schema);
     setPreviewFormError(errorMessage);
     setPreviewModelXml("");
@@ -557,15 +654,17 @@ function App() {
     setPreviewDiagramError(false);
     setPreviewDmnError("");
     setPreviewType("form");
+    setPreviewFileName(fileName);
+    setSelectedFindingElementId(null);
     setIsPreviewOpen(true);
   }
 
-  async function previewForm(response) {
+  async function previewForm(response, fileName) {
     const formContent = response?.convertedFileBlob
       ? await response.convertedFileBlob.text()
       : response?.originalModelXml;
     const { schema, error } = parseFormSchema(formContent);
-    openFormPreview(schema, error);
+    openFormPreview(schema, error, fileName);
     setPreviewCheckJson(response?.checkResponseJson || []);
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
     setPreviewTableRows(buildFindingsRows(response?.checkResponseJson));
@@ -598,6 +697,7 @@ function App() {
 
   return (
     <div className="container">
+      <div className="pageContent" inert={isPreviewOpen}>
       <div className="whiteBox hero">
         <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
         <p>
@@ -631,16 +731,55 @@ function App() {
           <>
             <section className="flowStep">
               <div className="flowStepHeader">
-                <span className="flowStepNumber">1</span>
+                <span className="flowStepNumber">A</span>
                 <h4>Add files</h4>
               </div>
               <p>Upload BPMN or DMN models to analyze and convert, or Camunda Forms to convert.</p>
+              <p className="uploadGuidance">
+                Combined actions (the ZIP download and the XLSX/CSV/JSON analysis
+                reports) support up to {MAX_BATCH_FILES} files per batch. Need to
+                convert more at once?{" "}
+                <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                  Run the diagram converter locally
+                </a>.
+              </p>
+              <p className="uploadGuidance">
+                Uploaded files are sent to Camunda&apos;s hosted service for
+                analysis and conversion. For proprietary or sensitive models,{" "}
+                <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                  use the local converter
+                </a>{" "}
+                instead.
+              </p>
               <div className="fileUploadBox">
                 <DropZone
                   onFiles={(files) => {
                     setFiles((prevFiles) => [...prevFiles, ...files]);
                   }}
                 />
+                {files.length >= BATCH_FILE_WARNING_THRESHOLD && (
+                  <Alert
+                    variant="warning"
+                    title={
+                      files.length > MAX_BATCH_FILES
+                        ? `Batch limit exceeded (${MAX_BATCH_FILES} max, ${files.length} added)`
+                        : files.length === MAX_BATCH_FILES
+                        ? `Batch limit reached (${MAX_BATCH_FILES} files)`
+                        : `Approaching the batch limit (${files.length} of ${MAX_BATCH_FILES} files)`
+                    }
+                    description={
+                      <>
+                        Combined ZIP and analysis-report downloads support up to{" "}
+                        {MAX_BATCH_FILES} files. Remove some files, or{" "}
+                        <a href={LOCAL_CONVERTER_DOCS_URL} target="_blank" rel="noopener noreferrer">
+                          run the diagram converter locally
+                        </a>{" "}
+                        to convert this batch.
+                      </>
+                    }
+                    className="uploadLimitNotice"
+                  />
+                )}
                 {files.map((file, idx) => (
                   <FileItem
                     key={file.name + "-" + idx}
@@ -658,7 +797,7 @@ function App() {
 
             <section className="flowStep">
               <div className="flowStepHeader">
-                <span className="flowStepNumber">2</span>
+                <span className="flowStepNumber">B</span>
                 <h4>Configure conversion</h4>
               </div>
               <p>Choose the Camunda 8 version to convert to.</p>
@@ -712,6 +851,7 @@ function App() {
                       <Checkbox
                         id="addDataMigrationExecutionListener"
                         checked={configOptions.addDataMigrationExecutionListener}
+                        aria-describedby="addDataMigrationExecutionListenerHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -721,6 +861,10 @@ function App() {
                       />
                       <span>Add data migration execution listener</span>
                     </label>
+                    <p id="addDataMigrationExecutionListenerHint" className="configOptionHint">
+                      Adds an execution listener to blank start events so the Camunda 7 Data
+                      Migrator can track migrated instances.
+                    </p>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="dataMigrationExecutionListenerJobType" className="text-sm font-medium">
                         Execution listener job type
@@ -729,6 +873,7 @@ function App() {
                         id="dataMigrationExecutionListenerJobType"
                         value={configOptions.dataMigrationExecutionListenerJobType}
                         disabled={!configOptions.addDataMigrationExecutionListener}
+                        aria-describedby="dataMigrationExecutionListenerJobTypeHint"
                         onChange={(e) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -736,12 +881,17 @@ function App() {
                           }))
                         }
                       />
+                      <p id="dataMigrationExecutionListenerJobTypeHint" className="configOptionHint">
+                        Job type used by the listener. Available when "Add data migration
+                        execution listener" is selected.
+                      </p>
                     </div>
                     <div className="form-spacer" />
                     <label className="flex items-center gap-2">
                       <Checkbox
                         id="keepJobTypeBlank"
                         checked={configOptions.keepJobTypeBlank}
+                        aria-describedby="keepJobTypeBlankHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -751,12 +901,17 @@ function App() {
                       />
                       <span>Keep job type blank</span>
                     </label>
+                    <p id="keepJobTypeBlankHint" className="configOptionHint">
+                      Leaves the job type empty on converted delegates so you can set it
+                      yourself after conversion.
+                    </p>
                     <div className="form-spacer" />
                     <label className="flex items-center gap-2">
                       <Checkbox
                         id="alwaysUseDefaultJobType"
                         checked={configOptions.alwaysUseDefaultJobType}
                         disabled={configOptions.keepJobTypeBlank}
+                        aria-describedby="alwaysUseDefaultJobTypeHint"
                         onCheckedChange={(checked) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -766,6 +921,11 @@ function App() {
                       />
                       <span>Always use default job type</span>
                     </label>
+                    <p id="alwaysUseDefaultJobTypeHint" className="configOptionHint">
+                      Fills every delegate's job type with the default value below, for
+                      example to route all delegates to one job worker such as the Camunda 7
+                      Adapter. Available when "Keep job type blank" is cleared.
+                    </p>
                     <div className="flex flex-col gap-1">
                       <label htmlFor="defaultJobType" className="text-sm font-medium">
                         Default job type
@@ -774,6 +934,7 @@ function App() {
                         id="defaultJobType"
                         value={configOptions.defaultJobType}
                         disabled={configOptions.keepJobTypeBlank}
+                        aria-describedby="defaultJobTypeHint"
                         onChange={(e) =>
                           setConfigOptions((prev) => ({
                             ...prev,
@@ -781,6 +942,10 @@ function App() {
                           }))
                         }
                       />
+                      <p id="defaultJobTypeHint" className="configOptionHint">
+                        Job type applied when "Always use default job type" is selected.
+                        Available when "Keep job type blank" is cleared.
+                      </p>
                     </div>
                   </fieldset>
               )}
@@ -836,7 +1001,9 @@ function App() {
                 const r = fileResults[idx];
                 const modelType = getPreviewType(file.name, r.originalModelXml);
                 const isForm = modelType === "form";
-                const fileFindingCount = buildFindingsRows(r.checkResponseJson).length;
+                const fileFindingRows = buildFindingsRows(r.checkResponseJson);
+                const fileFindingCount = fileFindingRows.length;
+                const fileHighestSeverity = getHighestSeverity(fileFindingRows);
                 return (
                 <FileItem
                   key={file.name + "-" + idx}
@@ -844,10 +1011,11 @@ function App() {
                   status={r.status}
                   isChecked={r.checkResponseJson != null}
                   isConverted={r.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(r) : () => preview(r, modelType)}
+                  previewAction={isForm ? () => previewForm(r, file.name) : () => preview(r, modelType, file.name)}
                   previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(r)}
                   findingCount={fileFindingCount}
+                  highestSeverity={fileHighestSeverity}
                   error={
                     r.status === "error"
                       ? (r.errorMessage || "File processing failed")
@@ -922,8 +1090,8 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    Machine-readable findings, e.g. as input for AI-assisted
-                    migration tooling.
+                    Machine-readable findings, for example as input for
+                    AI-assisted migration tooling.
                   </p>
                 </div>
               </div>
@@ -956,13 +1124,24 @@ function App() {
             </section>
           </>
         )}
+      </div>
+      </div>
 
 {isPreviewOpen && (
   <div className="modal-backdrop">
-    <div className="modal">
+    <div
+      className="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="previewDialogTitle"
+      tabIndex={-1}
+      ref={previewDialogRef}
+    >
       <div className="modal-header">
         <div className="left">
-        <h2>Preview</h2>
+        <h2 id="previewDialogTitle">
+          {previewFileName ? `Preview: ${previewFileName}` : "Preview"}
+        </h2>
         </div>
         <div>
           <Button
@@ -999,7 +1178,12 @@ function App() {
                 : 'Diagram preview is only available for BPMN or DMN files. The findings for this file are listed below.'}
             </p>
           )}
-          <FindingsSection header={previewTableHeader} rows={previewTableRows} />
+          <FindingsSection
+            header={previewTableHeader}
+            rows={previewTableRows}
+            onSelectElement={previewType === "bpmn" && !previewDiagramError ? selectFindingElement : undefined}
+            selectedElementId={selectedFindingElementId}
+          />
         </>
       )}
       {previewType === "form" && (
@@ -1015,7 +1199,6 @@ function App() {
   </div>
 )}
 
-      </div>
     </div>
 
 
