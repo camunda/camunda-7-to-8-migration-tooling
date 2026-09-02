@@ -16,6 +16,7 @@ import {
 } from "@carbon/react/icons";
 
 import Paperclip from "./Paperclip.svg";
+import { getSeverityStyleKey } from "./findings";
 
 function statusLabel(isChecked) {
   return isChecked ? "Converting..." : "Analyzing...";
@@ -32,7 +33,13 @@ export default function FileItem({
   previewTitle = "Preview analysis findings",
   onDelete,
   onRetry,
+  findingCount,
+  highestSeverity,
 }) {
+  const severityKey = getSeverityStyleKey(highestSeverity);
+  const highestSeverityLabel = highestSeverity || "Unknown";
+  const findingCountLabel = `${findingCount} finding${findingCount !== 1 ? "s" : ""}`;
+
   return (
     <div className="FileItem">
       <div className="FileItemMain">
@@ -51,6 +58,16 @@ export default function FileItem({
           )}
         </div>
         <div className="right">
+          {findingCount > 0 && (
+            <span
+              className={`fileItemFindingCount fileItemFindingCount-${severityKey}`}
+              title={`Highest severity: ${highestSeverityLabel}`}
+              aria-label={`${findingCountLabel}, highest severity ${highestSeverityLabel}`}
+            >
+              {severityKey === "info" ? <CheckmarkFilled aria-hidden="true" /> : <WarningFilled aria-hidden="true" />}
+              {findingCountLabel}
+            </span>
+          )}
           {status === "uploading" && (
             <span className="fileItemStatus" role="status">
               <Loading small withOverlay={false} />
