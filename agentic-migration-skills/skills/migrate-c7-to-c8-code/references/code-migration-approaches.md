@@ -73,8 +73,9 @@ Before running, check Java runtime compatibility:
      install Java or change the user's system configuration automatically.
    - Validate the supplied home by executing its
      `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
-     and checking the actual major version. Reject missing `bin/javac`,
-     stale paths, JRE-only directories, and incompatible versions.
+     and checking the actual major version. Reject missing `bin/javac`
+     (Windows: `bin/javac.exe`), stale paths, JRE-only directories, and
+     incompatible versions.
    - If multiple validated compatible homes are available, choose the lowest
      compatible major version to keep runs reproducible: prefer 21, then 22,
      23, 24, 25.

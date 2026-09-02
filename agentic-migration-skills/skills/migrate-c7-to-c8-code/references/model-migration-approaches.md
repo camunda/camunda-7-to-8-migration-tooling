@@ -72,10 +72,10 @@ The CLI local subcommand accepts a single file or a directory (recursive by defa
 
 ```
 "<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
+```
+
 On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`.
 Replace `<java-cmd>` with the validated `bin/java` path from the selected JDK home.
-syntax. Replace `<java-cmd>` with the validated `bin/java` path from the
-selected JDK home.
 
 Do not use a bare `java` command after an alternate executable has been
 selected.
