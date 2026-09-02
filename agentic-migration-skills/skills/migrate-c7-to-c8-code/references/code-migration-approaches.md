@@ -68,8 +68,18 @@ Before running, check Java runtime compatibility:
    - This phase requires Java 21-23 for rewrite-maven-plugin 6.12.0 and
      camunda-7-to-8-code-conversion-recipes 0.3.x. Java 24+ is outside the
      known-safe window for that plugin line.
-   - If `java` is missing or outside that window, use AskUserQuestion to ask
-     for an alternate JDK home (the directory containing `bin/java`). Do not
+   - If `java` is missing or outside that window, probe common installation
+     roots before asking the user:
+     - macOS: `/opt/homebrew/opt/openjdk@*/libexec/openjdk.jdk/Contents/Home`,
+       `/usr/local/opt/openjdk@*/libexec/openjdk.jdk/Contents/Home`,
+       and `/Library/Java/JavaVirtualMachines/*/Contents/Home`
+     - Linux: `/usr/lib/jvm/*`
+     - Windows: `C:\Program Files\Java\*`, `C:\Program Files\Eclipse Adoptium\*`,
+       `C:\Program Files\BellSoft\*`, `C:\Program Files\Microsoft\*`
+   - Validate each discovered candidate with `bin/java -version` (Windows:
+     `bin/java.exe -version`) and pick the first compatible Java 21-23 runtime.
+   - Only if no compatible candidate is found, use AskUserQuestion to ask for
+     an alternate JDK home (the directory containing `bin/java`). Do not
      install Java or change the user's system configuration automatically.
    - Validate the supplied home by executing its
      `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
