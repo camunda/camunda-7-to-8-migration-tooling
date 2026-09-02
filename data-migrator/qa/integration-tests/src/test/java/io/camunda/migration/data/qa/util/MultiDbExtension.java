@@ -57,7 +57,20 @@ public class MultiDbExtension implements BeforeAllCallback {
         .findFirst()
         .orElse("default");
     LOGGER.info("Running tests with DB profile [{}]", dbProfile);
-    for (String containerKey : CROSS_VENDOR_PROFILES.getOrDefault(dbProfile, List.of(dbProfile))) {
+    List<String> containerKeys = CROSS_VENDOR_PROFILES.get(dbProfile);
+    if (containerKeys == null) {
+      // A single-vendor profile, or "default" for which no container exists.
+      containerKeys = List.of(dbProfile);
+    } else {
+      for (String containerKey : containerKeys) {
+        if (!containers.containsKey(containerKey)) {
+          throw new IllegalStateException("Cross-vendor profile [" + dbProfile
+              + "] requires unknown container [" + containerKey + "], available containers are "
+              + containers.keySet());
+        }
+      }
+    }
+    for (String containerKey : containerKeys) {
       JdbcDatabaseContainer<?> container = containers.get(containerKey);
       if (container != null) {
         LOGGER.info("Starting container [{}]", containerKey);
