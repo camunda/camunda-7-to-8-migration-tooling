@@ -42,12 +42,10 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 Run `java -version` from `PATH`, capturing stderr, and record the actual major
 version. The Diagram Converter CLI requires a minimum major version of `21`;
 do not apply the OpenRewrite upper bound. If `java` is missing or below 21,
-probe common installation roots first (same roots as the code migration
-preflight, including Homebrew keg-only prefixes), validate each candidate's
-`bin/java` (Windows: `bin/java.exe`), and pick the first runtime with major
-version >= 21. Only if no compatible candidate is found, use AskUserQuestion
-to request an alternate JDK home. Use the validated executable and home only
-for the converter invocation.
+use AskUserQuestion to request an alternate JDK home, validate its
+`bin/java` (Windows: `bin/java.exe`), and check its actual version before
+proceeding. Use the validated executable and home only for the converter
+invocation.
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 

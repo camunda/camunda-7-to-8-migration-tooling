@@ -54,9 +54,8 @@ Shared rules that apply throughout all subsequent steps:
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
 - For every Java-dependent phase, check `java -version` on `PATH` first. If
-  its major version is missing or incompatible, probe common install roots
-  (including Homebrew keg-only locations) and validate candidates before
-  asking for an alternate JDK home; keep any selected home scoped to that phase.
+  its major version is missing or incompatible, ask for and validate an
+  alternate JDK home before proceeding; keep it scoped to that phase.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
 - Conversion is not completion. Converter WARNING, TASK, and REVIEW findings need human follow-up.
   INFO findings are informational unless a later cross-check identifies work.
