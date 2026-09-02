@@ -35,11 +35,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
--   the Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not)
--   the Business ID is automatically propagated to child instances created via call activities
--   uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts
--   maximum length is 256 characters
--   for more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+-   The Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not).
+-   If the migrated process updates its business key during execution, neither Business ID nor tags fit. Keep it as a plain `businessKey` process variable and filter by variable in searches; note that it loses engine-level correlation identity.
+-   The Business ID is automatically propagated to child instances created via call activities.
+-   Uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts.
+-   Maximum length is 256 characters.
+-   For more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id).
 
 ## Searching by Business Key
 
