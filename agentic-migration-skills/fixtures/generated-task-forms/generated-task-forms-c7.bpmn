@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_GeneratedTaskForms" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.41.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:message id="Message_LegacyForms" name="legacy-form-start" />
+  <bpmn:process id="generatedTaskFormsFixture" name="Generated task forms fixture" isExecutable="true">
+    <bpmn:startEvent id="Start_GeneratedForm" name="Generated form start">
+      <bpmn:extensionElements>
+        <camunda:formData businessKey="customerNumber">
+          <camunda:formField id="customerNumber" label="Customer number" type="string" defaultValue="C-100">
+            <camunda:properties>
+              <camunda:property id="sourceSystem" value="CRM" />
+              <camunda:property id="displayOrder" value="1" />
+            </camunda:properties>
+            <camunda:validation>
+              <camunda:constraint name="required" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="customerNote" label="Customer note" type="string" defaultValue="New customer">
+            <camunda:validation>
+              <camunda:constraint name="minlength" config="3" />
+              <camunda:constraint name="maxlength" config="120" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="amount" label="Amount" type="long" defaultValue="42">
+            <camunda:validation>
+              <camunda:constraint name="min" config="1" />
+              <camunda:constraint name="max" config="100" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="unboundedLong" label="Unbounded long" type="long" defaultValue="9007199254740992" />
+          <camunda:formField id="approved" label="Approved" type="boolean" defaultValue="true">
+            <camunda:validation>
+              <camunda:constraint name="required" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="requestedDate" label="Requested date" type="date" datePattern="dd/MM/yyyy" defaultValue="31/12/2026">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="priority" label="Priority" type="enum" defaultValue="high">
+            <camunda:value id="low" name="Low" />
+            <camunda:value id="medium" name="Medium" />
+            <camunda:value id="high" name="High" />
+          </camunda:formField>
+          <camunda:formField id="validatedCode" label="Validated code" type="string">
+            <camunda:validation>
+              <camunda:constraint name="validator" config="com.example.CustomerCodeValidator" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="invalidConstraint" label="Invalid constraint" type="string">
+            <camunda:validation>
+              <camunda:constraint name="futureConstraint" config="${constraintConfig}" />
+            </camunda:validation>
+          </camunda:formField>
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_GeneratedStart</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="UserTask_CleanForm" name="Review clean generated form">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="reviewerName" label="Reviewer name" type="string" />
+          <camunda:formField id="confirmed" label="Confirmed" type="boolean" defaultValue="false" />
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_GeneratedStart</bpmn:incoming>
+      <bpmn:outgoing>Flow_CleanToMixed</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="UserTask_MixedForm" name="Review mixed generated form" camunda:formRef="existing-task-form" camunda:formRefBinding="deployment">
+      <bpmn:extensionElements>
+        <camunda:formData businessKey="missingBusinessKeyField">
+          <camunda:formField id="approvalComment" label="${commentLabel}" type="string" defaultValue="${defaultComment}">
+            <camunda:validation>
+              <camunda:constraint name="required" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="customer.address" label="Nested key" type="string" />
+          <camunda:formField id="customer-number" label="Punctuation key" type="string" />
+          <camunda:formField id="missingLabel" type="string" />
+          <camunda:formField id="missingType" label="Missing type" />
+          <camunda:formField id="customField" label="Custom field" type="custom-money">
+            <camunda:properties>
+              <camunda:property id="unit" value="EUR" />
+            </camunda:properties>
+          </camunda:formField>
+          <camunda:formField id="templateLabel" label="{{ customer.displayName }}" type="string" />
+          <camunda:formField id="methodLabel" label="${execution.getVariable('displayLabel')}" type="string" />
+          <camunda:formField id="ambiguousChoice" label="Ambiguous choice" type="enum">
+            <camunda:value id="duplicate" name="First" />
+            <camunda:value id="duplicate" name="Second" />
+            <camunda:value name="Missing id" />
+          </camunda:formField>
+        </camunda:formData>
+        <camunda:formData>
+          <camunda:formField id="approvalComment" label="Duplicate field" type="string" />
+        </camunda:formData>
+        <camunda:formProperty id="legacyMixed" name="Legacy mixed property" type="string" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_CleanToMixed</bpmn:incoming>
+      <bpmn:outgoing>Flow_MixedToEnd</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_GeneratedForms" name="Generated forms end">
+      <bpmn:incoming>Flow_MixedToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:startEvent id="Start_LegacyProperties" name="Legacy property message start">
+      <bpmn:extensionElements>
+        <camunda:formProperty id="startReference" name="Start reference" type="string" />
+        <camunda:formProperty id="startAlias" name="Start alias" type="string" variable="startStored" />
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_LegacyStart</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_LegacyForms" messageRef="Message_LegacyForms" />
+    </bpmn:startEvent>
+    <bpmn:userTask id="UserTask_LegacyProperties" name="Review legacy properties">
+      <bpmn:extensionElements>
+        <camunda:formProperty id="legacyRequired" name="Required legacy text" type="string" required="true" />
+        <camunda:formProperty id="legacyRequiredBoolean" name="Required legacy boolean" type="boolean" required="true" />
+        <camunda:formProperty id="legacyUnreadable" name="Unreadable" type="string" readable="false" />
+        <camunda:formProperty id="legacyNotWritable" name="Not writable" type="string" writable="false" />
+        <camunda:formProperty id="legacyWriteableSpelling" name="Legacy spelling" type="string" writeable="false" />
+        <camunda:formProperty id="legacyExpression" name="Expression" type="string" expression="${legacyValue}" />
+        <camunda:formProperty id="legacyStaticDefault" name="Static default" type="long" default="7" />
+        <camunda:formProperty id="legacyDynamicDefault" name="Dynamic default" type="string" default="${legacyDefault}" />
+        <camunda:formProperty id="legacyDate" name="Legacy date" type="date" datePattern="MM-dd-yyyy" default="12-31-2026" />
+        <camunda:formProperty id="legacyEnum" name="Legacy enum" type="enum" default="medium">
+          <camunda:value id="low" name="Low" />
+          <camunda:value id="medium" name="Medium" />
+          <camunda:value id="high" name="High" />
+        </camunda:formProperty>
+        <camunda:formProperty id="legacyCustom" name="Legacy custom" type="com.example.CustomType" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_LegacyStart</bpmn:incoming>
+      <bpmn:outgoing>Flow_LegacyToEnd</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_LegacyProperties" name="Legacy properties end">
+      <bpmn:incoming>Flow_LegacyToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_GeneratedStart" sourceRef="Start_GeneratedForm" targetRef="UserTask_CleanForm" />
+    <bpmn:sequenceFlow id="Flow_CleanToMixed" sourceRef="UserTask_CleanForm" targetRef="UserTask_MixedForm" />
+    <bpmn:sequenceFlow id="Flow_MixedToEnd" sourceRef="UserTask_MixedForm" targetRef="End_GeneratedForms" />
+    <bpmn:sequenceFlow id="Flow_LegacyStart" sourceRef="Start_LegacyProperties" targetRef="UserTask_LegacyProperties" />
+    <bpmn:sequenceFlow id="Flow_LegacyToEnd" sourceRef="UserTask_LegacyProperties" targetRef="End_LegacyProperties" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_GeneratedTaskForms">
+    <bpmndi:BPMNPlane id="BPMNPlane_GeneratedTaskForms" bpmnElement="generatedTaskFormsFixture">
+      <bpmndi:BPMNShape id="Start_GeneratedForm_di" bpmnElement="Start_GeneratedForm">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="130" y="145" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_CleanForm_di" bpmnElement="UserTask_CleanForm">
+        <dc:Bounds x="240" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_MixedForm_di" bpmnElement="UserTask_MixedForm">
+        <dc:Bounds x="390" y="80" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_GeneratedForms_di" bpmnElement="End_GeneratedForms">
+        <dc:Bounds x="540" y="102" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="515" y="145" width="86" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_LegacyProperties_di" bpmnElement="Start_LegacyProperties">
+        <dc:Bounds x="152" y="302" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="125" y="345" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="UserTask_LegacyProperties_di" bpmnElement="UserTask_LegacyProperties">
+        <dc:Bounds x="240" y="280" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_LegacyProperties_di" bpmnElement="End_LegacyProperties">
+        <dc:Bounds x="390" y="302" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="365" y="345" width="86" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_GeneratedStart_di" bpmnElement="Flow_GeneratedStart">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="240" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_CleanToMixed_di" bpmnElement="Flow_CleanToMixed">
+        <di:waypoint x="340" y="120" />
+        <di:waypoint x="390" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_MixedToEnd_di" bpmnElement="Flow_MixedToEnd">
+        <di:waypoint x="490" y="120" />
+        <di:waypoint x="540" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_LegacyStart_di" bpmnElement="Flow_LegacyStart">
+        <di:waypoint x="188" y="320" />
+        <di:waypoint x="240" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_LegacyToEnd_di" bpmnElement="Flow_LegacyToEnd">
+        <di:waypoint x="340" y="320" />
+        <di:waypoint x="390" y="320" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
