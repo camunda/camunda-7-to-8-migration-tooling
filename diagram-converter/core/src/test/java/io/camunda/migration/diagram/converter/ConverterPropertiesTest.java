@@ -41,4 +41,22 @@ public class ConverterPropertiesTest {
     assertEquals("adapter", converterProperties.getDefaultJobType());
     assertNotNull(converterProperties.getResourceHeader());
   }
+
+  @Test
+  void shouldAllowExplicitOlderTargetVersion() {
+    DefaultConverterProperties properties = new DefaultConverterProperties();
+    properties.setPlatformVersion("8.8");
+
+    ConverterProperties converterProperties =
+        ConverterPropertiesFactory.getInstance().merge(properties);
+
+    assertThat(converterProperties.getPlatformVersion()).isEqualTo("8.8");
+  }
+
+  @Test
+  void shouldRejectAConfiguredDefaultThatIsNotLatestStable() {
+    assertThatThrownBy(() -> TargetPlatformVersionPolicy.verifyConfiguredDefault("8.8"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("must be 8.9");
+  }
 }
