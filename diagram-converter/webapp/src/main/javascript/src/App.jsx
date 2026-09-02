@@ -5,7 +5,7 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 import {
   ProgressIndicator,
@@ -27,7 +27,12 @@ import {
 import { Download, Launch, Close, Settings } from "@carbon/react/icons";
 import DropZone from "./DropZone";
 import FileItem from "./FileItem";
-import { FINDINGS_TABLE_HEADER, buildFindingsRows } from "./findings";
+import {
+  FINDINGS_TABLE_HEADER,
+  buildFindingsRows,
+  getHighestSeverity,
+  getSeverityStyleKey,
+} from "./findings";
 import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
@@ -35,10 +40,10 @@ import { parseFormSchema } from "./formSchema";
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.
 // The server accepts at most 100 multipart parts (server.tomcat.max-part-count)
-// and createFormData() always appends 6 non-file fields, leaving 94 parts
+// and createFormData() always appends 5 non-file fields, leaving 95 parts
 // available for files. Keep these values in sync with the server configuration.
 const MAX_MULTIPART_PARTS = 100;
-const FIXED_FORM_FIELD_COUNT = 6;
+const FIXED_FORM_FIELD_COUNT = 5;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
@@ -47,7 +52,7 @@ const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
 
-function FindingsSection({ header, rows }) {
+function FindingsSection({ header, rows, onSelectElement, selectedElementId }) {
   if (rows.length === 0) {
     return <p style={{ marginTop: '1rem' }}>No findings for this file.</p>;
   }
@@ -69,26 +74,49 @@ function FindingsSection({ header, rows }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                {header.map((h) => (
-                  <TableCell key={`${row.id}-${h.key}`}>
-                    {h.key === 'link'
-                      ? row.link
-                        ? <a
-                            href={row.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`Open finding documentation: ${row.link}`}
+            {rows.map((row) => {
+              const isLinkable =
+                !!onSelectElement && !!row.elementId && row.elementId !== '-';
+              return (
+                <TableRow
+                  key={row.id}
+                  aria-selected={isLinkable ? selectedElementId === row.elementId : undefined}
+                >
+                  {header.map((h) => {
+                    const value = row[h.key];
+                    if (h.key === 'elementId' && isLinkable) {
+                      return (
+                        <TableCell key={`${row.id}-${h.key}`}>
+                          <button
+                            type="button"
+                            className="findingElementLink"
+                            onClick={() => onSelectElement(row.elementId)}
                           >
-                            Link
-                          </a>
-                        : '-'
-                      : row[h.key]}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+                            {value}
+                          </button>
+                        </TableCell>
+                      );
+                    }
+                    return (
+                      <TableCell key={`${row.id}-${h.key}`}>
+                        {h.key === 'link'
+                          ? value
+                            ? <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open finding documentation: ${value}`}
+                              >
+                                Link
+                              </a>
+                            : '-'
+                          : value}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -112,11 +140,17 @@ function App() {
   const [previewFormError, setPreviewFormError] = useState("");
   const [previewDiagramError, setPreviewDiagramError] = useState(false);
   const [previewCheckJson, setPreviewCheckJson] = useState([]);
+  const [previewFileName, setPreviewFileName] = useState("");
+  const [selectedFindingElementId, setSelectedFindingElementId] = useState(null);
 
   const [previewTableHeader, setPreviewTableHeader] = useState([]);
   const [previewTableRows, setPreviewTableRows] = useState([]);
 
   const [showConfig, setShowConfig] = useState(false);
+  const bpmnPreviewRef = useRef(null);
+  const bpmnViewerRef = useRef(null);
+  const selectedMarkerElementIdRef = useRef(null);
+  const previewDialogRef = useRef(null);
   const [configOptions, setConfigOptions] = useState({
     defaultJobType: "camunda-7-job",
     keepJobTypeBlank: false,
@@ -125,28 +159,13 @@ function App() {
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
   });
 
-  function getMostSevere(messages) {
-    const severityOrder = ['WARNING', 'TASK', 'REVIEW', 'INFO'];
-
-    let mostSevere = 'INFO';
-
-    for (const msg of messages) {
-      if (
-        severityOrder.indexOf(msg.severity) >
-        severityOrder.indexOf(mostSevere)
-      ) {
-        mostSevere = msg.severity;
-      }
-    }
-
-    return mostSevere;
-  }
-
   useEffect(() => {
       if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
 
-      const viewer = new BpmnJS({ container: '#bpmnDiagram' });
+      const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
+      let isActive = true;
       viewer.importXML(previewbpmnXml).then(() => {
+        if (!isActive) return;
         const canvas = viewer.get('canvas');
         canvas.zoom('fit-viewport');
 
@@ -157,22 +176,97 @@ function App() {
 
         elementsWithMessages.forEach((el) => {
           if (el.elementId) {
-              const severity = getMostSevere(el.messages);
-              if (severity) {
-                // Mark with the same color every time for the moment
-                //canvas.addMarker(el.elementId, `highlight-${severity.toLowerCase()}`);
-                canvas.addMarker(el.elementId, `highlight-info`);
-              }
+            const severityStyleKey = getSeverityStyleKey(getHighestSeverity(el.messages));
+            canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
           }
         });
 
+        bpmnViewerRef.current = viewer;
       }).catch((error) => {
-        console.error("Unable to render BPMN preview:", error);
-        setPreviewDiagramError(true);
+        if (isActive) {
+          console.error("Unable to render BPMN preview:", error);
+          setPreviewDiagramError(true);
+        }
       });
 
-      return () => viewer.destroy();
+      return () => {
+        isActive = false;
+        bpmnViewerRef.current = null;
+        selectedMarkerElementIdRef.current = null;
+        viewer.destroy();
+      };
     }, [isPreviewOpen, previewType, previewDiagramError, previewbpmnXml, previewCheckJson]);
+
+  function selectFindingElement(elementId) {
+    if (!elementId || elementId === '-') return;
+    const viewer = bpmnViewerRef.current;
+    if (!viewer) return;
+
+    try {
+      const element = viewer.get('elementRegistry').get(elementId);
+      if (!element) return;
+
+      const canvas = viewer.get('canvas');
+      if (selectedMarkerElementIdRef.current &&
+        selectedMarkerElementIdRef.current !== elementId) {
+        canvas.removeMarker(selectedMarkerElementIdRef.current, 'finding-selected');
+      }
+      canvas.addMarker(elementId, 'finding-selected');
+      selectedMarkerElementIdRef.current = elementId;
+      canvas.scrollToElement(element);
+      viewer.get('selection').select(element);
+      setSelectedFindingElementId(elementId);
+    } catch (error) {
+      console.error("Unable to locate finding element in the diagram:", error);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (!isPreviewOpen) return undefined;
+
+    const dialogEl = previewDialogRef.current;
+    const opener = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () =>
+      dialogEl ? Array.from(dialogEl.querySelectorAll(focusableSelector)) : [];
+
+    (getFocusable()[0] || dialogEl)?.focus();
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setIsPreviewOpen(false);
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogEl) return;
+      const items = getFocusable();
+      if (items.length === 0) {
+        e.preventDefault();
+        dialogEl.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogEl.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogEl.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.body.style.overflow = previousBodyOverflow;
+      if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+    };
+  }, [isPreviewOpen]);
 
   function createFormData(files) {
     const formData = new FormData();
@@ -481,7 +575,7 @@ function App() {
     );
   }
 
-  async function preview(response) {
+  async function preview(response, fileName = "") {
     if (!response?.checkResponseJson) return;
 
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
@@ -499,6 +593,8 @@ function App() {
     setPreviewFormSchema(null);
     setPreviewFormError("");
     setPreviewDiagramError(false);
+    setPreviewFileName(fileName);
+    setSelectedFindingElementId(null);
     // BPMN is detected by content, not extension: the dropzone also accepts
     // .xml files, which can be BPMN (or DMN) models.
     setPreviewType(
@@ -511,7 +607,7 @@ function App() {
     setIsPreviewOpen(true);
   }
 
-  function openFormPreview(schema, errorMessage = "") {
+  function openFormPreview(schema, errorMessage = "", fileName = "") {
     setPreviewFormSchema(schema);
     setPreviewFormError(errorMessage);
     setPreviewbpmnXml("");
@@ -519,16 +615,18 @@ function App() {
     setPreviewTableHeader([]);
     setPreviewTableRows([]);
     setPreviewDiagramError(false);
+    setPreviewFileName(fileName);
+    setSelectedFindingElementId(null);
     setPreviewType("form");
     setIsPreviewOpen(true);
   }
 
-  async function previewForm(response) {
+  async function previewForm(response, fileName = "") {
     const formContent = response?.convertedFileBlob
       ? await response.convertedFileBlob.text()
       : response?.originalModelXml;
     const { schema, error } = parseFormSchema(formContent);
-    openFormPreview(schema, error);
+    openFormPreview(schema, error, fileName);
     setPreviewCheckJson(response?.checkResponseJson || []);
     setPreviewTableHeader(FINDINGS_TABLE_HEADER);
     setPreviewTableRows(buildFindingsRows(response?.checkResponseJson));
@@ -561,6 +659,7 @@ function App() {
 
   return (
     <div className="container">
+      <div className="pageContent" inert={isPreviewOpen}>
       <div className="whiteBox">
         <div>
           <div>
@@ -819,9 +918,11 @@ function App() {
                   status={result.status}
                   isChecked={result.checkResponseJson != null}
                   isConverted={result.convertedFileBlob != null}
-                  previewAction={isForm ? () => previewForm(result) : () => preview(result)}
+                  previewAction={isForm ? () => previewForm(result, file.name) : () => preview(result, file.name)}
                   previewTitle={isForm ? "Preview form" : undefined}
                   downloadAction={() => download(result)}
+                  findingCount={buildFindingsRows(result.checkResponseJson).length}
+                  highestSeverity={getHighestSeverity(buildFindingsRows(result.checkResponseJson))}
                   error={
                     result.status === "error"
                       ? result.errorMessage || "File processing failed"
@@ -921,12 +1022,24 @@ function App() {
           </>
         )}
 
+      </div>
+      </div>
+
 {isPreviewOpen && (
   <div className="modal-backdrop">
-    <div className="modal">
+    <div
+      className="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="previewDialogTitle"
+      tabIndex={-1}
+      ref={previewDialogRef}
+    >
       <div className="modal-header">
         <div className="left">
-        <h2>Preview</h2>
+        <h2 id="previewDialogTitle">
+          {previewFileName ? `Preview: ${previewFileName}` : "Preview"}
+        </h2>
         </div>
         <div>
           <Button
@@ -943,7 +1056,7 @@ function App() {
       {(previewType === "bpmn" || previewType === "other") && (
         <>
           {previewType === "bpmn" && !previewDiagramError && (
-            <div id="bpmnDiagram" className="diagram-container"></div>
+            <div ref={bpmnPreviewRef} id="bpmnDiagram" className="diagram-container"></div>
           )}
           {(previewType === "other" || (previewType === "bpmn" && previewDiagramError)) && (
             <p style={{ marginTop: '1rem' }}>
@@ -952,7 +1065,12 @@ function App() {
                 : 'Diagram preview is only available for BPMN files. The findings for this file are listed below.'}
             </p>
           )}
-          <FindingsSection header={previewTableHeader} rows={previewTableRows} />
+          <FindingsSection
+            header={previewTableHeader}
+            rows={previewTableRows}
+            onSelectElement={previewType === "bpmn" && !previewDiagramError ? selectFindingElement : undefined}
+            selectedElementId={selectedFindingElementId}
+          />
         </>
       )}
       {previewType === "form" && (
@@ -965,13 +1083,10 @@ function App() {
       )}
 
 
-
-
-    </div>
+  </div>
   </div>
 )}
 
-      </div>
     </div>
 
 
