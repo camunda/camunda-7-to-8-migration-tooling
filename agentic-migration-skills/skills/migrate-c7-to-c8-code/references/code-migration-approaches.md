@@ -75,6 +75,9 @@ Before running, check Java runtime compatibility:
      `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
      and checking the actual major version. Reject missing `bin/javac`,
      stale paths, JRE-only directories, and incompatible versions.
+   - If multiple validated compatible homes are available, choose the lowest
+     compatible major version to keep runs reproducible: prefer 21, then 22,
+     23, 24, 25.
    - Use the validated home only for this rewrite invocation: set
      `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never fall back
      to an unvalidated `java` on `PATH`.
