@@ -278,9 +278,9 @@ describe("analysis findings preview", () => {
         .getAllByRole("columnheader")
         .map((header) => header.textContent)
     ).toEqual([
-      "Element Type",
+      "Element type",
       "Element ID",
-      "Element Name",
+      "Element name",
       "Severity",
       "Message",
       "Link",
@@ -734,6 +734,102 @@ describe("preview overlay behaves as a modal dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("advanced options", () => {
+  function renderConfigureStep() {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  }
+
+  it("associates every option and dependent field with plain-language guidance", () => {
+    renderConfigureStep();
+
+    const hints = [
+      {
+        id: "addDataMigrationExecutionListenerHint",
+        text: "Adds an execution listener to blank start events so the Camunda 7 Data Migrator can track migrated instances.",
+      },
+      {
+        id: "dataMigrationExecutionListenerJobTypeHint",
+        text: 'Job type used by the listener. Available when "Add data migration execution listener" is selected.',
+      },
+      {
+        id: "keepJobTypeBlankHint",
+        text: "Leaves the job type empty on converted delegates so you can set it yourself after conversion.",
+      },
+      {
+        id: "alwaysUseDefaultJobTypeHint",
+        text: 'Fills every delegate\'s job type with the default value below, for example to route all delegates to one job worker such as the Camunda 7 Adapter. Available when "Keep job type blank" is cleared.',
+      },
+      {
+        id: "defaultJobTypeHint",
+        text: 'Job type applied when "Always use default job type" is selected. Available when "Keep job type blank" is cleared.',
+      },
+    ];
+
+    hints.forEach(({ id, text }) => {
+      const hint = document.getElementById(id);
+      expect(hint).toBeTruthy();
+      expect(hint.textContent.replace(/\s+/g, " ").trim()).toBe(text);
+    });
+
+    [
+      ["addDataMigrationExecutionListener", "addDataMigrationExecutionListenerHint"],
+      ["dataMigrationExecutionListenerJobType", "dataMigrationExecutionListenerJobTypeHint"],
+      ["keepJobTypeBlank", "keepJobTypeBlankHint"],
+      ["defaultJobTypeEnabled", "alwaysUseDefaultJobTypeHint"],
+      ["defaultJobType", "defaultJobTypeHint"],
+    ].forEach(([controlId, hintId]) => {
+      expect(document.getElementById(controlId).getAttribute("aria-describedby")).toBe(hintId);
+    });
+  });
+
+  it("explains when dependent fields are disabled and how to enable them", () => {
+    renderConfigureStep();
+
+    const listenerCheckbox = document.getElementById("addDataMigrationExecutionListener");
+    const listenerJobType = document.getElementById("dataMigrationExecutionListenerJobType");
+    expect(listenerJobType.disabled).toBe(true);
+    fireEvent.click(listenerCheckbox);
+    expect(listenerJobType.disabled).toBe(false);
+
+    const keepJobTypeBlank = document.getElementById("keepJobTypeBlank");
+    const defaultJobTypeEnabled = document.getElementById("defaultJobTypeEnabled");
+    const defaultJobType = document.getElementById("defaultJobType");
+    expect(defaultJobTypeEnabled.disabled).toBe(false);
+    expect(defaultJobType.disabled).toBe(false);
+    fireEvent.click(keepJobTypeBlank);
+    expect(defaultJobTypeEnabled.disabled).toBe(true);
+    expect(defaultJobType.disabled).toBe(true);
+  });
+});
+
+describe("voice and tone", () => {
+  it("spells out 'for example' in the JSON download hint", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await screen.findByRole("heading", { name: "Analysis results" });
+    const jsonHint = screen.getByText(
+      /Machine-readable findings, for example as input for/
+    );
+    expect(jsonHint.textContent.replace(/\s+/g, " ").trim()).toBe(
+      "Machine-readable findings, for example as input for migration tooling."
+    );
+    expect(jsonHint.textContent).not.toMatch(/e\.g\./);
   });
 });
 
