@@ -114,7 +114,7 @@ Before editing, run the baseline from the intended base commit with the reposito
 
 - **Java 21** (set as JAVA_HOME)
 - **Maven 3.6+**
-- **Node.js >=20.19.0 or >=22.12.0** (for Cockpit plugin & frontend modules)
+- **Node.js >=24.15.0** (for Cockpit plugin & frontend modules)
 - **Docker** (for database integration tests)
 
 ## Code Conventions

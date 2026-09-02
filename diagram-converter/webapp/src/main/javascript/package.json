@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "npm run lint && npm run typecheck && npm run check:type-escapes && npm run test && vite build",
@@ -15,7 +18,7 @@
   },
   "dependencies": {
     "@bpmn-io/form-js-viewer": "^1.25.0",
-    "@camunda/design-system": "^0.49.0",
+    "@camunda/design-system": "^0.51.0",
     "bpmn-js": "^18.6.1",
     "dmn-js": "^17.10.2",
     "lucide-react": "1.39.0",
@@ -28,6 +31,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^6.0.0",
+    "esbuild": "^0.28.0",
     "eslint": "^10.0.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "eslint-plugin-react-refresh": "^0.5.0",
