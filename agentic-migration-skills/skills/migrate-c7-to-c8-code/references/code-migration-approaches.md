@@ -61,19 +61,25 @@ Run platform-appropriate command:
 
 Before running, check Java runtime compatibility:
 
-1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
-   - For rewrite-maven-plugin 6.12.0 + camunda-7-to-8-code-conversion-recipes 0.3.x, the known-safe window is Java 21-23 (recipes require Java 21+, while this rewrite plugin line can fail on Java 24+).
-   - Combine all applicable discovery sources; a source returning no results does not prove that no JDK is installed:
-     - the current `JAVA_HOME` value, if set (validate it rather than trusting it);
-     - `/usr/libexec/java_home -V` on macOS (including its stderr output);
-     - Homebrew keg-only JDKs under `/opt/homebrew/opt/openjdk@*/` (Apple Silicon) and `/usr/local/opt/openjdk@*/` (Intel), checking both the formula prefix and the common nested `libexec/openjdk.jdk/Contents/Home` JDK home;
-     - the macOS JDK root `/Library/Java/JavaVirtualMachines/*/Contents/Home`;
-     - common version-manager roots such as `~/.sdkman/candidates/java/`, `~/.jenv/versions/`, and `~/.asdf/installs/java/`;
-     - platform-equivalent standard JDK roots, such as `/usr/lib/jvm/` on Linux and the Java installation directories on Windows.
-   - For every candidate, resolve symlinks, deduplicate paths, require a real `<jdk-home>/bin/java`, and execute that binary to read its actual major version. Do not infer the version only from a directory name or from `java` on `PATH`; ignore stale, JRE-only, and incompatible candidates.
-   - Prefer an already-installed compatible JDK over asking to install one. Use the current `JAVA_HOME` when it is compatible; otherwise choose deterministically from the discovered candidates, preferring Java 21 and then the other versions in the compatible window. Continue discovery when `JAVA_HOME` or `/usr/libexec/java_home -V` reports only incompatible versions, such as Java 17 and 26.
-   - Scope `JAVA_HOME` and `PATH` to the rewrite invocation using the selected JDK (for example, `JAVA_HOME=<jdk-home>` and `<jdk-home>/bin` first on `PATH`). Do not modify shell profiles, create system-wide symlinks, or require the optional Homebrew link step.
-   - Only when no compatible JDK is found by any source, ask via AskUserQuestion to install one (e.g., `brew install openjdk@21` on macOS), wait for confirmation, and run the complete discovery and validation process again afterward.
+1. Use the cross-platform discovery procedure in
+   `references/java-runtime-detection.md`.
+   - This phase requires Java 21-23 for
+     rewrite-maven-plugin 6.12.0 and
+     camunda-7-to-8-code-conversion-recipes 0.3.x. Java 24+ is outside the
+     known-safe window for that plugin line.
+   - When the helper scripts are available, run
+     `sh scripts/detect-java.sh --min-major 21 --max-major 23` on POSIX
+     systems or
+     `& .\scripts\detect-java.ps1 -MinMajor 21 -MaxMajor 23` in PowerShell.
+     Otherwise apply the same source collection, validation, and ranking
+     rules manually.
+   - Keep the returned `JAVA_CMD`, `JAVA_HOME`, and `JAVA_MAJOR` values
+     together. Use the exact selected executable for Maven and scope
+     `JAVA_HOME` and `PATH` to that invocation. Never fall back to an
+     unvalidated `java` on `PATH`.
+   - Only when every discovery source is exhausted and no compatible JDK is
+     found, ask via AskUserQuestion to install one, then repeat discovery and
+     validation after installation.
 
 2. Inspect the build files to determine whether Spotless is configured.
 

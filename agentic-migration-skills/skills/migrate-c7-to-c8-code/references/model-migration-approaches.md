@@ -39,9 +39,17 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Detect whether Java is installed and record its major version. If java is missing or major version < 21, STOP and explain:
+Use `references/java-runtime-detection.md` to discover and validate a JDK
+from all applicable sources. Pass a minimum major version of `21` and no
+maximum; the OpenRewrite upper bound does not apply to the Diagram Converter
+CLI. Record the selected `JAVA_CMD`, `JAVA_HOME`, and actual `JAVA_MAJOR`.
+If no compatible JDK is found, STOP and explain:
 
 > The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Install Java 21+ and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
+
+Only after the complete discovery process finds no compatible JDK, ask via
+AskUserQuestion whether to install Java 21+, then repeat discovery before
+offering M2 or M3.
 
 Do not silently skip model migration.
 
@@ -63,8 +71,11 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version> --json --xlsx
+"$JAVA_CMD" -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version> --json --xlsx
 ```
+
+In PowerShell, invoke the selected path with `& $JAVA_CMD` instead of using a
+bare `java` command.
 
 Recommended flags:
 - `--json` - always pass this; the JSON report is the machine-readable input parsed in step 5. Requires a CLI release that includes the flag (0.3.6 or later) — if the run fails with `Unknown option: '--json'`, the downloaded JAR predates it; re-resolve the latest release (step 2).
