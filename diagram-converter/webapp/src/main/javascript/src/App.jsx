@@ -11,15 +11,6 @@ import {
   ProgressIndicator,
   ProgressStep,
   Button,
-  Callout,
-  Table,
-  TableHead,
-  TableRow,
-  TableHeader,
-  TableBody,
-  TableCell,
-  Form,
-  FormGroup,
   Checkbox,
   TextInput,
 } from "@carbon/react";
@@ -33,6 +24,7 @@ import {
   getHighestSeverity,
   getSeverityStyleKey,
 } from "./findings";
+import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
@@ -51,79 +43,6 @@ const BATCH_FILE_WARNING_THRESHOLD = Math.round(MAX_BATCH_FILES * 0.9);
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
-
-function FindingsSection({ header, rows, onSelectElement, selectedElementId }) {
-  if (rows.length === 0) {
-    return <p style={{ marginTop: '1rem' }}>No findings for this file.</p>;
-  }
-  return (
-    <>
-      <h3>Findings</h3>
-      <p style={{ marginBottom: '0.75rem' }}>
-        Elements in this file that need attention during migration. Each row describes one finding - its location, severity, and a message explaining what to address.
-      </p>
-      <div className="analysisTableWrapper">
-        <Table className="analysis-table">
-          <TableHead>
-            <TableRow>
-              {header.map((h) => (
-                <TableHeader key={h.key}>
-                  {h.header}
-                </TableHeader>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => {
-              const isLinkable =
-                !!onSelectElement && !!row.elementId && row.elementId !== '-';
-              return (
-                <TableRow
-                  key={row.id}
-                  aria-selected={isLinkable ? selectedElementId === row.elementId : undefined}
-                >
-                  {header.map((h) => {
-                    const value = row[h.key];
-                    if (h.key === 'elementId' && isLinkable) {
-                      return (
-                        <TableCell key={`${row.id}-${h.key}`}>
-                          <button
-                            type="button"
-                            className="findingElementLink"
-                            onClick={() => onSelectElement(row.elementId)}
-                          >
-                            {value}
-                          </button>
-                        </TableCell>
-                      );
-                    }
-                    return (
-                      <TableCell key={`${row.id}-${h.key}`}>
-                        {h.key === 'link'
-                          ? value
-                            ? <a
-                                href={value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Open finding documentation: ${value}`}
-                              >
-                                Link
-                              </a>
-                            : '-'
-                          : value}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-    </>
-  );
-}
-
 function App() {
   const baseUrl = ""; // Change this to "http://localhost:8080" if you want to play with it locally by using npm run dev
 
