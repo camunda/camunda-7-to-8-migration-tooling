@@ -205,7 +205,7 @@ foreach ($programFiles in $programFilesRoots) {
     Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'Microsoft\jdk-*')
     Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'Amazon Corretto\jdk*')
     Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'Zulu\zulu-*')
-    Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'BellSoft\LibericaJDK*\*')
+    Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'BellSoft\LibericaJDK*')
     Add-HomePattern 'WINDOWS_PROGRAM_FILES' 10 (Join-Path $programFiles 'Semeru\*')
 }
 

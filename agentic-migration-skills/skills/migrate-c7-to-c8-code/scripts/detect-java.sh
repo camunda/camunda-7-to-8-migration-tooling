@@ -60,8 +60,10 @@ if [ -n "$MAX_MAJOR" ]; then
 fi
 
 records=$(mktemp "${TMPDIR:-/tmp}/camunda-java-detect.XXXXXX") || exit 2
-trap 'rm -f "$records"' EXIT HUP INT TERM
-unique_records=$(mktemp "${TMPDIR:-/tmp}/camunda-java-detect-unique.XXXXXX") || exit 2
+unique_records=$(mktemp "${TMPDIR:-/tmp}/camunda-java-detect-unique.XXXXXX") || {
+  rm -f "$records"
+  exit 2
+}
 trap 'rm -f "$records" "$unique_records"' EXIT HUP INT TERM
 
 parse_major() {

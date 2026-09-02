@@ -30,7 +30,8 @@ Examples:
 ```text
 POSIX:      sh scripts/detect-java.sh --min-major 21 --max-major 23
 PowerShell: & .\scripts\detect-java.ps1 -MinMajor 21 -MaxMajor 23
-cmd.exe:    powershell.exe -NoProfile -File "%~dp0detect-java.ps1" -MinMajor 21 -MaxMajor 23
+cmd.exe (from the skill directory):
+            powershell.exe -NoProfile -File ".\scripts\detect-java.ps1" -MinMajor 21 -MaxMajor 23
 ```
 
 Omit the maximum when the operation only has a minimum requirement.
