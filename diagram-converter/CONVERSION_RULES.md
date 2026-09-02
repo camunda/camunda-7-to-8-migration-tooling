@@ -10,7 +10,7 @@ Changes to migrate BPMN models from Camunda 7 to Camunda 8:
 
 - The namespace of extensions has changed from `http://camunda.org/schema/1.0/bpmn` to `http://camunda.org/schema/zeebe/1.0`.
 - `modeler:executionPlatform` has been set to `Camunda Cloud`. Prior to this change, you will see `Camunda Platform`, indicating designed compatibility with Camunda 7.
-- `modeler:executionPlatformVersion` has been set to `8.8.0`. Prior to this change, you will see `7.19.0` or similar.
+- `modeler:executionPlatformVersion` has been set to `8.9.0`. Prior to this change, you will see `7.19.0` or similar.
 - Different configuration attributes are used between platform versions, as described for each BPMN element below.
 - Camunda 8 has a _different coverage_ of BPMN elements (see [Camunda 8 BPMN coverage](/components/modeler/bpmn/bpmn-coverage.md) versus [Camunda 7 BPMN coverage](https://docs.camunda.org/manual/latest/reference/bpmn20/)), which might require some model changes. Note that the coverage of Camunda 8 will increase over time.
 

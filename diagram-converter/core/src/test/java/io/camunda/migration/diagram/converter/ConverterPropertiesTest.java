@@ -22,7 +22,7 @@ public class ConverterPropertiesTest {
     assertThat(properties.getScriptJobType()).isEqualTo("script");
     assertThat(properties.getResourceHeader()).isEqualTo("resource");
     assertThat(properties.getScriptFormatHeader()).isEqualTo("language");
-    assertThat(properties.getPlatformVersion()).isNotNull();
+    assertThat(properties.getPlatformVersion()).isEqualTo("8.9");
     assertThat(properties.getKeepJobTypeBlank()).isFalse();
     assertThat(properties.getAlwaysUseDefaultJobType()).isFalse();
     assertThat(properties.getAddDataMigrationExecutionListener()).isFalse();
