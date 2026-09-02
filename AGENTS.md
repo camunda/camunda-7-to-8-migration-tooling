@@ -200,6 +200,8 @@ Use this explicit release-line mapping when choosing a backport target:
 
 The `zeebe-platform.version` property and form converter default target values are configuration values, not the maintenance release-line mapping, and may be one minor version behind. Backport to the branch identified above and preserve that target branch's existing configuration unless a separate version-bump change is requested.
 
+For the diagram-converter, the target version is an input and is independent of the Camunda libraries used to build a release line. Camunda 8.9 is the current latest stable/default target on every maintenance branch; keep the webapp selector, backend default, and regression tests aligned. When a newer stable version is released, update all maintenance branches together rather than inferring the target from dependency versions.
+
 ### Merge-blocking vs asynchronous checks
 
 - **Merge-blocking:** `CI Summary Gate` (`ci-summary`) is the single required check for PR merges. It validates that expected high-yield jobs ran and succeeded, and publishes CI feedback metrics. `compile-previous-version` is part of this blocking surface when in scope.
