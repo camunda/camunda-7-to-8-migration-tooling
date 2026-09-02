@@ -189,7 +189,7 @@ public class ConvertLocalCommandTest {
     JsonNode source = objectMapper.readTree(new File(tempDir, "simple.form"));
     JsonNode converted = objectMapper.readTree(new File(tempDir, "converted-c8-simple.form"));
     assertThat(converted.get("executionPlatform").asText()).isEqualTo("Camunda Cloud");
-    assertThat(converted.get("executionPlatformVersion").asText()).isEqualTo("8.7.0");
+    assertThat(converted.get("executionPlatformVersion").asText()).isEqualTo("8.9.0");
     ((ObjectNode) source).remove(List.of("executionPlatform", "executionPlatformVersion"));
     ((ObjectNode) converted).remove(List.of("executionPlatform", "executionPlatformVersion"));
     assertThat(converted)
@@ -210,7 +210,7 @@ public class ConvertLocalCommandTest {
         .anyMatch(file -> file.getName().equals("converted-c8-simple.form"));
     assertThat(Files.readString(new File(tempDir, "converted-c8-simple.form").toPath()))
         .contains("\"Camunda Cloud\"")
-        .contains("\"8.7.0\"");
+        .contains("\"8.9.0\"");
   }
 
   @Test

@@ -30,14 +30,19 @@ import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
+import {
+  DEFAULT_PLATFORM_VERSION,
+  getPlatformVersionAriaLabel,
+  SUPPORTED_PLATFORM_VERSIONS,
+} from "./platformVersions";
 
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.
 // The server accepts at most 100 multipart parts (server.tomcat.max-part-count)
-// and createFormData() always appends 5 non-file fields, leaving 95 parts
+// and createFormData() always appends 6 non-file fields, leaving 94 parts
 // available for files. Keep these values in sync with the server configuration.
 const MAX_MULTIPART_PARTS = 100;
-const FIXED_FORM_FIELD_COUNT = 5;
+const FIXED_FORM_FIELD_COUNT = 6;
 const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 // Warn a bit before the hard limit so users can trim the batch (or switch to
 // the local converter) before a combined download fails outright.
@@ -53,6 +58,7 @@ function App() {
   const [fileResults, setFileResults] = useState([]);
   const [validFiles, setValidFiles] = useState([]);
   const isSaaS = window.location.hostname !== "localhost";
+  const [platformVersion, setPlatformVersion] = useState(DEFAULT_PLATFORM_VERSION);
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewType, setPreviewType] = useState(null);
@@ -68,6 +74,7 @@ function App() {
   const [previewTableRows, setPreviewTableRows] = useState([]);
 
   const [showConfig, setShowConfig] = useState(false);
+  const versionSegmentedRef = useRef(null);
   const bpmnPreviewRef = useRef(null);
   const bpmnViewerRef = useRef(null);
   const selectedMarkerElementIdRef = useRef(null);
@@ -79,6 +86,38 @@ function App() {
     addDataMigrationExecutionListener: false,
     dataMigrationExecutionListenerJobType: "=if legacyId != null then \"migrator\" else \"noop\"",
   });
+
+  function handleVersionKeyDown(event) {
+    const navigationalKeys = [
+      "ArrowRight",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowUp",
+      "Home",
+      "End",
+    ];
+    if (!navigationalKeys.includes(event.key)) return;
+
+    event.preventDefault();
+    const currentIndex = SUPPORTED_PLATFORM_VERSIONS.findIndex(
+      (version) => version.value === platformVersion
+    );
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex =
+        (currentIndex - 1 + SUPPORTED_PLATFORM_VERSIONS.length) %
+        SUPPORTED_PLATFORM_VERSIONS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = SUPPORTED_PLATFORM_VERSIONS.length - 1;
+    }
+
+    setPlatformVersion(SUPPORTED_PLATFORM_VERSIONS[nextIndex].value);
+    versionSegmentedRef.current?.querySelectorAll("button")[nextIndex]?.focus();
+  }
 
   useEffect(() => {
       if (!isPreviewOpen || previewType !== "bpmn" || previewDiagramError || !previewbpmnXml) return;
@@ -199,6 +238,9 @@ function App() {
       // Append each file, optionally using indexed keys if needed
       formData.append("file", file);
     });
+
+    // Send the selected target version on every request that uses this form data.
+    if (platformVersion) formData.append("platformVersion", platformVersion);
 
     if (configOptions.defaultJobType !== undefined)
       formData.append("defaultJobType", configOptions.defaultJobType);
@@ -691,6 +733,41 @@ function App() {
                 />
               ))}
             </div>
+            <section className="versionSelector">
+              <h2>Target version</h2>
+              <p>
+                Choose the Camunda 8 version to convert to. Defaults to the
+                latest stable version (8.9).
+              </p>
+              <div
+                ref={versionSegmentedRef}
+                className="versionSegmented"
+                role="radiogroup"
+                aria-label="Target Camunda 8 version"
+                onKeyDown={handleVersionKeyDown}
+              >
+                {SUPPORTED_PLATFORM_VERSIONS.map((version) => (
+                  <button
+                    key={version.value}
+                    type="button"
+                    role="radio"
+                    aria-label={getPlatformVersionAriaLabel(version)}
+                    aria-checked={platformVersion === version.value}
+                    tabIndex={platformVersion === version.value ? 0 : -1}
+                    className={
+                      "versionSegment" +
+                      (platformVersion === version.value
+                        ? " versionSegment--selected"
+                        : "")
+                    }
+                    onClick={() => setPlatformVersion(version.value)}
+                  >
+                    <span className="versionSegmentNumber">{version.label}</span>
+                    <span className="versionSegmentHint">{version.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
             <p>
               Click the button below to analyze and convert your files.
             </p>

@@ -495,13 +495,72 @@ describe("accessibility", () => {
   });
 });
 
+describe("target platform version", () => {
+  it("marks 8.9 as the latest stable version and selects it by default", () => {
+    render(<App />);
+
+    const versionGroup = screen.getByRole("radiogroup", {
+      name: "Target Camunda 8 version",
+    });
+    const latestStable = within(versionGroup).getByRole("radio", {
+      name: "8.9 Latest stable",
+    });
+    const previousStable = within(versionGroup).getByRole("radio", {
+      name: "8.8 Previous stable",
+    });
+    const nextVersion = within(versionGroup).getByRole("radio", {
+      name: "8.10 Next version",
+    });
+
+    expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
+    expect(latestStable.getAttribute("aria-checked")).toBe("true");
+    expect(latestStable.getAttribute("tabindex")).toBe("0");
+    expect(previousStable.getAttribute("aria-checked")).toBe("false");
+    expect(nextVersion.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("sends an explicitly selected 8.8 target to the conversion endpoints", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content: '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    const versionGroup = screen.getByRole("radiogroup", {
+      name: "Target Camunda 8 version",
+    });
+    fireEvent.click(
+      within(versionGroup).getByRole("radio", {
+        name: "8.8 Previous stable",
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+    await screen.findByRole("button", { name: "Download process.bpmn" });
+
+    const conversionRequests = fetchMock.mock.calls.filter(([url]) =>
+      url.endsWith("/check") || url.endsWith("/convert")
+    );
+    expect(conversionRequests).toHaveLength(2);
+    conversionRequests.forEach(([, options]) => {
+      expect(options.body.get("platformVersion")).toBe("8.8");
+    });
+  });
+});
+
 describe("upload onboarding guidance", () => {
-  // The 95-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
+  // The 94-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
-  // createFormData() always appends 5 non-file fields, leaving 95 parts
+  // createFormData() always appends 6 non-file fields, leaving 94 parts
   // available for files.
-  const MAX_BATCH_FILES = 95;
-  const BATCH_FILE_WARNING_THRESHOLD = 86;
+  const MAX_BATCH_FILES = 94;
+  const BATCH_FILE_WARNING_THRESHOLD = 85;
 
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
