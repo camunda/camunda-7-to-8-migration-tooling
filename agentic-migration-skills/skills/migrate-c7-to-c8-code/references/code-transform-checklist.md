@@ -16,6 +16,8 @@ Confirm each item before the next (commit policy: ask user before committing).
   SNAPSHOT, alpha, beta, and rc versions. If no GA version exists for the target, ask before using a
   pre-release.
 - Pick the starter by Spring Boot version: 3.x uses `io.camunda:camunda-spring-boot-3-starter`; 4.x uses `io.camunda:camunda-spring-boot-starter`.
+- Verify Spring Boot compatibility from the selected starter's/BOM's POM on Maven Central — do not assume a pairing works because both versions are "latest".
+- Preserve the dependency footprint: never add dependencies the C7 app did not need (e.g. `spring-boot-starter-web` when it exposed no REST endpoints), including transitively via starter choices.
 - Add the Camunda public repository only if the selected artifact/version is not available on Maven Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
   - Gradle: `maven { url "https://artifacts.camunda.com/artifactory/public/" }`
@@ -33,7 +35,9 @@ Confirm each item before the next (commit policy: ask user before committing).
 
 - Replace ProcessEngine/service autowiring (RuntimeService, TaskService, HistoryService, DecisionService, ManagementService) with CamundaClient.
 - Map: start instances (incl. businessId/tags), message correlation, signal broadcast, cancel, user tasks, variables, HistoryService to search requests, DecisionService to newEvaluateDecisionCommand, batch ...Async to batch operations (8.8+).
-- If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
+- When a C7 API has a C8 counterpart, use the matching CamundaClient API (e.g. HistoryService to search requests) instead of introducing new process variables to carry what the API can already return.
+- Business key: map per the pattern catalog (Business ID 8.9+ / tags 8.8, both immutable — mutable keys become a `businessKey` process variable). A mutable key loses its engine-level correlation identity in C8 — flag that semantic difference in MIGRATION_REPORT.md.
+- Preserve startup behavior exactly: what starts, when it starts, and how many instances. If migrated code starts instances from @PostConstruct while using @Deployment, move startup logic to `@EventListener(CamundaPostDeploymentEvent.class)`.
 
 ---
 
@@ -43,6 +47,8 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Variable access becomes method params / @Variable.
 - BpmnError becomes `CamundaError.bpmnError(...)`.
 - Remove TypedValue usage.
+- Keep worker behavior unchanged. Inputs and outputs of a migrated worker stay the same; never add new features to an existing worker during migration. New logic belongs in a new, separate worker.
+- `FileValue` variables and outbound HTTP calls map per the pattern catalog (Document API; out-of-the-box REST connector).
 
 ---
 
@@ -77,6 +83,10 @@ Confirm each item before the next (commit policy: ask user before committing).
 - Pure data expressions become FEEL (the converter automates this model-side in Part B).
 - Conditional events are native since 8.9.
 - Method-invoking expressions (on beans or plain variables) are the named category **FEEL method-invocation**, handled below.
+
+### Named category: Script expressions (Groovy, JavaScript, ...)
+
+Script-language expressions (sequence-flow conditions with `language="groovy"`, script tasks, `camunda:script` in listeners) cannot run in C8 — FEEL cannot execute scripts. Treat as ONE category per script language. Default remediation (same decision weighting as FEEL method-invocation): move the script logic into a preceding service task whose `@JobWorker` computes the outcome into a plain variable; replace the expression with a FEEL reference. A script task itself becomes a service task with a worker holding the script logic.
 
 ### Named category: FEEL method-invocation
 
@@ -132,7 +142,10 @@ Use these to classify files during assessment:
 | `FormFieldValidator` or `camunda:constraint name="validator"` | Generated-form backend validation (manual design) |
 | `TaskFormData`, `StartFormData`, `FormField`, `FormProperty` | Generated-form metadata consumer |
 | `submitTaskForm`, `submitStartForm`, `/submit-form`, `/form-variables` | Generated-form submission client |
-| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8) |
+| `businessKey` usage | Flag: maps to Business ID (8.9+) or tags (8.8); see pattern catalog, and keep mutable keys as a process variable |
+| `FileValue` / `Variables.fileValue(...)` | Flag: maps to Document API (see pattern catalog) |
+| Groovy/JavaScript in `conditionExpression`, script tasks, `camunda:script` | Script expression (maps to preceding job worker) |
+| `camunda:connector` / http-connector, HTTP client code in delegates | Flag: maps to out-of-the-box REST connector (see pattern catalog) |
 | Batch operations (`...Async`, ManagementService batches) | Client code |
 | `ZeebeClient` / Spring Zeebe SDK | Legacy C8 client (migrate to CamundaClient) |
 | `@Test` + Camunda 7 test rules | Test code |

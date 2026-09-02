@@ -48,9 +48,9 @@ Shared rules that apply throughout all subsequent steps:
   for M1, M3, and E1; only M2 performs agentic BPMN/DMN edits, and only on converted copies. Never
   hand-edit BPMN/DMN in the code flow.
 - Use project-local models first. Do not offer C7 engine access when local models are present.
-- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit.
+- Commits are opt-in. Check for uncommitted changes before starting; if dirty, ask user to commit or stash. Never auto-commit; never commit without an explicit user request.
 - Prefer intent over shell dialect. Use platform-appropriate invocations for the current environment.
-- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact.
+- Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. When migrating into a separate target location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets over, never edit in place.
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
@@ -59,7 +59,9 @@ Shared rules that apply throughout all subsequent steps:
 - Do not redo what the tools changed. Check for existing transforms before rewriting.
 - Ask before high-complexity files and edge cases. Auto-apply only unambiguous 1:1 mappings.
 - Keep changes minimal. No refactors, renames, or improvements beyond the migration.
-- Keep `MIGRATION_REPORT.md` in the confirmed project root current with inventories, decisions, phase status, and validation results.
+- Preserve fidelity: package names, class names, file/folder layout, resource paths, startup behavior, and dependency footprint (e.g. no REST endpoints → no spring-boot-starter-web) carry over unchanged wherever a C8 equivalent exists. Rename or delete only what has no C8 equivalent, and record why in MIGRATION_REPORT.md.
+- Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API). Verify whether C8 removed the limitation before replicating the pattern or adding a worker. Converter findings flagging natively-supported capabilities drive the same check for deleting C7-side workaround code — see `references/composing-code-and-models.md`.
+- Keep `MIGRATION_REPORT.md` in the confirmed project root current as the single source of truth for inventories, decisions, phase status, incompatibilities, and validation results; update as work proceeds, not in scattered notes.
 - Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
 - Generated Task Forms are an agentic follow-up, not a Diagram Converter feature. Preserve the converter's `form-data` manual finding, generate standard `.form` resources from the exact original BPMN, and use `references/form-migration.md` for every decision and linkage.
 - Never accept, link, or deploy a generated form until the user has reviewed it. Ask about every semantic gap or unsupported construct; do not invent replacements.
@@ -124,7 +126,7 @@ forms, collects required user decisions, and links only explicitly accepted form
 2. Check for remaining C7 references: search for `org.camunda.bpm` imports. Each is a missed migration.
 3. Check for remaining TODOs: search for `// TODO` migration comments. Each needs manual review.
 4. Check for legacy C8 client: search for `ZeebeClient` and `zeebe-client-java` (deprecated, removed in 8.10; migrate to CamundaClient).
-5. Check for leftover business keys: search for `businessKey`. Map to businessId (8.9+) or tags (8.8).
+5. Check for leftover business keys: search for `businessKey`. Map per the pattern catalog (businessId 8.9+ / tags 8.8); keys mutated during the process stay a `businessKey` process variable.
 6. Run tests: run `mvn test` or platform-appropriate Gradle test task. Fix failures.
 7. Check common pitfalls:
    - Critical naming swap: C7 processDefinitionKey (string key) becomes C8 bpmnProcessId; C7 processDefinitionId (UUID) becomes C8 processDefinitionKey. Same for decision definitions.
@@ -137,10 +139,11 @@ forms, collects required user decisions, and links only explicitly accepted form
 
 1. Confirm a converted-c8-* file exists for each in-scope diagram (unless analyze-only).
 2. Every WARNING/TASK/REVIEW finding is either fixed or classified in the per-category verdict table (category, count, cross-referenced code artifact, verdict: no action / needs review / needs fix) recorded in MIGRATION_REPORT.md — see `references/model-migration-approaches.md` step 5d. A flat "fixed or recorded" note is not sufficient.
-3. Originals are intact and were not overwritten.
-4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
-5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
-6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
+3. Converted BPMN files that were manually edited lint clean — see the linting section in `references/model-migration-approaches.md`.
+4. Originals are intact and were not overwritten.
+5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
+6. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
+7. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
 
 Present a validation summary showing status of: compilation, remaining C7 imports, remaining TODOs, businessKey usages, tests, models converted, and model findings needing follow-up. Record in MIGRATION_REPORT.md.
 
@@ -167,7 +170,7 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 4. All tests pass (or failures are documented with explanation)
 5. All // TODO migration comments are resolved or explicitly recorded
 6. No ZeebeClient/zeebe-client-java references remain (deprecated)
-7. businessKey usages are mapped to businessId (8.9+) or tags (8.8)
+7. businessKey usages are mapped per the pattern catalog (businessId 8.9+ / tags 8.8), or kept as a `businessKey` process variable when the key is mutated during the process
 8. Configuration uses camunda.client.* keys instead of camunda.* keys
 9. For model migration: converted-c8-* files exist for all in-scope diagrams
 10. For model migration: all WARNING/TASK/REVIEW findings are resolved or classified in the verdict table in MIGRATION_REPORT.md
