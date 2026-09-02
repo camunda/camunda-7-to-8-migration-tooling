@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.camunda.migration.diagram.converter.version.SemanticVersion;
 import java.io.IOException;
-import java.util.Locale;
 
 /**
  * Converts Camunda 7 form files ({@code *.form}) to Camunda 8. Platform metadata is updated and
@@ -38,7 +37,7 @@ public class FormConverter {
   private FormConverter() {}
 
   public static boolean isFormFile(String fileName) {
-    return fileName != null && fileName.toLowerCase(Locale.ROOT).endsWith(FILE_EXTENSION);
+    return fileName != null && fileName.endsWith(FILE_EXTENSION);
   }
 
   /**
