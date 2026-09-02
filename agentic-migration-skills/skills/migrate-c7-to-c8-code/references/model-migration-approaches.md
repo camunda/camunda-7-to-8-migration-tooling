@@ -47,7 +47,7 @@ use AskUserQuestion to request an alternate JDK home, validate its
 proceeding. Use the validated executable and home only for the converter
 invocation.
 
-> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home/path and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
+> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
 Do not silently skip model migration.
 

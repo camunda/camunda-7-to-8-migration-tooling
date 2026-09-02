@@ -65,9 +65,9 @@ Before running, check Java runtime compatibility:
    major version. Use `command -v java` on macOS/Linux, `Get-Command java` in
    PowerShell, or `where java` in Windows Command Prompt to show which
    executable is being checked.
-   - This phase requires Java 21-23 for rewrite-maven-plugin 6.12.0 and
-     camunda-7-to-8-code-conversion-recipes 0.3.x. Java 24+ is outside the
-     known-safe window for that plugin line.
+   - The repository's recipe module supports Java 21-25 (`[21,26)`). Check
+     the selected project's OpenRewrite configuration for any stricter
+     requirement before running.
    - If `java` is missing or outside that window, use AskUserQuestion to ask
      for an alternate JDK home (the directory containing `bin/java`). Do not
      install Java or change the user's system configuration automatically.
