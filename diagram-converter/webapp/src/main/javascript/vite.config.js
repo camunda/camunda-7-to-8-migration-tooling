@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // Design System CSS contains container-query placeholders unsupported by Lightning CSS.
-    cssMinify: false,
+    cssMinify: "esbuild",
   },
   test: {
     environment: "jsdom",

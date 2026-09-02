@@ -46,7 +46,7 @@
     <version.h2>2.4.240</version.h2>
     <version.guava>33.7.1-jre</version.guava>
     <version.errorprone>2.50.0</version.errorprone>
-    <version.node>v22.18.0</version.node>
+    <version.node>v24.15.0</version.node>
     <version.npm>10.8.2</version.npm>
     <version.httpcore5>5.4.3</version.httpcore5>
     <version.httpclient5>5.6.4</version.httpclient5>
