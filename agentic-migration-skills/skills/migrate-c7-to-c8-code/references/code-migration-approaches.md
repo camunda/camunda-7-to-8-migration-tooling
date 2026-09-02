@@ -61,25 +61,23 @@ Run platform-appropriate command:
 
 Before running, check Java runtime compatibility:
 
-1. Use the cross-platform discovery procedure in
-   `references/java-runtime-detection.md`.
-   - This phase requires Java 21-23 for
-     rewrite-maven-plugin 6.12.0 and
+1. Run `java -version` from `PATH`, capturing stderr, and record the actual
+   major version. Use `command -v java` on macOS/Linux, `Get-Command java` in
+   PowerShell, or `where java` in Windows Command Prompt to show which
+   executable is being checked.
+   - This phase requires Java 21-23 for rewrite-maven-plugin 6.12.0 and
      camunda-7-to-8-code-conversion-recipes 0.3.x. Java 24+ is outside the
      known-safe window for that plugin line.
-   - When the helper scripts are available, run
-     `sh scripts/detect-java.sh --min-major 21 --max-major 23` on POSIX
-     systems or
-     `& .\scripts\detect-java.ps1 -MinMajor 21 -MaxMajor 23` in PowerShell.
-     Otherwise apply the same source collection, validation, and ranking
-     rules manually.
-   - Keep the returned `JAVA_CMD`, `JAVA_HOME`, and `JAVA_MAJOR` values
-     together. Use the exact selected executable for Maven and scope
-     `JAVA_HOME` and `PATH` to that invocation. Never fall back to an
-     unvalidated `java` on `PATH`.
-   - Only when every discovery source is exhausted and no compatible JDK is
-     found, ask via AskUserQuestion to install one, then repeat discovery and
-     validation after installation.
+   - If `java` is missing or outside that window, use AskUserQuestion to ask
+     for an alternate JDK home (the directory containing `bin/java`). Do not
+     install Java or change the user's system configuration automatically.
+   - Validate the supplied home by executing its
+     `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
+     and checking the actual major version. Reject missing `bin/javac`,
+     stale paths, JRE-only directories, and incompatible versions.
+   - Use the validated home only for this rewrite invocation: set
+     `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never fall back
+     to an unvalidated `java` on `PATH`.
 
 2. Inspect the build files to determine whether Spotless is configured.
 

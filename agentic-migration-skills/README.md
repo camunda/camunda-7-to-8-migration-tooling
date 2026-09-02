@@ -63,7 +63,7 @@ The skill recommends a model intended for complex reasoning, with illustrative I
 
 | Approach | What it does |
 |----------|-------------|
-| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases and runs it locally against your diagrams, targeting your C8 version. Deterministic; produces converted files + JSON/XLSX analysis. Requires a discoverable Java 21+ JDK |
+| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases and runs it locally against your diagrams, targeting your C8 version. Deterministic; produces converted files + CSV/XLSX analysis. Requires Java 21+ |
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly — for when Java 21 is unavailable or you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/) — no local Java needed |
 
@@ -74,7 +74,7 @@ semantic gap for user review, and links/deploys only explicitly accepted forms.
 
 If no BPMN/DMN model is found under the project root, the skill can offer C7 engine REST as a source. It asks for a reachable C7 REST URL and the required authentication, persists the original definitions, then runs the Diagram Converter locally; when local models are present, it does not offer or request engine access. REST supports optional Basic authentication and latest or named BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
-The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a single shell dialect. Its shared [Java runtime discovery procedure](skills/migrate-c7-to-c8-code/references/java-runtime-detection.md) covers macOS, Linux, Windows, package managers, and version managers, with optional POSIX and PowerShell helpers.
+The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a POSIX shell dialect.
 
 ## Structure
 
@@ -82,9 +82,7 @@ The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_I
 plugin.json                         ← Copilot CLI plugin manifest
 skills/
 └── migrate-c7-to-c8-code/
-    ├── SKILL.md    ← skill definition (agentskills.io format)
-    ├── references/  ← migration procedures and compatibility guidance
-    └── scripts/    ← optional cross-platform runtime helpers
+    └── SKILL.md    ← skill definition (agentskills.io format)
 ```
 
 ## License

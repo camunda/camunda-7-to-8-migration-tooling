@@ -39,17 +39,15 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Use `references/java-runtime-detection.md` to discover and validate a JDK
-from all applicable sources. Pass a minimum major version of `21` and no
-maximum; the OpenRewrite upper bound does not apply to the Diagram Converter
-CLI. Record the selected `JAVA_CMD`, `JAVA_HOME`, and actual `JAVA_MAJOR`.
-If no compatible JDK is found, STOP and explain:
+Run `java -version` from `PATH`, capturing stderr, and record the actual major
+version. The Diagram Converter CLI requires a minimum major version of `21`;
+do not apply the OpenRewrite upper bound. If `java` is missing or below 21,
+use AskUserQuestion to request an alternate JDK home, validate its
+`bin/java` (Windows: `bin/java.exe`) and `bin/javac`, and check its actual
+version before proceeding. Use the validated executable and home only for the
+converter invocation.
 
-> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Install Java 21+ and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
-
-Only after the complete discovery process finds no compatible JDK, ask via
-AskUserQuestion whether to install Java 21+, then repeat discovery before
-offering M2 or M3.
+> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home/path and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
 Do not silently skip model migration.
 
@@ -73,6 +71,9 @@ The CLI local subcommand accepts a single file or a directory (recursive by defa
 ```
 "$JAVA_CMD" -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version> --json --xlsx
 ```
+
+Set `JAVA_CMD` to the validated `bin/java` (Windows: `bin\java.exe`) from
+the selected JDK home before running the command.
 
 In PowerShell, invoke the selected path with `& $JAVA_CMD` instead of using a
 bare `java` command.
