@@ -771,6 +771,49 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,history-only
 
+  # Cross-vendor history integration tests: Camunda 7 on MS SQL Server, Camunda 8 on PostgreSQL.
+  # Not part of the single-vendor DB matrix; label-gated on PRs, runs on schedule and manual dispatch.
+  it-history-cross-vendor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    permissions:
+      contents: read
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && (
+        contains(github.event.pull_request.labels.*.name, 'ci:db:cross-vendor') ||
+        contains(github.event.pull_request.labels.*.name, 'ci:db:all')
+      ))
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Import secrets
+        id: secrets
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
+        with:
+          url: ${{ secrets.VAULT_ADDR }}
+          method: approle
+          roleId: ${{ secrets.VAULT_ROLE_ID }}
+          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          secrets: |
+            secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
+            secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
+        with:
+          vault-address: ${{ secrets.VAULT_ADDR }}
+          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Run history tests with MS SQL Server source and PostgreSQL target
+        working-directory: data-migrator
+        run: mvn verify -Psqlserver-to-postgresql,integration,history-only
+
   it-history-h2-windows:
     needs: [detect-changes]
     runs-on: windows-latest
