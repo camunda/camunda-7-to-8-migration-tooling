@@ -48,7 +48,11 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
 
   private ConverterProperties merge(
       DefaultConverterProperties base, ConverterProperties properties) {
+    boolean usesConfiguredPlatformVersion = properties.getPlatformVersion() == null;
     readDefaultValues(base, properties);
+    if (usesConfiguredPlatformVersion) {
+      TargetPlatformVersionPolicy.verifyConfiguredDefault(base.getPlatformVersion());
+    }
     return base;
   }
 

@@ -33,19 +33,11 @@ import DmnPreview from "./DmnPreview";
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
 import { getPreviewType } from "./modelType";
-
-// Target Camunda 8 versions offered in the UI. This is a curated subset of the
-// versions the backend understands (SemanticVersion.java); we only surface the
-// versions users realistically target today. The default mirrors the backend
-// default in converter-properties.properties (zeebe-platform.version=8.9), which
-// is the latest generally available release. 8.10 is offered for users already
-// targeting the upcoming release.
-const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.8", label: "8.8", hint: "Previous stable" },
-  { value: "8.9", label: "8.9", hint: "Latest stable" },
-  { value: "8.10", label: "8.10", hint: "Next version" },
-];
-const DEFAULT_PLATFORM_VERSION = "8.9";
+import {
+  DEFAULT_PLATFORM_VERSION,
+  getPlatformVersionAriaLabel,
+  SUPPORTED_PLATFORM_VERSIONS,
+} from "./platformVersions";
 
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.
@@ -805,6 +797,7 @@ function App() {
                     key={version.value}
                     type="button"
                     role="radio"
+                    aria-label={getPlatformVersionAriaLabel(version)}
                     aria-checked={platformVersion === version.value}
                     tabIndex={platformVersion === version.value ? 0 : -1}
                     className={

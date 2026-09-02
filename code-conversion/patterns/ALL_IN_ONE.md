@@ -18,6 +18,7 @@ Patterns:
     - [Cancel Process Instance](#cancel-process-instance)
     - [Correlate Messages](#correlate-messages)
     - [Evaluate Decisions (DMN)](#evaluate-decisions-dmn)
+    - [File Variables &#8594; Document API](#file-variables-8594-document-api)
     - [Handle Variables](#handle-variables)
     - [Handle Resources](#handle-resources)
     - [Handle User Tasks](#handle-user-tasks)
@@ -26,6 +27,7 @@ Patterns:
     - [Search Process Definitions](#search-process-definitions)
     - [Starting Process Instances](#starting-process-instances)
 - [Glue code](#glue-code)
+  - [Outbound HTTP &#8594; REST Connector](#outbound-http-8594-rest-connector)
   - [JavaDelegate &#8594; Job Worker (Spring)](#javadelegate-8594-job-worker-spring)
     - [Class-level Changes](#class-level-changes)
     - [Handling a BPMN error](#handling-a-bpmn-error)
@@ -341,11 +343,12 @@ If your target version is **8.8**, use tags (for example, `order:1234`) or store
     }
 ```
 
--   the Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not)
--   the Business ID is automatically propagated to child instances created via call activities
--   uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts
--   maximum length is 256 characters
--   for more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id)
+-   The Business ID is immutable — it cannot be changed or removed after creation (Camunda 7 allowed updating the business key, Camunda 8 does not).
+-   If the migrated process updates its business key during execution, neither Business ID nor tags fit. Keep it as a plain `businessKey` process variable and filter by variable in searches; note that it loses engine-level correlation identity.
+-   The Business ID is automatically propagated to child instances created via call activities.
+-   Uniqueness can be enforced at the cluster level: only one *running* root instance per process definition may carry the same Business ID, which enables idempotent process starts.
+-   Maximum length is 256 characters.
+-   For more information, see [the docs on process instance creation](https://docs.camunda.io/docs/components/concepts/process-instance-creation/#business-id).
 
 ###### Searching by Business Key
 
@@ -561,6 +564,44 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 -   the result is returned as JSON: `response.getDecisionOutput()` contains the output, `response.getEvaluatedDecisions()` the details of all evaluated (required) decisions
 -   `DmnDecisionTableResult` convenience methods like `getSingleEntry()` have no direct equivalent — parse the JSON output instead
 -   decisions evaluated *inside* a process should be modeled as a BPMN business rule task instead of being evaluated from glue code; the task's binding (`latest`, `deployment`, `versionTag`) controls version selection
+
+---
+
+#### File Variables &#8594; Document API
+
+<a id="file-variables-8594-document-api"></a>
+
+In Camunda 7, files are stored as `FileValue` process variables (Typed Value API) carrying content plus filename and MIME type. Camunda 8 has no typed file variable: files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
+
+###### Creating a File Variable
+
+###### ProcessEngine (Camunda 7)
+
+```java
+    public void storeFile(DelegateExecution execution) {
+        FileValue contract = Variables.fileValue("contract.pdf")
+                .file(fileBytes)
+                .mimeType("application/pdf")
+                .create();
+        execution.setVariable("contract", contract);
+    }
+```
+
+###### CamundaClient (Camunda 8)
+
+```java
+    public DocumentReferenceResponse storeDocument(byte[] fileBytes) {
+        return camundaClient.newCreateDocumentCommand()
+                .content(fileBytes)
+                .fileName("contract.pdf")
+                .contentType("application/pdf")
+                .send()
+                .join(); // add reactive response and error handling instead of join()
+    }
+```
+
+-   store the document reference returned by `DocumentReferenceResponse` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
+-   documents have store-specific time-to-live and size limits — check the document handling docs for your storage backend
 
 ---
 
@@ -1303,6 +1344,21 @@ The glue code patterns look into the different scenarios and proposes code conve
 | `camunda:expression`             | `camunda:expression="${someBean.doStuff()}"`    | `someBeanDoStuff`                  | Method name used as job type; original expression saved as header so you can have your own worker evaluating the original expression     | [Java Expression](15-java-expression/README.md) |
 | No implementation / fallback     | *(none or unsupported type)*                    | `defaultJobType`           | Uses configured fallback (`"camunda-7-job"` by default)               | — |
 
+
+### Outbound HTTP &#8594; REST Connector
+
+<a id="outbound-http-8594-rest-connector"></a>
+
+C7 outbound HTTP uses the `camunda:connector` / **http-connector** extension or hand-rolled HTTP client code inside a delegate/worker. Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) — prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
+
+| Camunda 7                                          | Camunda 8                                  |
+| -------------------------------------------------- | ------------------------------------------ |
+| `camunda:connector` with http-connector, HTTP client code in a delegate/worker | Service task with the out-of-the-box REST connector (URL, method, headers, authentication, result expression configured on the element; no Java code) |
+
+-   the connector's result expression maps the HTTP response into process variables — replacing the delegate's `setVariable` calls
+-   keep a custom `@JobWorker` only for what the connector cannot express (complex multi-step logic, non-HTTP protocols)
+
+---
 
 ### JavaDelegate &#8594; Job Worker (Spring)
 
