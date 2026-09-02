@@ -30,15 +30,10 @@ import FindingsSection from "./FindingsSection";
 import BpmnJS from 'bpmn-js';
 import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
-
-// The converter accepts target versions independently of the Camunda libraries
-// used to build this release line. Keep the UI choices aligned with the
-// supported SemanticVersion values and the backend default.
-const SUPPORTED_PLATFORM_VERSIONS = [
-  { value: "8.8", label: "8.8", hint: "Previous stable" },
-  { value: "8.9", label: "8.9", hint: "Latest stable" },
-];
-const DEFAULT_PLATFORM_VERSION = "8.9";
+import {
+  DEFAULT_PLATFORM_VERSION,
+  SUPPORTED_PLATFORM_VERSIONS,
+} from "./platformVersions";
 
 // Combined batch actions (ZIP download, XLSX/CSV/JSON analysis export) send
 // every uploaded file plus the config fields in a single multipart request.

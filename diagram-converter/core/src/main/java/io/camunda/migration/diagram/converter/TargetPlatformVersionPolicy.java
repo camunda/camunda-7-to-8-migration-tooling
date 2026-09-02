@@ -7,12 +7,12 @@
  */
 package io.camunda.migration.diagram.converter;
 
-public final class TargetPlatformVersionPolicy {
-  public static final String LATEST_STABLE = "8.9";
+final class TargetPlatformVersionPolicy {
+  static final String LATEST_STABLE = "8.9";
 
   private TargetPlatformVersionPolicy() {}
 
-  public static void validateDefault(String platformVersion) {
+  static void validateDefault(String platformVersion) {
     if (!LATEST_STABLE.equals(platformVersion)) {
       throw new IllegalStateException(
           "The default target platform version must be "
