@@ -467,6 +467,63 @@ describe("preview routing", () => {
   });
 });
 
+describe("accessibility", () => {
+  it("renders exactly one h1, followed by a logical heading outline", () => {
+    render(<App />);
+
+    const headings = screen.getAllByRole("heading");
+    const h1s = headings.filter((heading) => heading.tagName === "H1");
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe(
+      "Camunda Migration Analyzer & Diagram Converter"
+    );
+
+    // The configure step's section headings follow the h1 as h2s (not h3/h4),
+    // so the drop zone's instruction no longer competes with the page title.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Add files" })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Configure conversion" })
+    ).toBeTruthy();
+  });
+
+  it("gives the remove-file button an accessible name that includes the filename", () => {
+    testState.files.splice(0, testState.files.length, {
+      name: "invoice.bpmn",
+      text: vi.fn(),
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    expect(
+      screen.getByRole("button", { name: "Remove invoice.bpmn" })
+    ).toBeTruthy();
+  });
+
+  it("gives the download button an accessible name that includes the filename, once converted", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content:
+        '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert to Camunda/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    expect(
+      await screen.findByRole("button", { name: "Download process.bpmn" })
+    ).toBeTruthy();
+  });
+});
+
 describe("upload onboarding guidance", () => {
   // The 94-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
@@ -521,12 +578,12 @@ describe("upload onboarding guidance", () => {
         name: `model-${i}.bpmn`,
         text: vi.fn(),
       }))
-    );
+   );
 
-    render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+   render(<App />);
+   fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
 
-    const alert = screen.getByRole("alert");
+   const alert = screen.getByRole("alert");
     expect(alert.textContent).toMatch(
       new RegExp(`Approaching the batch limit \\(${BATCH_FILE_WARNING_THRESHOLD} of ${MAX_BATCH_FILES} files\\)`)
     );
@@ -568,7 +625,7 @@ describe("upload onboarding guidance", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toMatch(
       new RegExp(`Batch limit exceeded \\(${MAX_BATCH_FILES} max, ${uploadedCount} added\\)`)
-    );
+   );
   });
 });
 
@@ -1152,7 +1209,7 @@ describe("per-file request failures and retry", () => {
     ]);
 
     const goodRow = await screen.findByText("good.bpmn").then((el) => el.closest(".FileItem"));
-    await within(goodRow).findByRole("button", { name: "Download converted model" });
+    await within(goodRow).findByRole("button", { name: "Download good.bpmn" });
 
     const badRow = fileRow("bad.bpmn");
     await within(badRow).findByRole("alert");
@@ -1160,13 +1217,13 @@ describe("per-file request failures and retry", () => {
 
     fireEvent.click(within(badRow).getByRole("button", { name: "Retry" }));
 
-    await within(badRow).findByRole("button", { name: "Download converted model" });
+    await within(badRow).findByRole("button", { name: "Download bad.bpmn" });
 
     // Retry only re-ran /check + /convert for the failed file.
     expect(fetchMock.mock.calls.length).toBe(callsBeforeRetry + 2);
 
     // The other, already-completed row was left untouched.
-    expect(within(goodRow).getByRole("button", { name: "Download converted model" })).toBeTruthy();
+    expect(within(goodRow).getByRole("button", { name: "Download good.bpmn" })).toBeTruthy();
     expect(within(goodRow).queryByRole("alert")).toBeNull();
   });
 });
@@ -1298,7 +1355,7 @@ describe("single loading indicator per file", () => {
       blob: vi.fn().mockResolvedValue(new Blob(["converted"])),
     });
 
-    await within(row).findByRole("button", { name: "Download converted model" });
+    await within(row).findByRole("button", { name: "Download slow.bpmn" });
     expect(within(row).queryByRole("status")).toBeNull();
   });
 });

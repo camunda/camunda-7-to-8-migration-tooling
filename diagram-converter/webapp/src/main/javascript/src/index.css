@@ -46,14 +46,6 @@ body {
 section {
   margin: 18px 0;
 
-  h4 {
-    text-decoration: none;
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 22px;
-    margin-bottom: 10px;
-  }
-
   p {
     font-size: inherit;
   }
@@ -70,13 +62,6 @@ section {
   padding: 32px 24px 0;
 }
 
-h1 {
-  margin: 50px;
-  font-size: 24px;
-  text-align: center;
-  font-weight: 600;
-}
-
 .whiteBox {
   padding: 28px 32px;
   background-color: var(--neutral-background-subtle);
@@ -85,10 +70,14 @@ h1 {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 
-  h2 {
+  h1 {
     font-size: 24px;
     line-height: 32px;
     font-weight: 600;
+    /* Explicit top margin: h1's UA default (0.67em) differs from the h2
+       default this heading used to rely on (0.83em), so pin it instead
+       of leaving spacing to vary by tag and user agent. */
+    margin-top: 20px;
     margin-bottom: 10px;
   }
 
@@ -202,7 +191,7 @@ h1 {
     opacity: 0.9;
   }
 
-  h2 {
+  .dropZoneTitle {
     font-weight: 600;
     font-size: 16px;
     line-height: 22px;
@@ -258,15 +247,6 @@ h1 {
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
-
-      &.downloadable {
-        color: var(--primary-action-default);
-        cursor: pointer;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
     }
   }
 
@@ -348,6 +328,18 @@ h3 {
   font-size: 19px;
   line-height: 26px;
   text-decoration: none;
+}
+
+/* Same visual style as h3, used for h2 section headings that follow the
+   page's single h1 (see .whiteBox h1) without changing their appearance.
+   Margin is set explicitly because h2's UA default (0.83em) differs from
+   the h3 default (1em) this heading used to rely on. */
+.sectionHeading {
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 26px;
+  text-decoration: none;
+  margin: 19px 0;
 }
 
 hr {
@@ -629,7 +621,7 @@ th, td {
   margin-bottom: 10px;
 }
 
-.flowStepHeader h4 {
+.flowStepHeader h2 {
   margin: 0;
   text-decoration: none;
   font-size: 18px;
