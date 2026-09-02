@@ -590,7 +590,7 @@ In Camunda 7, files are stored as `FileValue` process variables (Typed Value API
 ###### CamundaClient (Camunda 8)
 
 ```java
-    public DocumentReference storeDocument(byte[] fileBytes) {
+    public DocumentReferenceResponse storeDocument(byte[] fileBytes) {
         return camundaClient.newCreateDocumentCommand()
                 .content(fileBytes)
                 .fileName("contract.pdf")
@@ -600,7 +600,7 @@ In Camunda 7, files are stored as `FileValue` process variables (Typed Value API
     }
 ```
 
--   store the plain `DocumentReference` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
+-   store the document reference returned by `DocumentReferenceResponse` in the process variable; forms consuming it (e.g. a `documentPreview` component) expect a FEEL expression over an *array* — do the one-element wrap (`[contract]`) in the form's FEEL, not in the variable
 -   documents have store-specific time-to-live and size limits — check the document handling docs for your storage backend
 
 ---
