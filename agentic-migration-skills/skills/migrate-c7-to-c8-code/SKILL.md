@@ -28,7 +28,7 @@ Recheck before AI-only, agentic rewrites, or AI cleanup if the host allows model
 2. Project contains one or more of: JavaDelegate implementations, ExternalTaskWorkers, ProcessEngine/RuntimeService client code, execution/task listeners, BPMN/DMN files with camunda: namespace, or application config with camunda.* keys
 3. Target is Camunda 8 version 8.8, 8.9, or 8.10
 4. For OpenRewrite approach (recommended): Maven or Gradle build system available
-5. For Diagram Converter CLI: Java 21+ available (alternatives exist if not)
+5. For Diagram Converter CLI: Java 21+ is available on `PATH` or through a user-supplied JDK home (alternatives exist if not)
 
 ## Implementation Steps
 
@@ -53,6 +53,9 @@ Shared rules that apply throughout all subsequent steps:
 - Never mutate user assets silently. Models convert to converted-c8-* copies; originals stay intact. When migrating into a separate target location (e.g. a sibling C8 project), treat the C7 project as read-only: copy assets over, never edit in place.
 - Load the pattern catalog before editing. Never guess API/XML mappings. See `references/pattern-catalog-sources.md`.
 - Respect the target version. Do not offer features from a higher version than selected.
+- For every Java-dependent phase, check `java -version` on `PATH` first. If
+  its major version is missing or incompatible, ask for and validate an
+  alternate JDK home before proceeding; keep it scoped to that phase.
 - Prefer deterministic over agentic. Code: OpenRewrite + AI over AI-only. Models: CLI over agentic rewrite.
 - Conversion is not completion. Converter WARNING, TASK, and REVIEW findings need human follow-up.
   INFO findings are informational unless a later cross-check identifies work.

@@ -61,19 +61,27 @@ Run platform-appropriate command:
 
 Before running, check Java runtime compatibility:
 
-1. Detect installed JDKs and pick one compatible with the selected OpenRewrite + recipe versions.
-   - For rewrite-maven-plugin 6.12.0 + camunda-7-to-8-code-conversion-recipes 0.3.x, the known-safe window is Java 21-23 (recipes require Java 21+, while this rewrite plugin line can fail on Java 24+).
-   - Combine all applicable discovery sources; a source returning no results does not prove that no JDK is installed:
-     - the current `JAVA_HOME` value, if set (validate it rather than trusting it);
-     - `/usr/libexec/java_home -V` on macOS (including its stderr output);
-     - Homebrew keg-only JDKs under `/opt/homebrew/opt/openjdk@*/` (Apple Silicon) and `/usr/local/opt/openjdk@*/` (Intel), checking both the formula prefix and the common nested `libexec/openjdk.jdk/Contents/Home` JDK home;
-     - the macOS JDK root `/Library/Java/JavaVirtualMachines/*/Contents/Home`;
-     - common version-manager roots such as `~/.sdkman/candidates/java/`, `~/.jenv/versions/`, and `~/.asdf/installs/java/`;
-     - platform-equivalent standard JDK roots, such as `/usr/lib/jvm/` on Linux and the Java installation directories on Windows.
-   - For every candidate, resolve symlinks, deduplicate paths, require a real `<jdk-home>/bin/java`, and execute that binary to read its actual major version. Do not infer the version only from a directory name or from `java` on `PATH`; ignore stale, JRE-only, and incompatible candidates.
-   - Prefer an already-installed compatible JDK over asking to install one. Use the current `JAVA_HOME` when it is compatible; otherwise choose deterministically from the discovered candidates, preferring Java 21 and then the other versions in the compatible window. Continue discovery when `JAVA_HOME` or `/usr/libexec/java_home -V` reports only incompatible versions, such as Java 17 and 26.
-   - Scope `JAVA_HOME` and `PATH` to the rewrite invocation using the selected JDK (for example, `JAVA_HOME=<jdk-home>` and `<jdk-home>/bin` first on `PATH`). Do not modify shell profiles, create system-wide symlinks, or require the optional Homebrew link step.
-   - Only when no compatible JDK is found by any source, ask via AskUserQuestion to install one (e.g., `brew install openjdk@21` on macOS), wait for confirmation, and run the complete discovery and validation process again afterward.
+1. Run `java -version` from `PATH`, capturing stderr, and record the actual
+   major version. Use `command -v java` on macOS/Linux, `Get-Command java` in
+   PowerShell, or `where java` in Windows Command Prompt to show which
+   executable is being checked.
+   - The repository's recipe module supports Java 21-25 (`[21,26)`). Check
+     the selected project's OpenRewrite configuration for any stricter
+     requirement before running.
+   - If `java` is missing or outside that window, use AskUserQuestion to ask
+     for an alternate JDK home (the directory containing `bin/java`). Do not
+     install Java or change the user's system configuration automatically.
+   - Validate the supplied home by executing its
+     `bin/java` (Windows: `bin/java.exe`) with `-version`, capturing stderr,
+     and checking the actual major version. Reject missing `bin/javac`
+     (Windows: `bin/javac.exe`), stale paths, JRE-only directories, and
+     incompatible versions.
+   - If multiple validated compatible homes are available, choose the lowest
+     compatible major version to keep runs reproducible: prefer 21, then 22,
+     23, 24, 25.
+   - Use the validated home only for this rewrite invocation: set
+     `JAVA_HOME` and prepend its `bin` directory to `PATH`. Never fall back
+     to an unvalidated `java` on `PATH`.
 
 2. Inspect the build files to determine whether Spotless is configured.
 

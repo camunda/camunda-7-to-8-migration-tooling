@@ -39,9 +39,17 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Detect whether Java is installed and record its major version. If java is missing or major version < 21, STOP and explain:
+Run `java -version` from `PATH`, capturing stderr, and record the actual major
+version. The Diagram Converter CLI requires a minimum major version of `21`;
+do not apply the OpenRewrite upper bound. If `java` is missing or below 21,
+use AskUserQuestion to request an alternate JDK home, validate its
+`bin/java` (Windows: `bin/java.exe`), and check its actual version before
+proceeding. If multiple validated compatible homes are available, choose the
+lowest compatible major version (prefer 21) to keep runs reproducible. Use the
+validated executable and home only for the converter
+invocation.
 
-> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Install Java 21+ and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
+> The Diagram Converter CLI requires Java 21+. Detected: `<version or "not found">`. Provide an alternate JDK home and re-run, or choose M2 (agentic AI) which needs no Java, or M3 (online converter).
 
 Do not silently skip model migration.
 
@@ -63,8 +71,14 @@ The JAR is ~30 MB. If the project is a git repo, recommend adding `.camunda-migr
 The CLI local subcommand accepts a single file or a directory (recursive by default). Always pass `--platform-version` set to the target version from the interview.
 
 ```
-java -Dfile.encoding=UTF-8 -jar <jar> local <file-or-dir> --platform-version <target-version> --json --xlsx
+"<java-cmd>" -Dfile.encoding=UTF-8 -jar "<jar>" local "<file-or-dir>" --platform-version "<target-version>" --json --xlsx
 ```
+
+On Windows PowerShell, prefix the command with the call operator: `& "<java-cmd>" ...`.
+Replace `<java-cmd>` with the validated `bin/java` path from the selected JDK home.
+
+Do not use a bare `java` command after an alternate executable has been
+selected.
 
 Recommended flags:
 - `--json` - always pass this; the JSON report is the machine-readable input parsed in step 5. Requires a CLI release that includes the flag (0.3.6 or later) — if the run fails with `Unknown option: '--json'`, the downloaded JAR predates it; re-resolve the latest release (step 2).
