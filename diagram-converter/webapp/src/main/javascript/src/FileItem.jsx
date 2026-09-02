@@ -45,13 +45,7 @@ export default function FileItem({
       <div className="FileItemMain">
         <div className="left">
           <img src={Paperclip} />
-          <span
-            className={isConverted && downloadAction && !error ? "downloadable" : ""}
-            onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
-            title={name}
-          >
-            {name}
-          </span>
+          <span title={name}>{name}</span>
           {status === "success" && (
             <div style={{ color: "#2ada1e" }}>
               <CheckmarkFilled />
@@ -77,6 +71,7 @@ export default function FileItem({
           )}
           {isChecked && previewAction && (
             <button
+              type="button"
               className="download"
               onClick={previewAction}
               title={previewTitle}
@@ -87,16 +82,22 @@ export default function FileItem({
           )}
           {isConverted && downloadAction && !error && (
             <button
+              type="button"
               className="download"
               onClick={downloadAction}
-              title="Download converted model"
-              aria-label="Download converted model"
+              title={`Download ${name}`}
+              aria-label={`Download ${name}`}
             >
               <Download />
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete}>
+            <button
+              type="button"
+              onClick={onDelete}
+              title={`Remove ${name}`}
+              aria-label={`Remove ${name}`}
+            >
               <TrashCan />
             </button>
           )}

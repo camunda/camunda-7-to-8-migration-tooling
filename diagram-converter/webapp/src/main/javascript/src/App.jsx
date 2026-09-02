@@ -663,7 +663,7 @@ function App() {
       <div className="whiteBox">
         <div>
           <div>
-            <h2>Camunda Migration Analyzer &amp; Diagram Converter</h2>
+            <h1>Camunda Migration Analyzer &amp; Diagram Converter</h1>
             <p>
               Convert BPMN, DMN, and Camunda Form files to Camunda 8 and see what needs attention.
             </p>
@@ -719,7 +719,7 @@ function App() {
         {step === 0 && (
           <>
             <section>
-              <h4>Add files</h4>
+              <h2>Add files</h2>
               <p>
                 Upload BPMN or DMN models to analyze and convert, or Camunda Forms
                 to convert.
@@ -784,7 +784,7 @@ function App() {
             </p>
 
             <Form className="configBox" onSubmit={(e) => e.preventDefault()}>
-              <h4>
+              <h2>
                 <Settings style={{ marginRight: '0.5rem' }} />
                 Advanced options
                 <Button
@@ -795,7 +795,7 @@ function App() {
                 >
                   {showConfig ? 'Hide' : 'Show'}
                 </Button>
-              </h4>
+              </h2>
             {showConfig && (
                 <FormGroup legendText="">
                   <Checkbox
@@ -925,7 +925,7 @@ function App() {
               </Button>
             </div>
             <section>
-              <h3>Converted files</h3>
+              <h2 className="sectionHeading">Converted files</h2>
               <p>
                 Download each converted file or all of them as a ZIP. Use the eye
                 icon to preview analysis findings for each file; BPMN files also
@@ -968,7 +968,7 @@ function App() {
             <hr />
 
             <section>
-              <h3>Analysis results</h3>
+              <h2 className="sectionHeading">Analysis results</h2>
               <p>Download the findings for all converted files:</p>
               <div className="download-options">
                 <div className="download-row">
@@ -1025,8 +1025,8 @@ function App() {
             </section>
             <hr />
 
-            <h3>Next steps</h3>
             <section>
+              <h2 className="sectionHeading">Next steps</h2>
               <p>
                 Continue your Camunda 7 to 8 migration with the step-by-step
                 migration guide.

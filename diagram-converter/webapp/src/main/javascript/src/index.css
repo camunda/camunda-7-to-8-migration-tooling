@@ -30,12 +30,12 @@ body {
 section {
   margin: 18px 0;
 
-  h4 {
+  h2:not(.sectionHeading) {
     text-decoration: underline;
     font-size: 16px;
     font-weight: 400;
     line-height: 22px;
-    margin-bottom: 10px;
+    margin: 0 0 10px;
   }
 
   p {
@@ -58,23 +58,16 @@ section {
   padding: 32px 24px 0;
 }
 
-h1 {
-  margin: 50px;
-  font-size: 24px;
-  text-align: center;
-  font-weight: 600;
-}
-
 .whiteBox {
   padding: 16px 24px;
   background-color: white;
   margin-bottom: 20px;
 
-  h2 {
+  h1 {
     font-size: 20px;
     line-height: 28px;
     font-weight: 400;
-    margin-bottom: 8px;
+    margin: 0 0 8px;
   }
 
   p {
@@ -138,7 +131,7 @@ h1 {
     margin-bottom: 20px;
   }
 
-  h2 {
+  .dropZoneTitle {
     font-weight: 600;
     font-size: 16px;
     line-height: 22px;
@@ -189,15 +182,6 @@ h1 {
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
-
-      &.downloadable {
-        color: #1890ff;
-        cursor: pointer;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
     }
   }
 
@@ -280,6 +264,14 @@ h3 {
   font-size: 18px;
   line-height: 22px;
   text-decoration: underline;
+}
+
+.sectionHeading {
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 22px;
+  text-decoration: underline;
+  margin: 18px 0;
 }
 
 hr {
@@ -469,6 +461,14 @@ th, td {
   background-color: #f4f4f4; /* Carbon's Gray 10 */
   border: 1px solid #e0e0e0; /* Carbon's Gray 20 */
   border-radius: 4px;
+}
+
+.configBox > h2 {
+  text-decoration: underline;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  margin: 0 0 10px;
 }
 .form-spacer {
   margin-top: 2rem;
