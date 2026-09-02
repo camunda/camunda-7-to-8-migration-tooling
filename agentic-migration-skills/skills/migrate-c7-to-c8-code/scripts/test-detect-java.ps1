@@ -36,7 +36,12 @@ function Assert-OutputContains {
     }
 }
 
-if (-not $IsWindows) {
+$isWindows = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+$isWindowsVariable = Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue
+if ($null -ne $isWindowsVariable) {
+    $isWindows = [bool] $isWindowsVariable
+}
+if (-not $isWindows) {
     Write-Output 'Skipping detect-java.ps1 tests on non-Windows platforms'
     exit 0
 }
