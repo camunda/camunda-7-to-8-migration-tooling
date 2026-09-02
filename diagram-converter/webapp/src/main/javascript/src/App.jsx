@@ -802,7 +802,7 @@ function App() {
                     id="addDataMigrationExecutionListener"
                     labelText="Add data migration execution listener"
                     checked={configOptions.addDataMigrationExecutionListener}
-                    helperText="Add a listener for use with the Camunda 7 Data Migrator."
+                    aria-describedby="addDataMigrationExecutionListenerHint"
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -810,11 +810,16 @@ function App() {
                       }))
                     }
                   />
+                  <p id="addDataMigrationExecutionListenerHint" className="configOptionHint">
+                    Adds an execution listener to blank start events so the Camunda 7 Data
+                    Migrator can track migrated instances.
+                  </p>
                   <TextInput
                     id="dataMigrationExecutionListenerJobType"
                     labelText="Execution listener job type"
                     value={configOptions.dataMigrationExecutionListenerJobType}
                     disabled={!configOptions.addDataMigrationExecutionListener}
+                    aria-describedby="dataMigrationExecutionListenerJobTypeHint"
                     onChange={(e) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -822,12 +827,16 @@ function App() {
                       }))
                     }
                   />
+                  <p id="dataMigrationExecutionListenerJobTypeHint" className="configOptionHint">
+                    Job type used by the listener. Available when "Add data migration
+                    execution listener" is selected.
+                  </p>
                   <div className="form-spacer" />
                   <Checkbox
                     id="keepJobTypeBlank"
                     labelText="Keep job type blank"
                     checked={configOptions.keepJobTypeBlank}
-                    helperText="Don't set a job type in process models."
+                    aria-describedby="keepJobTypeBlankHint"
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -835,12 +844,16 @@ function App() {
                       }))
                     }
                   />
+                  <p id="keepJobTypeBlankHint" className="configOptionHint">
+                    Leaves the job type empty on converted delegates so you can set it
+                    yourself after conversion.
+                  </p>
                   <div className="form-spacer" />
                   <Checkbox
                     id="defaultJobTypeEnabled"
                     labelText="Always use default job type"
                     checked={configOptions.defaultJobTypeEnabled}
-                    helperText="Always use the job type below instead of the delegate expression or class name."
+                    aria-describedby="alwaysUseDefaultJobTypeHint"
                     disabled={configOptions.keepJobTypeBlank}
                     onChange={(e, { checked }) =>
                       setConfigOptions((prev) => ({
@@ -849,11 +862,17 @@ function App() {
                       }))
                     }
                   />
+                  <p id="alwaysUseDefaultJobTypeHint" className="configOptionHint">
+                    Fills every delegate's job type with the default value below, for
+                    example to route all delegates to one job worker such as the Camunda 7
+                    Adapter. Available when "Keep job type blank" is cleared.
+                  </p>
                   <TextInput
                     id="defaultJobType"
                     labelText="Default job type"
                     value={configOptions.defaultJobType}
                     disabled={configOptions.keepJobTypeBlank}
+                    aria-describedby="defaultJobTypeHint"
                     onChange={(e) =>
                       setConfigOptions((prev) => ({
                         ...prev,
@@ -861,6 +880,10 @@ function App() {
                       }))
                     }
                   />
+                  <p id="defaultJobTypeHint" className="configOptionHint">
+                    Job type applied when "Always use default job type" is selected.
+                    Available when "Keep job type blank" is cleared.
+                  </p>
                 </FormGroup>
             )}
             </Form>
@@ -987,7 +1010,7 @@ function App() {
                     Download JSON
                   </Button>
                   <p>
-                    Machine-readable findings, e.g. as input for AI-assisted
+                    Machine-readable findings, for example as input for
                     migration tooling.
                   </p>
                 </div>

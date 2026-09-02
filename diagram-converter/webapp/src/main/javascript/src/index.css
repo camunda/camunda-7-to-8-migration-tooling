@@ -533,3 +533,11 @@ th, td {
     font-size: 14px;
   }
 }
+
+/* Short explanations for advanced options and their dependent fields. */
+.configOptionHint {
+  margin: 0 0 0 1.5rem;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--neutral-foreground-subtle);
+}
