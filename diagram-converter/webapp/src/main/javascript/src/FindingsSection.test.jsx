@@ -105,6 +105,26 @@ describe("FindingsSection labels and legend", () => {
     expect(screen.getAllByRole("term").map((term) => term.textContent)).toContain("FUTURE FUTURE");
   });
 
+  it("normalizes missing severity values for display and filtering", () => {
+    render(
+      <FindingsSection
+        header={FINDINGS_TABLE_HEADER}
+        rows={[row(1, null), row(2, undefined), row(3, "INFO")]}
+      />
+    );
+
+    expect(severityCellsInOrder()).toEqual([
+      "No action needed (INFO)",
+      "Unknown (Unknown)",
+      "Unknown (Unknown)",
+    ]);
+
+    const unknownChip = screen.getByRole("button", { name: /Unknown Unknown \(2\)/ });
+    fireEvent.click(unknownChip);
+
+    expect(severityCellsInOrder()).toEqual(["No action needed (INFO)"]);
+  });
+
   it("only lists severities present in the current result set in the legend", () => {
     render(
       <FindingsSection header={FINDINGS_TABLE_HEADER} rows={[row(1, "TASK"), row(2, "INFO")]} />

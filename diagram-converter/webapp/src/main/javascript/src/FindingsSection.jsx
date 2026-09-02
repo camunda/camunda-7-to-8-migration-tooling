@@ -24,6 +24,11 @@ function severityRank(severity) {
 }
 
 const EMPTY_HIDDEN_SEVERITIES = new Set();
+const UNKNOWN_SEVERITY = "Unknown";
+
+function normalizeSeverity(severity) {
+  return severity || UNKNOWN_SEVERITY;
+}
 
 // Renders the findings table for a previewed file, plus the controls needed
 // to make large or mixed-severity result sets actionable:
@@ -52,14 +57,19 @@ export default function FindingsSection({
   }
 
   const severityCounts = [...rows.reduce((counts, row) => {
-    counts.set(row.severity, (counts.get(row.severity) || 0) + 1);
+    const severity = normalizeSeverity(row.severity);
+    counts.set(severity, (counts.get(severity) || 0) + 1);
     return counts;
   }, new Map())]
     .map(([severity, count]) => ({ severity, count }))
     .sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
 
-  const sortedRows = [...rows].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
-  const visibleRows = sortedRows.filter((row) => !hiddenSeverities.has(row.severity));
+  const sortedRows = [...rows].sort(
+    (a, b) => severityRank(normalizeSeverity(a.severity)) - severityRank(normalizeSeverity(b.severity))
+  );
+  const visibleRows = sortedRows.filter(
+    (row) => !hiddenSeverities.has(normalizeSeverity(row.severity))
+  );
   const isFiltered = hiddenSeverities.size > 0;
 
   function toggleSeverity(severity) {
@@ -166,6 +176,7 @@ export default function FindingsSection({
                   >
                     {header.map((h) => {
                       const value = row[h.key];
+                      const severity = normalizeSeverity(value);
                       if (h.key === 'elementId' && isLinkable) {
                         return (
                           <TableCell key={`${row.id}-${h.key}`}>
@@ -194,8 +205,8 @@ export default function FindingsSection({
                             ) : '-'
                           ) : h.key === 'severity' ? (
                             <span className="severity-cell">
-                              <span className="severity-cell-label">{getSeverityInfo(value).label}</span>
-                              <span className="severity-cell-code"> ({value})</span>
+                              <span className="severity-cell-label">{getSeverityInfo(severity).label}</span>
+                              <span className="severity-cell-code"> ({severity})</span>
                             </span>
                           ) : value}
                         </TableCell>
