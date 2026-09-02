@@ -36,6 +36,13 @@ public class MultiDbExtension implements BeforeAllCallback {
   public static final int MARIADB_10_PORT = 33063;
   public static final int SQLSERVER_PORT = 14331;
   
+  /**
+   * Cross-vendor profiles that require more than one database container: the profile name is
+   * mapped to the container keys it needs, in the order they are started.
+   */
+  protected static final Map<String, List<String>> CROSS_VENDOR_PROFILES =
+      Map.of("sqlserver-to-postgresql", List.of("sqlserver", "postgresql"));
+
   protected static final Logger LOGGER = LoggerFactory.getLogger(MultiDbExtension.class);
   protected static Map<String, JdbcDatabaseContainer<?>> containers = createContainers();
   
@@ -45,12 +52,17 @@ public class MultiDbExtension implements BeforeAllCallback {
 
   protected static void startContainer() {
     List<String> activeProfiles = SpringProfileResolver.getActiveProfiles();
-    String dbProfile = activeProfiles.stream().filter(containers.keySet()::contains).findFirst().orElse("default");
+    String dbProfile = activeProfiles.stream()
+        .filter(profile -> containers.containsKey(profile) || CROSS_VENDOR_PROFILES.containsKey(profile))
+        .findFirst()
+        .orElse("default");
     LOGGER.info("Running tests with DB profile [{}]", dbProfile);
-    JdbcDatabaseContainer<?> container = containers.get(dbProfile);
-    if (container != null) {
-      LOGGER.info("Starting container [{}]", dbProfile);
-      container.start();
+    for (String containerKey : CROSS_VENDOR_PROFILES.getOrDefault(dbProfile, List.of(dbProfile))) {
+      JdbcDatabaseContainer<?> container = containers.get(containerKey);
+      if (container != null) {
+        LOGGER.info("Starting container [{}]", containerKey);
+        container.start();
+      }
     }
   }
 

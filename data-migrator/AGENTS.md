@@ -70,6 +70,10 @@ mvn verify -Pintegration -Pmysql
 mvn verify -Pintegration -Pmariadb
 mvn verify -Pintegration -Psqlserver
 
+# Cross-vendor history run: Camunda 7 on MS SQL Server, Camunda 8 (RDBMS) on PostgreSQL.
+# Starts both containers; label-gated in CI via `ci:db:cross-vendor`.
+mvn verify -Pintegration,history-only -Psqlserver-to-postgresql
+
 # Combine: e.g. runtime tests on PostgreSQL
 mvn verify -Pintegration,runtime-only -Ppostgresql
 
