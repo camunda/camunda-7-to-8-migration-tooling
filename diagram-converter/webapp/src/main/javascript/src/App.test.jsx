@@ -524,6 +524,28 @@ describe("accessibility", () => {
   });
 });
 
+describe("target platform version", () => {
+  it("marks 8.9 as latest stable and selects it by default", () => {
+    render(<App />);
+
+    const versionGroup = screen.getByRole("radiogroup", {
+      name: "Target Camunda 8 version",
+    });
+    const options = within(versionGroup).getAllByRole("radio");
+
+    expect(options.map((option) => option.getAttribute("aria-label"))).toEqual([
+      "8.8 Previous stable",
+      "8.9 Latest stable",
+      "8.10 Next version",
+    ]);
+    expect(options.map((option) => option.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+  });
+});
+
 describe("upload onboarding guidance", () => {
   // The 94-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
