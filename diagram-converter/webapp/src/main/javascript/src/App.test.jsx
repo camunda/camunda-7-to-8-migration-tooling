@@ -508,11 +508,15 @@ describe("target platform version", () => {
     const previousStable = within(versionGroup).getByRole("radio", {
       name: "8.8 Previous stable",
     });
+    const nextVersion = within(versionGroup).getByRole("radio", {
+      name: "8.10 Next version",
+    });
 
     expect(within(versionGroup).getByText("Latest stable")).toBeTruthy();
     expect(latestStable.getAttribute("aria-checked")).toBe("true");
     expect(latestStable.getAttribute("tabindex")).toBe("0");
     expect(previousStable.getAttribute("aria-checked")).toBe("false");
+    expect(nextVersion.getAttribute("aria-checked")).toBe("false");
   });
 
   it("sends an explicitly selected 8.8 target to the conversion endpoints", async () => {

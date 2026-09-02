@@ -8,6 +8,7 @@
 const VERSION_HINTS = Object.freeze({
   PREVIOUS_STABLE: "Previous stable",
   LATEST_STABLE: "Latest stable",
+  NEXT: "Next version",
 });
 
 // Keep this list independent of the Camunda libraries used to build a release
@@ -15,6 +16,7 @@ const VERSION_HINTS = Object.freeze({
 export const SUPPORTED_PLATFORM_VERSIONS = Object.freeze([
   { value: "8.8", label: "8.8", hint: VERSION_HINTS.PREVIOUS_STABLE },
   { value: "8.9", label: "8.9", hint: VERSION_HINTS.LATEST_STABLE },
+  { value: "8.10", label: "8.10", hint: VERSION_HINTS.NEXT },
 ]);
 
 const latestStableVersions = SUPPORTED_PLATFORM_VERSIONS.filter(
