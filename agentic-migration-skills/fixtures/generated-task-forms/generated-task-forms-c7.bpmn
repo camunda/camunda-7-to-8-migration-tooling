@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_KycGeneratedForms" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.41.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
-  <bpmn:process id="kycOnboarding" name="KYC customer onboarding" isExecutable="true">
-    <bpmn:startEvent id="Start_KycApplication" name="Application received">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_KycGeneratedForm" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.41.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.24.0">
+  <bpmn:process id="kycApplicationReview" name="KYC application review" isExecutable="true">
+    <bpmn:startEvent id="Start_ApplicationReceived" name="Application received">
+      <bpmn:outgoing>Flow_ToReview</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_ReviewKycApplication" name="Review KYC application">
       <bpmn:extensionElements>
-        <camunda:formData businessKey="applicationId">
+        <camunda:formData>
           <camunda:formField id="applicationId" label="Application ID" type="string" defaultValue="KYC-2026-0001">
-            <camunda:properties>
-              <camunda:property id="sourceSystem" value="online-channel" />
-              <camunda:property id="displayOrder" value="1" />
-            </camunda:properties>
             <camunda:validation>
               <camunda:constraint name="required" />
             </camunda:validation>
           </camunda:formField>
           <camunda:formField id="applicantName" label="Applicant name" type="string" defaultValue="Ada Lovelace">
             <camunda:validation>
+              <camunda:constraint name="required" />
               <camunda:constraint name="minlength" config="2" />
               <camunda:constraint name="maxlength" config="120" />
             </camunda:validation>
@@ -25,182 +25,54 @@
               <camunda:constraint name="max" config="1000000" />
             </camunda:validation>
           </camunda:formField>
-          <camunda:formField id="reportedAssetValue" label="Reported asset value" type="long" defaultValue="9007199254740992" />
-          <camunda:formField id="consentGiven" label="Consent given" type="boolean" defaultValue="true">
-            <camunda:validation>
-              <camunda:constraint name="required" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="dateOfBirth" label="Date of birth" type="date" datePattern="dd/MM/yyyy" defaultValue="01/12/1985">
-            <camunda:validation>
-              <camunda:constraint name="readonly" />
-            </camunda:validation>
-          </camunda:formField>
+          <camunda:formField id="consentGiven" label="Consent given" type="boolean" defaultValue="false" />
+          <camunda:formField id="dateOfBirth" label="Date of birth" type="date" datePattern="yyyy-MM-dd" defaultValue="1985-12-01" />
           <camunda:formField id="riskTier" label="Risk tier" type="enum" defaultValue="standard">
             <camunda:value id="standard" name="Standard" />
             <camunda:value id="enhanced" name="Enhanced due diligence" />
             <camunda:value id="high" name="High risk" />
           </camunda:formField>
-          <camunda:formField id="nationalId" label="National identifier" type="string">
-            <camunda:validation>
-              <camunda:constraint name="validator" config="com.example.NationalIdValidator" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="invalidConstraint" label="Constraint requiring review" type="string">
-            <camunda:validation>
-              <camunda:constraint name="validator" config="${constraintConfig}" />
-            </camunda:validation>
-          </camunda:formField>
-        </camunda:formData>
-      </bpmn:extensionElements>
-      <bpmn:outgoing>Flow_ApplicationToCapture</bpmn:outgoing>
-    </bpmn:startEvent>
-    <bpmn:userTask id="Task_CaptureApplicant" name="Capture applicant information">
-      <bpmn:extensionElements>
-        <camunda:formData>
-          <camunda:formField id="legalName" label="Legal name" type="string" />
-          <camunda:formField id="countryOfResidence" label="Country of residence" type="enum" defaultValue="GB">
-            <camunda:value id="GB" name="United Kingdom" />
-            <camunda:value id="US" name="United States" />
-            <camunda:value id="DE" name="Germany" />
-          </camunda:formField>
-          <camunda:formField id="phoneNumber" label="Phone number" type="string" />
-          <camunda:formField id="consentConfirmed" label="Confirm consent" type="boolean" defaultValue="false" />
-        </camunda:formData>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_ApplicationToCapture</bpmn:incoming>
-      <bpmn:outgoing>Flow_CaptureToVerify</bpmn:outgoing>
-    </bpmn:userTask>
-    <bpmn:userTask id="Task_VerifyIdentity" name="Verify identity documents">
-      <bpmn:extensionElements>
-        <camunda:formData businessKey="missingBusinessKeyField">
-          <camunda:formField id="documentComment" label="${commentLabel}" type="string" defaultValue="${defaultComment}">
-            <camunda:validation>
-              <camunda:constraint name="required" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="applicant.address" label="Applicant address" type="string" />
-          <camunda:formField id="document-number" label="Document number" type="string" />
-          <camunda:formField id="missingLabel" type="string" />
-          <camunda:formField id="missingType" label="Missing type" />
-          <camunda:formField id="beneficialOwner" label="Beneficial owner" type="custom-party">
-            <camunda:properties>
-              <camunda:property id="partyRole" value="beneficial-owner" />
-            </camunda:properties>
-          </camunda:formField>
-          <camunda:formField id="documentTemplate" label="{{ applicant.displayName }}" type="string" />
-          <camunda:formField id="screeningReason" label="${execution.getVariable('screeningReason')}" type="string" />
-          <camunda:formField id="documentType" label="Document type" type="enum">
-            <camunda:value id="passport" name="Passport" />
-            <camunda:value id="passport" name="Second passport option" />
-            <camunda:value name="Missing option id" />
-          </camunda:formField>
-        </camunda:formData>
-        <camunda:formData>
-          <camunda:formField id="documentComment" label="Duplicate document comment" type="string" />
-        </camunda:formData>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_CaptureToVerify</bpmn:incoming>
-      <bpmn:outgoing>Flow_VerifyToAssess</bpmn:outgoing>
-    </bpmn:userTask>
-    <bpmn:userTask id="Task_AssessRisk" name="Assess customer risk">
-      <bpmn:extensionElements>
-        <camunda:formData>
-          <camunda:formField id="riskScore" label="Risk score" type="long" defaultValue="50">
-            <camunda:validation>
-              <camunda:constraint name="min" config="0" />
-              <camunda:constraint name="max" config="100" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="politicallyExposed" label="Politically exposed person" type="boolean" defaultValue="false" />
-          <camunda:formField id="riskDecision" label="Risk decision" type="enum" defaultValue="approve">
-            <camunda:value id="approve" name="Approve" />
-            <camunda:value id="enhanced-review" name="Enhanced review" />
-            <camunda:value id="reject" name="Reject" />
-          </camunda:formField>
-          <camunda:formField id="riskReviewDate" label="Risk review date" type="date" datePattern="yyyy-MM-dd" />
-          <camunda:formField id="riskNotes" label="Risk notes" type="string">
+          <camunda:formField id="reviewNotes" label="Review notes" type="string">
             <camunda:validation>
               <camunda:constraint name="maxlength" config="2000" />
             </camunda:validation>
           </camunda:formField>
         </camunda:formData>
       </bpmn:extensionElements>
-      <bpmn:incoming>Flow_VerifyToAssess</bpmn:incoming>
-      <bpmn:outgoing>Flow_AssessToApprove</bpmn:outgoing>
+      <bpmn:incoming>Flow_ToReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_ToComplete</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:userTask id="Task_ApproveCustomer" name="Approve customer">
-      <bpmn:extensionElements>
-        <camunda:formData>
-          <camunda:formField id="approvalDecision" label="Approval decision" type="boolean" defaultValue="false">
-            <camunda:validation>
-              <camunda:constraint name="required" />
-            </camunda:validation>
-          </camunda:formField>
-          <camunda:formField id="approvalNotes" label="Approval notes" type="string" />
-        </camunda:formData>
-      </bpmn:extensionElements>
-      <bpmn:incoming>Flow_AssessToApprove</bpmn:incoming>
-      <bpmn:outgoing>Flow_ApproveToEnd</bpmn:outgoing>
-    </bpmn:userTask>
-    <bpmn:endEvent id="End_KycComplete" name="KYC complete">
-      <bpmn:incoming>Flow_ApproveToEnd</bpmn:incoming>
+    <bpmn:endEvent id="End_ApplicationReviewed" name="Application reviewed">
+      <bpmn:incoming>Flow_ToComplete</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_ApplicationToCapture" sourceRef="Start_KycApplication" targetRef="Task_CaptureApplicant" />
-    <bpmn:sequenceFlow id="Flow_CaptureToVerify" sourceRef="Task_CaptureApplicant" targetRef="Task_VerifyIdentity" />
-    <bpmn:sequenceFlow id="Flow_VerifyToAssess" sourceRef="Task_VerifyIdentity" targetRef="Task_AssessRisk" />
-    <bpmn:sequenceFlow id="Flow_AssessToApprove" sourceRef="Task_AssessRisk" targetRef="Task_ApproveCustomer" />
-    <bpmn:sequenceFlow id="Flow_ApproveToEnd" sourceRef="Task_ApproveCustomer" targetRef="End_KycComplete" />
+    <bpmn:sequenceFlow id="Flow_ToReview" sourceRef="Start_ApplicationReceived" targetRef="Task_ReviewKycApplication" />
+    <bpmn:sequenceFlow id="Flow_ToComplete" sourceRef="Task_ReviewKycApplication" targetRef="End_ApplicationReviewed" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_KycGeneratedForms">
-    <bpmndi:BPMNPlane id="BPMNPlane_KycGeneratedForms" bpmnElement="kycOnboarding">
-      <bpmndi:BPMNShape id="Start_KycApplication_di" bpmnElement="Start_KycApplication">
-        <dc:Bounds x="80" y="102" width="36" height="36" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_KycGeneratedForm">
+    <bpmndi:BPMNPlane id="BPMNPlane_KycGeneratedForm" bpmnElement="kycApplicationReview">
+      <bpmndi:BPMNShape id="Start_ApplicationReceived_di" bpmnElement="Start_ApplicationReceived">
+        <dc:Bounds x="120" y="102" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="50" y="145" width="96" height="14" />
+          <dc:Bounds x="95" y="145" width="86" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_CaptureApplicant_di" bpmnElement="Task_CaptureApplicant">
-        <dc:Bounds x="180" y="80" width="100" height="80" />
+      <bpmndi:BPMNShape id="Task_ReviewKycApplication_di" bpmnElement="Task_ReviewKycApplication">
+        <dc:Bounds x="260" y="80" width="100" height="80" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_VerifyIdentity_di" bpmnElement="Task_VerifyIdentity">
-        <dc:Bounds x="360" y="80" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_AssessRisk_di" bpmnElement="Task_AssessRisk">
-        <dc:Bounds x="540" y="80" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Task_ApproveCustomer_di" bpmnElement="Task_ApproveCustomer">
-        <dc:Bounds x="720" y="80" width="100" height="80" />
-        <bpmndi:BPMNLabel />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="End_KycComplete_di" bpmnElement="End_KycComplete">
-        <dc:Bounds x="900" y="102" width="36" height="36" />
+      <bpmndi:BPMNShape id="End_ApplicationReviewed_di" bpmnElement="End_ApplicationReviewed">
+        <dc:Bounds x="460" y="102" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="880" y="145" width="76" height="14" />
+          <dc:Bounds x="432" y="145" width="92" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_ApplicationToCapture_di" bpmnElement="Flow_ApplicationToCapture">
-        <di:waypoint x="116" y="120" />
-        <di:waypoint x="180" y="120" />
+      <bpmndi:BPMNEdge id="Flow_ToReview_di" bpmnElement="Flow_ToReview">
+        <di:waypoint x="156" y="120" />
+        <di:waypoint x="260" y="120" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_CaptureToVerify_di" bpmnElement="Flow_CaptureToVerify">
-        <di:waypoint x="280" y="120" />
+      <bpmndi:BPMNEdge id="Flow_ToComplete_di" bpmnElement="Flow_ToComplete">
         <di:waypoint x="360" y="120" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_VerifyToAssess_di" bpmnElement="Flow_VerifyToAssess">
         <di:waypoint x="460" y="120" />
-        <di:waypoint x="540" y="120" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_AssessToApprove_di" bpmnElement="Flow_AssessToApprove">
-        <di:waypoint x="640" y="120" />
-        <di:waypoint x="720" y="120" />
-      </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_ApproveToEnd_di" bpmnElement="Flow_ApproveToEnd">
-        <di:waypoint x="820" y="120" />
-        <di:waypoint x="900" y="120" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
