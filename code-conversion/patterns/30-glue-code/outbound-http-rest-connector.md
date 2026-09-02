@@ -1,5 +1,7 @@
 # Outbound HTTP &#8594; REST Connector
 
+<a id="outbound-http-8594-rest-connector"></a>
+
 C7 outbound HTTP uses the `camunda:connector` / **http-connector** extension or hand-rolled HTTP client code inside a delegate/worker. Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) — prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
 
 | Camunda 7                                          | Camunda 8                                  |

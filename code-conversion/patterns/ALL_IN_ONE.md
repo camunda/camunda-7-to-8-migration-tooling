@@ -569,6 +569,8 @@ In Camunda 7, DMN decisions are evaluated via the `DecisionService`. In Camunda 
 
 #### File Variables &#8594; Document API
 
+<a id="file-variables-8594-document-api"></a>
+
 In Camunda 7, files are stored as `FileValue` process variables (Typed Value API) carrying content plus filename and MIME type. Camunda 8 has no typed file variable: files become **documents** managed by the [Document API](https://docs.camunda.io/docs/components/document-handling/getting-started/) (`newCreateDocumentCommand`); the process variable holds only the resulting **document reference**, never a bare filename string.
 
 ###### Creating a File Variable
@@ -1344,6 +1346,8 @@ The glue code patterns look into the different scenarios and proposes code conve
 
 
 ### Outbound HTTP &#8594; REST Connector
+
+<a id="outbound-http-8594-rest-connector"></a>
 
 C7 outbound HTTP uses the `camunda:connector` / **http-connector** extension or hand-rolled HTTP client code inside a delegate/worker. Camunda 8 provides a standard out-of-the-box [REST connector](https://docs.camunda.io/docs/components/connectors/protocol/rest/) — prefer it wherever it covers the need instead of porting HTTP client code into a job worker.
 
