@@ -19,6 +19,9 @@ export const SUPPORTED_PLATFORM_VERSIONS = Object.freeze([
   { value: "8.10", label: "8.10", hint: VERSION_HINTS.NEXT },
 ]);
 
+export const getPlatformVersionAriaLabel = ({ label, hint }) =>
+  hint ? `${label} ${hint}` : label;
+
 const latestStableVersions = SUPPORTED_PLATFORM_VERSIONS.filter(
   ({ hint }) => hint === VERSION_HINTS.LATEST_STABLE
 );
