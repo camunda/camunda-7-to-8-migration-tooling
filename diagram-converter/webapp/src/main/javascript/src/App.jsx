@@ -32,6 +32,7 @@ import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
 import {
   DEFAULT_PLATFORM_VERSION,
+  getPlatformVersionAriaLabel,
   SUPPORTED_PLATFORM_VERSIONS,
 } from "./platformVersions";
 
@@ -750,7 +751,7 @@ function App() {
                     key={version.value}
                     type="button"
                     role="radio"
-                    aria-label={`${version.label} ${version.hint}`}
+                    aria-label={getPlatformVersionAriaLabel(version)}
                     aria-checked={platformVersion === version.value}
                     tabIndex={platformVersion === version.value ? 0 : -1}
                     className={
