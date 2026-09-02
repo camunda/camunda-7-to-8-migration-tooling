@@ -72,13 +72,7 @@ export default function FileItem({
               <Check />
             </div>
           )}
-          <span
-            className={isConverted && downloadAction && !error ? "downloadable" : ""}
-            onClick={isConverted && downloadAction && !error ? downloadAction : undefined}
-            title={name}
-          >
-            {name}
-          </span>
+          <span title={name}>{name}</span>
         </div>
         <div className="right">
           {findingCount > 0 && (
@@ -100,6 +94,7 @@ export default function FileItem({
           )}
           {isChecked && previewAction && (
             <button
+              type="button"
               className="download"
               onClick={previewAction}
               title={previewTitle}
@@ -109,12 +104,23 @@ export default function FileItem({
             </button>
           )}
           {isConverted && downloadAction && !error && (
-            <button className="download" onClick={downloadAction} title="Download converted model" aria-label="Download converted model">
+            <button
+              type="button"
+              className="download"
+              onClick={downloadAction}
+              title={`Download ${name}`}
+              aria-label={`Download ${name}`}
+            >
               <Download />
             </button>
           )}
           {onDelete && (
-            <button onClick={onDelete}>
+            <button
+              type="button"
+              onClick={onDelete}
+              title={`Remove ${name}`}
+              aria-label={`Remove ${name}`}
+            >
               <Trash />
             </button>
           )}
