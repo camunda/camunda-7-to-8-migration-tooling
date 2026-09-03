@@ -168,7 +168,7 @@ After any manual BPMN edit, lint the converted file with the Camunda compatibili
 5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
 6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
 7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task reached a terminal state — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked` — with a recorded per-category decision. No such category is closed as "no action" merely because the converter copied a reference.
-8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with an explicit `bindingType`, and the copied Camunda 7 `externalReference`/`formKey` is removed from that element.
+8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded binding decision (`bindingType` written for `deployment`/`versionTag`, or `latest` deliberately left to the Camunda 8 default), and the copied Camunda 7 `externalReference`/`formKey` is removed from that element.
 9. Temporary converter annotations are stripped from converted copies after the verdict table is
    complete: no `conversion:*` nodes or attributes, no unused Camunda 7 namespace declarations,
    and no leftover BPMN definitions-level XPath `expressionLanguage` attribute.
@@ -207,7 +207,7 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 13. Every original Generated Task Form is accounted for, including form-property-only definitions
 14. Every accepted generated form is a standard Camunda 8 `.form`, explicitly accepted, linked by matching form id, and covered by deployment
 15. No draft, blocked, or declined generated form is linked or deployed
-16. Every Camunda 7 form reference and every form-free user task is inventoried with a recorded per-category decision, and no kept external reference is reported as a completed migration
-16. Converted model copies contain no temporary `conversion:*` nodes or attributes, no unused
+16. Every Camunda 7 form reference and every form-free user task or top-level start event is inventoried with a recorded per-category decision, and no kept external reference is reported as a completed migration
+17. Converted model copies contain no temporary `conversion:*` nodes or attributes, no unused
     Camunda 7 namespace declarations, and no leftover BPMN definitions-level XPath
     `expressionLanguage` attribute

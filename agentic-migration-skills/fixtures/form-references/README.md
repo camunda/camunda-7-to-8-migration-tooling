@@ -56,7 +56,7 @@ directory as the migration skill project root.
 | `Task_CaptureLoanDetails` | `embedded:app:forms/loan-details.html` | `c7-embedded-html-form` | yes — `src/main/webapp/forms/loan-details.html` |
 | `Task_ApproveLoan` | `https://loans.example.com/forms/approval` | `c7-external-form-reference` | n/a |
 | `Task_ArchiveDecision` | none | `c7-generic-task-form` | n/a |
-| `Start_LoanRequested` | none | not a form owner | n/a |
+| `Start_LoanRequested` | none | `c7-generic-task-form` | n/a |
 
 Current converter releases should emit one `form-key-embedded` TASK finding on
 `Task_CaptureLoanDetails` and one `form-key-external` TASK finding on
@@ -64,9 +64,12 @@ Current converter releases should emit one `form-key-embedded` TASK finding on
 the skill must still classify them apart, because it classifies from the
 original source rather than from findings.
 
-`Task_ArchiveDecision` produces no finding at all. It must still appear in the
-inventory — a user task that silently loses its Camunda 7 ad-hoc Tasklist form
-is exactly the case a findings-only review misses.
+`Task_ArchiveDecision` and the top-level none start event `Start_LoanRequested`
+produce no finding at all. Both must still appear in the inventory: Camunda 7
+Tasklist rendered an ad-hoc form for each of them, and Camunda 8 renders
+nothing, so a findings-only review misses the change entirely. The start event
+is the one to watch — it is easy to skip when only user tasks are treated as
+form owners.
 
 The converted BPMN should copy both form keys verbatim into
 `zeebe:formDefinition@externalReference`. That is a preserved reference, not a
@@ -92,14 +95,15 @@ rebuilt form reproduces the data contract only.
 
 The evaluation is complete when the agent has:
 
-* classified all three owners into distinct categories from the original BPMN;
-* inventoried the form-free user task even though it produced no finding;
+* classified all four owners into their categories from the original BPMN;
+* inventoried the form-free user task **and** the form-free start event even
+  though neither produced a finding;
 * resolved and read `loan-details.html` and classified it `simple`;
 * asked one decision per category instead of one per task;
 * generated no form for a category the user did not explicitly ask to rebuild;
 * for an explicitly requested rebuild, produced a deterministic draft, presented
-  it for acceptance, linked it with a matching `formId` and an explicit
-  `bindingType`, and removed the copied `externalReference` from that element;
+  it for acceptance, linked it with a matching `formId` and a recorded binding
+  decision, and removed the copied `externalReference` from that element;
 * recorded the custom-application checklist, with an owner, for any kept
   external reference;
 * left the original Camunda 7 BPMN and HTML untouched; and

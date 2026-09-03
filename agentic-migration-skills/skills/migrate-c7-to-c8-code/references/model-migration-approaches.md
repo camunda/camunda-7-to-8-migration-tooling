@@ -247,7 +247,7 @@ runs through `form-reference-migration.md`:
 |---|---|---|---|
 | `c7-embedded-html-form` | `embedded:` form key | `form-key-embedded` (older releases: `form-key`) | Inventory, classify simple/complex, then keep-or-rebuild decision |
 | `c7-camunda-form-reference` | `camunda-forms:` form key | `form-key-camunda-form` (older releases: `form-key`) | Convert the `.form` and relink by `formId` + `bindingType` |
-| `c7-camunda-form-reference` | `camunda:formRef` | already mapped to `formId`; INFO only (`no-expression-transformation`) | Convert the `.form`, confirm the id matches, and set an explicit binding |
+| `c7-camunda-form-reference` | `camunda:formRef` | already mapped to `formId`; INFO only (`no-expression-transformation`) | Convert the `.form`, confirm the id matches, and record the binding decision |
 | `c7-external-form-reference` | form key with no known type | `form-key-external` (older releases: `form-key`) | Keep the reference for a custom application, or rebuild as a Camunda Form |
 | `c7-dynamic-form-reference` | form key built from an expression | `form-key-expression` (older releases: `form-key`) | Stays `needs review`; enumerate the possible values with the user first |
 | `c7-generic-task-form` | no form metadata at all | no finding | Inventory and let the user choose |

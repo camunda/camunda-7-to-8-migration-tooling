@@ -174,8 +174,9 @@ A `camunda-forms:` form key or a `camunda:formRef` already points at a real form
 nothing is rebuilt. The two arrive at the converted model differently:
 
 - `camunda:formRef` is already mapped to `zeebe:formDefinition@formId`, and `formRefBinding` is
-  mapped to `bindingType` for targets 8.6+ (`deployment` maps through; `latest` is left implicit
-  because Camunda 8 defaults to `latest`). A `version` binding is reported as unsupported.
+  mapped to `bindingType` for targets 8.6+: `deployment` is written through, and `latest` is left
+  implicit because Camunda 8 already defaults to `latest` when the attribute is absent. A `version`
+  binding is reported as unsupported.
 - A `camunda-forms:` form key is only copied verbatim into `externalReference`/`formKey`, which
   Camunda 8 does not resolve. It still has to be relinked.
 
@@ -188,10 +189,11 @@ For both:
    silently rewriting either side.
 3. Ensure the converted element carries exactly one `zeebe:formDefinition` with `formId` set to that
    id, and remove any copied Camunda 7 reference (`externalReference` or `formKey`) from it.
-4. Set `bindingType` explicitly (`deployment`, `latest`, or `versionTag`); Camunda 8 defaults to
-   `latest` when the attribute is absent. A Camunda 7 `version` binding with `formRefVersion` has no
-   numeric-version equivalent — ask the user to choose `versionTag` with a real tag or accept
-   another binding.
+4. Confirm the binding as a recorded decision rather than an accident. Write `bindingType` for
+   `deployment` and for `versionTag` (with its `versionTag` value). `latest` may stay implicit,
+   since that is the Camunda 8 default — record the choice in `MIGRATION_REPORT.md` either way. A
+   Camunda 7 `version` binding with `formRefVersion` has no numeric-version equivalent, so ask the
+   user to choose `versionTag` with a real tag or accept another binding.
 5. Confirm the form is deployed together with the process for `deployment` binding.
 
 If the `.form` file cannot be found, mark the row `blocked` and ask; never fabricate a form id.
