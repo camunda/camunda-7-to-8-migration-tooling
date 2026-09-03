@@ -29,6 +29,80 @@ categories:
           <bpmn:startEvent id="FormPropertyStart" isInterrupting="true" parallelMultiple="false"/>
         expectedMessages: |
           <conversion:message severity="TASK">Element 'formProperty' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually.</conversion:message>
+  - category: form keys
+    cases:
+      - name: Embedded HTML task form from the application
+        givenBpmn: |
+          <bpmn:userTask id="EmbeddedAppFormTask" camunda:formKey="embedded:app:forms/loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="EmbeddedAppFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="embedded:app:forms/loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Embedded Task Form 'embedded:app:forms/loan-approval.html' is custom HTML/JavaScript that Camunda 8 cannot render. The reference was copied verbatim and is a placeholder, not a working form. Rebuild the form as a Camunda Form, or serve it from a custom task application.</conversion:message>
+      - name: Embedded HTML task form from the deployment
+        givenBpmn: |
+          <bpmn:userTask id="EmbeddedDeploymentFormTask" camunda:formKey="embedded:deployment:loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="EmbeddedDeploymentFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="embedded:deployment:loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Embedded Task Form 'embedded:deployment:loan-approval.html' is custom HTML/JavaScript that Camunda 8 cannot render. The reference was copied verbatim and is a placeholder, not a working form. Rebuild the form as a Camunda Form, or serve it from a custom task application.</conversion:message>
+      - name: Camunda Form referenced by form key
+        givenBpmn: |
+          <bpmn:userTask id="CamundaFormKeyTask" camunda:formKey="camunda-forms:deployment:forms/userTask.form"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="CamundaFormKeyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="camunda-forms:deployment:forms/userTask.form"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Camunda Form reference 'camunda-forms:deployment:forms/userTask.form' was copied verbatim, but Camunda 8 does not resolve Camunda 7 form keys. Deploy the '.form' file to Camunda 8 and reference it by form id and binding instead.</conversion:message>
+      - name: External task form served by a custom application
+        givenBpmn: |
+          <bpmn:userTask id="ExternalFormTask" camunda:formKey="http://my-app/forms/loan"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="ExternalFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="http://my-app/forms/loan"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'http://my-app/forms/loan' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Unprefixed HTML reference is an external task form and not an embedded one
+        givenBpmn: |
+          <bpmn:userTask id="UnprefixedHtmlFormTask" camunda:formKey="app:forms/loan-approval.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="UnprefixedHtmlFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="app:forms/loan-approval.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'app:forms/loan-approval.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Form key built from an expression
+        givenBpmn: |
+          <bpmn:userTask id="ExpressionFormTask" camunda:formKey="${formKey}"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="ExpressionFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="${formKey}"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Form key '${formKey}' is a Camunda 7 expression, so the referenced form type cannot be determined without running the process. The reference was copied verbatim. Resolve the possible values and migrate every form they reference manually.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output

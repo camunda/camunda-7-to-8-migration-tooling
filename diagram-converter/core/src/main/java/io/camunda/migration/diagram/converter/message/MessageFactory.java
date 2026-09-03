@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.diagram.converter.message;
 
+import io.camunda.migration.diagram.converter.FormKeyType;
 import java.util.Collections;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
@@ -316,12 +317,23 @@ public class MessageFactory {
         ContextBuilder.builder().context(elementNotTransformablePrefix(elementLocalName)).build());
   }
 
-  public static Message formKey(String attributeLocalName, String elementLocalName) {
+  public static Message formKey(
+      String attributeLocalName, String elementLocalName, String formKey, FormKeyType formKeyType) {
     return INSTANCE.composeMessage(
-        "form-key",
+        formKeyMessageId(formKeyType),
         ContextBuilder.builder()
             .context(supportedAttributePrefix(attributeLocalName, elementLocalName))
+            .entry("formKey", formKey)
             .build());
+  }
+
+  private static String formKeyMessageId(FormKeyType formKeyType) {
+    return switch (formKeyType) {
+      case CAMUNDA_FORM -> "form-key-camunda-form";
+      case EMBEDDED -> "form-key-embedded";
+      case EXPRESSION -> "form-key-expression";
+      case EXTERNAL -> "form-key-external";
+    };
   }
 
   public static Message delegateImplementation(
