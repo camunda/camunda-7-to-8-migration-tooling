@@ -99,9 +99,9 @@ Record this table in `MIGRATION_REPORT.md` before asking anything:
 - `Owner` is the element id plus name; `Type` is `userTask` or `startEvent`.
 - `Reference (report-safe)` is rendered from the exact source value, byte for byte, except that
   **credential-like URL query values** (for example `token`, `apikey`, `password`, `secret`,
-  `signature`) are rendered as `<redacted>` in `MIGRATION_REPORT.md`. When applying a migration
-  action, read the original value from the source BPMN and preserve it unchanged where the reference
-  is retained; never copy the redacted report rendering into a model.
+  `signature`) and URL userinfo passwords are rendered as `<redacted>` in `MIGRATION_REPORT.md`.
+  When applying a migration action, read the original value from the source BPMN and preserve it
+  unchanged where the reference is retained; never copy the redacted report rendering into a model.
 - `Content available` is recorded as `yes — <resolved path>`, `no — <reason>`, or `n/a`.
   Allowed `no` reasons are `file missing`, `dynamic path`, and `engine-source mode`.
   Use `n/a` where content does not apply. Engine-source mode (E1) usually has no local content.
@@ -199,8 +199,9 @@ For both:
 1. Locate the `.form` file and convert it with the existing Diagram Converter form conversion, which
    updates the execution platform metadata only. Do not hand-edit the schema.
 2. Read the form's own `id` from the converted `.form` file — do not derive it from the file name,
-   and do not assume a Camunda 7 `formRef` value equals the schema id. Report a mismatch instead of
-   silently rewriting either side.
+   and do not assume a Camunda 7 `formRef` value equals the schema id. If the source reference and
+   schema id do not establish an unambiguous mapping, mark the row `blocked`, record the reference,
+   schema id, and path, and ask the user which side should change. Do not relink until it is resolved.
 3. Ensure the converted element carries exactly one `zeebe:formDefinition` with `formId` set to that
    id, and remove any copied Camunda 7 reference (`externalReference` or `formKey`) from it.
 4. Confirm the binding as a recorded decision rather than an accident. Write `bindingType` for
