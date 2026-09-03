@@ -43,8 +43,8 @@ exact, case-sensitive prefix, in this order:
 | 3 | no known prefix and contains `${` or `#{` | `c7-dynamic-form-reference` |
 | 4 | anything else | `c7-external-form-reference` |
 
-`camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A user task or start
-event with no form metadata at all is `c7-generic-task-form`.
+`camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A user task or
+top-level start event with no form metadata at all is `c7-generic-task-form`.
 
 These are the names used in the inventory. In the model finding verdict table, use the converter
 messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, `form-key-expression`)

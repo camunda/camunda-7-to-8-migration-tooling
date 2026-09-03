@@ -8,8 +8,8 @@ Use the model scan from the assessment before choosing a conversion path:
 
 Before conversion, namespace-parse the exact original BPMN files and inventory every Camunda 7 form.
 Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) go to
-`form-migration.md`; referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or start
-events with no form at all go to `form-reference-migration.md`. Keep source path, process id, and
+`form-migration.md`; referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or
+top-level start events with no form at all go to `form-reference-migration.md`. Keep source path, process id, and
 owner id/type so each definition can be paired with a fresh converted output. The converter removes
 generated-form metadata and copies form-key references verbatim, so post-conversion discovery is
 either too late or ambiguous.
@@ -235,7 +235,7 @@ Do not infer a form from a `form-data` message, mark the finding resolved merely
 converter removed it, or link a form that still lacks the user's required decisions.
 
 Then run `form-reference-migration.md` for every referenced form (embedded, external, Camunda Form,
-dynamic) and for every user task or start event with no form at all. That procedure inventories each
+dynamic) and for every user task or top-level start event with no form at all. That procedure inventories each
 reference, collects one decision per category, relinks Camunda Forms, and rebuilds a Camunda 8 form
 only when the user explicitly asks for it.
 
