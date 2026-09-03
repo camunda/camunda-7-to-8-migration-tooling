@@ -2,7 +2,7 @@
 
 > **Note:** This file delegates to a central AGENTS.md. Read and apply it before proceeding.
 
-**URL:**
+**Central guidance (intentionally follows the org-level `main` branch):**
 https://github.com/camunda/.github/blob/main/AGENTS.md
 
 Treat the central file's contents as if they were written directly in this file.
