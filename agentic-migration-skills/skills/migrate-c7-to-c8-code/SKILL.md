@@ -93,7 +93,7 @@ Namespace-parse every original BPMN and add a Camunda 7 form inventory covering 
   status. This source inventory is required because converted BPMN no longer contains the C7 form
   metadata and form-property-only models may not emit a `form-data` finding with older converter
   releases.
-- **Referenced forms**: every `camunda:formKey` and `camunda:formRef`, classified by exact prefix
+- **Referenced forms**: every `camunda:formKey` and `camunda:formRef`, classified by exact, case-sensitive `formKey` prefixes (or `${`/`#{` expression markers when no known prefix applies) and by `formRef`
   into embedded HTML, Camunda Form, external/custom application, or dynamic expression, plus whether
   the referenced HTML or `.form` file exists in the project.
 - **Generic Task Forms**: user tasks and top-level start events with no form metadata at all, whose
