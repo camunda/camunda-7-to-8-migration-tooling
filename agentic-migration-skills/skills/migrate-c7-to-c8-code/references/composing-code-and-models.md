@@ -90,6 +90,8 @@ external, and generic forms; form discovery and a binding decision for Camunda F
 possible-value enumeration before a decision for dynamic references. It is then **needs fix** until
 the relevant work is finished: a rebuilt form is accepted and linked, a custom-application
 integration is confirmed by a named owner, or a Camunda Form is converted, relinked, and deployed.
+If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the
+category at **needs review** until the user resolves that prerequisite.
 A kept reference is never **no action** on the strength of the converter having copied it.
 
 ### 5. Now-redundant workaround code (deletion candidates)
