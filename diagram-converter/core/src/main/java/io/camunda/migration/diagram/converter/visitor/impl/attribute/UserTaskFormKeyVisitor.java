@@ -8,6 +8,7 @@
 package io.camunda.migration.diagram.converter.visitor.impl.attribute;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.FormKeyType;
 import io.camunda.migration.diagram.converter.convertible.FormDefinitionConvertible;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
@@ -25,7 +26,11 @@ public class UserTaskFormKeyVisitor extends AbstractSupportedAttributeVisitor {
     context.addConversion(
         FormDefinitionConvertible.class,
         userTaskConversion -> userTaskConversion.getZeebeFormDefinition().setFormKey(attribute));
-    return MessageFactory.formKey(attributeLocalName(), context.getElement().getLocalName());
+    return MessageFactory.formKey(
+        attributeLocalName(),
+        context.getElement().getLocalName(),
+        attribute,
+        FormKeyType.of(attribute));
   }
 
   @Override
