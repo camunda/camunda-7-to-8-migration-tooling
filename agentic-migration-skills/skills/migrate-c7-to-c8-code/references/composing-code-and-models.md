@@ -70,6 +70,25 @@ Use `form-migration.md` to collect decisions. Uncovered consumers are **needs fi
 mapping or enforcement decision is **needs review**. A generated form is not accepted merely
 because its JSON renders.
 
+### 4a. Referenced-form code and behavior
+
+For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-form-reference`,
+`c7-dynamic-form-reference`, and `c7-generic-task-form` item, cross-check the code inventory
+before closing the category:
+
+- Locate the custom application or Tasklist customization that resolves the reference, and any code
+  that builds a form key at runtime for a dynamic reference.
+- Locate `FormService`, `submitTaskForm`, `submitStartForm`, `/form-variables`, and Camunda 7 task
+  REST API clients. These are the callers a kept external application depends on, and they must all
+  be rewritten against the Camunda 8 Orchestration Cluster API.
+- Locate code that serves or packages embedded form HTML (for example resources under
+  `src/main/webapp/forms`) so the user can decide what happens to those files.
+
+Use `form-reference-migration.md` to collect decisions. A category is **needs review** until its
+keep/rebuild decision exists, then **needs fix** until the rebuilt form is accepted and linked or
+the custom-application integration is confirmed by a named owner. A kept reference is never
+**no action** on the strength of the converter having copied it.
+
 ### 5. Now-redundant workaround code (deletion candidates)
 
 Some findings do not describe missing support but the opposite: a C7-side workaround is obsolete because Zeebe now provides the capability natively. Detect this family primarily by `messageId`, falling back to `message` content — rows whose `message` contains "now natively possible with Zeebe" — to catch future family members whose `messageId` is not yet known. Today the family has one member: `collection-hint` ("Collecting results in a multi instance is now natively possible with Zeebe. Please review.", TASK), emitted once per converted multi-instance `camunda:collection`.
