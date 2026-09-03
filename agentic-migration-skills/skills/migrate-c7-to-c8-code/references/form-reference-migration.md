@@ -73,10 +73,10 @@ Report these as their own review categories instead of forcing them into the tab
 
 ### Cross-check the converter findings
 
-Current converter releases classify user-task form keys already and emit one of
-`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, or `form-key-expression`. Older
-releases emit a single generic `form-key` finding for all of them, and start-event form keys surface
-as an `attribute-not-supported` warning.
+A converter release with classified form-key support emits one of `form-key-embedded`,
+`form-key-camunda-form`, `form-key-external`, or `form-key-expression` for user-task form keys.
+Older releases emit a single generic `form-key` finding for all of them, and start-event form keys
+surface as an `attribute-not-supported` warning.
 
 Use findings as corroboration only. The source classification above is authoritative, because a
 report can be stale, imported, or produced by an older converter. If a finding and the source
@@ -281,13 +281,13 @@ owner for it:
 
 - **A kept reference is not a completed migration.** Tasklist does not render a custom form
   reference; the value is only data the application reads.
-- On a Camunda user task the reference lives in `zeebe:formDefinition@externalReference`. The
-  `formKey` attribute is the job-worker-user-task spelling — do not target job-worker user tasks,
-  which are deprecated and cannot be managed through the Orchestration Cluster API.
-- The application must query user tasks and their variables, and assign, update, and complete them,
-  through the **Camunda 8 Orchestration Cluster API**. The Camunda 7 `FormService`,
-  `submitTaskForm` / `submitStartForm`, and the Camunda 7 task REST API are gone; every caller needs
-  rewriting. Do not carry over Tasklist V1 assumptions.
+- On a Camunda user task the reference lives in `zeebe:formDefinition@externalReference`; on a
+  job-worker user task it is written as `zeebe:formDefinition@formKey`. Preserve the attribute
+  that matches the converted task type.
+- For a Camunda user task, the application must query user tasks and their variables, and assign,
+  update, and complete them, through the **Camunda 8 Orchestration Cluster API**. The Camunda 7
+  `FormService`, `submitTaskForm` / `submitStartForm`, and the Camunda 7 task REST API are gone;
+  every caller needs rewriting. Do not carry over Tasklist V1 assumptions.
 - Authentication, identity, and authorization move to the Camunda 8 identity setup; Camunda 7 user,
   group, and authorization lookups do not carry over.
 - The application's own routing must still resolve the kept reference value, so the value must stay

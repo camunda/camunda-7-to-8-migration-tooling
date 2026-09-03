@@ -58,11 +58,10 @@ directory as the migration skill project root.
 | `Task_ArchiveDecision` | none | `c7-generic-task-form` | n/a |
 | `Start_LoanRequested` | none | `c7-generic-task-form` | n/a |
 
-Current converter releases should emit one `form-key-embedded` TASK finding on
-`Task_CaptureLoanDetails` and one `form-key-external` TASK finding on
-`Task_ApproveLoan`. Older releases emit the generic `form-key` finding for both;
-the skill must still classify them apart, because it classifies from the
-original source rather than from findings.
+A converter release with classified form-key findings emits one `form-key-embedded` TASK finding
+on `Task_CaptureLoanDetails` and one `form-key-external` TASK finding on `Task_ApproveLoan`.
+Older releases emit the generic `form-key` finding for both; the skill must still classify them
+apart, because it classifies from the original source rather than from findings.
 
 `Task_ArchiveDecision` and the top-level none start event `Start_LoanRequested`
 produce no finding at all. Both must still appear in the inventory: Camunda 7

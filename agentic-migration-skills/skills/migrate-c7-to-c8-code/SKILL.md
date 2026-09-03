@@ -86,16 +86,17 @@ Identify and classify all Camunda 7 related Java/config files into a table with 
 
 Glob for model files. For each, note whether it uses the camunda: namespace and record its path in a table with columns: File, Type, Uses camunda: ns, Notes.
 
-Namespace-parse every original BPMN and add a Camunda 7 form inventory covering all five form types:
+Namespace-parse every original BPMN and add a Camunda 7 form inventory covering all form surfaces:
 
 - **Generated Task Forms**: source file, process id, owning user task/start event,
   `formData`/`formProperty`, field count, business-key field, custom types/validators, and initial
   status. This source inventory is required because converted BPMN no longer contains the C7 form
   metadata and form-property-only models may not emit a `form-data` finding with older converter
   releases.
-- **Referenced forms**: every `camunda:formKey` and `camunda:formRef`, classified by exact, case-sensitive `formKey` prefixes (or `${`/`#{` expression markers when no known prefix applies) and by `formRef`
-  into embedded HTML, Camunda Form, external/custom application, or dynamic expression, plus whether
-  the referenced HTML or `.form` file exists in the project.
+- **Referenced forms**: every `camunda:formKey` and `camunda:formRef`. Classify each `formKey` by
+  exact, case-sensitive prefix (or by `${`/`#{` expression markers when no known prefix applies)
+  and classify every `formRef` as a Camunda Form reference. Record whether the referenced HTML or
+  `.form` file exists in the project.
 - **Generic Task Forms**: user tasks and top-level start events with no form metadata at all, whose
   Camunda 7 ad-hoc Tasklist rendering has no Camunda 8 equivalent.
 

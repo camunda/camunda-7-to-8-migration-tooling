@@ -73,13 +73,13 @@ original BPMN metadata to generate deterministic standard Camunda 8 `.form` file
 semantic gap for user review, and links/deploys only explicitly accepted forms.
 
 Every other Camunda 7 form type is *referenced* rather than defined on the element. The skill
-classifies each `camunda:formKey`/`camunda:formRef` from the original BPMN — embedded HTML/JavaScript,
-Camunda Form, external/custom application, or runtime expression — inventories every affected user
-task and start event alongside those that had no form at all, and asks one decision per
-category. Camunda Forms are relinked by form id. For the rest it offers to rebuild the form as a
-Camunda 8 Camunda Form and generates one only on explicit request, reproducing the data contract
-rather than the Camunda 7 user interface. A copied form-key reference is never reported as a
-completed migration.
+classifies each `camunda:formKey` from the original BPMN — embedded HTML/JavaScript, Camunda Form,
+external/custom application, or runtime expression — and every `camunda:formRef` as a Camunda Form
+reference. It inventories every affected user task and start event alongside those that had no form
+at all, and asks one decision per category. Camunda Forms are relinked by form id. For the rest it
+offers to rebuild the form as a Camunda 8 form and generates one only on explicit request,
+reproducing the data contract rather than the Camunda 7 user interface. A copied form-key reference
+is never reported as a completed migration.
 
 If no BPMN/DMN model is found under the project root, the skill can offer C7 engine REST as a source. It asks for a reachable C7 REST URL and the required authentication, persists the original definitions, then runs the Diagram Converter locally; when local models are present, it does not offer or request engine access. REST supports optional Basic authentication and latest or named BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
 
