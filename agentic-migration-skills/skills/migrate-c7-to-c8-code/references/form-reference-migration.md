@@ -28,10 +28,10 @@ element ids; never guess the pairing.
 ## Classify from the original source
 
 Parse the original BPMN with a namespace-aware parser; never use regular expressions to parse XML
-or extract its metadata. Simple regex checks on already parsed scalar values are allowed for
-validation, such as checking whether an owner id matches `^\w+$`. Never assume the Camunda 7
-extension namespace uses the literal prefix `camunda` — match on the namespace URI
-`http://camunda.org/schema/1.0/bpmn`.
+or extract its metadata. Simple regex checks on already parsed scalar values are allowed for narrow
+validation, but do not use a regex to define or validate BPMN identifiers; preserve parsed ids as
+provided. Never assume the Camunda 7 extension namespace uses the literal prefix `camunda` — match
+on the namespace URI `http://camunda.org/schema/1.0/bpmn`.
 
 Known Camunda 7 form-key types use the structure `FORM-TYPE:LOCATION:FORM.NAME`, while
 external/custom form keys may be arbitrary strings, including URLs. Classify each raw value by its exact,
