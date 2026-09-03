@@ -98,8 +98,7 @@ Namespace-parse every original BPMN and add a Camunda 7 form inventory covering 
   and classify every `formRef` as a Camunda Form reference. Record whether the referenced HTML or
   `.form` file exists in the project.
 - **Generic Task Forms**: user tasks and process-level none start events with no form metadata at
-  all, whose
-  Camunda 7 ad-hoc Tasklist rendering has no Camunda 8 equivalent.
+  all; their Camunda 7 ad-hoc Tasklist rendering has no Camunda 8 equivalent.
 
 See `references/form-reference-migration.md` for the classification rules and inventory columns.
 Classify from the original source, not from converter findings: older converter releases report all
@@ -171,7 +170,7 @@ After any manual BPMN edit, lint the converted file with the Camunda compatibili
 4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
 5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
 6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
-7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task or process-level none start event reached a terminal state — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked` — with a recorded per-category decision. No such category is closed as "no action" merely because the converter copied a reference.
+7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task or process-level none start event is accounted for with a recorded per-category decision and status — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked`. Deferred or blocked items remain open follow-up work, and no such category is closed as "no action" merely because the converter copied a reference.
 8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded binding decision (`bindingType` written for `deployment`/`versionTag`, or `latest` deliberately left to the Camunda 8 default), and the copied Camunda 7 `externalReference`/`formKey` is removed from that element.
 9. Temporary converter annotations are stripped from converted copies after the verdict table is
    complete: no `conversion:*` nodes or attributes, no unused Camunda 7 namespace declarations,
