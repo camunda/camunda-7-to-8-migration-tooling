@@ -110,8 +110,9 @@ many embedded forms they have, and per-task planning data is the main value of t
 
 ### Resolve referenced content
 
-For `embedded:app:<path>` look under the C7 web application resources, conventionally
-`src/main/webapp/<path>` (Camunda 7 packages `src/main/webapp/forms` into the deployment artifact).
+For `embedded:app:<path>` and `camunda-forms:app:<path>` look under the C7 web application
+resources, conventionally `src/main/webapp/<path>` (Camunda 7 packages
+`src/main/webapp/forms` into the deployment artifact).
 For `embedded:deployment:<path>` and `camunda-forms:deployment:<path>` look beside the BPMN and in
 the deployment resource folders. Record the resolved path, or `no` with the reason: file missing,
 dynamic path, or engine-source mode.
