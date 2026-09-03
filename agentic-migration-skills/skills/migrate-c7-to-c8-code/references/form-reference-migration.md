@@ -97,8 +97,10 @@ Record this table in `MIGRATION_REPORT.md` before asking anything:
   `signature`) are rendered as `<redacted>` in `MIGRATION_REPORT.md`. When applying a migration
   action, read the original value from the source BPMN and preserve it unchanged where the reference
   is retained; never copy the redacted report rendering into a model.
-- `Content available` is `yes`, `no`, or `n/a` — whether the referenced HTML or `.form` file was
-  found in the project. Engine-source mode (E1) usually has no local content.
+- `Content available` is `yes`, `no`, or `n/a`, with detail when available: append the resolved
+  project-relative path for `yes`, or the reason (`file missing`, `dynamic path`, or
+  `engine-source mode`) for `no`. Use `n/a` where content does not apply. Engine-source mode (E1)
+  usually has no local content.
 - `Complexity` is `simple`, `complex`, or `unknown` (see below); `n/a` outside embedded forms.
 - `Status` is `pending`, `kept`, `relinked`, `draft`, `accepted`, `declined`, `deferred`, or
   `blocked`.

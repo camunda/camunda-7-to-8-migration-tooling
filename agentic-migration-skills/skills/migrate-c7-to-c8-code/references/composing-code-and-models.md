@@ -85,9 +85,12 @@ before closing the category:
   `src/main/webapp/forms`) so the user can decide what happens to those files.
 
 Use `form-reference-migration.md` to collect decisions. A category is **needs review** until its
-keep/rebuild decision exists, then **needs fix** until the rebuilt form is accepted and linked or
-the custom-application integration is confirmed by a named owner. A kept reference is never
-**no action** on the strength of the converter having copied it.
+procedure-specific decision or prerequisite is complete: a remediation decision for embedded,
+external, and generic forms; form discovery and a binding decision for Camunda Form references; or
+possible-value enumeration before a decision for dynamic references. It is then **needs fix** until
+the relevant work is finished: a rebuilt form is accepted and linked, a custom-application
+integration is confirmed by a named owner, or a Camunda Form is converted, relinked, and deployed.
+A kept reference is never **no action** on the strength of the converter having copied it.
 
 ### 5. Now-redundant workaround code (deletion candidates)
 
