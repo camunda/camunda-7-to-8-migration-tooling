@@ -69,9 +69,9 @@ Shared rules that apply throughout all subsequent steps:
 - Check the platform before porting a workaround. Many C7 patterns exist only because of C7 limitations (flat form binding, no computed display values, in-process engine API). Verify whether C8 removed the limitation before replicating the pattern or adding a worker. Converter findings flagging natively-supported capabilities drive the same check for deleting C7-side workaround code — see `references/composing-code-and-models.md`.
 - Keep `MIGRATION_REPORT.md` in the confirmed project root current as the single source of truth for inventories, decisions, phase status, incompatibilities, and validation results; update as work proceeds, not in scattered notes.
 - Include the model preflight result, model identifier or unverified status, and any user decision to continue with a caution/unverified model in `MIGRATION_REPORT.md`.
-- The form inventory always comes from the original BPMN source, never from converter findings. Parse the source in the assessment step and treat findings as corroboration: a report can be stale, imported, produced by an older converter that reported every form-key type as one generic `form-key` finding, or absent entirely (M2 runs no converter). Some form types produce no finding at all — a user task or top-level start event with no form metadata is invisible in every report, yet it silently loses its Camunda 7 Tasklist rendering. If a finding and the source disagree, report the disagreement instead of silently picking one.
+- The form inventory always comes from the original BPMN source, never from converter findings. Parse the source in the assessment step and treat findings as corroboration: a report can be stale, imported, produced by an older converter that reported every form-key type as one generic `form-key` finding, or absent entirely (M2 runs no converter). Some form types produce no finding at all — a user task or process-level none start event with no form metadata is invisible in every report, yet it silently loses its Camunda 7 Tasklist rendering. If a finding and the source disagree, report the disagreement instead of silently picking one.
 - Generated Task Forms are an agentic follow-up, not a Diagram Converter feature. Preserve the converter's `form-data` manual finding, generate standard `.form` resources from the exact original BPMN, and use `references/form-migration.md` for every decision and linkage.
-- Referenced forms are never migrated by copying a reference. Embedded HTML/JavaScript, external/custom application form keys, Camunda Form references, and user tasks or top-level start events with no form at all each need their own decision — use `references/form-reference-migration.md`. Offer to rebuild a form as a Camunda 8 form, but generate one only when the user explicitly asks; a rebuilt form reproduces the data contract, never the Camunda 7 user interface.
+- Referenced forms are never migrated by copying a reference. Embedded HTML/JavaScript, external/custom application form keys, Camunda Form references, and user tasks or process-level none start events with no form at all each need their own decision — use `references/form-reference-migration.md`. Offer to rebuild a form as a Camunda 8 form, but generate one only when the user explicitly asks; a rebuilt form reproduces the data contract, never the Camunda 7 user interface.
 - Never accept, link, or deploy a generated form until the user has reviewed it. Ask about every semantic gap or unsupported construct; do not invent replacements.
 
 ### Step 2: Assessment (always runs)
@@ -97,7 +97,8 @@ Namespace-parse every original BPMN and add a Camunda 7 form inventory covering 
   exact, case-sensitive prefix (or by `${`/`#{` expression markers when no known prefix applies)
   and classify every `formRef` as a Camunda Form reference. Record whether the referenced HTML or
   `.form` file exists in the project.
-- **Generic Task Forms**: user tasks and top-level start events with no form metadata at all, whose
+- **Generic Task Forms**: user tasks and process-level none start events with no form metadata at
+  all, whose
   Camunda 7 ad-hoc Tasklist rendering has no Camunda 8 equivalent.
 
 See `references/form-reference-migration.md` for the classification rules and inventory columns.
@@ -169,7 +170,7 @@ After any manual BPMN edit, lint the converted file with the Camunda compatibili
 4. Every source Generated Task Form is `accepted`, `blocked`, or `declined`; no source form is silently omitted.
 5. Every accepted form parses, validates/renders with target-compatible form-js tooling when available, has a matching `zeebe:formDefinition`, and is deployed with its BPMN.
 6. Draft/blocked/declined forms are not linked or deployed, and all semantic gaps plus user decisions are recorded.
-7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task or top-level start event reached a terminal state — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked` — with a recorded per-category decision. No such category is closed as "no action" merely because the converter copied a reference.
+7. Every referenced form (embedded, external, Camunda Form, dynamic) and every form-free user task or process-level none start event reached a terminal state — `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked` — with a recorded per-category decision. No such category is closed as "no action" merely because the converter copied a reference.
 8. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded binding decision (`bindingType` written for `deployment`/`versionTag`, or `latest` deliberately left to the Camunda 8 default), and the copied Camunda 7 `externalReference`/`formKey` is removed from that element.
 9. Temporary converter annotations are stripped from converted copies after the verdict table is
    complete: no `conversion:*` nodes or attributes, no unused Camunda 7 namespace declarations,
@@ -209,7 +210,7 @@ A second action type beyond fixing TODOs/findings is **delete now-redundant code
 13. Every original Generated Task Form is accounted for, including form-property-only definitions
 14. Every accepted generated form is a standard Camunda 8 `.form`, explicitly accepted, linked by matching form id, and covered by deployment
 15. No draft, blocked, or declined generated form is linked or deployed
-16. Every Camunda 7 form reference and every form-free user task or top-level start event is inventoried with a recorded per-category decision, and no kept external reference is reported as a completed migration
+16. Every Camunda 7 form reference and every form-free user task or process-level none start event is inventoried with a recorded per-category decision, and no kept external reference is reported as a completed migration
 17. Converted model copies contain no temporary `conversion:*` nodes or attributes, no unused
     Camunda 7 namespace declarations, and no leftover BPMN definitions-level XPath
     `expressionLanguage` attribute

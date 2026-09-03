@@ -5,7 +5,7 @@ defined inside the BPMN element:
 
 - `camunda:formKey` — Embedded Task Forms, Camunda Forms, and External/custom application forms
 - `camunda:formRef` with `camunda:formRefBinding` / `camunda:formRefVersion` — Camunda Forms
-- no form metadata at all — Generic Task Forms
+- no form metadata on a user task or process-level none start event — Generic Task Forms
 
 Generated Task Forms (`camunda:formData`, `camunda:formField`, direct `camunda:formProperty`) are a
 different workflow. Use `form-migration.md` for those and never recategorize them here.
@@ -44,7 +44,7 @@ exact, case-sensitive prefix, in this order:
 | 4 | anything else | `c7-external-form-reference` |
 
 `camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A user task or
-top-level start event with no form metadata at all is `c7-generic-task-form`.
+process-level none start event with no form metadata at all is `c7-generic-task-form`.
 
 These are the names used in the inventory. In the model finding verdict table, use the specific
 converter messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`,
@@ -73,7 +73,9 @@ Report these as their own review categories instead of forcing them into the tab
 - `camunda:formHandlerClass` — custom Java form handling with no Camunda 8 equivalent
 - an element carrying more than one form definition (for example `formKey` and `formRef`, or a form
   reference together with `camunda:formData`) — do not silently choose precedence
-- form references on start events, which are not the ordinary interactive user-task path
+- form references on non-process-level-none start events, which are not the ordinary interactive
+  start-form path; process-level none start events with form metadata follow the normal
+  reference handling, while form-free ones remain in scope for the generic-form inventory
 
 ### Cross-check the converter findings
 
@@ -307,8 +309,8 @@ Keep the category verdict at `needs fix` until the application owner confirms th
 
 ## Generic Task Forms
 
-Inventory every user task and top-level start event with **no** form metadata — no `formKey`, no
-`formRef`, and no `formData`/`formProperty`. Camunda 7 Tasklist rendered an ad-hoc form from
+Inventory every user task and process-level none start event with **no** form metadata — no
+`formKey`, no `formRef`, and no `formData`/`formProperty`. Camunda 7 Tasklist rendered an ad-hoc form from
 whatever variables existed; Camunda 8 shows no form at all, so the behavior silently changes.
 
 Record them in the same inventory with category `c7-generic-task-form` and reference `none`. Report

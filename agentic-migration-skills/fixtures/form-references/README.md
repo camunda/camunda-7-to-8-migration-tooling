@@ -4,8 +4,8 @@ This directory is a small manual evaluation fixture for the
 `migrate-c7-to-c8-code` skill. It covers the Camunda 7 form types that are
 *referenced* rather than defined on the BPMN element, which the Diagram
 Converter reports but cannot migrate: embedded HTML/JavaScript forms, external
-form keys resolved by a custom application, and user tasks or top-level start events with no form
-at all.
+form keys resolved by a custom application, and user tasks or process-level none start events with
+no form at all.
 
 The companion fixture for `camunda:formData` Generated Task Forms is
 [`../generated-task-forms`](../generated-task-forms). Keep the two separate: a
@@ -64,7 +64,7 @@ on `Task_CaptureLoanDetails` and one `form-key-external` TASK finding on `Task_A
 Older releases emit the generic `form-key` finding for both; the skill must still classify them
 apart, because it classifies from the original source rather than from findings.
 
-`Task_ArchiveDecision` and the top-level none start event `Start_LoanRequested`
+`Task_ArchiveDecision` and the process-level none start event `Start_LoanRequested`
 produce no finding at all. Both must still appear in the inventory: Camunda 7
 Tasklist rendered an ad-hoc form for each of them, and Camunda 8 renders
 nothing, so a findings-only review misses the change entirely. The start event

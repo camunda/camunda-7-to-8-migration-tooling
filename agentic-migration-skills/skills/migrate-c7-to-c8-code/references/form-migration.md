@@ -39,8 +39,8 @@ Parse XML with a namespace-aware parser. Never use regular expressions to parse 
 - `camunda:formData`, its `businessKey`, and each `camunda:formField` in document order
 - direct `camunda:formProperty` children in document order
 - existing C7 `formKey`/`formRef` metadata
-- process id, owner id/type/name, source path, and whether a start event is a top-level none start
-  event
+- process id, owner id/type/name, source path, and whether a start event is a process-level none
+  start event
 
 The current converter emits one owner-level `messageId: form-data` finding for `formData` or
 form-property-only definitions. Older releases may omit the latter. Source scanning is therefore
