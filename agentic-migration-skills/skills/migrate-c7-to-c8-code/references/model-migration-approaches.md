@@ -184,6 +184,8 @@ Verdicts:
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
 | `form-data` | 96 | one `.form` per C7 form (see 5f) | needs fix |
 | `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | needs review |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | needs fix |
+| `c7-generic-task-form` | 8 | n/a — no finding; source-derived inventory (see 5g) | needs review |
 
 Rules:
 
@@ -194,6 +196,7 @@ Rules:
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate Camunda 8 form. Keep it as needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older/imported report that lacks the current converter's `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
+- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular each form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict — they are different migrations and routinely land on different verdicts — plus a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
 
 #### 5e. Strip converter annotations from converted models
 
