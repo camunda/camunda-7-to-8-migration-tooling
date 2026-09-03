@@ -155,7 +155,7 @@ Only a `simple` form with resolved content is a candidate for deriving fields au
 `complex` or `unknown` form may still be rebuilt, but every field must come from the user, not from
 the markup.
 
-## Ask one decision per category
+## Ask decisions per integration group
 
 Group rows and ask with AskUserQuestion. Ask **one decision per group**, not one per row — but only
 group references that genuinely share an integration. Heterogeneous opaque keys pointing at

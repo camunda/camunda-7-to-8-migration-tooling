@@ -141,7 +141,8 @@ forms, collects required user decisions, and links only explicitly accepted form
 
 Then run `references/form-reference-migration.md` for referenced and missing forms. It inventories
 every embedded, external, Camunda Form, dynamic, and form-free owner, collects one decision per
-category, relinks Camunda Forms, and rebuilds a Camunda 8 form only on explicit request.
+integration group within each category, relinks Camunda Forms, and rebuilds a Camunda 8 form only
+on explicit request.
 
 ### Step 4: Validation (always runs)
 
@@ -189,7 +190,7 @@ Use AskUserQuestion with options:
 - Show me the list first: Present full list grouped by type, then ask which to fix.
 - No, I will handle the rest manually: Stop here; record remaining items in MIGRATION_REPORT.md.
 
-When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`: generate drafts deterministically, present each form for explicit review, and link only accepted forms. Handle the form-reference categories through `references/form-reference-migration.md`: present the inventory, take one decision per category, and rebuild a form only when the user explicitly asks for it. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
+When user opts in: apply unambiguous fixes directly using the pattern catalog, propose ambiguous ones via AskUserQuestion, skip anything declined. For model findings, resolve one **needs fix** category at a time using that category's cross-check guidance; categories with verdict **needs review** each need a user decision via AskUserQuestion before any fix; categories with verdict **no action** are not offered. Handle `form-data` and source-detected `formProperty` through `references/form-migration.md`: generate drafts deterministically, present each form for explicit review, and link only accepted forms. Handle the form-reference categories through `references/form-reference-migration.md`: present the inventory, take one decision per integration group within each category, grouping only owners that share an integration, and rebuild a form only when the user explicitly asks for it. Ask whether to commit after each batch, and update the verdict table in MIGRATION_REPORT.md as categories are resolved.
 
 A second action type beyond fixing TODOs/findings is **delete now-redundant code**: the model/code cross-check flags C7-side workaround code as deletion candidates when a finding reports the capability is now native in Zeebe (see `references/composing-code-and-models.md`, "Now-redundant workaround code"). Deleting code is never unambiguous — even under "Yes, fix what you can", present every deletion candidate via AskUserQuestion with its reasoning (the triggering finding, what the code did, why it is now redundant) and delete only on explicit confirmation. Record confirmed deletions and declined candidates in MIGRATION_REPORT.md.
 

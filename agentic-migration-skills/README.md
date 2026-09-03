@@ -76,8 +76,8 @@ Every other Camunda 7 form type is *referenced* rather than defined on the eleme
 classifies each `camunda:formKey` from the original BPMN — embedded HTML/JavaScript, Camunda Form,
 external/custom application, or runtime expression — and every `camunda:formRef` as a Camunda Form
 reference. It inventories every affected user task and start event, including process-level none
-start events that had no form at all, and asks one decision per category. Camunda Forms are relinked
-by form id. For the rest it
+start events that had no form at all, and asks one decision per integration group within each
+category. Camunda Forms are relinked by form id. For the rest it
 offers to rebuild the form as a Camunda 8 form and generates one only on explicit request,
 reproducing the data contract rather than the Camunda 7 user interface. A copied form-key reference
 is never reported as a completed migration.

@@ -175,7 +175,7 @@ After grouping (and after the code cross-checks in `composing-code-and-models.md
 Verdicts:
 
 - **no action** — nothing to do: the converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage.
-- **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category (one decision per category, not per row), or confirming a cross-check result.
+- **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result.
 - **needs fix** — concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation.
 
 | Category (messageId or source category) | Count | Cross-referenced code artifact | Verdict |
@@ -236,7 +236,7 @@ converter removed it, or link a form that still lacks the user's required decisi
 
 Then run `form-reference-migration.md` for every referenced form (embedded, external, Camunda Form,
 dynamic) and for every user task or process-level none start event with no form at all. That procedure inventories each
-reference, collects one decision per category, relinks Camunda Forms, and rebuilds a Camunda 8 form
+reference, collects one decision per integration group within each category, relinks Camunda Forms, and rebuilds a Camunda 8 form
 only when the user explicitly asks for it.
 
 #### 5g. Named category: Forms
@@ -267,7 +267,7 @@ produced by an older converter release that emitted a single generic `form-key` 
 four form types.
 
 - **One C8 form per C7 form.** For every C7 form the user chooses to migrate, create a Camunda 8 `.form` and reference it from its owning user task or start event. Do not drop forms or merge several C7 forms into one.
-- **Never rebuild a form unsolicited.** Offer the rebuild, ask one decision per category, and generate only after an explicit instruction. Embedded HTML/JavaScript is never translated automatically; a rebuilt form reproduces the data contract, not the Camunda 7 user interface.
+- **Never rebuild a form unsolicited.** Offer the rebuild, ask one decision per integration group within each category, and generate only after an explicit instruction. Embedded HTML/JavaScript is never translated automatically; a rebuilt form reproduces the data contract, not the Camunda 7 user interface.
 - **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. Camunda 8 forms removed those limitations:
   - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`) — no flattening worker needed for passthrough fields.
   - `text` components support FEEL templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}` — counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).

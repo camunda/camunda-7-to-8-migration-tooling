@@ -99,7 +99,8 @@ The evaluation is complete when the agent has:
 * inventoried the form-free user task **and** the form-free start event even
   though neither produced a finding;
 * resolved and read `loan-details.html` and classified it `simple`;
-* asked one decision per category instead of one per task;
+* asked one decision per integration group within each category instead of one per task, grouping
+  only owners that share an integration;
 * generated no form for a category the user did not explicitly ask to rebuild;
 * for an explicitly requested rebuild, produced a deterministic draft, presented
   it for acceptance, linked it with a matching `formId` and a recorded binding
