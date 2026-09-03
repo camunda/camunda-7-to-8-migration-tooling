@@ -6,11 +6,13 @@ Use the model scan from the assessment before choosing a conversion path:
 - If local model files were found under the project root, use local mode. Do NOT offer or request C7 engine access.
 - If no local model files were found and user selected E1, fetch definitions from C7 first.
 
-Before conversion, namespace-parse the exact original BPMN files and inventory Generated Task
-Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`). Keep source path, process
-id, and owner id/type so each definition can be paired with a fresh converted output. The
-converter removes this metadata, so post-conversion discovery is too late. See
-`form-migration.md`.
+Before conversion, namespace-parse the exact original BPMN files and inventory every Camunda 7 form.
+Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) go to
+`form-migration.md`; referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or
+process-level none start events with no form at all go to `form-reference-migration.md`. Keep source path, process id, and
+owner id/type so each definition can be paired with a fresh converted output. The converter removes
+generated-form metadata and copies form-key references verbatim, so post-conversion discovery is
+either too late or ambiguous.
 
 ---
 
@@ -103,6 +105,7 @@ After the run, report:
 - Analysis findings: summarize from CLI stdout and/or the JSON report, grouped by severity (WARNING / TASK / REVIEW / INFO)
 - Analysis artifacts: point the user to the XLSX report — it is the human-readable artifact for reviewing and sharing findings with the customer. The JSON report is the machine-readable input for step 5.
 - Generated Task Forms: list source owners discovered before conversion. They remain manual `form-data` follow-up items until the form procedure completes.
+- Referenced forms: list the embedded, external, Camunda Form, dynamic, and no-form owners discovered before conversion. They remain open until their category decision and follow-up work complete.
 
 Severity counts are only a headline. Do not start per-finding work from them — parse and group the full report first (step 5).
 
@@ -159,7 +162,7 @@ Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then by co
 
 Present the grouped table before any per-finding follow-up work starts, and record it in MIGRATION_REPORT.md:
 
-| Category (messageId) | Severity | Count | Element types | Example |
+| Category (messageId or source category) | Severity | Count | Element types | Example |
 |---|---|---|---|---|
 | `expression-method-not-possible` | REVIEW | 1,308 | sequenceFlow, exclusiveGateway | "Method invocation is not possible in FEEL: ..." in order-process.bpmn, element `Gateway_1` |
 
@@ -172,23 +175,28 @@ After grouping (and after the code cross-checks in `composing-code-and-models.md
 Verdicts:
 
 - **no action** — nothing to do: the converter handled the category deterministically, the finding is purely informational (typical for INFO), or a cross-check confirmed full coverage.
-- **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category (one decision per category, not per row), or confirming a cross-check result.
+- **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category or integration group (one decision per homogeneous category or group, not per row), or confirming a cross-check result.
 - **needs fix** — concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation.
 
-| Category (messageId) | Count | Cross-referenced code artifact | Verdict |
+| Category (messageId or source category) | Count | Cross-referenced code artifact | Verdict |
 |---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
-| `form-reference` | 96 | one `.form` per C7 form (see 5f) | needs fix |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`; see 5f) | needs fix |
+| `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | needs review |
+| `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | needs fix |
+| `c7-generic-task-form` | 8 | n/a — no finding; source-derived inventory (see 5g) | needs review |
 
 Rules:
 
 - One row per category, sorted as in 5b (highest severity, then count descending).
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a`. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix), but apply the procedure-defined lifecycle to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding; those categories have no independent converter severity.
 - Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
 - Categories with verdict **needs fix** are the direct work items for the AI follow-up step. Categories with verdict **needs review** are also surfaced there, but only to collect the pending user decision (via AskUserQuestion) before any fix is attempted.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate Camunda 8 form. Keep it as needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older/imported report that lacks the current converter's `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
+- Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
+- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict — they are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
 
 #### 5e. Strip converter annotations from converted models
 
@@ -218,25 +226,51 @@ before model validation and before linking or deploying generated forms.
 
 #### 5f. Generate and review Camunda 8 forms
 
-Run `form-migration.md` for every source form from the pre-conversion inventory. The procedure
-uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible
+Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory. The
+procedure uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible
 warnings for unresolved mappings, asks the user about semantic gaps, and edits only the fresh
 converted BPMN after explicit acceptance.
 
 Do not infer a form from a `form-data` message, mark the finding resolved merely because the
 converter removed it, or link a form that still lacks the user's required decisions.
 
-#### 5f. Named category: Forms
+Then run `form-reference-migration.md` for every referenced form (embedded, external, Camunda Form,
+dynamic) and for every user task or process-level none start event with no form at all. That procedure inventories each
+reference, collects one decision per integration group within each category, relinks Camunda Forms, and rebuilds a Camunda 8 form
+only when the user explicitly asks for it.
 
-C7 form references such as `camunda:formKey` and embedded form references surface as findings
-(typically `form-reference`). Handle those references as one category. Generated Task Forms
-(`camunda:formData` and source-only `camunda:formProperty`) remain the separate `form-data` /
-`generated-form-property-source` workflow above; do not recategorize or skip them.
+#### 5g. Named category: Forms
 
-- **One C8 form per C7 form.** For every C7 form (generated or otherwise), create a Camunda 8 `.form` and reference it from its owning user task or start event. Do not drop forms or merge several C7 forms into one.
+Every Camunda 7 form type reaches this step, and each one is handled differently. Generated Task
+Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` /
+`generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and
+runs through `form-reference-migration.md`:
+
+| Report category | Source classification | Converter finding | Handling |
+|---|---|---|---|
+| `c7-embedded-html-form` | `embedded:` form key | `form-key-embedded` (older releases: `form-key`) | Inventory, classify simple/complex, then keep-or-rebuild decision |
+| `c7-camunda-form-reference` | `camunda-forms:` form key | `form-key-camunda-form` (older releases: `form-key`) | Convert the `.form` and relink by `formId` + `bindingType` |
+| `c7-camunda-form-reference` | `camunda:formRef` | no finding for literal values; expression values may emit an expression-transformation finding | Convert the `.form`, read its own schema id, report any mismatch with a literal `formRef` instead of silently rewriting, and record the binding decision |
+| `c7-external-form-reference` | form key with no known type | `form-key-external` (older releases: `form-key`) | Keep the reference for a custom application, or rebuild as a Camunda Form |
+| `c7-dynamic-form-reference` | form key built from an expression | `form-key-expression` (older releases: `form-key`) | Stays `needs review`; enumerate the possible values with the user first |
+| `c7-generic-task-form` | no form metadata at all | no finding | Inventory and let the user choose |
+
+Use the specific converter messageId as the verdict-table category when it corroborates the source
+classification. If only the legacy generic `form-key` finding exists, use the source-derived `c7-*`
+category to keep the form types separate; use the synthetic `c7-*` name when no finding exists —
+the same convention as `generated-form-property-source`.
+
+Do not collapse these into one `form-reference` category and do not mark any of them **no action**
+because the converter copied a reference — a copied reference is not a working Camunda 8 form.
+Classify from the original BPMN source, not from findings alone: a report can be stale, imported, or
+produced by an older converter release that emitted a single generic `form-key` finding for all
+four form types.
+
+- **One C8 form per C7 form.** For every C7 form the user chooses to migrate, create a Camunda 8 `.form` and reference it from its owning user task or start event. Do not drop forms or merge several C7 forms into one.
+- **Never rebuild a form unsolicited.** Offer the rebuild, ask one decision per integration group within each category, and generate only after an explicit instruction. Embedded HTML/JavaScript is never translated automatically; a rebuilt form reproduces the data contract, not the Camunda 7 user interface.
 - **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. Camunda 8 forms removed those limitations:
   - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`) — no flattening worker needed for passthrough fields.
-  - `text` components support feelers templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}` — counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
+  - `text` components support FEEL templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}` — counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
   - A dedicated `documentPreview` component (property `dataSource`, a FEEL expression over an array of document references) renders an inline preview and download link for a Document API reference — prefer it over a plain-text filename display or a hand-built HTML anchor. When the process variable holds one document-reference object, wrap it in a one-element array in the form's FEEL only; do not change the variable to a form-specific array or a filename.
 - **Add a worker only when the form genuinely cannot do it**: real business logic, external calls, side effects. A service task that only reshapes variables for form consumption is a C7 workaround — do not port it.
 
@@ -261,7 +295,8 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - DMN: update decision/definition namespaces and expression language as needed
 
 Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO) and ask for human review. Lint every rewritten BPMN file per the linting section below.
-After the converted copy exists, run `form-migration.md` against the original/converted pair.
+After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against
+the original/converted pair.
 
 ---
 
@@ -309,9 +344,12 @@ filters for named acquisition. For every selected definition:
    output can be paired exactly.
 5. Run M1 local mode on `.camunda-migration/c7-models`.
 
-Treat the fetched XML as the original source for `form-migration.md` and retain the exact mapping
-between fetched and converted paths. Do not use the CLI `engine` subcommand here: it does not
-persist the raw source XML required to generate forms safely.
+Treat the fetched XML as the original source for `form-migration.md` and
+`form-reference-migration.md`, and retain the exact mapping between fetched and converted paths. Do
+not use the CLI `engine` subcommand here: it does not persist the raw source XML required to
+generate forms safely. Embedded form HTML and `.form` files are not part of the fetched BPMN, so
+referenced form content is normally unavailable in this mode — record it as such rather than
+treating the reference as resolved.
 
 ### 3. Handle Failures
 
@@ -334,4 +372,4 @@ npx bpmnlint <converted-file>.bpmn
 
 ## Analyze-Only Mode
 
-For "analyze but don't convert": run M1 with `--check --json --xlsx` to produce findings and reports with no converted files, or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived Generated Task Form inventory and likely decision categories, but do not create `.form` files or edit BPMN. Then stop.
+For "analyze but don't convert": run M1 with `--check --json --xlsx` to produce findings and reports with no converted files, or do an M2 read-only pass. Parse and present findings grouped by category as in M1 step 5. Include the namespace-derived Generated Task Form inventory, the referenced-form inventory from `form-reference-migration.md`, and likely decision categories, but do not create `.form` files or edit BPMN. Then stop.

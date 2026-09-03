@@ -1,0 +1,44 @@
+<form role="form" name="loanDetailsForm">
+  <div class="form-group">
+    <label for="applicantName">Applicant name</label>
+    <input id="applicantName"
+           type="text"
+           required
+           cam-variable-name="applicantName"
+           cam-variable-type="String"
+           class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="loanAmount">Loan amount</label>
+    <input id="loanAmount"
+           type="text"
+           required
+           cam-variable-name="loanAmount"
+           cam-variable-type="Double"
+           class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="termMonths">Term in months</label>
+    <input id="termMonths"
+           type="text"
+           cam-variable-name="termMonths"
+           cam-variable-type="Integer"
+           class="form-control" />
+  </div>
+  <div class="form-group">
+    <label for="firstPaymentDate">First payment date</label>
+    <input id="firstPaymentDate"
+           type="text"
+           cam-variable-name="firstPaymentDate"
+           cam-variable-type="Date"
+           class="form-control" />
+  </div>
+  <div class="checkbox">
+    <label>
+      <input type="checkbox"
+             cam-variable-name="termsAccepted"
+             cam-variable-type="Boolean" />
+      Applicant accepted the terms
+    </label>
+  </div>
+</form>

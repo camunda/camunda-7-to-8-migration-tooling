@@ -5,6 +5,11 @@ Use this procedure for Camunda 7 Generated Task Forms stored in BPMN XML:
 - `camunda:formData` with `camunda:formField` children
 - legacy `camunda:formProperty` elements directly below `bpmn:extensionElements`
 
+Every other Camunda 7 form type is *referenced* rather than defined on the element — embedded
+HTML/JavaScript forms, external/custom application forms, Camunda Form references, and user tasks
+with no form at all. Use `form-reference-migration.md` for those. It reuses this file for all shared
+generation machinery, so keep the two procedures consistent and never route a form through both.
+
 This is an agentic follow-up to model conversion. The Diagram Converter intentionally reports
 `camunda:formData` with the `form-data` TASK finding and removes the unsupported Camunda 7
 metadata from its output. Do not change that converter behavior and never reconstruct a form from
@@ -34,8 +39,8 @@ Parse XML with a namespace-aware parser. Never use regular expressions to parse 
 - `camunda:formData`, its `businessKey`, and each `camunda:formField` in document order
 - direct `camunda:formProperty` children in document order
 - existing C7 `formKey`/`formRef` metadata
-- process id, owner id/type/name, source path, and whether a start event is a top-level none start
-  event
+- process id, owner id/type/name, source path, and whether a start event is a process-level none
+  start event
 
 The current converter emits one owner-level `messageId: form-data` finding for `formData` or
 form-property-only definitions. Older releases may omit the latter. Source scanning is therefore
