@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -32,9 +33,9 @@ import org.apache.commons.lang3.StringUtils;
  * <p>Parameter names are normalized before matching, so separators, casing, and percent encoding do
  * not defeat detection: {@code id_token}, {@code X-API-Key}, and {@code api%5Fkey} are all
  * recognized. Because no name list can be complete, a value shaped like a JSON Web Token — signed
- * (JWS) or encrypted (JWE) compact serialization — is redacted whatever its parameter is called.
- * This is best-effort hygiene for a shared report, not a secret scanner; the authoritative
- * protection is that the raw value never leaves the model.
+ * (JWS) or encrypted (JWE) compact serialization, detected by decoding its JOSE header — is
+ * redacted whatever its parameter is called. This is best-effort hygiene for a shared report, not a
+ * secret scanner; the authoritative protection is that the raw value never leaves the model.
  */
 public final class FormKeyRedactor {
 
@@ -66,12 +67,10 @@ public final class FormKeyRedactor {
           "token");
 
   /**
-   * Compact serialization of a JSON Web Token: three segments for a signed JWS, five for an
-   * encrypted JWE. Only the header must be present, because a detached payload, an {@code alg:none}
-   * signature, and a {@code dir} encrypted key are all legitimately empty.
+   * Segments of a compact-serialized token: unpadded base64url, possibly empty for a detached
+   * payload, an {@code alg:none} signature, or a {@code dir} encrypted key.
    */
-  private static final Pattern JSON_WEB_TOKEN =
-      Pattern.compile("^eyJ[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]*){2}(?:(?:\\.[A-Za-z0-9_-]*){2})?$");
+  private static final Pattern COMPACT_TOKEN_SEGMENT = Pattern.compile("[A-Za-z0-9_-]*");
 
   private static final Pattern USER_INFO_PASSWORD =
       Pattern.compile("^([a-zA-Z][a-zA-Z0-9+.\\-]*://[^/?#@]*?:)([^/?#@]*)(@)");
@@ -150,8 +149,39 @@ public final class FormKeyRedactor {
     return CREDENTIAL_NAME_FRAGMENTS.stream().anyMatch(normalized::contains);
   }
 
+  /**
+   * Recognizes a compact-serialized JSON Web Token: three segments for a signed JWS, five for an
+   * encrypted JWE, with a first segment that decodes to a JSON object.
+   *
+   * <p>The header is decoded rather than prefix-matched. JSON permits leading whitespace, so a
+   * header encoding {@code {"alg":"HS256"}} starts with {@code IHsi} rather than the familiar
+   * {@code eyJ}, and a prefix check would export it verbatim.
+   */
   private static boolean isJsonWebToken(String parameterValue) {
-    return JSON_WEB_TOKEN.matcher(decode(parameterValue)).matches();
+    String value = decode(parameterValue);
+    String[] segments = value.split("\\.", -1);
+    if (segments.length != 3 && segments.length != 5) {
+      return false;
+    }
+    for (String segment : segments) {
+      if (!COMPACT_TOKEN_SEGMENT.matcher(segment).matches()) {
+        return false;
+      }
+    }
+    return isJoseHeader(segments[0]);
+  }
+
+  private static boolean isJoseHeader(String segment) {
+    if (segment.isEmpty()) {
+      return false;
+    }
+    try {
+      String header =
+          new String(Base64.getUrlDecoder().decode(segment), StandardCharsets.UTF_8).strip();
+      return header.startsWith("{") && header.endsWith("}");
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
   }
 
   /** Lowercases and strips everything that is not a letter or digit, after percent decoding. */

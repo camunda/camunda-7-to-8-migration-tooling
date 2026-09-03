@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,12 @@ class FormKeyRedactorTest {
           + ".ZW5jcnlwdGVkLWtleQ.aXYtdmFsdWU.Y2lwaGVydGV4dA.dGFn";
   private static final String JWE_DIRECT =
       "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..aXYtdmFsdWU.Y2lwaGVydGV4dA.dGFn";
+  private static final String JWT_WITH_PADDED_HEADER =
+      base64Url(" {\"alg\":\"HS256\"}")
+          + "."
+          + base64Url("{\"sub\":\"loan-approver\"}")
+          + "."
+          + base64Url("signature-value");
 
   /** Every reporting path that renders a raw Camunda 7 form key into a finding. */
   private static Stream<String> allFormKeyFindings(String formKey) {
@@ -86,6 +94,22 @@ class FormKeyRedactorTest {
         "https://forms.example.com/loan?opaque=" + JWE_DIRECT + "&view=full");
   }
 
+  /**
+   * JSON permits leading whitespace, so a JOSE header encoding {@code {"alg":"HS256"}} does not
+   * start with the familiar {@code eyJ}. Such a token must still be recognized.
+   */
+  private static Stream<String> whitespacePaddedHeaderFormKeys() {
+    return Stream.of(
+        "https://forms.example.com/loan?t=" + JWT_WITH_PADDED_HEADER,
+        "https://forms.example.com/loan?blob=" + JWT_WITH_PADDED_HEADER + "&view=full");
+  }
+
+  private static String base64Url(String value) {
+    return Base64.getUrlEncoder()
+        .withoutPadding()
+        .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+  }
+
   @ParameterizedTest
   @MethodSource("credentialBearingFormKeys")
   void shouldNeverLeakACredentialThroughAnyFormKeyFinding(String formKey) {
@@ -116,6 +140,14 @@ class FormKeyRedactorTest {
     assertThat(allFormKeyFindings(formKey))
         .as("form key findings for '%s'", formKey)
         .allSatisfy(message -> assertThat(message).doesNotContain(JWE).doesNotContain(JWE_DIRECT));
+  }
+
+  @ParameterizedTest
+  @MethodSource("whitespacePaddedHeaderFormKeys")
+  void shouldNeverLeakATokenWhoseHeaderStartsWithJsonWhitespace(String formKey) {
+    assertThat(allFormKeyFindings(formKey))
+        .as("form key findings for '%s'", formKey)
+        .allSatisfy(message -> assertThat(message).doesNotContain(JWT_WITH_PADDED_HEADER));
   }
 
   @ParameterizedTest
