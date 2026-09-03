@@ -162,7 +162,7 @@ Sort categories by highest severity (TASK > WARNING > REVIEW > INFO), then by co
 
 Present the grouped table before any per-finding follow-up work starts, and record it in MIGRATION_REPORT.md:
 
-| Category (messageId) | Severity | Count | Element types | Example |
+| Category (messageId or source category) | Severity | Count | Element types | Example |
 |---|---|---|---|---|
 | `expression-method-not-possible` | REVIEW | 1,308 | sequenceFlow, exclusiveGateway | "Method invocation is not possible in FEEL: ..." in order-process.bpmn, element `Gateway_1` |
 
@@ -178,7 +178,7 @@ Verdicts:
 - **needs review** — a human decision is required before any fix can start: e.g. choosing the remediation approach for a category (one decision per category, not per row), or confirming a cross-check result.
 - **needs fix** — concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered original expressions, uncovered invoked methods) or a WARNING/TASK category with a clear remediation.
 
-| Category (messageId) | Count | Cross-referenced code artifact | Verdict |
+| Category (messageId or source category) | Count | Cross-referenced code artifact | Verdict |
 |---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
@@ -190,13 +190,13 @@ Verdicts:
 Rules:
 
 - One row per category, sorted as in 5b (highest severity, then count descending).
-- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a` and derive the verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix).
+- The cross-referenced code artifact column names the `@JobWorker`, DMN definition, or other code element the cross-check matched the category to — or `none yet` when no remediation exists. For models-only scope there is no code output to cross-reference: use `n/a`. Derive a converter finding's initial verdict from severity alone (INFO → no action, REVIEW → needs review, WARNING/TASK → needs fix), but apply the procedure-defined lifecycle to source-derived synthetic categories and to `c7-*` categories that split a legacy generic `form-key` finding; those categories have no independent converter severity.
 - Every WARNING/TASK/REVIEW category must end up classified — none may be left without a verdict.
 - Categories with verdict **needs fix** are the direct work items for the AI follow-up step. Categories with verdict **needs review** are also surfaced there, but only to collect the pending user decision (via AskUserQuestion) before any fix is attempted.
 - `form-data` is a special **needs fix** category even though the converter behaved correctly: the missing artifact is a separate Camunda 8 form. Keep it as needs fix until `form-migration.md` has generated, reviewed, linked, validated, and covered the form with deployment.
 - A source-only `camunda:formProperty` definition from an older/imported report that lacks the current converter's `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
 - Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
-- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular each form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict — they are different migrations and routinely land on different verdicts — plus a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
+- The table above is illustrative, not a template to copy: every category present in *this* run gets its own row. In particular each specific form-key category the converter emitted (`form-key-embedded`, `form-key-external`, `form-key-camunda-form`, `form-key-expression`) is a separate row with its own verdict — they are different migrations and routinely land on different verdicts. When only the legacy generic `form-key` finding exists, use one source-derived `c7-*` row per form-key classification instead. Add a synthetic `c7-generic-task-form` row when the source scan found form-free owners.
 
 #### 5e. Strip converter annotations from converted models
 
@@ -255,8 +255,10 @@ runs through `form-reference-migration.md`:
 | `c7-dynamic-form-reference` | form key built from an expression | `form-key-expression` (older releases: `form-key`) | Stays `needs review`; enumerate the possible values with the user first |
 | `c7-generic-task-form` | no form metadata at all | no finding | Inventory and let the user choose |
 
-Use the converter messageId as the verdict-table category when a finding exists, and the synthetic
-`c7-*` name when it does not — the same convention as `generated-form-property-source`.
+Use the specific converter messageId as the verdict-table category when it corroborates the source
+classification. If only the legacy generic `form-key` finding exists, use the source-derived `c7-*`
+category to keep the form types separate; use the synthetic `c7-*` name when no finding exists —
+the same convention as `generated-form-property-source`.
 
 Do not collapse these into one `form-reference` category and do not mark any of them **no action**
 because the converter copied a reference — a copied reference is not a working Camunda 8 form.

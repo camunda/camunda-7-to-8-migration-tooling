@@ -46,9 +46,11 @@ exact, case-sensitive prefix, in this order:
 `camunda:formRef` is always `c7-camunda-form-reference`, whatever its binding. A user task or
 top-level start event with no form metadata at all is `c7-generic-task-form`.
 
-These are the names used in the inventory. In the model finding verdict table, use the converter
-messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`, `form-key-expression`)
-when a finding exists and the synthetic `c7-*` name when it does not — the same convention as
+These are the names used in the inventory. In the model finding verdict table, use the specific
+converter messageId (`form-key-embedded`, `form-key-camunda-form`, `form-key-external`,
+`form-key-expression`) when it corroborates the source classification. If only the legacy generic
+`form-key` finding exists, use the source-derived `c7-*` category to keep the form types separate;
+use the synthetic `c7-*` name when no finding exists — the same convention as
 `generated-form-property-source`.
 
 Rules that decide real cases:
