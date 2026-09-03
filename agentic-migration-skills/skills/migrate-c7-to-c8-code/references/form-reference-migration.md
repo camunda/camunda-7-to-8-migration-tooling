@@ -109,6 +109,11 @@ Record this table in `MIGRATION_REPORT.md` before asking anything:
   `file missing`, `dynamic path`, and `engine-source mode`.
   Use `n/a` where content does not apply. Engine-source mode (E1) usually has no local content.
 - `Complexity` is `simple`, `complex`, or `unknown` (see below); `n/a` outside embedded forms.
+- `Decision` records the user's chosen outcome for the row's integration group, plus who made it:
+  `keep reference`, `rebuild as Camunda 8 form`, `leave without form`, or `defer`. Use
+  `relink` for a `c7-camunda-form-reference` row, which is not a keep/rebuild question, and append
+  its recorded binding choice (for example `relink — bindingType deployment`). Use `pending` until
+  the user has decided. Record the binding decision here, not in `Status`.
 - `Status` is `pending`, `kept`, `relinked`, `draft`, `accepted`, `declined`, `deferred`, or
   `blocked`.
 
