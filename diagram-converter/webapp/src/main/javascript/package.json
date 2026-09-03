@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@bpmn-io/form-js-viewer": "^1.25.0",
-    "@camunda/design-system": "^0.51.0",
+    "@camunda/design-system": "^0.52.0",
     "bpmn-js": "^18.6.1",
     "dmn-js": "^17.10.2",
     "lucide-react": "1.39.0",
