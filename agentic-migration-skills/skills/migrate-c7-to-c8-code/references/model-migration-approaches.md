@@ -182,7 +182,7 @@ Verdicts:
 |---|---|---|---|
 | `expression-method-not-possible` | 2,137 | none yet — remediation decision pending | needs review |
 | `delegate-expression-as-job-type` | 2,491 | `DelegateDispatcher` @JobWorker (routes 38/42 expressions) | needs fix |
-| `form-data` | 96 | one `.form` per C7 form (see 5f) | needs fix |
+| `form-data` | 96 | one `.form` per C7 Generated Task Form (`camunda:formData` / direct `camunda:formProperty`; see 5f) | needs fix |
 | `form-key-embedded` | 14 | none yet — keep/rebuild decision pending (see 5g) | needs review |
 | `form-key-external` | 31 | `LoanFormsController` custom app — integration owner confirmed (see 5g) | needs fix |
 | `c7-generic-task-form` | 8 | n/a — no finding; source-derived inventory (see 5g) | needs review |

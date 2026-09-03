@@ -86,13 +86,15 @@ classification disagree, report the disagreement instead of picking one silently
 
 Record this table in `MIGRATION_REPORT.md` before asking anything:
 
-| Source BPMN | Process | Owner | Type | Category | Reference | Content available | Complexity | Decision | Status |
+| Source BPMN | Process | Owner | Type | Category | Reference (report-safe) | Content available | Complexity | Decision | Status |
 |---|---|---|---|---|---|---|---|---|---|
 
 - `Owner` is the element id plus name; `Type` is `userTask` or `startEvent`.
-- `Reference` is the exact value, byte for byte. **Redact credential-like URL query values** (for
-  example `token`, `apikey`, `password`, `secret`, `signature`) as `<redacted>` in the report, and
-  never copy a redacted form into a model.
+- `Reference (report-safe)` is rendered from the exact source value, byte for byte, except that
+  **credential-like URL query values** (for example `token`, `apikey`, `password`, `secret`,
+  `signature`) are rendered as `<redacted>` in `MIGRATION_REPORT.md`. When applying a migration
+  action, read the original value from the source BPMN and preserve it unchanged where the reference
+  is retained; never copy the redacted report rendering into a model.
 - `Content available` is `yes`, `no`, or `n/a` — whether the referenced HTML or `.form` file was
   found in the project. Engine-source mode (E1) usually has no local content.
 - `Complexity` is `simple`, `complex`, or `unknown` (see below); `n/a` outside embedded forms.
