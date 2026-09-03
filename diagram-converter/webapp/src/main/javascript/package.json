@@ -18,7 +18,7 @@
     "@camunda/design-system": "^0.52.0",
     "bpmn-js": "^18.6.1",
     "dmn-js": "^17.10.2",
-    "lucide-react": "1.39.0",
+    "lucide-react": "1.40.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
