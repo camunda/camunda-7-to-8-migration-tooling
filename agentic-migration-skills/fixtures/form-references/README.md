@@ -4,7 +4,7 @@ This directory is a small manual evaluation fixture for the
 `migrate-c7-to-c8-code` skill. It covers the Camunda 7 form types that are
 *referenced* rather than defined on the BPMN element, which the Diagram
 Converter reports but cannot migrate: embedded HTML/JavaScript forms, external
-form keys resolved by a custom application, and user tasks with no form at all.
+form keys resolved by a custom application, and user tasks or start events with no form at all.
 
 The companion fixture for `camunda:formData` Generated Task Forms is
 [`../generated-task-forms`](../generated-task-forms). Keep the two separate: a

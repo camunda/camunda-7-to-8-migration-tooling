@@ -75,7 +75,7 @@ semantic gap for user review, and links/deploys only explicitly accepted forms.
 Every other Camunda 7 form type is *referenced* rather than defined on the element. The skill
 classifies each `camunda:formKey`/`camunda:formRef` from the original BPMN — embedded HTML/JavaScript,
 Camunda Form, external/custom application, or runtime expression — inventories every affected user
-task and start event alongside user tasks that had no form at all, and asks one decision per
+task and start event alongside those that had no form at all, and asks one decision per
 category. Camunda Forms are relinked by form id. For the rest it offers to rebuild the form as a
 Camunda 8 Camunda Form and generates one only on explicit request, reproducing the data contract
 rather than the Camunda 7 user interface. A copied form-key reference is never reported as a
