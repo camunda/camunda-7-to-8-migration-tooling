@@ -72,6 +72,10 @@ public class ConverterPropertiesFactory extends AbstractFactory<ConverterPropert
         base::setAlwaysUseDefaultJobType);
     readFlag(
         "append-documentation", properties::getAppendDocumentation, base::setAppendDocumentation);
+    readFlag(
+        "append-documentation-only-task-and-warning",
+        properties::getAppendDocumentationOnlyTaskAndWarning,
+        base::setAppendDocumentationOnlyTaskAndWarning);
     readFlag("keep-job-type-blank", properties::getKeepJobTypeBlank, base::setKeepJobTypeBlank);
     readFlag(
         "add-data-migration-execution-listener",

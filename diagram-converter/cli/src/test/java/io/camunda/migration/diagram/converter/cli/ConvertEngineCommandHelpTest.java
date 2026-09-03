@@ -23,5 +23,9 @@ class ConvertEngineCommandHelpTest {
     assertThat(help).contains("-u, --username=<username>");
     assertThat(help).contains("Username for Basic authentication");
     assertThat(help).contains("-t, --target-directory=<targetDirectory>");
+    assertThat(help).contains("--only-task-and-warning");
+    assertThat(help)
+        .contains("only TASK and WARNING messages")
+        .contains("appended to documentation");
   }
 }

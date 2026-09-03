@@ -37,6 +37,9 @@ results list.
     - `file` (`MultipartFile`): BPMN, DMN or form file _(mandatory)_
     - `appendDocumentation` (`Boolean`): whether the check results should also
       be added to the documentation of each BPMN element _(default: `false`)_
+    - `appendDocumentationOnlyTaskAndWarning` (`Boolean`): whether only TASK and
+      WARNING check results should be added to BPMN element documentation. This
+      also enables documentation appending _(default: `false`)_
     - `adapterJobType` (`String`): type of the job all service tasks formerly
       implemented as delegates or expressions should have. _(optional)_
     - `platformVersion` (`String`): version of the target platform _(optional)_

@@ -51,6 +51,11 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   boolean documentation;
 
   @Option(
+      names = "--only-task-and-warning",
+      description = "If enabled, only TASK and WARNING messages are appended to documentation")
+  boolean onlyTaskAndWarning;
+
+  @Option(
       names = {"--default-job-type"},
       description =
           "Job type used when adjusting delegates. If set, the default value from the 'converter-properties.properties' is overridden")
@@ -327,7 +332,8 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setDefaultJobType(defaultJobType);
     properties.setPlatformVersion(platformVersion);
-    properties.setAppendDocumentation(documentation);
+    properties.setAppendDocumentation(documentation || onlyTaskAndWarning);
+    properties.setAppendDocumentationOnlyTaskAndWarning(onlyTaskAndWarning);
     properties.setAppendElements(!disableAppendElements);
     properties.setKeepJobTypeBlank(keepJobTypeBlank);
     properties.setAlwaysUseDefaultJobType(alwaysUseDefaultJobType);
