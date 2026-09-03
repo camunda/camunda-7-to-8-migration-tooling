@@ -7,11 +7,14 @@
  */
 package io.camunda.migration.diagram.converter.cli;
 
+import static io.camunda.migration.diagram.converter.cli.ConvertCommand.LOG_CLI;
+
 import io.camunda.migration.diagram.converter.DiagramType;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -82,24 +85,35 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
         (resourceName, models) ->
             models.forEach(
                 (model, processDefinitionKeys) -> {
-                  String resourceFilename = FilenameUtils.getName(resourceName);
-                  String filename =
-                      models.size() == 1
-                          ? resourceFilename
-                          : multiModelFilename(
-                              resourceFilename, processDefinitionKeys, diagramType);
-                  filename = FilenameUtils.getName(filename);
-                  filename = safeFilename(filename, diagramType);
-                  File outputFile = uniqueOutputFile(filename, diagramType, result);
-                  result.put(
-                      outputFile,
-                      diagramType.readDiagram(
-                          new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
+                  try {
+                    String resourceFilename =
+                        resourceName == null ? "" : FilenameUtils.getName(resourceName);
+                    String filename =
+                        models.size() == 1
+                            ? resourceFilename
+                            : multiModelFilename(
+                                resourceFilename, processDefinitionKeys, diagramType);
+                    filename = FilenameUtils.getName(filename);
+                    filename = safeFilename(filename, diagramType);
+                    File outputFile = uniqueOutputFile(filename, diagramType, result);
+                    result.put(
+                        outputFile,
+                        diagramType.readDiagram(
+                            new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
+                  } catch (Exception e) {
+                    LOG_CLI.error(
+                        "Problem while reading {} diagram '{}' for process definitions {}: {}",
+                        diagramType,
+                        resourceName,
+                        processDefinitionKeys,
+                        createMessage(e));
+                    returnCode = 1;
+                  }
                 }));
   }
 
   static String safeFilename(String filename, DiagramType diagramType) {
-    if (filename.isBlank() || filename.equals(".") || filename.equals("..")) {
+    if (filename == null || filename.isBlank() || filename.equals(".") || filename.equals("..")) {
       return "diagram" + diagramType.getFileEndings().get(0);
     }
     return filename;
@@ -155,23 +169,53 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
 
   private Map<String, Map<String, Set<String>>> getAllLatestBpmnXml() {
     ProcessEngineClient client = ProcessEngineClient.withEngine(url, username, password);
-    return client.getAllLatestProcessDefinitions().stream()
-        .collect(
-            Collectors.groupingBy(
-                ProcessDefinitionDto::getResource,
-                Collectors.groupingBy(
-                    pd -> client.getBpmnXml(pd.getId()).getBpmn20Xml(),
-                    Collectors.mapping(ProcessDefinitionDto::getKey, Collectors.toSet()))));
+    Map<String, Map<String, Set<String>>> result = new LinkedHashMap<>();
+    for (ProcessDefinitionDto processDefinition : client.getAllLatestProcessDefinitions()) {
+      try {
+        ProcessDefinitionDiagramDto diagram = client.getBpmnXml(processDefinition.getId());
+        if (diagram == null || diagram.getBpmn20Xml() == null) {
+          throw new IllegalStateException(
+              "Process engine returned no BPMN XML for process definition "
+                  + processDefinition.getId());
+        }
+        result
+            .computeIfAbsent(processDefinition.getResource(), ignored -> new LinkedHashMap<>())
+            .computeIfAbsent(diagram.getBpmn20Xml(), ignored -> new LinkedHashSet<>())
+            .add(processDefinition.getKey());
+      } catch (Exception e) {
+        LOG_CLI.error(
+            "Problem while retrieving BPMN diagram for process definition {}: {}",
+            processDefinition.getId(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
+    return result;
   }
 
   private Map<String, Map<String, Set<String>>> getAllLatestDmnXml() {
     ProcessEngineClient client = ProcessEngineClient.withEngine(url, username, password);
-    return client.getAllLatestDecisionDefinitions().stream()
-        .collect(
-            Collectors.groupingBy(
-                DecisionDefinitionDto::getResource,
-                Collectors.groupingBy(
-                    pd -> client.getDmnXml(pd.getId()).getDmnXml(),
-                    Collectors.mapping(DecisionDefinitionDto::getKey, Collectors.toSet()))));
+    Map<String, Map<String, Set<String>>> result = new LinkedHashMap<>();
+    for (DecisionDefinitionDto decisionDefinition : client.getAllLatestDecisionDefinitions()) {
+      try {
+        DecisionDefinitionDiagramDto diagram = client.getDmnXml(decisionDefinition.getId());
+        if (diagram == null || diagram.getDmnXml() == null) {
+          throw new IllegalStateException(
+              "Process engine returned no DMN XML for decision definition "
+                  + decisionDefinition.getId());
+        }
+        result
+            .computeIfAbsent(decisionDefinition.getResource(), ignored -> new LinkedHashMap<>())
+            .computeIfAbsent(diagram.getDmnXml(), ignored -> new LinkedHashSet<>())
+            .add(decisionDefinition.getKey());
+      } catch (Exception e) {
+        LOG_CLI.error(
+            "Problem while retrieving DMN diagram for decision definition {}: {}",
+            decisionDefinition.getId(),
+            createMessage(e));
+        returnCode = 1;
+      }
+    }
+    return result;
   }
 }

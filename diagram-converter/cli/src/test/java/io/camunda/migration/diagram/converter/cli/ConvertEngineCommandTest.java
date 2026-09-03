@@ -9,10 +9,14 @@ package io.camunda.migration.diagram.converter.cli;
 
 import static org.assertj.core.api.Assertions.*;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.camunda.migration.diagram.converter.DiagramType;
 import io.camunda.migration.diagram.converter.cli.mock.App;
 import java.io.File;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 import org.camunda.bpm.engine.ProcessEngine;
@@ -21,6 +25,7 @@ import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
@@ -82,6 +87,61 @@ public class ConvertEngineCommandTest {
                 .filter(file -> file.getName().endsWith(".xlsx"))
                 .count())
         .isEqualTo(1);
+  }
+
+  @Test
+  void shouldExportSuccessfulDiagramsWhenAnotherDiagramCannotBeConverted(@TempDir File tempDir)
+      throws Exception {
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("valid")
+        .addClasspathResource("c7.bpmn")
+        .deploy();
+    String alreadyConvertedXml;
+    try (InputStream input =
+        Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream("c8.bpmn"))) {
+      alreadyConvertedXml = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+    }
+    alreadyConvertedXml =
+        alreadyConvertedXml
+            .replace(
+                "xmlns:modeler=\"http://camunda.org/schema/modeler/1.0\"",
+                "xmlns:camunda=\"http://camunda.org/schema/1.0/bpmn\" "
+                    + "xmlns:modeler=\"http://camunda.org/schema/modeler/1.0\"")
+            .replace(
+                "<bpmn:process id=\"Process_0ysu8pf\" isExecutable=\"true\">",
+                "<bpmn:process id=\"Process_0ysu8pf\" isExecutable=\"true\" "
+                    + "camunda:historyTimeToLive=\"180\">");
+    processEngine
+        .getRepositoryService()
+        .createDeployment()
+        .name("already-converted")
+        .addString("c8.bpmn", alreadyConvertedXml)
+        .deploy();
+
+    ConvertEngineCommand command = new ConvertEngineCommand();
+    command.targetDirectory = tempDir;
+    command.url = "http://localhost:" + randomServerPort + "/engine-rest";
+
+    Logger cliLogger = (Logger) LoggerFactory.getLogger("cli");
+    ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+    listAppender.start();
+    cliLogger.addAppender(listAppender);
+    try {
+      assertThat(command.call()).isEqualTo(1);
+      assertThat(tempDir.listFiles())
+          .extracting(File::getName)
+          .containsExactly("converted-c8-c7.bpmn");
+      assertThat(listAppender.list)
+          .anyMatch(
+              event ->
+                  event.getFormattedMessage().contains("c8.bpmn")
+                      && event.getFormattedMessage().contains("Problem while converting"));
+    } finally {
+      cliLogger.detachAppender(listAppender);
+      listAppender.stop();
+    }
   }
 
   @Test
@@ -232,6 +292,7 @@ public class ConvertEngineCommandTest {
 
   @Test
   void shouldUseSafeFilenamesForSpecialResourceNames() {
+    assertThat(ConvertEngineCommand.safeFilename(null, DiagramType.BPMN)).isEqualTo("diagram.bpmn");
     assertThat(ConvertEngineCommand.safeFilename("", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
     assertThat(ConvertEngineCommand.safeFilename(".", DiagramType.BPMN)).isEqualTo("diagram.bpmn");
     assertThat(ConvertEngineCommand.safeFilename("..", DiagramType.DMN)).isEqualTo("diagram.dmn");
