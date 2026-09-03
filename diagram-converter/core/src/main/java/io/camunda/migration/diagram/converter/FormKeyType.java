@@ -45,11 +45,15 @@ public enum FormKeyType {
    * #EXPRESSION} when no form type can be derived, which includes a fully dynamic key such as
    * {@code ${formKey}}.
    *
+   * <p>The value is matched exactly, without trimming or case folding, because Camunda 7 resolves
+   * the form type by exact string comparison. A value such as {@code " embedded:app:form.html"} was
+   * an External Task Form in Camunda 7 and is classified as {@link #EXTERNAL} here too.
+   *
    * @param formKey the raw attribute value, may be {@code null}
    * @return the form type the Camunda 7 engine would have resolved, never {@code null}
    */
   public static FormKeyType of(String formKey) {
-    String value = StringUtils.trimToEmpty(formKey);
+    String value = StringUtils.defaultString(formKey);
     if (value.startsWith(EMBEDDED_PREFIX)) {
       return EMBEDDED;
     }

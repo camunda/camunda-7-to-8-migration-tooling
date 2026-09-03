@@ -84,8 +84,10 @@ class FormKeyTypeTest {
   }
 
   @Test
-  void shouldIgnoreSurroundingWhitespace() {
-    assertThat(FormKeyType.of("  embedded:app:forms/loan.html  ")).isEqualTo(FormKeyType.EMBEDDED);
+  void shouldNotTrimBecauseCamunda7MatchesTheFormTypeExactly() {
+    assertThat(FormKeyType.of("  embedded:app:forms/loan.html  ")).isEqualTo(FormKeyType.EXTERNAL);
+    assertThat(FormKeyType.of("\tcamunda-forms:deployment:loan.form"))
+        .isEqualTo(FormKeyType.EXTERNAL);
   }
 
   @ParameterizedTest

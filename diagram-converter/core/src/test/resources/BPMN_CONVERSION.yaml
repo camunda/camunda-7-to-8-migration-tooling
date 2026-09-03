@@ -103,6 +103,37 @@ categories:
           </bpmn:userTask>
         expectedMessages: |
           <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. Form key '${formKey}' is a Camunda 7 expression, so the referenced form type cannot be determined without running the process. The reference was copied verbatim. Resolve the possible values and migrate every form they reference manually.</conversion:message>
+      - name: External task form with credentials is redacted in findings but preserved in the model
+        givenBpmn: |
+          <bpmn:userTask id="CredentialFormTask" camunda:formKey="https://my-app/forms/loan?taskId=1&amp;token=s3cret"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="CredentialFormTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference="https://my-app/forms/loan?taskId=1&amp;token=s3cret"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form 'https://my-app/forms/loan?taskId=1&amp;token=&lt;redacted&gt;' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
+      - name: Start event form key with credentials is redacted in findings
+        givenBpmn: |
+          <bpmn:startEvent id="CredentialFormStart" camunda:formKey="https://my-app/forms/start?token=s3cret"/>
+        expectedBpmn: |
+          <bpmn:startEvent id="CredentialFormStart" isInterrupting="true" parallelMultiple="false"/>
+        expectedMessages: |
+          <conversion:message severity="WARNING">Attribute 'formKey' with value 'https://my-app/forms/start?token=&lt;redacted&gt;' on 'startEvent' is not supported.</conversion:message>
+      - name: Whitespace padded form key is external because Camunda 7 matches the form type exactly
+        givenBpmn: |
+          <bpmn:userTask id="PaddedFormKeyTask" camunda:formKey=" embedded:app:forms/loan.html"/>
+        expectedBpmn: |
+          <bpmn:userTask completionQuantity="1" id="PaddedFormKeyTask" implementation="##unspecified" isForCompensation="false" startQuantity="1">
+            <bpmn:extensionElements>
+              <zeebe:userTask/>
+              <zeebe:formDefinition externalReference=" embedded:app:forms/loan.html"/>
+            </bpmn:extensionElements>
+          </bpmn:userTask>
+        expectedMessages: |
+          <conversion:message severity="TASK">Attribute 'formKey' on 'userTask' was mapped. External Task Form ' embedded:app:forms/loan.html' is rendered by a custom application, so there is no Camunda 7 form schema to convert. The reference was copied verbatim. Either keep it and resolve it from a custom task application, or replace it with a Camunda Form.</conversion:message>
   - category: input output mappings
     cases:
       - name: Call Activity Simple Variable Input/Output

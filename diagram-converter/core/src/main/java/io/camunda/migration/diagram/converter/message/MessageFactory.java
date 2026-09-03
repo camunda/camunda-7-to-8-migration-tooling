@@ -7,6 +7,7 @@
  */
 package io.camunda.migration.diagram.converter.message;
 
+import io.camunda.migration.diagram.converter.FormKeyRedactor;
 import io.camunda.migration.diagram.converter.FormKeyType;
 import java.util.Collections;
 import java.util.Map;
@@ -323,7 +324,7 @@ public class MessageFactory {
         formKeyMessageId(formKeyType),
         ContextBuilder.builder()
             .context(supportedAttributePrefix(attributeLocalName, elementLocalName))
-            .entry("formKey", formKey)
+            .entry("formKey", FormKeyRedactor.redact(formKey))
             .build());
   }
 

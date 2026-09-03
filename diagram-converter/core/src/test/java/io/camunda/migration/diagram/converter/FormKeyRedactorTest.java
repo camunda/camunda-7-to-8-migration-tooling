@@ -1,0 +1,121 @@
+/*
+ * Copyright Camunda Services GmbH and/or licensed to Camunda Services GmbH under
+ * one or more contributor license agreements. See the NOTICE file distributed
+ * with this work for additional information regarding copyright ownership.
+ * Licensed under the Camunda License 1.0. You may not use this file
+ * except in compliance with the Camunda License 1.0.
+ */
+package io.camunda.migration.diagram.converter;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.camunda.migration.diagram.converter.message.Message;
+import io.camunda.migration.diagram.converter.message.MessageFactory;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+class FormKeyRedactorTest {
+
+  private static final String SECRET = "sup3r-s3cret-value";
+
+  /** Every reporting path that renders a raw Camunda 7 form key into a finding. */
+  private static Stream<String> allFormKeyFindings(String formKey) {
+    List<String> messages = new ArrayList<>();
+    for (FormKeyType formKeyType : FormKeyType.values()) {
+      messages.add(
+          MessageFactory.formKey("formKey", "userTask", formKey, formKeyType).getMessage());
+    }
+    messages.add(
+        MessageFactory.attributeNotSupported(
+                "formKey", "startEvent", FormKeyRedactor.redact(formKey))
+            .getMessage());
+    return messages.stream();
+  }
+
+  private static Stream<String> credentialBearingFormKeys() {
+    return Stream.of(
+        "https://forms.example.com/loan?token=" + SECRET,
+        "https://forms.example.com/loan?taskId=1&access_token=" + SECRET,
+        "https://forms.example.com/loan?API_KEY=" + SECRET + "&view=full",
+        "https://forms.example.com/loan?signature=" + SECRET + "#section",
+        "https://user:" + SECRET + "@forms.example.com/loan",
+        "embedded:app:forms/loan.html?secret=" + SECRET,
+        "camunda-forms:deployment:loan.form?password=" + SECRET,
+        "${base}/loan?client_secret=" + SECRET);
+  }
+
+  @ParameterizedTest
+  @MethodSource("credentialBearingFormKeys")
+  void shouldNeverLeakACredentialThroughAnyFormKeyFinding(String formKey) {
+    assertThat(allFormKeyFindings(formKey))
+        .as("form key findings for '%s'", formKey)
+        .allSatisfy(message -> assertThat(message).doesNotContain(SECRET));
+  }
+
+  @ParameterizedTest
+  @MethodSource("credentialBearingFormKeys")
+  void shouldStillIdentifyTheFormAfterRedaction(String formKey) {
+    assertThat(FormKeyRedactor.redact(formKey))
+        .contains(FormKeyRedactor.REDACTED)
+        .doesNotContain(SECRET);
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      delimiter = '|',
+      value = {
+        "https://forms.example.com/loan?token=abc|https://forms.example.com/loan?token=<redacted>",
+        "https://forms.example.com/loan?taskId=1&token=abc&view=full|https://forms.example.com/loan?taskId=1&token=<redacted>&view=full",
+        "https://forms.example.com/loan?Token=abc|https://forms.example.com/loan?Token=<redacted>",
+        "https://forms.example.com/loan?token=abc#top|https://forms.example.com/loan?token=<redacted>#top",
+        "https://user:pw@forms.example.com/loan|https://user:<redacted>@forms.example.com/loan",
+        "https://user@forms.example.com/loan|https://user@forms.example.com/loan"
+      })
+  void shouldRedactOnlyTheCredentialPart(String formKey, String expected) {
+    assertThat(FormKeyRedactor.redact(formKey)).isEqualTo(expected);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "embedded:app:forms/loan-approval.html",
+        "camunda-forms:deployment:forms/userTask.form",
+        "https://forms.example.com/loan",
+        "https://forms.example.com/loan?taskId=1&view=full",
+        "https://forms.example.com/loan?flag",
+        "loanApprovalForm",
+        "${formKey}"
+      })
+  void shouldPreserveFormKeysWithoutCredentials(String formKey) {
+    assertThat(FormKeyRedactor.redact(formKey)).isEqualTo(formKey);
+  }
+
+  @Test
+  void shouldTolerateAbsentFormKeys() {
+    assertThat(FormKeyRedactor.redact(null)).isEmpty();
+    assertThat(FormKeyRedactor.redact("")).isEmpty();
+  }
+
+  @Test
+  void shouldNotRedactWhenThereIsNoQuery() {
+    assertThat(FormKeyRedactor.redact("token=abc")).isEqualTo("token=abc");
+  }
+
+  @Test
+  void shouldKeepTheVerbatimValueAvailableForTheConvertedModel() {
+    String formKey = "https://forms.example.com/loan?token=" + SECRET;
+
+    Message finding = MessageFactory.formKey("formKey", "userTask", formKey, FormKeyType.EXTERNAL);
+
+    assertThat(finding.getMessage()).doesNotContain(SECRET);
+    assertThat(FormKeyType.of(formKey))
+        .as("redaction must not change how the form key is classified")
+        .isEqualTo(FormKeyType.EXTERNAL);
+  }
+}
