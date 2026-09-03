@@ -115,6 +115,9 @@ resources, conventionally `src/main/webapp/<path>` (Camunda 7 packages
 For `embedded:deployment:<path>` and `camunda-forms:deployment:<path>` look beside the BPMN and in
 the deployment resource folders. Record the resolved path, or `no` with the reason: file missing,
 dynamic path, or engine-source mode.
+For `camunda:formRef`, treat the value as a form reference identifier, not a file path. Search the
+project and deployment resource folders for candidate `.form` files, read each converted schema's
+own `id`, and report a mismatch with a literal `formRef` instead of silently rewriting either side.
 
 Never fetch a remote URL, never execute JavaScript, and never extract deployment resources from a
 live engine.
