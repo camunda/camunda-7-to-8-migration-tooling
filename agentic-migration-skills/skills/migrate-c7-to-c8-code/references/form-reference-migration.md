@@ -34,7 +34,7 @@ extension namespace uses the literal prefix `camunda` — match on the namespace
 `http://camunda.org/schema/1.0/bpmn`.
 
 Known Camunda 7 form-key types use the structure `FORM-TYPE:LOCATION:FORM.NAME`, while
-external/custom form keys may be arbitrary strings, including URLs. Classify each raw value by exact,
+external/custom form keys may be arbitrary strings, including URLs. Classify each raw value by its exact,
 case-sensitive prefix, in this order:
 
 | Order | Condition on the raw `camunda:formKey` | Report category |
