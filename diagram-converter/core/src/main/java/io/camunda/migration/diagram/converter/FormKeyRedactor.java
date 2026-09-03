@@ -31,9 +31,10 @@ import org.apache.commons.lang3.StringUtils;
  *
  * <p>Parameter names are normalized before matching, so separators, casing, and percent encoding do
  * not defeat detection: {@code id_token}, {@code X-API-Key}, and {@code api%5Fkey} are all
- * recognized. Because no name list can be complete, a value shaped like a JSON Web Token is
- * redacted whatever its parameter is called. This is best-effort hygiene for a shared report, not a
- * secret scanner; the authoritative protection is that the raw value never leaves the model.
+ * recognized. Because no name list can be complete, a value shaped like a JSON Web Token — signed
+ * (JWS) or encrypted (JWE) compact serialization — is redacted whatever its parameter is called.
+ * This is best-effort hygiene for a shared report, not a secret scanner; the authoritative
+ * protection is that the raw value never leaves the model.
  */
 public final class FormKeyRedactor {
 
@@ -64,8 +65,13 @@ public final class FormKeyRedactor {
           "signingkey",
           "token");
 
+  /**
+   * Compact serialization of a JSON Web Token: three segments for a signed JWS, five for an
+   * encrypted JWE. Only the header must be present, because a detached payload, an {@code alg:none}
+   * signature, and a {@code dir} encrypted key are all legitimately empty.
+   */
   private static final Pattern JSON_WEB_TOKEN =
-      Pattern.compile("^eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]*$");
+      Pattern.compile("^eyJ[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]*){2}(?:(?:\\.[A-Za-z0-9_-]*){2})?$");
 
   private static final Pattern USER_INFO_PASSWORD =
       Pattern.compile("^([a-zA-Z][a-zA-Z0-9+.\\-]*://[^/?#@]*?:)([^/?#@]*)(@)");

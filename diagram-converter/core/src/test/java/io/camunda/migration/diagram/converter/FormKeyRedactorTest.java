@@ -25,6 +25,11 @@ class FormKeyRedactorTest {
   private static final String SECRET = "sup3r-s3cret-value";
   private static final String JWT =
       "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsb2FuLWFwcHJvdmVyIn0.c2lnbmF0dXJlLXZhbHVl";
+  private static final String JWE =
+      "eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ"
+          + ".ZW5jcnlwdGVkLWtleQ.aXYtdmFsdWU.Y2lwaGVydGV4dA.dGFn";
+  private static final String JWE_DIRECT =
+      "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..aXYtdmFsdWU.Y2lwaGVydGV4dA.dGFn";
 
   /** Every reporting path that renders a raw Camunda 7 form key into a finding. */
   private static Stream<String> allFormKeyFindings(String formKey) {
@@ -72,6 +77,15 @@ class FormKeyRedactorTest {
         "https://forms.example.com/loan?assertionBlob=" + JWT);
   }
 
+  /**
+   * JWE compact serialization has five segments, and a 'dir' encrypted key is legitimately empty.
+   */
+  private static Stream<String> jsonWebEncryptionFormKeys() {
+    return Stream.of(
+        "https://forms.example.com/loan?t=" + JWE,
+        "https://forms.example.com/loan?opaque=" + JWE_DIRECT + "&view=full");
+  }
+
   @ParameterizedTest
   @MethodSource("credentialBearingFormKeys")
   void shouldNeverLeakACredentialThroughAnyFormKeyFinding(String formKey) {
@@ -94,6 +108,14 @@ class FormKeyRedactorTest {
     assertThat(allFormKeyFindings(formKey))
         .as("form key findings for '%s'", formKey)
         .allSatisfy(message -> assertThat(message).doesNotContain(JWT));
+  }
+
+  @ParameterizedTest
+  @MethodSource("jsonWebEncryptionFormKeys")
+  void shouldNeverLeakAnEncryptedJsonWebTokenThroughAnyFormKeyFinding(String formKey) {
+    assertThat(allFormKeyFindings(formKey))
+        .as("form key findings for '%s'", formKey)
+        .allSatisfy(message -> assertThat(message).doesNotContain(JWE).doesNotContain(JWE_DIRECT));
   }
 
   @ParameterizedTest
