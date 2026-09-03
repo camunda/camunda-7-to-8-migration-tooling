@@ -108,9 +108,12 @@ public class MessageFactoryTest {
 
   @Test
   void shouldBuildFormKey() {
-    Message message = MessageFactory.formKey(random(), random());
-    assertNotNull(message);
-    assertNotNull(message.getMessage());
+    for (io.camunda.migration.diagram.converter.FormKeyType formKeyType :
+        io.camunda.migration.diagram.converter.FormKeyType.values()) {
+      Message message = MessageFactory.formKey(random(), random(), random(), formKeyType);
+      assertNotNull(message);
+      assertNotNull(message.getMessage());
+    }
   }
 
   @Test
