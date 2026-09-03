@@ -23,6 +23,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 class FormKeyRedactorTest {
 
   private static final String SECRET = "sup3r-s3cret-value";
+  private static final String JWT =
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJsb2FuLWFwcHJvdmVyIn0.c2lnbmF0dXJlLXZhbHVl";
 
   /** Every reporting path that renders a raw Camunda 7 form key into a finding. */
   private static Stream<String> allFormKeyFindings(String formKey) {
@@ -47,7 +49,27 @@ class FormKeyRedactorTest {
         "https://user:" + SECRET + "@forms.example.com/loan",
         "embedded:app:forms/loan.html?secret=" + SECRET,
         "camunda-forms:deployment:loan.form?password=" + SECRET,
-        "${base}/loan?client_secret=" + SECRET);
+        "${base}/loan?client_secret=" + SECRET,
+        // standard OIDC/OAuth names the first denylist missed
+        "https://forms.example.com/loan?id_token=" + SECRET,
+        "https://forms.example.com/loan?refresh_token=" + SECRET,
+        "https://forms.example.com/loan?oauth_signature=" + SECRET,
+        "https://forms.example.com/loan?SAMLassertion=" + SECRET,
+        // separator, casing, and percent-encoding variants
+        "https://forms.example.com/loan?X-API-Key=" + SECRET,
+        "https://forms.example.com/loan?access-token=" + SECRET,
+        "https://forms.example.com/loan?Api%5FKey=" + SECRET,
+        "https://forms.example.com/loan?JSESSIONID=" + SECRET,
+        "https://forms.example.com/loan?pw=" + SECRET,
+        "https://forms.example.com/loan?bearer=" + SECRET);
+  }
+
+  /** A JWT is redacted whatever its parameter is called, because no name list can be complete. */
+  private static Stream<String> jsonWebTokenFormKeys() {
+    return Stream.of(
+        "https://forms.example.com/loan?t=" + JWT,
+        "https://forms.example.com/loan?q1=" + JWT + "&view=full",
+        "https://forms.example.com/loan?assertionBlob=" + JWT);
   }
 
   @ParameterizedTest
@@ -67,12 +89,23 @@ class FormKeyRedactorTest {
   }
 
   @ParameterizedTest
+  @MethodSource("jsonWebTokenFormKeys")
+  void shouldNeverLeakAJsonWebTokenThroughAnyFormKeyFinding(String formKey) {
+    assertThat(allFormKeyFindings(formKey))
+        .as("form key findings for '%s'", formKey)
+        .allSatisfy(message -> assertThat(message).doesNotContain(JWT));
+  }
+
+  @ParameterizedTest
   @CsvSource(
       delimiter = '|',
       value = {
         "https://forms.example.com/loan?token=abc|https://forms.example.com/loan?token=<redacted>",
         "https://forms.example.com/loan?taskId=1&token=abc&view=full|https://forms.example.com/loan?taskId=1&token=<redacted>&view=full",
         "https://forms.example.com/loan?Token=abc|https://forms.example.com/loan?Token=<redacted>",
+        "https://forms.example.com/loan?X-API-Key=abc|https://forms.example.com/loan?X-API-Key=<redacted>",
+        "https://forms.example.com/loan?id_token=abc|https://forms.example.com/loan?id_token=<redacted>",
+        "https://forms.example.com/loan?Api%5FKey=abc|https://forms.example.com/loan?Api%5FKey=<redacted>",
         "https://forms.example.com/loan?token=abc#top|https://forms.example.com/loan?token=<redacted>#top",
         "https://user:pw@forms.example.com/loan|https://user:<redacted>@forms.example.com/loan",
         "https://user@forms.example.com/loan|https://user@forms.example.com/loan"
@@ -89,6 +122,8 @@ class FormKeyRedactorTest {
         "https://forms.example.com/loan",
         "https://forms.example.com/loan?taskId=1&view=full",
         "https://forms.example.com/loan?flag",
+        // benign names that a naive substring denylist would over-redact
+        "https://forms.example.com/loan?keyword=loan&monkey=1&sigma=2&author=jane",
         "loanApprovalForm",
         "${formKey}"
       })
