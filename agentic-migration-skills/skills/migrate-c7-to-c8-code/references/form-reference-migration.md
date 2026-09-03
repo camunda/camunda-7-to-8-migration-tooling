@@ -33,8 +33,9 @@ validation, such as checking whether an owner key matches `^\w+$`. Never assume 
 extension namespace uses the literal prefix `camunda` — match on the namespace URI
 `http://camunda.org/schema/1.0/bpmn`.
 
-Camunda 7 form keys have the structure `FORM-TYPE:LOCATION:FORM.NAME`. Classify each raw value by
-exact, case-sensitive prefix, in this order:
+Known Camunda 7 form-key types use the structure `FORM-TYPE:LOCATION:FORM.NAME`, while
+external/custom form keys may be arbitrary strings, including URLs. Classify each raw value by exact,
+case-sensitive prefix, in this order:
 
 | Order | Condition on the raw `camunda:formKey` | Report category |
 |---|---|---|
