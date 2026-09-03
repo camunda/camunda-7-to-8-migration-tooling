@@ -133,7 +133,8 @@ public class DiagramConverter {
                 conversionElementAppender.appendReferences(element, references);
                 conversionElementAppender.appendReferencedBy(element, referencedBys);
               }
-              if (Boolean.TRUE.equals(properties.getAppendDocumentation())
+              if ((Boolean.TRUE.equals(properties.getAppendDocumentation())
+                      || Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()))
                   && isBpmn(rootElement.getDocument())) {
                 conversionElementAppender.appendDocumentation(
                     element,

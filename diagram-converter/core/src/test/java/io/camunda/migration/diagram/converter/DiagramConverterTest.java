@@ -113,7 +113,6 @@ public class DiagramConverterTest {
   @Test
   void shouldFilterDocumentationMessagesWithoutFilteringAnalysisResults() {
     DefaultConverterProperties filteredProperties = new DefaultConverterProperties();
-    filteredProperties.setAppendDocumentation(true);
     filteredProperties.setAppendDocumentationOnlyTaskAndWarning(true);
     ConverterProperties properties =
         ConverterPropertiesFactory.getInstance().merge(filteredProperties);
