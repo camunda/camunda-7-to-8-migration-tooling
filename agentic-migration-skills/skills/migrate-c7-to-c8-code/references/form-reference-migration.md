@@ -99,11 +99,14 @@ Record this table in `MIGRATION_REPORT.md` before asking anything:
 - `Owner` is the element id plus name; `Type` is `userTask` or `startEvent`.
 - `Reference (report-safe)` is rendered from the exact source value, byte for byte, except that
   **credential-like URL query values** (for example `token`, `apikey`, `password`, `secret`,
-  `signature`) and URL userinfo passwords are rendered as `<redacted>` in `MIGRATION_REPORT.md`.
+  `signature`) and URL userinfo passwords are replaced by the placeholder `<redacted>` in
+  `MIGRATION_REPORT.md`. Write every cell in this column as a Markdown code span so angle-bracket
+  placeholders and reference values render literally instead of being parsed as HTML.
   When applying a migration action, read the original value from the source BPMN and preserve it
   unchanged where the reference is retained; never copy the redacted report rendering into a model.
-- `Content available` is recorded as `yes — <resolved path>`, `no — <reason>`, or `n/a`.
-  Allowed `no` reasons are `file missing`, `dynamic path`, and `engine-source mode`.
+- `Content available` is recorded as `yes — <resolved path>`, `no — <reason>`, or `n/a`, with the
+  same code-span rendering for the angle-bracket placeholders. Allowed `no` reasons are
+  `file missing`, `dynamic path`, and `engine-source mode`.
   Use `n/a` where content does not apply. Engine-source mode (E1) usually has no local content.
 - `Complexity` is `simple`, `complex`, or `unknown` (see below); `n/a` outside embedded forms.
 - `Status` is `pending`, `kept`, `relinked`, `draft`, `accepted`, `declined`, `deferred`, or
