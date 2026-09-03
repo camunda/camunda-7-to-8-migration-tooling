@@ -27,15 +27,14 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 import org.apache.commons.io.FilenameUtils;
 import org.camunda.bpm.model.xml.ModelInstance;
 import picocli.CommandLine.Option;
@@ -141,9 +140,10 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
     Map<File, ModelInstance> modelInstances = modelInstances();
     List<File> formFileList = formFiles();
     Map<File, FormConversionResult> formResults = processFormFiles(formFileList);
-    List<DiagramCheckResult> results = checkModels(modelInstances);
+    CheckedModels checkedModels = checkModels(modelInstances);
+    List<DiagramCheckResult> results = new ArrayList<>(checkedModels.results());
     results.addAll(formResults.values().stream().map(FormConversionResult::checkResult).toList());
-    writeResults(modelInstances, results);
+    writeResults(checkedModels.modelInstances(), results);
     writeConvertedFormFiles(formResults);
     return returnCode;
   }
@@ -290,11 +290,17 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   protected abstract File targetDirectory();
 
-  private List<DiagramCheckResult> checkModels(Map<File, ModelInstance> modelInstances) {
-    return modelInstances.entrySet().stream()
-        .map(this::checkModel)
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+  private CheckedModels checkModels(Map<File, ModelInstance> modelInstances) {
+    Map<File, ModelInstance> successfullyCheckedModels = new LinkedHashMap<>();
+    List<DiagramCheckResult> results = new ArrayList<>();
+    for (Entry<File, ModelInstance> modelInstance : modelInstances.entrySet()) {
+      DiagramCheckResult result = checkModel(modelInstance);
+      if (result != null) {
+        successfullyCheckedModels.put(modelInstance.getKey(), modelInstance.getValue());
+        results.add(result);
+      }
+    }
+    return new CheckedModels(successfullyCheckedModels, results);
   }
 
   private DiagramCheckResult checkModel(Entry<File, ModelInstance> modelInstance) {
@@ -379,4 +385,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
   private String exceptionMessage(Throwable t) {
     return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
   }
+
+  private record CheckedModels(
+      Map<File, ModelInstance> modelInstances, List<DiagramCheckResult> results) {}
 }
