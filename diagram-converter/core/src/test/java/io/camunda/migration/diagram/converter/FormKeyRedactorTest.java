@@ -9,10 +9,10 @@ package io.camunda.migration.diagram.converter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.camunda.migration.diagram.converter.bpmn.BpmnTestcaseUtils;
 import io.camunda.migration.diagram.converter.message.Message;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Stream;
@@ -39,18 +39,40 @@ class FormKeyRedactorTest {
           + "."
           + base64Url("signature-value");
 
-  /** Every reporting path that renders a raw Camunda 7 form key into a finding. */
-  private static Stream<String> allFormKeyFindings(String formKey) {
-    List<String> messages = new ArrayList<>();
-    for (FormKeyType formKeyType : FormKeyType.values()) {
-      messages.add(
-          MessageFactory.formKey("formKey", "userTask", formKey, formKeyType).getMessage());
-    }
-    messages.add(
-        MessageFactory.attributeNotSupported(
-                "formKey", "startEvent", FormKeyRedactor.redact(formKey))
-            .getMessage());
-    return messages.stream();
+  /**
+   * Runs the real converter over a user task and a start event carrying {@code formKey} and returns
+   * every finding it produced.
+   *
+   * <p>This drives the production visitor chain deliberately. Calling {@link FormKeyRedactor}
+   * directly here would make the no-leak tests self-fulfilling: they would keep passing if a
+   * visitor later handed the raw form key to its message factory.
+   */
+  private static List<String> allFormKeyFindings(String formKey) {
+    String snippet =
+        """
+        <bpmn:userTask id="FormKeyTask" camunda:formKey="%1$s"/>
+        <bpmn:startEvent id="FormKeyStart" camunda:formKey="%1$s"/>
+        """
+            .formatted(formKey.replace("&", "&amp;").replace("\"", "&quot;"));
+
+    DiagramCheckResult result =
+        DiagramConverterFactory.getInstance()
+            .get()
+            .check(
+                "form-key-leak-check.bpmn",
+                BpmnTestcaseUtils.wrapSnippetInProcess(snippet),
+                ConverterPropertiesFactory.getInstance().merge(new DefaultConverterProperties()));
+
+    List<String> messages =
+        result.getResults().stream()
+            .flatMap(element -> element.getMessages().stream())
+            .map(DiagramCheckResult.ElementCheckMessage::getMessage)
+            .toList();
+
+    assertThat(messages)
+        .as("the converter must actually report both form key owners")
+        .hasSizeGreaterThanOrEqualTo(2);
+    return messages;
   }
 
   private static Stream<String> credentialBearingFormKeys() {
@@ -197,6 +219,13 @@ class FormKeyRedactorTest {
   @Test
   void shouldNotRedactWhenThereIsNoQuery() {
     assertThat(FormKeyRedactor.redact("token=abc")).isEqualTo("token=abc");
+  }
+
+  @Test
+  void shouldExerciseEveryFormKeyCategoryInTheLeakInputs() {
+    assertThat(credentialBearingFormKeys().map(FormKeyType::of).distinct())
+        .as("the no-leak inputs must reach every converter form key path")
+        .containsExactlyInAnyOrder(FormKeyType.values());
   }
 
   @Test
