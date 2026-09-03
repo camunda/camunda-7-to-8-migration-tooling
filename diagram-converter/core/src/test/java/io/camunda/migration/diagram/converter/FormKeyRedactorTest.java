@@ -74,6 +74,9 @@ class FormKeyRedactorTest {
         "https://forms.example.com/loan?Api%5FKey=" + SECRET,
         "https://forms.example.com/loan?JSESSIONID=" + SECRET,
         "https://forms.example.com/loan?pw=" + SECRET,
+        "https://forms.example.com/loan?pass=" + SECRET,
+        "https://forms.example.com/loan?otp=" + SECRET,
+        "https://forms.example.com/loan?PIN=" + SECRET,
         "https://forms.example.com/loan?bearer=" + SECRET);
   }
 
@@ -177,7 +180,7 @@ class FormKeyRedactorTest {
         "https://forms.example.com/loan?taskId=1&view=full",
         "https://forms.example.com/loan?flag",
         // benign names that a naive substring denylist would over-redact
-        "https://forms.example.com/loan?keyword=loan&monkey=1&sigma=2&author=jane",
+        "https://forms.example.com/loan?keyword=loan&monkey=1&sigma=2&author=jane&compass=north",
         "loanApprovalForm",
         "${formKey}"
       })

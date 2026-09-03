@@ -41,8 +41,12 @@ public final class FormKeyRedactor {
 
   public static final String REDACTED = "<redacted>";
 
-  /** Normalized parameter names that are credentials on their own but unsafe as substrings. */
-  private static final Set<String> CREDENTIAL_NAMES = Set.of("key", "sig", "auth", "pw");
+  /**
+   * Normalized parameter names that are credentials on their own but unsafe as substrings, because
+   * they appear inside ordinary words such as {@code keyword}, {@code compass}, and {@code author}.
+   */
+  private static final Set<String> CREDENTIAL_NAMES =
+      Set.of("key", "sig", "auth", "pw", "pass", "otp", "pin");
 
   /** Fragments that identify a credential anywhere in a normalized parameter name. */
   private static final List<String> CREDENTIAL_NAME_FRAGMENTS =
