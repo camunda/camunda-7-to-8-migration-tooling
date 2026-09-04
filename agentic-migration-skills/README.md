@@ -84,8 +84,9 @@ reports a copied form-key reference as a completed migration.
 If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
 source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
 definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or
-request engine access. REST supports optional Basic authentication and either the latest or a named
-BPMN/DMN definition. Database-only access and OIDC access need a separately supported extractor.
+request engine access. REST supports optional Basic authentication. It can fetch all latest BPMN/DMN
+definitions or multiple named definitions. Database-only access and OIDC access need a separately
+supported extractor.
 
 At run time the skill fetches only the [pattern-catalog files required by the code
 inventory](skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md), with `ALL_IN_ONE.md`

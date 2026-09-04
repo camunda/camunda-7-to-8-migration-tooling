@@ -13,7 +13,8 @@ workaround. CI regenerates `code-conversion/patterns/README.md` and
 `code-conversion/patterns/ALL_IN_ONE.md` during validation, then checks that they
 match the generated catalog. CI does not commit generated changes. The catalog and this skill can
 change together.
-Where the catalog and this skill disagree, the catalog wins. Report the disagreement.
+For those catalog-owned domains, the catalog wins over this skill. The dependency pinning policy in
+`code-transform-checklist.md` remains in force. Report any disagreement.
 
 **Fetch only the files the code inventory needs.** `ALL_IN_ONE.md` concatenates the whole catalog into
 one 12,000-word file. Fetching it whole costs more context than a migration usually needs.

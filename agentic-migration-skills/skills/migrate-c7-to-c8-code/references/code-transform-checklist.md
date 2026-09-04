@@ -97,7 +97,6 @@ These items are not in the catalog:
 
 - Disable real workers where mocked: `camunda.client.worker.defaults.enabled=false` with per-worker
   overrides.
-- On 8.9+, use CPT shared-runtime mode for large suites.
 
 ---
 

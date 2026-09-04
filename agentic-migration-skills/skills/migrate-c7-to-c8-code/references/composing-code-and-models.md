@@ -6,7 +6,9 @@ Use this when the scope is Code + models.
 
 ## Execution Order
 
-The two paths are independent. A reasonable default is models first (the diagrams define the job types and listeners the code must implement), then code, but follow the user's preference.
+The two paths are independent.
+Run models first because the diagrams define the job types and listeners that the code must implement. (SHOULD)
+Follow the user's preference.
 
 ## Cross-Check After Both Complete
 

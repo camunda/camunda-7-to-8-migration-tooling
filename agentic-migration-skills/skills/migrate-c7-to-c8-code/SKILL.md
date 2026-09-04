@@ -326,5 +326,8 @@ the declined candidates in `MIGRATION_REPORT.md`.
 
 ## Exit Criteria
 
-The migration is complete when every pass condition in Step 4 holds, and `MIGRATION_REPORT.md` holds
+The migration run may exit when every pass condition in Step 4 holds and `MIGRATION_REPORT.md` holds
 the complete inventories, the decisions, and the validation results.
+The skill reports a complete migration only when no unresolved migration TODO, finding, compilation
+issue, or deletion candidate remains and no item has `deferred` or `blocked` status.
+Otherwise, the skill reports the migration as incomplete and records the follow-up work.
