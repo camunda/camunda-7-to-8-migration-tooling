@@ -10,8 +10,10 @@ Confirm each item before the next. Ask the user before each commit.
 
 Catalog: `10-general/dependencies.md`. It owns the GA version resolution from Maven Central metadata,
 the starter choice by Spring Boot version, the `httpclient5` override, the SLF4J binding, the
-`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move, and the
-`@EnableProcessApplication` replacement. Read it. Never restate a version number from memory.
+`@PostConstruct` to `@EventListener(CamundaPostDeploymentEvent.class)` move. Read it.
+The `@EnableProcessApplication` replacement is documented in
+`20-client-code/10-process-engine/handle-resources.md`.
+Never restate a version number from memory.
 
 These items are not in the catalog:
 
