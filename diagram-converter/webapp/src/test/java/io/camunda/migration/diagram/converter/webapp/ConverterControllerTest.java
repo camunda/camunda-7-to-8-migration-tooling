@@ -110,6 +110,23 @@ public class ConverterControllerTest {
       }
       """;
 
+  private static final String BPMN_WITH_MIXED_SEVERITIES =
+      """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <bpmn:definitions
+          xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+          xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+          id="Definitions_MixedSeverities"
+          targetNamespace="http://example.com/mixed-severities">
+        <bpmn:process id="MixedSeverityProcess" isExecutable="true">
+          <bpmn:serviceTask
+              id="MixedSeverityTask"
+              camunda:class="com.example.MyDelegate"
+              camunda:taskPriority="100" />
+        </bpmn:process>
+      </bpmn:definitions>
+      """;
+
   @BeforeEach
   void setup() {
     RestAssured.port = port;
@@ -531,6 +548,27 @@ public class ConverterControllerTest {
   }
 
   @Test
+  void convertBpmnWithOnlyTaskAndWarningDocumentation() {
+    byte[] bpmn =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart(
+                "file",
+                "mixed-severities.bpmn",
+                BPMN_WITH_MIXED_SEVERITIES.getBytes(StandardCharsets.UTF_8),
+                "application/bpmn+xml")
+            .formParam("appendDocumentationOnlyTaskAndWarning", true)
+            .accept("application/bpmn+xml")
+            .post("/convert")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    assertThat(documentation(bpmn)).contains("- WARNING:").doesNotContain("- REVIEW:");
+  }
+
+  @Test
   void convertDmn() throws URISyntaxException {
     byte[] bpmn =
         RestAssured.given()
@@ -594,6 +632,50 @@ public class ConverterControllerTest {
       // Final assertions
       assertThat(entryCount).as("There should be exactly 2 entries in the zip").isEqualTo(2);
     }
+  }
+
+  @Test
+  void convertBpmnBatchWithOnlyTaskAndWarningDocumentation() throws IOException {
+    byte[] bpmn = BPMN_WITH_MIXED_SEVERITIES.getBytes(StandardCharsets.UTF_8);
+    byte[] zip =
+        RestAssured.given()
+            .contentType(ContentType.MULTIPART)
+            .multiPart("file", "mixed-severities-1.bpmn", bpmn, "application/bpmn+xml")
+            .multiPart("file", "mixed-severities-2.bpmn", bpmn, "application/bpmn+xml")
+            .formParam("appendDocumentationOnlyTaskAndWarning", true)
+            .accept("application/zip")
+            .post("/convertBatch")
+            .then()
+            .statusCode(200)
+            .extract()
+            .asByteArray();
+
+    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zip))) {
+      int entryCount = 0;
+      List<String> entryNames = new ArrayList<>();
+      ZipEntry zipEntry;
+      while ((zipEntry = zis.getNextEntry()) != null) {
+        entryCount++;
+        entryNames.add(zipEntry.getName());
+        assertThat(documentation(zis.readAllBytes()))
+            .contains("- WARNING:")
+            .doesNotContain("- REVIEW:");
+      }
+      assertThat(entryCount).isEqualTo(2);
+      assertThat(entryNames)
+          .containsExactlyInAnyOrder(
+              "converted-c8-mixed-severities-1.bpmn", "converted-c8-mixed-severities-2.bpmn");
+    }
+  }
+
+  private String documentation(byte[] bpmn) {
+    BpmnModelInstance modelInstance = Bpmn.readModelFromStream(new ByteArrayInputStream(bpmn));
+    DomElement element = modelInstance.getDocument().getElementById("MixedSeverityTask");
+    return element.getChildElements().stream()
+        .filter(child -> "documentation".equals(child.getLocalName()))
+        .findFirst()
+        .orElseThrow()
+        .getTextContent();
   }
 
   @Test

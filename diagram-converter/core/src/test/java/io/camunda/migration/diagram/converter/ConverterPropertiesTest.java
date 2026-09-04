@@ -29,6 +29,7 @@ public class ConverterPropertiesTest {
     assertThat(properties.getDataMigrationExecutionListenerJobType())
         .isEqualTo("=if legacyId != null then \"migrator\" else \"noop\"");
     assertThat(properties.getAppendDocumentation()).isFalse();
+    assertThat(properties.getAppendDocumentationOnlyTaskAndWarning()).isFalse();
     assertThat(properties.getAppendElements()).isTrue();
   }
 
@@ -36,10 +37,12 @@ public class ConverterPropertiesTest {
   void shouldMergeProperties() {
     DefaultConverterProperties properties = new DefaultConverterProperties();
     properties.setDefaultJobType("adapter");
+    properties.setAppendDocumentationOnlyTaskAndWarning(true);
     assertNull(properties.getResourceHeader());
     ConverterProperties converterProperties =
         ConverterPropertiesFactory.getInstance().merge(properties);
     assertEquals("adapter", converterProperties.getDefaultJobType());
+    assertThat(converterProperties.getAppendDocumentationOnlyTaskAndWarning()).isTrue();
     assertNotNull(converterProperties.getResourceHeader());
   }
 }

@@ -25,6 +25,16 @@ public interface ConverterProperties {
 
   Boolean getAppendDocumentation();
 
+  /**
+   * Returns whether only TASK and WARNING messages should be appended to BPMN element
+   * documentation.
+   *
+   * @return {@code true} when documentation should contain only TASK and WARNING messages
+   */
+  default Boolean getAppendDocumentationOnlyTaskAndWarning() {
+    return false;
+  }
+
   Boolean getKeepJobTypeBlank();
 
   Boolean getAlwaysUseDefaultJobType();

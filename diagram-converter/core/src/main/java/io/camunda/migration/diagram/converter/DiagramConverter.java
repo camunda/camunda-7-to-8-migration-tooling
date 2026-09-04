@@ -133,9 +133,13 @@ public class DiagramConverter {
                 conversionElementAppender.appendReferences(element, references);
                 conversionElementAppender.appendReferencedBy(element, referencedBys);
               }
-              if (properties.getAppendDocumentation() && isBpmn(rootElement.getDocument())) {
+              if ((Boolean.TRUE.equals(properties.getAppendDocumentation())
+                      || Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()))
+                  && isBpmn(rootElement.getDocument())) {
                 conversionElementAppender.appendDocumentation(
-                    element, collectMessages(result, messages, references));
+                    element,
+                    collectMessages(result, messages, references),
+                    Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()));
               }
               conversions.forEach(conversion -> conversion.convert(element, convertible, messages));
             });

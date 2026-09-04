@@ -9,6 +9,7 @@ package io.camunda.migration.diagram.converter;
 
 import static io.camunda.migration.diagram.converter.NamespaceUri.*;
 import static io.camunda.migration.diagram.converter.TestUtil.*;
+import static io.camunda.migration.diagram.converter.bpmn.BpmnTestcaseUtils.wrapSnippetInProcess;
 import static org.assertj.core.api.Assertions.*;
 
 import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMessage;
@@ -104,6 +105,53 @@ public class DiagramConverterTest {
             this.getClass().getClassLoader().getResourceAsStream("c8_simple.bpmn"));
     Assertions.assertThrows(
         RuntimeException.class, () -> converter.convert(modelInstance, properties));
+  }
+
+  @Test
+  void shouldFilterDocumentationMessagesWithoutFilteringAnalysisResults() {
+    DefaultConverterProperties filteredProperties = new DefaultConverterProperties();
+    filteredProperties.setAppendDocumentationOnlyTaskAndWarning(true);
+    ConverterProperties properties =
+        ConverterPropertiesFactory.getInstance().merge(filteredProperties);
+    BpmnModelInstance filteredModel = mixedSeverityModel();
+
+    DiagramConverter converter = DiagramConverterFactory.getInstance().get();
+    DiagramCheckResult filteredResult =
+        converter.check("mixed-severity.bpmn", filteredModel, properties);
+
+    String filteredDocumentation = documentation(filteredModel);
+    assertThat(filteredDocumentation).contains("- WARNING:").doesNotContain("- REVIEW:");
+    assertThat(filteredResult.getResult("mixedTask").getMessages())
+        .extracting(ElementCheckMessage::getSeverity)
+        .contains(Severity.WARNING, Severity.REVIEW);
+  }
+
+  @Test
+  void shouldAppendAllDocumentationMessagesByDefault() {
+    DefaultConverterProperties converterProperties = new DefaultConverterProperties();
+    converterProperties.setAppendDocumentation(true);
+    BpmnModelInstance modelInstance = mixedSeverityModel();
+
+    DiagramConverter converter = DiagramConverterFactory.getInstance().get();
+    converter.convert(
+        modelInstance, ConverterPropertiesFactory.getInstance().merge(converterProperties));
+
+    assertThat(documentation(modelInstance)).contains("- WARNING:", "- REVIEW:");
+  }
+
+  private BpmnModelInstance mixedSeverityModel() {
+    return wrapSnippetInProcess(
+        """
+        <bpmn:serviceTask
+            id="mixedTask"
+            camunda:class="com.example.MyDelegate"
+            camunda:taskPriority="100" />
+        """);
+  }
+
+  private String documentation(BpmnModelInstance modelInstance) {
+    DomElement element = modelInstance.getDocument().getElementById("mixedTask");
+    return element.getChildElementsByNameNs(BPMN, "documentation").get(0).getTextContent();
   }
 
   @Test

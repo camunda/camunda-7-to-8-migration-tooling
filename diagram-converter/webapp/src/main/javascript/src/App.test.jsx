@@ -555,12 +555,12 @@ describe("target platform version", () => {
 });
 
 describe("upload onboarding guidance", () => {
-  // The 94-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
+  // The 93-file batch limit mirrors MAX_BATCH_FILES in App.jsx: the server
   // accepts up to 100 multipart parts (server.tomcat.max-part-count), and
-  // createFormData() always appends 6 non-file fields, leaving 94 parts
-  // available for files.
-  const MAX_BATCH_FILES = 94;
-  const BATCH_FILE_WARNING_THRESHOLD = 85;
+  // createFormData() always appends 7 non-file fields (platformVersion + 6
+  // config options), leaving 93 parts available for files.
+  const MAX_BATCH_FILES = 93;
+  const BATCH_FILE_WARNING_THRESHOLD = 84;
 
   it("states the batch limit and hosted-processing disclosure before any files are uploaded", () => {
     render(<App />);
@@ -967,6 +967,10 @@ describe("advanced options", () => {
 
     const hints = [
       {
+        id: "appendDocumentationOnlyTaskAndWarningHint",
+        text: 'Writes "No direct mapping" (WARNING) and "Manual action required" (TASK) findings into the documentation of each BPMN element, so you can act on them in the Modeler. "Verify after conversion" (REVIEW) and "No action needed" (INFO) findings are left out, and DMN and form files are not affected.',
+      },
+      {
         id: "addDataMigrationExecutionListenerHint",
         text: "Adds an execution listener to blank start events so the Camunda 7 Data Migrator can track migrated instances.",
       },
@@ -995,6 +999,7 @@ describe("advanced options", () => {
     });
 
     [
+      ["appendDocumentationOnlyTaskAndWarning", "appendDocumentationOnlyTaskAndWarningHint"],
       ["addDataMigrationExecutionListener", "addDataMigrationExecutionListenerHint"],
       ["dataMigrationExecutionListenerJobType", "dataMigrationExecutionListenerJobTypeHint"],
       ["keepJobTypeBlank", "keepJobTypeBlankHint"],
@@ -1002,6 +1007,37 @@ describe("advanced options", () => {
       ["defaultJobType", "defaultJobTypeHint"],
     ].forEach(([controlId, hintId]) => {
       expect(document.getElementById(controlId).getAttribute("aria-describedby")).toBe(hintId);
+    });
+  });
+
+  it("sends the task and warning documentation option when selected", async () => {
+    configureUpload({
+      fileName: "process.bpmn",
+      content:
+        '<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" />',
+      checkResponseJson: [],
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Show" }));
+    fireEvent.click(
+      document.getElementById("appendDocumentationOnlyTaskAndWarning")
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Upload test file" }));
+
+    const analyzeButton = screen.getByRole("button", {
+      name: /Analyze and convert/,
+    });
+    await waitFor(() => expect(analyzeButton.disabled).toBe(false));
+    fireEvent.click(analyzeButton);
+
+    await waitFor(() => {
+      const convertCall = fetchMock.mock.calls.find(([url]) =>
+        url.endsWith("/convert")
+      );
+      expect(convertCall).toBeTruthy();
+      expect(convertCall[1].body.get("appendDocumentationOnlyTaskAndWarning")).toBe(
+        "true"
+      );
     });
   });
 

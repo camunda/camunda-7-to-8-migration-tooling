@@ -15,6 +15,9 @@ java -Dfile.encoding=UTF-8 -jar camunda-7-to-8-diagram-converter-cli-{version}.j
 
 The engine mode supports optional Basic authentication with `--username` and `--password`, and writes converted files plus optional analysis reports to the target directory. It does not provide direct database or OIDC acquisition.
 
+Use `--documentation` to append all findings to BPMN element documentation, or
+`--only-task-and-warning` to append only TASK and WARNING findings.
+
 > **Security note:** passing `--password` on the command line can expose the secret in shell history and OS process listings. Use a trusted environment and consider temporary or dedicated credentials.
 
 ## Developer Notes
