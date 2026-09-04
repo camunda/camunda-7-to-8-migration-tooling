@@ -52,7 +52,8 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   @Option(
       names = "--only-task-and-warning",
-      description = "If enabled, only TASK and WARNING messages are appended to documentation")
+      description =
+          "If enabled, only WARNING and TASK messages are appended to BPMN element documentation. Implies --documentation")
   boolean onlyTaskAndWarning;
 
   @Option(
