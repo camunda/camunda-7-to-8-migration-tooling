@@ -83,7 +83,7 @@ After the run, report:
 - Analysis findings: summarize from CLI stdout and/or the JSON report, grouped by severity (WARNING / TASK / REVIEW / INFO).
 - Analysis artifacts: point the user to the XLSX report (human-readable), and note the JSON report is the step 5 input.
 - Generated Task Forms: source owners discovered before conversion. They stay manual `form-data` follow-up items until the form procedure completes.
-- Referenced forms: the embedded, external, Camunda Form, dynamic, and no-form owners discovered before conversion. They stay open until their category decision and follow-up work complete.
+- Referenced forms: the embedded, external, Camunda Form, dynamic, and form-free owners discovered before conversion. They stay open until their category decision and follow-up work complete.
 
 Severity counts are only a headline. Never start per-finding work from them. Parse and group the full report first (step 5).
 

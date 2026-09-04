@@ -92,7 +92,7 @@ Never pick one side silently.
 
 ## Inventory every reference
 
-Record this table in `MIGRATION_REPORT.md` before you ask anything:
+Record this table in `MIGRATION_REPORT.md` before requesting any decision:
 
 | Source BPMN | Process | Owner | Type | Category | Reference (report-safe) | Content available | Complexity | Decision | Status |
 |---|---|---|---|---|---|---|---|---|---|
@@ -116,8 +116,8 @@ Record this table in `MIGRATION_REPORT.md` before you ask anything:
 - `Status` is `pending`, `kept`, `relinked`, `draft`, `accepted`, `declined`, `deferred`, or
   `blocked`.
 
-Produce the inventory even when you migrate nothing. Customers rarely know how many embedded forms
-they have, and the per-task planning data is the main value of this step.
+Produce the inventory even when no migration occurs. Customers rarely know the number of embedded
+forms they have. The per-task planning data is the main value of this step.
 
 ### Resolve referenced content
 
