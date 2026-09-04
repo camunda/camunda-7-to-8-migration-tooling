@@ -1,6 +1,6 @@
 # Agentic Migration Skills
 
-[Agent Skills](https://agentskills.io/) for migrating Camunda 7 projects to Camunda 8 — both Java code and BPMN/DMN models. The skill is written in intent-first, platform-agnostic terms so compatible AI coding agents can adapt execution to Windows, macOS, or Linux.
+[Agent Skills](https://agentskills.io/) that migrate Camunda 7 projects to Camunda 8, both Java code and BPMN/DMN models. The skill states intent instead of commands, so a compatible AI coding agent can run it on Windows, macOS, or Linux.
 
 ## Install
 
@@ -45,54 +45,61 @@ From your Camunda 7 project directory:
 /camunda-migration:migrate-c7-to-c8-code
 ```
 
-The skill asks what to migrate — **code**, **models**, or **both** — then walks you through the approaches for each.
+The skill asks what to migrate — **code**, **models**, or **both** — then guides you through the approaches for each.
 
 ### Model recommendation
 
-The skill recommends a model intended for complex reasoning, with illustrative IDs such as `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, or `gpt-5.6-sol`. These are routing hints, not a benchmark. At activation, it warns about lightweight or unverifiable models and lets the user switch or continue with extra review; it never changes or claims to have changed the model.
+The skill recommends a model built for complex reasoning. Example identifiers are `claude-sonnet-*`, `claude-opus-*`, `gpt-5.6-luna`, `gpt-5.6-terra`, and `gpt-5.6-sol`. These are routing hints, not a benchmark. At activation the skill warns you about a lightweight or unverified model. You can then switch models or continue with extra review. The skill never changes the model, and it never claims to have changed it.
 
 **Code migration:**
 
 | Approach | What it does |
 |----------|-------------|
-| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for bulk transforms, then AI resolves remaining TODOs, config, and test code |
-| **AI only** | AI migrates everything directly — for non-Maven/Gradle builds or when you want to review every change |
-| **Assessment only** | Scans the codebase and reports files, complexity, and effort estimate — no code changes |
+| **OpenRewrite + AI** *(recommended)* | Runs OpenRewrite recipes for the bulk transforms, then AI resolves the remaining TODOs, config, and test code |
+| **AI only** | AI migrates everything directly. Use it for a non-Maven/Gradle build, or when you want to review every change |
+| **Assessment only** | Scans the codebase and reports the files, the complexity, and an effort estimate. No code changes |
 
 **Model migration (BPMN/DMN):**
 
 | Approach | What it does |
 |----------|-------------|
-| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases and runs it locally against your diagrams, targeting your C8 version. Deterministic; produces converted files + CSV/XLSX analysis. Requires Java 21+ |
-| **Agentic AI** | AI rewrites the BPMN/DMN XML directly — for when Java 21 is unavailable or you want to review every change |
-| **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/) — no local Java needed |
+| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a CSV/XLSX analysis. Needs Java 21+ |
+| **Agentic AI** | AI rewrites the BPMN/DMN XML directly. Use it when Java 21 is unavailable, or when you want to review every change |
+| **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/). No local Java needed |
 
-For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy
-`formProperty`), the Diagram Converter deliberately leaves a manual finding. The skill uses the
-original BPMN metadata to generate deterministic standard Camunda 8 `.form` files, presents every
-semantic gap for user review, and links/deploys only explicitly accepted forms.
+For Camunda 7 Generated Task Forms (`camunda:formData`/`formField` and legacy `formProperty`), the
+Diagram Converter leaves a manual finding on purpose. The skill reads the original BPMN metadata and
+generates deterministic standard Camunda 8 `.form` files. It presents every semantic gap for your
+review, and it links and deploys only the forms you accept.
+Every other Camunda 7 form type is *referenced* rather than defined on the element. The skill reads
+each `camunda:formKey` from the original BPMN and classifies it as embedded HTML/JavaScript, a
+Camunda Form, an external or custom application, or a runtime expression. It classifies each
+`camunda:formRef` as a Camunda Form reference. It inventories every affected user task and start
+event, including the process-level none start events that had no form at all. It then asks one
+decision per integration group inside each category. It relinks a Camunda Form by form id. For every
+other category it offers to rebuild the form as a Camunda 8 form, and it generates one only when you
+ask. A rebuilt form reproduces the data contract, not the Camunda 7 user interface. The skill never
+reports a copied form-key reference as a completed migration.
 
-Every other Camunda 7 form type is *referenced* rather than defined on the element. The skill
-classifies each `camunda:formKey` from the original BPMN — embedded HTML/JavaScript, Camunda Form,
-external/custom application, or runtime expression — and every `camunda:formRef` as a Camunda Form
-reference. It inventories every affected user task and start event, including process-level none
-start events that had no form at all, and asks one decision per integration group within each
-category. Camunda Forms are relinked by form id. For the rest it
-offers to rebuild the form as a Camunda 8 form and generates one only on explicit request,
-reproducing the data contract rather than the Camunda 7 user interface. A copied form-key reference
-is never reported as a completed migration.
+If the project root holds no BPMN/DMN model, the skill can offer the Camunda 7 engine REST API as a
+source. It asks for a reachable Camunda 7 REST URL and the required authentication, saves the original
+definitions, then runs the Diagram Converter locally. While local models exist, it does not offer or
+request engine access. REST supports optional Basic authentication and either the latest or a named
+BPMN/DMN definition. Database-only access and OIDC access need a separately supported extractor.
 
-If no BPMN/DMN model is found under the project root, the skill can offer C7 engine REST as a source. It asks for a reachable C7 REST URL and the required authentication, persists the original definitions, then runs the Diagram Converter locally; when local models are present, it does not offer or request engine access. REST supports optional Basic authentication and latest or named BPMN/DMN definitions; database-only and OIDC access require a separately supported extractor.
-
-The skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md) and diagram-converter docs at runtime, resolves the latest Diagram Converter CLI release automatically, and describes what the agent should inspect/download/run rather than prescribing a POSIX shell dialect.
+At run time the skill fetches the latest [pattern catalog](../code-conversion/patterns/ALL_IN_ONE.md)
+and the diagram-converter docs, and resolves the latest Diagram Converter CLI release automatically.
+It describes what the agent must inspect, download, and run, instead of prescribing one shell dialect.
 
 ## Structure
 
 ```
-plugin.json                         ← Copilot CLI plugin manifest
+plugin.json                                ← Copilot CLI plugin manifest
 skills/
 └── migrate-c7-to-c8-code/
-    └── SKILL.md    ← skill definition (agentskills.io format)
+    ├── SKILL.md                           ← skill definition (agentskills.io format)
+    └── references/                        ← procedures loaded on demand
+fixtures/                                  ← sample projects for manual regression walkthroughs
 ```
 
 ## License
