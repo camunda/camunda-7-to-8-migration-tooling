@@ -1,5 +1,7 @@
 # Camunda 7 Form Reference Migration
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 Use this procedure for a Camunda 7 user task or start event whose form is *referenced*, not
 defined inside the BPMN element:
 
@@ -128,8 +130,9 @@ look beside the BPMN and in the deployment resource folders. Record the resolved
 the reason: file missing, dynamic path, or engine-source mode.
 
 For `camunda:formRef`, treat the value as a form reference identifier, not a file path. Search the
-project and deployment resource folders for a candidate `.form` file. Read each converted schema's
-own `id`. Report a mismatch with a literal `formRef` instead of silently rewriting either side.
+project and deployment resource folders for all candidate `.form` files. Read each converted schema's
+own `id`. Compare every schema `id` with the `formRef` before selecting the matching file. Report a
+mismatch with a literal `formRef` instead of silently rewriting either side.
 
 Never fetch a remote URL. Never execute JavaScript. Never extract deployment resources from a live
 engine.

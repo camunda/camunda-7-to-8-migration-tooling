@@ -1,5 +1,7 @@
 # Code Migration Approaches (Part A)
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Approach A - OpenRewrite + AI (recommended)
 
 ### 1. Run OpenRewrite

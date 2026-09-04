@@ -63,7 +63,7 @@ The skill recommends a model built for complex reasoning. Example identifiers ar
 
 | Approach | What it does |
 |----------|-------------|
-| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a CSV/XLSX analysis. Needs Java 21+ |
+| **Diagram Converter CLI** *(recommended)* | Downloads the official converter CLI from GitHub releases. Runs it locally against your diagrams, for your Camunda 8 version. Deterministic. Produces converted files plus a JSON/XLSX analysis. Needs Java 21+ |
 | **Agentic AI** | AI rewrites the BPMN/DMN XML directly. Use it when Java 21 is unavailable, or when you want to review every change |
 | **Online converter** | Opt out to the hosted [diagram-converter.camunda.io](https://diagram-converter.camunda.io/). No local Java needed |
 

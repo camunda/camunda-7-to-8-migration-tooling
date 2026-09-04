@@ -1,5 +1,7 @@
 # Code Transform Checklist
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 This checklist defines every code transformation item. Approach A runs OpenRewrite first (it covers items 3, 4, and partially item 2), then uses this checklist for the rest. Approach B works the full checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
@@ -24,7 +26,7 @@ These items are not in the catalog:
 - Keep the dependency footprint. Never add a dependency the C7 app did not need, for example
   `spring-boot-starter-web` when it exposed no REST endpoints. This includes a dependency added
   transitively via a starter choice.
-- Remove dependencies with groupId `org.camunda.bpm`, `camunda-bom`, and the embedded-engine deps (H2, JDBC starter).
+- Remove dependencies with groupId `org.camunda.bpm` or a groupId that starts with `org.camunda.bpm.`. Remove `camunda-bom` and the embedded-engine deps (H2, JDBC starter).
 - If tests exist, add `io.camunda:camunda-process-test-spring` (test scope).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:

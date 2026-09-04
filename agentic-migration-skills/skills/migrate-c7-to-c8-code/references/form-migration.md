@@ -1,5 +1,7 @@
 # Generated Task Form Migration
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 Use this procedure for C7 Generated Task Forms in BPMN XML:
 
 - `camunda:formData` with `camunda:formField` children

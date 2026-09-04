@@ -1,5 +1,7 @@
 # Model Migration Approaches (Part B)
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Source Selection
 
 Use the assessment model scan before choosing a path.

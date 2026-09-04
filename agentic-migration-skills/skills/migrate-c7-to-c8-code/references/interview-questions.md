@@ -1,5 +1,7 @@
 # Interview Questions Reference
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Pre-Interview Detection
 
 Pick a candidate project root (use provided argument or current working directory), then:

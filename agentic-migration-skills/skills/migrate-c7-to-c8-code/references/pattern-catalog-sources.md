@@ -1,5 +1,7 @@
 # Pattern Catalog Sources
 
+Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
+
 ## Code Patterns
 
 The code pattern catalog lives in the [GitHub directory](https://github.com/camunda/camunda-7-to-8-migration-tooling/tree/main/code-conversion/patterns/).
@@ -22,12 +24,12 @@ of the code inventory to those items, then fetch that set:
 |---|---|
 | Config, dependencies | `10-general/dependencies.md` |
 | Any variable handling | `10-general/process-variables.md` |
-| Client code | `20-client-code/10-process-engine/README.md` |
-| JavaDelegate | `30-glue-code/10-java-spring-delegate/README.md` |
-| External task worker | `30-glue-code/20-java-spring-external-task-worker/README.md` |
+| Client code | Fetch the files for the detected operations: `20-client-code/10-process-engine/adjusting-the-java-class.md`, `20-client-code/10-process-engine/batch-operations.md`, `20-client-code/10-process-engine/broadcast-signals.md`, `20-client-code/10-process-engine/business-key-and-tags.md`, `20-client-code/10-process-engine/cancel-process-instance.md`, `20-client-code/10-process-engine/correlate-messages.md`, `20-client-code/10-process-engine/evaluate-decisions.md`, `20-client-code/10-process-engine/handle-files-and-documents.md`, `20-client-code/10-process-engine/handle-process-variables.md`, `20-client-code/10-process-engine/handle-resources.md`, `20-client-code/10-process-engine/handle-user-tasks.md`, `20-client-code/10-process-engine/query-history.md`, `20-client-code/10-process-engine/raise-incidents.md`, `20-client-code/10-process-engine/search-process-definitions.md`, `20-client-code/10-process-engine/starting-process-instances.md` |
+| JavaDelegate | Fetch the files for the detected operations: `30-glue-code/10-java-spring-delegate/adjusting-the-java-class.md`, `30-glue-code/10-java-spring-delegate/handling-a-bpmn-error.md`, `30-glue-code/10-java-spring-delegate/handling-a-failure.md`, `30-glue-code/10-java-spring-delegate/handling-an-incident.md`, `30-glue-code/10-java-spring-delegate/handling-process-variables.md` |
+| External task worker | Fetch the files for the detected operations: `30-glue-code/20-java-spring-external-task-worker/adjusting-the-java-class.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-bpmn-error.md`, `30-glue-code/20-java-spring-external-task-worker/handling-a-failure.md`, `30-glue-code/20-java-spring-external-task-worker/handling-an-incident.md`, `30-glue-code/20-java-spring-external-task-worker/handling-process-variables.md` |
 | Listener | `30-glue-code/30-java-spring-listeners/listeners.md` |
 | HTTP connector code | `30-glue-code/outbound-http-rest-connector.md` |
-| Test code | `40-test-assertions/10-assertions/README.md` |
+| Test code | Fetch the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md` |
 
 Fetch `ALL_IN_ONE.md` only when the inventory spans most of the catalog, or when a path above returns
 404 and you need to find the moved file. (MAY)

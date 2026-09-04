@@ -214,7 +214,7 @@ Each item below is a check to run and a condition that must hold at exit. Record
 #### Code checks, when code was migrated
 
 1. **Compile** — run `mvn compile` or the Gradle compile task. Fix every error.
-2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files.
+2. **Camunda 7 dependencies** — no dependency with groupId `org.camunda.bpm` remains in the build files. No dependency with a groupId that starts with `org.camunda.bpm.` remains either.
 3. **Camunda 7 imports** — search `org.camunda.bpm`. No import remains. Each one is a missed
    migration.
 4. **Migration TODOs** — search `// TODO`. Each one needs manual review, and each is resolved or
@@ -233,7 +233,7 @@ Check these pitfalls as well:
 - Naming swap: Camunda 7 `processDefinitionKey` (a string key) becomes Camunda 8 `bpmnProcessId`, and
   Camunda 7 `processDefinitionId` (a UUID) becomes Camunda 8 `processDefinitionKey`. Decision
   definitions swap the same way.
-- Camunda 7 `processInstanceId` becomes Camunda 8 `processInstanceKey`.
+- Camunda 7 `processInstanceId` is a `String`. Camunda 8 `processInstanceKey` is a `Long`. Update declarations and call sites, not only the names.
 - Variables are plain JSON and the `TypedValue` API is gone, so every `VariableMap` use changes.
 - `HistoryService` calls map to search endpoints, which are eventually consistent.
 - Batch operations exist since 8.8. Only a custom batch handler needs a manual design.
