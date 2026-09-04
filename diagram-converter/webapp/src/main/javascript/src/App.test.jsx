@@ -665,7 +665,7 @@ describe("advanced options", () => {
       {
         label: "Append WARNING and TASK findings to BPMN documentation",
         descriptionId: "appendDocumentationOnlyTaskAndWarningHint",
-        text: "Appends findings to the documentation of each BPMN element, if it has a WARNING or TASK severity one, so you can act on them in the Modeler. REVIEW and INFO messages are left out.",
+        text: "Appends findings with WARNING or TASK severity to the documentation of each BPMN element, so you can act on them in the Modeler. REVIEW and INFO messages are left out.",
       },
       {
         label: "Add data migration execution listener",
@@ -696,7 +696,7 @@ describe("advanced options", () => {
 
     expect(
       screen.getByText(
-        /Appends findings to the documentation of each BPMN element, if it has a WARNING or TASK severity one, so you can act on them in the Modeler\. REVIEW and INFO messages are left out\./
+        /Appends findings with WARNING or TASK severity to the documentation of each BPMN element, so you can act on them in the Modeler\. REVIEW and INFO messages are left out\./
       )
     ).toBeTruthy();
     expect(

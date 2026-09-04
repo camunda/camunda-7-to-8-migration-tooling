@@ -856,8 +856,8 @@ function App() {
                       id="appendDocumentationOnlyTaskAndWarningHint"
                       className="configOptionHint"
                     >
-                      Appends findings to the documentation of each BPMN element, if it has a
-                      WARNING or TASK severity one, so you can act on them in the Modeler.
+                      Appends findings with WARNING or TASK severity to the documentation of each
+                      BPMN element, so you can act on them in the Modeler.
                       REVIEW and INFO messages are left out.
                     </p>
                     <div className="form-spacer" />
