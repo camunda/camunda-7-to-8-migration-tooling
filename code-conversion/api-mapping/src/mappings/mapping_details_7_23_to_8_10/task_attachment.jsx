@@ -28,6 +28,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -65,6 +66,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -95,6 +97,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -122,6 +125,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -152,6 +156,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -178,6 +183,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -208,6 +214,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>
@@ -234,6 +241,7 @@ export const task_attachment = [
 					<a
 						href="https://docs.camunda.io/docs/8.10/guides/document-handling/"
 						target="_blank"
+						rel="noopener noreferrer"
 					>
 						the docs
 					</a>

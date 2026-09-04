@@ -1,4 +1,2 @@
 # Format: path/to/file.ext:line:key
 # Keys: explicit-any, ts-ignore, ts-expect-error, ts-nocheck, eslint-disable-no-explicit-any
-# Retain this reviewed exception because the generated c8_10 OpenAPI description contains ": any".
-src/openapi/camunda8/c8_10.js:20583:explicit-any
