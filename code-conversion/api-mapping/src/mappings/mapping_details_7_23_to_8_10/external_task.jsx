@@ -596,7 +596,7 @@ export const external_task = [
 					leftEntry: <pre>(string) errorDetails</pre>,
 					rightEntry: (
 						<p>
-							In Camunda 8.10, there is not additional field for
+							In Camunda 8.10, there is no additional field for
 							error details.
 						</p>
 					),
