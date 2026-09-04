@@ -176,7 +176,7 @@ export const mapping_7_23_to_8_10 = {
 								<li>(string) name: The name of the tenant.</li>
 							</ul>
 							<h5>
-								Fields of <code>sorting</code> list of objects:
+								Fields of <code>sort</code> list of objects:
 							</h5>
 							<ul>
 								<li>
@@ -343,7 +343,7 @@ export const mapping_7_23_to_8_10 = {
 								</li>
 							</ul>
 							<h5>
-								Fields of <code>sorting</code> list of objects:
+								Fields of <code>sort</code> list of objects:
 							</h5>
 							<ul>
 								<li>

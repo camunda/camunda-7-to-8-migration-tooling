@@ -70,8 +70,8 @@ export const task_identity_link = [
 			additionalInfo: (
 				<p>
 					This endpoint can be used to set{" "}
-					<code>candidateGroups</code> and <code>candidateUsers</code>
-					. To change the <code>assignee</code>, use the{" "}
+					<code>candidateGroups</code> and <code>candidateUsers</code>.
+					To change the <code>assignee</code>, use the{" "}
 					<code>POST Assign user task</code> endpoint.
 				</p>
 			),
@@ -106,8 +106,8 @@ export const task_identity_link = [
 			additionalInfo: (
 				<p>
 					This endpoint can be used to set{" "}
-					<code>candidateGroups</code> and <code>candidateUsers</code>
-					. A reset is achieved by providing an empty list. To
+					<code>candidateGroups</code> and <code>candidateUsers</code>.
+					A reset is achieved by providing an empty list. To
 					unassign the <code>assignee</code>, use the{" "}
 					<code>Delete Unassign user task</code> endpoint.
 				</p>
