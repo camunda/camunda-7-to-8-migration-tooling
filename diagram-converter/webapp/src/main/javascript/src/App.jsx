@@ -850,17 +850,15 @@ function App() {
                           }))
                         }
                       />
-                      <span>Append only WARNING and TASK findings to BPMN documentation</span>
+                      <span>Append WARNING and TASK findings to BPMN documentation</span>
                     </label>
                     <p
                       id="appendDocumentationOnlyTaskAndWarningHint"
                       className="configOptionHint"
                     >
-                      Writes "No direct mapping" (WARNING) and "Manual action required" (TASK)
-                      findings into the documentation of each BPMN element, so you can act on
-                      them in the Modeler. "Verify after conversion" (REVIEW) and "No action
-                      needed" (INFO) findings are left out, and DMN and form files are not
-                      affected.
+                      Appends findings with WARNING or TASK severity to the documentation of each
+                      BPMN element, so you can act on them in the Modeler.
+                      REVIEW and INFO messages are left out.
                     </p>
                     <div className="form-spacer" />
                     <label className="flex items-center gap-2">
