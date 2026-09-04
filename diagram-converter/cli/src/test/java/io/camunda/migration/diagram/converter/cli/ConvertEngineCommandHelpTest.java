@@ -25,7 +25,7 @@ class ConvertEngineCommandHelpTest {
     assertThat(help).contains("-t, --target-directory=<targetDirectory>");
     assertThat(help).contains("--only-task-and-warning");
     assertThat(help)
-        .contains("only TASK and WARNING messages")
-        .contains("appended to documentation");
+        .contains("only WARNING and TASK messages")
+        .contains("appended to BPMN element documentation");
   }
 }

@@ -40,10 +40,17 @@ results list.
     - `appendDocumentationOnlyTaskAndWarning` (`Boolean`): whether only TASK and
       WARNING check results should be added to BPMN element documentation. This
       also enables documentation appending _(default: `false`)_
-    - `adapterJobType` (`String`): type of the job all service tasks formerly
-      implemented as delegates or expressions should have. _(optional)_
+    - `defaultJobType` (`String`): default job type for converted delegates
+      when `alwaysUseDefaultJobType` is enabled _(optional)_
     - `platformVersion` (`String`): version of the target platform _(optional)_
-    - `adapterEnabled` (`Boolean`): whether the adapter job type should be set in the converted diagram _(default: `true`)_
+    - `keepJobTypeBlank` (`Boolean`): whether converted delegates should keep
+      their job type blank _(default: `false`)_
+    - `alwaysUseDefaultJobType` (`Boolean`): whether every converted delegate
+      should use the default job type _(default: `false`)_
+    - `addDataMigrationExecutionListener` (`Boolean`): whether to add a data
+      migration execution listener to blank start events _(default: `false`)_
+    - `dataMigrationExecutionListenerJobType` (`String`): job type for the data
+      migration execution listener _(default: `migrator`)_
 - Response:
   - `200`: Everything fine. The body contains the converted model. The header
     contains a `Content-Disposition` field that declares this as attachment and
